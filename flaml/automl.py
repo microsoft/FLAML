@@ -17,12 +17,28 @@ import pandas as pd
 from .model_compute_helper import compute_estimator, train_estimator, \
     get_estimator_name_from_log
 from .config import MIN_SAMPLE_TRAIN, MEM_THRES, ETI_INI, \
-    SMALL_LARGE_THRES, CV_HOLDOUT_THRESHOLD
+    SMALL_LARGE_THRES, CV_HOLDOUT_THRESHOLD, SPLIT_RATIO, N_SPLITS
 from .util import save_info_helper, get_classification_objective, concat
-from .search import ParamSearch, prepare_sample_train_data
+from .search import ParamSearch
 
 import logging
 logger = logging.getLogger(__name__)
+
+
+def prepare_sample_train_data(X_train, y_train, X_val, y_val, sample_size):
+    full_size = len(y_train)
+    if sample_size <= full_size:
+        if isinstance(X_train, pd.DataFrame):
+            sampled_X_train = X_train.iloc[:sample_size]
+        else:
+            sampled_X_train = X_train[:sample_size]
+        sampled_y_train = y_train[:sample_size]
+        sampled_X_val, sampled_y_val = X_val, y_val
+    else:
+        sampled_X_train, sampled_y_train = concat(X_train, X_val), \
+            np.concatenate([y_train, y_val])
+        sampled_X_val, sampled_y_val = [], []
+    return sampled_X_train, sampled_y_train, sampled_X_val, sampled_y_val
 
 
 class AutoML:
@@ -60,7 +76,7 @@ class AutoML:
     def __init__(self):
         self._eti_ini = ETI_INI
         self._custom_learners = {}
-        self._config_search_info = {}
+        self._config_space_info = {}
         self._custom_size_estimate = {}
         self._track_iter = 0
 
@@ -350,7 +366,7 @@ class AutoML:
         '''
         self._custom_learners[learner_name] = learner
         self._eti_ini[learner_name] = cost_relative2lgbm
-        self._config_search_info[learner_name] = \
+        self._config_space_info[learner_name] = \
             learner().params_configsearch_info  # config_search_list
         self._custom_size_estimate[learner_name] = size_estimate
 
@@ -389,8 +405,8 @@ class AutoML:
                          time_budget=0,
                          objective_name='classification',
                          eval_method='auto',
-                         split_ratio=0.1,
-                         n_splits=5,
+                         split_ratio=SPLIT_RATIO,
+                         n_splits=N_SPLITS,
                          split_type="stratified",
                          n_jobs=1,
                          train_best=True,
@@ -522,12 +538,11 @@ class AutoML:
             eval_method='auto',
             log_type='better',
             model_history=False,
-            split_ratio=0.1,
-            n_splits=5,
+            split_ratio=SPLIT_RATIO,
+            n_splits=N_SPLITS,
             log_training_metric=False,
             mem_thres=MEM_THRES,
             fix_range=False,
-            config_range_ratio=1.0,
             X_test=None,
             y_test=None,
             retrain_full=True,
@@ -643,7 +658,6 @@ class AutoML:
                                           n_jobs)
         self.searchers = {}
         # initialize the searchers
-        self.total_test_time = 0
         self.eti = []
         self.best_loss = float('+inf')
         self.time_budget = time_budget
@@ -670,7 +684,6 @@ class AutoML:
             if estimator in self.searchers:
                 model = self.searchers[estimator].model
                 improved = self.searchers[estimator].search1step(
-                    total_test_time=self.total_test_time,
                     global_best_loss=self.best_loss,
                     retrain_full=retrain_full,
                     mem_thres=mem_thres,
@@ -679,7 +692,6 @@ class AutoML:
                 model = None
                 self.searchers[estimator] = ParamSearch(
                     estimator,
-                    config_range_ratio,
                     self.data_size,
                     self._compute_with_config,
                     self._train_with_config,
@@ -690,8 +702,9 @@ class AutoML:
                     base_change,
                     use_dual_dir,
                     move_type,
-                    self._config_search_info.get(estimator),
-                    self._custom_size_estimate.get(estimator))
+                    self._config_space_info.get(estimator),
+                    self._custom_size_estimate.get(estimator),
+                    split_ratio)
                 self.searchers[estimator].search_begin(time_budget,
                                                        self.start_time_flag)
                 if self.estimator_index == -1:
@@ -703,8 +716,6 @@ class AutoML:
                         self.eti.append(
                             self._eti_ini[e]/eti_base*self.eti[0])
                     self.estimator_index = 0
-            # TODO: remove total_test_time
-            self.total_test_time = self.searchers[estimator].total_test_time
             self.time_from_start = time.time() - self.start_time_flag
             # logger.info(f"{self.searchers[estimator].sample_size}, {data_size}")
             if self.searchers[estimator].sample_size == self.data_size:

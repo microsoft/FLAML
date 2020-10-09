@@ -12,21 +12,16 @@ version = {}
 with open(os.path.join(here, "flaml/version.py")) as fp:
     exec(fp.read(), version)
 __version__ = version["__version__"]
-# now we have a `__version__` variable
 
-from sys import platform
 install_requires=[
     "NumPy>=1.16.2",
     "lightgbm>=2.3.1",
     "xgboost>=0.90",
     "scipy>=1.4.1",
-    # "pandas==0.24.2",
     "catboost>=0.23",
     "scikit-learn>=0.22",
 ],
-# if platform in ['linux', 'linux2', 'darwin']:
-#     install_requires+=[
-#     ],
+
 
 setuptools.setup(
     name="FLAML",
@@ -36,7 +31,7 @@ setuptools.setup(
     description="A fast and lightweight autoML system",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://aka.ms/flaml",
+    url="https://github.com/microsoft/FLAML",
     packages=["flaml"],
     install_requires=install_requires,
     extras_require={
@@ -45,7 +40,6 @@ setuptools.setup(
             "jupyter",
             "matplotlib==3.2.0",
             "rgf-python",
-            'azureml-automl-runtime<=1.9',
         ],
         "test": [
             "nose>=1.3.7",

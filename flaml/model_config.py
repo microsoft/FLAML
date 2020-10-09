@@ -39,7 +39,8 @@ class ConfigSearchInfo:
         else:
             self.min_change = min_change
 
-def GET_ESTIMATOR_CS(estimator, data_size, objective_name = "regression"):
+
+def config_space(estimator, data_size, objective_name = "regression"):
     CS = {}
     n_estimators_upper = min(32768,int(data_size))
     max_leaves_upper = min(32768,int(data_size))
@@ -47,50 +48,46 @@ def GET_ESTIMATOR_CS(estimator, data_size, objective_name = "regression"):
     if 'xgboost' in estimator:
         CS['n_estimators'] = ConfigSearchInfo(name = 'n_estimators',
          type = int, lower = 4, init = 4, upper = n_estimators_upper, 
-         change_type = 'log', complexity_related = True)
+         change_type = 'log')
         CS['max_leaves'] = ConfigSearchInfo(name = 'max_leaves', type =int,
-         lower = 4, init = 4, upper = max_leaves_upper , change_type = 'log', 
-         complexity_related = True)
+         lower = 4, init = 4, upper = max_leaves_upper, change_type = 'log')
         CS['min_child_weight'] = ConfigSearchInfo(name = 'min_child_weight',
          type = float, lower = 0.001, init = 20.0, upper = 20.0, 
-         change_type = 'log', complexity_related = True)
+         change_type = 'log')
 
         CS['learning_rate'] = ConfigSearchInfo(name = 'learning_rate',
          type = float, lower = 0.01, init = 0.1, upper = 1.0, 
-         change_type = 'log', complexity_related = True)
+         change_type = 'log')
         CS['subsample'] = ConfigSearchInfo(name = 'subsample', type = float,
-         lower = 0.6, init = 1.0, upper = 1.0, change_type = 'linear', 
-         complexity_related = True)
+         lower = 0.6, init = 1.0, upper = 1.0, change_type = 'linear')
         CS['reg_alpha'] = ConfigSearchInfo(name = 'reg_alpha', type = float,
          lower = 1e-10, init = 1e-10, upper = 1.0, change_type = 'log',
          complexity_related = True)
         CS['reg_lambda'] = ConfigSearchInfo(name = 'reg_lambda', type = float,
-         lower = 1e-10, init = 1.0, upper = 1.0, change_type = 'log', 
-         complexity_related = True)
+         lower = 1e-10, init = 1.0, upper = 1.0, change_type = 'log')
         CS['colsample_bylevel'] = ConfigSearchInfo(name = 'colsample_bylevel',
          type = float, lower = 0.6, init = 1.0, upper = 1.0, 
-         change_type = 'linear', complexity_related = True)
+         change_type = 'linear')
         CS['colsample_bytree'] = ConfigSearchInfo(name = 'colsample_bytree',
          type = float, lower = 0.7, init = 1.0, upper = 1.0, 
-         change_type = 'linear', complexity_related = True)
+         change_type = 'linear')
     elif estimator in ('rf', 'extra_tree'):
         n_estimators_upper = min(2048, n_estimators_upper)
         # max_leaves_upper = min(2048, max_leaves_upper)
         CS['n_estimators'] = ConfigSearchInfo(name = 'n_estimators',
          type = int, lower = 4, init = 4, upper = n_estimators_upper, 
-         change_type = 'log', complexity_related = True)
+         change_type = 'log')
         if objective_name != 'regression':
             CS['criterion'] = ConfigSearchInfo(name = 'criterion',
             type = int, lower = 1, init = 1, upper = 2, 
-            change_type = 'log', complexity_related = True)
+            change_type = 'log')
         
         # CS['max_leaves'] = ConfigSearchInfo(name = 'max_leaves', type =int,
         #  lower = 4, init = 4, upper = max_leaves_upper, change_type = 'log',
         #  complexity_related = True)
         
         CS['max_features'] = ConfigSearchInfo(name = 'max_features', type = float,
-         lower = 0.1, init = 1.0, upper = 1.0, change_type = 'log', 
-         complexity_related = True)
+         lower = 0.1, init = 1.0, upper = 1.0, change_type = 'log')
         # CS['min_samples_split'] = ConfigSearchInfo(name = 'min_samples_split',
         #  type = int, lower = 2, init = 2, upper = 20, change_type = 'log', 
         #  complexity_related = True)
@@ -99,18 +96,16 @@ def GET_ESTIMATOR_CS(estimator, data_size, objective_name = "regression"):
         #  complexity_related = True)
     elif 'lgbm' in estimator:
         CS['n_estimators'] = ConfigSearchInfo(name = 'n_estimators', type = int,
-         lower = 4, init = 4, upper = n_estimators_upper, change_type = 'log', 
-         complexity_related = True)
+         lower = 4, init = 4, upper = n_estimators_upper, change_type = 'log')
         CS['max_leaves'] = ConfigSearchInfo(name = 'max_leaves', type = int,
-         lower = 4, init = 4, upper = max_leaves_upper, change_type = 'log', 
-         complexity_related = True)
+         lower = 4, init = 4, upper = max_leaves_upper, change_type = 'log')
         CS['min_child_weight'] = ConfigSearchInfo(name = 'min_child_weight',
          type = float, lower = 0.001, init = 20, upper = 20.0, 
-         change_type = 'log', complexity_related = True)
+         change_type = 'log')
 
         CS['learning_rate'] = ConfigSearchInfo(name = 'learning_rate',
          type = float, lower = 0.01, init = 0.1, upper = 1.0, 
-         change_type = 'log', complexity_related = True)
+         change_type = 'log')
         CS['subsample'] = ConfigSearchInfo(name = 'subsample', type = float,
          lower = 0.6, init = 1.0, upper = 1.0, change_type = 'log',
          complexity_related = True)
@@ -121,11 +116,10 @@ def GET_ESTIMATOR_CS(estimator, data_size, objective_name = "regression"):
          lower = 1e-10, init = 1e-10, upper = 1.0, change_type = 'log',
          complexity_related = True)
         CS['reg_lambda'] = ConfigSearchInfo(name = 'reg_lambda', type = float,
-         lower = 1e-10, init = 1.0, upper = 1.0, change_type = 'log', 
-         complexity_related = True)
+         lower = 1e-10, init = 1.0, upper = 1.0, change_type = 'log')
         CS['colsample_bytree'] = ConfigSearchInfo(name = 'colsample_bytree',
          type = float, lower = 0.7, init = 1.0, upper = 1.0, 
-         change_type = 'log', complexity_related = True)
+         change_type = 'log')
     elif 'lr' in estimator:
         CS['C'] = ConfigSearchInfo(name = 'C', type =float, lower = 0.03125,
           init = 1.0, upper = 32768.0, change_type = 'log', 
@@ -137,40 +131,38 @@ def GET_ESTIMATOR_CS(estimator, data_size, objective_name = "regression"):
         early_stopping_rounds = max(min(round(1500000/data_size),150), 10)
         CS['rounds'] = ConfigSearchInfo(name = 'rounds', type = int,
          lower = 10, init = 10, 
-         upper = early_stopping_rounds, change_type = 'log', 
-         complexity_related = True)
+         upper = early_stopping_rounds, change_type = 'log')
         # CS['exp_max_depth'] = ConfigSearchInfo(name = 'exp_max_depth', type = int,
         #  lower = 32, init = 64,  upper = 256, change_type = 'log', 
         #  complexity_related = True)
 
         CS['learning_rate'] = ConfigSearchInfo(name = 'learning_rate',
          type = float, lower = 0.005,  init = 0.1,  upper = .2, 
-         change_type = 'log', complexity_related = True)
+         change_type = 'log')
         # CS['l2_leaf_reg'] = ConfigSearchInfo(name = 'l2_leaf_reg',
         #  type = float, lower = 1,  init = 3, upper = 5, 
-        #  change_type = 'log', complexity_related = True)
+        #  change_type = 'log')
     elif 'nn' == estimator:
         CS['learning_rate'] = ConfigSearchInfo(name = 'learning_rate',
          type = float, lower = 1e-4, init = 3e-4, upper = 3e-2, 
-         change_type = 'log', complexity_related = True)
+         change_type = 'log')
         CS['weight_decay'] = ConfigSearchInfo(name = 'weight_decay',
          type = float, lower = 1e-12, init = 1e-6, upper = .1, 
-         change_type = 'log', complexity_related = True)
+         change_type = 'log')
         CS['dropout_prob'] = ConfigSearchInfo(name = 'dropout_prob',
          type = float, lower = 1.0, init = 1.1, upper = 1.5, 
-         change_type = 'log', complexity_related = True)
+         change_type = 'log')
     elif 'kneighbor' in estimator:
         n_neighbors_upper = min(512,int(data_size/2))
         CS['n_neighbors'] = ConfigSearchInfo(name = 'n_neighbors', type = int,
-         lower = 1, init = 5, upper = n_neighbors_upper, change_type = 'log', 
-         complexity_related = True)        
+         lower = 1, init = 5, upper = n_neighbors_upper, change_type = 'log')        
     else:
         raise NotImplementedError
 
     return CS
 
 
-def GET_ESTIMATOR_SIZE(config, estimator):
+def estimator_size(config, estimator):
     if estimator in ['xgboost', 'lgbm', 'rf', 'extra_tree']:
         try:
             max_leaves = int(round(config['max_leaves']))

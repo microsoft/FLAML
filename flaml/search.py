@@ -9,15 +9,11 @@ from .model_compute_helper import generate_config_ini, generate_config_max, \
 import time
 import math
 import numpy as np
-from .model_config import GET_ESTIMATOR_CS, GET_ESTIMATOR_SIZE
-from .config import N_SPLITS, SPLIT_RATIO, MIN_SAMPLE_TRAIN, MIN_SAMPLE_VAL, HISTORY_SIZE, MEM_THRES, BASE_Const, ETI_INI, BASE_LOWER_BOUND
-import pandas as pd
+from .model_config import config_space, estimator_size
+from .config import SPLIT_RATIO, MIN_SAMPLE_TRAIN, \
+    HISTORY_SIZE, MEM_THRES, BASE_Const, BASE_LOWER_BOUND
 from .util import save_info_helper, rand_vector_unit_sphere, \
-    rand_vector_gaussian, get_config_values, concat
-from sklearn.model_selection import train_test_split, KFold
-
-import logging
-logger = logging.getLogger(__name__)
+    rand_vector_gaussian, get_config_values
 
 
 class ParamSearch:
@@ -26,11 +22,11 @@ class ParamSearch:
     '''
 
 
-    def __init__(self, estimator, config_range_ratio, data_size,
+    def __init__(self, estimator, data_size,
      compute_with_config, train_with_config, save_info_helper=None, 
      init_sample_size=MIN_SAMPLE_TRAIN, objective_name='regression', 
      log_type='better', base_change='sqrtK', use_dual_dir=True, move_type='geo',
-     config_search_info=None, estimator_size=None):
+     config_space_info=None, size_estimator=None, split_ratio=SPLIT_RATIO):
         self.log_type = log_type
         self.base_change = base_change
         if init_sample_size > data_size:
@@ -39,14 +35,14 @@ class ParamSearch:
         self.prev_sample_size = {}
         s = init_sample_size
         self.prev_sample_size[s] = s
-        self.estimator_configspace = config_search_info or GET_ESTIMATOR_CS(
+        self.estimator_configspace = config_space_info or config_space(
             estimator, data_size, objective_name)
-        self.get_size_for_config = estimator_size or (
-            lambda x: GET_ESTIMATOR_SIZE(x, estimator))
+        self.get_size_for_config = size_estimator or (
+            lambda x: estimator_size(x, estimator))
         config_min_dic_primary, config_min_dic_more, config_min_dic = \
             generate_config_min(estimator, self.estimator_configspace, None)
         self.min_config_primary = np.array(
-            list(config_min_dic_primary.values()))  # the second arg is not used
+            list(config_min_dic_primary.values()))  
         self.min_config_more = np.array(list(config_min_dic_more.values()))
         self.min_config = np.array(list(config_min_dic.values()))
         # init configurations for different sample size
@@ -64,7 +60,7 @@ class ParamSearch:
         # max configurations for different sample size
         config_max_dic_primary, config_max_dic_more, config_max_dic = \
             generate_config_max(
-            estimator, self.estimator_configspace, int(s*config_range_ratio))
+            estimator, self.estimator_configspace, int(s))
         self.max_config_dic_primary = {s: np.array(
             list(config_max_dic_primary.values()))}
         self.max_config_dic_more = {s: np.array(
@@ -101,14 +97,13 @@ class ParamSearch:
 
         # create sample size sequence
         while s < data_size:
-            s2 = self.next_sample_size[s] = s * \
-                2 if s*2 <= data_size else data_size
+            s2 = self.next_sample_size[s] = s*2 if s*2<=data_size else data_size
             self.prev_sample_size[s2] = s
             s = s2
 
             config_max_dic_primary, config_max_dic_more, config_max_dic = \
                 generate_config_max(
-                estimator, self.estimator_configspace, int(s*config_range_ratio))
+                estimator, self.estimator_configspace, int(s))
             self.max_config_dic_primary[s] = np.array(
                 list(config_max_dic_primary.values()))
             self.max_config_dic_more[s] = np.array(
@@ -141,7 +136,7 @@ class ParamSearch:
 
         self.init_sample_size = init_sample_size
         self.data_size = data_size
-        self.sample_size_full = int(self.data_size/(1.0-SPLIT_RATIO))
+        self.sample_size_full = int(self.data_size/(1.0-split_ratio))
 
         self.compute_with_config = compute_with_config
         self.estimator = estimator
@@ -191,7 +186,6 @@ class ParamSearch:
         d = self.total_dim
         history_size_per_d = len(self.config_tried)/float(d)
         if config_sig in self.config_tried:
-            # print(config_sig,'in history')
             val_loss, new_train_time = self.config_tried[config_sig]
             # print(config_sig,'found in history')
             model, train_loss, test_time = None,  None, 0
@@ -210,7 +204,6 @@ class ParamSearch:
             self.num_noimprovement = 0
         # write to file
         move = str(self.estimator)+move
-        self.total_test_time += test_time
         self.time_from_start = time.time() - self.start_time
         if 'better' in self.log_type:
             write_to_file = val_loss < self.best_loss
@@ -293,10 +286,8 @@ class ParamSearch:
             return False
 
     def get_proposal(self, current_config, rand_vector_func, base, move_type):
-        # Two dimensions are leaf and tree
         rand_vector = rand_vector_func(len(current_config))
         rand_vector = [i for i in rand_vector]
-        # Two dimensions are leaf and tree
         rand_vector_neg = [-i for i in rand_vector]
 
         move_vector = {}
@@ -362,7 +353,6 @@ class ParamSearch:
         index_ = 0
         bounded_v = {}
         for key, value in v.items():
-            # print(key, value, self.min_config[index_], self.max_config_dic[self.sample_size][index_])
             new_value = min(max(
                 value, self.min_config[index_]), self.max_config_dic[
                     self.sample_size][index_])
@@ -396,7 +386,6 @@ class ParamSearch:
         # the time to train the last selected config
         self.old_train_time = self.train_time = 0
         self.time_from_start = 0
-        self.total_test_time = 0
         # search states
         self.first_move = True
         self.improved = True
@@ -447,8 +436,7 @@ class ParamSearch:
                 self.estimator, config, sample_size)
             train_loss, val_loss, move = None, self.new_loss, str(
                 self.estimator) + '_trainAll'
-            self.time_from_start = time.time() - self.start_time - \
-                self.total_test_time
+            self.time_from_start = time.time() - self.start_time
             if self.save_helper is not None:
                 self.save_helper.add_res_more(
                     self.model_count, train_loss, new_train_time, 
@@ -480,10 +468,8 @@ class ParamSearch:
             # print(self.config_more)
         return estimator_type, current_search_config
 
-    def search1step(self, total_test_time=None, global_best_loss=float('+inf'),
+    def search1step(self, global_best_loss=float('+inf'),
      retrain_full=True, mem_thres=MEM_THRES, reset_type='org'):
-        if total_test_time:
-            self.total_test_time = total_test_time
         # try to increase sample size
         self.try_increase_sample_size()
         # decide current_search_config according to estimator_type
@@ -515,7 +501,6 @@ class ParamSearch:
                     self.improved = self.evaluate_config(
                         move_vector_neg, self.sample_size, '_neg' + str(
                             estimator_type))
-        # print('self.improved', self.estimator, self.improved, self.num_noimprovement)
         self.update_noimprovement_stat(
             global_best_loss, retrain_full, reset_type)
         return self.improved
@@ -585,7 +570,6 @@ class ParamSearch:
                 self.base_change_count += 1
                 if self.base <= base_lower_bound or \
                     self.base_change_count == self.base_change_bound:
-                    # print('reset to jump out of local optimal with base lower bound ',base_lower_bound)
                     if retrain_full and self.sample_size == self.data_size:
                         if self.best_loss <= global_best_loss:
                             # Only train on full data when the curent estimator
@@ -667,19 +651,3 @@ class ParamSearch:
             return min(candidate_sample_size_list)
         else:
             return self.data_size
-
-
-def prepare_sample_train_data(X_train, y_train, X_val, y_val, sample_size):
-    full_size = len(y_train)
-    if sample_size <= full_size:
-        if isinstance(X_train, pd.DataFrame):
-            sampled_X_train = X_train.iloc[:sample_size]
-        else:
-            sampled_X_train = X_train[:sample_size]
-        sampled_y_train = y_train[:sample_size]
-        sampled_X_val, sampled_y_val = X_val, y_val
-    else:
-        sampled_X_train, sampled_y_train = concat(X_train, X_val), \
-            np.concatenate([y_train, y_val])
-        sampled_X_val, sampled_y_val = [], []
-    return sampled_X_train, sampled_y_train, sampled_X_val, sampled_y_val

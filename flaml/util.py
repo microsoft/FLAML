@@ -5,16 +5,9 @@
 
 import numpy as np
 from random import gauss
-from .config import N_SPLITS, SPLIT_RATIO
 from scipy.sparse import vstack, issparse
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder, normalize
-from sklearn.preprocessing._encoders import _BaseEncoder
-import collections 
-from pandas import api
-
-import logging
-logger = logging.getLogger(__name__)
+from sklearn.preprocessing import LabelEncoder
 
 
 class save_info_helper:

@@ -12,9 +12,6 @@ import numpy as np
 from sklearn.model_selection import RepeatedStratifiedKFold, KFold
 from .util import concat
 
-import logging
-logger = logging.getLogger(__name__)
-
 
 def generate_config_ini(estimator, estimator_configspace):
 
@@ -24,13 +21,15 @@ def generate_config_ini(estimator, estimator_configspace):
     config_type_dic = {}
     for config_name, config in estimator_configspace.items():
         name, lower, upper, init = config.name, config.lower, config.upper, config.init
-        type_, change_type, complexity_related  = config.type, config.change_type, config.complexity_related
+        type_, change_type, complexity_related = \
+            config.type, config.change_type, config.complexity_related
         config_type_dic[name] = type_
         if complexity_related:
             config_dic[name] = init
         else:
             config_dic_more[name] = init
-    return config_dic, config_dic_more, {**config_dic, **config_dic_more}, config_type_dic
+    return config_dic, config_dic_more, {**config_dic, **config_dic_more}, \
+        config_type_dic
 
 
 def generate_config_min(estimator,estimator_configspace, max_config_size):
@@ -40,7 +39,8 @@ def generate_config_min(estimator,estimator_configspace, max_config_size):
     config_dic_more = {}
     for config_name, config in estimator_configspace.items():
         name, lower, upper, init = config.name, config.lower, config.upper, config.init
-        type_, change_type, complexity_related  = config.type, config.change_type, config.complexity_related
+        type_, change_type, complexity_related = \
+            config.type, config.change_type, config.complexity_related
         if complexity_related:
             config_dic[name] = lower
         else:
@@ -56,17 +56,17 @@ def generate_config_max(estimator, estimator_configspace, max_config_size):
     config_dic_more = {}
     for config_name, config in estimator_configspace.items():
         name, lower, upper, init = config.name, config.lower, config.upper, config.init
-        type_, change_type, complexity_related  = config.type, config.change_type, config.complexity_related
-        if complexity_related:
-            # config_dic[name] = min(upper, max_config_size)
-            config_dic[name] = upper
+        type_, change_type, complexity_related = \
+            config.type, config.change_type, config.complexity_related
+        if name in ('n_estimators', 'max_leaves'):
+            config_dic[name] = min(upper, max_config_size)
         else:
-            config_dic_more[name] = upper # min(upper, max_config_size)
+            config_dic_more[name] = upper
     return config_dic, config_dic_more, {**config_dic, **config_dic_more}
 
 
 def get_MyEstimator(objective_name, estimator_name):
-    ''' when adding a new learner, need to add a elif branch '''
+    ''' when adding a new learner, need to add an elif branch '''
 
 
     if 'xgboost' in estimator_name:
@@ -306,8 +306,6 @@ def train_estimator(X_train, y_train, config_dic, objective_name,
 def get_estimator_name_from_log(name):
     if 'xgboost' in name:
         estimator_name = 'xgboost'
-    elif 'xgb-h2o' in name:
-        estimator_name = 'xgb-h2o'
     elif 'lgbm' in name:
         estimator_name = 'lgbm'
     elif 'rf' in name:

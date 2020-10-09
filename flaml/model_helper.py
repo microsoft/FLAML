@@ -439,19 +439,6 @@ class CatBoostEstimator(BaseEstimator):
         params['rounds'] = params['early_stopping_rounds']
         return params
 
-    # def preprocess(self, X):
-        # if isinstance(X, pd.DataFrame):
-        #     categoricals = list(X.select_dtypes(
-        #         include='category').columns)
-        #     if categoricals:
-        #         for category in categoricals:
-        #             current_categories = X[category].cat.categories
-        #             if '__NaN__' not in current_categories:
-        #                 X[category] = X[
-        #                     category].cat.add_categories('__NaN__').fillna(
-        #                         '__NaN__')
-        # return X
-
     def fit(self, X_train, y_train, budget=None, train_full=False):
         start_time = time.time()
         n_iter = self.params["n_estimators"]
