@@ -69,34 +69,34 @@ def generate_config_max(estimator, estimator_configspace, max_config_size):
     return config_dic, config_dic_more, {**config_dic, **config_dic_more}
 
 
-def get_MyEstimator(objective_name, estimator_name):
+def get_estimator_class(objective_name, estimator_name):
     ''' when adding a new learner, need to add an elif branch '''
 
 
     if 'xgboost' in estimator_name:
         if 'regression' in objective_name:
-            MyEstimator = XGBoostEstimator
+            estimator_class = XGBoostEstimator
         else:
-            MyEstimator = XGBoostSklearnEstimator
+            estimator_class = XGBoostSklearnEstimator
     elif 'rf' in estimator_name:
-        MyEstimator =  RandomForestEstimator
+        estimator_class =  RandomForestEstimator
     elif 'lgbm' in estimator_name:
-        MyEstimator =  LGBMEstimator
+        estimator_class =  LGBMEstimator
     elif 'lrl1' in estimator_name:
-        MyEstimator = LRL1Classifier
+        estimator_class = LRL1Classifier
     elif 'lrl2' in estimator_name:
-        MyEstimator = LRL2Classifier  
+        estimator_class = LRL2Classifier  
     elif 'catboost' in estimator_name:
-        MyEstimator = CatBoostEstimator
+        estimator_class = CatBoostEstimator
     elif 'extra_tree' in estimator_name:
-        MyEstimator = ExtraTreeEstimator
+        estimator_class = ExtraTreeEstimator
     elif 'kneighbor' in estimator_name:
-        MyEstimator = KNeighborsEstimator
+        estimator_class = KNeighborsEstimator
     else:
-        MyEstimator = None
+        estimator_class = None
         print('No such estimator')
         raise NotImplementedError
-    return MyEstimator
+    return estimator_class
     
 
 def sklearn_metric_loss_score(metric_name, y_predict, y_true, labels=None):
@@ -172,7 +172,7 @@ def get_test_loss(estimator, X_train, y_train, X_test, y_test, eval_metric, obj,
 
 
 def train_model(estimator, X_train, y_train, budget):
-    train_time = estimator.fit(X_train, y_train, budget, True)
+    train_time = estimator.fit(X_train, y_train, budget)
     return train_time
 
 
@@ -270,8 +270,7 @@ def evaluate_model_CV(estimator, X_train_all, y_train_all, budget, kf,
     budget -= time.time() - start_time
     if val_loss < best_val_loss and budget > budget_per_train:
         estimator.cleanup()
-        train_time_full = estimator.fit(X_train_all,
-         y_train_all, budget, True)
+        train_time_full = estimator.fit(X_train_all, y_train_all, budget)
         train_time += train_time_full
     test_time = 0.0
     return val_loss, train_loss, train_time, test_time
@@ -279,11 +278,11 @@ def evaluate_model_CV(estimator, X_train_all, y_train_all, budget, kf,
 
 def compute_estimator(X_train, y_train, X_val, y_val, budget, kf,
  config_dic, objective_name, estimator_name, eval_method, eval_metric, 
- best_val_loss = np.Inf, n_jobs=1, resolvedEstimator=None, train_loss=False):
+ best_val_loss = np.Inf, n_jobs=1, estimator_class=None, train_loss=False):
     start_time = time.time()
-    MyEstimator = resolvedEstimator or get_MyEstimator(
+    estimator_class = estimator_class or get_estimator_class(
         objective_name, estimator_name)
-    estimator = MyEstimator(
+    estimator = estimator_class(
         **config_dic, objective_name = objective_name, n_jobs=n_jobs)
     val_loss, train_loss, train_time, test_time = evaluate_model(
         estimator, X_train, y_train, X_val, y_val, budget, kf, objective_name, 
@@ -293,16 +292,16 @@ def compute_estimator(X_train, y_train, X_val, y_val, budget, kf,
 
 
 def train_estimator(X_train, y_train, config_dic, objective_name,
- estimator_name, n_jobs=1, resolvedEstimator=None, budget=None):
+ estimator_name, n_jobs=1, estimator_class=None, budget=None):
     start_time = time.time()
-    MyEstimator = resolvedEstimator or get_MyEstimator(objective_name,
+    estimator_class = estimator_class or get_estimator_class(objective_name,
      estimator_name)
-    estimator = MyEstimator(**config_dic, objective_name = objective_name,
+    estimator = estimator_class(**config_dic, objective_name = objective_name,
      n_jobs=n_jobs)
     if X_train is not None:
         train_time = train_model(estimator, X_train, y_train, budget)
     else:
-        estimator = estimator.estimator(**estimator.params)
+        estimator = estimator.estimator_class(**estimator.params)
     train_time = time.time() - start_time
     return estimator, train_time
 

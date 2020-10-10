@@ -392,7 +392,7 @@ class AutoML:
 
         estimator, _ = train_estimator(
             None, None, config, objective, estimator,
-            resolvedEstimator=self._custom_learners.get(estimator)
+            estimator_class=self._custom_learners.get(estimator)
             )
         return estimator
 

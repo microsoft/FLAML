@@ -36,7 +36,7 @@ class BaseEstimator:
             params: A dictionary of the hyperparameter names and values
         '''
         self.params = params
-        self.estimator = None
+        self.estimator_class = None
         self.objective_name = objective_name
         if '_estimator_type' in params:
             self._estimator_type = params['_estimator_type']
@@ -58,27 +58,30 @@ class BaseEstimator:
     def preprocess(self, X):
         return X
 
-    def fit(self, X_train, y_train, budget=None, train_full=False):    
+    def _fit(self, X_train, y_train):    
+
+        curent_time = time.time()
+        X_train = self.preprocess(X_train)
+        model = self.estimator_class(**self.params)
+        model.fit(X_train, y_train)
+        train_time =  time.time() - curent_time
+        self.model = model
+        return train_time
+
+    def fit(self, X_train, y_train, budget=None):    
         '''Train the model from given training data
         
         Args:
             X_train: A numpy array of training data in shape n*m
             y_train: A numpy array of labels in shape n*1
-            train_full: A boolean of whether to train on the full data if early
-                stopping is used
+            budget: A float of the time budget in seconds
 
         Returns:
             model: An object of the trained model, with method predict(), 
                 and predict_proba() if it supports classification
             train_time: A float of the training time in seconds
         '''
-        curent_time = time.time()
-        X_train = self.preprocess(X_train)
-        model = self.estimator(**self.params)
-        model.fit(X_train, y_train)
-        train_time =  time.time() - curent_time
-        self.model = model
-        return train_time
+        return self._fit(X_train, y_train)
 
     def predict(self, X_test):
         '''Predict label from features
@@ -163,9 +166,9 @@ class LGBMEstimator(BaseEstimator):
         self.params['max_bin'] = params['max_bin'] if 'max_bin' in params else (
             1<<int(round(log_max_bin)))-1
         if 'regression' in objective_name:
-            self.estimator = LGBMRegressor
+            self.estimator_class = LGBMRegressor
         else:
-            self.estimator = LGBMClassifier
+            self.estimator_class = LGBMClassifier
         self.time_per_iter = None
         self.train_size = 0
 
@@ -175,19 +178,18 @@ class LGBMEstimator(BaseEstimator):
             X = X.astype(float)
         return X
 
-    def fit(self, X_train, y_train, budget=None, train_full=False):
+    def fit(self, X_train, y_train, budget=None):
         start_time = time.time()
         n_iter = self.params["n_estimators"]
         if (not self.time_per_iter or
          abs(self.train_size-X_train.shape[0])>4) and budget is not None:
-            X_train = self.preprocess(X_train)
             self.params["n_estimators"] = 1
-            self.t1 = super().fit(X_train, y_train)
+            self.t1 = self._fit(X_train, y_train)
             if self.t1 >= budget: 
                 self.params["n_estimators"] = n_iter
                 return self.t1
             self.params["n_estimators"] = 4
-            self.t2 = super().fit(X_train, y_train)
+            self.t2 = self._fit(X_train, y_train)
             self.time_per_iter = (self.t2 - self.t1)/(
                 self.params["n_estimators"]-1) if self.t2 > self.t1 \
                 else self.t1
@@ -196,11 +198,11 @@ class LGBMEstimator(BaseEstimator):
                 self.params["n_estimators"] = n_iter
                 return time.time() - start_time
         if budget is not None:
-            train_times = 1 #+ int(train_full)
+            train_times = 1
             self.params["n_estimators"] = min(n_iter, int((budget-time.time()+
                 start_time-self.t1)/train_times/self.time_per_iter+1))
         if self.params["n_estimators"] > 0:
-            super().fit(X_train, y_train)
+            self._fit(X_train, y_train)
         self.params["n_estimators"] = n_iter
         train_time = time.time() - start_time
         return train_time
@@ -243,7 +245,7 @@ class XGBoostEstimator(SKLearnEstimator):
         params["n_jobs"] = params['nthread']
         return params
 
-    def fit(self, X_train, y_train, budget=None, train_full=False):    
+    def fit(self, X_train, y_train, budget=None):    
         curent_time = time.time()        
         if not scipy.sparse.issparse(X_train):
             self.params['tree_method'] = 'hist'
@@ -295,16 +297,16 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         }
 
         if 'regression' in objective_name:
-            self.estimator = XGBRegressor
+            self.estimator_class = XGBRegressor
         else:
-            self.estimator = XGBClassifier
+            self.estimator_class = XGBClassifier
         self.time_per_iter = None
         self.train_size = 0
 
-    def fit(self, X_train, y_train, budget=None, train_full=False):    
+    def fit(self, X_train, y_train, budget=None):    
         if scipy.sparse.issparse(X_train):
             self.params['tree_method'] = 'auto'
-        return super().fit(X_train, y_train, budget, train_full)
+        return super().fit(X_train, y_train, budget)
         
 
 class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
@@ -323,9 +325,9 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         # 'min_samples_leaf':int(round(min_samples_leaf)),
         }
         if 'regression' in objective_name:
-            self.estimator = RandomForestRegressor
+            self.estimator_class = RandomForestRegressor
         else:
-            self.estimator = RandomForestClassifier
+            self.estimator_class = RandomForestClassifier
             self.params['criterion'] = 'entropy' if criterion>1.5 else 'gini'
         self.time_per_iter = None
         self.train_size = 0
@@ -353,10 +355,10 @@ class ExtraTreeEstimator(RandomForestEstimator):
         }
         if 'regression' in objective_name:
             from sklearn.ensemble import ExtraTreesRegressor
-            self.estimator = ExtraTreesRegressor
+            self.estimator_class = ExtraTreesRegressor
         else:
             from sklearn.ensemble import ExtraTreesClassifier
-            self.estimator = ExtraTreesClassifier
+            self.estimator_class = ExtraTreesClassifier
             self.params['criterion'] = 'entropy' if criterion>1.5 else 'gini'
         self.time_per_iter = None
         self.train_size = 0
@@ -376,11 +378,11 @@ class LRL1Classifier(SKLearnEstimator):
             'n_jobs': n_jobs,
         }
         if 'regression' in objective_name:
-            self.estimator = None
+            self.estimator_class = None
             print('Does not support regression task')
             raise NotImplementedError
         else:
-            self.estimator = LogisticRegression
+            self.estimator_class = LogisticRegression
 
 
 class LRL2Classifier(SKLearnEstimator):
@@ -397,11 +399,11 @@ class LRL2Classifier(SKLearnEstimator):
             'n_jobs': n_jobs,
         }
         if 'regression' in objective_name:
-            self.estimator = None
+            self.estimator_class = None
             print('Does not support regression task')
             raise NotImplementedError
         else:
-            self.estimator = LogisticRegression
+            self.estimator_class = LogisticRegression
 
 
 class CatBoostEstimator(BaseEstimator):
@@ -428,10 +430,10 @@ class CatBoostEstimator(BaseEstimator):
         # print(n_estimators)
         if 'regression' in objective_name:
             from catboost import CatBoostRegressor
-            self.estimator = CatBoostRegressor
+            self.estimator_class = CatBoostRegressor
         else:
             from catboost import CatBoostClassifier
-            self.estimator = CatBoostClassifier
+            self.estimator_class = CatBoostClassifier
 
     def get_params(self, deep=False):
         params = super().get_params()
@@ -439,7 +441,7 @@ class CatBoostEstimator(BaseEstimator):
         params['rounds'] = params['early_stopping_rounds']
         return params
 
-    def fit(self, X_train, y_train, budget=None, train_full=False):
+    def fit(self, X_train, y_train, budget=None):
         start_time = time.time()
         n_iter = self.params["n_estimators"]
         if isinstance(X_train, pd.DataFrame):
@@ -452,7 +454,7 @@ class CatBoostEstimator(BaseEstimator):
          abs(CatBoostEstimator.train_size-len(y_train))>4) and budget:
             # measure the time per iteration
             self.params["n_estimators"] = 1
-            CatBoostEstimator.model = self.estimator(**self.params)
+            CatBoostEstimator.model = self.estimator_class(**self.params)
             CatBoostEstimator.model.fit(X_train, y_train,
              cat_features=cat_features)
             CatBoostEstimator.t1 = time.time() - start_time
@@ -461,7 +463,7 @@ class CatBoostEstimator(BaseEstimator):
                 self.model = CatBoostEstimator.model
                 return self.model, CatBoostEstimator.t1
             self.params["n_estimators"] = 4
-            CatBoostEstimator.model = self.estimator(**self.params)
+            CatBoostEstimator.model = self.estimator_class(**self.params)
             CatBoostEstimator.model.fit(X_train, y_train,
              cat_features=cat_features)
             CatBoostEstimator.time_per_iter = (time.time() - start_time -
@@ -475,7 +477,7 @@ class CatBoostEstimator(BaseEstimator):
                 self.model = CatBoostEstimator.model
                 return self.model, time.time()-start_time
         if budget:
-            train_times = 1 #+ int(train_full)
+            train_times = 1 
             self.params["n_estimators"] = min(n_iter, int((budget-time.time()+
                 start_time-CatBoostEstimator.t1)/train_times/
                 CatBoostEstimator.time_per_iter+1))
@@ -484,18 +486,10 @@ class CatBoostEstimator(BaseEstimator):
             l = max(int(len(y_train)*0.9), len(y_train)-1000)
             X_tr, y_tr = X_train[:l], y_train[:l]
             from catboost import Pool
-            model = self.estimator(**self.params)
+            model = self.estimator_class(**self.params)
             model.fit(X_tr, y_tr, cat_features=cat_features, eval_set=Pool(
                 data=X_train[l:], label=y_train[l:], cat_features=cat_features))
             # print(self.params["n_estimators"], model.get_best_iteration())
-            if False and (train_full or True):
-                self.params["n_estimators"] = model.get_best_iteration()
-                if self.params["n_estimators"] > 0 and (not budget or 
-                    time.time() - start_time + CatBoostEstimator.time_per_iter*
-                    self.params["n_estimators"] + CatBoostEstimator.t1 < budget
-                    ):
-                    model = self.estimator(**self.params)
-                    model.fit(X_train, y_train, cat_features=cat_features)
             self.model = model
         self.params["n_estimators"] = n_iter
         train_time = time.time() - start_time
@@ -516,10 +510,10 @@ class KNeighborsEstimator(BaseEstimator):
         }
         if 'regression' in objective_name:
             from sklearn.neighbors import KNeighborsRegressor
-            self.estimator = KNeighborsRegressor
+            self.estimator_class = KNeighborsRegressor
         else:
             from sklearn.neighbors import KNeighborsClassifier
-            self.estimator = KNeighborsClassifier
+            self.estimator_class = KNeighborsClassifier
 
     def preprocess(self, X):
         if isinstance(X, pd.DataFrame):
