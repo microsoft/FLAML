@@ -55,11 +55,15 @@ def generate_config_max(estimator, estimator_configspace, max_config_size):
     config_dic = {}
     config_dic_more = {}
     for config_name, config in estimator_configspace.items():
-        name, lower, upper, init = config.name, config.lower, config.upper, config.init
+        name, lower, upper, init = config.name, config.lower, config.upper, \
+            config.init
         type_, change_type, complexity_related = \
             config.type, config.change_type, config.complexity_related
-        if name in ('n_estimators', 'max_leaves'):
-            config_dic[name] = min(upper, max_config_size)
+        if complexity_related:
+            if name in ('n_estimators', 'max_leaves'):
+                config_dic[name] = min(upper, max_config_size)
+            else:
+                config_dic[name] = upper
         else:
             config_dic_more[name] = upper
     return config_dic, config_dic_more, {**config_dic, **config_dic_more}
