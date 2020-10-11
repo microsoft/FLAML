@@ -1,5 +1,6 @@
 # FLAML - Fast and Lightweight AutoML
 
+
 FLAML is a Python library designed to automatically produce accurate machine 
 learning models with low computational cost. It frees users from selecting 
 learners and hyperparameters for each learner. It is fast, cheap and scalable. 
@@ -9,7 +10,7 @@ adding new learners. FLAML is powered by a new, cost-effective hyperparameter
 optimization and learner selection method invented by Microsoft Research. 
 FLAML can:
 
-1. serve as an economic and fast AutoML engine and a drop-in replacement of 
+1. serve as an economical and fast AutoML engine and a drop-in replacement of 
 a scikit-learn style estimator,
 
 2. be used as a fast hyperparameter tuning tool for XGBoost, LightGBM, 
@@ -43,15 +44,14 @@ model = automl.model
 
 ## Installation
 
-FLAML requires **Python version >= 3.6**. It can be installed from source code: 
-First, clone the repo. Then, to run the notebook examples in [`notebook`](/notebook), 
+FLAML requires **Python version >= 3.6**. It can be installed from pip: 
+
+        pip install flaml
+
+To run the [`notebook example`](/notebook), 
 install flaml with the [notebook] option:
 
-        pip install -e .[notebook] 
-
-    otherwise, use:
-
-        pip install -e . 
+        pip install flaml[notebook] 
 
 ## Examples
 
@@ -99,14 +99,24 @@ print(automl_experiment.config_history)
 print(automl_experiment.model_history)
 ```
 
-More examples: see the [notebook](https://github.com/sonichi/FLAML/blob/master/notebook/flaml_demo.ipynb)
+More examples: see the [notebook](notebook/flaml_demo.ipynb)
 
-## Publication
-Qingyun Wu, Chi Wang, Silu Huang, 
+
+# Documentation
+
+
+The API documentation is [`here`]().
+
+You can also read about FLAML in our blog post [`here`]().
+
+For more technical details, please check our papers:
+
+* Qingyun Wu, Chi Wang, Silu Huang, 
 [Cost Effective Optimization for Cost-related Hyperparameters](https://arxiv.org/abs/2005.01571), arXiv pre-print.
 
-Chi Wang, Qingyun Wu, 
+* Chi Wang, Qingyun Wu, 
 [FLO: Fast and Lightweight Hyperparameter Optimization for AutoML](https://arxiv.org/abs/1911.04706), arXiv pre-print.
+
 
 # Contributing
 
@@ -121,3 +131,20 @@ provided by the bot. You will only need to do this once across all repos using o
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
 For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+
+
+# Community
+
+Join our community! 
+
+For more formal enquiries, you can [`contact us`]().
+
+
+# Authors
+* Chi Wang
+* Qingyun Wu
+* Erkang Zhu
+
+
+# License
+[MIT License](LICENSE)
