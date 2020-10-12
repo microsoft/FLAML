@@ -198,9 +198,8 @@ class LGBMEstimator(BaseEstimator):
                 self.params["n_estimators"] = n_iter
                 return time.time() - start_time
         if budget is not None:
-            train_times = 1
             self.params["n_estimators"] = min(n_iter, int((budget-time.time()+
-                start_time-self.t1)/train_times/self.time_per_iter+1))
+                start_time-self.t1)/self.time_per_iter+1))
         if self.params["n_estimators"] > 0:
             self._fit(X_train, y_train)
         self.params["n_estimators"] = n_iter

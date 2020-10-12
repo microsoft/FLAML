@@ -490,28 +490,27 @@ class AutoML:
         logger.info(
             'estimator = {}, config = {}, #training instances = {}'.format(
                 best_estimator, best_config, sample_size))
-        if not hasattr(self, '_train_with_config') or True:
-            # Partially copied from fit() function
-            # Initilize some attributes required for retrain_from_log
-            np.random.seed(0)
-            self.objective_name = objective_name
-            if self.objective_name == 'classification':
-                objective_name = get_classification_objective(
-                    len(np.unique(self.y_train_all)))
-                assert split_type in ["stratified", "uniform"]
-                self.split_type = split_type
-            else:
-                self.split_type = "uniform"
-            if line_number:
-                eval_method = 'cv'
-            elif eval_method == 'auto':
-                eval_method = self._decide_eval_method(time_budget)
-            self.modelcount = 0
-            self._prepare_data(eval_method, split_ratio, n_splits)
-            self._train_with_config = partial(AutoML._train_with_config_base,
-                                            self,
-                                            objective_name,
-                                            n_jobs)
+        # Partially copied from fit() function
+        # Initilize some attributes required for retrain_from_log
+        np.random.seed(0)
+        self.objective_name = objective_name
+        if self.objective_name == 'classification':
+            objective_name = get_classification_objective(
+                len(np.unique(self.y_train_all)))
+            assert split_type in ["stratified", "uniform"]
+            self.split_type = split_type
+        else:
+            self.split_type = "uniform"
+        if line_number:
+            eval_method = 'cv'
+        elif eval_method == 'auto':
+            eval_method = self._decide_eval_method(time_budget)
+        self.modelcount = 0
+        self._prepare_data(eval_method, split_ratio, n_splits)
+        self._train_with_config = partial(AutoML._train_with_config_base,
+                                        self,
+                                        objective_name,
+                                        n_jobs)
         self.time_budget = None
         self._model = self._train_with_config(
             best_estimator, best_config, sample_size)[0]
@@ -748,7 +747,7 @@ class AutoML:
                 model.cleanup()
 
             logger.info(
-    " at {:.1f}s,\tbest {}'s error={:.4f}\tbest {}'s error={:.4f}".format(
+    " at {:.1f}s,\tbest {}'s error={:.4f},\tbest {}'s error={:.4f}".format(
                           self.time_from_start,
                           estimator,
                           self.searchers[estimator].best_loss,

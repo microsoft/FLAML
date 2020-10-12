@@ -160,7 +160,7 @@ def get_test_loss(estimator, X_train, y_train, X_test, y_test, eval_metric, obj,
         test_pred_y = get_y_pred(estimator, X_test, eval_metric, obj)
         test_loss = sklearn_metric_loss_score(eval_metric, test_pred_y, y_test,
         labels)
-        if train_loss is not False:
+        if train_loss != False:
             test_pred_y = get_y_pred(estimator, X_train, eval_metric, obj)
             train_loss = sklearn_metric_loss_score(eval_metric, test_pred_y,
             y_train, labels)
@@ -251,8 +251,8 @@ def evaluate_model_CV(estimator, X_train_all, y_train_all, budget, kf,
         try:
             valid_folder_num += 1
             total_val_loss += val_loss_i
-            if train_loss is not False: 
-                if total_train_loss is not 0: total_train_loss += train_loss_i
+            if train_loss != False: 
+                if total_train_loss != 0: total_train_loss += train_loss_i
                 else: total_train_loss = train_loss_i
             train_time += train_time_i
             if valid_folder_num == n:
@@ -265,7 +265,7 @@ def evaluate_model_CV(estimator, X_train_all, y_train_all, budget, kf,
             print ('Evaluation folder failed !!!')
             pass
     val_loss = np.max(val_loss_list)
-    if train_loss is not False: train_loss = total_train_loss/n
+    if train_loss != False: train_loss = total_train_loss/n
     budget -= time.time() - start_time
     if val_loss < best_val_loss and budget > budget_per_train:
         estimator.cleanup()
