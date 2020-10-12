@@ -61,7 +61,7 @@ class TestAutoML(unittest.TestCase):
 
         automl_experiment = AutoML()
         automl_settings = {
-            "time_budget": 40,
+            "time_budget": 4,
             "metric": 'accuracy',
             "objective_name": 'classification',
             "log_file_name": "test/iris.log",

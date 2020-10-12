@@ -188,10 +188,10 @@ class ParamSearch:
         if config_sig in self.config_tried:
             val_loss, new_train_time = self.config_tried[config_sig]
             # print(config_sig,'found in history')
-            model, train_loss, test_time = None,  None, 0
+            model = train_loss = None
             from_history = True
         else:
-            model, val_loss, train_loss, new_train_time, test_time, _ = \
+            model, val_loss, train_loss, new_train_time, _ = \
                 self.compute_with_config(self.estimator, config, sample_size)
             from_history = False
             if history_size_per_d < HISTORY_SIZE:

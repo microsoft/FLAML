@@ -562,7 +562,8 @@ class AutoML:
         '''Find a model for a given task
 
         Args:
-            X_train: A numpy array or a pandas dataframe of training data in shape n*m
+            X_train: A numpy array or a pandas dataframe of training data in
+             shape n*m
             y_train: A numpy array or a pandas series of labels in shape n*1
             dataframe: A dataframe of training data including label column
             label: A str of the label column name

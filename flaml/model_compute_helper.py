@@ -179,14 +179,14 @@ def train_model(estimator, X_train, y_train, budget):
 def evaluate_model(estimator, X_train, y_train, X_val, y_val, budget, kf,
  objective_name, eval_method, eval_metric, best_val_loss, train_loss=False):
     if 'holdout' in eval_method:
-        val_loss, train_loss, train_time, test_time = evaluate_model_holdout(
+        val_loss, train_loss, train_time = evaluate_model_holdout(
             estimator, X_train, y_train, X_val, y_val, budget, 
             objective_name, eval_metric, best_val_loss, train_loss=train_loss)
     else:
-        val_loss, train_loss, train_time, test_time = evaluate_model_CV(
+        val_loss, train_loss, train_time = evaluate_model_CV(
             estimator, X_train, y_train, budget, kf, objective_name, 
             eval_metric, best_val_loss, train_loss=train_loss)
-    return val_loss, train_loss, train_time, test_time
+    return val_loss, train_loss, train_time
 
 
 def evaluate_model_holdout(estimator, X_train, y_train, X_val, y_val, budget,
@@ -194,8 +194,7 @@ def evaluate_model_holdout(estimator, X_train, y_train, X_val, y_val, budget,
     val_loss, train_time, train_loss = get_test_loss(
         estimator, X_train, y_train, X_val, y_val, eval_metric, objective_name,
         budget = budget, train_loss=train_loss)
-    test_time = 0.0
-    return  val_loss, train_loss, train_time, test_time
+    return  val_loss, train_loss, train_time
 
 
 def evaluate_model_CV(estimator, X_train_all, y_train_all, budget, kf,
@@ -272,8 +271,7 @@ def evaluate_model_CV(estimator, X_train_all, y_train_all, budget, kf,
         estimator.cleanup()
         train_time_full = estimator.fit(X_train_all, y_train_all, budget)
         train_time += train_time_full
-    test_time = 0.0
-    return val_loss, train_loss, train_time, test_time
+    return val_loss, train_loss, train_time
 
 
 def compute_estimator(X_train, y_train, X_val, y_val, budget, kf,
@@ -284,11 +282,11 @@ def compute_estimator(X_train, y_train, X_val, y_val, budget, kf,
         objective_name, estimator_name)
     estimator = estimator_class(
         **config_dic, objective_name = objective_name, n_jobs=n_jobs)
-    val_loss, train_loss, train_time, test_time = evaluate_model(
+    val_loss, train_loss, train_time = evaluate_model(
         estimator, X_train, y_train, X_val, y_val, budget, kf, objective_name, 
         eval_method, eval_metric, best_val_loss, train_loss=train_loss)
     all_time = time.time() - start_time
-    return estimator, val_loss, train_loss, train_time, test_time, all_time
+    return estimator, val_loss, train_loss, train_time, all_time
 
 
 def train_estimator(X_train, y_train, config_dic, objective_name,
