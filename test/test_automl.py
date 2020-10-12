@@ -21,6 +21,9 @@ def custom_metric(X_test, y_test, estimator, labels, X_train, y_train):
 class TestAutoML(unittest.TestCase):
 
 
+    def test_dataframe(self):
+        self.test_classification(True)
+
     def test_custom_metric(self):
 
         automl_experiment = AutoML()
@@ -35,7 +38,7 @@ class TestAutoML(unittest.TestCase):
             "model_history": True
         }
         X_train, y_train = load_iris(return_X_y=True)
-        automl_experiment.fit(X_train_all=X_train, y_train_all=y_train,
+        automl_experiment.fit(X_train=X_train, y_train=y_train,
                               **automl_settings)
         print(automl_experiment.classes_)
         print(automl_experiment.predict_proba(X_train))
@@ -54,7 +57,7 @@ class TestAutoML(unittest.TestCase):
                 filename = automl_settings['log_file_name'], time_budget = 6)
         print(train_loss_history)
 
-    def test_classification(self):
+    def test_classification(self, as_frame=False):
 
         automl_experiment = AutoML()
         automl_settings = {
@@ -65,8 +68,8 @@ class TestAutoML(unittest.TestCase):
             "log_training_metric": True,
             "model_history": True
         }
-        X_train, y_train = load_iris(return_X_y=True)
-        automl_experiment.fit(X_train_all=X_train, y_train_all=y_train,
+        X_train, y_train = load_iris(return_X_y=True, as_frame=as_frame)
+        automl_experiment.fit(X_train=X_train, y_train=y_train,
                               **automl_settings)
         print(automl_experiment.classes_)
         print(automl_experiment.predict_proba(X_train)[:5])
@@ -81,7 +84,7 @@ class TestAutoML(unittest.TestCase):
         automl_experiment = AutoML()
         duration = automl_experiment.retrain_from_log(
             log_file_name=automl_settings["log_file_name"],
-            X_train_all=X_train, y_train_all=y_train, 
+            X_train=X_train, y_train=y_train, 
             train_full=True, line_number=1)
         print(duration)
         print(automl_experiment.model)
@@ -99,7 +102,7 @@ class TestAutoML(unittest.TestCase):
             "model_history": True
         }
         X_train, y_train = load_boston(return_X_y=True)
-        automl_experiment.fit(X_train_all=X_train, y_train_all=y_train,
+        automl_experiment.fit(X_train=X_train, y_train=y_train,
                               **automl_settings)
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)
@@ -122,7 +125,7 @@ class TestAutoML(unittest.TestCase):
         }
         X_train = scipy.sparse.random(1554, 21, dtype=int)
         y_train = np.random.randint(3, size=1554)
-        automl_experiment.fit(X_train_all=X_train, y_train_all=y_train,
+        automl_experiment.fit(X_train=X_train, y_train=y_train,
                               **automl_settings)
         print(automl_experiment.classes_)
         print(automl_experiment.predict_proba(X_train))
@@ -144,7 +147,7 @@ class TestAutoML(unittest.TestCase):
         }
         X_train = scipy.sparse.random(300, 900, density=0.0001)
         y_train = np.random.uniform(size=300)
-        automl_experiment.fit(X_train_all=X_train, y_train_all=y_train,
+        automl_experiment.fit(X_train=X_train, y_train=y_train,
                               **automl_settings)
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)
@@ -167,7 +170,7 @@ class TestAutoML(unittest.TestCase):
         }
         X_train = scipy.sparse.eye(900000)
         y_train = np.random.randint(2, size=900000)
-        automl_experiment.fit(X_train_all=X_train, y_train_all=y_train,
+        automl_experiment.fit(X_train=X_train, y_train=y_train,
                               **automl_settings)
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)
@@ -189,7 +192,7 @@ class TestAutoML(unittest.TestCase):
         }
         X_train = scipy.sparse.random(3000, 900, density=0.1)
         y_train = np.random.randint(2, size=3000)
-        automl_experiment.fit(X_train_all=X_train, y_train_all=y_train,
+        automl_experiment.fit(X_train=X_train, y_train=y_train,
                               **automl_settings)
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)
@@ -210,7 +213,7 @@ class TestAutoML(unittest.TestCase):
         }
         X_train = scipy.sparse.random(100, 100)
         y_train = np.random.uniform(size=100)
-        automl_experiment.fit(X_train_all=X_train, y_train_all=y_train,
+        automl_experiment.fit(X_train=X_train, y_train=y_train,
                               **automl_settings)
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)

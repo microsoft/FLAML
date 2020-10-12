@@ -318,7 +318,6 @@ class DataTransformer:
             if num_columns:
                 from sklearn.impute import SimpleImputer
                 from sklearn.compose import ColumnTransformer
-                # X[num_columns] = X[num_columns].astype('float')
                 self.transformer = ColumnTransformer([(
                     'continuous', 
                     SimpleImputer(missing_values=np.nan, strategy='median'), 

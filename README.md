@@ -36,7 +36,7 @@ settings = {
 }
 
 # Train with labeled input data.
-automl.fit(X_train_all = X_train, y_train_all = y_train, **settings)
+automl.fit(X_train = X_train, y_train = y_train, **settings)
 
 # Export the learned model.
 model = automl.model
@@ -69,7 +69,7 @@ automl_settings = {
     "model_history": True
 }
 X_train, y_train = load_iris(return_X_y=True)        
-automl_experiment.fit(X_train_all=X_train, y_train_all=y_train,
+automl_experiment.fit(X_train=X_train, y_train=y_train,
                         **automl_settings)
 print(automl_experiment.predict_proba(X_train))
 print(automl_experiment.model)
@@ -91,7 +91,7 @@ automl_settings = {
     "model_history": True
 }
 X_train, y_train = load_boston(return_X_y=True)       
-automl_experiment.fit(X_train_all=X_train, y_train_all=y_train,
+automl_experiment.fit(X_train=X_train, y_train=y_train,
                         **automl_settings)
 print(automl_experiment.predict(X_train))
 print(automl_experiment.model)

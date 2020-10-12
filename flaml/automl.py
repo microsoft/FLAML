@@ -68,7 +68,7 @@ class AutoML:
             "objective_name": 'classification',
             "log_file_name": 'test/mylog.log',
         }
-        automl_experiment.fit(X_train_all = X_train, y_train_all = y_train,
+        automl_experiment.fit(X_train = X_train, y_train = y_train,
             **automl_settings)
     '''
 
@@ -156,18 +156,24 @@ class AutoML:
     def _validate_data(self, X_train_all, y_train_all, dataframe, label):
         if X_train_all is not None and y_train_all is not None:
             if not (isinstance(X_train_all, np.ndarray) or
-                    scipy.sparse.issparse(X_train_all)):
+                    scipy.sparse.issparse(X_train_all) or
+                    isinstance(X_train_all, pd.DataFrame)
+                   ):
                 raise ValueError(
-                    "X_train_all must be a Numpy array or Scipy sparse matrix.")
-            if not isinstance(y_train_all, np.ndarray):
-                raise ValueError("y_train_all must be a Numpy array.")
+                    "X_train_all must be a numpy array, a pandas dataframe, "
+                    "or Scipy sparse matrix.")
+            if not (isinstance(y_train_all, np.ndarray) or 
+                    isinstance(y_train_all, pd.Series)):
+                raise ValueError(
+            "y_train_all must be a numpy array or a pandas series.")
             if X_train_all.size == 0 or y_train_all.size == 0:
                 raise ValueError("Input data must not be empty.")
-            y_train_all = y_train_all.flatten()
+            if isinstance(y_train_all, np.ndarray):
+                y_train_all = y_train_all.flatten()
             if X_train_all.shape[0] != y_train_all.shape[0]:
                 raise ValueError(
             "# rows in X_train must match length of y_train.")
-            self.df = False
+            self.df = isinstance(X_train_all, pd.DataFrame)
             self.nrow, self.ndim = X_train_all.shape
             if scipy.sparse.issparse(X_train_all): 
                 self.transformer = self.label_transformer = False
@@ -398,8 +404,8 @@ class AutoML:
 
     def retrain_from_log(self,
                          log_file_name,
-                         X_train_all=None,
-                         y_train_all=None,
+                         X_train=None,
+                         y_train=None,
                          dataframe=None,
                          label=None,
                          time_budget=0,
@@ -417,8 +423,8 @@ class AutoML:
         Args:
             time_budget: A float number of the time budget in seconds 
             log_file_name: A string of the log file name
-            X_train_all: A numpy array of training data in shape n*m
-            y_train_all: A numpy array of labels in shape n*1
+            X_train: A numpy array of training data in shape n*m
+            y_train: A numpy array of labels in shape n*1
             objective_name: A string of the task type, e.g.,
                 'classification', 'regression'
             eval_method: A string of resampling strategy, one of
@@ -435,7 +441,7 @@ class AutoML:
                 when line_number>0, time_budget will be ignored
         '''
         self.objective_name = objective_name
-        self._validate_data(X_train_all, y_train_all, dataframe, label)
+        self._validate_data(X_train, y_train, dataframe, label)
 
         logger.info('log file name {}'.format(log_file_name))
 
@@ -522,8 +528,8 @@ class AutoML:
         return eval_method
 
     def fit(self,
-            X_train_all=None,
-            y_train_all=None,
+            X_train=None,
+            y_train=None,
             dataframe=None,
             label=None,
             metric='auto',
@@ -556,11 +562,11 @@ class AutoML:
         '''Find a model for a given task
 
         Args:
-            X_train_all: A numpy array of training data in shape n*m
-            y_train_all: A numpy array of labels in shape n*1
+            X_train: A numpy array or a pandas dataframe of training data in shape n*m
+            y_train: A numpy array or a pandas series of labels in shape n*1
             dataframe: A dataframe of training data including label column
             label: A str of the label column name
-                Note: If X_train_all and y_train_all are provided, 
+                Note: If X_train and y_train are provided, 
                 dataframe and label are ignored;
                 If not, dataframe and label must be provided.
             metric: A string of the metric name or a function,
@@ -599,7 +605,7 @@ class AutoML:
                 metric for each model. 
         '''
         self.objective_name = objective_name
-        self._validate_data(X_train_all, y_train_all, dataframe, label)
+        self._validate_data(X_train, y_train, dataframe, label)
         self.start_time_flag = time.time()
         np.random.seed(0)
         self.learner_selector = learner_selector

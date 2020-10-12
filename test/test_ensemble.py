@@ -31,7 +31,7 @@ class TestEnsemble(unittest.TestCase):
         X, y = fetch_openml(name=dataset, return_X_y=True)
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1,
          random_state=42)
-        automl.fit(X_train_all=X_train, y_train_all=y_train, **automl_settings)
+        automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
 
         pred = automl.predict(X_test)
         pred_prob = automl.predict_proba(X_test)
