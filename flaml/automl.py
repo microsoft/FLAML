@@ -180,6 +180,7 @@ class AutoML:
             if scipy.sparse.issparse(X_train_all): 
                 self.transformer = self.label_transformer = False
                 self.X_train_all, self.y_train_all = X_train_all, y_train_all
+                self.X_val, self.y_val = X_val, y_val
                 return
             X, y = X_train_all, y_train_all
         elif dataframe is not None and label is not None:
