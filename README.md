@@ -132,17 +132,18 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
-<!-- # Community
-
-Join our community! 
-
-For more formal enquiries, you can [`contact us`](). -->
-
 ## Authors
 
 * Chi Wang
 * Qingyun Wu
 * Erkang Zhu
+
+<!-- ## Community -->
+
+<!-- Join our community!  -->
+
+<!-- For more formal enquiries, you can  -->
+[`contact us`](mailto:hpo@microsoft.com).
 
 ## License
 
