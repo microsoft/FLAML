@@ -153,7 +153,8 @@ class AutoML:
             X = self.transformer.transform(X)
         return X
 
-    def _validate_data(self, X_train_all, y_train_all, dataframe, label):
+    def _validate_data(self, X_train_all, y_train_all, dataframe, label,
+        X_val, y_val):
         if X_train_all is not None and y_train_all is not None:
             if not (isinstance(X_train_all, np.ndarray) or
                     scipy.sparse.issparse(X_train_all) or
@@ -173,6 +174,7 @@ class AutoML:
             if X_train_all.shape[0] != y_train_all.shape[0]:
                 raise ValueError(
             "# rows in X_train must match length of y_train.")
+
             self.df = isinstance(X_train_all, pd.DataFrame)
             self.nrow, self.ndim = X_train_all.shape
             if scipy.sparse.issparse(X_train_all): 
@@ -198,15 +200,50 @@ class AutoML:
         self.X_train_all, self.y_train_all = self.transformer.fit_transform(
             X, y, self.objective_name)
         self.label_transformer = self.transformer.label_transformer
-        
+
+        if X_val is not None and y_val is not None:
+            if not (isinstance(X_val, np.ndarray) or
+                scipy.sparse.issparse(X_val) or
+                isinstance(X_val, pd.DataFrame)
+                ):
+                raise ValueError(
+                "X_val must be None, a numpy array, a pandas dataframe, "
+                "or Scipy sparse matrix.")
+            if not (isinstance(y_val, np.ndarray) or 
+                    isinstance(y_val, pd.Series)):
+                raise ValueError(
+            "y_val must be None, a numpy array or a pandas series.")
+            if X_val.size == 0 or y_val.size == 0:
+                raise ValueError(
+            "Validation data are expected to be nonempty. "
+            "Use None for X_val and y_val if no validation data.")
+            if isinstance(y_val, np.ndarray):
+                y_val = y_val.flatten()
+            if X_val.shape[0] != y_val.shape[0]:
+                raise ValueError(
+            "# rows in X_val must match length of y_val.")
+            if self.transformer:
+                self.X_val = self.transformer.transform(X_val)
+            else:
+                self.X_val = X_val
+            if self.label_transformer:
+                self.y_val = self.label_transformer.transform(y_val)
+            else:
+                self.y_val = y_val
+        else:
+            self.X_val = self.y_val = None
+
     def _prepare_data(self,
                       eval_method,
                       split_ratio,
                       n_splits):
-        X_val = y_val = None
+        X_val, y_val = self.X_val, self.y_val
+        if scipy.sparse.issparse(X_val): 
+            X_val = X_val.tocsr()
         X_train_all, y_train_all = self.X_train_all, self.y_train_all
         if scipy.sparse.issparse(X_train_all): 
             X_train_all = X_train_all.tocsr()
+        
         if self.objective_name != 'regression':
             # logger.info(f"label {pd.unique(y_train_all)}")
             label_set, counts = np.unique(y_train_all, return_counts=True)
@@ -241,52 +278,51 @@ class AutoML:
             if isinstance(y_train_all, pd.Series):
                 y_train_all.reset_index(drop=True, inplace=True)
 
-        # logger.info(y_train_all)
-        if self.objective_name != 'regression' and eval_method == 'holdout':
-            label_set, first = np.unique(y_train_all, return_index=True)
-            rest = []
-            last = 0
-            first.sort()
-            for i in range(len(first)):
-                rest.extend(range(last, first[i]))
-                last = first[i] + 1
-            rest.extend(range(last, len(y_train_all)))
-            X_first = X_train_all.iloc[first] if self.df else X_train_all[
-                first]
-            X_rest = X_train_all.iloc[rest] if self.df else X_train_all[rest]
-            y_rest = y_train_all.iloc[rest] if isinstance(
-                y_train_all, pd.Series) else y_train_all[rest]
-        if eval_method == 'holdout':
-            if self.objective_name == 'regression':
-                X_train, X_val, y_train, y_val = train_test_split(
-                    X_train_all,
-                    y_train_all,
-                    test_size=split_ratio,
-                    random_state=1)
-            else:
-                stratify = y_rest if self.split_type=='stratified' else None
-                X_train, X_val, y_train, y_val = train_test_split(
-                    X_rest,
-                    y_rest,
-                    test_size=split_ratio,
-                    stratify=stratify, 
-                    random_state=1)                                                                        
-                X_train = concat(X_first, X_train)
-                y_train = concat(label_set,
-                 y_train) if self.df else np.concatenate([label_set, y_train])
-                X_val = concat(X_first, X_val)
-                y_val = concat(label_set,
-                 y_val) if self.df else np.concatenate([label_set, y_val])
-                _, y_train_counts_elements = np.unique(y_train,
-                    return_counts=True)
-                _, y_val_counts_elements = np.unique(y_val,
-                    return_counts=True)
-                logger.debug(
-                    f"""{self.split_type} split for y_train \
-                        {y_train_counts_elements}, \
-                        y_val {y_val_counts_elements}""")
-        else:
-            X_train, y_train = X_train_all, y_train_all
+        X_train, y_train = X_train_all, y_train_all
+        if X_val is None:
+            if self.objective_name != 'regression' and eval_method == 'holdout':
+                label_set, first = np.unique(y_train_all, return_index=True)
+                rest = []
+                last = 0
+                first.sort()
+                for i in range(len(first)):
+                    rest.extend(range(last, first[i]))
+                    last = first[i] + 1
+                rest.extend(range(last, len(y_train_all)))
+                X_first = X_train_all.iloc[first] if self.df else X_train_all[
+                    first]
+                X_rest = X_train_all.iloc[rest] if self.df else X_train_all[rest]
+                y_rest = y_train_all.iloc[rest] if isinstance(
+                    y_train_all, pd.Series) else y_train_all[rest]
+            if eval_method == 'holdout':
+                if self.objective_name == 'regression':
+                    X_train, X_val, y_train, y_val = train_test_split(
+                        X_train_all,
+                        y_train_all,
+                        test_size=split_ratio,
+                        random_state=1)
+                else:
+                    stratify = y_rest if self.split_type=='stratified' else None
+                    X_train, X_val, y_train, y_val = train_test_split(
+                        X_rest,
+                        y_rest,
+                        test_size=split_ratio,
+                        stratify=stratify, 
+                        random_state=1)                                                                        
+                    X_train = concat(X_first, X_train)
+                    y_train = concat(label_set,
+                    y_train) if self.df else np.concatenate([label_set, y_train])
+                    X_val = concat(X_first, X_val)
+                    y_val = concat(label_set,
+                    y_val) if self.df else np.concatenate([label_set, y_val])
+                    _, y_train_counts_elements = np.unique(y_train,
+                        return_counts=True)
+                    _, y_val_counts_elements = np.unique(y_val,
+                        return_counts=True)
+                    logger.debug(
+                        f"""{self.split_type} split for y_train \
+                            {y_train_counts_elements}, \
+                            y_val {y_val_counts_elements}""")
         self.data_size = X_train.shape[0]
         self.X_train, self.y_train, self.X_val, self.y_val = (
             X_train, y_train, X_val, y_val)
@@ -305,8 +341,6 @@ class AutoML:
             random_state=202020)
 
     def _compute_with_config_base(self,
-                                  X_test,
-                                  y_test,
                                   objective_name,
                                   eval_method,
                                   metric,
@@ -547,9 +581,8 @@ class AutoML:
             n_splits=N_SPLITS,
             log_training_metric=False,
             mem_thres=MEM_THRES,
-            fix_range=False,
-            X_test=None,
-            y_test=None,
+            X_val=None,
+            y_val=None,
             retrain_full=True,
             reset_type='init_gaussian',
             split_type="stratified",
@@ -593,7 +626,6 @@ class AutoML:
                 ['auto', 'cv', 'holdout']
             split_ratio: A float of the valiation data percentage for holdout
             n_splits: An integer of the number of folds for cross-validation
-            mem_thres: A float of the memory size constraint in bytes
             log_type: A string of the log type, one of ['better', 'all', 'new']
                 'better' only logs configs with better loss than previos iters
                 'all' logs all the tried configs
@@ -603,9 +635,12 @@ class AutoML:
                 enough if setting to True.
             log_training_metric: A boolean of whether to log the training 
                 metric for each model. 
+            mem_thres: A float of the memory size constraint in bytes
+            X_val: None | a numpy array or a pandas dataframe of validation data
+            y_val: None | a numpy array or a pandas series of validation labels
         '''
         self.objective_name = objective_name
-        self._validate_data(X_train, y_train, dataframe, label)
+        self._validate_data(X_train, y_train, dataframe, label, X_val, y_val)
         self.start_time_flag = time.time()
         np.random.seed(0)
         self.learner_selector = learner_selector
@@ -651,8 +686,6 @@ class AutoML:
         self._prepare_data(eval_method, split_ratio, n_splits)
         self._compute_with_config = partial(AutoML._compute_with_config_base,
                                             self,
-                                            X_test,
-                                            y_test,
                                             objective_name,
                                             eval_method,
                                             metric,
