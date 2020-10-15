@@ -102,8 +102,12 @@ class TestAutoML(unittest.TestCase):
             "model_history": True
         }
         X_train, y_train = load_boston(return_X_y=True)
-        automl_experiment.fit(X_train=X_train, y_train=y_train,
+        n = len(y_train)
+        automl_experiment.fit(X_train=X_train[:n>>1], y_train=y_train[:n>>1],
+                              X_val=X_train[n>>1:], y_val=y_train[n>>1:],
                               **automl_settings)
+        assert automl_experiment.y_val.shape[0] == n-(n>>1)
+        assert automl_experiment.eval_method == 'holdout'
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)
         print(automl_experiment.config_history)
@@ -147,8 +151,12 @@ class TestAutoML(unittest.TestCase):
         }
         X_train = scipy.sparse.random(300, 900, density=0.0001)
         y_train = np.random.uniform(size=300)
+        X_val = scipy.sparse.random(100, 900, density=0.0001)
+        y_val = np.random.uniform(size=100)
         automl_experiment.fit(X_train=X_train, y_train=y_train,
+                              X_val=X_val, y_val=y_val,
                               **automl_settings)
+        assert automl_experiment.X_val.shape == X_val.shape
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)
         print(automl_experiment.config_history)

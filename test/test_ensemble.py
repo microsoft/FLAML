@@ -17,7 +17,7 @@ class TestEnsemble(unittest.TestCase):
         automl = AutoML()
 
         automl_settings = {
-            "time_budget": 60,
+            "time_budget": 10,
             # "metric": 'roc_auc',
             "objective_name": 'classification',
             "log_file_name": "test/{}.log".format(dataset),

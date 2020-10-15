@@ -174,14 +174,8 @@ class AutoML:
             if X_train_all.shape[0] != y_train_all.shape[0]:
                 raise ValueError(
             "# rows in X_train must match length of y_train.")
-
             self.df = isinstance(X_train_all, pd.DataFrame)
             self.nrow, self.ndim = X_train_all.shape
-            if scipy.sparse.issparse(X_train_all): 
-                self.transformer = self.label_transformer = False
-                self.X_train_all, self.y_train_all = X_train_all, y_train_all
-                self.X_val, self.y_val = X_val, y_val
-                return
             X, y = X_train_all, y_train_all
         elif dataframe is not None and label is not None:
             if not isinstance(dataframe, pd.DataFrame):
@@ -196,11 +190,15 @@ class AutoML:
         else:
             raise ValueError(
         "either X_train_all+y_train_all or dataframe+label need to be provided.")
-        from .util import DataTransformer
-        self.transformer = DataTransformer()
-        self.X_train_all, self.y_train_all = self.transformer.fit_transform(
-            X, y, self.objective_name)
-        self.label_transformer = self.transformer.label_transformer
+        if scipy.sparse.issparse(X_train_all): 
+            self.transformer = self.label_transformer = False
+            self.X_train_all, self.y_train_all = X, y
+        else:
+            from .util import DataTransformer
+            self.transformer = DataTransformer()
+            self.X_train_all, self.y_train_all = self.transformer.fit_transform(
+                X, y, self.objective_name)
+            self.label_transformer = self.transformer.label_transformer
 
         if X_val is not None and y_val is not None:
             if not (isinstance(X_val, np.ndarray) or
@@ -408,7 +406,7 @@ class AutoML:
         self._custom_learners[learner_name] = learner
         self._eti_ini[learner_name] = cost_relative2lgbm
         self._config_space_info[learner_name] = \
-            learner().params_configsearch_info  # config_search_list
+            learner().params_configsearch_info
         self._custom_size_estimate[learner_name] = size_estimate
 
     def get_estimator_from_log(self, log_file_name, line_number, objective):
@@ -453,7 +451,7 @@ class AutoML:
                          train_best=True,
                          train_full=False,
                          line_number=0):
-        '''Retrain from log file to adjust the time effect of last iteration
+        '''Retrain from log file
 
         Args:
             time_budget: A float number of the time budget in seconds 
@@ -552,14 +550,14 @@ class AutoML:
         return training_duration            
 
     def _decide_eval_method(self, time_budget):
+        if self.X_val is not None: return 'holdout'
         nrow, dim = self.nrow, self.ndim
         if nrow * dim / 0.9 < SMALL_LARGE_THRES * (
             time_budget / 3600) and nrow < CV_HOLDOUT_THRESHOLD:
             # time allows or sampling can be used and cv is necessary
-            eval_method = 'cv'
+            return 'cv'
         else:
-            eval_method = 'holdout'
-        return eval_method
+            return 'holdout'
 
     def fit(self,
             X_train=None,
@@ -661,12 +659,12 @@ class AutoML:
                 estimator_list += ['lrl1',]
         logger.info("List of ML learners in AutoML Run: {}".format(estimator_list))
 
-        if eval_method == 'auto':
+        if eval_method == 'auto' or self.X_val is not None:
             eval_method = self._decide_eval_method(time_budget)
         self.eval_method = eval_method
         logger.info("Evaluation method: {}".format(eval_method))
         
-        retrain_full = retrain_full and eval_method == 'holdout'
+        retrain_full &= (eval_method == 'holdout' and self.X_val is None)
         sample &= (eval_method != 'cv')
         if 'auto' == metric:
             if 'binary' in objective_name:
