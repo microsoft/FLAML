@@ -154,7 +154,7 @@ class AutoML:
         return X
 
     def _validate_data(self, X_train_all, y_train_all, dataframe, label,
-        X_val, y_val):
+        X_val=None, y_val=None):
         if X_train_all is not None and y_train_all is not None:
             if not (isinstance(X_train_all, np.ndarray) or
                     scipy.sparse.issparse(X_train_all) or
