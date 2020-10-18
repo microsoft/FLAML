@@ -391,22 +391,22 @@ class AutoML:
 
     def add_learner(self,
                     learner_name,
-                    learner,
+                    learner_class,
                     size_estimate=lambda config: 'unknown',
                     cost_relative2lgbm=1):
         '''Add a customized learner
 
         Args:
             learner_name: A string of the learner's name
-            learner: A subclass of BaseEstimator
+            learner_class: A subclass of BaseEstimator
             size_estimate: A function from a config to its memory size in float
             cost_relative2lgbm: A float number for the training cost ratio with
                 respect to lightgbm (when both use the initial config)
         '''
-        self._custom_learners[learner_name] = learner
+        self._custom_learners[learner_name] = learner_class
         self._eti_ini[learner_name] = cost_relative2lgbm
         self._config_space_info[learner_name] = \
-            learner().params_configsearch_info
+            learner_class.params_configsearch_info
         self._custom_size_estimate[learner_name] = size_estimate
 
     def get_estimator_from_log(self, log_file_name, line_number, objective):
