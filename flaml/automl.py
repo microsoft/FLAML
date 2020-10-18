@@ -25,22 +25,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def prepare_sample_train_data(X_train, y_train, X_val, y_val, sample_size):
-    full_size = len(y_train)
-    if sample_size <= full_size:
-        if isinstance(X_train, pd.DataFrame):
-            sampled_X_train = X_train.iloc[:sample_size]
-        else:
-            sampled_X_train = X_train[:sample_size]
-        sampled_y_train = y_train[:sample_size]
-        sampled_X_val, sampled_y_val = X_val, y_val
-    else:
-        sampled_X_train, sampled_y_train = concat(X_train, X_val), \
-            np.concatenate([y_train, y_val])
-        sampled_X_val, sampled_y_val = [], []
-    return sampled_X_train, sampled_y_train, sampled_X_val, sampled_y_val
-
-
 class AutoML:
     '''The AutoML class
 
@@ -325,11 +309,6 @@ class AutoML:
         self.data_size = X_train.shape[0]
         self.X_train, self.y_train, self.X_val, self.y_val = (
             X_train, y_train, X_val, y_val)
-        self._sample = partial(prepare_sample_train_data,
-                            self.X_train,
-                            self.y_train,
-                            self.X_val,
-                            self.y_val)
         if self.split_type == "stratified":
             logger.info("Using StratifiedKFold")
             self.kf = RepeatedStratifiedKFold(n_splits=n_splits, n_repeats=1,
@@ -338,6 +317,21 @@ class AutoML:
             logger.info("Using RepeatedKFold")
             self.kf = RepeatedKFold(n_splits=n_splits, n_repeats=1,
             random_state=202020)
+
+    def prepare_sample_train_data(self, sample_size):
+        full_size = len(self.y_train)
+        if sample_size <= full_size:
+            if isinstance(self.X_train, pd.DataFrame):
+                sampled_X_train = self.X_train.iloc[:sample_size]
+            else:
+                sampled_X_train = self.X_train[:sample_size]
+            sampled_y_train = self.y_train[:sample_size]
+            sampled_X_val, sampled_y_val = self.X_val, self.y_val
+        else:
+            sampled_X_train, sampled_y_train = concat(self.X_train,
+             self.X_val), np.concatenate([self.y_train, self.y_val])
+            sampled_X_val = sampled_y_val = None
+        return sampled_X_train, sampled_y_train, sampled_X_val, sampled_y_val
 
     def _compute_with_config_base(self,
                                   objective_name,
@@ -349,7 +343,7 @@ class AutoML:
                                   config,
                                   sample_size):
         sampled_X_train, sampled_y_train, sampled_X_val, sampled_y_val = \
-            self._sample(sample_size)
+            self.prepare_sample_train_data(sample_size)
         time_left = self.time_budget - self.time_from_start
         budget = time_left if sample_size == self.data_size else \
             time_left/2*sample_size/self.data_size
@@ -375,7 +369,8 @@ class AutoML:
                                 estimator,
                                 config,
                                 sample_size):
-        sampled_X_train, sampled_y_train, __, _ = self._sample(sample_size)
+        sampled_X_train, sampled_y_train, _, _ = self.prepare_sample_train_data(
+            sample_size)
         budget = None if self.time_budget is None else (self.time_budget -
          self.time_from_start)
         MODEL, train_time = train_estimator(

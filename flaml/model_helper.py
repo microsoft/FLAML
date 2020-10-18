@@ -192,7 +192,7 @@ class LGBMEstimator(BaseEstimator):
             self.t2 = self._fit(X_train, y_train)
             self.time_per_iter = (self.t2 - self.t1)/(
                 self.params["n_estimators"]-1) if self.t2 > self.t1 \
-                else self.t1
+                else self.t1 if self.t1 else 0.001
             self.train_size = X_train.shape[0]
             if self.t1+self.t2>=budget or n_iter==self.params["n_estimators"]:
                 self.params["n_estimators"] = n_iter
