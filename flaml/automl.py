@@ -14,11 +14,11 @@ from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold, \
 from sklearn.utils import shuffle
 import pandas as pd
 
-from .model_compute_helper import compute_estimator, train_estimator, \
-    get_estimator_name_from_log
+from .ml import compute_estimator, train_estimator, \
+    get_estimator_name_from_log, get_classification_objective
 from .config import MIN_SAMPLE_TRAIN, MEM_THRES, ETI_INI, \
     SMALL_LARGE_THRES, CV_HOLDOUT_THRESHOLD, SPLIT_RATIO, N_SPLITS
-from .util import save_info_helper, get_classification_objective, concat
+from .data import save_info_helper, concat
 from .search import ParamSearch
 
 import logging
@@ -74,7 +74,7 @@ class AutoML:
 
     @property
     def model(self):
-        if self._model: return self._model.model
+        if self._trained_estimator: return self._trained_estimator.model
         else: return None
 
     @property
@@ -93,8 +93,8 @@ class AutoML:
     def classes_(self):
         if self.label_transformer: 
             return self.label_transformer.classes_.tolist()
-        if self._model:
-            return self._model.model.classes_.tolist()
+        if self._trained_estimator:
+            return self._trained_estimator.model.classes_.tolist()
         return None
 
     def predict(self, X_test):
@@ -108,7 +108,7 @@ class AutoML:
             label for an instance.
         '''
         X_test = self.preprocess(X_test)
-        y_pred = self._model.predict(X_test)
+        y_pred = self._trained_estimator.predict(X_test)
         if y_pred.ndim > 1: y_pred = y_pred.flatten()
         if self.label_transformer:
             return self.label_transformer.inverse_transform(pd.Series(
@@ -127,7 +127,7 @@ class AutoML:
             (i,j) is the probability for instance i to be in class j.
         '''
         X_test = self.preprocess(X_test)
-        proba = self._model.predict_proba(X_test)
+        proba = self._trained_estimator.predict_proba(X_test)
         return proba
 
     def preprocess(self, X):
@@ -178,7 +178,7 @@ class AutoML:
             self.transformer = self.label_transformer = False
             self.X_train_all, self.y_train_all = X, y
         else:
-            from .util import DataTransformer
+            from .data import DataTransformer
             self.transformer = DataTransformer()
             self.X_train_all, self.y_train_all = self.transformer.fit_transform(
                 X, y, self.objective_name)
@@ -326,50 +326,40 @@ class AutoML:
             else:
                 sampled_X_train = self.X_train[:sample_size]
             sampled_y_train = self.y_train[:sample_size]
-            sampled_X_val, sampled_y_val = self.X_val, self.y_val
         else:
             sampled_X_train, sampled_y_train = concat(self.X_train,
              self.X_val), np.concatenate([self.y_train, self.y_val])
-            sampled_X_val = sampled_y_val = None
-        return sampled_X_train, sampled_y_train, sampled_X_val, sampled_y_val
+        return sampled_X_train, sampled_y_train
 
     def _compute_with_config_base(self,
-                                  objective_name,
-                                  eval_method,
                                   metric,
                                   compute_train_loss,
-                                  n_jobs,
                                   estimator,
                                   config,
                                   sample_size):
-        sampled_X_train, sampled_y_train, sampled_X_val, sampled_y_val = \
-            self.prepare_sample_train_data(sample_size)
+        sampled_X_train, sampled_y_train = self.prepare_sample_train_data(
+            sample_size)
         time_left = self.time_budget - self.time_from_start
         budget = time_left if sample_size == self.data_size else \
             time_left/2*sample_size/self.data_size
         return compute_estimator(sampled_X_train,
                                  sampled_y_train,
-                                 sampled_X_val,
-                                 sampled_y_val,
+                                 self.X_val,
+                                 self.y_val,
                                  budget,
                                  self.kf,
                                  config,
-                                 objective_name,
+                                 self.objective_name,
                                  estimator,
-                                 eval_method,
+                                 self.eval_method,
                                  metric,
                                  self.best_loss,
-                                 n_jobs,
+                                 self.n_jobs,
                                  self._custom_learners.get(estimator),
                                  compute_train_loss)
 
-    def _train_with_config_base(self,
-                                objective_name,
-                                n_jobs,
-                                estimator,
-                                config,
-                                sample_size):
-        sampled_X_train, sampled_y_train, _, _ = self.prepare_sample_train_data(
+    def _train_with_config(self, estimator, config, sample_size):
+        sampled_X_train, sampled_y_train = self.prepare_sample_train_data(
             sample_size)
         budget = None if self.time_budget is None else (self.time_budget -
          self.time_from_start)
@@ -377,9 +367,9 @@ class AutoML:
             sampled_X_train,
             sampled_y_train,
             config,
-            objective_name,
+            self.objective_name,
             estimator,
-            n_jobs,
+            self.n_jobs,
             self._custom_learners.get(estimator),
             budget)
         return MODEL, train_time
@@ -507,9 +497,9 @@ class AutoML:
                                 best_val_loss = val_loss
                                 sample_size = size
                 if not training_duration: 
-                    from .model_helper import BaseEstimator
-                    self._model = BaseEstimator()
-                    self._model.model = None
+                    from .model import BaseEstimator
+                    self._trained_estimator = BaseEstimator()
+                    self._trained_estimator.model = None
                     return training_duration
         best_estimator = get_estimator_name_from_log(best[8])
         best_config = ast.literal_eval(best[5])
@@ -523,7 +513,7 @@ class AutoML:
         np.random.seed(0)
         self.objective_name = objective_name
         if self.objective_name == 'classification':
-            objective_name = get_classification_objective(
+            self.objective_name = get_classification_objective(
                 len(np.unique(self.y_train_all)))
             assert split_type in ["stratified", "uniform"]
             self.split_type = split_type
@@ -535,12 +525,9 @@ class AutoML:
             eval_method = self._decide_eval_method(time_budget)
         self.modelcount = 0
         self._prepare_data(eval_method, split_ratio, n_splits)
-        self._train_with_config = partial(AutoML._train_with_config_base,
-                                        self,
-                                        objective_name,
-                                        n_jobs)
         self.time_budget = None
-        self._model = self._train_with_config(
+        self.n_jobs = n_jobs
+        self._trained_estimator = self._train_with_config(
             best_estimator, best_config, sample_size)[0]
         return training_duration            
 
@@ -578,12 +565,8 @@ class AutoML:
             X_val=None,
             y_val=None,
             retrain_full=True,
-            reset_type='init_gaussian',
             split_type="stratified",
-            base_change='sqrtK',
             learner_selector='sample',
-            use_dual_dir=True,
-            move_type='geo',
             ):
         '''Find a model for a given task
 
@@ -640,12 +623,11 @@ class AutoML:
         self.learner_selector = learner_selector
 
         if self.objective_name == 'classification':
-            objective_name = get_classification_objective(
+            self.objective_name = get_classification_objective(
                 len(np.unique(self.y_train_all)))
             assert split_type in ["stratified", "uniform"]
             self.split_type = split_type
         else:
-            objective_name = self.objective_name
             self.split_type = "uniform"
 
         if 'auto' == estimator_list:
@@ -659,8 +641,9 @@ class AutoML:
         self.eval_method = eval_method
         logger.info("Evaluation method: {}".format(eval_method))
         
-        retrain_full &= (eval_method == 'holdout' and self.X_val is None)
-        sample &= (eval_method != 'cv')
+        self.retrain_full = retrain_full and (eval_method == 'holdout' and
+         self.X_val is None)
+        self.sample = sample and (eval_method != 'cv')
         if 'auto' == metric:
             if 'binary' in objective_name:
                 metric = 'roc_auc'
@@ -680,20 +663,25 @@ class AutoML:
         self._prepare_data(eval_method, split_ratio, n_splits)
         self._compute_with_config = partial(AutoML._compute_with_config_base,
                                             self,
-                                            objective_name,
-                                            eval_method,
                                             metric,
-                                            log_training_metric,
-                                            n_jobs)
-        self._train_with_config = partial(AutoML._train_with_config_base,
-                                          self,
-                                          objective_name,
-                                          n_jobs)
+                                            log_training_metric)
+        self.time_budget = time_budget
+        self.estimator_list = estimator_list
+        self.ensemble = ensemble
+        self.max_iter = max_iter
+        self.mem_thres = mem_thres
+        self.log_type = log_type
+        self.split_ratio = split_ratio
+        self.save_model_history = model_history
+        self.n_jobs = n_jobs
+        self.search()
+        logger.info("fit succeeded")
+
+    def search(self):
         self.searchers = {}
         # initialize the searchers
         self.eti = []
         self.best_loss = float('+inf')
-        self.time_budget = time_budget
         self.best_train_time = 0
         self.time_from_start = 0
         self.estimator_index = -1
@@ -701,26 +689,24 @@ class AutoML:
         self._model_history = {}
         self._config_history = {}
         self.max_iter_per_learner = 10000 # TODO
-        self.iter_per_learner = dict([(e,0) for e in estimator_list])
+        self.iter_per_learner = dict([(e,0) for e in self.estimator_list])
         self.fullsize = False
-        self._model = None
-        self.ensemble = ensemble
-        if ensemble: self.best_model = {}
-        for self._track_iter in range(max_iter):
+        self._trained_estimator = None
+        if self.ensemble: self.best_model = {}
+        for self._track_iter in range(self.max_iter):
             if self.estimator_index == -1:
-                estimator = estimator_list[0]
+                estimator = self.estimator_list[0]
             else:
-                estimator = self._select_estimator(estimator_list)
+                estimator = self._select_estimator(self.estimator_list)
                 if not estimator: break
             logger.info(f"iteration {self._track_iter}"
               f"  current learner {estimator}")
             if estimator in self.searchers:
-                model = self.searchers[estimator].model
+                model = self.searchers[estimator].trained_estimator
                 improved = self.searchers[estimator].search1step(
                     global_best_loss=self.best_loss,
-                    retrain_full=retrain_full,
-                    mem_thres=mem_thres,
-                    reset_type=reset_type)
+                    retrain_full=self.retrain_full,
+                    mem_thres=self.mem_thres)
             else:
                 model = None
                 self.searchers[estimator] = ParamSearch(
@@ -729,23 +715,20 @@ class AutoML:
                     self._compute_with_config,
                     self._train_with_config,
                     self.save_helper,
-                    MIN_SAMPLE_TRAIN if sample else self.data_size,
-                    objective_name,
-                    log_type,
-                    base_change,
-                    use_dual_dir,
-                    move_type,
+                    MIN_SAMPLE_TRAIN if self.sample else self.data_size,
+                    self.objective_name,
+                    self.log_type,
                     self._config_space_info.get(estimator),
                     self._custom_size_estimate.get(estimator),
-                    split_ratio)
-                self.searchers[estimator].search_begin(time_budget,
+                    self.split_ratio)
+                self.searchers[estimator].search_begin(self.time_budget,
                                                        self.start_time_flag)
                 if self.estimator_index == -1:
                     eti_base = self._eti_ini[estimator]
                     self.eti.append(
                         self.searchers[estimator]
                             .expected_time_improvement_search())
-                    for e in estimator_list[1:]:
+                    for e in self.estimator_list[1:]:
                         self.eti.append(
                             self._eti_ini[e]/eti_base*self.eti[0])
                     self.estimator_index = 0
@@ -762,15 +745,16 @@ class AutoML:
                 self._config_history[self.time_from_start] = (
                     estimator,
                     self.searchers[estimator].best_config)
-                if model_history:
+                if self.save_model_history:
                     self._model_history[self.time_from_start] = self.searchers[
-                        estimator].model.model
-                elif self._model:
-                    del self._model
-                    self._model = None
-                self._model = self.searchers[estimator].model
+                        estimator].trained_estimator.model
+                elif self._trained_estimator:
+                    del self._trained_estimator
+                    self._trained_estimator = None
+                self._trained_estimator = self.searchers[
+                    estimator].trained_estimator
                 self._best_iteration = self._track_iter
-            if model and improved and not model_history:
+            if model and improved and not self.save_model_history:
                 model.cleanup()
 
             logger.info(
@@ -781,31 +765,32 @@ class AutoML:
                           self._best_estimator,
                           self.best_loss))
                   
-            if self.time_from_start >= time_budget:
+            if self.time_from_start >= self.time_budget:
                 break
-            if ensemble:
-                time_left = self.time_from_start-time_budget
+            if self.ensemble:
+                time_left = self.time_from_start-self.time_budget
                 time_ensemble = self.searchers[self._best_estimator].train_time
                 if time_left < time_ensemble < 2*time_left:
                     break
             if self.searchers[
-                estimator].train_time>time_budget-self.time_from_start:
+                estimator].train_time>self.time_budget-self.time_from_start:
                 self.iter_per_learner[estimator] = self.max_iter_per_learner
         self.best_loss_info = self.save_helper.update_best()
         if self.searchers:
             self._selected = self.searchers[self._best_estimator]
-            self._model = self._selected.model
+            self._trained_estimator = self._selected.trained_estimator
             self.modelcount = sum(self.searchers[estimator].model_count
                                 for estimator in self.searchers)
-            logger.info(self._model.model)
-            if ensemble:
+            logger.info(self._trained_estimator.model)
+            if self.ensemble:
                 searchers = list(self.searchers.items())
                 searchers.sort(key=lambda x:x[1].best_loss)
-                estimators = [(x[0],x[1].model) for x in searchers[:2]]
-                estimators += [(x[0],x[1].model) for x in searchers[2:]
-                if x[1].best_loss<4*self._selected.best_loss]            
+                estimators = [(x[0],x[1].trained_estimator) for x in searchers[
+                    :2]]
+                estimators += [(x[0],x[1].trained_estimator) for x in searchers[
+                    2:] if x[1].best_loss<4*self._selected.best_loss]            
                 logger.info(estimators)
-                if objective_name != "regression":
+                if self.objective_name != "regression":
                     from sklearn.ensemble import StackingClassifier as Stacker
                     for e in estimators:
                         e[1]._estimator_type = 'classifier'
@@ -819,23 +804,21 @@ class AutoML:
                         if e!='nn' and s.best_loss < best_loss:
                             best_m, best_loss = s.model, s.best_loss
                 else: 
-                    best_m = self._model
-                stacker = Stacker(estimators, best_m, n_jobs=n_jobs, 
+                    best_m = self._trained_estimator
+                stacker = Stacker(estimators, best_m, n_jobs=self.n_jobs, 
                     passthrough = True)
                 stacker.fit(self.X_train_all, self.y_train_all)
-                self._model = stacker
-                self._model.model = stacker
+                self._trained_estimator = stacker
+                self._trained_estimator.model = stacker
         else:
-            self._selected = self._model = None
+            self._selected = self._trained_estimator = None
             self.modelcount = 0
 
-        logger.info("fit succeeded")
-
     def __del__(self):
-        if hasattr(self, '_model') and self._model and hasattr(
-            self._model, 'cleanup'):
-            self._model.cleanup()
-            del self._model
+        if hasattr(self, '_trained_estimator') and self._trained_estimator \
+            and hasattr(self._trained_estimator, 'cleanup'):
+            self._trained_estimator.cleanup()
+            del self._trained_estimator
 
     def _select_estimator(self, estimator_list):
         time_left = self.time_budget - self.time_from_start

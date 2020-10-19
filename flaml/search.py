@@ -4,16 +4,27 @@
 '''
 
 from functools import partial
-from .model_compute_helper import generate_config_ini, generate_config_max, \
-    generate_config_min, train_estimator
+from .ml import train_estimator
 import time
 import math
 import numpy as np
-from .model_config import config_space, estimator_size
+from .space import config_space, estimator_size, get_config_values, \
+    generate_config_ini, generate_config_max, generate_config_min
 from .config import SPLIT_RATIO, MIN_SAMPLE_TRAIN, \
     HISTORY_SIZE, MEM_THRES, BASE_Const, BASE_LOWER_BOUND
-from .util import save_info_helper, rand_vector_unit_sphere, \
-    rand_vector_gaussian, get_config_values
+from .data import save_info_helper
+from random import gauss
+
+
+def rand_vector_unit_sphere(dims):
+    vec = [gauss(0, 1) for i in range(dims)]
+    mag = sum(x**2 for x in vec) ** .5
+    return [x/mag for x in vec]
+
+
+def rand_vector_gaussian(dims):
+    vec = [gauss(0, 1) for i in range(dims)]
+    return vec
 
 
 class ParamSearch:
@@ -25,8 +36,9 @@ class ParamSearch:
     def __init__(self, estimator, data_size,
      compute_with_config, train_with_config, save_info_helper=None, 
      init_sample_size=MIN_SAMPLE_TRAIN, objective_name='regression', 
-     log_type='better', base_change='sqrtK', use_dual_dir=True, move_type='geo',
-     config_space_info=None, size_estimator=None, split_ratio=SPLIT_RATIO):
+     log_type='better', config_space_info=None, size_estimator=None, 
+     split_ratio=SPLIT_RATIO, base_change='sqrtK', use_dual_dir=True, 
+     move_type='geo'):
         self.log_type = log_type
         self.base_change = base_change
         if init_sample_size > data_size:
@@ -274,7 +286,7 @@ class ParamSearch:
             if val_loss < self.best_loss:
                 self.best_config = [self.config, self.model_count]
                 if not from_history: 
-                    self.model = model
+                    self.trained_estimator = model
                     # print(model)
                 else: print(val_loss, self.best_loss)
                 self.best_loss = val_loss
@@ -398,7 +410,7 @@ class ParamSearch:
         # self.config to the beginning of training self.config
         self.old_loss_time = self.new_loss_time = 0
 
-        self.model = None
+        self.trained_estimator = None
         self.model_count = 0
         self.K = 0
         self.old_modelcount = 0
@@ -469,7 +481,7 @@ class ParamSearch:
         return estimator_type, current_search_config
 
     def search1step(self, global_best_loss=float('+inf'),
-     retrain_full=True, mem_thres=MEM_THRES, reset_type='org'):
+     retrain_full=True, mem_thres=MEM_THRES, reset_type='init_gaussian'):
         # try to increase sample size
         self.try_increase_sample_size()
         # decide current_search_config according to estimator_type

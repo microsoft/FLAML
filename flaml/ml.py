@@ -3,70 +3,14 @@
  * Licensed under MICROSOFT RESEARCH LICENSE TERMS. 
 '''
  
-from .model_helper import *
+from .model import *
 import time
 from sklearn.metrics import mean_squared_error, r2_score, roc_auc_score, \
     accuracy_score, mean_absolute_error, log_loss, average_precision_score, \
         f1_score
 import numpy as np
 from sklearn.model_selection import RepeatedStratifiedKFold, KFold
-from .util import concat
-
-
-def generate_config_ini(estimator, estimator_configspace):
-
-
-    config_dic = {}
-    config_dic_more = {}
-    config_type_dic = {}
-    for config_name, config in estimator_configspace.items():
-        name, lower, upper, init = config.name, config.lower, config.upper, config.init
-        type_, change_type, complexity_related = \
-            config.type, config.change_type, config.complexity_related
-        config_type_dic[name] = type_
-        if complexity_related:
-            config_dic[name] = init
-        else:
-            config_dic_more[name] = init
-    return config_dic, config_dic_more, {**config_dic, **config_dic_more}, \
-        config_type_dic
-
-
-def generate_config_min(estimator,estimator_configspace, max_config_size):
-
-
-    config_dic = {}
-    config_dic_more = {}
-    for config_name, config in estimator_configspace.items():
-        name, lower, upper, init = config.name, config.lower, config.upper, config.init
-        type_, change_type, complexity_related = \
-            config.type, config.change_type, config.complexity_related
-        if complexity_related:
-            config_dic[name] = lower
-        else:
-            config_dic_more[name] = lower
-
-    return config_dic, config_dic_more, {**config_dic, **config_dic_more}
-
-
-def generate_config_max(estimator, estimator_configspace, max_config_size):
-
-
-    config_dic = {}
-    config_dic_more = {}
-    for config_name, config in estimator_configspace.items():
-        name, lower, upper, init = config.name, config.lower, config.upper, \
-            config.init
-        type_, change_type, complexity_related = \
-            config.type, config.change_type, config.complexity_related
-        if complexity_related:
-            if name in ('n_estimators', 'max_leaves'):
-                config_dic[name] = min(upper, max_config_size)
-            else:
-                config_dic[name] = upper
-        else:
-            config_dic_more[name] = upper
-    return config_dic, config_dic_more, {**config_dic, **config_dic_more}
+from .data import concat
 
 
 def get_estimator_class(objective_name, estimator_name):
@@ -119,7 +63,7 @@ def sklearn_metric_loss_score(metric_name, y_predict, y_true, labels=None):
     if 'r2' in metric_name:
         score = 1.0 - r2_score(y_true, y_predict)
     elif metric_name == 'rmse':
-        score = sqrt(mean_squared_error(y_true, y_predict))
+        score = np.sqrt(mean_squared_error(y_true, y_predict))
     elif metric_name == 'mae':
         score = mean_absolute_error(y_true, y_predict)
     elif metric_name == 'mse':
@@ -334,5 +278,13 @@ def get_estimator_name_from_log(name):
     else:
         estimator_name = None
     return estimator_name
+
+
+def get_classification_objective(num_labels: int) -> str:
+    if num_labels == 2:
+        objective_name = 'binary:logistic'
+    else:
+        objective_name = 'multi:softmax'
+    return objective_name
 
 

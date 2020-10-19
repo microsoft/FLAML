@@ -1,6 +1,6 @@
 from flaml.automl import AutoML
-from flaml.model_helper import BaseEstimator
-from flaml.util import get_output_from_log
+from flaml.model import BaseEstimator
+from flaml.data import get_output_from_log
 
 from flaml.version import __version__
 

@@ -3,7 +3,7 @@ from sklearn.datasets import fetch_openml
 from flaml.automl import AutoML
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
-# from flaml.util import load_openml_task
+# from flaml.data import load_openml_task
 
 dataset = "kc1"
 task_id = 3917

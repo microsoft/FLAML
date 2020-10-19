@@ -4,7 +4,6 @@
 '''
 
 import numpy as np
-from random import gauss
 from scipy.sparse import vstack, issparse
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
@@ -57,51 +56,6 @@ class save_info_helper:
 
     def __del__(self):
         self.file_save.close()
-
-
-def get_classification_objective(num_labels: int) -> str:
-    if num_labels == 2:
-        objective_name = 'binary:logistic'
-    else:
-        objective_name = 'multi:softmax'
-    return objective_name
-
-
-def rand_vector_unit_sphere(dims):
-    vec = [gauss(0, 1) for i in range(dims)]
-    mag = sum(x**2 for x in vec) ** .5
-    return [x/mag for x in vec]
-
-
-def rand_vector_gaussian(dims):
-    vec = [gauss(0, 1) for i in range(dims)]
-    return vec
-
-
-def softmax(df):
-    if len(df.shape) == 1:
-        df[df > 20] = 20
-        df[df < -20] = -20
-        ppositive = 1 / (1 + np.exp(-df))
-        ppositive[ppositive > 0.999999] = 1
-        ppositive[ppositive < 0.0000001] = 0
-        return np.transpose(np.array((1 - ppositive, ppositive)))
-    else:
-        tmp = df - np.max(df, axis=1).reshape((-1, 1))
-        tmp = np.exp(tmp)
-        return tmp / np.sum(tmp, axis=1).reshape((-1, 1))
-
-
-def get_config_values(config_dic, config_type_dic):
-    value_list = []
-    for k in config_dic.keys():
-        org_v = config_dic[k]
-        if config_type_dic[k] == int:
-            v = int(round(org_v))
-            value_list.append(v)
-        else:
-            value_list.append(org_v)
-    return value_list
 
 
 def load_openml_dataset(dataset_id, data_dir=None, random_state=0):

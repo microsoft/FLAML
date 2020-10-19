@@ -183,3 +183,67 @@ def estimator_size(config, estimator):
         model_size = 1.0
         # raise NotImplementedError
     return model_size
+
+
+def generate_config_ini(estimator, estimator_configspace):
+
+
+    config_dic = {}
+    config_dic_more = {}
+    config_type_dic = {}
+    for _, config in estimator_configspace.items():
+        name, init = config.name, config.init
+        type_, complexity_related = config.type, config.complexity_related
+        config_type_dic[name] = type_
+        if complexity_related:
+            config_dic[name] = init
+        else:
+            config_dic_more[name] = init
+    return config_dic, config_dic_more, {**config_dic, **config_dic_more}, \
+        config_type_dic
+
+
+def generate_config_min(estimator,estimator_configspace, max_config_size):
+
+
+    config_dic = {}
+    config_dic_more = {}
+    for _, config in estimator_configspace.items():
+        name, lower = config.name, config.lower
+        complexity_related = config.complexity_related
+        if complexity_related:
+            config_dic[name] = lower
+        else:
+            config_dic_more[name] = lower
+
+    return config_dic, config_dic_more, {**config_dic, **config_dic_more}
+
+
+def generate_config_max(estimator, estimator_configspace, max_config_size):
+
+
+    config_dic = {}
+    config_dic_more = {}
+    for _, config in estimator_configspace.items():
+        name, upper = config.name, config.upper
+        complexity_related = config.complexity_related
+        if complexity_related:
+            if name in ('n_estimators', 'max_leaves'):
+                config_dic[name] = min(upper, max_config_size)
+            else:
+                config_dic[name] = upper
+        else:
+            config_dic_more[name] = upper
+    return config_dic, config_dic_more, {**config_dic, **config_dic_more}
+
+
+def get_config_values(config_dic, config_type_dic):
+    value_list = []
+    for k in config_dic.keys():
+        org_v = config_dic[k]
+        if config_type_dic[k] == int:
+            v = int(round(org_v))
+            value_list.append(v)
+        else:
+            value_list.append(org_v)
+    return value_list
