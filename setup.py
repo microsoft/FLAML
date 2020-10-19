@@ -13,7 +13,7 @@ with open(os.path.join(here, "flaml/version.py")) as fp:
     exec(fp.read(), version)
 __version__ = version["__version__"]
 
-install_requires=[
+install_requires = [
     "NumPy>=1.16.2",
     "lightgbm>=2.3.1",
     "xgboost>=0.90",
@@ -42,7 +42,9 @@ setuptools.setup(
             "rgf-python",
         ],
         "test": [
-            "nose>=1.3.7",
+            "flake8>=3.8.4",
+            "pytest>=6.1.1",
+            "coverage>=5.3",
         ],
     },
     classifiers=[],
