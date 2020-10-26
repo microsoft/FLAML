@@ -20,6 +20,7 @@ from .config import MIN_SAMPLE_TRAIN, MEM_THRES, ETI_INI, \
     SMALL_LARGE_THRES, CV_HOLDOUT_THRESHOLD, SPLIT_RATIO, N_SPLITS
 from .data import save_info_helper, concat
 from .search import ParamSearch
+from .training_log import training_log_reader
 
 import logging
 logger = logging.getLogger(__name__)
@@ -56,7 +57,6 @@ class AutoML:
             **automl_settings)
     '''
 
-
     def __init__(self):
         self._eti_ini = ETI_INI
         self._custom_learners = {}
@@ -74,8 +74,10 @@ class AutoML:
 
     @property
     def model(self):
-        if self._trained_estimator: return self._trained_estimator.model
-        else: return None
+        if self._trained_estimator:
+            return self._trained_estimator.model
+        else:
+            return None
 
     @property
     def best_estimator(self):
@@ -91,7 +93,7 @@ class AutoML:
 
     @property
     def classes_(self):
-        if self.label_transformer: 
+        if self.label_transformer:
             return self.label_transformer.classes_.tolist()
         if self._trained_estimator:
             return self._trained_estimator.model.classes_.tolist()
@@ -109,11 +111,13 @@ class AutoML:
         '''
         X_test = self.preprocess(X_test)
         y_pred = self._trained_estimator.predict(X_test)
-        if y_pred.ndim > 1: y_pred = y_pred.flatten()
+        if y_pred.ndim > 1:
+            y_pred = y_pred.flatten()
         if self.label_transformer:
             return self.label_transformer.inverse_transform(pd.Series(
                 y_pred))
-        else: return y_pred
+        else:
+            return y_pred
 
     def predict_proba(self, X_test):
         '''Predict the probability of each class from features, only works for
@@ -131,33 +135,33 @@ class AutoML:
         return proba
 
     def preprocess(self, X):
-        if scipy.sparse.issparse(X): 
+        if scipy.sparse.issparse(X):
             X = X.tocsr()
         if self.transformer:
             X = self.transformer.transform(X)
         return X
 
     def _validate_data(self, X_train_all, y_train_all, dataframe, label,
-        X_val=None, y_val=None):
+                       X_val=None, y_val=None):
         if X_train_all is not None and y_train_all is not None:
-            if not (isinstance(X_train_all, np.ndarray) or
-                    scipy.sparse.issparse(X_train_all) or
-                    isinstance(X_train_all, pd.DataFrame)
-                   ):
+            if not (isinstance(X_train_all, np.ndarray)
+                    or scipy.sparse.issparse(X_train_all)
+                    or isinstance(X_train_all, pd.DataFrame)
+                    ):
                 raise ValueError(
                     "X_train_all must be a numpy array, a pandas dataframe, "
                     "or Scipy sparse matrix.")
-            if not (isinstance(y_train_all, np.ndarray) or 
-                    isinstance(y_train_all, pd.Series)):
+            if not (isinstance(y_train_all, np.ndarray)
+                    or isinstance(y_train_all, pd.Series)):
                 raise ValueError(
-            "y_train_all must be a numpy array or a pandas series.")
+                    "y_train_all must be a numpy array or a pandas series.")
             if X_train_all.size == 0 or y_train_all.size == 0:
                 raise ValueError("Input data must not be empty.")
             if isinstance(y_train_all, np.ndarray):
                 y_train_all = y_train_all.flatten()
             if X_train_all.shape[0] != y_train_all.shape[0]:
                 raise ValueError(
-            "# rows in X_train must match length of y_train.")
+                    "# rows in X_train must match length of y_train.")
             self.df = isinstance(X_train_all, pd.DataFrame)
             self.nrow, self.ndim = X_train_all.shape
             X, y = X_train_all, y_train_all
@@ -173,8 +177,8 @@ class AutoML:
             y = dataframe[label]
         else:
             raise ValueError(
-        "either X_train_all+y_train_all or dataframe+label need to be provided.")
-        if scipy.sparse.issparse(X_train_all): 
+                "either X_train_all+y_train_all or dataframe+label need to be provided.")
+        if scipy.sparse.issparse(X_train_all):
             self.transformer = self.label_transformer = False
             self.X_train_all, self.y_train_all = X, y
         else:
@@ -185,26 +189,26 @@ class AutoML:
             self.label_transformer = self.transformer.label_transformer
 
         if X_val is not None and y_val is not None:
-            if not (isinstance(X_val, np.ndarray) or
-                scipy.sparse.issparse(X_val) or
-                isinstance(X_val, pd.DataFrame)
-                ):
+            if not (isinstance(X_val, np.ndarray)
+                    or scipy.sparse.issparse(X_val)
+                    or isinstance(X_val, pd.DataFrame)
+                    ):
                 raise ValueError(
-                "X_val must be None, a numpy array, a pandas dataframe, "
-                "or Scipy sparse matrix.")
-            if not (isinstance(y_val, np.ndarray) or 
-                    isinstance(y_val, pd.Series)):
+                    "X_val must be None, a numpy array, a pandas dataframe, "
+                    "or Scipy sparse matrix.")
+            if not (isinstance(y_val, np.ndarray)
+                    or isinstance(y_val, pd.Series)):
                 raise ValueError(
-            "y_val must be None, a numpy array or a pandas series.")
+                    "y_val must be None, a numpy array or a pandas series.")
             if X_val.size == 0 or y_val.size == 0:
                 raise ValueError(
-            "Validation data are expected to be nonempty. "
-            "Use None for X_val and y_val if no validation data.")
+                    "Validation data are expected to be nonempty. "
+                    "Use None for X_val and y_val if no validation data.")
             if isinstance(y_val, np.ndarray):
                 y_val = y_val.flatten()
             if X_val.shape[0] != y_val.shape[0]:
                 raise ValueError(
-            "# rows in X_val must match length of y_val.")
+                    "# rows in X_val must match length of y_val.")
             if self.transformer:
                 self.X_val = self.transformer.transform(X_val)
             else:
@@ -221,12 +225,12 @@ class AutoML:
                       split_ratio,
                       n_splits):
         X_val, y_val = self.X_val, self.y_val
-        if scipy.sparse.issparse(X_val): 
+        if scipy.sparse.issparse(X_val):
             X_val = X_val.tocsr()
         X_train_all, y_train_all = self.X_train_all, self.y_train_all
-        if scipy.sparse.issparse(X_train_all): 
+        if scipy.sparse.issparse(X_train_all):
             X_train_all = X_train_all.tocsr()
-        
+
         if self.objective_name != 'regression':
             # logger.info(f"label {pd.unique(y_train_all)}")
             label_set, counts = np.unique(y_train_all, return_counts=True)
@@ -241,16 +245,16 @@ class AutoML:
                 while count < rare_threshld:
                     if self.df:
                         X_train_all = concat(X_train_all,
-                        X_train_all.iloc[:n].loc[rare_index])
+                                             X_train_all.iloc[:n].loc[rare_index])
                     else:
                         X_train_all = concat(X_train_all,
-                        X_train_all[:n][rare_index,:])
+                                             X_train_all[:n][rare_index, :])
                     if isinstance(y_train_all, pd.Series):
                         y_train_all = concat(y_train_all,
-                        y_train_all.iloc[:n].loc[rare_index])
+                                             y_train_all.iloc[:n].loc[rare_index])
                     else:
                         y_train_all = np.concatenate([y_train_all,
-                        y_train_all[:n][rare_index]])
+                                                      y_train_all[:n][rare_index]])
                     count += rare_count
                 logger.debug(
                     f"class {label} augmented from {rare_count} to {count}")
@@ -285,23 +289,23 @@ class AutoML:
                         test_size=split_ratio,
                         random_state=1)
                 else:
-                    stratify = y_rest if self.split_type=='stratified' else None
+                    stratify = y_rest if self.split_type == 'stratified' else None
                     X_train, X_val, y_train, y_val = train_test_split(
                         X_rest,
                         y_rest,
                         test_size=split_ratio,
-                        stratify=stratify, 
-                        random_state=1)                                                                        
+                        stratify=stratify,
+                        random_state=1)
                     X_train = concat(X_first, X_train)
                     y_train = concat(label_set,
-                    y_train) if self.df else np.concatenate([label_set, y_train])
+                                     y_train) if self.df else np.concatenate([label_set, y_train])
                     X_val = concat(X_first, X_val)
                     y_val = concat(label_set,
-                    y_val) if self.df else np.concatenate([label_set, y_val])
+                                   y_val) if self.df else np.concatenate([label_set, y_val])
                     _, y_train_counts_elements = np.unique(y_train,
-                        return_counts=True)
+                                                           return_counts=True)
                     _, y_val_counts_elements = np.unique(y_val,
-                        return_counts=True)
+                                                         return_counts=True)
                     logger.debug(
                         f"""{self.split_type} split for y_train \
                             {y_train_counts_elements}, \
@@ -312,11 +316,11 @@ class AutoML:
         if self.split_type == "stratified":
             logger.info("Using StratifiedKFold")
             self.kf = RepeatedStratifiedKFold(n_splits=n_splits, n_repeats=1,
-            random_state=202020)
+                                              random_state=202020)
         else:
             logger.info("Using RepeatedKFold")
             self.kf = RepeatedKFold(n_splits=n_splits, n_repeats=1,
-            random_state=202020)
+                                    random_state=202020)
 
     def prepare_sample_train_data(self, sample_size):
         full_size = len(self.y_train)
@@ -328,7 +332,7 @@ class AutoML:
             sampled_y_train = self.y_train[:sample_size]
         else:
             sampled_X_train, sampled_y_train = concat(self.X_train,
-             self.X_val), np.concatenate([self.y_train, self.y_val])
+                                                      self.X_val), np.concatenate([self.y_train, self.y_val])
         return sampled_X_train, sampled_y_train
 
     def _compute_with_config_base(self,
@@ -341,7 +345,7 @@ class AutoML:
             sample_size)
         time_left = self.time_budget - self.time_from_start
         budget = time_left if sample_size == self.data_size else \
-            time_left/2*sample_size/self.data_size
+            time_left / 2 * sample_size / self.data_size
         return compute_estimator(sampled_X_train,
                                  sampled_y_train,
                                  self.X_val,
@@ -361,8 +365,8 @@ class AutoML:
     def _train_with_config(self, estimator, config, sample_size):
         sampled_X_train, sampled_y_train = self.prepare_sample_train_data(
             sample_size)
-        budget = None if self.time_budget is None else (self.time_budget -
-         self.time_from_start)
+        budget = None if self.time_budget is None else (self.time_budget
+                                                        - self.time_from_start)
         MODEL, train_time = train_estimator(
             sampled_X_train,
             sampled_y_train,
@@ -399,25 +403,25 @@ class AutoML:
 
         Args:
             log_file_name: A string of the log file name
-            line_number: An integer of the line number in the file, 
+            line_number: An integer of the line number in the file,
                 1 corresponds to the first trial
-            objective: A string of the objective name, 
+            objective: A string of the objective name,
                 'binary', 'multi', or 'regression'
 
         Returns:
             An estimator object for the given configuration
         '''
 
-        with open(log_file_name) as file_:
-            line = file_.readlines()[line_number]
-            data = line.split('\t')
-            estimator = get_estimator_name_from_log(data[8])
-            config = ast.literal_eval(data[5])
+        with training_log_reader(log_file_name) as reader:
+            records = list(reader.records())
+            record = records[line_number]
+            estimator = get_estimator_name_from_log(record.move)
+            config = record.config
 
         estimator, _ = train_estimator(
             None, None, config, objective, estimator,
             estimator_class=self._custom_learners.get(estimator)
-            )
+        )
         return estimator
 
     def retrain_from_log(self,
@@ -439,7 +443,7 @@ class AutoML:
         '''Retrain from log file
 
         Args:
-            time_budget: A float number of the time budget in seconds 
+            time_budget: A float number of the time budget in seconds
             log_file_name: A string of the log file name
             X_train: A numpy array of training data in shape n*m
             y_train: A numpy array of labels in shape n*1
@@ -450,11 +454,11 @@ class AutoML:
             split_ratio: A float of the validation data percentage for holdout
             n_splits: An integer of the number of folds for cross-validation
             n_jobs: An integer of the number of threads for training
-            train_best: A boolean of whether to train the best config in the 
+            train_best: A boolean of whether to train the best config in the
                 time budget; if false, train the last config in the budget
             train_full: A boolean of whether to train on the full data. If true,
                 eval_method and sample_size in the log file will be ignored
-            line_number: An integer of the line number in the file, 
+            line_number: An integer of the line number in the file,
                 1 corresponds to the first trial; 0 would be ignored
                 when line_number>0, time_budget will be ignored
         '''
@@ -469,41 +473,35 @@ class AutoML:
         sample_size = None
         time_used = 0.0
         training_duration = 0
-        
-        with open(log_file_name) as file_:
-            if line_number:
-                best = file_.readlines()[line_number].split('\t')
-            else:
-                for line in file_:
-                    data = line.split('\t')
-                    try:
-                        _ = int(data[0])
-                    except:
-                        continue
-                    time_used = float(data[4])
-                    if time_used <= time_budget:
-                        training_duration = time_used
-                        val_loss = float(data[3])
-                        if val_loss <= best_val_loss or not train_best:
-                            if val_loss == best_val_loss and train_best:
-                                size = int(data[9])
-                                if size > sample_size:
-                                    best = data
-                                    best_val_loss = val_loss
-                                    sample_size = size
-                            else:
-                                best = data
-                                size = int(data[9])
-                                best_val_loss = val_loss
-                                sample_size = size
-                if not training_duration: 
-                    from .model import BaseEstimator
-                    self._trained_estimator = BaseEstimator()
-                    self._trained_estimator.model = None
-                    return training_duration
-        best_estimator = get_estimator_name_from_log(best[8])
-        best_config = ast.literal_eval(best[5])
-        sample_size = len(self.y_train_all) if train_full else int(best[9])
+
+        with training_log_reader(log_file_name) as reader:
+            for record in reader.records():
+                time_used = record.time_from_start
+                if time_used > time_budget:
+                    break
+                training_duration = time_used
+                val_loss = record.objective2minimize
+                if val_loss <= best_val_loss or not train_best:
+                    if val_loss == best_val_loss and train_best:
+                        size = record.sample_size
+                        if size > sample_size:
+                            best = record
+                            best_val_loss = val_loss
+                            sample_size = size
+                    else:
+                        best = record
+                        size = record.sample_size
+                        best_val_loss = val_loss
+                        sample_size = size
+            if not training_duration:
+                from .model import BaseEstimator
+                self._trained_estimator = BaseEstimator()
+                self._trained_estimator.model = None
+                return training_duration
+        best_estimator = get_estimator_name_from_log(best.move)
+        best_config = best.config
+        sample_size = len(self.y_train_all) if train_full \
+            else best.sample_size
 
         logger.info(
             'estimator = {}, config = {}, #training instances = {}'.format(
@@ -529,13 +527,14 @@ class AutoML:
         self.n_jobs = n_jobs
         self._trained_estimator = self._train_with_config(
             best_estimator, best_config, sample_size)[0]
-        return training_duration            
+        return training_duration
 
     def _decide_eval_method(self, time_budget):
-        if self.X_val is not None: return 'holdout'
+        if self.X_val is not None:
+            return 'holdout'
         nrow, dim = self.nrow, self.ndim
         if nrow * dim / 0.9 < SMALL_LARGE_THRES * (
-            time_budget / 3600) and nrow < CV_HOLDOUT_THRESHOLD:
+                time_budget / 3600) and nrow < CV_HOLDOUT_THRESHOLD:
             # time allows or sampling can be used and cv is necessary
             return 'cv'
         else:
@@ -583,10 +582,10 @@ class AutoML:
                 e.g., 'accuracy','roc_auc','f1','log_loss','mae','mse','r2'
                 if passing a customized metric function, the function needs to
                 have the follwing signature
-                
+
                 def metric(X_test, y_test, estimator, labels, X_train, y_train):
                     return metric_to_minimize, metrics_to_log
-                    
+
                 which returns a float number as the minimization objective, 
                 and a tuple of floats as the metrics to log
             objective_name: A string of the task type, e.g.,
@@ -633,16 +632,17 @@ class AutoML:
         if 'auto' == estimator_list:
             estimator_list = ['lgbm', 'rf', 'catboost', 'xgboost', 'extra_tree']
             if 'regression' != self.objective_name:
-                estimator_list += ['lrl1',]
-        logger.info("List of ML learners in AutoML Run: {}".format(estimator_list))
+                estimator_list += ['lrl1', ]
+        logger.info(
+            "List of ML learners in AutoML Run: {}".format(estimator_list))
 
         if eval_method == 'auto' or self.X_val is not None:
             eval_method = self._decide_eval_method(time_budget)
         self.eval_method = eval_method
         logger.info("Evaluation method: {}".format(eval_method))
-        
-        self.retrain_full = retrain_full and (eval_method == 'holdout' and
-         self.X_val is None)
+
+        self.retrain_full = retrain_full and (eval_method == 'holdout'
+                                              and self.X_val is None)
         self.sample = sample and (eval_method != 'cv')
         if 'auto' == metric:
             if 'binary' in objective_name:
@@ -658,7 +658,7 @@ class AutoML:
         else:
             error_metric = 'customized metric'
         logger.info(f'Minimizing error metric: {error_metric}')
-    
+
         self.save_helper = save_info_helper('FLAML', log_file_name)
         self._prepare_data(eval_method, split_ratio, n_splits)
         self._compute_with_config = partial(AutoML._compute_with_config_base,
@@ -688,19 +688,21 @@ class AutoML:
         self._best_iteration = 0
         self._model_history = {}
         self._config_history = {}
-        self.max_iter_per_learner = 10000 # TODO
-        self.iter_per_learner = dict([(e,0) for e in self.estimator_list])
+        self.max_iter_per_learner = 10000  # TODO
+        self.iter_per_learner = dict([(e, 0) for e in self.estimator_list])
         self.fullsize = False
         self._trained_estimator = None
-        if self.ensemble: self.best_model = {}
+        if self.ensemble:
+            self.best_model = {}
         for self._track_iter in range(self.max_iter):
             if self.estimator_index == -1:
                 estimator = self.estimator_list[0]
             else:
                 estimator = self._select_estimator(self.estimator_list)
-                if not estimator: break
+                if not estimator:
+                    break
             logger.info(f"iteration {self._track_iter}"
-              f"  current learner {estimator}")
+                        f"  current learner {estimator}")
             if estimator in self.searchers:
                 model = self.searchers[estimator].trained_estimator
                 improved = self.searchers[estimator].search1step(
@@ -730,7 +732,7 @@ class AutoML:
                             .expected_time_improvement_search())
                     for e in self.estimator_list[1:]:
                         self.eti.append(
-                            self._eti_ini[e]/eti_base*self.eti[0])
+                            self._eti_ini[e] / eti_base * self.eti[0])
                     self.estimator_index = 0
             self.time_from_start = time.time() - self.start_time_flag
             # logger.info(f"{self.searchers[estimator].sample_size}, {data_size}")
@@ -758,37 +760,37 @@ class AutoML:
                 model.cleanup()
 
             logger.info(
-    " at {:.1f}s,\tbest {}'s error={:.4f},\tbest {}'s error={:.4f}".format(
-                          self.time_from_start,
-                          estimator,
-                          self.searchers[estimator].best_loss,
-                          self._best_estimator,
-                          self.best_loss))
-                  
+                " at {:.1f}s,\tbest {}'s error={:.4f},\tbest {}'s error={:.4f}".format(
+                    self.time_from_start,
+                    estimator,
+                    self.searchers[estimator].best_loss,
+                    self._best_estimator,
+                    self.best_loss))
+
             if self.time_from_start >= self.time_budget:
                 break
             if self.ensemble:
-                time_left = self.time_from_start-self.time_budget
+                time_left = self.time_from_start - self.time_budget
                 time_ensemble = self.searchers[self._best_estimator].train_time
-                if time_left < time_ensemble < 2*time_left:
+                if time_left < time_ensemble < 2 * time_left:
                     break
             if self.searchers[
-                estimator].train_time>self.time_budget-self.time_from_start:
+                    estimator].train_time > self.time_budget - self.time_from_start:
                 self.iter_per_learner[estimator] = self.max_iter_per_learner
         self.best_loss_info = self.save_helper.update_best()
         if self.searchers:
             self._selected = self.searchers[self._best_estimator]
             self._trained_estimator = self._selected.trained_estimator
             self.modelcount = sum(self.searchers[estimator].model_count
-                                for estimator in self.searchers)
+                                  for estimator in self.searchers)
             logger.info(self._trained_estimator.model)
             if self.ensemble:
                 searchers = list(self.searchers.items())
-                searchers.sort(key=lambda x:x[1].best_loss)
-                estimators = [(x[0],x[1].trained_estimator) for x in searchers[
+                searchers.sort(key=lambda x: x[1].best_loss)
+                estimators = [(x[0], x[1].trained_estimator) for x in searchers[
                     :2]]
-                estimators += [(x[0],x[1].trained_estimator) for x in searchers[
-                    2:] if x[1].best_loss<4*self._selected.best_loss]            
+                estimators += [(x[0], x[1].trained_estimator) for x in searchers[
+                    2:] if x[1].best_loss < 4 * self._selected.best_loss]
                 logger.info(estimators)
                 if self.objective_name != "regression":
                     from sklearn.ensemble import StackingClassifier as Stacker
@@ -801,12 +803,12 @@ class AutoML:
                     best_m, best_loss = None, np.Inf
                     for e, s in self.searchers.items():
                         # break
-                        if e!='nn' and s.best_loss < best_loss:
+                        if e != 'nn' and s.best_loss < best_loss:
                             best_m, best_loss = s.model, s.best_loss
-                else: 
+                else:
                     best_m = self._trained_estimator
-                stacker = Stacker(estimators, best_m, n_jobs=self.n_jobs, 
-                    passthrough = True)
+                stacker = Stacker(estimators, best_m, n_jobs=self.n_jobs,
+                                  passthrough=True)
                 stacker.fit(self.X_train_all, self.y_train_all)
                 self._trained_estimator = stacker
                 self._trained_estimator.model = stacker
@@ -816,13 +818,13 @@ class AutoML:
 
     def __del__(self):
         if hasattr(self, '_trained_estimator') and self._trained_estimator \
-            and hasattr(self._trained_estimator, 'cleanup'):
+                and hasattr(self._trained_estimator, 'cleanup'):
             self._trained_estimator.cleanup()
             del self._trained_estimator
 
     def _select_estimator(self, estimator_list):
         time_left = self.time_budget - self.time_from_start
-        if  self.best_train_time < time_left < 2*self.best_train_time:
+        if self.best_train_time < time_left < 2 * self.best_train_time:
             best_searcher = self.searchers[self._best_estimator]
             config_sig = best_searcher.get_hist_config_sig(
                 best_searcher.sample_size_full,
@@ -840,19 +842,19 @@ class AutoML:
         for i, estimator in enumerate(estimator_list):
             if estimator in self.searchers:
                 searcher = self.searchers[estimator]
-                if self.iter_per_learner[estimator]>=self.max_iter_per_learner:
+                if self.iter_per_learner[estimator] >= self.max_iter_per_learner:
                     inv.append(0)
                     continue
-                eti_searcher = min(2*searcher.train_time,
+                eti_searcher = min(2 * searcher.train_time,
                                    searcher.expected_time_improvement_search())
                 gap = searcher.best_loss - self.best_loss
                 if gap > 0 and not self.ensemble:
                     delta_loss = searcher.old_loss - searcher.new_loss
                     delta_time = searcher.old_loss_time + \
                         searcher.new_loss_time - searcher.old_train_time
-                    speed = delta_loss/float(delta_time)
+                    speed = delta_loss / float(delta_time)
                     try:
-                        expected_time = max(gap/speed, searcher.train_time)
+                        expected_time = max(gap / speed, searcher.train_time)
                     except ZeroDivisionError:
                         warnings.warn("ZeroDivisionError: need to debug ",
                                       "speed: {0}, "
@@ -867,7 +869,7 @@ class AutoML:
                     expected_time = eti_searcher
                 if expected_time == 0:
                     expected_time = 1e-10
-                inv.append(1/expected_time)
+                inv.append(1 / expected_time)
             else:
                 expected_time = self.eti[i]
                 inv.append(0)
@@ -883,6 +885,6 @@ class AutoML:
         q = 0
         for i in range(len(inv)):
             if inv[i]:
-                q += inv[i]/s
+                q += inv[i] / s
                 if p < q:
                     return estimator_list[i]

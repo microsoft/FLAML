@@ -1,6 +1,7 @@
 import json
 import ast
 from typing import IO
+from contextlib import contextmanager
 
 
 class TrainingLogRecord(object):
@@ -129,49 +130,25 @@ class TrainingLogReader(object):
     def open(self):
         self.file = open(self.filename)
 
-    def read_all(self, time_budget: float):
+    def records(self):
         if self.file is None:
             raise IOError("Call open() before reading log file.")
-        best_config = None
-        best_learner = None
-        best_val_loss = float('+inf')
-        training_duration = 0.0
-        training_time_list = []
-        config_list = []
-        best_error_list = []
-        error_list = []
-        logged_metric_list = []
-        best_config_list = []
         for line in self.file:
             data = json.loads(line)
             if len(data) == 1:
+                # Skip checkpoints.
                 continue
-            record = TrainingLogRecord(**data)
-            time_used = float(record.time_from_start)
-            training_duration = time_used
-            val_loss = float(record.objective2minimize)
-            config = record.config
-            learner = record.move.split('_')[0]
-            sample_size = record.sample_size
-            train_loss = record.logged_metric
-
-            if time_used < time_budget:
-                if val_loss < best_val_loss:
-                    best_val_loss = val_loss
-                    best_config = config
-                    best_learner = learner
-                    best_config_list.append(best_config)
-                training_time_list.append(training_duration)
-                best_error_list.append(best_val_loss)
-                logged_metric_list.append(train_loss)
-                error_list.append(val_loss)
-                config_list.append({"Current Learner": learner,
-                                    "Current Sample": sample_size,
-                                    "Current Hyper-parameters": record.config,
-                                    "Best Learner": best_learner,
-                                    "Best Hyper-parameters": best_config})
-        return (training_time_list, best_error_list, error_list, config_list,
-                logged_metric_list)
+            yield TrainingLogRecord(**data)
 
     def close(self):
         self.file.close()
+
+
+@contextmanager
+def training_log_reader(filename: str):
+    try:
+        r = TrainingLogReader(filename)
+        r.open()
+        yield r
+    finally:
+        r.close()
