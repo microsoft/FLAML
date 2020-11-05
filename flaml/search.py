@@ -452,11 +452,19 @@ class ParamSearch:
                 self.estimator) + '_trainAll'
             self.time_from_start = time.time() - self.start_time
             if self.save_helper is not None:
-                self.save_helper.add_res_more(
-                    self.model_count, train_loss, new_train_time,
-                    self.time_from_start, config, val_loss, self.best_loss,
-                    self.best_config, 'None', move, sample_size, self.base,
-                    config_sig)
+                self.save_helper.append(self.model_count,
+                                        train_loss,
+                                        new_train_time,
+                                        self.time_from_start,
+                                        config,
+                                        val_loss,
+                                        self.best_loss,
+                                        self.best_config,
+                                        'None',
+                                        move,
+                                        sample_size,
+                                        self.base,
+                                        config_sig)
             self.config_tried[config_sig] = (val_loss, new_train_time)
 
     def try_increase_sample_size(self):

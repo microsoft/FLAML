@@ -2,6 +2,7 @@ import json
 import ast
 from typing import IO
 from contextlib import contextmanager
+import warnings
 
 
 class TrainingLogRecord(object):
@@ -34,12 +35,12 @@ class TrainingLogRecord(object):
         self.base = base
         self.config_sig = config_sig
 
-    def dump(self, fp: IO[str], encoding='utf-8'):
+    def dump(self, fp: IO[str]):
         d = vars(self)
-        return json.dump(d, fp, encoding=encoding)
+        return json.dump(d, fp)
 
     @classmethod
-    def load(cls, json_str):
+    def load(cls, json_str: str):
         d = json.loads(json_str)
         return cls(**d)
 
@@ -52,8 +53,7 @@ class TrainingLogCheckPoint(TrainingLogRecord):
 
 class TrainingLogWriter(object):
 
-    def __init__(self, automl_name: str, output_filename: str):
-        self.automl_name = automl_name
+    def __init__(self, output_filename: str):
         self.output_filename = output_filename
         self.file = None
         self.current_best_loss_info = None
@@ -110,8 +110,9 @@ class TrainingLogWriter(object):
         if self.file is None:
             raise IOError("Call open() to open the outpute file first.")
         if not self.current_best_loss_info:
-            raise Exception("checkpoint() called before "
-                            "any record is written.")
+            warnings.warn("checkpoint() called before any record is written, "
+                          "skipped.")
+            return
         record = TrainingLogCheckPoint(self.current_best_loss_info)
         record.dump(self.file)
         self.file.write('\n')
@@ -142,6 +143,16 @@ class TrainingLogReader(object):
 
     def close(self):
         self.file.close()
+
+
+@contextmanager
+def training_log_writer(filename: str):
+    try:
+        w = TrainingLogWriter(filename)
+        w.open()
+        yield w
+    finally:
+        w.close()
 
 
 @contextmanager

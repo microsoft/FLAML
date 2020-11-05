@@ -20,7 +20,7 @@ from .config import MIN_SAMPLE_TRAIN, MEM_THRES, ETI_INI, \
     SMALL_LARGE_THRES, CV_HOLDOUT_THRESHOLD, SPLIT_RATIO, N_SPLITS
 from .data import concat
 from .search import ParamSearch
-from .training_log import training_log_reader, TrainingLogWriter
+from .training_log import training_log_reader, training_log_writer
 
 import logging
 logger = logging.getLogger(__name__)
@@ -659,23 +659,24 @@ class AutoML:
             error_metric = 'customized metric'
         logger.info(f'Minimizing error metric: {error_metric}')
 
-        self.save_helper = TrainingLogWriter('FLAML', log_file_name)
-        self._prepare_data(eval_method, split_ratio, n_splits)
-        self._compute_with_config = partial(AutoML._compute_with_config_base,
-                                            self,
-                                            metric,
-                                            log_training_metric)
-        self.time_budget = time_budget
-        self.estimator_list = estimator_list
-        self.ensemble = ensemble
-        self.max_iter = max_iter
-        self.mem_thres = mem_thres
-        self.log_type = log_type
-        self.split_ratio = split_ratio
-        self.save_model_history = model_history
-        self.n_jobs = n_jobs
-        self.search()
-        logger.info("fit succeeded")
+        with training_log_writer(log_file_name) as save_helper:
+            self.save_helper = save_helper
+            self._prepare_data(eval_method, split_ratio, n_splits)
+            self._compute_with_config = partial(AutoML._compute_with_config_base,
+                                                self,
+                                                metric,
+                                                log_training_metric)
+            self.time_budget = time_budget
+            self.estimator_list = estimator_list
+            self.ensemble = ensemble
+            self.max_iter = max_iter
+            self.mem_thres = mem_thres
+            self.log_type = log_type
+            self.split_ratio = split_ratio
+            self.save_model_history = model_history
+            self.n_jobs = n_jobs
+            self.search()
+            logger.info("fit succeeded")
 
     def search(self):
         self.searchers = {}
