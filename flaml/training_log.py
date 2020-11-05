@@ -112,7 +112,7 @@ class TrainingLogWriter(object):
         if not self.current_best_loss_info:
             raise Exception("checkpoint() called before "
                             "any record is written.")
-        record = TrainingLogCheckPoint(self.current_record_id)
+        record = TrainingLogCheckPoint(self.current_best_loss_info)
         record.dump(self.file)
         self.file.write('\n')
         self.file.flush()

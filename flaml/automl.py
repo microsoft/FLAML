@@ -20,7 +20,7 @@ from .config import MIN_SAMPLE_TRAIN, MEM_THRES, ETI_INI, \
     SMALL_LARGE_THRES, CV_HOLDOUT_THRESHOLD, SPLIT_RATIO, N_SPLITS
 from .data import save_info_helper, concat
 from .search import ParamSearch
-from .training_log import training_log_reader
+from .training_log import training_log_reader, TrainingLogWriter
 
 import logging
 logger = logging.getLogger(__name__)
@@ -659,7 +659,7 @@ class AutoML:
             error_metric = 'customized metric'
         logger.info(f'Minimizing error metric: {error_metric}')
 
-        self.save_helper = save_info_helper('FLAML', log_file_name)
+        self.save_helper = TrainingLogWriter('FLAML', log_file_name)
         self._prepare_data(eval_method, split_ratio, n_splits)
         self._compute_with_config = partial(AutoML._compute_with_config_base,
                                             self,
@@ -777,7 +777,10 @@ class AutoML:
             if self.searchers[
                     estimator].train_time > self.time_budget - self.time_from_start:
                 self.iter_per_learner[estimator] = self.max_iter_per_learner
-        self.best_loss_info = self.save_helper.update_best()
+
+        # Add a checkpoint for the current best config to the log.
+        self.save_helper.checkpoint()
+
         if self.searchers:
             self._selected = self.searchers[self._best_estimator]
             self._trained_estimator = self._selected.trained_estimator
