@@ -18,7 +18,7 @@ from .ml import compute_estimator, train_estimator, \
     get_estimator_name_from_log, get_classification_objective
 from .config import MIN_SAMPLE_TRAIN, MEM_THRES, ETI_INI, \
     SMALL_LARGE_THRES, CV_HOLDOUT_THRESHOLD, SPLIT_RATIO, N_SPLITS
-from .data import save_info_helper, concat
+from .data import concat
 from .search import ParamSearch
 from .training_log import training_log_reader, TrainingLogWriter
 

@@ -12,7 +12,6 @@ from .space import config_space, estimator_size, get_config_values, \
     generate_config_ini, generate_config_max, generate_config_min
 from .config import SPLIT_RATIO, MIN_SAMPLE_TRAIN, \
     HISTORY_SIZE, MEM_THRES, BASE_Const, BASE_LOWER_BOUND
-from .data import save_info_helper
 from random import gauss
 
 

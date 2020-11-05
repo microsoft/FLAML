@@ -9,55 +9,6 @@ import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 
 
-class save_info_helper:
-
-
-    def __init__(self, automl_name, save_file_name):
-        self.automl_name = automl_name
-        self.save_file_name = save_file_name
-        self.file_save = open(save_file_name, 'w')
-        self.current_best_loss_info = None
-        self.current_best_loss = float('+inf')
-        self.current_sample_size = None
-        self.file_save.write('iter\tlogged_metric\ttrain_time\tobjective2minimize\t'
-        'time_from_start\tconfig\tprevious_best_val_loss\tprevious_best_config'
-        '\tmove\tsample_size\tbase\tconfig_sig\n')
-
-    def add_res_more(self, it_counter, train_loss, train_time, all_time,
-     i_config, val_loss, best_val_loss, best_config, current_config_arr_iter, 
-     move, sample_size, base='None', config_sig='None', write_to_file=True):
-        if val_loss != None:
-            line_info = str(it_counter) + '\t' + str(train_loss) + '\t' + str(
-                train_time) + '\t' + str(val_loss) + '\t' + str(
-                    all_time) + '\t' + str(i_config) + '\t' + str(
-                best_val_loss) + '\t' + str(best_config) + '\t' + str(
-                    move) + '\t' + str(sample_size) + '\t' + str(
-                base) + '\t' + str(config_sig)
-            if val_loss < self.current_best_loss or \
-                val_loss == self.current_best_loss and \
-                    sample_size > self.current_sample_size:
-                self.current_best_loss = val_loss
-                self.current_sample_size = sample_size
-                self.current_best_loss_info = line_info
-            if write_to_file:
-                self.file_save.write(line_info)
-                self.file_save.write('\n')
-                self.file_save.flush()
-        else:
-            print('TEST LOSS NONE ERROR!!!')
-
-    def update_best(self):
-        if self.current_best_loss_info:
-            self.file_save.write('best:' + '\t' + self.current_best_loss_info)
-            self.file_save.write('\n')
-        self.file_save.flush()
-        self.file_save.close()
-        return self.current_best_loss_info
-
-    def __del__(self):
-        self.file_save.close()
-
-
 def load_openml_dataset(dataset_id, data_dir=None, random_state=0):
     '''Load dataset from open ML. 
 
@@ -187,7 +138,7 @@ def get_output_from_log(filename, time_budget):
     with open(filename) as file_:
         for line in file_:
             data = line.split('\t')
-            if data[0][0] in ('b','i'):
+            if data[0][0] in ('b', 'i'):
                 continue
             time_used = float(data[4])
             training_duration = time_used
@@ -214,7 +165,7 @@ def get_output_from_log(filename, time_budget):
                                     "Best Hyper-parameters": best_config})
 
     return (training_time_list, best_error_list, error_list, config_list,
-     logged_metric_list)
+            logged_metric_list)
 
 
 def concat(X1, X2):
@@ -239,7 +190,6 @@ class DataTransformer:
     '''transform X, y
     '''
 
-
     def fit_transform(self, X, y, objective):
         if isinstance(X, pd.DataFrame):
             X = X.copy()
@@ -247,8 +197,8 @@ class DataTransformer:
             cat_columns, num_columns = [], []
             for column in X.columns:
                 if X[column].dtype.name in ('object', 'category'):
-                    if X[column].nunique()==1 or X[column].nunique(
-                        dropna=True)==n-X[column].isnull().sum():
+                    if X[column].nunique() == 1 or X[column].nunique(
+                            dropna=True) == n - X[column].isnull().sum():
                         X.drop(columns=column, inplace=True)
                     elif X[column].dtype.name == 'category':
                         current_categories = X[column].cat.categories
@@ -256,29 +206,29 @@ class DataTransformer:
                             X[column] = X[column].cat.add_categories(
                                 '__NAN__').fillna('__NAN__')
                         cat_columns.append(column)
-                    else:                        
+                    else:
                         X[column].fillna('__NAN__', inplace=True)
-                        cat_columns.append(column)                
+                        cat_columns.append(column)
                 else:
                     # print(X[column].dtype.name)
-                    if X[column].nunique(dropna=True)<2:
+                    if X[column].nunique(dropna=True) < 2:
                         X.drop(columns=column, inplace=True)
                     else:
                         X[column].fillna(np.nan, inplace=True)
                         num_columns.append(column)
-            X = X[cat_columns+num_columns]
+            X = X[cat_columns + num_columns]
             if cat_columns:
                 X[cat_columns] = X[cat_columns].astype('category')
             if num_columns:
                 from sklearn.impute import SimpleImputer
                 from sklearn.compose import ColumnTransformer
                 self.transformer = ColumnTransformer([(
-                    'continuous', 
-                    SimpleImputer(missing_values=np.nan, strategy='median'), 
+                    'continuous',
+                    SimpleImputer(missing_values=np.nan, strategy='median'),
                     num_columns)])
                 X[num_columns] = self.transformer.fit_transform(X)
             self.cat_columns, self.num_columns = cat_columns, num_columns
-            
+
         if objective == 'regression':
             self.label_transformer = None
         else:
@@ -290,7 +240,7 @@ class DataTransformer:
     def transform(self, X):
         if isinstance(X, pd.DataFrame):
             cat_columns, num_columns = self.cat_columns, self.num_columns
-            X = X[cat_columns+num_columns].copy()
+            X = X[cat_columns + num_columns].copy()
             for column in cat_columns:
                 # print(column, X[column].dtype.name)
                 if X[column].dtype.name == 'object':
@@ -306,5 +256,3 @@ class DataTransformer:
                 X[num_columns].fillna(np.nan, inplace=True)
                 X[num_columns] = self.transformer.transform(X)
         return X
-
-    
