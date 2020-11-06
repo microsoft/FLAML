@@ -7,6 +7,7 @@ import numpy as np
 from scipy.sparse import vstack, issparse
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
+from .training_log import training_log_reader
 
 
 def load_openml_dataset(dataset_id, data_dir=None, random_state=0):
@@ -135,18 +136,15 @@ def get_output_from_log(filename, time_budget):
     error_list = []
     logged_metric_list = []
     best_config_list = []
-    with open(filename) as file_:
-        for line in file_:
-            data = line.split('\t')
-            if data[0][0] in ('b', 'i'):
-                continue
-            time_used = float(data[4])
+    with training_log_reader(filename) as reader:
+        for record in reader.records():
+            time_used = record.time_from_start
             training_duration = time_used
-            val_loss = float(data[3])
-            config = ast.literal_eval(data[5])
-            learner = data[8].split('_')[0]
-            sample_size = data[9]
-            train_loss = data[1]
+            val_loss = record.objective2minimize
+            config = record.config
+            learner = record.move.split('_')[0]
+            sample_size = record.sample_size
+            train_loss = record.logged_metric
 
             if time_used < time_budget:
                 if val_loss < best_val_loss:
@@ -160,7 +158,7 @@ def get_output_from_log(filename, time_budget):
                 error_list.append(val_loss)
                 config_list.append({"Current Learner": learner,
                                     "Current Sample": sample_size,
-                                    "Current Hyper-parameters": data[5],
+                                    "Current Hyper-parameters": record.config,
                                     "Best Learner": best_learner,
                                     "Best Hyper-parameters": best_config})
 
