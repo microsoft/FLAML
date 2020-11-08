@@ -144,6 +144,14 @@ class TrainingLogReader(object):
     def close(self):
         self.file.close()
 
+    def get_record(self, record_id) -> TrainingLogRecord:
+        if self.file is None:
+            raise IOError("Call open() before reading log file.")
+        for rec in self.records():
+            if rec.record_id == record_id:
+                return rec
+        raise ValueError(f"Cannot find record with id {record_id}.")
+
 
 @contextmanager
 def training_log_writer(filename: str):

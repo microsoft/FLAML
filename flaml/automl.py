@@ -398,13 +398,13 @@ class AutoML:
             learner_class.params_configsearch_info
         self._custom_size_estimate[learner_name] = size_estimate
 
-    def get_estimator_from_log(self, log_file_name, line_number, objective):
+    def get_estimator_from_log(self, log_file_name, record_id, objective):
         '''Get the estimator from log file
 
         Args:
             log_file_name: A string of the log file name
-            line_number: An integer of the line number in the file,
-                1 corresponds to the first trial
+            record_id: An integer of the record ID in the file,
+                0 corresponds to the first trial
             objective: A string of the objective name,
                 'binary', 'multi', or 'regression'
 
@@ -413,8 +413,7 @@ class AutoML:
         '''
 
         with training_log_reader(log_file_name) as reader:
-            records = list(reader.records())
-            record = records[line_number]
+            record = reader.get_record(record_id)
             estimator = get_estimator_name_from_log(record.move)
             config = record.config
 
@@ -439,7 +438,7 @@ class AutoML:
                          n_jobs=1,
                          train_best=True,
                          train_full=False,
-                         line_number=0):
+                         record_id=-1):
         '''Retrain from log file
 
         Args:
@@ -458,9 +457,10 @@ class AutoML:
                 time budget; if false, train the last config in the budget
             train_full: A boolean of whether to train on the full data. If true,
                 eval_method and sample_size in the log file will be ignored
-            line_number: An integer of the line number in the file,
-                1 corresponds to the first trial; 0 would be ignored
-                when line_number>0, time_budget will be ignored
+            record_id: the ID of the training log record from which the model will
+                be retrained. By default `record_id = -1` which means this will be
+                ignored. `record_id = 0` corresponds to the first trial, and
+                when `record_id >= 0`, `time_budget` will be ignored.
         '''
         self.objective_name = objective_name
         self._validate_data(X_train, y_train, dataframe, label)
@@ -475,29 +475,32 @@ class AutoML:
         training_duration = 0
 
         with training_log_reader(log_file_name) as reader:
-            for record in reader.records():
-                time_used = record.time_from_start
-                if time_used > time_budget:
-                    break
-                training_duration = time_used
-                val_loss = record.objective2minimize
-                if val_loss <= best_val_loss or not train_best:
-                    if val_loss == best_val_loss and train_best:
-                        size = record.sample_size
-                        if size > sample_size:
+            if record_id >= 0:
+                best = reader.get_record(record_id)
+            else:
+                for record in reader.records():
+                    time_used = record.time_from_start
+                    if time_used > time_budget:
+                        break
+                    training_duration = time_used
+                    val_loss = record.objective2minimize
+                    if val_loss <= best_val_loss or not train_best:
+                        if val_loss == best_val_loss and train_best:
+                            size = record.sample_size
+                            if size > sample_size:
+                                best = record
+                                best_val_loss = val_loss
+                                sample_size = size
+                        else:
                             best = record
+                            size = record.sample_size
                             best_val_loss = val_loss
                             sample_size = size
-                    else:
-                        best = record
-                        size = record.sample_size
-                        best_val_loss = val_loss
-                        sample_size = size
-            if not training_duration:
-                from .model import BaseEstimator
-                self._trained_estimator = BaseEstimator()
-                self._trained_estimator.model = None
-                return training_duration
+                if not training_duration:
+                    from .model import BaseEstimator
+                    self._trained_estimator = BaseEstimator()
+                    self._trained_estimator.model = None
+                    return training_duration
         best_estimator = get_estimator_name_from_log(best.move)
         best_config = best.config
         sample_size = len(self.y_train_all) if train_full \
@@ -517,7 +520,7 @@ class AutoML:
             self.split_type = split_type
         else:
             self.split_type = "uniform"
-        if line_number:
+        if record_id >= 0:
             eval_method = 'cv'
         elif eval_method == 'auto':
             eval_method = self._decide_eval_method(time_budget)

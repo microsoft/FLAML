@@ -14,12 +14,10 @@ def custom_metric(X_test, y_test, estimator, labels, X_train, y_train):
     y_pred = estimator.predict_proba(X_train)
     train_loss = log_loss(y_train, y_pred, labels=labels)
     alpha = 0.5
-    return test_loss*(1+alpha)-alpha*train_loss, np.array(
-        [test_loss, train_loss])
-    
+    return test_loss * (1 + alpha) - alpha * train_loss, [test_loss, train_loss]
+
 
 class TestAutoML(unittest.TestCase):
-
 
     def test_dataframe(self):
         self.test_classification(True)
@@ -49,12 +47,12 @@ class TestAutoML(unittest.TestCase):
         print(automl_experiment.best_estimator)
         automl_experiment = AutoML()
         estimator = automl_experiment.get_estimator_from_log(
-            automl_settings["log_file_name"], line_number=1, 
+            automl_settings["log_file_name"], record_id=0,
             objective='multi')
         print(estimator)
         time_history, best_valid_loss_history, valid_loss_history, \
             config_history, train_loss_history = get_output_from_log(
-                filename = automl_settings['log_file_name'], time_budget = 6)
+                filename=automl_settings['log_file_name'], time_budget=6)
         print(train_loss_history)
 
     def test_classification(self, as_frame=False):
@@ -84,8 +82,8 @@ class TestAutoML(unittest.TestCase):
         automl_experiment = AutoML()
         duration = automl_experiment.retrain_from_log(
             log_file_name=automl_settings["log_file_name"],
-            X_train=X_train, y_train=y_train, 
-            train_full=True, line_number=1)
+            X_train=X_train, y_train=y_train,
+            train_full=True, record_id=0)
         print(duration)
         print(automl_experiment.model)
         print(automl_experiment.predict_proba(X_train)[:5])
@@ -103,10 +101,10 @@ class TestAutoML(unittest.TestCase):
         }
         X_train, y_train = load_boston(return_X_y=True)
         n = len(y_train)
-        automl_experiment.fit(X_train=X_train[:n>>1], y_train=y_train[:n>>1],
-                              X_val=X_train[n>>1:], y_val=y_train[n>>1:],
+        automl_experiment.fit(X_train=X_train[:n >> 1], y_train=y_train[:n >> 1],
+                              X_val=X_train[n >> 1:], y_val=y_train[n >> 1:],
                               **automl_settings)
-        assert automl_experiment.y_val.shape[0] == n-(n>>1)
+        assert automl_experiment.y_val.shape[0] == n - (n >> 1)
         assert automl_experiment.eval_method == 'holdout'
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)
