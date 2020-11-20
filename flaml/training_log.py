@@ -11,29 +11,25 @@ class TrainingLogRecord(object):
                  record_id: int,
                  iter: int,
                  logged_metric: float,
-                 train_time: float,
-                 time_from_start: float,
+                 trial_time: float,
+                 total_search_time: float,
+                 validation_loss,
                  config,
-                 objective2minimize,
-                 previous_best_val_loss,
-                 previous_best_config,
-                 move,
-                 sample_size,
-                 base,
-                 config_sig):
+                 best_validation_loss,
+                 best_config,
+                 learner,
+                 sample_size):
         self.record_id = record_id
         self.iter = iter
         self.logged_metric = logged_metric
-        self.train_time = train_time
-        self.time_from_start = time_from_start
+        self.trial_time = trial_time
+        self.total_search_time = total_search_time
+        self.validation_loss = validation_loss
         self.config = config
-        self.objective2minimize = objective2minimize
-        self.previous_best_val_loss = previous_best_val_loss
-        self.previous_best_config = previous_best_config
-        self.move = move
+        self.best_validation_loss = best_validation_loss
+        self.best_config = best_config
+        self.learner = learner
         self.sample_size = sample_size
-        self.base = base
-        self.config_sig = config_sig
 
     def dump(self, fp: IO[str]):
         d = vars(self)
@@ -67,38 +63,33 @@ class TrainingLogWriter(object):
     def append(self,
                it_counter: int,
                train_loss: float,
-               train_time: float,
-               all_time: float,
-               i_config,
-               val_loss,
-               best_val_loss,
+               trial_time: float,
+               total_search_time: float,
+               validation_loss,
+               config,
+               best_validation_loss,
                best_config,
-               current_config_arr_iter,
-               move,
-               sample_size,
-               base='None',
-               config_sig='None'):
+               learner,
+               sample_size):
         if self.file is None:
             raise IOError("Call open() to open the outpute file first.")
-        if val_loss is None:
+        if validation_loss is None:
             raise ValueError('TEST LOSS NONE ERROR!!!')
         record = TrainingLogRecord(self.current_record_id,
                                    it_counter,
                                    train_loss,
-                                   train_time,
-                                   all_time,
-                                   i_config,
-                                   val_loss,
-                                   best_val_loss,
+                                   trial_time,
+                                   total_search_time,
+                                   validation_loss,
+                                   config,
+                                   best_validation_loss,
                                    best_config,
-                                   move,
-                                   sample_size,
-                                   base,
-                                   config_sig)
-        if val_loss < self.current_best_loss or \
-            val_loss == self.current_best_loss and \
+                                   learner,
+                                   sample_size)
+        if validation_loss < self.current_best_loss or \
+            validation_loss == self.current_best_loss and \
                 sample_size > self.current_sample_size:
-            self.current_best_loss = val_loss
+            self.current_best_loss = validation_loss
             self.current_sample_size = sample_size
             self.current_best_loss_info = self.current_record_id
         self.current_record_id += 1

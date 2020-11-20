@@ -138,11 +138,11 @@ def get_output_from_log(filename, time_budget):
     best_config_list = []
     with training_log_reader(filename) as reader:
         for record in reader.records():
-            time_used = record.time_from_start
+            time_used = record.total_search_time
             training_duration = time_used
-            val_loss = record.objective2minimize
+            val_loss = record.validation_loss
             config = record.config
-            learner = record.move.split('_')[0]
+            learner = record.learner.split('_')[0]
             sample_size = record.sample_size
             train_loss = record.logged_metric
 

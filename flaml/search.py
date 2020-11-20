@@ -225,15 +225,12 @@ class ParamSearch:
                                     train_loss,
                                     new_train_time,
                                     self.time_from_start,
-                                    config,
                                     val_loss,
+                                    config,
                                     self.best_loss,
                                     self.best_config[0],
-                                    'None',
                                     move,
-                                    sample_size,
-                                    self.base,
-                                    config_sig)
+                                    sample_size)
         return model, val_loss, new_train_time, from_history
 
     def update_current_config(self, config, val_loss, sample_size):
@@ -456,15 +453,12 @@ class ParamSearch:
                                         train_loss,
                                         new_train_time,
                                         self.time_from_start,
-                                        config,
                                         val_loss,
+                                        config,
                                         self.best_loss,
                                         self.best_config,
-                                        'None',
                                         move,
-                                        sample_size,
-                                        self.base,
-                                        config_sig)
+                                        sample_size)
             self.config_tried[config_sig] = (val_loss, new_train_time)
 
     def try_increase_sample_size(self):

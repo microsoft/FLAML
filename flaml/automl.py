@@ -414,7 +414,7 @@ class AutoML:
 
         with training_log_reader(log_file_name) as reader:
             record = reader.get_record(record_id)
-            estimator = get_estimator_name_from_log(record.move)
+            estimator = get_estimator_name_from_log(record.learner)
             config = record.config
 
         estimator, _ = train_estimator(
@@ -479,11 +479,11 @@ class AutoML:
                 best = reader.get_record(record_id)
             else:
                 for record in reader.records():
-                    time_used = record.time_from_start
+                    time_used = record.total_search_time
                     if time_used > time_budget:
                         break
                     training_duration = time_used
-                    val_loss = record.objective2minimize
+                    val_loss = record.validation_loss
                     if val_loss <= best_val_loss or not train_best:
                         if val_loss == best_val_loss and train_best:
                             size = record.sample_size
@@ -501,7 +501,7 @@ class AutoML:
                     self._trained_estimator = BaseEstimator()
                     self._trained_estimator.model = None
                     return training_duration
-        best_estimator = get_estimator_name_from_log(best.move)
+        best_estimator = get_estimator_name_from_log(best.learner)
         best_config = best.config
         sample_size = len(self.y_train_all) if train_full \
             else best.sample_size
