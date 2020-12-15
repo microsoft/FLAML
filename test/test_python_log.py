@@ -39,6 +39,10 @@ class TestLogging(unittest.TestCase):
                                   X_val=X_train[n >> 1:], y_val=y_train[n >> 1:],
                                   **automl_settings)
 
+            # Release handler.
+            fh.flush()
+            fh.close()
+
             # Check if the log file is populated.
             self.assertTrue(os.path.exists(filename))
             with open(filename) as f:
