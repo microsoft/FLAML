@@ -4,7 +4,8 @@ import numpy as np
 import scipy.sparse
 from sklearn.datasets import load_boston, load_iris
 
-from flaml import AutoML, get_output_from_log
+from flaml import AutoML
+from flaml.data import get_output_from_log
 
 
 def custom_metric(X_test, y_test, estimator, labels, X_train, y_train):
