@@ -1,11 +1,10 @@
+from flaml import AutoML
+from sklearn.datasets import load_boston
 import os
 import unittest
 import logging
-from tempfile import TemporaryDirectory
-
-from sklearn.datasets import load_boston
-
-from flaml import AutoML
+import tempfile
+import io
 
 
 class TestLogging(unittest.TestCase):
@@ -14,14 +13,17 @@ class TestLogging(unittest.TestCase):
 
         from flaml import logger, logger_formatter
 
-        with TemporaryDirectory() as d:
-            filename = os.path.join(d, 'test_logging_level.log')
+        with tempfile.TemporaryDirectory() as d:
 
-            # Configure logging for the FLAML logger.
+            training_log = os.path.join(d, "training.log")
+
+            # Configure logging for the FLAML logger
+            # and add a handler that outputs to a buffer.
             logger.setLevel(logging.INFO)
-            fh = logging.FileHandler(filename)
-            fh.setFormatter(logger_formatter)
-            logger.addHandler(fh)
+            buf = io.StringIO()
+            ch = logging.StreamHandler(buf)
+            ch.setFormatter(logger_formatter)
+            logger.addHandler(ch)
 
             # Run a simple job.
             automl_experiment = AutoML()
@@ -29,7 +31,7 @@ class TestLogging(unittest.TestCase):
                 "time_budget": 2,
                 "metric": 'mse',
                 "task": 'regression',
-                "log_file_name": "test/boston.log",
+                "log_file_name": training_log,
                 "log_training_metric": True,
                 "model_history": True
             }
@@ -39,12 +41,5 @@ class TestLogging(unittest.TestCase):
                                   X_val=X_train[n >> 1:], y_val=y_train[n >> 1:],
                                   **automl_settings)
 
-            # Release handler.
-            fh.flush()
-            fh.close()
-
-            # Check if the log file is populated.
-            self.assertTrue(os.path.exists(filename))
-            with open(filename) as f:
-                content = f.read()
-                self.assertTrue(len(content) > 0)
+            # Check if the log buffer is populated.
+            self.assertTrue(len(buf.getvalue()) > 0)
