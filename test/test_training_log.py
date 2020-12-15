@@ -29,8 +29,8 @@ class TestTrainingLog(unittest.TestCase):
             }
             X_train, y_train = load_boston(return_X_y=True)
             n = len(y_train)
-            automl_experiment.fit(X_train=X_train[:n >> 1], y_train=y_train[:n >> 1],
-                                  X_val=X_train[n >> 1:], y_val=y_train[n >> 1:],
+            automl_experiment.fit(X_train=X_train[:n*.9], y_train=y_train[:n*.9],
+                                  X_val=X_train[n*.9:], y_val=y_train[n*.9:],
                                   **automl_settings)
 
             # Check if the training log file is populated.
