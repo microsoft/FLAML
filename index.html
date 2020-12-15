@@ -155,6 +155,239 @@
 <h1>FLAML API Documentation<a class="headerlink" href="#flaml-api-documentation" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="automl">
 <h2>AutoML<a class="headerlink" href="#automl" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="flaml.AutoML">
+<em class="property">class </em><code class="sig-prename descclassname">flaml.</code><code class="sig-name descname">AutoML</code><a class="reference internal" href="_modules/flaml/automl.html#AutoML"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.AutoML" title="Permalink to this definition">¶</a></dt>
+<dd><p>The AutoML class</p>
+<p class="rubric">Example</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">automl</span> <span class="o">=</span> <span class="n">AutoML</span><span class="p">()</span>
+<span class="n">automl_settings</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;time_budget&quot;</span><span class="p">:</span> <span class="mi">60</span><span class="p">,</span>
+    <span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="s1">&#39;accuracy&#39;</span><span class="p">,</span>
+    <span class="s2">&quot;task&quot;</span><span class="p">:</span> <span class="s1">&#39;classification&#39;</span><span class="p">,</span>
+    <span class="s2">&quot;log_file_name&quot;</span><span class="p">:</span> <span class="s1">&#39;test/mylog.log&#39;</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="n">automl</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span> <span class="o">=</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span> <span class="o">=</span> <span class="n">y_train</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">automl_settings</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt id="flaml.AutoML.add_learner">
+<code class="sig-name descname">add_learner</code><span class="sig-paren">(</span><em class="sig-param">learner_name</em>, <em class="sig-param">learner_class</em>, <em class="sig-param">size_estimate=&lt;function AutoML.&lt;lambda&gt;&gt;</em>, <em class="sig-param">cost_relative2lgbm=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/automl.html#AutoML.add_learner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.AutoML.add_learner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a customized learner</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>learner_name</strong> – A string of the learner’s name</p></li>
+<li><p><strong>learner_class</strong> – A subclass of BaseEstimator</p></li>
+<li><p><strong>size_estimate</strong> – A function from a config to its memory size in float</p></li>
+<li><p><strong>cost_relative2lgbm</strong> – A float number for the training cost ratio with
+respect to lightgbm(when both use the initial config)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.AutoML.best_config">
+<em class="property">property </em><code class="sig-name descname">best_config</code><a class="headerlink" href="#flaml.AutoML.best_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>A dictionary of the best configuration.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.AutoML.best_config_train_time">
+<em class="property">property </em><code class="sig-name descname">best_config_train_time</code><a class="headerlink" href="#flaml.AutoML.best_config_train_time" title="Permalink to this definition">¶</a></dt>
+<dd><p>A float of the seconds taken by training the
+best config.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.AutoML.best_estimator">
+<em class="property">property </em><code class="sig-name descname">best_estimator</code><a class="headerlink" href="#flaml.AutoML.best_estimator" title="Permalink to this definition">¶</a></dt>
+<dd><p>A string indicating the best estimator found.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.AutoML.best_iteration">
+<em class="property">property </em><code class="sig-name descname">best_iteration</code><a class="headerlink" href="#flaml.AutoML.best_iteration" title="Permalink to this definition">¶</a></dt>
+<dd><p>An integer of the iteration number where the best
+config is found.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.AutoML.classes_">
+<em class="property">property </em><code class="sig-name descname">classes_</code><a class="headerlink" href="#flaml.AutoML.classes_" title="Permalink to this definition">¶</a></dt>
+<dd><p>A list of n_classes elements for class labels.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.AutoML.config_history">
+<em class="property">property </em><code class="sig-name descname">config_history</code><a class="headerlink" href="#flaml.AutoML.config_history" title="Permalink to this definition">¶</a></dt>
+<dd><p>A dictionary of iter-&gt;(estimator, config, time),
+storing the best estimator, config, and the time when the best
+model is updated each time.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.AutoML.fit">
+<code class="sig-name descname">fit</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">X_train</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">y_train</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">dataframe</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">metric</span><span class="o">=</span><span class="default_value">'auto'</span></em>, <em class="sig-param"><span class="n">task</span><span class="o">=</span><span class="default_value">'classification'</span></em>, <em class="sig-param"><span class="n">n_jobs</span><span class="o">=</span><span class="default_value">- 1</span></em>, <em class="sig-param"><span class="n">log_file_name</span><span class="o">=</span><span class="default_value">'default.log'</span></em>, <em class="sig-param"><span class="n">estimator_list</span><span class="o">=</span><span class="default_value">'auto'</span></em>, <em class="sig-param"><span class="n">time_budget</span><span class="o">=</span><span class="default_value">60</span></em>, <em class="sig-param"><span class="n">max_iter</span><span class="o">=</span><span class="default_value">1000000</span></em>, <em class="sig-param"><span class="n">sample</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">ensemble</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">eval_method</span><span class="o">=</span><span class="default_value">'auto'</span></em>, <em class="sig-param"><span class="n">log_type</span><span class="o">=</span><span class="default_value">'better'</span></em>, <em class="sig-param"><span class="n">model_history</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">split_ratio</span><span class="o">=</span><span class="default_value">0.1</span></em>, <em class="sig-param"><span class="n">n_splits</span><span class="o">=</span><span class="default_value">5</span></em>, <em class="sig-param"><span class="n">log_training_metric</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">mem_thres</span><span class="o">=</span><span class="default_value">4294967296</span></em>, <em class="sig-param"><span class="n">X_val</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">y_val</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">retrain_full</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">split_type</span><span class="o">=</span><span class="default_value">'stratified'</span></em>, <em class="sig-param"><span class="n">learner_selector</span><span class="o">=</span><span class="default_value">'sample'</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/automl.html#AutoML.fit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.AutoML.fit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find a model for a given task</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X_train</strong> – A numpy array or a pandas dataframe of training data in
+shape n * m</p></li>
+<li><p><strong>y_train</strong> – A numpy array or a pandas series of labels in shape n * 1</p></li>
+<li><p><strong>dataframe</strong> – A dataframe of training data including label column</p></li>
+<li><p><strong>label</strong> – A str of the label column name
+Note: If X_train and y_train are provided,
+dataframe and label are ignored;
+If not, dataframe and label must be provided.</p></li>
+<li><p><strong>metric</strong> – <p>A string of the metric name or a function,
+e.g., ‘accuracy’, ‘roc_auc’, ‘f1’, ‘log_loss’, ‘mae’, ‘mse’, ‘r2’
+if passing a customized metric function, the function needs to
+have the follwing signature:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">metric</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">,</span> <span class="n">estimator</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">metric_to_minimize</span><span class="p">,</span> <span class="n">metrics_to_log</span>
+</pre></div>
+</div>
+<p>which returns a float number as the minimization objective,
+and a tuple of floats as the metrics to log</p>
+</p></li>
+<li><p><strong>task</strong> – A string of the task type, e.g.,
+‘classification’, ‘regression’</p></li>
+<li><p><strong>n_jobs</strong> – An integer of the number of threads for training</p></li>
+<li><p><strong>log_file_name</strong> – A string of the log file name</p></li>
+<li><p><strong>estimator_list</strong> – <p>A list of strings for estimator names, or ‘auto’
+e.g.,</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="s1">&#39;lgbm&#39;</span><span class="p">,</span> <span class="s1">&#39;xgboost&#39;</span><span class="p">,</span> <span class="s1">&#39;catboost&#39;</span><span class="p">,</span> <span class="s1">&#39;rf&#39;</span><span class="p">,</span> <span class="s1">&#39;extra_tree&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>time_budget</strong> – A float number of the time budget in seconds</p></li>
+<li><p><strong>max_iter</strong> – An integer of the maximal number of iterations</p></li>
+<li><p><strong>sample</strong> – A boolean of whether to sample the training data during
+search</p></li>
+<li><p><strong>eval_method</strong> – A string of resampling strategy, one of
+[‘auto’, ‘cv’, ‘holdout’]</p></li>
+<li><p><strong>split_ratio</strong> – A float of the valiation data percentage for holdout</p></li>
+<li><p><strong>n_splits</strong> – An integer of the number of folds for cross - validation</p></li>
+<li><p><strong>log_type</strong> – A string of the log type, one of
+[‘better’, ‘all’, ‘new’]
+‘better’ only logs configs with better loss than previos iters
+‘all’ logs all the tried configs
+‘new’ only logs non - redundant configs</p></li>
+<li><p><strong>model_history</strong> – A boolean of whether to keep the history of best
+models in the history property. Make sure memory is large
+enough if setting to True.</p></li>
+<li><p><strong>log_training_metric</strong> – A boolean of whether to log the training
+metric for each model.</p></li>
+<li><p><strong>mem_thres</strong> – A float of the memory size constraint in bytes</p></li>
+<li><p><strong>X_val</strong> – None | a numpy array or a pandas dataframe of validation data</p></li>
+<li><p><strong>y_val</strong> – None | a numpy array or a pandas series of validation labels</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.AutoML.get_estimator_from_log">
+<code class="sig-name descname">get_estimator_from_log</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">log_file_name</span></em>, <em class="sig-param"><span class="n">record_id</span></em>, <em class="sig-param"><span class="n">objective</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/automl.html#AutoML.get_estimator_from_log"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.AutoML.get_estimator_from_log" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the estimator from log file</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>log_file_name</strong> – A string of the log file name</p></li>
+<li><p><strong>record_id</strong> – An integer of the record ID in the file,
+0 corresponds to the first trial</p></li>
+<li><p><strong>objective</strong> – A string of the objective name,
+‘binary’, ‘multi’, or ‘regression’</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>An estimator object for the given configuration</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.AutoML.model">
+<em class="property">property </em><code class="sig-name descname">model</code><a class="headerlink" href="#flaml.AutoML.model" title="Permalink to this definition">¶</a></dt>
+<dd><p>An object with <cite>predict()</cite> and <cite>predict_proba()</cite> method (for
+classification), storing the best trained model.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.AutoML.model_history">
+<em class="property">property </em><code class="sig-name descname">model_history</code><a class="headerlink" href="#flaml.AutoML.model_history" title="Permalink to this definition">¶</a></dt>
+<dd><p>A dictionary of iter-&gt;model, storing the models when
+the best model is updated each time.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.AutoML.predict">
+<code class="sig-name descname">predict</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">X_test</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/automl.html#AutoML.predict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.AutoML.predict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict label from features.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>X_test</strong> – A numpy array of featurized instances, shape n * m.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A numpy array of shape n * 1 - - each element is a predicted class
+label for an instance.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.AutoML.predict_proba">
+<code class="sig-name descname">predict_proba</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">X_test</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/automl.html#AutoML.predict_proba"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.AutoML.predict_proba" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict the probability of each class from features, only works for
+classification problems.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>X_test</strong> – A numpy array of featurized instances, shape n * m.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A numpy array of shape n * c. c is the  # classes. Each element at
+(i, j) is the probability for instance i to be in class j.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.AutoML.retrain_from_log">
+<code class="sig-name descname">retrain_from_log</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">log_file_name</span></em>, <em class="sig-param"><span class="n">X_train</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">y_train</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">dataframe</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">time_budget</span><span class="o">=</span><span class="default_value">0</span></em>, <em class="sig-param"><span class="n">task</span><span class="o">=</span><span class="default_value">'classification'</span></em>, <em class="sig-param"><span class="n">eval_method</span><span class="o">=</span><span class="default_value">'auto'</span></em>, <em class="sig-param"><span class="n">split_ratio</span><span class="o">=</span><span class="default_value">0.1</span></em>, <em class="sig-param"><span class="n">n_splits</span><span class="o">=</span><span class="default_value">5</span></em>, <em class="sig-param"><span class="n">split_type</span><span class="o">=</span><span class="default_value">'stratified'</span></em>, <em class="sig-param"><span class="n">n_jobs</span><span class="o">=</span><span class="default_value">1</span></em>, <em class="sig-param"><span class="n">train_best</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">train_full</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">record_id</span><span class="o">=</span><span class="default_value">- 1</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/automl.html#AutoML.retrain_from_log"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.AutoML.retrain_from_log" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrain from log file</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>time_budget</strong> – A float number of the time budget in seconds</p></li>
+<li><p><strong>log_file_name</strong> – A string of the log file name</p></li>
+<li><p><strong>X_train</strong> – A numpy array of training data in shape n * m</p></li>
+<li><p><strong>y_train</strong> – A numpy array of labels in shape n * 1</p></li>
+<li><p><strong>task</strong> – A string of the task type, e.g.,
+‘classification’, ‘regression’</p></li>
+<li><p><strong>eval_method</strong> – A string of resampling strategy, one of
+[‘auto’, ‘cv’, ‘holdout’]</p></li>
+<li><p><strong>split_ratio</strong> – A float of the validation data percentage for holdout</p></li>
+<li><p><strong>n_splits</strong> – An integer of the number of folds for cross - validation</p></li>
+<li><p><strong>n_jobs</strong> – An integer of the number of threads for training</p></li>
+<li><p><strong>train_best</strong> – A boolean of whether to train the best config in the
+time budget; if false, train the last config in the budget</p></li>
+<li><p><strong>train_full</strong> – A boolean of whether to train on the full data. If true,
+eval_method and sample_size in the log file will be ignored</p></li>
+<li><p><strong>record_id</strong> – the ID of the training log record from which the model will
+be retrained. By default <cite>record_id = -1</cite> which means this will be
+ignored. <cite>record_id = 0</cite> corresponds to the first trial, and
+when <cite>record_id &gt;= 0</cite>, <cite>time_budget</cite> will be ignored.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 </div>
 
