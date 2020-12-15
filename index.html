@@ -173,16 +173,13 @@
 </div>
 <dl class="py method">
 <dt id="flaml.AutoML.add_learner">
-<code class="sig-name descname">add_learner</code><span class="sig-paren">(</span><em class="sig-param">learner_name</em>, <em class="sig-param">learner_class</em>, <em class="sig-param">size_estimate=&lt;function AutoML.&lt;lambda&gt;&gt;</em>, <em class="sig-param">cost_relative2lgbm=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/automl.html#AutoML.add_learner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.AutoML.add_learner" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">add_learner</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">learner_name</span></em>, <em class="sig-param"><span class="n">learner_class</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/automl.html#AutoML.add_learner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.AutoML.add_learner" title="Permalink to this definition">¶</a></dt>
 <dd><p>Add a customized learner</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>learner_name</strong> – A string of the learner’s name</p></li>
 <li><p><strong>learner_class</strong> – A subclass of BaseEstimator</p></li>
-<li><p><strong>size_estimate</strong> – A function from a config to its memory size in float</p></li>
-<li><p><strong>cost_relative2lgbm</strong> – A float number for the training cost ratio with
-respect to lightgbm(when both use the initial config)</p></li>
 </ul>
 </dd>
 </dl>

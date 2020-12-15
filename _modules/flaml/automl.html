@@ -536,22 +536,22 @@
 
 <div class="viewcode-block" id="AutoML.add_learner"><a class="viewcode-back" href="../../index.html#flaml.AutoML.add_learner">[docs]</a>    <span class="k">def</span> <span class="nf">add_learner</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
                     <span class="n">learner_name</span><span class="p">,</span>
-                    <span class="n">learner_class</span><span class="p">,</span>
-                    <span class="n">size_estimate</span><span class="o">=</span><span class="k">lambda</span> <span class="n">config</span><span class="p">:</span> <span class="s1">&#39;unknown&#39;</span><span class="p">,</span>
-                    <span class="n">cost_relative2lgbm</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+                    <span class="n">learner_class</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;Add a customized learner</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            learner_name: A string of the learner&#39;s name</span>
 <span class="sd">            learner_class: A subclass of BaseEstimator</span>
-<span class="sd">            size_estimate: A function from a config to its memory size in float</span>
-<span class="sd">            cost_relative2lgbm: A float number for the training cost ratio with</span>
-<span class="sd">                respect to lightgbm(when both use the initial config)</span>
 <span class="sd">        &#39;&#39;&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_custom_learners</span><span class="p">[</span><span class="n">learner_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">learner_class</span>
+        <span class="n">cost_relative2lgbm</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="c1"># cost_relative2lgbm: A float number for the training cost ratio with</span>
+        <span class="c1">#     respect to lightgbm(when both use the initial config)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_eti_ini</span><span class="p">[</span><span class="n">learner_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">cost_relative2lgbm</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_config_space_info</span><span class="p">[</span><span class="n">learner_name</span><span class="p">]</span> <span class="o">=</span> \
             <span class="n">learner_class</span><span class="o">.</span><span class="n">params_configsearch_info</span>
+        <span class="c1"># size_estimate: A function from a config to its memory size in float</span>
+        <span class="n">size_estimate</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">config</span><span class="p">:</span> <span class="mf">1.0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_custom_size_estimate</span><span class="p">[</span><span class="n">learner_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">size_estimate</span></div>
 
 <div class="viewcode-block" id="AutoML.get_estimator_from_log"><a class="viewcode-back" href="../../index.html#flaml.AutoML.get_estimator_from_log">[docs]</a>    <span class="k">def</span> <span class="nf">get_estimator_from_log</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">log_file_name</span><span class="p">,</span> <span class="n">record_id</span><span class="p">,</span> <span class="n">objective</span><span class="p">):</span>
