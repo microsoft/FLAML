@@ -86,7 +86,7 @@ For more examples, please check out
 ## CFO: Frugal Optimization for Cost-related Hyperparameters
 
 <p>
-    <img src="https://github.com/microsoft/FLAML/raw/main/docs/images/CFO.png"  width=200>
+    <img src="https://github.com/microsoft/FLAML/raw/v0.2.2/docs/images/CFO.png"  width=200>
     <br>
 </p>
 
@@ -113,7 +113,7 @@ using BlendSearch.
 ## BlendSearch: Economical Hyperparameter Optimization With Blended Search Strategy
 
 <p>
-    <img src="https://github.com/microsoft/FLAML/raw/main/docs/images/BlendSearch.png"  width=200>
+    <img src="https://github.com/microsoft/FLAML/raw/v0.2.2/docs/images/BlendSearch.png"  width=200>
     <br>
 </p>
 
