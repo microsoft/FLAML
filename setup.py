@@ -20,6 +20,7 @@ install_requires = [
     "scipy>=1.4.1",
     "catboost>=0.23",
     "scikit-learn>=0.23",
+    "optuna"
 ],
 
 
@@ -32,7 +33,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/microsoft/FLAML",
-    packages=["flaml"],
+    packages=setuptools.find_packages(),
     install_requires=install_requires,
     extras_require={
         "notebook": [
@@ -45,8 +46,15 @@ setuptools.setup(
             "flake8>=3.8.4",
             "pytest>=6.1.1",
             "coverage>=5.3",
+            "xgboost<1.3",
             "rgf-python",
+            # "hpbandster",
+            # "torchvision"
         ],
+        "ray": [
+            "ray[tune]==1.1.0",
+            "pyyaml<5.3.1",            
+        ]
     },
     classifiers=[
         "Programming Language :: Python :: 3",
