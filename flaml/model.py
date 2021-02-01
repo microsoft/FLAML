@@ -58,6 +58,10 @@ class BaseEstimator:
         return self._model.classes_
 
     @property
+    def n_features_in_(self): 
+        return self.model.n_features_in_
+
+    @property
     def model(self):
         '''Trained model after fit() is called, or None before fit() is called
         '''
