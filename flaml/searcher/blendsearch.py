@@ -10,10 +10,6 @@ import pickle
 try:
     from ray.tune.suggest import Searcher
     from ray.tune.suggest.optuna import OptunaSearch as GlobalSearch
-    # HyperOptSearch raises exception sometimes
-    # from ray.tune.suggest.hyperopt import HyperOptSearch 
-    # TuneBOHB has its own scheduler
-    # from ray.tune.suggest.bohb import TuneBOHB
     from ray.tune.suggest.variant_generator import generate_variants
 except ImportError:
     from .suggestion import Searcher, OptunaSearch as GlobalSearch
@@ -40,6 +36,7 @@ class BlendSearch(Searcher):
                  max_resource: Optional[float] = None,
                  reduction_factor: Optional[float] = None,
                  resources_per_trial: Optional[dict] = None,
+                 global_search_alg: Optional[Searcher] = None,
                  mem_size = None):
         '''Constructor
 
@@ -82,13 +79,20 @@ class BlendSearch(Searcher):
                 incremental pruning.
             resources_per_trial: A dictionary of the resources permitted per
                 trial, such as 'mem'.
+            global_search_alg: A Searcher instance as the global search
+                instance. If omitted, Optuna is used. The following algos have
+                known issues when used as global_search_alg:
+                - HyperOptSearch raises exception sometimes
+                - TuneBOHB has its own scheduler
             mem_size: A function to estimate the memory size for a given config.
         '''
         self._metric, self._mode = metric, mode
         if points_to_evaluate: init_config = points_to_evaluate[0]
         else: init_config = {}
         self._points_to_evaluate = points_to_evaluate
-        if getattr(self, '__name__', None) != 'CFO':
+        if global_search_alg is not None:
+            self._gs = global_search_alg
+        elif getattr(self, '__name__', None) != 'CFO':
             self._gs = GlobalSearch(space=space, metric=metric, mode=mode)
         else:
             self._gs = None
