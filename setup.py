@@ -20,7 +20,7 @@ install_requires = [
     "scipy>=1.4.1",
     "catboost>=0.23",
     "scikit-learn>=0.23",
-    "optuna"
+    "optuna==2.3.0"
 ],
 
 
