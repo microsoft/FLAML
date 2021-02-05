@@ -26,6 +26,10 @@ from .training_log import training_log_reader, training_log_writer
 
 import logging
 logger = logging.getLogger(__name__)
+try:
+    import mlflow
+except:
+    mlflow = None
 
 
 class SearchState:
@@ -1037,6 +1041,30 @@ class AutoML:
                                         search_state.best_config,
                                         estimator,
                                         search_state.sample_size)                
+                    if mlflow is not None:
+                        with mlflow.start_run(nested=True) as run:
+                            mlflow.log_metric('iter_counter',
+                                self._iter_per_learner[estimator])
+                            mlflow.log_param('train_loss',
+                                search_state.train_loss)
+                            mlflow.log_metric('trial_time',
+                                search_state.trial_time)
+                            mlflow.log_metric('total_search_time',
+                                self._state.time_from_start)
+                            mlflow.log_metric('validation_loss',
+                                search_state.val_loss)
+                            mlflow.log_param('config',
+                                search_state.config)
+                            mlflow.log_param('learner',
+                                estimator)
+                            mlflow.log_param('sample_size',
+                                search_state.sample_size)
+                            mlflow.log_metric('best_validation_loss',
+                                search_state.best_loss)
+                            mlflow.log_param('best_config',
+                                search_state.best_config)
+                            mlflow.log_param('best_learner',
+                                self._best_estimator)
                 logger.info(
         " at {:.1f}s,\tbest {}'s error={:.4f},\tbest {}'s error={:.4f}".format(
                             self._state.time_from_start,

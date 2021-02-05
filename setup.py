@@ -54,7 +54,10 @@ setuptools.setup(
         "ray": [
             "ray[tune]==1.1.0",
             "pyyaml<5.3.1",            
-        ]
+        ],
+        "azureml": [
+            "azureml-mlflow"
+        ],
     },
     classifiers=[
         "Programming Language :: Python :: 3",
