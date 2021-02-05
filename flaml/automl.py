@@ -11,7 +11,6 @@ from scipy.sparse import issparse
 from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold, \
     RepeatedKFold
 from sklearn.utils import shuffle
-from sklearn.base import BaseEstimator
 import pandas as pd
 import os, contextlib
 
