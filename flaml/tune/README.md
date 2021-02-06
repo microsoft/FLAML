@@ -90,7 +90,7 @@ For more examples, please check out
     <br>
 </p>
 
-CFO uses the randomized direct search method FLOW$^2$ with adaptive stepsize and random restart. 
+CFO uses the randomized direct search method FLOW<sup>2</sup> with adaptive stepsize and random restart. 
 It requires a low-cost initial point as input if such point exists.
 The search begins with the low-cost initial point and gradually move to
 high cost region if needed. The local search method has a provable convergence
@@ -98,11 +98,11 @@ rate and bounded cost.
 
 About FLOW<sup>2</sup>: FLOW<sup>2</sup> is a simple yet effective randomized direct search method. 
 It is an iterative optimization method that can optimize for black-box functions.
-FLOW<sup>2</sup> only requires pairwise comparisons between function values to perform iterative update. Comparing to existing HPO methods, FLOW$^2$ has the following appealing properties:
+FLOW<sup>2</sup> only requires pairwise comparisons between function values to perform iterative update. Comparing to existing HPO methods, FLOW<sup>2</sup> has the following appealing properties:
 1. It is applicable to general black-box functions with a good convergence rate in terms of loss.
 3. It provides theoretical guarantees on the total evaluation cost incurred.
 
-The GIFs attached below demostrates an example search trajectory of FLOW$^2$ shown in the loss and evaluation cost (i.e., the training time ) space respectively. From the demonstration, we can see that (1) FLOW$^2$ can quickly move toward the low-loss region, showing good convergence property and (2) FLOW$^2$ tends to avoid exploring the high-cost region before it is necessary.
+The GIFs attached below demostrates an example search trajectory of FLOW<sup>2</sup> shown in the loss and evaluation cost (i.e., the training time ) space respectively. From the demonstration, we can see that (1) FLOW<sup>2</sup> can quickly move toward the low-loss region, showing good convergence property and (2) FLOW<sup>2</sup> tends to avoid exploring the high-cost region before it is necessary.
 
 <p align="center">
     <img align="center", src="https://github.com/microsoft/FLAML/raw/v0.2.2/docs/images/heatmap_loss_cfo_12s.gif"  width=360>  <img align="center", src="https://github.com/microsoft/FLAML/raw/v0.2.2/docs/images/heatmap_cost_cfo_12s.gif"  width=360> 
