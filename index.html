@@ -86,6 +86,7 @@
               <div class="local-toc"><ul>
 <li><a class="reference internal" href="#">FLAML API Documentation</a><ul>
 <li><a class="reference internal" href="#automl">AutoML</a></li>
+<li><a class="reference internal" href="#module-flaml.tune">Tune</a></li>
 </ul>
 </li>
 </ul>
@@ -402,6 +403,245 @@ the searched learners, such as sample_weight</p></li>
 </dd></dl>
 
 </div>
+<div class="section" id="module-flaml.tune">
+<span id="tune"></span><h2>Tune<a class="headerlink" href="#module-flaml.tune" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="flaml.BlendSearch">
+<em class="property">class </em><code class="sig-prename descclassname">flaml.</code><code class="sig-name descname">BlendSearch</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">metric</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">mode</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">space</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">points_to_evaluate</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>List<span class="p">[</span>Dict<span class="p">]</span><span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">cat_hp_cost</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">prune_attr</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">min_resource</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>float<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">max_resource</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>float<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">reduction_factor</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>float<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">resources_per_trial</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">global_search_alg</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>flaml.searcher.suggestion.Searcher<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">mem_size</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/searcher/blendsearch.html#BlendSearch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.BlendSearch" title="Permalink to this definition">¶</a></dt>
+<dd><p>class for BlendSearch algorithm</p>
+<dl class="py method">
+<dt id="flaml.BlendSearch.on_trial_complete">
+<code class="sig-name descname">on_trial_complete</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">trial_id</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">result</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>Dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">error</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/searcher/blendsearch.html#BlendSearch.on_trial_complete"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.BlendSearch.on_trial_complete" title="Permalink to this definition">¶</a></dt>
+<dd><p>search thread updater and cleaner</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.BlendSearch.on_trial_result">
+<code class="sig-name descname">on_trial_result</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">trial_id</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">result</span><span class="p">:</span> <span class="n">Dict</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/searcher/blendsearch.html#BlendSearch.on_trial_result"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.BlendSearch.on_trial_result" title="Permalink to this definition">¶</a></dt>
+<dd><p>Optional notification for result during training.
+Note that by default, the result dict may include NaNs or
+may not include the optimization metric. It is up to the
+subclass implementation to preprocess the result to
+avoid breaking the optimization process.
+:param trial_id: A unique string ID for the trial.
+:type trial_id: str
+:param result: Dictionary of metrics for current training progress.</p>
+<blockquote>
+<div><p>Note that the result dict may include NaNs or
+may not include the optimization metric. It is up to the
+subclass implementation to preprocess the result to
+avoid breaking the optimization process.</p>
+</div></blockquote>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.BlendSearch.restore">
+<code class="sig-name descname">restore</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">checkpoint_path</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/searcher/blendsearch.html#BlendSearch.restore"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.BlendSearch.restore" title="Permalink to this definition">¶</a></dt>
+<dd><p>Restore state for this search algorithm
+:param checkpoint_path: File where the search algorithm</p>
+<blockquote>
+<div><p>state is saved. This path should be the same
+as the one provided to “save”.</p>
+</div></blockquote>
+<dl class="field-list simple">
+</dl>
+<p>Example:
+.. code-block:: python</p>
+<blockquote>
+<div><p>search_alg.save(“./my_favorite_path.pkl”)
+search_alg2 = Searcher(…)
+search_alg2 = ConcurrencyLimiter(search_alg2, 1)
+search_alg2.restore(checkpoint_path)
+tune.run(cost, num_samples=5, search_alg=search_alg2)</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.BlendSearch.restore_from_dir">
+<code class="sig-name descname">restore_from_dir</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">checkpoint_dir</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/searcher/blendsearch.html#BlendSearch.restore_from_dir"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.BlendSearch.restore_from_dir" title="Permalink to this definition">¶</a></dt>
+<dd><p>Restores the state of a searcher from a given checkpoint_dir.
+Typically, you should use this function to restore from an
+experiment directory such as <cite>~/ray_results/trainable</cite>.
+.. code-block:: python</p>
+<blockquote>
+<div><dl class="simple">
+<dt>experiment_1 = tune.run(</dt><dd><p>cost,
+num_samples=5,
+search_alg=search_alg,
+verbose=0,
+name=self.experiment_name,
+local_dir=”~/my_results”)</p>
+</dd>
+</dl>
+<p>search_alg2 = Searcher()
+search_alg2.restore_from_dir(</p>
+<blockquote>
+<div><p>os.path.join(“~/my_results”, self.experiment_name)</p>
+</div></blockquote>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.BlendSearch.save">
+<code class="sig-name descname">save</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">checkpoint_path</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/searcher/blendsearch.html#BlendSearch.save"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.BlendSearch.save" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save state to path for this search algorithm.
+:param checkpoint_path: File where the search algorithm</p>
+<blockquote>
+<div><p>state is saved. This path should be used later when
+restoring from file.</p>
+</div></blockquote>
+<dl class="field-list simple">
+</dl>
+<p>Example:
+.. code-block:: python</p>
+<blockquote>
+<div><p>search_alg = Searcher(…)
+analysis = tune.run(</p>
+<blockquote>
+<div><p>cost,
+num_samples=5,
+search_alg=search_alg,
+name=self.experiment_name,
+local_dir=self.tmpdir)</p>
+</div></blockquote>
+<p>search_alg.save(“./my_favorite_path.pkl”)</p>
+</div></blockquote>
+<div class="versionchanged">
+<p><span class="versionmodified changed">Changed in version 0.8.7: </span>Save is automatically called by <cite>tune.run</cite>. You can use
+<cite>restore_from_dir</cite> to restore from an experiment directory
+such as <cite>~/ray_results/trainable</cite>.</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.BlendSearch.set_search_properties">
+<code class="sig-name descname">set_search_properties</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">metric</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">mode</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">config</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>Dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="_modules/flaml/searcher/blendsearch.html#BlendSearch.set_search_properties"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.BlendSearch.set_search_properties" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pass search properties to searcher.
+This method acts as an alternative to instantiating search algorithms
+with their own specific search spaces. Instead they can accept a
+Tune config through this method. A searcher should return <code class="docutils literal notranslate"><span class="pre">True</span></code>
+if setting the config was successful, or <code class="docutils literal notranslate"><span class="pre">False</span></code> if it was
+unsuccessful, e.g. when the search space has already been set.
+:param metric: Metric to optimize
+:type metric: str
+:param mode: One of [“min”, “max”]. Direction to optimize.
+:type mode: str
+:param config: Tune config dict.
+:type config: dict</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.BlendSearch.suggest">
+<code class="sig-name descname">suggest</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">trial_id</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; Optional<span class="p">[</span>Dict<span class="p">]</span><a class="reference internal" href="_modules/flaml/searcher/blendsearch.html#BlendSearch.suggest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.BlendSearch.suggest" title="Permalink to this definition">¶</a></dt>
+<dd><p>choose thread, suggest a valid config</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="flaml.CFO">
+<em class="property">class </em><code class="sig-prename descclassname">flaml.</code><code class="sig-name descname">CFO</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">metric</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">mode</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">space</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">points_to_evaluate</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>List<span class="p">[</span>Dict<span class="p">]</span><span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">cat_hp_cost</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">prune_attr</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">min_resource</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>float<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">max_resource</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>float<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">reduction_factor</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>float<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">resources_per_trial</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">global_search_alg</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>flaml.searcher.suggestion.Searcher<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">mem_size</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/searcher/blendsearch.html#CFO"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.CFO" title="Permalink to this definition">¶</a></dt>
+<dd><p>class for CFO algorithm
+Number of threads is 1 or 2. Thread 0 is a vacuous thread.</p>
+<dl class="py method">
+<dt id="flaml.CFO.suggest">
+<code class="sig-name descname">suggest</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">trial_id</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; Optional<span class="p">[</span>Dict<span class="p">]</span><a class="reference internal" href="_modules/flaml/searcher/blendsearch.html#CFO.suggest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.CFO.suggest" title="Permalink to this definition">¶</a></dt>
+<dd><p>choose thread, suggest a valid config</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="flaml.FLOW2">
+<em class="property">class </em><code class="sig-prename descclassname">flaml.</code><code class="sig-name descname">FLOW2</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">init_config</span><span class="p">:</span> <span class="n">dict</span></em>, <em class="sig-param"><span class="n">metric</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">mode</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">cat_hp_cost</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">space</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">prune_attr</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">min_resource</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>float<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">max_resource</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>float<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">resource_multiple_factor</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>float<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">4</span></em>, <em class="sig-param"><span class="n">seed</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>int<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">20</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/searcher/flow2.html#FLOW2"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.FLOW2" title="Permalink to this definition">¶</a></dt>
+<dd><p>Local search algorithm FLOW2, with adaptive step size</p>
+<dl class="py method">
+<dt id="flaml.FLOW2.can_suggest">
+<em class="property">property </em><code class="sig-name descname">can_suggest</code><a class="headerlink" href="#flaml.FLOW2.can_suggest" title="Permalink to this definition">¶</a></dt>
+<dd><p>can’t suggest if 2*dim configs have been proposed for the incumbent
+while fewer are completed</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.FLOW2.complete_config">
+<code class="sig-name descname">complete_config</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">partial_config</span><span class="p">:</span> <span class="n">Dict</span></em>, <em class="sig-param"><span class="n">lower</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>Dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">upper</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>Dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; Dict<a class="reference internal" href="_modules/flaml/searcher/flow2.html#FLOW2.complete_config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.FLOW2.complete_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>generate a complete config from the partial config input
+add minimal resource to config if available</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.FLOW2.config_signature">
+<code class="sig-name descname">config_signature</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span></em><span class="sig-paren">)</span> &#x2192; tuple<a class="reference internal" href="_modules/flaml/searcher/flow2.html#FLOW2.config_signature"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.FLOW2.config_signature" title="Permalink to this definition">¶</a></dt>
+<dd><p>return the signature tuple of a config</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.FLOW2.converged">
+<em class="property">property </em><code class="sig-name descname">converged</code><a class="headerlink" href="#flaml.FLOW2.converged" title="Permalink to this definition">¶</a></dt>
+<dd><p>return whether the local search has converged</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.FLOW2.denormalize">
+<code class="sig-name descname">denormalize</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/searcher/flow2.html#FLOW2.denormalize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.FLOW2.denormalize" title="Permalink to this definition">¶</a></dt>
+<dd><p>denormalize each dimension in config from [0,1]</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.FLOW2.normalize">
+<code class="sig-name descname">normalize</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">config</span></em><span class="sig-paren">)</span> &#x2192; Dict<a class="reference internal" href="_modules/flaml/searcher/flow2.html#FLOW2.normalize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.FLOW2.normalize" title="Permalink to this definition">¶</a></dt>
+<dd><p>normalize each dimension in config to [0,1]</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.FLOW2.on_trial_complete">
+<code class="sig-name descname">on_trial_complete</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">trial_id</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">result</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>Dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">error</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/searcher/flow2.html#FLOW2.on_trial_complete"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.FLOW2.on_trial_complete" title="Permalink to this definition">¶</a></dt>
+<dd><p>compare with incumbent</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.FLOW2.on_trial_result">
+<code class="sig-name descname">on_trial_result</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">trial_id</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">result</span><span class="p">:</span> <span class="n">Dict</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/searcher/flow2.html#FLOW2.on_trial_result"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.FLOW2.on_trial_result" title="Permalink to this definition">¶</a></dt>
+<dd><p>early update of incumbent</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.FLOW2.reach">
+<code class="sig-name descname">reach</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">other</span><span class="p">:</span> <span class="n">flaml.searcher.suggestion.Searcher</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="_modules/flaml/searcher/flow2.html#FLOW2.reach"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.FLOW2.reach" title="Permalink to this definition">¶</a></dt>
+<dd><p>whether the incumbent can reach the incumbent of other</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.FLOW2.set_search_properties">
+<code class="sig-name descname">set_search_properties</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">metric</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">mode</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">config</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>Dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="_modules/flaml/searcher/flow2.html#FLOW2.set_search_properties"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.FLOW2.set_search_properties" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pass search properties to searcher.
+This method acts as an alternative to instantiating search algorithms
+with their own specific search spaces. Instead they can accept a
+Tune config through this method. A searcher should return <code class="docutils literal notranslate"><span class="pre">True</span></code>
+if setting the config was successful, or <code class="docutils literal notranslate"><span class="pre">False</span></code> if it was
+unsuccessful, e.g. when the search space has already been set.
+:param metric: Metric to optimize
+:type metric: str
+:param mode: One of [“min”, “max”]. Direction to optimize.
+:type mode: str
+:param config: Tune config dict.
+:type config: dict</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="flaml.FLOW2.suggest">
+<code class="sig-name descname">suggest</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">trial_id</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; Optional<span class="p">[</span>Dict<span class="p">]</span><a class="reference internal" href="_modules/flaml/searcher/flow2.html#FLOW2.suggest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.FLOW2.suggest" title="Permalink to this definition">¶</a></dt>
+<dd><p>suggest a new config, one of the following cases:
+1. same incumbent, increase resource
+2. same resource, move from the incumbent to a random direction
+3. same resource, move from the incumbent to the opposite direction</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
 </div>
 
 
@@ -414,7 +654,7 @@ the searched learners, such as sample_weight</p></li>
 
   <div role="contentinfo">
     <p>
-        &#169; Copyright 2020, FLAML Team.
+        &#169; Copyright 2020-2021, FLAML Team.
 
     </p>
   </div>
