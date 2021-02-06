@@ -127,7 +127,7 @@ using BlendSearch.
 
 ## BlendSearch: Economical Hyperparameter Optimization With Blended Search Strategy
 
-<p>
+<p align="center">
     <img src="https://github.com/microsoft/FLAML/raw/v0.2.2/docs/images/BlendSearch.png"  width=200>
     <br>
 </p>

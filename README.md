@@ -1,6 +1,6 @@
 # FLAML - Fast and Lightweight AutoML
 
-<p>
+<p align="center">
     <img src="https://github.com/microsoft/FLAML/raw/v0.2.2/docs/images/FLAML.png"  width=200>
     <br>
 </p>
