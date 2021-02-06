@@ -143,16 +143,8 @@ class FLOW2(Searcher):
                         l = np.array(domain.categories)[ind]
                         cost = self._cat_hp_cost[key] = cost[ind]
                         d = {}
-                        # n = 0
                         for i, choice in enumerate(l):
                             d[choice] = i
-                        # if key in init_config:
-                        #     id = d[init_config[key]]
-                        # else:
-                        #     id = 0
-                        # for i in range(len(l)):
-                        #     if cost[i] <= cost[id]: n+=1
-                        #     else: break
                         self._ordered_cat_hp[key] = (l, d)
                         self._step_lb = min(self._step_lb, 1.0/len(l))
                     elif all(isinstance(x, int) or isinstance(x, float)
