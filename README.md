@@ -56,9 +56,9 @@ A basic classification example.
 ```python
 from flaml import AutoML
 from sklearn.datasets import load_iris
-# Initialize the FLAML learner.
+# Initialize an AutoML instance
 automl = AutoML()
-# Provide configurations.
+# Specify automl goal and constraint
 automl_settings = {
     "time_budget": 10,  # in seconds
     "metric": 'accuracy',
@@ -66,12 +66,12 @@ automl_settings = {
     "log_file_name": "test/iris.log",
 }
 X_train, y_train = load_iris(return_X_y=True)
-# Train with labeled input data.
+# Train with labeled input data
 automl.fit(X_train=X_train, y_train=y_train,
                         **automl_settings)
 # Predict
 print(automl.predict_proba(X_train))
-# Export the best model.
+# Export the best model
 print(automl.model)
 ```
 
@@ -80,9 +80,9 @@ A basic regression example.
 ```python
 from flaml import AutoML
 from sklearn.datasets import load_boston
-# Initialize the FLAML learner.
+# Initialize an AutoML instance
 automl = AutoML()
-# Provide configurations.
+# Specify automl goal and constraint
 automl_settings = {
     "time_budget": 10,  # in seconds
     "metric": 'r2',
@@ -90,12 +90,12 @@ automl_settings = {
     "log_file_name": "test/boston.log",
 }
 X_train, y_train = load_boston(return_X_y=True)
-# Train with labeled input data.
+# Train with labeled input data
 automl.fit(X_train=X_train, y_train=y_train,
                         **automl_settings)
 # Predict
 print(automl.predict(X_train))
-# Export the best model.
+# Export the best model
 print(automl.model)
 ```
 
@@ -107,7 +107,7 @@ The API documentation is [here](https://microsoft.github.io/FLAML/).
 
 Read more about the 
 hyperparameter optimization methods
-in FLAML [here](https://github.com/microsoft/FLAML/tree/main/flaml/tune). They can be used outside the AutoML context. 
+in FLAML [here](https://github.com/microsoft/FLAML/tree/main/flaml/tune). They can be used beyond the AutoML context. 
 And they can be used in distributed HPO frameworks such as ray tune or nni.
 
 For more technical details, please check our papers.
@@ -121,7 +121,7 @@ For more technical details, please check our papers.
     booktitle={MLSys},
 }
 ```
-* [Frugal Optimization for Cost-related Hyperparameters](https://arxiv.org/abs/2005.01571). Qingyun Wu, Chi Wang, Silu Huang. To appear in AAAI 2021.
+* [Frugal Optimization for Cost-related Hyperparameters](https://arxiv.org/abs/2005.01571). Qingyun Wu, Chi Wang, Silu Huang. AAAI 2021.
 * Economical Hyperparameter Optimization With Blended Search Strategy. Chi Wang, Qingyun Wu, Silu Huang, Amin Saied. To appear in ICLR 2021.
 
 ## Contributing
