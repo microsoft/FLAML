@@ -546,15 +546,15 @@
 
 <div class="viewcode-block" id="CFO"><a class="viewcode-back" href="../../../index.html#flaml.CFO">[docs]</a><span class="k">class</span> <span class="nc">CFO</span><span class="p">(</span><span class="n">BlendSearch</span><span class="p">):</span>
     <span class="sd">&#39;&#39;&#39; class for CFO algorithm</span>
-<span class="sd">    Number of threads is 1 or 2. Thread 0 is a vacuous thread.</span>
 <span class="sd">    &#39;&#39;&#39;</span>
 
     <span class="vm">__name__</span> <span class="o">=</span> <span class="s1">&#39;CFO&#39;</span>
 
 <div class="viewcode-block" id="CFO.suggest"><a class="viewcode-back" href="../../../index.html#flaml.CFO.suggest">[docs]</a>    <span class="k">def</span> <span class="nf">suggest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]:</span>
+        <span class="c1"># Number of threads is 1 or 2. Thread 0 is a vacuous thread</span>
         <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">)</span><span class="o">&lt;</span><span class="mi">3</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="c1"># When a local converges, the number of threads is 1. </span>
+            <span class="c1"># When a local converges, the number of threads is 1</span>
             <span class="c1"># Need to restart</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_init_used</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">suggest</span><span class="p">(</span><span class="n">trial_id</span><span class="p">)</span></div>

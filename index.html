@@ -86,7 +86,7 @@
               <div class="local-toc"><ul>
 <li><a class="reference internal" href="#">FLAML API Documentation</a><ul>
 <li><a class="reference internal" href="#automl">AutoML</a></li>
-<li><a class="reference internal" href="#module-flaml.tune">Tune</a></li>
+<li><a class="reference internal" href="#tune">Tune</a></li>
 </ul>
 </li>
 </ul>
@@ -403,8 +403,151 @@ the searched learners, such as sample_weight</p></li>
 </dd></dl>
 
 </div>
-<div class="section" id="module-flaml.tune">
-<span id="tune"></span><h2>Tune<a class="headerlink" href="#module-flaml.tune" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="tune">
+<h2>Tune<a class="headerlink" href="#tune" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt id="flaml.tune.run">
+<code class="sig-prename descclassname">flaml.tune.</code><code class="sig-name descname">run</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">training_function</span></em>, <em class="sig-param"><span class="n">init_config</span><span class="p">:</span> <span class="n">dict</span></em>, <em class="sig-param"><span class="n">config</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">cat_hp_cost</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">metric</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">mode</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">time_budget_s</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>Union<span class="p">[</span>int<span class="p">, </span>float<span class="p">, </span>datetime.timedelta<span class="p">]</span><span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">prune_attr</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">min_resource</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>float<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">max_resource</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>float<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">reduction_factor</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>float<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">report_intermediate_result</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>bool<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">False</span></em>, <em class="sig-param"><span class="n">search_alg</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">verbose</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>int<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">2</span></em>, <em class="sig-param"><span class="n">local_dir</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">num_samples</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>int<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">1</span></em>, <em class="sig-param"><span class="n">resources_per_trial</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">mem_size</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">use_ray</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>bool<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/tune/tune.html#run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.tune.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>The trigger for HPO.</p>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">flaml</span> <span class="kn">import</span> <span class="n">tune</span>
+
+<span class="k">def</span> <span class="nf">compute_with_config</span><span class="p">(</span><span class="n">config</span><span class="p">):</span>
+    <span class="n">current_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="n">metric2minimize</span> <span class="o">=</span> <span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">])</span><span class="o">-</span><span class="mi">95000</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+    <span class="n">time2eval</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">current_time</span>
+    <span class="n">tune</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="n">metric2minimize</span><span class="o">=</span><span class="n">metric2minimize</span><span class="p">,</span> <span class="n">time2eval</span><span class="o">=</span><span class="n">time2eval</span><span class="p">)</span>
+
+<span class="n">analysis</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+    <span class="n">compute_with_config</span><span class="p">,</span>
+    <span class="n">init_config</span><span class="o">=</span><span class="p">{},</span>
+    <span class="n">config</span><span class="o">=</span><span class="p">{</span>
+        <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">tune</span><span class="o">.</span><span class="n">qloguniform</span><span class="p">(</span><span class="n">lower</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mi">1000000</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+        <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="n">tune</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">lower</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mi">1000000</span><span class="p">)</span>
+    <span class="p">},</span>
+    <span class="n">metric</span><span class="o">=</span><span class="s1">&#39;metric2minimize&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;min&#39;</span><span class="p">,</span>
+    <span class="n">num_samples</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">time_budget_s</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span> <span class="n">use_ray</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">analysis</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">last_result</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>training_function</strong> – A user-defined training function.</p></li>
+<li><p><strong>init_config</strong> – <p>A dictionary from a subset of controlled dimensions
+to the initial low-cost values. e.g.,</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="s1">&#39;epochs&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>If no such dimension, pass an empty dict {}.</p>
+</p></li>
+<li><p><strong>config</strong> – A dictionary to specify the search space.</p></li>
+<li><p><strong>cat_hp_cost</strong> – <p>A dictionary from a subset of categorical dimensions
+to the relative cost of each choice.
+e.g.,</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="s1">&#39;tree_method&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]}</span>
+</pre></div>
+</div>
+<p>i.e., the relative cost of the
+three choices of ‘tree_method’ is 1, 1 and 2 respectively</p>
+</p></li>
+<li><p><strong>metric</strong> – A string of the metric name to optimize for.</p></li>
+<li><p><strong>mode</strong> – A string in [‘min’, ‘max’] to specify the objective as
+minimization or maximization.</p></li>
+<li><p><strong>time_budget_s</strong> – A float of the time budget in seconds.</p></li>
+<li><p><strong>prune_attr</strong> – <p>A string of the attribute used for pruning.
+Not necessarily in space.
+When prune_attr is in space, it is a hyperparameter, e.g.,</p>
+<blockquote>
+<div><p>’n_iters’, and the best value is unknown.</p>
+</div></blockquote>
+<dl class="simple">
+<dt>When prune_attr is not in space, it is a resource dimension,</dt><dd><p>e.g., ‘sample_size’, and the peak performance is assumed
+to be at the max_resource.</p>
+</dd>
+</dl>
+</p></li>
+<li><p><strong>min_resource</strong> – A float of the minimal resource to use for the
+prune_attr; only valid if prune_attr is not in space.</p></li>
+<li><p><strong>max_resource</strong> – A float of the maximal resource to use for the
+prune_attr; only valid if prune_attr is not in space.</p></li>
+<li><p><strong>reduction_factor</strong> – A float of the reduction factor used for incremental
+pruning.</p></li>
+<li><p><strong>report_intermediate_result</strong> – A boolean of whether intermediate results
+are reported. If so, early stopping and pruning can be used.</p></li>
+<li><p><strong>search_alg</strong> – <p>An instance of BlendSearch as the search algorithm
+to be used. The same instance can be used for iterative tuning.
+e.g.,</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">flaml</span> <span class="kn">import</span> <span class="n">BlendSearch</span>
+<span class="n">algo</span> <span class="o">=</span> <span class="n">BlendSearch</span><span class="p">(</span><span class="n">metric</span><span class="o">=</span><span class="s1">&#39;val_loss&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;min&#39;</span><span class="p">,</span>
+        <span class="n">space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+        <span class="n">points_to_evaluate</span><span class="o">=</span><span class="n">points_to_evaluate</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+    <span class="n">analysis</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">compute_with_config</span><span class="p">,</span> <span class="n">init_config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">search_alg</span><span class="o">=</span><span class="n">algo</span><span class="p">,</span> <span class="n">use_ray</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">analysis</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">last_result</span><span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>verbose</strong> – 0, 1, 2, or 3. Verbosity mode for ray if ray backend is used.
+0 = silent, 1 = only status updates, 2 = status and brief trial
+results, 3 = status and detailed trial results. Defaults to 2.</p></li>
+<li><p><strong>local_dir</strong> – A string of the local dir to save ray logs if ray backend is
+used.</p></li>
+<li><p><strong>num_samples</strong> – An integer of the number of configs to try. Defaults to 1.</p></li>
+<li><p><strong>resources_per_trial</strong> – A dictionary of the hardware resources to allocate
+per trial, e.g., <cite>{‘mem’: 1024**3}</cite>. When not using ray backend,
+only ‘mem’ is used as approximate resource constraints
+(in conjunction with mem_size).</p></li>
+<li><p><strong>mem_size</strong> – A function to estimate the memory size for a given config.
+It is used to skip configs which do not fit in memory.</p></li>
+<li><p><strong>use_ray</strong> – A boolean of whether to use ray as the backend</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="flaml.tune.report">
+<code class="sig-prename descclassname">flaml.tune.</code><code class="sig-name descname">report</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">_metric</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/tune/tune.html#report"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.tune.report" title="Permalink to this definition">¶</a></dt>
+<dd><p>A function called by the HPO application to report final or intermediate
+results.</p>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">flaml</span> <span class="kn">import</span> <span class="n">tune</span>
+
+<span class="k">def</span> <span class="nf">compute_with_config</span><span class="p">(</span><span class="n">config</span><span class="p">):</span>
+    <span class="n">current_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="n">metric2minimize</span> <span class="o">=</span> <span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">])</span><span class="o">-</span><span class="mi">95000</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+    <span class="n">time2eval</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">current_time</span>
+    <span class="n">tune</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="n">metric2minimize</span><span class="o">=</span><span class="n">metric2minimize</span><span class="p">,</span> <span class="n">time2eval</span><span class="o">=</span><span class="n">time2eval</span><span class="p">)</span>
+
+<span class="n">analysis</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+    <span class="n">compute_with_config</span><span class="p">,</span>
+    <span class="n">init_config</span><span class="o">=</span><span class="p">{},</span>
+    <span class="n">config</span><span class="o">=</span><span class="p">{</span>
+        <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">tune</span><span class="o">.</span><span class="n">qloguniform</span><span class="p">(</span><span class="n">lower</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mi">1000000</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+        <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="n">tune</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">lower</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mi">1000000</span><span class="p">)</span>
+    <span class="p">},</span>
+    <span class="n">metric</span><span class="o">=</span><span class="s1">&#39;metric2minimize&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;min&#39;</span><span class="p">,</span>
+    <span class="n">num_samples</span><span class="o">=</span><span class="mi">1000000</span><span class="p">,</span> <span class="n">time_budget_s</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span> <span class="n">use_ray</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">analysis</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">last_result</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>_metric</strong> – Optional default anonymous metric for <code class="docutils literal notranslate"><span class="pre">tune.report(value)</span></code>.
+(For compatibility with ray.tune.report)</p></li>
+<li><p><strong>**kwargs</strong> – Any key value pair to be reported.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py class">
 <dt id="flaml.BlendSearch">
 <em class="property">class </em><code class="sig-prename descclassname">flaml.</code><code class="sig-name descname">BlendSearch</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">metric</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">mode</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">space</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">points_to_evaluate</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>List<span class="p">[</span>Dict<span class="p">]</span><span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">cat_hp_cost</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">prune_attr</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">min_resource</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>float<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">max_resource</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>float<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">reduction_factor</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>float<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">resources_per_trial</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">global_search_alg</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>flaml.searcher.suggestion.Searcher<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">mem_size</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/searcher/blendsearch.html#BlendSearch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.BlendSearch" title="Permalink to this definition">¶</a></dt>
@@ -543,8 +686,7 @@ unsuccessful, e.g. when the search space has already been set.
 <dl class="py class">
 <dt id="flaml.CFO">
 <em class="property">class </em><code class="sig-prename descclassname">flaml.</code><code class="sig-name descname">CFO</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">metric</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">mode</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">space</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">points_to_evaluate</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>List<span class="p">[</span>Dict<span class="p">]</span><span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">cat_hp_cost</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">prune_attr</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">min_resource</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>float<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">max_resource</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>float<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">reduction_factor</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>float<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">resources_per_trial</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">global_search_alg</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>flaml.searcher.suggestion.Searcher<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">mem_size</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/searcher/blendsearch.html#CFO"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.CFO" title="Permalink to this definition">¶</a></dt>
-<dd><p>class for CFO algorithm
-Number of threads is 1 or 2. Thread 0 is a vacuous thread.</p>
+<dd><p>class for CFO algorithm</p>
 <dl class="py method">
 <dt id="flaml.CFO.suggest">
 <code class="sig-name descname">suggest</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">trial_id</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; Optional<span class="p">[</span>Dict<span class="p">]</span><a class="reference internal" href="_modules/flaml/searcher/blendsearch.html#CFO.suggest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#flaml.CFO.suggest" title="Permalink to this definition">¶</a></dt>

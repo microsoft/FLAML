@@ -1,0 +1,491 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>flaml.tune.tune &mdash; FLAML  documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> FLAML
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">FLAML</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>flaml.tune.tune</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for flaml.tune.tune</h1><div class="highlight"><pre>
+<span></span><span class="sd">&#39;&#39;&#39;!</span>
+<span class="sd"> * Copyright (c) 2020-2021 Microsoft Corporation. All rights reserved.</span>
+<span class="sd"> * Licensed under the MIT License. See LICENSE file in the</span>
+<span class="sd"> * project root for license information.</span>
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span> <span class="nn">datetime</span><span class="o">,</span> <span class="nn">time</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">ray.tune.analysis</span> <span class="kn">import</span> <span class="n">ExperimentAnalysis</span> <span class="k">as</span> <span class="n">EA</span>
+<span class="k">except</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">.analysis</span> <span class="kn">import</span> <span class="n">ExperimentAnalysis</span> <span class="k">as</span> <span class="n">EA</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="n">_use_ray</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">_runner</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="n">_verbose</span> <span class="o">=</span> <span class="mi">0</span>
+
+
+<span class="k">class</span> <span class="nc">ExperimentAnalysis</span><span class="p">(</span><span class="n">EA</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;Class for storing the experiment results</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trials</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">trials</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span> 
+            <span class="bp">self</span><span class="o">.</span><span class="n">trials</span> <span class="o">=</span> <span class="n">trials</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">default_metric</span> <span class="o">=</span> <span class="n">metric</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">default_mode</span> <span class="o">=</span> <span class="n">mode</span>
+
+
+<div class="viewcode-block" id="report"><a class="viewcode-back" href="../../../index.html#flaml.tune.report">[docs]</a><span class="k">def</span> <span class="nf">report</span><span class="p">(</span><span class="n">_metric</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;A function called by the HPO application to report final or intermediate</span>
+<span class="sd">    results.</span>
+
+<span class="sd">    Example:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        import time</span>
+<span class="sd">        from flaml import tune</span>
+
+<span class="sd">        def compute_with_config(config):</span>
+<span class="sd">            current_time = time.time()</span>
+<span class="sd">            metric2minimize = (round(config[&#39;x&#39;])-95000)**2</span>
+<span class="sd">            time2eval = time.time() - current_time</span>
+<span class="sd">            tune.report(metric2minimize=metric2minimize, time2eval=time2eval)</span>
+
+<span class="sd">        analysis = tune.run(</span>
+<span class="sd">            compute_with_config,</span>
+<span class="sd">            init_config={},</span>
+<span class="sd">            config={</span>
+<span class="sd">                &#39;x&#39;: tune.qloguniform(lower=1, upper=1000000, q=1),</span>
+<span class="sd">                &#39;y&#39;: tune.randint(lower=1, upper=1000000)</span>
+<span class="sd">            },</span>
+<span class="sd">            metric=&#39;metric2minimize&#39;, mode=&#39;min&#39;,</span>
+<span class="sd">            num_samples=1000000, time_budget_s=60, use_ray=False)</span>
+<span class="sd">            </span>
+<span class="sd">        print(analysis.trials[-1].last_result)</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        _metric: Optional default anonymous metric for ``tune.report(value)``.</span>
+<span class="sd">            (For compatibility with ray.tune.report)</span>
+<span class="sd">        **kwargs: Any key value pair to be reported.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">global</span> <span class="n">_use_ray</span>
+    <span class="k">global</span> <span class="n">_verbose</span>
+    <span class="k">if</span> <span class="n">_use_ray</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">ray</span> <span class="kn">import</span> <span class="n">tune</span>
+        <span class="k">return</span> <span class="n">tune</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="n">_metric</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">kwargs</span>
+        <span class="k">if</span> <span class="n">_verbose</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;result: </span><span class="si">{</span><span class="n">kwargs</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">_metric</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;_default_anonymous_metric&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_metric</span>
+        <span class="n">trial</span> <span class="o">=</span> <span class="n">_runner</span><span class="o">.</span><span class="n">running_trial</span>
+        <span class="n">result</span><span class="p">[</span><span class="s1">&#39;config&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">trial</span><span class="o">.</span><span class="n">config</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">trial</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">result</span><span class="p">[</span><span class="s1">&#39;config/&#39;</span><span class="o">+</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="n">_runner</span><span class="o">.</span><span class="n">process_trial_result</span><span class="p">(</span><span class="n">_runner</span><span class="o">.</span><span class="n">running_trial</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+        <span class="n">result</span><span class="p">[</span><span class="s1">&#39;time_total_s&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">trial</span><span class="o">.</span><span class="n">last_update_time</span> <span class="o">-</span> <span class="n">trial</span><span class="o">.</span><span class="n">start_time</span>
+        <span class="k">if</span> <span class="n">_verbose</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;result: </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">_runner</span><span class="o">.</span><span class="n">running_trial</span><span class="o">.</span><span class="n">is_finished</span><span class="p">():</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span> <span class="k">return</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="run"><a class="viewcode-back" href="../../../index.html#flaml.tune.run">[docs]</a><span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="n">training_function</span><span class="p">,</span>
+        <span class="n">init_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">cat_hp_cost</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">metric</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">mode</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">time_budget_s</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">prune_attr</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">min_resource</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">max_resource</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">reduction_factor</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">report_intermediate_result</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">search_alg</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> 
+        <span class="n">local_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">num_samples</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">resources_per_trial</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">mem_size</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">use_ray</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;The trigger for HPO.</span>
+
+<span class="sd">    Example:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        import time</span>
+<span class="sd">        from flaml import tune</span>
+
+<span class="sd">        def compute_with_config(config):</span>
+<span class="sd">            current_time = time.time()</span>
+<span class="sd">            metric2minimize = (round(config[&#39;x&#39;])-95000)**2</span>
+<span class="sd">            time2eval = time.time() - current_time</span>
+<span class="sd">            tune.report(metric2minimize=metric2minimize, time2eval=time2eval)</span>
+
+<span class="sd">        analysis = tune.run(</span>
+<span class="sd">            compute_with_config,</span>
+<span class="sd">            init_config={},</span>
+<span class="sd">            config={</span>
+<span class="sd">                &#39;x&#39;: tune.qloguniform(lower=1, upper=1000000, q=1),</span>
+<span class="sd">                &#39;y&#39;: tune.randint(lower=1, upper=1000000)</span>
+<span class="sd">            },</span>
+<span class="sd">            metric=&#39;metric2minimize&#39;, mode=&#39;min&#39;,</span>
+<span class="sd">            num_samples=-1, time_budget_s=60, use_ray=False)</span>
+<span class="sd">            </span>
+<span class="sd">        print(analysis.trials[-1].last_result)</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        training_function: A user-defined training function. </span>
+<span class="sd">        init_config: A dictionary from a subset of controlled dimensions</span>
+<span class="sd">            to the initial low-cost values. e.g.,            </span>
+
+<span class="sd">            .. code-block:: python</span>
+
+<span class="sd">                {&#39;epochs&#39;: 1}</span>
+
+<span class="sd">            If no such dimension, pass an empty dict {}.</span>
+<span class="sd">        config: A dictionary to specify the search space.</span>
+<span class="sd">        cat_hp_cost: A dictionary from a subset of categorical dimensions</span>
+<span class="sd">            to the relative cost of each choice. </span>
+<span class="sd">            e.g.,</span>
+<span class="sd">            </span>
+<span class="sd">            .. code-block:: python</span>
+
+<span class="sd">                {&#39;tree_method&#39;: [1, 1, 2]}</span>
+<span class="sd">            </span>
+<span class="sd">            i.e., the relative cost of the </span>
+<span class="sd">            three choices of &#39;tree_method&#39; is 1, 1 and 2 respectively</span>
+<span class="sd">        metric: A string of the metric name to optimize for.</span>
+<span class="sd">        mode: A string in [&#39;min&#39;, &#39;max&#39;] to specify the objective as</span>
+<span class="sd">            minimization or maximization.</span>
+<span class="sd">        time_budget_s: A float of the time budget in seconds.</span>
+<span class="sd">        prune_attr: A string of the attribute used for pruning. </span>
+<span class="sd">            Not necessarily in space.</span>
+<span class="sd">            When prune_attr is in space, it is a hyperparameter, e.g., </span>
+<span class="sd">                &#39;n_iters&#39;, and the best value is unknown.</span>
+<span class="sd">            When prune_attr is not in space, it is a resource dimension, </span>
+<span class="sd">                e.g., &#39;sample_size&#39;, and the peak performance is assumed</span>
+<span class="sd">                to be at the max_resource.</span>
+<span class="sd">        min_resource: A float of the minimal resource to use for the </span>
+<span class="sd">            prune_attr; only valid if prune_attr is not in space.</span>
+<span class="sd">        max_resource: A float of the maximal resource to use for the </span>
+<span class="sd">            prune_attr; only valid if prune_attr is not in space.</span>
+<span class="sd">        reduction_factor: A float of the reduction factor used for incremental</span>
+<span class="sd">            pruning.</span>
+<span class="sd">        report_intermediate_result: A boolean of whether intermediate results</span>
+<span class="sd">            are reported. If so, early stopping and pruning can be used.</span>
+<span class="sd">        search_alg: An instance of BlendSearch as the search algorithm</span>
+<span class="sd">            to be used. The same instance can be used for iterative tuning. </span>
+<span class="sd">            e.g.,</span>
+
+<span class="sd">            .. code-block:: python</span>
+
+<span class="sd">                from flaml import BlendSearch</span>
+<span class="sd">                algo = BlendSearch(metric=&#39;val_loss&#39;, mode=&#39;min&#39;,</span>
+<span class="sd">                        space=search_space,</span>
+<span class="sd">                        points_to_evaluate=points_to_evaluate)</span>
+<span class="sd">                for i in range(10):</span>
+<span class="sd">                    analysis = tune.run(compute_with_config, init_config=None,</span>
+<span class="sd">                        search_alg=algo, use_ray=False)</span>
+<span class="sd">                    print(analysis.trials[-1].last_result)</span>
+<span class="sd">                    </span>
+<span class="sd">        verbose: 0, 1, 2, or 3. Verbosity mode for ray if ray backend is used.</span>
+<span class="sd">            0 = silent, 1 = only status updates, 2 = status and brief trial</span>
+<span class="sd">            results, 3 = status and detailed trial results. Defaults to 2.</span>
+<span class="sd">        local_dir: A string of the local dir to save ray logs if ray backend is</span>
+<span class="sd">            used.</span>
+<span class="sd">        num_samples: An integer of the number of configs to try. Defaults to 1.</span>
+<span class="sd">        resources_per_trial: A dictionary of the hardware resources to allocate</span>
+<span class="sd">            per trial, e.g., `{&#39;mem&#39;: 1024**3}`. When not using ray backend,</span>
+<span class="sd">            only &#39;mem&#39; is used as approximate resource constraints</span>
+<span class="sd">            (in conjunction with mem_size).</span>
+<span class="sd">        mem_size: A function to estimate the memory size for a given config.</span>
+<span class="sd">            It is used to skip configs which do not fit in memory.</span>
+<span class="sd">        use_ray: A boolean of whether to use ray as the backend</span>
+<span class="sd">    &#39;&#39;&#39;</span>        
+    <span class="k">global</span> <span class="n">_use_ray</span>
+    <span class="k">global</span> <span class="n">_verbose</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">use_ray</span><span class="p">:</span>
+        <span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
+        <span class="k">if</span> <span class="n">verbose</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="kn">import</span> <span class="nn">os</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">local_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">FileHandler</span><span class="p">(</span><span class="n">local_dir</span><span class="o">+</span><span class="s1">&#39;/tune_&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span>
+                <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span><span class="o">+</span><span class="s1">&#39;.log&#39;</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="o">&lt;=</span><span class="mi">2</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">CRITICAL</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">search_alg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">..searcher.blendsearch</span> <span class="kn">import</span> <span class="n">BlendSearch</span>
+        <span class="n">search_alg</span> <span class="o">=</span> <span class="n">BlendSearch</span><span class="p">(</span><span class="n">points_to_evaluate</span><span class="o">=</span><span class="p">[</span><span class="n">init_config</span><span class="p">],</span> 
+                                <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span>
+                                <span class="n">cat_hp_cost</span><span class="o">=</span><span class="n">cat_hp_cost</span><span class="p">,</span>
+                                <span class="n">space</span><span class="o">=</span><span class="n">config</span><span class="p">,</span> <span class="n">prune_attr</span><span class="o">=</span><span class="n">prune_attr</span><span class="p">,</span>
+                                <span class="n">min_resource</span><span class="o">=</span><span class="n">min_resource</span><span class="p">,</span>
+                                <span class="n">max_resource</span><span class="o">=</span><span class="n">max_resource</span><span class="p">,</span>
+                                <span class="n">reduction_factor</span><span class="o">=</span><span class="n">reduction_factor</span><span class="p">,</span>
+                                <span class="n">resources_per_trial</span><span class="o">=</span><span class="n">resources_per_trial</span><span class="p">,</span>
+                                <span class="n">mem_size</span><span class="o">=</span><span class="n">mem_size</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">time_budget_s</span><span class="p">:</span>
+        <span class="n">search_alg</span><span class="o">.</span><span class="n">set_search_properties</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="p">{</span>
+            <span class="s1">&#39;time_budget_s&#39;</span><span class="p">:</span><span class="n">time_budget_s</span><span class="p">})</span>
+    <span class="k">if</span> <span class="n">report_intermediate_result</span><span class="p">:</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="c1"># scheduler resource_dimension=prune_attr</span>
+        <span class="k">if</span> <span class="n">prune_attr</span><span class="p">:</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;time_attr&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">prune_attr</span>
+        <span class="k">if</span> <span class="n">max_resource</span><span class="p">:</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;max_t&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_resource</span>
+        <span class="k">if</span> <span class="n">min_resource</span><span class="p">:</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;grace_period&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">min_resource</span>
+        <span class="k">if</span> <span class="n">reduction_factor</span><span class="p">:</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;reduction_factor&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">reduction_factor</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">ray.tune.schedulers</span> <span class="kn">import</span> <span class="n">ASHAScheduler</span>
+            <span class="n">scheduler</span> <span class="o">=</span> <span class="n">ASHAScheduler</span><span class="p">(</span><span class="o">**</span><span class="n">params</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">scheduler</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">scheduler</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="n">use_ray</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">ray</span> <span class="kn">import</span> <span class="n">tune</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;Failed to import ray tune. &quot;</span>
+            <span class="s2">&quot;Please install ray[tune] or set use_ray=False&quot;</span><span class="p">)</span>
+        <span class="n">_use_ray</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="n">tune</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">training_function</span><span class="p">,</span>
+                <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span>
+                <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span>
+                <span class="n">search_alg</span><span class="o">=</span><span class="n">search_alg</span><span class="p">,</span>
+                <span class="n">scheduler</span><span class="o">=</span><span class="n">scheduler</span><span class="p">,</span>
+                <span class="n">time_budget_s</span><span class="o">=</span><span class="n">time_budget_s</span><span class="p">,</span>
+                <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+                <span class="n">local_dir</span><span class="o">=</span><span class="n">local_dir</span><span class="p">,</span>
+                <span class="n">num_samples</span><span class="o">=</span><span class="n">num_samples</span><span class="p">,</span>
+                <span class="n">resources_per_trial</span><span class="o">=</span><span class="n">resources_per_trial</span>
+                <span class="p">)</span>
+
+    <span class="c1"># simple sequential run without using tune.run() from ray</span>
+    <span class="n">time_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>    
+    <span class="n">_use_ray</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="n">scheduler</span><span class="p">:</span>
+        <span class="n">scheduler</span><span class="o">.</span><span class="n">set_search_properties</span><span class="p">(</span><span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">)</span>
+    <span class="kn">from</span> <span class="nn">.trial_runner</span> <span class="kn">import</span> <span class="n">SequentialTrialRunner</span>
+    <span class="k">global</span> <span class="n">_runner</span>
+    <span class="n">_runner</span> <span class="o">=</span> <span class="n">SequentialTrialRunner</span><span class="p">(</span>
+        <span class="n">search_alg</span><span class="o">=</span><span class="n">search_alg</span><span class="p">,</span>
+        <span class="n">scheduler</span><span class="o">=</span><span class="n">scheduler</span><span class="p">,</span>
+        <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span>
+        <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="n">num_trials</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">time_start</span><span class="o">&lt;</span><span class="n">time_budget_s</span> <span class="ow">and</span> <span class="p">(</span>
+        <span class="n">num_samples</span><span class="o">&lt;</span><span class="mi">0</span> <span class="ow">or</span> <span class="n">num_trials</span><span class="o">&lt;</span><span class="n">num_samples</span><span class="p">):</span>
+        <span class="n">trial_to_run</span> <span class="o">=</span> <span class="n">_runner</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">trial_to_run</span><span class="p">:</span>
+            <span class="n">num_trials</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;trial </span><span class="si">{</span><span class="n">num_trials</span><span class="si">}</span><span class="s1"> config: </span><span class="si">{</span><span class="n">trial_to_run</span><span class="o">.</span><span class="n">config</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">training_function</span><span class="p">(</span><span class="n">trial_to_run</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+            <span class="n">_runner</span><span class="o">.</span><span class="n">stop_trial</span><span class="p">(</span><span class="n">trial_to_run</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ExperimentAnalysis</span><span class="p">(</span><span class="n">_runner</span><span class="o">.</span><span class="n">get_trials</span><span class="p">(),</span> <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2020-2021, FLAML Team.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
