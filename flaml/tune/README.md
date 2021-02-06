@@ -96,9 +96,9 @@ The search begins with the low-cost initial point and gradually move to
 high cost region if needed. The local search method has a provable convergence
 rate and bounded cost. 
 
-About $FLOW^2$: $FLOW^2$ is a simple yet effective randomized direct search method. 
+About FLOW<sup>2</sup>: FLOW<sup>2</sup> is a simple yet effective randomized direct search method. 
 It is an iterative optimization method that can optimize for black-box functions.
-FLOW$^2$ only requires comparisions between pairwises of function values to perform iterative update. Comparing to existing HPO methods, FLOW$^2$ has the following appealing properties:
+FLOW<sup>2</sup> only requires pairwise comparisons between function values to perform iterative update. Comparing to existing HPO methods, FLOW$^2$ has the following appealing properties:
 1. It is applicable to general black-box functions with a good convergence rate in terms of loss.
 3. It provides theoretical guarantees on the total evaluation cost incurred.
 
@@ -107,7 +107,7 @@ The GIFs attached below demostrates an example search trajectory of FLOW$^2$ sho
 <p align="center">
     <img align="center", src="https://github.com/microsoft/FLAML/raw/v0.2.2/docs/images/heatmap_loss_cfo_12s.gif"  width=360>  <img align="center", src="https://github.com/microsoft/FLAML/raw/v0.2.2/docs/images/heatmap_cost_cfo_12s.gif"  width=360> 
     <br>
-    <figcaption>Figure 1. FLOW^2 in tuning the # of leaves and the # of trees for XGBoost. The two background heatmaps show the loss and cost distribution of all configurations. The black dots are the points evaluated in FLOW^2. Black dots connected by lines are points that yield better loss performance when evaluated.</figcaption>
+    <figcaption>Figure 1. FLOW<sup>2</sup> in tuning the # of leaves and the # of trees for XGBoost. The two background heatmaps show the loss and cost distribution of all configurations. The black dots are the points evaluated in FLOW<sup>2</sup>. Black dots connected by lines are points that yield better loss performance when evaluated.</figcaption>
 </p>
 
 
