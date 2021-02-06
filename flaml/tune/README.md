@@ -96,7 +96,7 @@ The search begins with the low-cost initial point and gradually move to
 high cost region if needed. The local search method has a provable convergence
 rate and bounded cost. 
 
-About FLOW$^2$: FLOW$^2$ is a simple yet effective randomized direct search method. 
+About $FLOW^2$: $FLOW^2$ is a simple yet effective randomized direct search method. 
 It is an iterative optimization method that can optimize for black-box functions.
 FLOW$^2$ only requires comparisions between pairwises of function values to perform iterative update. Comparing to existing HPO methods, FLOW$^2$ has the following appealing properties:
 1. It is applicable to general black-box functions with a good convergence rate in terms of loss.
