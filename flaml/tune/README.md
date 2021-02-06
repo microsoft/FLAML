@@ -158,7 +158,7 @@ is prone to be stuck at local optima.
 
 For more technical details, please check our papers.
 
-* [Frugal Optimization for Cost-related Hyperparameters](https://arxiv.org/abs/2005.01571). Qingyun Wu, Chi Wang, Silu Huang. To appear in AAAI 2021.
+* [Frugal Optimization for Cost-related Hyperparameters](https://arxiv.org/abs/2005.01571). Qingyun Wu, Chi Wang, Silu Huang. AAAI 2021.
 
 ```
 @inproceedings{wu2021cfo,
