@@ -283,16 +283,21 @@
 
     <span class="k">def</span> <span class="nf">_prepare_sample_train_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sample_size</span><span class="p">):</span>
         <span class="n">full_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_train</span><span class="p">)</span>
+        <span class="n">sampled_weight</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">sample_size</span> <span class="o">&lt;=</span> <span class="n">full_size</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X_train</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
                 <span class="n">sampled_X_train</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X_train</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:</span><span class="n">sample_size</span><span class="p">]</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">sampled_X_train</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X_train</span><span class="p">[:</span><span class="n">sample_size</span><span class="p">]</span>
             <span class="n">sampled_y_train</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_train</span><span class="p">[:</span><span class="n">sample_size</span><span class="p">]</span>
+            <span class="n">weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;sample_weight&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">weight</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">sampled_weight</span> <span class="o">=</span> <span class="n">weight</span><span class="p">[:</span><span class="n">sample_size</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">sampled_X_train</span><span class="p">,</span> <span class="n">sampled_y_train</span> <span class="o">=</span> <span class="n">concat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X_train</span><span class="p">,</span>
              <span class="bp">self</span><span class="o">.</span><span class="n">X_val</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">y_train</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_val</span><span class="p">])</span>
-        <span class="k">return</span> <span class="n">sampled_X_train</span><span class="p">,</span> <span class="n">sampled_y_train</span>
+            <span class="n">sampled_weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;sample_weight&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">sampled_X_train</span><span class="p">,</span> <span class="n">sampled_y_train</span><span class="p">,</span> <span class="n">sampled_weight</span>
 
     <span class="k">def</span> <span class="nf">_compute_with_config_base</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
                                   <span class="n">estimator</span><span class="p">,</span>
@@ -301,8 +306,12 @@
         <span class="k">if</span> <span class="s1">&#39;FLAML_sample_size&#39;</span> <span class="ow">in</span> <span class="n">config_w_resource</span><span class="p">:</span>
             <span class="n">sample_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">config_w_resource</span><span class="p">[</span><span class="s1">&#39;FLAML_sample_size&#39;</span><span class="p">])</span>
         <span class="k">else</span><span class="p">:</span> <span class="n">sample_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_size</span>
-        <span class="n">sampled_X_train</span><span class="p">,</span> <span class="n">sampled_y_train</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_sample_train_data</span><span class="p">(</span>
-            <span class="n">sample_size</span><span class="p">)</span>
+        <span class="n">sampled_X_train</span><span class="p">,</span> <span class="n">sampled_y_train</span><span class="p">,</span> <span class="n">sampled_weight</span> <span class="o">=</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_sample_train_data</span><span class="p">(</span><span class="n">sample_size</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sampled_weight</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s1">&#39;sample_weight&#39;</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s1">&#39;sample_weight&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sampled_weight</span>
+        <span class="k">else</span><span class="p">:</span> <span class="n">weight</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">config</span> <span class="o">=</span> <span class="n">config_w_resource</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="k">if</span> <span class="s1">&#39;FLAML_sample_size&#39;</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span> <span class="k">del</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;FLAML_sample_size&#39;</span><span class="p">]</span>
         <span class="n">time_left</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_budget</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_from_start</span>
@@ -335,6 +344,9 @@
         <span class="s1">&#39;trained_estimator&#39;</span><span class="p">:</span> <span class="n">trained_estimator</span><span class="p">,}</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">devnull</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">,</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">redirect_stdout</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
             <span class="n">tune</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="o">**</span><span class="n">result</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sampled_weight</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s1">&#39;sample_weight&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">weight</span>
+
 
     <span class="k">def</span> <span class="nf">_train_with_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">estimator</span><span class="p">,</span> <span class="n">config_w_resource</span><span class="p">,</span>
      <span class="n">sample_size</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -343,8 +355,12 @@
             <span class="k">if</span> <span class="ow">not</span> <span class="n">sample_size</span><span class="p">:</span> <span class="n">sample_size</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;FLAML_sample_size&#39;</span><span class="p">]</span>
             <span class="k">del</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;FLAML_sample_size&#39;</span><span class="p">]</span>
         <span class="k">assert</span> <span class="n">sample_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-        <span class="n">sampled_X_train</span><span class="p">,</span> <span class="n">sampled_y_train</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_sample_train_data</span><span class="p">(</span>
-            <span class="n">sample_size</span><span class="p">)</span>
+        <span class="n">sampled_X_train</span><span class="p">,</span> <span class="n">sampled_y_train</span><span class="p">,</span> <span class="n">sampled_weight</span> <span class="o">=</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_sample_train_data</span><span class="p">(</span><span class="n">sample_size</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sampled_weight</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s1">&#39;sample_weight&#39;</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s1">&#39;sample_weight&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sampled_weight</span>
+        <span class="k">else</span><span class="p">:</span> <span class="n">weight</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">budget</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_budget</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_budget</span> <span class="o">-</span>
          <span class="bp">self</span><span class="o">.</span><span class="n">time_from_start</span><span class="p">)</span>
         <span class="n">estimator</span><span class="p">,</span> <span class="n">train_time</span> <span class="o">=</span> <span class="n">train_estimator</span><span class="p">(</span>
@@ -357,6 +373,8 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">learner_classes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">estimator</span><span class="p">),</span>
             <span class="n">budget</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sampled_weight</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s1">&#39;sample_weight&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">weight</span>
         <span class="k">return</span> <span class="n">estimator</span><span class="p">,</span> <span class="n">train_time</span>
 
 
