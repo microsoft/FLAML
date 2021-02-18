@@ -3,17 +3,21 @@
 import time
 import numpy as np
 
-import ray
-from datasets import (
-    load_dataset,
-    load_metric,
-)
-from transformers import (
-    AutoModelForSequenceClassification,
-    AutoTokenizer,
-    Trainer,
-    TrainingArguments,
-)
+try:
+    import ray
+    from datasets import (
+        load_dataset,
+        load_metric,
+    )
+    from transformers import (
+        AutoModelForSequenceClassification,
+        AutoTokenizer,
+        Trainer,
+        TrainingArguments,
+    )
+except:
+    print("pip install torch transformers datasets flaml[blendsearch,ray]")
+    
 import logging
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.FileHandler('test/tune_distilbert.log'))
