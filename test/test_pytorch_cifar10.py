@@ -26,7 +26,6 @@ def load_data(data_dir="./data"):
 # __load_data_end__
 
 
-import numpy as np
 try:
     import torch
     import torch.nn as nn

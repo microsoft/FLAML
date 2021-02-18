@@ -113,8 +113,9 @@ class BlendSearch(Searcher):
                 self._deadline = config.get('time_budget_s') + time.time()
             if 'metric_target' in config:
                 self._metric_target = config.get('metric_target')
-        else:    
-            self._metric, self._mode = metric, mode
+        else:
+            if metric: self._metric = metric
+            if mode: self._mode = mode
             self._ls.set_search_properties(metric, mode, config)
             if self._gs is not None:
                 self._gs.set_search_properties(metric, mode, config)
