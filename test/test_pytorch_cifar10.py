@@ -1,4 +1,4 @@
-'''Require: pip install torchvision ray
+'''Require: pip install torchvision ray flaml[blendsearch]
 '''
 import unittest
 import os
