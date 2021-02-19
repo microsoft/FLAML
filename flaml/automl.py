@@ -326,6 +326,10 @@ class AutoML:
             A numpy array of shape n * 1 - - each element is a predicted class
             label for an instance.
         '''
+        if self._trained_estimator is None:
+            warnings.warn(
+                "No estimator is trained. Please run fit with enough budget.")
+            return None
         X_test = self._preprocess(X_test)
         y_pred = self._trained_estimator.predict(X_test)
         if y_pred.ndim > 1: y_pred = y_pred.flatten()
