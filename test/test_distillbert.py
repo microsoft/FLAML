@@ -61,6 +61,9 @@ def train_distilbert(config: dict):
     training_args = TrainingArguments(
         output_dir='.',
         do_eval=False,
+        disable_tqdm=True,
+        logging_steps=20000,
+        save_total_limit=0,
         **config,
     )
 
@@ -87,15 +90,18 @@ def train_distilbert(config: dict):
 
 def _test_distillbert(method='BlendSearch'):
  
-    max_num_epoch = 4
+    max_num_epoch = 16
     num_samples = -1
-    time_budget_s = 3600
+    time_budget_s = 7200
 
     search_space = {
         # You can mix constants with search space objects.
         "num_train_epochs": flaml.tune.loguniform(1, max_num_epoch),
         "learning_rate": flaml.tune.loguniform(1e-6, 1e-4),
+        "adam_beta1": flaml.tune.uniform(0.8, 0.99),
+        "adam_beta2": flaml.tune.loguniform(98e-2, 9999e-4),
         "adam_epsilon": flaml.tune.loguniform(1e-9, 1e-7),
+        "lr_scheduler_type": flaml.tune.choice(["linear", "polynomial", "cosine"]),
     }
 
     start_time = time.time()
@@ -105,7 +111,7 @@ def _test_distillbert(method='BlendSearch'):
     elif 'BOHB' == method:
         from ray.tune.schedulers import HyperBandForBOHB
         from ray.tune.suggest.bohb import tuneBOHB
-        algo = tuneBOHB(max_concurrent=2)
+        algo = tuneBOHB(max_concurrent=4)
         scheduler = HyperBandForBOHB(max_t=max_num_epoch)
     elif 'Optuna' == method:
         from ray.tune.suggest.optuna import OptunaSearch
@@ -152,7 +158,7 @@ def _test_distillbert(method='BlendSearch'):
         mode=MODE,
         # You can add "gpu": 1 to allocate GPUs
         resources_per_trial={"gpu": 1},
-        config=search_space, local_dir='logs/',
+        config=search_space, local_dir='test/logs/',
         num_samples=num_samples, time_budget_s=time_budget_s,
         keep_checkpoints_num=1, checkpoint_score_attr=HP_METRIC,
         scheduler=scheduler, search_alg=algo)
@@ -211,4 +217,3 @@ def _test_distillbert_bohb():
 
 if __name__ == "__main__":
     _test_distillbert()
-    _test_distillbert('Optuna')
