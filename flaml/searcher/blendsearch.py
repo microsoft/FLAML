@@ -301,11 +301,9 @@ class BlendSearch(Searcher):
         else: # use init config
             init_config = self._points_to_evaluate.pop(
                 0) if self._points_to_evaluate else self._ls.init_config
-            if init_config==self._ls.init_config:
-                config = self._ls.complete_config(init_config,
+            config = self._ls.complete_config(init_config,
              self._admissible_min, self._admissible_max)
                 # logger.info(f"reset config to {config}")
-            else: config = init_config
             config_signature = self._ls.config_signature(config)
             result = self._result.get(config_signature)
             if result: # tried before

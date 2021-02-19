@@ -237,7 +237,8 @@ class FLOW2(Searcher):
         ''' generate a complete config from the partial config input
         add minimal resource to config if available
         '''
-        if self._reset_times: # not the first time, use random gaussian
+        if self._reset_times and partial_config==self.init_config:
+            # not the first time, use random gaussian
             normalized = self.normalize(partial_config)
             for key in normalized:
                  # don't change unordered cat choice
@@ -258,21 +259,21 @@ class FLOW2(Searcher):
                     normalized[key] = max(l, min(u, normalized[key] + delta))
             # use best config for unordered cat choice
             config = self.denormalize(normalized)
+            self._reset_times += 1
         else:
             config = partial_config.copy()
 
         for key, value in self.space.items():
             if key not in config:
                 config[key] = value
-        logger.debug(f'before random {config}')
+        # logger.debug(f'before random {config}')
         for _, generated in generate_variants({'config': config}):
             config = generated['config']
             break
-        logger.debug(f'after random {config}')
+        # logger.debug(f'after random {config}')
 
         if self._resource:
             config[self.prune_attr] = self.min_resource
-        self._reset_times += 1
         return config
 
     def create(self, init_config: Dict, obj: float, cost: float) -> Searcher:
