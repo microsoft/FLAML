@@ -313,7 +313,6 @@ class BlendSearch(Searcher):
                 self._result[config_signature] = {}
             else: return None # running but no result yet
             self._init_used = True
-            self._trial_proposed_by[trial_id] = 0
         # logger.info(f"config={config}")
         return config
 
