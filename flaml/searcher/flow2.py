@@ -190,6 +190,8 @@ class FLOW2(Searcher):
         self._K = 0
         self._iter_best_config = self.trial_count = 1
         self._reset_times = 0
+        # record intermediate trial cost
+        self._trial_cost = {}
 
     @property
     def step_lower_bound(self) -> float:
@@ -443,7 +445,8 @@ class FLOW2(Searcher):
         if proposed_by == self.incumbent:
             # proposed by current incumbent and no better
             self._num_complete4incumbent += 1
-            cost = result.get(self.cost_attr)
+            cost = result.get(
+                self.cost_attr) if result else self._trial_cost.get(trial_id)
             if cost: self._cost_complete4incumbent += cost
             if self._num_complete4incumbent >= 2*self.dim and \
                 self._num_allowed4incumbent == 0:
@@ -484,6 +487,9 @@ class FLOW2(Searcher):
                         self._num_allowed4incumbent = 2 * self.dim
                         self._proposed_by.clear()
                         self._iter_best_config = self.trial_count
+            cost = result.get(self.cost_attr)
+            # record the cost in case it is pruned and cost info is lost
+            self._trial_cost[trial_id] = cost
 
     def rand_vector_unit_sphere(self, dim) -> np.ndarray:
         vec = self._random.normal(0, 1, dim)
