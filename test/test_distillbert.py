@@ -44,7 +44,6 @@ def train_distilbert(config: dict):
     # Load CoLA dataset and apply tokenizer
     cola_raw = load_dataset("glue", TASK)
     cola_encoded = cola_raw.map(tokenize, batched=True)
-    # QUESTION: Write processed data to disk?
     train_dataset, eval_dataset = cola_encoded["train"], cola_encoded["validation"]
 
     model = AutoModelForSequenceClassification.from_pretrained(
@@ -90,9 +89,9 @@ def train_distilbert(config: dict):
 
 def _test_distillbert(method='BlendSearch'):
  
-    max_num_epoch = 16
+    max_num_epoch = 64
     num_samples = -1
-    time_budget_s = 7200
+    time_budget_s = 10800
 
     search_space = {
         # You can mix constants with search space objects.
@@ -101,7 +100,6 @@ def _test_distillbert(method='BlendSearch'):
         "adam_beta1": flaml.tune.uniform(0.8, 0.99),
         "adam_beta2": flaml.tune.loguniform(98e-2, 9999e-4),
         "adam_epsilon": flaml.tune.loguniform(1e-9, 1e-7),
-        "lr_scheduler_type": flaml.tune.choice(["linear", "polynomial", "cosine"]),
     }
 
     start_time = time.time()
