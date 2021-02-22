@@ -841,6 +841,14 @@ class AutoML:
         if eval_method == 'auto' or self._state.X_val is not None:
             eval_method = self._decide_eval_method(time_budget)
         self._state.eval_method = eval_method
+        if not mlflow or not mlflow.active_run():
+            # Add the console handler.
+            _ch = logging.StreamHandler()
+            logger_formatter = logging.Formatter(
+                '[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s',
+                '%m-%d %H:%M:%S')
+            _ch.setFormatter(logger_formatter)
+            logger.addHandler(_ch)        
         logger.info("Evaluation method: {}".format(eval_method))
         
         self._retrain_full = retrain_full and (eval_method == 'holdout' and
