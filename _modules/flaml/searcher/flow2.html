@@ -340,6 +340,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_K</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_iter_best_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trial_count</span> <span class="o">=</span> <span class="mi">1</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_reset_times</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="c1"># record intermediate trial cost</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_trial_cost</span> <span class="o">=</span> <span class="p">{}</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">step_lower_bound</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
@@ -387,7 +389,8 @@
         <span class="sd">&#39;&#39;&#39; generate a complete config from the partial config input</span>
 <span class="sd">        add minimal resource to config if available</span>
 <span class="sd">        &#39;&#39;&#39;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reset_times</span><span class="p">:</span> <span class="c1"># not the first time, use random gaussian</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reset_times</span> <span class="ow">and</span> <span class="n">partial_config</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">init_config</span><span class="p">:</span>
+            <span class="c1"># not the first time to complete init_config, use random gaussian</span>
             <span class="n">normalized</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">partial_config</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">normalized</span><span class="p">:</span>
                  <span class="c1"># don&#39;t change unordered cat choice</span>
@@ -408,21 +411,22 @@
                     <span class="n">normalized</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">l</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">normalized</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">+</span> <span class="n">delta</span><span class="p">))</span>
             <span class="c1"># use best config for unordered cat choice</span>
             <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">denormalize</span><span class="p">(</span><span class="n">normalized</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_reset_times</span> <span class="o">+=</span> <span class="mi">1</span>
         <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># first time init_config, or other configs, take as is</span>
             <span class="n">config</span> <span class="o">=</span> <span class="n">partial_config</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span>
                 <span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;before random </span><span class="si">{</span><span class="n">config</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="c1"># logger.debug(f&#39;before random {config}&#39;)</span>
         <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">generated</span> <span class="ow">in</span> <span class="n">generate_variants</span><span class="p">({</span><span class="s1">&#39;config&#39;</span><span class="p">:</span> <span class="n">config</span><span class="p">}):</span>
             <span class="n">config</span> <span class="o">=</span> <span class="n">generated</span><span class="p">[</span><span class="s1">&#39;config&#39;</span><span class="p">]</span>
             <span class="k">break</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;after random </span><span class="si">{</span><span class="n">config</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="c1"># logger.debug(f&#39;after random {config}&#39;)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span><span class="p">:</span>
             <span class="n">config</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">prune_attr</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_resource</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_reset_times</span> <span class="o">+=</span> <span class="mi">1</span>
         <span class="k">return</span> <span class="n">config</span></div>
 
     <span class="k">def</span> <span class="nf">create</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init_config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">obj</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">cost</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Searcher</span><span class="p">:</span>
@@ -592,7 +596,8 @@
         <span class="k">if</span> <span class="n">proposed_by</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">incumbent</span><span class="p">:</span>
             <span class="c1"># proposed by current incumbent and no better</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_num_complete4incumbent</span> <span class="o">+=</span> <span class="mi">1</span>
-            <span class="n">cost</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cost_attr</span><span class="p">)</span>
+            <span class="n">cost</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cost_attr</span><span class="p">)</span> <span class="k">if</span> <span class="n">result</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trial_cost</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">trial_id</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">cost</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cost_complete4incumbent</span> <span class="o">+=</span> <span class="n">cost</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_complete4incumbent</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="ow">and</span> \
                 <span class="bp">self</span><span class="o">.</span><span class="n">_num_allowed4incumbent</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -632,7 +637,10 @@
                         <span class="bp">self</span><span class="o">.</span><span class="n">_num_complete4incumbent</span> <span class="o">=</span> <span class="mi">0</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">_num_allowed4incumbent</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">_proposed_by</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">_iter_best_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trial_count</span></div>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_iter_best_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trial_count</span>
+            <span class="n">cost</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cost_attr</span><span class="p">)</span>
+            <span class="c1"># record the cost in case it is pruned and cost info is lost</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_trial_cost</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">cost</span></div>
 
     <span class="k">def</span> <span class="nf">rand_vector_unit_sphere</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
         <span class="n">vec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
