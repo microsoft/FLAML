@@ -25,6 +25,10 @@ from .training_log import training_log_reader, training_log_writer
 
 import logging
 logger = logging.getLogger(__name__)
+logger_formatter = logging.Formatter(
+    '[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s',
+    '%m-%d %H:%M:%S')
+
 try:
     import mlflow
 except:
