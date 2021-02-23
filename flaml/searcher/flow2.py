@@ -240,7 +240,7 @@ class FLOW2(Searcher):
         add minimal resource to config if available
         '''
         if self._reset_times and partial_config==self.init_config:
-            # not the first time, use random gaussian
+            # not the first time to complete init_config, use random gaussian
             normalized = self.normalize(partial_config)
             for key in normalized:
                  # don't change unordered cat choice
@@ -263,6 +263,7 @@ class FLOW2(Searcher):
             config = self.denormalize(normalized)
             self._reset_times += 1
         else:
+            # first time init_config, or other configs, take as is
             config = partial_config.copy()
 
         for key, value in self.space.items():
