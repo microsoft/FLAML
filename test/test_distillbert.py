@@ -15,6 +15,17 @@ try:
         Trainer,
         TrainingArguments,
     )
+    MODEL_CHECKPOINT = "distilbert-base-uncased"
+    TASK = "cola"
+    NUM_LABELS = 2
+    COLUMN_NAME = "sentence"
+    METRIC_NAME = "matthews_correlation"
+
+    # HP_METRIC, MODE = "loss", "min"
+    HP_METRIC, MODE = "matthews_correlation", "max"
+
+    # Define tokenize method
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_CHECKPOINT, use_fast=True)
 except:
     print("pip install torch transformers datasets flaml[blendsearch,ray]")
     
@@ -24,18 +35,6 @@ logger.addHandler(logging.FileHandler('test/tune_distilbert.log'))
 logger.setLevel(logging.INFO)
 
 import flaml
-
-MODEL_CHECKPOINT = "distilbert-base-uncased"
-TASK = "cola"
-NUM_LABELS = 2
-COLUMN_NAME = "sentence"
-METRIC_NAME = "matthews_correlation"
-
-# HP_METRIC, MODE = "loss", "min"
-HP_METRIC, MODE = "matthews_correlation", "max"
-
-# Define tokenize method
-tokenizer = AutoTokenizer.from_pretrained(MODEL_CHECKPOINT, use_fast=True)
 
 def train_distilbert(config: dict):
 
