@@ -28,6 +28,9 @@ def train_breast_cancer(config: dict):
     test_set = xgb.DMatrix(test_x, label=test_y)
     # HyperOpt returns a tuple
     config = config.copy()
+    config["max_depth"] = config["cost_related"]["max_depth"]
+    config["min_child_weight"] = config["cost_related"]["min_child_weight"]
+    del config["cost_related"]
     config["eval_metric"] = ["logloss", "error"]
     config["objective"] = "binary:logistic"
     # Train the classifier, using the Tune callback
