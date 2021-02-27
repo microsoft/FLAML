@@ -9,9 +9,10 @@ try:
     from ray.tune.suggest import Searcher
     from ray.tune.suggest.variant_generator import generate_variants
     from ray.tune import sample
+    from ray.tune.utils.util import flatten_dict, unflatten_dict
 except ImportError:
     from .suggestion import Searcher
-    from .variant_generator import generate_variants
+    from .variant_generator import generate_variants, flatten_dict, unflatten_dict
     from ..tune import sample
 
 
@@ -86,6 +87,7 @@ class FLOW2(Searcher):
         elif mode == "min":
             self.metric_op = 1.
         self.space = space or {}
+        self.space = flatten_dict(self.space, prevent_delimiter=True)
         self._random = np.random.RandomState(seed)
         self._seed = seed
         if not init_config:
@@ -95,7 +97,7 @@ class FLOW2(Searcher):
                 "consider providing init values for cost-related hps via "
                 "'init_config'."
                 )
-        self.init_config = self.best_config = init_config
+        self.init_config = self.best_config = flatten_dict(init_config)
         self.cat_hp_cost = cat_hp_cost
         self.prune_attr = prune_attr
         self.min_resource = min_resource
@@ -533,7 +535,7 @@ class FLOW2(Searcher):
         config = self.denormalize(move)
         self._proposed_by[trial_id] = self.incumbent
         self._configs[trial_id] = config
-        return config
+        return unflatten_dict(config)
 
     def _project(self, config):
         ''' project normalized config in the feasible region and set prune_attr
@@ -553,6 +555,7 @@ class FLOW2(Searcher):
     def config_signature(self, config) -> tuple:
         ''' return the signature tuple of a config
         '''
+        config = flatten_dict(config)
         value_list = []
         for key in self._space_keys:
             if key in config:

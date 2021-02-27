@@ -49,10 +49,12 @@ def _test_xgboost(method='BlendSearch'):
     else:
         from ray import tune
     search_space = {
-        # You can mix constants with search space objects.
-        "max_depth": tune.randint(1, 8) if method in [
-            "BlendSearch", "BOHB", "Optuna"] else tune.randint(1, 9),
-        "min_child_weight": tune.choice([1, 2, 3]),
+        # test nested search space
+        "cost_related": {
+            "max_depth": tune.randint(1, 8) if method in [
+                "BlendSearch", "BOHB", "Optuna"] else tune.randint(1, 9),
+            "min_child_weight": tune.choice([1, 2, 3]),
+        },
         "subsample": tune.uniform(0.5, 1.0),
         "eta": tune.loguniform(1e-4, 1e-1)
     }
