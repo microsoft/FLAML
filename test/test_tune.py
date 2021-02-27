@@ -28,9 +28,6 @@ def train_breast_cancer(config: dict):
     test_set = xgb.DMatrix(test_x, label=test_y)
     # HyperOpt returns a tuple
     config = config.copy()
-    config["max_depth"] = config["cost_related"]["max_depth"]
-    config["min_child_weight"] = config["cost_related"]["min_child_weight"]
-    del config["cost_related"]
     config["eval_metric"] = ["logloss", "error"]
     config["objective"] = "binary:logistic"
     # Train the classifier, using the Tune callback
@@ -52,12 +49,9 @@ def _test_xgboost(method='BlendSearch'):
     else:
         from ray import tune
     search_space = {
-        # test nested search space
-        "cost_related": {
-            "max_depth": tune.randint(1, 8) if method in [
-                "BlendSearch", "BOHB", "Optuna"] else tune.randint(1, 9),
-            "min_child_weight": tune.choice([1, 2, 3]),
-        },
+        "max_depth": tune.randint(1, 8) if method in [
+            "BlendSearch", "BOHB", "Optuna"] else tune.randint(1, 9),
+        "min_child_weight": tune.choice([1, 2, 3]),
         "subsample": tune.uniform(0.5, 1.0),
         "eta": tune.loguniform(1e-4, 1e-1)
     }
@@ -157,6 +151,33 @@ def _test_xgboost(method='BlendSearch'):
             logger.info(f"Best model eval loss: {logloss:.4f}")
             logger.info(f"Best model total accuracy: {accuracy:.4f}")
             logger.info(f"Best model parameters: {best_trial.config}")
+
+
+def test_nested():
+    from flaml import tune
+    search_space = {
+        # test nested search space
+        "cost_related": {
+            "a": tune.randint(1, 8),
+        },
+        "b": tune.uniform(0.5, 1.0),
+    }
+
+    def simple_func(config):
+        tune.report(
+            metric=(config["cost_related"]["a"]-4)**2 * (config["b"]-0.7)**2)
+
+    analysis = tune.run(
+        simple_func,
+        init_config={
+            "cost_related": {"a": 1,}
+        },
+        metric="metric",
+        mode="min",
+        config=search_space,
+        local_dir='logs/',
+        num_samples=-1,
+        time_budget_s=1)
 
 
 def test_xgboost_bs():

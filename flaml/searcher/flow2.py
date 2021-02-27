@@ -97,7 +97,8 @@ class FLOW2(Searcher):
                 "consider providing init values for cost-related hps via "
                 "'init_config'."
                 )
-        self.init_config = self.best_config = flatten_dict(init_config)
+        self.init_config = init_config
+        self.best_config = flatten_dict(init_config)
         self.cat_hp_cost = cat_hp_cost
         self.prune_attr = prune_attr
         self.min_resource = min_resource
@@ -173,7 +174,7 @@ class FLOW2(Searcher):
             # logger.info(self._resource)
         else: self._resource = None
         self.incumbent = {}
-        self.incumbent = self.normalize(self.init_config)
+        self.incumbent = self.normalize(self.best_config) # flattened
         self.best_obj = self.cost_incumbent = None
         self.dim = len(self._tunable_keys)  # total # tunable dimensions
         self._direction_tried = None        
@@ -267,7 +268,7 @@ class FLOW2(Searcher):
         else:
             # first time init_config, or other configs, take as is
             config = partial_config.copy()
-
+        config = flatten_dict(config)
         for key, value in self.space.items():
             if key not in config:
                 config[key] = value
@@ -279,13 +280,13 @@ class FLOW2(Searcher):
 
         if self._resource:
             config[self.prune_attr] = self.min_resource
-        return config
+        return unflatten_dict(config)
 
     def create(self, init_config: Dict, obj: float, cost: float) -> Searcher:
         flow2 = FLOW2(init_config, self.metric, self.mode, self._cat_hp_cost,
-                      self.space, self.prune_attr, self.min_resource,
-                      self.max_resource, self.resource_multiple_factor,
-                      self._seed+1)
+                      unflatten_dict(self.space), self.prune_attr, 
+                      self.min_resource, self.max_resource, 
+                      self.resource_multiple_factor, self._seed+1)
         flow2.best_obj = obj * self.metric_op  # minimize internally
         flow2.cost_incumbent = cost
         return flow2
@@ -294,7 +295,7 @@ class FLOW2(Searcher):
         ''' normalize each dimension in config to [0,1]
         '''
         config_norm = {}
-        for key, value in config.items():
+        for key, value in flatten_dict(config).items():
             if key in self.space:
                 # domain: sample.Categorical/Integer/Float/Function
                 domain = self.space[key]
