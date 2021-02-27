@@ -213,7 +213,7 @@ def run(training_function,
             import os
             os.makedirs(local_dir, exist_ok=True)
             logger.addHandler(logging.FileHandler(local_dir+'/tune_'+str(
-                datetime.datetime.now())+'.log'))
+                datetime.datetime.now()).replace(':', '-')+'.log'))
             if verbose<=2:
                 logger.setLevel(logging.INFO)
             else:
