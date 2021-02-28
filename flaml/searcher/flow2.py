@@ -440,7 +440,8 @@ class FLOW2(Searcher):
                     self._cost_complete4incumbent = 0
                     self._num_allowed4incumbent = 2 * self.dim
                     self._proposed_by.clear()
-                    if self._K > 0:
+                    if self._K > 0: 
+                        # self._oldK must have been set when self._K>0
                         self.step *= np.sqrt(self._K/self._oldK)
                     if self.step > self.step_ub: self.step = self.step_ub
                     self._iter_best_config = self.trial_count
