@@ -159,9 +159,10 @@
     <span class="kn">from</span> <span class="nn">ray.tune.suggest</span> <span class="kn">import</span> <span class="n">Searcher</span>
     <span class="kn">from</span> <span class="nn">ray.tune.suggest.variant_generator</span> <span class="kn">import</span> <span class="n">generate_variants</span>
     <span class="kn">from</span> <span class="nn">ray.tune</span> <span class="kn">import</span> <span class="n">sample</span>
+    <span class="kn">from</span> <span class="nn">ray.tune.utils.util</span> <span class="kn">import</span> <span class="n">flatten_dict</span><span class="p">,</span> <span class="n">unflatten_dict</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
     <span class="kn">from</span> <span class="nn">.suggestion</span> <span class="kn">import</span> <span class="n">Searcher</span>
-    <span class="kn">from</span> <span class="nn">.variant_generator</span> <span class="kn">import</span> <span class="n">generate_variants</span>
+    <span class="kn">from</span> <span class="nn">.variant_generator</span> <span class="kn">import</span> <span class="n">generate_variants</span><span class="p">,</span> <span class="n">flatten_dict</span><span class="p">,</span> <span class="n">unflatten_dict</span>
     <span class="kn">from</span> <span class="nn">..tune</span> <span class="kn">import</span> <span class="n">sample</span>
 
 
@@ -236,6 +237,7 @@
         <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;min&quot;</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">metric_op</span> <span class="o">=</span> <span class="mf">1.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">space</span> <span class="o">=</span> <span class="n">space</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">space</span> <span class="o">=</span> <span class="n">flatten_dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="p">,</span> <span class="n">prevent_delimiter</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_random</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_seed</span> <span class="o">=</span> <span class="n">seed</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">init_config</span><span class="p">:</span>
@@ -245,7 +247,8 @@
                 <span class="s2">&quot;consider providing init values for cost-related hps via &quot;</span>
                 <span class="s2">&quot;&#39;init_config&#39;.&quot;</span>
                 <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">init_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_config</span> <span class="o">=</span> <span class="n">init_config</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_config</span> <span class="o">=</span> <span class="n">init_config</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">best_config</span> <span class="o">=</span> <span class="n">flatten_dict</span><span class="p">(</span><span class="n">init_config</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cat_hp_cost</span> <span class="o">=</span> <span class="n">cat_hp_cost</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">prune_attr</span> <span class="o">=</span> <span class="n">prune_attr</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">min_resource</span> <span class="o">=</span> <span class="n">min_resource</span>
@@ -321,7 +324,7 @@
             <span class="c1"># logger.info(self._resource)</span>
         <span class="k">else</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">incumbent</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">incumbent</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_config</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">incumbent</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_config</span><span class="p">)</span> <span class="c1"># flattened</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">best_obj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cost_incumbent</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tunable_keys</span><span class="p">)</span>  <span class="c1"># total # tunable dimensions</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_direction_tried</span> <span class="o">=</span> <span class="kc">None</span>        
@@ -397,7 +400,7 @@
                 <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unordered_cat_hp</span><span class="p">:</span>
                     <span class="k">if</span> <span class="n">upper</span> <span class="ow">and</span> <span class="n">lower</span><span class="p">:</span>
                         <span class="n">u</span><span class="p">,</span> <span class="n">l</span> <span class="o">=</span> <span class="n">upper</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">lower</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
-                        <span class="n">gauss_std</span> <span class="o">=</span> <span class="n">u</span><span class="o">-</span><span class="n">l</span>
+                        <span class="n">gauss_std</span> <span class="o">=</span> <span class="n">u</span><span class="o">-</span><span class="n">l</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">STEPSIZE</span>
                         <span class="c1"># allowed bound</span>
                         <span class="n">u</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">STEPSIZE</span>
                         <span class="n">l</span> <span class="o">-=</span> <span class="bp">self</span><span class="o">.</span><span class="n">STEPSIZE</span>
@@ -411,11 +414,11 @@
                     <span class="n">normalized</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">l</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">normalized</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">+</span> <span class="n">delta</span><span class="p">))</span>
             <span class="c1"># use best config for unordered cat choice</span>
             <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">denormalize</span><span class="p">(</span><span class="n">normalized</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_reset_times</span> <span class="o">+=</span> <span class="mi">1</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># first time init_config, or other configs, take as is</span>
             <span class="n">config</span> <span class="o">=</span> <span class="n">partial_config</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-
+        <span class="k">if</span> <span class="n">partial_config</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_config</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reset_times</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">flatten_dict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span>
                 <span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
@@ -427,13 +430,13 @@
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span><span class="p">:</span>
             <span class="n">config</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">prune_attr</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_resource</span>
-        <span class="k">return</span> <span class="n">config</span></div>
+        <span class="k">return</span> <span class="n">unflatten_dict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">create</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init_config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">obj</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">cost</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Searcher</span><span class="p">:</span>
         <span class="n">flow2</span> <span class="o">=</span> <span class="n">FLOW2</span><span class="p">(</span><span class="n">init_config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cat_hp_cost</span><span class="p">,</span>
-                      <span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">prune_attr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_resource</span><span class="p">,</span>
-                      <span class="bp">self</span><span class="o">.</span><span class="n">max_resource</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource_multiple_factor</span><span class="p">,</span>
-                      <span class="bp">self</span><span class="o">.</span><span class="n">_seed</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+                      <span class="n">unflatten_dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">prune_attr</span><span class="p">,</span> 
+                      <span class="bp">self</span><span class="o">.</span><span class="n">min_resource</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_resource</span><span class="p">,</span> 
+                      <span class="bp">self</span><span class="o">.</span><span class="n">resource_multiple_factor</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_seed</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
         <span class="n">flow2</span><span class="o">.</span><span class="n">best_obj</span> <span class="o">=</span> <span class="n">obj</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">metric_op</span>  <span class="c1"># minimize internally</span>
         <span class="n">flow2</span><span class="o">.</span><span class="n">cost_incumbent</span> <span class="o">=</span> <span class="n">cost</span>
         <span class="k">return</span> <span class="n">flow2</span>
@@ -442,7 +445,7 @@
         <span class="sd">&#39;&#39;&#39; normalize each dimension in config to [0,1]</span>
 <span class="sd">        &#39;&#39;&#39;</span>
         <span class="n">config_norm</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">flatten_dict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="p">:</span>
                 <span class="c1"># domain: sample.Categorical/Integer/Float/Function</span>
                 <span class="n">domain</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
@@ -576,7 +579,7 @@
             <span class="n">obj</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">obj</span><span class="p">:</span> 
                 <span class="n">obj</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metric_op</span>
-                <span class="k">if</span> <span class="n">obj</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_obj</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_obj</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">obj</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_obj</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">best_obj</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_config</span> <span class="o">=</span> <span class="n">obj</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configs</span><span class="p">[</span>
                         <span class="n">trial_id</span><span class="p">]</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">incumbent</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_config</span><span class="p">)</span>
@@ -587,7 +590,8 @@
                     <span class="bp">self</span><span class="o">.</span><span class="n">_cost_complete4incumbent</span> <span class="o">=</span> <span class="mi">0</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_num_allowed4incumbent</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_proposed_by</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_K</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_K</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span> 
+                        <span class="c1"># self._oldK must have been set when self._K&gt;0</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">*=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_K</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">_oldK</span><span class="p">)</span>
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_ub</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_ub</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_iter_best_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trial_count</span>
@@ -624,7 +628,7 @@
             <span class="n">obj</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">obj</span><span class="p">:</span> 
                 <span class="n">obj</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metric_op</span>
-                <span class="k">if</span> <span class="n">obj</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_obj</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_obj</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">obj</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_obj</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">best_obj</span> <span class="o">=</span> <span class="n">obj</span>
                     <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configs</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span>
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_config</span> <span class="o">!=</span> <span class="n">config</span><span class="p">:</span>
@@ -683,7 +687,7 @@
         <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">denormalize</span><span class="p">(</span><span class="n">move</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_proposed_by</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">incumbent</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_configs</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">config</span>
-        <span class="k">return</span> <span class="n">config</span></div>
+        <span class="k">return</span> <span class="n">unflatten_dict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">_project</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39; project normalized config in the feasible region and set prune_attr</span>
@@ -703,6 +707,7 @@
 <div class="viewcode-block" id="FLOW2.config_signature"><a class="viewcode-back" href="../../../index.html#flaml.FLOW2.config_signature">[docs]</a>    <span class="k">def</span> <span class="nf">config_signature</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
         <span class="sd">&#39;&#39;&#39; return the signature tuple of a config</span>
 <span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">flatten_dict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
         <span class="n">value_list</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_space_keys</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span>
