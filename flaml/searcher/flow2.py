@@ -429,7 +429,7 @@ class FLOW2(Searcher):
             obj = result.get(self._metric)
             if obj: 
                 obj *= self.metric_op
-                if obj < self.best_obj:
+                if self.best_obj is None or obj < self.best_obj:
                     self.best_obj, self.best_config = obj, self._configs[
                         trial_id]
                     self.incumbent = self.normalize(self.best_config)
@@ -477,7 +477,7 @@ class FLOW2(Searcher):
             obj = result.get(self._metric)
             if obj: 
                 obj *= self.metric_op
-                if obj < self.best_obj:
+                if self.best_obj is None or obj < self.best_obj:
                     self.best_obj = obj
                     config = self._configs[trial_id]
                     if self.best_config != config:
