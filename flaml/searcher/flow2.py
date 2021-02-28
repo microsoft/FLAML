@@ -264,11 +264,10 @@ class FLOW2(Searcher):
                     normalized[key] = max(l, min(u, normalized[key] + delta))
             # use best config for unordered cat choice
             config = self.denormalize(normalized)
-            self._reset_times += 1
         else:
-            if partial_config == self.init_config: self._reset_times += 1
             # first time init_config, or other configs, take as is
             config = partial_config.copy()
+        if partial_config == self.init_config: self._reset_times += 1
         config = flatten_dict(config)
         for key, value in self.space.items():
             if key not in config:
