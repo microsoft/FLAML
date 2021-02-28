@@ -250,7 +250,7 @@ class FLOW2(Searcher):
                 if key not in self._unordered_cat_hp:
                     if upper and lower:
                         u, l = upper[key], lower[key]
-                        gauss_std = u-l
+                        gauss_std = u-l or self.STEPSIZE
                         # allowed bound
                         u += self.STEPSIZE
                         l -= self.STEPSIZE
