@@ -266,6 +266,7 @@ class FLOW2(Searcher):
             config = self.denormalize(normalized)
             self._reset_times += 1
         else:
+            if partial_config == self.init_config: self._reset_times += 1
             # first time init_config, or other configs, take as is
             config = partial_config.copy()
         config = flatten_dict(config)
