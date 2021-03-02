@@ -53,7 +53,7 @@ except:
     
 import logging
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.FileHandler('test/tune_electra.log'))
+logger.addHandler(logging.FileHandler('logs/tune_electra.log'))
 logger.setLevel(logging.INFO)
 
 import flaml
@@ -70,7 +70,6 @@ def train_electra(config: dict):
     metric = load_metric("glue", TASK)
 
     def compute_metrics(eval_pred):
-        global metric
         predictions, labels = eval_pred
         predictions = np.argmax(predictions, axis=1)
         return metric.compute(predictions=predictions, references=labels)
@@ -86,7 +85,7 @@ def train_electra(config: dict):
         disable_tqdm=True,
         logging_steps=20000,
         save_total_limit=0,
-        # fp16=True,
+        fp16=True,
         **config,
     )
 
@@ -110,22 +109,29 @@ def train_electra(config: dict):
         accuracy=eval_output["eval_accuracy"],
         )
 
+    try:
+        from azureml.core import Run
+        run = Run.get_context()
+        run.log('accuracy', eval_output["eval_accuracy"])
+        run.log('loss', eval_output["eval_loss"])
+        run.log('config', config)
+    except: pass
 
 def _test_electra(method='BlendSearch'):
  
     max_num_epoch = 9
     num_samples = -1
-    time_budget_s = 3600
+    time_budget_s = 7200
 
     search_space = {
         # You can mix constants with search space objects.
         "num_train_epochs": flaml.tune.loguniform(1, max_num_epoch),
-        "learning_rate": flaml.tune.loguniform(1e-5, 1e-3),
+        "learning_rate": flaml.tune.loguniform(2.9e-5, 1.6e-4),
         "weight_decay": flaml.tune.uniform(0, 0.3),
         # "warmup_ratio": flaml.tune.uniform(0, 0.2),
         # "hidden_dropout_prob": flaml.tune.uniform(0, 0.2),
         # "attention_probs_dropout_prob": flaml.tune.uniform(0, 0.2),
-        "per_device_train_batch_size": flaml.tune.choice([16, 32]),
+        "per_device_train_batch_size": flaml.tune.choice([16, 32, 64, 128]),
         "seed": flaml.tune.choice([12, 22, 33, 42]),
         # "adam_beta1": flaml.tune.uniform(0.8, 0.99),
         # "adam_beta2": flaml.tune.loguniform(98e-2, 9999e-4),
@@ -153,7 +159,7 @@ def _test_electra(method='BlendSearch'):
         from flaml import BlendSearch
         algo = BlendSearch(points_to_evaluate=[{
             "num_train_epochs": 1,
-            "per_device_train_batch_size": 32,
+            "per_device_train_batch_size": 128,
         }])
     elif 'Dragonfly' == method:
         from ray.tune.suggest.dragonfly import DragonflySearch
@@ -186,7 +192,7 @@ def _test_electra(method='BlendSearch'):
         metric=HP_METRIC,
         mode=MODE,
         resources_per_trial={"gpu": 4, "cpu": 4},
-        config=search_space, local_dir='test/logs/',
+        config=search_space, local_dir='logs/',
         num_samples=num_samples, time_budget_s=time_budget_s,
         keep_checkpoints_num=1, checkpoint_score_attr=HP_METRIC,
         scheduler=scheduler, search_alg=algo)
