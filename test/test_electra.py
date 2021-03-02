@@ -16,15 +16,38 @@ try:
         TrainingArguments,
     )
     MODEL_CHECKPOINT = "google/electra-base-discriminator"
-    TASK = "qnli"
-    NUM_LABELS = 2
-    COLUMN_NAME = "sentence"
+    task_to_keys = {
+        "cola": ("sentence", None),
+        "mnli": ("premise", "hypothesis"),
+        "mrpc": ("sentence1", "sentence2"),
+        "qnli": ("question", "sentence"),
+        "qqp": ("question1", "question2"),
+        "rte": ("sentence1", "sentence2"),
+        "sst2": ("sentence", None),
+        "stsb": ("sentence1", "sentence2"),
+        "wnli": ("sentence1", "sentence2"),
+    }
+    max_seq_length=128
+    overwrite_cache=False
+    pad_to_max_length=True
+    padding = "max_length"
 
+    TASK = "qnli"
     # HP_METRIC, MODE = "loss", "min"
     HP_METRIC, MODE = "accuracy", "max"
 
+    sentence1_key, sentence2_key = task_to_keys[TASK]
     # Define tokenize method
     tokenizer = AutoTokenizer.from_pretrained(MODEL_CHECKPOINT, use_fast=True)
+
+    def tokenize(examples):
+        args = (
+            (examples[sentence1_key],) if sentence2_key is None else (
+                examples[sentence1_key], examples[sentence2_key])
+        )
+        return tokenizer(*args, padding=padding, max_length=max_seq_length,
+         truncation=True)
+
 except:
     print("pip install torch transformers datasets flaml[blendsearch,ray]")
     
@@ -37,21 +60,21 @@ import flaml
 
 def train_electra(config: dict):
 
+    # Load dataset and apply tokenizer
+    data_raw = load_dataset("glue", TASK)
+    data_encoded = data_raw.map(tokenize, batched=True)
+    train_dataset, eval_dataset = data_encoded["train"], data_encoded["validation"]
+
+    NUM_LABELS = len(train_dataset.features["label"].names)
+
     metric = load_metric("glue", TASK)
 
-    def tokenize(examples):
-        return tokenizer(examples[COLUMN_NAME], truncation=True)
-
     def compute_metrics(eval_pred):
+        global metric
         predictions, labels = eval_pred
         predictions = np.argmax(predictions, axis=1)
         return metric.compute(predictions=predictions, references=labels)
 
-    # Load CoLA dataset and apply tokenizer
-    data_raw = load_dataset("glue", TASK)
-
-    data_encoded = data_raw.map(tokenize, batched=True)
-    train_dataset, eval_dataset = data_encoded["train"], data_encoded["validation"]
 
     model = AutoModelForSequenceClassification.from_pretrained(
         MODEL_CHECKPOINT, num_labels=NUM_LABELS
@@ -63,6 +86,7 @@ def train_electra(config: dict):
         disable_tqdm=True,
         logging_steps=20000,
         save_total_limit=0,
+        # fp16=True,
         **config,
     )
 
