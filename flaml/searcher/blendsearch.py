@@ -261,14 +261,14 @@ class BlendSearch(Searcher):
         '''
         if self._init_used and not self._points_to_evaluate:
             choice, backup = self._select_thread()
-            # logger.debug(f"choice={choice}, backup={backup}")
+            # print(f"choice={choice}, backup={backup}")
             if choice < 0: return None # timeout
             self._use_rs = False
             config = self._search_thread_pool[choice].suggest(trial_id)
             skip = self._should_skip(choice, trial_id, config)
             if skip:
                 if choice: 
-                    # logger.info(f"skipping choice={choice}, config={config}")
+                    # print(f"skipping choice={choice}, config={config}")
                     return None
                 # use rs
                 self._use_rs = True
@@ -279,8 +279,8 @@ class BlendSearch(Searcher):
                 # logger.debug(f"random config {config}")
                 skip = self._should_skip(choice, trial_id, config)
                 if skip: return None
-            # if not choice: logger.info(config)
-            if choice or backup == choice or self._valid(config): 
+            # if not choice: print(config)
+            if choice or self._valid(config): 
                 # LS or valid or no backup choice
                 self._trial_proposed_by[trial_id] = choice
             else: # invalid config proposed by GS
@@ -288,19 +288,20 @@ class BlendSearch(Searcher):
                     self._search_thread_pool[choice].on_trial_complete(
                         trial_id, {}, error=True) # tell GS there is an error
                 self._use_rs = False
+                if choice == backup: return None
                 config = self._search_thread_pool[backup].suggest(trial_id)
                 skip = self._should_skip(backup, trial_id, config)
                 if skip: 
                     return None
                 self._trial_proposed_by[trial_id] = backup
                 choice = backup
-            # if choice: self._pending.add(choice) # local search thread pending
             if not choice:
                 if self._ls._resource: 
                 # TODO: add resource to config proposed by GS, min or median?
                     config[self._ls.prune_attr] = self._ls.min_resource
             self._result[self._ls.config_signature(config)] = {}
         else: # use init config
+            # print("use init config")
             init_config = self._points_to_evaluate.pop(
                 0) if self._points_to_evaluate else self._ls.init_config
             config = self._ls.complete_config(init_config,
@@ -315,6 +316,7 @@ class BlendSearch(Searcher):
                 self._result[config_signature] = {}
             else: return None # running but no result yet
             self._init_used = True
+            self._trial_proposed_by[trial_id] = 0
         # logger.info(f"config={config}")
         return config
 
@@ -364,10 +366,10 @@ class BlendSearch(Searcher):
 
         top_thread_id = backup_thread_id = 0
         priority1 = priority2 = self._search_thread_pool[0].priority
-        # logger.debug(f"priority of thread 0={priority1}")
+        # print(f"priority of thread 0={priority1}, obj_best1={self._search_thread_pool[0].obj_best1}")
         for thread_id, thread in self._search_thread_pool.items():
             # if thread_id:
-            #     logger.debug(
+            #     print(
             #         f"priority of thread {thread_id}={thread.priority}")
             #     logger.debug(
             #         f"thread {thread_id}.can_suggest={thread.can_suggest}")

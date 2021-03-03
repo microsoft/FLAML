@@ -121,12 +121,12 @@ def _test_electra(method='BlendSearch'):
  
     max_num_epoch = 9
     num_samples = -1
-    time_budget_s = 7200
+    time_budget_s = 10800
 
     search_space = {
         # You can mix constants with search space objects.
-        "num_train_epochs": flaml.tune.loguniform(1, max_num_epoch),
-        "learning_rate": flaml.tune.loguniform(2.9e-5, 1.6e-4),
+        "num_train_epochs": flaml.tune.loguniform(0.01, max_num_epoch),
+        "learning_rate": flaml.tune.loguniform(3e-5, 1.5e-4),
         "weight_decay": flaml.tune.uniform(0, 0.3),
         # "warmup_ratio": flaml.tune.uniform(0, 0.2),
         # "hidden_dropout_prob": flaml.tune.uniform(0, 0.2),
@@ -153,12 +153,12 @@ def _test_electra(method='BlendSearch'):
     elif 'CFO' == method:
         from flaml import CFO
         algo = CFO(points_to_evaluate=[{
-            "num_train_epochs": 1,
+            "num_train_epochs": 0.01,
         }])
     elif 'BlendSearch' == method:
         from flaml import BlendSearch
         algo = BlendSearch(points_to_evaluate=[{
-            "num_train_epochs": 1,
+            "num_train_epochs": 0.01,
             "per_device_train_batch_size": 128,
         }])
     elif 'Dragonfly' == method:
@@ -251,5 +251,5 @@ def _test_electra_bohb():
 
 if __name__ == "__main__":
     _test_electra()
-    _test_electra_optuna()
-    _test_electra_ax()
+    # _test_electra_optuna()
+    # _test_electra_ax()

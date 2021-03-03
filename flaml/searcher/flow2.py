@@ -164,6 +164,7 @@ class FLOW2(Searcher):
                 if str(sampler) != 'Normal':
                     self._bounded_keys.append(key)
         self._space_keys = list(self.space.keys())
+        print(self._ordered_choice_hp)
         if (self.prune_attr and self.prune_attr not in self.space and
          self.max_resource):
             self._space_keys.append(self.prune_attr)
@@ -306,10 +307,10 @@ class FLOW2(Searcher):
                         # normalize categorical
                         if key in self._ordered_cat_hp:
                             l, d = self._ordered_cat_hp[key]
-                            config_norm[key] = d[value]/len(l)
+                            config_norm[key] = (d[value]+0.5)/len(l) # center
                         elif key in self._ordered_choice_hp:
                             l, d = self._ordered_choice_hp[key]
-                            config_norm[key] = d[value]/len(l)
+                            config_norm[key] = (d[value]+0.5)/len(l) # center
                         elif key in self.incumbent:
                             config_norm[key] = self.incumbent[
                                 key] if value == self.best_config[
@@ -409,6 +410,7 @@ class FLOW2(Searcher):
             self._metric = metric
         if mode:
             assert mode in ["min", "max"], "`mode` must be 'min' or 'max'."
+            self._mode = mode
             if mode == "max":
                 self.metric_op = -1.
             elif mode == "min":
@@ -532,7 +534,7 @@ class FLOW2(Searcher):
         self._direction_tried = self.rand_vector_unit_sphere(
             self.dim) * self.step
         for i, key in enumerate(self._tunable_keys):
-            move[key] += self._direction_tried[i]            
+            move[key] += self._direction_tried[i]
         self._project(move)
         config = self.denormalize(move)
         self._proposed_by[trial_id] = self.incumbent
