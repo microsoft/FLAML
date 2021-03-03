@@ -164,7 +164,6 @@ class FLOW2(Searcher):
                 if str(sampler) != 'Normal':
                     self._bounded_keys.append(key)
         self._space_keys = list(self.space.keys())
-        print(self._ordered_choice_hp)
         if (self.prune_attr and self.prune_attr not in self.space and
          self.max_resource):
             self._space_keys.append(self.prune_attr)

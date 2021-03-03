@@ -57,7 +57,7 @@ class SearchThread:
 
     def update_priority(self, eci: Optional[float] = 0):
         # optimistic projection
-        self.priority = (eci * self.speed - self.obj_best1)
+        self.priority = eci * self.speed - self.obj_best1
 
     def update_eci(self, metric_target: float,
      max_speed: Optional[float] = np.inf):
@@ -84,11 +84,12 @@ class SearchThread:
         if not hasattr(self._search_alg, '_ot_trials') or (not error and
             trial_id in self._search_alg._ot_trials):
             # optuna doesn't handle error
-            if self._is_ls:
+            if self._is_ls or not self._init_config:
                 self._search_alg.on_trial_complete(trial_id, result, error)
-            elif self._init_config: self._init_config = False
-            else: # init config is not proposed by self._search_alg
-                self._search_alg.on_trial_complete(trial_id, result, error)
+            else: 
+                # init config is not proposed by self._search_alg
+                # under this thread
+                self._init_config = False
         if result:
             if self.cost_attr in result:
                 self.cost_last = result[self.cost_attr]

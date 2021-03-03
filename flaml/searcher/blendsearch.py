@@ -265,17 +265,18 @@ class BlendSearch(Searcher):
             if choice < 0: return None # timeout
             self._use_rs = False
             config = self._search_thread_pool[choice].suggest(trial_id)
+            # preliminary check; not checking config validation
             skip = self._should_skip(choice, trial_id, config)
             if skip:
                 if choice: 
                     # print(f"skipping choice={choice}, config={config}")
                     return None
-                # use rs
+                # use rs when BO fails to suggest a config
                 self._use_rs = True
                 for _, generated in generate_variants(
                     {'config': self._ls.space}):
                     config = generated['config']
-                    break
+                    break # get one random config
                 # logger.debug(f"random config {config}")
                 skip = self._should_skip(choice, trial_id, config)
                 if skip: return None
@@ -284,11 +285,12 @@ class BlendSearch(Searcher):
                 # LS or valid or no backup choice
                 self._trial_proposed_by[trial_id] = choice
             else: # invalid config proposed by GS
-                if not self._use_rs:
-                    self._search_thread_pool[choice].on_trial_complete(
-                        trial_id, {}, error=True) # tell GS there is an error
+                # if not self._use_rs:
+                #     self._search_thread_pool[choice].on_trial_complete(
+                #         trial_id, {}, error=True) # tell GS there is an error
                 self._use_rs = False
-                if choice == backup: return None
+                if choice == backup and self._trial_proposed_by: 
+                    return None # waiting for result for some trial
                 config = self._search_thread_pool[backup].suggest(trial_id)
                 skip = self._should_skip(backup, trial_id, config)
                 if skip: 
@@ -342,10 +344,10 @@ class BlendSearch(Searcher):
                     if choice:
                         # local search thread
                         self._clean(choice)
-                else:
-                    # tell the thread there is an error
-                    self._search_thread_pool[choice].on_trial_complete(
-                        trial_id, {}, error=True) 
+                # else:
+                #     # tell the thread there is an error
+                #     self._search_thread_pool[choice].on_trial_complete(
+                #         trial_id, {}, error=True) 
             return True
         return False
 
