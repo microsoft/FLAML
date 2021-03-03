@@ -296,14 +296,19 @@ class BlendSearch(Searcher):
                 #     self._search_thread_pool[choice].on_trial_complete(
                 #         trial_id, {}, error=True) # tell GS there is an error
                 self._use_rs = False
-                if choice == backup: 
-                    return None # waiting for result for some trial
-                config = self._search_thread_pool[backup].suggest(trial_id)
-                skip = self._should_skip(backup, trial_id, config)
-                if skip: 
-                    return None
-                self._trial_proposed_by[trial_id] = backup
-                choice = backup
+                if choice == backup:
+                    # use CFO's init point
+                    init_config = self._ls.init_config
+                    config = self._ls.complete_config(init_config,
+                        self._ls_bound_min, self._ls_bound_max)
+                    self._trial_proposed_by[trial_id] = choice
+                else:
+                    config = self._search_thread_pool[backup].suggest(trial_id)
+                    skip = self._should_skip(backup, trial_id, config)
+                    if skip: 
+                        return None
+                    self._trial_proposed_by[trial_id] = backup
+                    choice = backup
             if not choice: # global search
                 if self._ls._resource: 
                 # TODO: add resource to config proposed by GS, min or median?
