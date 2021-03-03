@@ -145,7 +145,7 @@ class BlendSearch(Searcher):
     def save(self, checkpoint_path: str):
         save_object = (self._metric_target, self._search_thread_pool,
             self._thread_count, self._init_used, self._trial_proposed_by,
-            self._admissible_min, self._admissible_max, self._result,
+            self._ls_bound_min, self._ls_bound_max, self._result,
             self._deadline)
         with open(checkpoint_path, "wb") as outputFile:
             pickle.dump(save_object, outputFile)
@@ -155,7 +155,7 @@ class BlendSearch(Searcher):
             save_object = pickle.load(inputFile)
         self._metric_target, self._search_thread_pool, \
             self._thread_count, self._init_used, self._trial_proposed_by, \
-            self._admissible_min, self._admissible_max, self._result, \
+            self._ls_bound_min, self._ls_bound_max, self._result, \
             self._deadline = save_object
 
     def restore_from_dir(self, checkpoint_dir: str):
@@ -241,9 +241,9 @@ class BlendSearch(Searcher):
         #     f"{self._search_thread_pool[thread_id].converged}")
         if self._search_thread_pool[thread_id].converged:
             todelete.add(thread_id)
-            for key in self._admissible_min:
-                self._admissible_max[key] += self._ls.STEPSIZE
-                self._admissible_min[key] -= self._ls.STEPSIZE            
+            for key in self._ls_bound_max:
+                self._ls_bound_max[key] += self._ls.STEPSIZE
+                self._ls_bound_min[key] -= self._ls.STEPSIZE            
         for id in todelete:
             del self._search_thread_pool[id]
 
@@ -296,7 +296,7 @@ class BlendSearch(Searcher):
                 #     self._search_thread_pool[choice].on_trial_complete(
                 #         trial_id, {}, error=True) # tell GS there is an error
                 self._use_rs = False
-                if choice == backup and self._trial_proposed_by: 
+                if choice == backup: 
                     return None # waiting for result for some trial
                 config = self._search_thread_pool[backup].suggest(trial_id)
                 skip = self._should_skip(backup, trial_id, config)
@@ -309,10 +309,10 @@ class BlendSearch(Searcher):
                 # TODO: add resource to config proposed by GS, min or median?
                     config[self._ls.prune_attr] = self._ls.min_resource
                 # temporarily relax admissible region for parallel proposals
-                self._update_admissible_region(self, self._gs_admissible_min,
+                self._update_admissible_region(config, self._gs_admissible_min,
                     self._gs_admissible_max)
             else:
-                self._update_admissible_region(self, self._ls_bound_min,
+                self._update_admissible_region(config, self._ls_bound_min,
                     self._ls_bound_max)
                 self._gs_admissible_min.update(self._ls_bound_min)
                 self._gs_admissible_max.update(self._ls_bound_max)
@@ -322,7 +322,7 @@ class BlendSearch(Searcher):
             init_config = self._points_to_evaluate.pop(
                 0) if self._points_to_evaluate else self._ls.init_config
             config = self._ls.complete_config(init_config,
-             self._admissible_min, self._admissible_max)
+             self._ls_bound_min, self._ls_bound_max)
                 # logger.info(f"reset config to {config}")
             config_signature = self._ls.config_signature(config)
             result = self._result.get(config_signature)
