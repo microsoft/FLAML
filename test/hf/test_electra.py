@@ -53,6 +53,8 @@ except:
     
 import logging
 logger = logging.getLogger(__name__)
+import os
+os.makedirs('logs', exist_ok=True)
 logger.addHandler(logging.FileHandler('logs/tune_electra.log'))
 logger.setLevel(logging.INFO)
 
