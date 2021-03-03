@@ -135,8 +135,10 @@ class BlendSearch(Searcher):
         self._thread_count = 1 # total # threads created
         self._init_used = self._ls.init_config is None
         self._trial_proposed_by = {} # trial_id: str -> thread_id: int
-        self._admissible_min = self._ls.normalize(self._ls.init_config)
-        self._admissible_max = self._admissible_min.copy()
+        self._ls_bound_min = self._ls.normalize(self._ls.init_config)
+        self._ls_bound_max = self._ls_bound_min.copy()
+        self._gs_admissible_min = self._ls_bound_min.copy()
+        self._gs_admissible_max = self._ls_bound_max.copy()
         self._result = {} # config_signature: tuple -> result: Dict
         self._deadline = np.inf
 
@@ -181,16 +183,7 @@ class BlendSearch(Searcher):
             # update target metric if improved
             if (result[self._metric]-self._metric_target)*self._ls.metric_op<0:
                 self._metric_target = result[self._metric]
-            if thread_id: # from local search
-                # update admissible region
-                normalized_config = self._ls.normalize(config)
-                for key in self._admissible_min:
-                    value = normalized_config[key]
-                    if value > self._admissible_max[key]:
-                        self._admissible_max[key] = value
-                    elif value < self._admissible_min[key]:
-                        self._admissible_min[key] = value
-            elif self._create_condition(result):
+            if not thread_id and self._create_condition(result): 
                 # thread creator
                 self._search_thread_pool[self._thread_count] = SearchThread(
                     self._ls.mode,
@@ -199,13 +192,27 @@ class BlendSearch(Searcher):
                 )
                 thread_id = self._thread_count
                 self._thread_count += 1
-                
+                self._update_admissible_region(config, self._ls_bound_min,
+                    self._ls_bound_max)
+            # reset admissible region to ls bounding box
+            self._gs_admissible_min.update(self._ls_bound_min)
+            self._gs_admissible_max.update(self._ls_bound_max)
         # cleaner
         # logger.info(f"thread {thread_id} in search thread pool="
         #     f"{thread_id in self._search_thread_pool}")
         if thread_id and thread_id in self._search_thread_pool:
             # local search thread
             self._clean(thread_id)
+
+    def _update_admissible_region(self, config, admissible_min, admissible_max):
+        # update admissible region
+        normalized_config = self._ls.normalize(config)
+        for key in admissible_min:
+            value = normalized_config[key]
+            if value > admissible_max[key]:
+                admissible_max[key] = value
+            elif value < admissible_min[key]:
+                admissible_min[key] = value
 
     def _create_condition(self, result: Dict) -> bool:
         ''' create thread condition
@@ -297,10 +304,18 @@ class BlendSearch(Searcher):
                     return None
                 self._trial_proposed_by[trial_id] = backup
                 choice = backup
-            if not choice:
+            if not choice: # global search
                 if self._ls._resource: 
                 # TODO: add resource to config proposed by GS, min or median?
                     config[self._ls.prune_attr] = self._ls.min_resource
+                # temporarily relax admissible region for parallel proposals
+                self._update_admissible_region(self, self._gs_admissible_min,
+                    self._gs_admissible_max)
+            else:
+                self._update_admissible_region(self, self._ls_bound_min,
+                    self._ls_bound_max)
+                self._gs_admissible_min.update(self._ls_bound_min)
+                self._gs_admissible_max.update(self._ls_bound_max)
             self._result[self._ls.config_signature(config)] = {}
         else: # use init config
             # print("use init config")
@@ -388,13 +403,13 @@ class BlendSearch(Searcher):
     def _valid(self, config: Dict) -> bool:
         ''' config validator
         '''
-        for key in self._admissible_min:
+        for key in self._gs_admissible_min:
             if key in config:
                 value = config[key]
                 # logger.info(
                 #     f"{key},{value},{self._admissible_min[key]},{self._admissible_max[key]}")
-                if value<self._admissible_min[
-                    key] or value>self._admissible_max[key]:
+                if value+self._ls.STEPSIZE<self._gs_admissible_min[
+                    key] or value>self._gs_admissible_max[key]+self._ls.STEPSIZE:
                     return False
         return True
 
