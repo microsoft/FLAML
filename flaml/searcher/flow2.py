@@ -129,16 +129,16 @@ class FLOW2(Searcher):
             if callable(getattr(domain, 'get_sampler', None)):
                 self._tunable_keys.append(key)
                 sampler = domain.get_sampler()
-                if isinstance(sampler, sample.Quantized):
-                    sampler_inner = sampler.get_sampler()
-                    if str(sampler_inner) == 'Uniform':
-                        self._step_lb = min(
-                            self._step_lb, sampler.q/(domain.upper-domain.lower))
-                elif isinstance(domain, sample.Integer) and str(
-                    sampler) == 'Uniform':
-                    self._step_lb = min(
-                        self._step_lb, 1.0/(domain.upper-domain.lower))
-                elif isinstance(domain, sample.Categorical):
+                # if isinstance(sampler, sample.Quantized):
+                #     sampler_inner = sampler.get_sampler()
+                #     if str(sampler_inner) == 'Uniform':
+                #         self._step_lb = min(
+                #             self._step_lb, sampler.q/(domain.upper-domain.lower))
+                # elif isinstance(domain, sample.Integer) and str(
+                #     sampler) == 'Uniform':
+                #     self._step_lb = min(
+                #         self._step_lb, 1.0/(domain.upper-domain.lower))
+                if isinstance(domain, sample.Categorical):
                     cat_hp_cost = self.cat_hp_cost
                     if cat_hp_cost and key in cat_hp_cost:
                         cost = np.array(cat_hp_cost[key])
@@ -149,7 +149,7 @@ class FLOW2(Searcher):
                         for i, choice in enumerate(l):
                             d[choice] = i
                         self._ordered_cat_hp[key] = (l, d)
-                        self._step_lb = min(self._step_lb, 1.0/len(l))
+                        # self._step_lb = min(self._step_lb, 1.0/len(l))
                     elif all(isinstance(x, int) or isinstance(x, float)
                      for x in domain.categories):
                         l = sorted(domain.categories)
@@ -157,10 +157,10 @@ class FLOW2(Searcher):
                         for i, choice in enumerate(l):
                             d[choice] = i
                         self._ordered_choice_hp[key] = (l, d) 
-                        self._step_lb = min(self._step_lb, 1.0/len(l))
+                        # self._step_lb = min(self._step_lb, 1.0/len(l))
                     else:
                         self._unordered_cat_hp[key] = l = len(domain.categories)
-                        self._step_lb = min(self._step_lb, 1.0/l)
+                        # self._step_lb = min(self._step_lb, 1.0/l)
                 if str(sampler) != 'Normal':
                     self._bounded_keys.append(key)
         self._space_keys = list(self.space.keys())
