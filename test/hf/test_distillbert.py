@@ -26,12 +26,17 @@ try:
 
     # Define tokenize method
     tokenizer = AutoTokenizer.from_pretrained(MODEL_CHECKPOINT, use_fast=True)
+    def tokenize(examples):
+        return tokenizer(examples[COLUMN_NAME], truncation=True)
+
 except:
     print("pip install torch transformers datasets flaml[blendsearch,ray]")
     
 import logging
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.FileHandler('test/tune_distilbert.log'))
+import os
+os.makedirs('logs', exist_ok=True)
+logger.addHandler(logging.FileHandler('logs/tune_distilbert.log'))
 logger.setLevel(logging.INFO)
 
 import flaml
@@ -39,9 +44,6 @@ import flaml
 def train_distilbert(config: dict):
 
     metric = load_metric("glue", TASK)
-
-    def tokenize(examples):
-        return tokenizer(examples[COLUMN_NAME], truncation=True)
 
     def compute_metrics(eval_pred):
         predictions, labels = eval_pred
@@ -156,7 +158,7 @@ def _test_distillbert(method='BlendSearch'):
         metric=HP_METRIC,
         mode=MODE,
         resources_per_trial={"gpu": 4, "cpu": 4},
-        config=search_space, local_dir='test/logs/',
+        config=search_space, local_dir='logs/',
         num_samples=num_samples, time_budget_s=time_budget_s,
         keep_checkpoints_num=1, checkpoint_score_attr=HP_METRIC,
         scheduler=scheduler, search_alg=algo)
