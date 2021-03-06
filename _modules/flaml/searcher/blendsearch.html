@@ -576,7 +576,7 @@
         <span class="kn">from</span> <span class="nn">ray.tune</span> <span class="kn">import</span> <span class="p">(</span><span class="n">uniform</span><span class="p">,</span> <span class="n">quniform</span><span class="p">,</span> <span class="n">choice</span><span class="p">,</span> <span class="n">randint</span><span class="p">,</span> <span class="n">qrandint</span><span class="p">,</span> <span class="n">randn</span><span class="p">,</span>
     <span class="n">qrandn</span><span class="p">,</span> <span class="n">loguniform</span><span class="p">,</span> <span class="n">qloguniform</span><span class="p">)</span>
     <span class="k">except</span><span class="p">:</span>
-        <span class="kn">from</span> <span class="nn">.sample</span> <span class="kn">import</span> <span class="p">(</span><span class="n">uniform</span><span class="p">,</span> <span class="n">quniform</span><span class="p">,</span> <span class="n">choice</span><span class="p">,</span> <span class="n">randint</span><span class="p">,</span> <span class="n">qrandint</span><span class="p">,</span> <span class="n">randn</span><span class="p">,</span>
+        <span class="kn">from</span> <span class="nn">..tune.sample</span> <span class="kn">import</span> <span class="p">(</span><span class="n">uniform</span><span class="p">,</span> <span class="n">quniform</span><span class="p">,</span> <span class="n">choice</span><span class="p">,</span> <span class="n">randint</span><span class="p">,</span> <span class="n">qrandint</span><span class="p">,</span> <span class="n">randn</span><span class="p">,</span>
     <span class="n">qrandn</span><span class="p">,</span> <span class="n">loguniform</span><span class="p">,</span> <span class="n">qloguniform</span><span class="p">)</span>
 
     <span class="k">class</span> <span class="nc">BlendSearchTuner</span><span class="p">(</span><span class="n">BlendSearch</span><span class="p">,</span> <span class="n">NNITuner</span><span class="p">):</span>
@@ -620,7 +620,7 @@
 <span class="sd">            search_space: JSON object created by experiment owner</span>
 <span class="sd">            &#39;&#39;&#39;</span>
             <span class="n">config</span> <span class="o">=</span> <span class="p">{}</span>
-            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">search_space</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">search_space</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                 <span class="n">v</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_value&quot;</span><span class="p">)</span>
                 <span class="n">_type</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="s1">&#39;_type&#39;</span><span class="p">]</span>
                 <span class="k">if</span> <span class="n">_type</span> <span class="o">==</span> <span class="s1">&#39;choice&#39;</span><span class="p">:</span>
