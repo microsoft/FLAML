@@ -885,15 +885,13 @@ class AutoML:
                 get_estimator_class(self._state.task, estimator_name))
         # set up learner search space
         for estimator_name in estimator_list:
-            estimator_class = self._state.learner_classes[estimator_name]
-            self._search_states[estimator_name] = SearchState( 
+            estimator_class = sete(
                 learner_class=estimator_class, 
-                data_size=self._state.data_size, task=self._state.task,
-            )
+                data_size=self._state.data_size
         logger.info("List of ML learners in AutoML Run: {}".format(
             estimator_list))
         self._hpo_method = hpo_method or 'cfo'
-        with training_log_writer(log_file_name) as save_helper:
+        with training_log_writer(log_file_
             self._training_log = save_helper
             self._state.time_budget = time_budget
             self.estimator_list = estimator_list
