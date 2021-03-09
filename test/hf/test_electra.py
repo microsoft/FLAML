@@ -38,7 +38,7 @@ try:
 
     sentence1_key, sentence2_key = task_to_keys[TASK]
     # Define tokenize method
-
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_CHECKPOINT, use_fast=True)
 
     def tokenize(examples):
         args = (
@@ -122,13 +122,13 @@ def train_electra(config: dict):
 def _test_electra(method='BlendSearch'):
  
     max_num_epoch = 9
-    num_samples = 4
-    time_budget_s = 7200
+    num_samples = -1
+    time_budget_s = 3600
 
     search_space = {
         # You can mix constants with search space objects.
         "num_train_epochs": flaml.tune.loguniform(1, max_num_epoch),
-        "learning_rate": flaml.tune.loguniform(2.9e-5, 1.6e-4),
+        "learning_rate": flaml.tune.loguniform(3e-5, 1.5e-4),
         "weight_decay": flaml.tune.uniform(0, 0.3),
         # "warmup_ratio": flaml.tune.uniform(0, 0.2),
         # "hidden_dropout_prob": flaml.tune.uniform(0, 0.2),
@@ -142,44 +142,45 @@ def _test_electra(method='BlendSearch'):
 
     start_time = time.time()
     ray.init(num_cpus=4, num_gpus=4)
-    if 'ASHA' == hpo_method:
+    if 'ASHA' == method:
         algo = None
-    elif 'BOHB' == hpo_method:
+    elif 'BOHB' == method:
         from ray.tune.schedulers import HyperBandForBOHB
         from ray.tune.suggest.bohb import tuneBOHB
         algo = tuneBOHB(max_concurrent=4)
         scheduler = HyperBandForBOHB(max_t=max_num_epoch)
-    elif 'Optuna' == hpo_method:
+    elif 'Optuna' == method:
         from ray.tune.suggest.optuna import OptunaSearch
         algo = OptunaSearch()
-    elif 'CFO' == hpo_method:
+    elif 'CFO' == method:
         from flaml import CFO
         algo = CFO(points_to_evaluate=[{
             "num_train_epochs": 1,
+            "per_device_train_batch_size": 128,
         }])
-    elif 'BlendSearch' == hpo_method:
+    elif 'BlendSearch' == method:
         from flaml import BlendSearch
         algo = BlendSearch(points_to_evaluate=[{
             "num_train_epochs": 1,
             "per_device_train_batch_size": 128,
         }])
-    elif 'Dragonfly' == hpo_method:
+    elif 'Dragonfly' == method:
         from ray.tune.suggest.dragonfly import DragonflySearch
         algo = DragonflySearch()
-    elif 'SkOpt' == hpo_method:
+    elif 'SkOpt' == method:
         from ray.tune.suggest.skopt import SkOptSearch
         algo = SkOptSearch()
-    elif 'Nevergrad' == hpo_method:
+    elif 'Nevergrad' == method:
         from ray.tune.suggest.nevergrad import NevergradSearch
         import nevergrad as ng
         algo = NevergradSearch(optimizer=ng.optimizers.OnePlusOne)
-    elif 'ZOOpt' == hpo_method:
+    elif 'ZOOpt' == method:
         from ray.tune.suggest.zoopt import ZOOptSearch
         algo = ZOOptSearch(budget=num_samples)
-    elif 'Ax' == hpo_method:
+    elif 'Ax' == method:
         from ray.tune.suggest.ax import AxSearch
         algo = AxSearch(max_concurrent=3)
-    elif 'HyperOpt' == hpo_method:
+    elif 'HyperOpt' == method:
         from ray.tune.suggest.hyperopt import HyperOptSearch
         algo = HyperOptSearch()
         scheduler = None
@@ -253,5 +254,3 @@ def _test_electra_bohb():
 
 if __name__ == "__main__":
     _test_electra()
-    _test_electra_optuna()
-    _test_electra_ax()
