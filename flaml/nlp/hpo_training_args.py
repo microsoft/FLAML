@@ -17,7 +17,7 @@ class HPOTrainingArguments(TrainingArguments):
 
     @property
     def folder_name(self):
-        return self.hpo_method + "_" + self.scheduler_name + self.model_name_short + "_" + self.submit_mode
+        return self.hpo_method + "_" + self.scheduler_name + "_" + self.model_name_short + "_" + self.submit_mode
 
 
 
