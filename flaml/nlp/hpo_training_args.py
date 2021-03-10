@@ -13,10 +13,11 @@ class AutoHFArguments:
     output_path: str = field(default ="", metadata={"output data path"})
 
     dataset_name: str = field(default="glue", metadata={"dataset name"})
-    dataset_config: tuple = field(default=None, metadata={"dataset config"})
+    dataset_config: dict = field(default=None, metadata={"dataset config"})
+    task_name: str = field(default="text-classification", metadata={"task name"})
 
     #task_name: Optional[str] = field(default= "rte", metadata={"help": "The task name."})
-    model_name: str = field(default="google/electra-base-discriminator", metadata={"help": "The short model name."})
+    model_name: list = field(default= ["electra", "base"], metadata={"help": "model name."})
     submit_mode: str = field(default="resplit", metadata={"help": "The submit mode."})
 
     scheduler_name: str = field(default="", metadata={"help": "The scheduler name."})
@@ -39,9 +40,3 @@ class AutoHFArguments:
     def init_path(self):
         search_space_dir = os.path.abspath(os.path.join(self.CODE_PATH_REL, "flaml/nlp/search_space/", self.task_name))
         self.search_space_grid = json.load(open(os.path.join(search_space_dir, self.task_name + "_grid.json", "r")))
-
-        # self._output_dir = os.path.join(self.DATA_PATH_REL + "output/glue/", self.task_name)
-        # self._output_dir_abs = os.path.join(abs_data_path + "output/glue/", self.task_name)
-        #
-        # self._model_dir_abs = os.path.join(abs_data_path, "model", json.load(open(os.path.join(self._search_space_dir, "model_path.json"), "r"))[self.model_name_short])
-        # self._ckpt_dir_abs = os.path.join(self._output_dir_abs, "checkpoints/", self.folder_name + "/")

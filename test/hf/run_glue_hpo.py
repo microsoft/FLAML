@@ -9,10 +9,12 @@ def _test_electra(method='bs'):
 
     autohf = AutoHuggingFace()
 
-    autohf.prepare_data(submit_mode = "resplit",
+    autohf.prepare_data(dataset_config = {"task": "text-classification",
+                                          "dataset": ["glue"],
+                                          "subdataset_name": "qnli"},
+                        submit_mode = "resplit",
                         output_path= "/data/xliu127/projects/hyperopt/data/",
-                        model_name = "google/electra-base-discriminator",
-                        dataset_config  = ("text-classification", "glue", "qnli"),
+                        model_name = ["electra", "base"],
                         split_portion={"train": (0.0, 0.8),
                                       "dev": (0.8, 0.9),
                                       "test": (0.9, 1.0)})

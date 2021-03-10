@@ -10,6 +10,7 @@ from transformers import Trainer
 from functools import partial
 
 from flaml.nlp.hpo_training_args import AutoHFArguments
+from flaml.nlp.modeling_auto import AutoClassificationHead
 
 task_list = [
     "text-classification",
@@ -98,21 +99,69 @@ class AutoHuggingFace:
         else:
             return "custom"
 
+    def get_sentence_keys(self,
+                          subdataset_name,
+                          dataset_module):
+
+        if subdataset_name:
+            return dataset_module.sentence_key_mapping[subdataset_name]
+        else:
+            return dataset_module.sentence_key_mapping
+
+    def get_foldername(self,
+                       subdataset_name,
+                       dataset_module):
+        train_name, dev_name, test_name = "train", "validation", "test"
+        try:
+            exceptions = dataset_module.foldername_exceptions
+        except:
+            exceptions = None
+        if exceptions:
+            assert isinstance(exceptions, dict) or isinstance(exceptions, tuple)
+            if isinstance(exceptions, dict):
+                for each_subdataset_name in exceptions.keys():
+                    if subdataset_name == each_subdataset_name:
+                        train_name, dev_name, test_name = exceptions[each_subdataset_name][0], exceptions[each_subdataset_name][1], exceptions[each_subdataset_name][2]
+                        break
+            elif isinstance(exceptions, tuple):
+                train_name, dev_name, test_name = exceptions[0], exceptions[1], exceptions[2]
+        return train_name, dev_name, test_name
+
+    def wrapper(self,
+                 func,
+                 *args):  # with star
+        return func(*args)
+
     def prepare_data(self,
+                     dataset_config,
+                     model_name,
                      submit_mode="resplit",
                      output_path = "./",
-                     model_name = "electra",
-                     dataset_config = ("text-classification", "glue", "qnli"),
                      sentence_keys=None,
                      split_portion=None):
 
-        assert isinstance(dataset_config, tuple) and (len(dataset_config) in (2, 3)) and dataset_config[0] in task_list
+        assert isinstance(dataset_config, dict) and "task" in dataset_config and "dataset_name" in dataset_config
+        assert isinstance(model_name, list) and len(model_name) == 2
+
+        task_name = dataset_config["task"]
+        dataset_name = dataset_config["dataset"]
+        if "subdataset_name" in dataset_config:
+            subdataset_name = dataset_config["subdataset_name"]
+        else:
+            subdataset_name = None
+        if "input_path" in dataset_config:
+            input_path = dataset_config["input_path"]
+        else:
+            input_path = None
+
+        assert (input_path and sentence_keys) or (dataset_name)
 
         self.args = AutoHFArguments(
                     output_path=output_path,
                     dataset_config = dataset_config,
-                    dataset_name = dataset_config[1],
-                    model_name=model_name,
+                    dataset_name = dataset_name,
+                    task_name = task_name,
+                    model_name= model_name,
                     submit_mode = submit_mode,
         )
         self.args.init_path()
@@ -121,32 +170,25 @@ class AutoHuggingFace:
 
         self._tokenizer = AutoTokenizer.from_pretrained(self.args.model_checkpoint, use_fast=True)
 
-        if dataset_config[1] != "custom":
-            new_module = __import__(modulename)
+        if not input_path:
+            import importlib
+            dataset_module = importlib.import_module("flaml.nlp.dataset." + dataset_name)
+            train_name, dev_name, test_name = self.get_foldername(subdataset_name, dataset_module)
+            if subdataset_name:
+                data_raw = load_dataset(dataset_name[0], subdataset_name)
+            else:
+                data_raw = self.wrapper(load_dataset, *dataset_name)
 
-            glue_task_name = dataset_config[1]
-            dev_name = "validation" if glue_task_name != "mnli" else "validation_matched"
-            test_name = "test" if glue_task_name != "mnli" else "test_matched"
-            data_raw = load_dataset("glue", dataset_config[1])
-            data_encoded = data_raw.map(partial(self._tokenize, sentence_keys=glue_task_to_key[glue_task_name]), batched=True)
-        #TODO: squad may have a different mapping function, may need modification below
-        elif dataset_config[0] == "hf":
-            dataset_name = dataset_config[1]
-            data_raw = load_dataset(dataset_name)
-            dev_name = "validation"
-            test_name = "test"
-            data_encoded = data_raw.map(partial(self._tokenize, sentence_keys=hf_data_to_key[dataset_name]), batched=True)
+            data_encoded = data_raw.map(partial(self._tokenize, sentence_keys= self.get_sentence_keys(subdataset_name, dataset_module), batched=True))
         else:
-            input_path = dataset_config[1]
-            assert os.path.isdir(input_path)
+            assert os.path.isdir(input_path), "input path format incorrect"
             data_raw = load_dataset(input_path)
-            dev_name = "validation"
-            test_name = "test"
+            train_name, dev_name, test_name = "train", "validation", "test"
             data_encoded = data_raw.map(partial(self._tokenize, sentence_keys=sentence_keys), batched=True)
 
         if submit_mode == "resplit":
             assert split_portion, "in resplit mode but no split proportion given "
-            train_dataset, val_dataset = data_encoded["train"], data_encoded[dev_name]
+            train_dataset, val_dataset = data_encoded[train_name], data_encoded[dev_name]
             data_train_dev = datasets.concatenate_datasets([train_dataset, val_dataset])
             data_train_dev = data_train_dev.shuffle(seed=42)
 
@@ -161,36 +203,28 @@ class AutoHuggingFace:
             eval_dataset = data_train_dev.select([x for x in range(dev_start, dev_end)]).flatten_indices()
             test_dataset = data_train_dev.select([x for x in range(test_start, test_end)]).flatten_indices()
         else:
-            train_dataset, eval_dataset, test_dataset = data_encoded["train"], data_encoded[dev_name], data_encoded[
+            train_dataset, eval_dataset, test_dataset = data_encoded[train_name], data_encoded[dev_name], data_encoded[
                 test_name]
 
         self.args.train_dataset = train_dataset
         self.args.eval_dataset = eval_dataset
         self.args.test_dataset = test_dataset
 
-        if dataset_config[0] == "glue":
+        if self.args.task_name == "text-classification":
             self.args.num_labels = len(self.args.train_dataset.features["label"].names)
+        elif self.args.task_name == "regression":
+            self.args.num_labels = 1
 
     def _load_model(self):
 
-        if self.args.dataset_config[0] == "glue":
-            glue_task_name = self.args.dataset_config[1]
-
-            glue_tasks_num_labels["stsb"] = glue_tasks_num_labels["sts-b"]
-            del glue_tasks_num_labels["sts-b"]
-
-            #num_labels = glue_tasks_num_labels[glue_task_name]
+        if self.args.task_name == "text-classification":
             num_labels_old = AutoConfig.from_pretrained(self.args.model_checkpoint).num_labels
 
             if self.args.num_labels != num_labels_old:
-                model_config.num_labels = num_labels_old
-                this_model = AutoModelForSequenceClassification.from_pretrained(
-                    model_name_or_path,
-                    config=model_config,
-                )
-                model_config.num_labels = self.args.num_labels
-                print('Reintializing model classifier layer...')
-                this_model.num_labels = num_labels
+                this_model = AutoModelForSequenceClassification.from_pretrained(self.args.model_checkpoint, num_labels = num_labels_old)
+                this_model.num_labels = self.args.num_labels
+
+                this_model.classifier = AutoClassificationHead()
                 if args.model_name_short == "roberta":
                     this_model.classifier = RobertaClassificationHead(model_config)
                 elif args.model_name_short == "electra":
@@ -198,10 +232,7 @@ class AutoHuggingFace:
                 elif args.model_name_short == "deberta":
                     this_model.classifier = DebertaClassificationHead(model_config)
             else:
-                this_model = AutoModelForSequenceClassification.from_pretrained(
-                    model_name_or_path,
-                    config=model_config,
-                )
+                this_model = AutoModelForSequenceClassification.from_pretrained(self.args.model_checkpoint, num_labels = num_labels_old)
             this_model.resize_token_embeddings(len(this_tokenizer))
 
     def fit(self,

@@ -1,5 +1,5 @@
 
-task_to_key = {
+sentence_key_mapping = {
     "cola": ("sentence", None),
     "mnli": ("premise", "hypothesis"),
     "mrpc": ("sentence1", "sentence2"),
@@ -11,14 +11,18 @@ task_to_key = {
     "wnli": ("sentence1", "sentence2"),
 }
 
-task_to_eval_name = {
-    "cola": "eval_mcc",
-    "mnli": "eval_mnli/acc",
-    "mrpc": "eval_acc",
-    "qnli": "eval_acc",
-    "qqp":  "eval_acc",
-    "rte":  "eval_acc",
-    "sst2": "eval_acc",
-    "stsb": "eval_pearson",
-    "wnli": "eval_acc"
+eval_name_mapping = {
+    "cola": ("eval_mcc"),
+    "mnli": ("eval_mnli/acc"),
+    "mrpc": ("eval_acc"),
+    "qnli": ("eval_acc"),
+    "qqp":  ("eval_acc"),
+    "rte":  ("eval_acc"),
+    "sst2": ("eval_acc"),
+    "stsb": ("eval_pearson"),
+    "wnli": ("eval_acc")
+}
+
+foldername_exceptions = {
+    "mnli": ("train", "validation_matched", "test_matched"),
 }
