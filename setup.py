@@ -61,7 +61,11 @@ setuptools.setup(
         ],
         "nni": [
             "nni",
-        ]
+        ],
+        'openml': [
+            'openml==0.9',
+            "pandas==1.0",
+             ]
     },
     classifiers=[
         "Programming Language :: Python :: 3",
