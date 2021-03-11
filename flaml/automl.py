@@ -283,6 +283,22 @@ class AutoML:
         else:
             return None
 
+    def best_model_for_estimator(self, estimator_name):
+        '''Return the best model found for a particular estimator
+
+        Args:
+            estimator_name: a str of the estimator's name
+        
+        Returns:
+            An object with `predict()` and `predict_proba()` method (for
+        classification), storing the best trained model for estimator_name.
+        '''
+        if estimator_name in self._search_states:
+            state = self._search_states[estimator_name]
+            if hasattr(state, 'trained_estimator'):
+                return state.trained_estimator.model
+        return None
+
     @property
     def best_estimator(self):
         '''A string indicating the best estimator found.'''        
