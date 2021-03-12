@@ -765,6 +765,7 @@ class AutoML:
             split_type="stratified",
             learner_selector='sample',
             hpo_method=None,
+            verbose=1,
             **fit_kwargs):
         '''Find a model for a given task
 
@@ -823,6 +824,8 @@ class AutoML:
             y_val: None | a numpy array or a pandas series of validation labels
             sample_weight_val: None | a numpy array of the sample weight of
                 validation data
+            verbose : int, default=0 | Controls the verbosity, higher means more
+                messages
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such sample_weight
         '''
@@ -835,6 +838,10 @@ class AutoML:
         self._search_states = {}  #key: estimator name; value: SearchState
         self._random = np.random.RandomState(RANDOM_SEED)
         self._learner_selector = learner_selector
+        old_level = logger.getEffectiveLevel()
+        self.verbose = verbose
+        if verbose==0:
+            logger.setLevel(logging.WARNING)
         if self._state.task == 'classification':
             self._state.task = get_classification_objective(
                 len(np.unique(self._y_train_all)))
@@ -906,6 +913,8 @@ class AutoML:
             self._state.n_jobs = n_jobs
             self._search()
             logger.info("fit succeeded")
+        if verbose:
+            logger.setLevel(old_level)
 
     def _search(self):
         # initialize the search_states
@@ -1018,7 +1027,7 @@ class AutoML:
                 init_config=None, 
                 search_alg=search_state.search_alg,
                 time_budget_s=budget_left,
-                verbose=0, local_dir='logs/tune_results',
+                verbose=self.verbose, local_dir='logs/tune_results',
                 use_ray=False,
                 )
             # warnings.resetwarnings()
