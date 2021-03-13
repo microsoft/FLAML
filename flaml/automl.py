@@ -824,7 +824,7 @@ class AutoML:
             y_val: None | a numpy array or a pandas series of validation labels
             sample_weight_val: None | a numpy array of the sample weight of
                 validation data
-            verbose : int, default=0 | Controls the verbosity, higher means more
+            verbose: int, default=0 | Controls the verbosity, higher means more
                 messages
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such sample_weight
@@ -913,7 +913,7 @@ class AutoML:
             self._state.n_jobs = n_jobs
             self._search()
             logger.info("fit succeeded")
-        if verbose:
+        if verbose==0:
             logger.setLevel(old_level)
 
     def _search(self):
