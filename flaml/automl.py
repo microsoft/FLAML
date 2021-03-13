@@ -1027,7 +1027,7 @@ class AutoML:
                 init_config=None, 
                 search_alg=search_state.search_alg,
                 time_budget_s=budget_left,
-                verbose=self.verbose, local_dir='logs/tune_results',
+                verbose=max(self.verbose-1,0), local_dir='logs/tune_results',
                 use_ray=False,
                 )
             # warnings.resetwarnings()
