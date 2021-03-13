@@ -1,15 +1,19 @@
 import os,json
 import wandb
+import numpy as np
 
+import time
 import ray
 import datasets
 from datasets import load_dataset
 
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, glue_tasks_num_labels, AutoConfig
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, glue_tasks_num_labels, AutoConfig, \
+    TrainingArguments
 from transformers import Trainer
 from functools import partial
 
-from flaml.nlp.hpo_training_args import AutoHFArguments
+import flaml
+from flaml.nlp.autohf_args import AutoHFArguments
 from flaml.nlp.modeling_auto import AutoClassificationHead
 
 task_list = [
@@ -19,55 +23,20 @@ task_list = [
 
 class AutoHuggingFace:
 
-    # def __init__(self,
-    #              task_name,
-    #              abs_data_path,
-    #              model_name_short = None,
-    #              hpo_method = None,
-    #              scheduler_name = None,
-    #              submit_mode = "resplit",
-    #              split_portion = None,
-    #              wandb_key = None,
-    # ):
-    #     super()
-    #
-    #     self._task_name = task_name
-    #     self._model_name_short = model_name_short
-    #     self._abs_data_path = abs_data_path
-    #     self._hpo_method = hpo_method or 'bs'
-    #     self._scheduler_name = scheduler_name
-    #     self._submit_mode = submit_mode
-    #     self._split_portion = split_portion or {
-    #                               "train": (0.0, 0.8),
-    #                               "dev": (0.8, 0.9),
-    #                               "test": (0.9, 1.0)}
-    #
-    #     self._set_folder_name()
-    #     self._init_paths()
-    #     if wandb_key:
-    #         self._set_wandb(wandb_key)
-    #
-    #     self.tokenizer = AutoTokenizer.from_pretrained(self._model_dir_abs, use_fast=True)
-    #     self._set_search_space()
-    #     self._set_hp_metric()
-
-    def _set_folder_name(self):
-        self._folder_name = self._hpo_method + "_" + self._scheduler_name + self._model_name_short + "_" + self._submit_mode
-
     def _set_wandb(self,
                    wandb_key):
         os.environ["WANDB_API_KEY"] = wandb_key
         generated_id = wandb.util.generate_id()
-        group_name = self._folder_name + "_" + generated_id
+        group_name = self.args.folder_name + "_" + generated_id
         os.environ["WANDB_RUN_GROUP"] = group_name
 
     def _set_search_space(self):
-        self.search_space_grid = json.load(open(os.path.join(self._search_space_dir, self._task_name + "_grid.json", "r")))
-        self.search_space_hpo = json.load(open(os.path.join(self._search_space_dir, self._task_name + "_hpo.json", "r")))
+        self.search_space_grid = json.load(open(os.path.join(self.args._search_space_dir, self.args.task_name + "_grid.json", "r")))
+        self.search_space_hpo = json.load(open(os.path.join(self.args._search_space_dir, self.args.task_name + "_hpo.json", "r")))
 
     @property
-    def eval_acc_name(self):
-        return task_to_eval_name[self._task_name]
+    def _eval_acc_name(self):
+        return self.dataset_module.eval_name_mapping[self.args.task_name][0]
 
     def _tokenize(self,
                   examples,
@@ -100,31 +69,15 @@ class AutoHuggingFace:
             return "custom"
 
     def get_sentence_keys(self,
-                          subdataset_name,
-                          dataset_module):
-
-        if subdataset_name:
-            return dataset_module.sentence_key_mapping[subdataset_name]
-        else:
-            return dataset_module.sentence_key_mapping
+                          data_raw):
+        return [x for x in data_raw["train"].features.keys() if x not in ("label", "idx")]
 
     def get_foldername(self,
-                       subdataset_name,
-                       dataset_module):
-        train_name, dev_name, test_name = "train", "validation", "test"
-        try:
-            exceptions = dataset_module.foldername_exceptions
-        except:
-            exceptions = None
-        if exceptions:
-            assert isinstance(exceptions, dict) or isinstance(exceptions, tuple)
-            if isinstance(exceptions, dict):
-                for each_subdataset_name in exceptions.keys():
-                    if subdataset_name == each_subdataset_name:
-                        train_name, dev_name, test_name = exceptions[each_subdataset_name][0], exceptions[each_subdataset_name][1], exceptions[each_subdataset_name][2]
-                        break
-            elif isinstance(exceptions, tuple):
-                train_name, dev_name, test_name = exceptions[0], exceptions[1], exceptions[2]
+                       data_raw):
+        fold_keys = data_raw.keys()
+        train_name = [x for x in fold_keys if x.startswith("train")][0]
+        dev_name = [x for x in fold_keys if x.startswith("validation")][0]
+        test_name = [x for x in fold_keys if x.startswith("test")][0]
         return train_name, dev_name, test_name
 
     def wrapper(self,
@@ -135,13 +88,12 @@ class AutoHuggingFace:
     def prepare_data(self,
                      dataset_config,
                      model_name,
+                     search_space_dir = None,
                      submit_mode="resplit",
                      output_path = "./",
-                     sentence_keys=None,
                      split_portion=None):
 
         assert isinstance(dataset_config, dict) and "task" in dataset_config and "dataset_name" in dataset_config
-        assert isinstance(model_name, list) and len(model_name) == 2
 
         task_name = dataset_config["task"]
         dataset_name = dataset_config["dataset"]
@@ -154,17 +106,18 @@ class AutoHuggingFace:
         else:
             input_path = None
 
-        assert (input_path and sentence_keys) or (dataset_name)
+        assert (input_path and search_space_dir) or (dataset_name)
 
         self.args = AutoHFArguments(
                     output_path=output_path,
                     dataset_config = dataset_config,
                     dataset_name = dataset_name,
+                    subdataset_name = subdataset_name,
                     task_name = task_name,
                     model_name= model_name,
                     submit_mode = submit_mode,
         )
-        self.args.init_path()
+        self.args.init_and_make_dirs(search_space_dir)
 
         assert (submit_mode == "resplit" and split_portion) or (submit_mode == "origin" and not split_portion)
 
@@ -172,19 +125,19 @@ class AutoHuggingFace:
 
         if not input_path:
             import importlib
-            dataset_module = importlib.import_module("flaml.nlp.dataset." + dataset_name)
-            train_name, dev_name, test_name = self.get_foldername(subdataset_name, dataset_module)
+            self.dataset_module = importlib.import_module("flaml.nlp.dataset." + dataset_name)
             if subdataset_name:
                 data_raw = load_dataset(dataset_name[0], subdataset_name)
             else:
                 data_raw = self.wrapper(load_dataset, *dataset_name)
-
-            data_encoded = data_raw.map(partial(self._tokenize, sentence_keys= self.get_sentence_keys(subdataset_name, dataset_module), batched=True))
         else:
             assert os.path.isdir(input_path), "input path format incorrect"
             data_raw = load_dataset(input_path)
-            train_name, dev_name, test_name = "train", "validation", "test"
-            data_encoded = data_raw.map(partial(self._tokenize, sentence_keys=sentence_keys), batched=True)
+
+        train_name, dev_name, test_name = self.get_foldername(data_raw)
+        sentence_keys = self.get_sentence_keys(data_raw)
+
+        data_encoded = data_raw.map(partial(self._tokenize, sentence_keys= sentence_keys, batched=True))
 
         if submit_mode == "resplit":
             assert split_portion, "in resplit mode but no split proportion given "
@@ -206,51 +159,83 @@ class AutoHuggingFace:
             train_dataset, eval_dataset, test_dataset = data_encoded[train_name], data_encoded[dev_name], data_encoded[
                 test_name]
 
-        self.args.train_dataset = train_dataset
-        self.args.eval_dataset = eval_dataset
-        self.args.test_dataset = test_dataset
-
         if self.args.task_name == "text-classification":
             self.args.num_labels = len(self.args.train_dataset.features["label"].names)
         elif self.args.task_name == "regression":
             self.args.num_labels = 1
 
-    def _load_model(self):
+        return train_dataset, eval_dataset, test_dataset
 
+    def _load_model(self):
         if self.args.task_name == "text-classification":
-            num_labels_old = AutoConfig.from_pretrained(self.args.model_checkpoint).num_labels
+            model_config = AutoConfig.from_pretrained(self.args.model_checkpoint)
+            num_labels_old = model_config.num_labels
+            model_type = model_config.get_config_dict(self.args.model_checkpoint)[0]["model_type"]
+            self.args.model_type = model_type
 
             if self.args.num_labels != num_labels_old:
                 this_model = AutoModelForSequenceClassification.from_pretrained(self.args.model_checkpoint, num_labels = num_labels_old)
                 this_model.num_labels = self.args.num_labels
-
-                this_model.classifier = AutoClassificationHead()
-                if args.model_name_short == "roberta":
-                    this_model.classifier = RobertaClassificationHead(model_config)
-                elif args.model_name_short == "electra":
-                    this_model.classifier = ElectraClassificationHead(model_config)
-                elif args.model_name_short == "deberta":
-                    this_model.classifier = DebertaClassificationHead(model_config)
+                this_model.classifier = AutoClassificationHead.from_config(model_config)
             else:
                 this_model = AutoModelForSequenceClassification.from_pretrained(self.args.model_checkpoint, num_labels = num_labels_old)
-            this_model.resize_token_embeddings(len(this_tokenizer))
+            this_model.resize_token_embeddings(len(self._tokenizer))
+            return this_model
 
-    def fit(self,
-            hpo_method="bs",
-            scheduler_name=None,
-            num_samples=10000,
-            time_budget=7200,
-            device_nums=None):
+    def compute_metrics(self,
+                        eval_pred):
+        predictions, labels = eval_pred
+        predictions = np.argmax(predictions, axis=1)
 
-        this_model = AutoModelForSequenceClassification.from_pretrained(self.args.model_checkpoint,
-                                                                        num_labels=self.args.num_labels)
+        if self.args.dataset_name in ("glue", "super_glue"):
+            metric = datasets.load.load_metric(self.args.dataset_name, self.args.subdataset_name)
+        elif self.args.dataset_name in ("squad", "squad_v2"):
+            metric = datasets.load.load_metric(self.args.dataset_name)
+        else:
+            assert self.args.metric_name
+            metric = datasets.load.load_metric(self.args.metric_name)
 
-        this_model = self.
+        return metric.compute(predictions=predictions, references=labels)
 
-        if not device_nums:
-            device_nums = {"cpu": 4, "gpu": 4}
+    def _objective(self,
+                  config,
+                  reporter,
+                  checkpoint_dir=None):
 
-        ray.init(num_cpus=device_nums["cpu"], num_gpus=device_nums["gpu"])
+        this_model = self._load_model()
+
+        training_args = TrainingArguments(
+            output_dir=self.args._ckpt_dir_abs,
+            do_eval=False,
+            disable_tqdm=True,
+            logging_steps=20000,
+            save_total_limit=0,
+            fp16=True,
+            **config,
+        )
+
+        trainer = Trainer(
+            this_model,
+            training_args,
+            train_dataset=self.train_dataset,
+            eval_dataset=self.eval_dataset,
+            tokenizer=self._tokenizer,
+            compute_metrics= self.compute_metrics,
+        )
+
+        # train model
+        trainer.train()
+
+        # evaluate model
+        eval_output = trainer.evaluate()
+
+        flaml.tune.report(
+            loss=eval_output["eval_loss"],
+            accuracy=eval_output["eval_accuracy"],
+        )
+
+    def _get_hpo_algo(self,
+                    hpo_method):
         if 'ASHA' == hpo_method:
             algo = None
         elif 'Optuna' == hpo_method:
@@ -279,7 +264,7 @@ class AutoHuggingFace:
             algo = NevergradSearch(optimizer=ng.optimizers.OnePlusOne)
         elif 'ZOOpt' == hpo_method:
             from ray.tune.suggest.zoopt import ZOOptSearch
-            algo = ZOOptSearch(budget=num_samples)
+            algo = ZOOptSearch()
         elif 'Ax' == hpo_method:
             from ray.tune.suggest.ax import AxSearch
             algo = AxSearch(max_concurrent=3)
@@ -289,6 +274,10 @@ class AutoHuggingFace:
         else:
             algo = None
 
+        return algo
+
+    def _get_scheduler(self,
+                       scheduler_name):
         if scheduler_name == "ASHA":
             from ray.tune.schedulers import ASHAScheduler
             scheduler = ASHAScheduler(
@@ -296,17 +285,68 @@ class AutoHuggingFace:
                 grace_period=1)
         else:
             scheduler = None
+        return scheduler
+
+    def fit(self,
+            train_dataset,
+            eval_dataset,
+            test_dataset,
+            metric_name,
+            mode_name,
+            wandb_key = None,
+            hpo_method="bs",
+            scheduler_name=None,
+            num_samples=10000,
+            time_budget=7200,
+            device_nums=None):
+
+        #assert self.args.dataset_name in ("glue", "squad_v2", "squad", "super_glue") or metric_name
+
+        self.args.hpo_method = hpo_method
+
+        self.train_dataset = train_dataset
+        self.eval_dataset = eval_dataset
+        self.test_dataset = test_dataset
+
+        if not device_nums:
+            device_nums = {"cpu": 4, "gpu": 4}
+
+        ray.init(num_cpus=device_nums["cpu"], num_gpus=device_nums["gpu"])
+
+        hpo_algo = self._get_hpo_algo(hpo_method)
+        scheduler = self._get_scheduler(scheduler_name)
+
+        if wandb_key:
+            self._set_wandb(wandb_key)
+
+        self._set_search_space()
+
+        start_time = time.time()
 
         analysis = ray.tune.run(
-            train_electra,
-            metric= self._eval_acc_name,
-            mode = "max",
+            self._objective,
+            metric= metric_name,
+            mode = mode_name,
             resources_per_trial={"gpu": 1, "cpu": 1},
             config= self.search_space_hpo,
-            local_dir= self._ckpt_dir_abs,
+            local_dir= self.args._ckpt_dir_abs,
             num_samples = num_samples,
             time_budget_s= time_budget,
             keep_checkpoints_num = 1,
-            checkpoint_score_attr= self._eval_acc_name,
+            checkpoint_score_attr= metric_name,
             scheduler= scheduler,
-            search_alg= algo)
+            search_alg= hpo_algo)
+
+        ray.shutdown()
+
+        best_trial = analysis.get_best_trial(metric_name, mode_name, "all")
+        metric = best_trial.metric_analysis[metric_name][mode_name]
+
+        # import logging
+        # logger = logging.getLogger(__name__)
+        #
+        # logger.info(f"method={hpo_method}")
+        # logger.info(f"n_trials={len(analysis.trials)}")
+        # logger.info(f"time={time.time() - start_time}")
+        # logger.info(f"Best model eval {metric_name}: {metric:.4f}")
+        # logger.info(f"Best model parameters: {best_trial.config}")
