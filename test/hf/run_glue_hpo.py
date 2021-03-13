@@ -1,8 +1,4 @@
-from transformers import AutoModelForSequenceClassification
 from flaml.nlp.autohf import AutoHuggingFace
-from flaml.nlp.autohf_args import AutoHFArguments
-from flaml.nlp.utils import prepare_data
-from flaml.nlp.utils import build_compute_metrics_fn
 
 def _test_electra(method='bs'):
     wandb_key = "f38cc048c956367de27eeb2749c23e6a94519ab8"
