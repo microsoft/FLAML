@@ -1224,9 +1224,11 @@ class AutoML:
                 gap = search_state.best_loss - self._state.best_loss
                 if gap > 0 and not self._ensemble:
                     delta_loss = (search_state.best_loss_old - 
-                                 search_state.best_loss)
+                                 search_state.best_loss) or \
+                                     search_state.best_loss
                     delta_time = (search_state.total_time_used - 
-                                 search_state.time_best_found_old)
+                                 search_state.time_best_found_old) or (
+                                     search_state.total_time_used + 1e-10)
                     speed = delta_loss / delta_time
                     try:
                         estimated_cost = 2*gap/speed
