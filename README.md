@@ -121,7 +121,7 @@ And they can be used in distributed HPO frameworks such as ray tune or nni.
 
 For more technical details, please check our papers.
 
-* [FLAML: A Fast and Lightweight AutoML Library](https://arxiv.org/abs/1911.04706). Chi Wang, Qingyun Wu, Markus Weimer, Erkang Zhu. To appear in MLSys, 2021.
+* [FLAML: A Fast and Lightweight AutoML Library](https://www.microsoft.com/en-us/research/publication/flaml-a-fast-and-lightweight-automl-library/). Chi Wang, Qingyun Wu, Markus Weimer, Erkang Zhu. To appear in MLSys, 2021.
 ```
 @inproceedings{wang2021flaml,
     title={FLAML: A Fast and Lightweight AutoML Library},
@@ -131,7 +131,7 @@ For more technical details, please check our papers.
 }
 ```
 * [Frugal Optimization for Cost-related Hyperparameters](https://arxiv.org/abs/2005.01571). Qingyun Wu, Chi Wang, Silu Huang. AAAI 2021.
-* Economical Hyperparameter Optimization With Blended Search Strategy. Chi Wang, Qingyun Wu, Silu Huang, Amin Saied. To appear in ICLR 2021.
+* [Economical Hyperparameter Optimization With Blended Search Strategy](https://www.microsoft.com/en-us/research/publication/economical-hyperparameter-optimization-with-blended-search-strategy/). Chi Wang, Qingyun Wu, Silu Huang, Amin Saied. To appear in ICLR 2021.
 
 ## Contributing
 

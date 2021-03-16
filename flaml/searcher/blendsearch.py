@@ -602,23 +602,17 @@ def create_next(client):
     trials_completed = []
     for trial in client.get_trials():
         if trial.end_time is not None:
-            signature = algo._ls.config_signature(trial.hp_config)
+            signature = algo._ls.config_signature(trial.hp_sample)
             if not algo._result[signature]:
                 trials_completed.append((trial.end_time, trial))
-          
-    # for trial_id in algo._trial_proposed_by:
-    #     trial = client.get_trial(trial_id)
-    #     if trial is not None:
-    #         if trial.end_time is not None:
-    #             trials_completed.append((trial.end_time, trial_id))
     trials_completed.sort()
     for t in trials_completed:
         end_time, trial = t
-        trial_id = config2trialid[trial.hp_config]
+        trial_id = config2trialid[trial.hp_sample]
         result = {}
         result[algo.metric] = trial.metrics[algo.metric].values[-1]
         result[algo.cost_attr] = (end_time - trial.start_time).total_seconds()
-        for key, value in trial.hp_config.items():
+        for key, value in trial.hp_sample.items():
             result['config/'+key] = value
         algo.on_trial_complete(trial_id, result=result)
     # propose new trial
