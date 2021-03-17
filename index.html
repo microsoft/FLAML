@@ -223,6 +223,21 @@ config is found.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt id="flaml.AutoML.best_model_for_estimator">
+<code class="sig-name descname"><span class="pre">best_model_for_estimator</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">estimator_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/automl.html#AutoML.best_model_for_estimator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.AutoML.best_model_for_estimator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the best model found for a particular estimator</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>estimator_name</strong> – a str of the estimator’s name</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>An object with <cite>predict()</cite> and <cite>predict_proba()</cite> method (for</p>
+</dd>
+</dl>
+<p>classification), storing the best trained model for estimator_name.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt id="flaml.AutoML.classes_">
 <em class="property"><span class="pre">property</span> </em><code class="sig-name descname"><span class="pre">classes_</span></code><a class="headerlink" href="#flaml.AutoML.classes_" title="Permalink to this definition">¶</a></dt>
 <dd><p>A list of n_classes elements for class labels.</p>

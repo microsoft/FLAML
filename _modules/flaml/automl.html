@@ -403,6 +403,8 @@
 
 <span class="sd">    &#39;&#39;&#39;</span>
 
+    <span class="kn">from</span> <span class="nn">.version</span> <span class="kn">import</span> <span class="n">__version__</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_track_iter</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_state</span> <span class="o">=</span> <span class="n">AutoMLState</span><span class="p">()</span>
@@ -432,6 +434,22 @@
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trained_estimator</span><span class="o">.</span><span class="n">model</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="AutoML.best_model_for_estimator"><a class="viewcode-back" href="../../index.html#flaml.AutoML.best_model_for_estimator">[docs]</a>    <span class="k">def</span> <span class="nf">best_model_for_estimator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">estimator_name</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;Return the best model found for a particular estimator</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            estimator_name: a str of the estimator&#39;s name</span>
+<span class="sd">        </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            An object with `predict()` and `predict_proba()` method (for</span>
+<span class="sd">        classification), storing the best trained model for estimator_name.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="n">estimator_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="p">:</span>
+            <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="p">[</span><span class="n">estimator_name</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="s1">&#39;trained_estimator&#39;</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">state</span><span class="o">.</span><span class="n">trained_estimator</span><span class="o">.</span><span class="n">model</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">best_estimator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1358,9 +1376,10 @@
                 <span class="n">gap</span> <span class="o">=</span> <span class="n">search_state</span><span class="o">.</span><span class="n">best_loss</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">best_loss</span>
                 <span class="k">if</span> <span class="n">gap</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensemble</span><span class="p">:</span>
                     <span class="n">delta_loss</span> <span class="o">=</span> <span class="p">(</span><span class="n">search_state</span><span class="o">.</span><span class="n">best_loss_old</span> <span class="o">-</span> 
-                                 <span class="n">search_state</span><span class="o">.</span><span class="n">best_loss</span><span class="p">)</span>
+                                 <span class="n">search_state</span><span class="o">.</span><span class="n">best_loss</span><span class="p">)</span> <span class="ow">or</span> \
+                                     <span class="n">search_state</span><span class="o">.</span><span class="n">best_loss</span>
                     <span class="n">delta_time</span> <span class="o">=</span> <span class="p">(</span><span class="n">search_state</span><span class="o">.</span><span class="n">total_time_used</span> <span class="o">-</span> 
-                                 <span class="n">search_state</span><span class="o">.</span><span class="n">time_best_found_old</span><span class="p">)</span>
+                                 <span class="n">search_state</span><span class="o">.</span><span class="n">time_best_found_old</span><span class="p">)</span> <span class="ow">or</span> <span class="mf">1e-10</span>
                     <span class="n">speed</span> <span class="o">=</span> <span class="n">delta_loss</span> <span class="o">/</span> <span class="n">delta_time</span>
                     <span class="k">try</span><span class="p">:</span>
                         <span class="n">estimated_cost</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">gap</span><span class="o">/</span><span class="n">speed</span>
