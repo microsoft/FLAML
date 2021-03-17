@@ -17,7 +17,7 @@ MODEL_CLASSIFICATION_HEAD_MAPPING = OrderedDict(
 )
 
 class AutoClassificationHead:
-    r"""
+    """
     This is a generic model class that will be instantiated as one of the model classes of the library---with the
     architecture used for pretraining this model---when created with the when created with the
     :meth:`~transformers.AutoModelForPreTraining.from_pretrained` class method or the

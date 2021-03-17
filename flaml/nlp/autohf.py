@@ -97,6 +97,7 @@ class AutoHuggingFace:
             search_space_hpo_json = json.load(open(os.path.join(search_space_dir, self.model_type + "_hpo.json"), "r"))
             self.search_space_hpo = self._convert_json_to_search_space(search_space_hpo_json, mode="hpo")
 
+    #TODO: try remove the requirement on mapping
     @property
     def _eval_acc_name(self):
         return self.dataset_module.eval_name_mapping[self.path_utils.task_name][0]
