@@ -34,7 +34,7 @@ class TestLogging(unittest.TestCase):
                 "log_file_name": training_log,
                 "log_training_metric": True,
                 "n_jobs": 1,
-                "model_history": True
+                "model_history": True,
             }
             X_train, y_train = load_boston(return_X_y=True)
             n = len(y_train) >> 1
@@ -48,3 +48,4 @@ class TestLogging(unittest.TestCase):
         import pickle
         with open('automl.pkl', 'wb') as f:
             pickle.dump(automl, f, pickle.HIGHEST_PROTOCOL)
+        print(automl.__version__)

@@ -253,6 +253,8 @@ class AutoML:
 
     '''
 
+    from .version import __version__
+
     def __init__(self):
         self._track_iter = 0
         self._state = AutoMLState()
