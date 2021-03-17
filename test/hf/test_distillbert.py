@@ -107,43 +107,43 @@ def _test_distillbert(method='BlendSearch'):
 
     start_time = time.time()
     ray.init(num_cpus=4, num_gpus=4)
-    if 'ASHA' == hpo_method:
+    if 'ASHA' == method:
         algo = None
-    elif 'BOHB' == hpo_method:
+    elif 'BOHB' == method:
         from ray.tune.schedulers import HyperBandForBOHB
         from ray.tune.suggest.bohb import tuneBOHB
         algo = tuneBOHB(max_concurrent=4)
         scheduler = HyperBandForBOHB(max_t=max_num_epoch)
-    elif 'Optuna' == hpo_method:
+    elif 'Optuna' == method:
         from ray.tune.suggest.optuna import OptunaSearch
         algo = OptunaSearch()
-    elif 'CFO' == hpo_method:
+    elif 'CFO' == method:
         from flaml import CFO
         algo = CFO(points_to_evaluate=[{
             "num_train_epochs": 1,
         }])
-    elif 'BlendSearch' == hpo_method:
+    elif 'BlendSearch' == method:
         from flaml import BlendSearch
         algo = BlendSearch(points_to_evaluate=[{
             "num_train_epochs": 1,
         }])
-    elif 'Dragonfly' == hpo_method:
+    elif 'Dragonfly' == method:
         from ray.tune.suggest.dragonfly import DragonflySearch
         algo = DragonflySearch()
-    elif 'SkOpt' == hpo_method:
+    elif 'SkOpt' == method:
         from ray.tune.suggest.skopt import SkOptSearch
         algo = SkOptSearch()
-    elif 'Nevergrad' == hpo_method:
+    elif 'Nevergrad' == method:
         from ray.tune.suggest.nevergrad import NevergradSearch
         import nevergrad as ng
         algo = NevergradSearch(optimizer=ng.optimizers.OnePlusOne)
-    elif 'ZOOpt' == hpo_method:
+    elif 'ZOOpt' == method:
         from ray.tune.suggest.zoopt import ZOOptSearch
         algo = ZOOptSearch(budget=num_samples)
-    elif 'Ax' == hpo_method:
+    elif 'Ax' == method:
         from ray.tune.suggest.ax import AxSearch
         algo = AxSearch(max_concurrent=3)
-    elif 'HyperOpt' == hpo_method:
+    elif 'HyperOpt' == method:
         from ray.tune.suggest.hyperopt import HyperOptSearch
         algo = HyperOptSearch()
         scheduler = None
