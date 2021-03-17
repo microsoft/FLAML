@@ -570,9 +570,10 @@
     <span class="k">def</span> <span class="nf">_valid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="sd">&#39;&#39;&#39; config validator</span>
 <span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">normalized_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_min</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span>
-                <span class="n">value</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">normalized_config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
                 <span class="c1"># logger.info(</span>
                 <span class="c1">#     f&quot;{key},{value},{self._admissible_min[key]},{self._admissible_max[key]}&quot;)</span>
                 <span class="k">if</span> <span class="n">value</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">STEPSIZE</span><span class="o">&lt;</span><span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_min</span><span class="p">[</span>
