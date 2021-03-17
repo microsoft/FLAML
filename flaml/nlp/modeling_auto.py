@@ -1,16 +1,18 @@
 from collections import OrderedDict
 
 from transformers import ElectraConfig
-from transformers.configuration_auto import replace_list_option_in_docstrings
+from transformers import RobertaConfig
 
-from transformers.modeling_electra import ElectraClassificationHead
+from transformers.models.auto.configuration_auto import replace_list_option_in_docstrings
 
-from transformers.modeling_roberta import RobertaClassificationHead
+from transformers.models.electra.modeling_electra import ElectraClassificationHead
+
+from transformers.models.roberta.modeling_roberta import RobertaClassificationHead
 
 MODEL_CLASSIFICATION_HEAD_MAPPING = OrderedDict(
     [
         (ElectraConfig, ElectraClassificationHead),
-        (ElectraConfig, RobertaClassificationHead),
+        (RobertaConfig, RobertaClassificationHead),
     ]
 )
 

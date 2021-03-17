@@ -5,6 +5,7 @@ import wandb
 import numpy as np
 
 import pathlib
+from ray.tune import CLIReporter
 
 import time
 import ray
@@ -16,17 +17,23 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification, glue
 from transformers import Trainer
 from functools import partial
 
-import flaml
+import flaml,copy
 from flaml.nlp.path_utils import PathUtils
 from flaml.nlp.searchalgo_auto import AutoSearchAlgorithm
 from flaml.nlp.modeling_auto import AutoClassificationHead
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+from flaml.nlp.trainer_for_autohf import TrainerForAutoHF
+from flaml.nlp.training_args import TuneTrainingArguments
+
 task_list = [
     "text-classification",
     "question-answering"
 ]
+
+from ray import tune
+import torch
 
 class AutoHuggingFace:
 
@@ -258,7 +265,7 @@ class AutoHuggingFace:
                                  mode="last"):
         assert mode in ("last")
         if mode == "last":
-            ckpt_step_freq = int(len(self.train_dataset) / batch_size / self.resources_per_trial["gpu"])
+            ckpt_step_freq = int(len(self.train_dataset) / batch_size / self.resources_per_trial["gpu"]) + 1
 
         return ckpt_step_freq
 
@@ -277,18 +284,18 @@ class AutoHuggingFace:
             mode="last")
 
         assert self.path_utils._ckpt_dir_per_trial
-        training_args = TrainingArguments(
+        training_args = TuneTrainingArguments(
             output_dir=self.path_utils._ckpt_dir_per_trial,
             do_eval=False,
             per_device_eval_batch_size=32,
-            eval_steps= 10, #ckpt_freq,
-            save_steps= 10, #ckpt_freq,
+            eval_steps= ckpt_freq,
+            save_steps= ckpt_freq,
             save_total_limit=0,
             fp16=True,
             **config,
         )
 
-        trainer = Trainer(
+        trainer = TrainerForAutoHF(
             this_model,
             training_args,
             train_dataset=self.train_dataset,
@@ -303,10 +310,10 @@ class AutoHuggingFace:
         # evaluate model
         eval_output = trainer.evaluate()
 
-        flaml.tune.report(
-            loss=eval_output["eval_loss"],
-            accuracy=eval_output["eval_accuracy"],
-        )
+        # flaml.tune.report(
+        #     loss=eval_output["eval_loss"],
+        #     accuracy=eval_output["eval_accuracy"],
+        # )
 
     def _verify_init_config(self,
                             **search_algo_args):
@@ -415,7 +422,7 @@ class AutoHuggingFace:
         assert self.path_utils._ckpt_dir_per_run
         analysis = ray.tune.run(
             self._objective,
-            metric= "eval_acc",
+            metric= metric_name,
             mode = mode_name,
             name = "ray_result",
             resources_per_trial = resources_per_trial,
@@ -423,14 +430,14 @@ class AutoHuggingFace:
             local_dir= self.path_utils._ckpt_dir_per_run,
             num_samples = num_samples,
             time_budget_s= time_budget,
-           # keep_checkpoints_num = 1,
-            checkpoint_score_attr= metric_name,
+            keep_checkpoints_num = 1,
+            checkpoint_score_attr= "training_iteration",
             scheduler= scheduler,
             search_alg= search_algo)
 
         ray.shutdown()
 
-        best_trial = analysis.get_best_trial(metric="eval_acc", mode="max")
+        best_trial = analysis.get_best_trial(scope="all", metric= metric_name, mode="max")
         metric = best_trial.metric_analysis[metric_name][mode_name]
 
         import logging

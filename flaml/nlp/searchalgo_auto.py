@@ -1,7 +1,7 @@
 from collections import OrderedDict
 
 from ray.tune.suggest.optuna import OptunaSearch
-from transformers.configuration_auto import replace_list_option_in_docstrings
+from transformers.models.auto.configuration_auto import replace_list_option_in_docstrings
 
 from flaml import CFO
 from flaml import BlendSearch
