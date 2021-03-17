@@ -290,7 +290,6 @@ class AutoML:
 
         Args:
             estimator_name: a str of the estimator's name
-
         Returns:
             An object with `predict()` and `predict_proba()` method (for
         classification), storing the best trained model for estimator_name.
@@ -1225,10 +1224,10 @@ class AutoML:
                         self._state.data_size/search_state.sample_size))
                 gap = search_state.best_loss - self._state.best_loss
                 if gap > 0 and not self._ensemble:
-                    delta_loss = (search_state.best_loss_old -
+                    delta_loss = (search_state.best_loss_old - 
                                  search_state.best_loss) or \
                                      search_state.best_loss
-                    delta_time = (search_state.total_time_used -
+                    delta_time = (search_state.total_time_used - 
                                  search_state.time_best_found_old) or 1e-10
                     speed = delta_loss / delta_time
                     try:
