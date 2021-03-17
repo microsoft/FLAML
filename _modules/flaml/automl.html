@@ -933,6 +933,7 @@
             <span class="n">split_type</span><span class="o">=</span><span class="s2">&quot;stratified&quot;</span><span class="p">,</span>
             <span class="n">learner_selector</span><span class="o">=</span><span class="s1">&#39;sample&#39;</span><span class="p">,</span>
             <span class="n">hpo_method</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
             <span class="o">**</span><span class="n">fit_kwargs</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;Find a model for a given task</span>
 
@@ -991,6 +992,8 @@
 <span class="sd">            y_val: None | a numpy array or a pandas series of validation labels</span>
 <span class="sd">            sample_weight_val: None | a numpy array of the sample weight of</span>
 <span class="sd">                validation data</span>
+<span class="sd">            verbose: int, default=1 | Controls the verbosity, higher means more</span>
+<span class="sd">                messages</span>
 <span class="sd">            **fit_kwargs: Other key word arguments to pass to fit() function of</span>
 <span class="sd">                the searched learners, such sample_weight</span>
 <span class="sd">        &#39;&#39;&#39;</span>
@@ -1003,6 +1006,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1">#key: estimator name; value: SearchState</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_random</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="n">RANDOM_SEED</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_learner_selector</span> <span class="o">=</span> <span class="n">learner_selector</span>
+        <span class="n">old_level</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">getEffectiveLevel</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span> <span class="o">=</span> <span class="n">verbose</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="o">==</span><span class="mi">0</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s1">&#39;classification&#39;</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">=</span> <span class="n">get_classification_objective</span><span class="p">(</span>
                 <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_y_train_all</span><span class="p">)))</span>
@@ -1073,7 +1080,9 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_save_model_history</span> <span class="o">=</span> <span class="n">model_history</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">n_jobs</span> <span class="o">=</span> <span class="n">n_jobs</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_search</span><span class="p">()</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;fit succeeded&quot;</span><span class="p">)</span></div>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;fit succeeded&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="o">==</span><span class="mi">0</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">old_level</span><span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">_search</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># initialize the search_states</span>
@@ -1186,7 +1195,7 @@
                 <span class="n">init_config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
                 <span class="n">search_alg</span><span class="o">=</span><span class="n">search_state</span><span class="o">.</span><span class="n">search_alg</span><span class="p">,</span>
                 <span class="n">time_budget_s</span><span class="o">=</span><span class="n">budget_left</span><span class="p">,</span>
-                <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">local_dir</span><span class="o">=</span><span class="s1">&#39;logs/tune_results&#39;</span><span class="p">,</span>
+                <span class="n">verbose</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">verbose</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">),</span> <span class="n">local_dir</span><span class="o">=</span><span class="s1">&#39;logs/tune_results&#39;</span><span class="p">,</span>
                 <span class="n">use_ray</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="c1"># warnings.resetwarnings()</span>
