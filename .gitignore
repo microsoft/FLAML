@@ -151,3 +151,8 @@ catboost_info
 notebook/*.pkl
 notebook/.azureml
 mlruns
+logs/*
+*.sh
+*.pkl
+*.pdf
+
