@@ -557,7 +557,7 @@ class AutoML(Problem):
         max_leaves_upper = min(32768, self.data_size)
         early_stopping_rounds = max(min(round(1500000/self.data_size),150), 10)
         if AutoML.DeepTables == self.estimator:
-            logger.info('setting up deeptables search')
+            logger.info('setting up deeptables hpo')
             self._search_space = {
                 'rounds': tune.qloguniform(10,int(early_stopping_rounds), 1),
                 'net': tune.choice(['DCN', 'dnn_nets']),
@@ -578,18 +578,55 @@ class AutoML(Problem):
             self._cat_hp_cost={
                 "net": [2,1],
                 }
-            # set the configuration (to be always the largest, assuming best at max) for hp which is prune_attribute
-            if self._prune_attribute is not None:
-                assert self._resource_max is not None
-                self._search_space[self._prune_attribute] = self._resource_max
 
         # TODO: specify the search space for other learners
         elif AutoML.LGBM == self.estimator:
-            NotImplementedError
+            logger.info('setting up lgbm hpo')
+            self._search_space = {
+                'n_estimators': tune.qloguniform(4, n_estimators_upper, 1),
+                'max_leaves': tune.qloguniform(4, max_leaves_upper, 1),
+                "min_child_weight": tune.loguniform(1e-3, 20),
+                "learning_rate": tune.loguniform(1e-2, 1),
+                "reg_alpha": tune.loguniform(1e-10, 1),
+                "reg_lambda": tune.loguniform(1e-10, 1),
+                'log_max_bin': tune.randint(3, 10),
+                'subsample': tune.uniform(0.6, 1),
+                'colsample_bytree': tune.uniform(0.7, 1),
+                } 
+            self._init_config =  {
+                'n_estimators': 4,
+                'max_leaves': 4,
+                'min_child_weight': 20,
+                }
         elif self.estimator == AutoML.XGB_cat:  
-            NotImplementedError
+            logger.info('setting up xgb_cat hpo')
+            self._search_space = {
+                'n_estimators': tune.qloguniform(4, n_estimators_upper, 1),
+                'max_leaves': tune.qloguniform(4, max_leaves_upper, 1),
+                "min_child_weight": tune.loguniform(1e-3, 20),
+                "learning_rate": tune.loguniform(1e-2, 1),
+                "reg_alpha": tune.loguniform(1e-10, 1),
+                "reg_lambda": tune.loguniform(1e-10, 1),
+                'subsample': tune.uniform(0.6, 1),
+                'colsample_bylevel': tune.uniform(0.7, 1),
+                'colsample_bytree': tune.uniform(0.7, 1),
+                'booster': tune.choice(['gbtree', 'gblinear']),
+                'tree_method': tune.choice(['auto', 'approx', 'hist']),
+                } 
+            self._init_config =  {
+                'n_estimators': 4,
+                'max_leaves': 4,
+                'min_child_weight': 20,
+                }
+            self._cat_hp_cost={
+                "booster": [2, 1],
+                }
         else: 
             NotImplementedError
+        # set the configuration (to be always the largest, assuming best at max) for hp which is prune_attribute
+        if self._prune_attribute is not None:
+            assert self._resource_max is not None
+            self._search_space[self._prune_attribute] = self._resource_max
         
     def _get_test_loss(self, estimator = None, X_test = None, y_test = None, 
                             metric = 'r2', labels = None):

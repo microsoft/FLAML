@@ -24,14 +24,14 @@ try:
     import flaml
     from flaml import BlendSearch
 except:
-    print("pip install flaml[blendsearch,ray]")
+    print("pip install flaml[blendsearch,ray,openml]")
     
 import logging
 logger = logging.getLogger(__name__)
 
 
 def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_trial_pu=1, method='BlendSearch', \
-    log_dir_address = '/home/qiw/FLAML/logs/', log_file_name='/home/qiw/FLAML/logs/example.log'):
+    log_dir_address = 'logs/', log_file_name='logs/example.log'):
     metric = 'loss'
     mode = 'min'
     resources_per_trial = {"cpu":n_per_trial_pu, "gpu":0 } #n_per_trial_pu
@@ -212,18 +212,18 @@ if __name__ == "__main__":
     method_list = args.method_list
     dataset_list = args.dataset_list
     run_indexes = args.run_indexes
+    learner_name = args.learner_name
     cwd = os.getcwd()
-    log_dir_address = cwd + '/logs/dt/'
-    if not os.path.isdir(log_dir_address): os.mkdir(log_dir_address)
-    logger.addHandler(logging.FileHandler(log_dir_address+'tune_dt_para.log'))
+    log_dir_address = cwd + f'/logs/{learner_name}/'
+    os.makedirs(log_dir_address, exist_ok=True)
+    logger.addHandler(logging.FileHandler(log_dir_address+f'tune_{learner_name}.log'))
     logger.setLevel(logging.INFO)
     
     from problems.aml_problem import AutoML
-    learner_name = args.learner_name
     # specify the problem
     for oml_dataset in dataset_list:
         for method in method_list:
-            exp_alias = 'dt_parallel_' + '_'.join(str(s) for s in [n_total_pu, n_per_trial_pu, oml_dataset, time_budget_s, method])
+            exp_alias = f'{learner_name}_' + '_'.join(str(s) for s in [n_total_pu, n_per_trial_pu, oml_dataset, time_budget_s, method])
             if args.plot_only and args.agg:
                 log_file_name_alias =  log_dir_address + exp_alias
                 get_agg_lc_from_file(log_file_name_alias, method_alias=method)
@@ -243,9 +243,9 @@ if __name__ == "__main__":
                         method=method, log_dir_address=log_dir_address, log_file_name=log_file_name)
     
         if args.agg:
-            fig_alias = 'LC_dt_parallel_lc' + '_'.join(str(s) for s in [n_total_pu, n_per_trial_pu, oml_dataset, time_budget_s])
+            fig_alias = f'LC_{learner_name}_lc' + '_'.join(str(s) for s in [n_total_pu, n_per_trial_pu, oml_dataset, time_budget_s])
         else:
-            fig_alias = 'LC_dt_parallel_lc' + '_'.join(str(s) for s in [n_total_pu, n_per_trial_pu, oml_dataset, time_budget_s, run_index])
+            fig_alias = f'LC_{learner_name}_lc' + '_'.join(str(s) for s in [n_total_pu, n_per_trial_pu, oml_dataset, time_budget_s, run_index])
         fig_name = log_dir_address + fig_alias + '.pdf'
         plt.legend()
         plt.savefig(fig_name)
