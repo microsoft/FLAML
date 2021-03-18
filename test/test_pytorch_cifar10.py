@@ -248,17 +248,17 @@ def cifar10_main(method='BlendSearch', num_samples=10, max_num_epochs=100,
             time_budget_s=time_budget_s,
             use_ray=True)
     else:
-        if 'ASHA' == hpo_method:
+        if 'ASHA' == method:
             algo = None
-        elif 'BOHB' == hpo_method:
+        elif 'BOHB' == method:
             from ray.tune.schedulers import HyperBandForBOHB
             from ray.tune.suggest.bohb import TuneBOHB
             algo = TuneBOHB()
             scheduler = HyperBandForBOHB(max_t=max_num_epochs)
-        elif 'Optuna' == hpo_method:
+        elif 'Optuna' == method:
             from ray.tune.suggest.optuna import OptunaSearch
             algo = OptunaSearch()
-        elif 'CFO' == hpo_method:
+        elif 'CFO' == method:
             from flaml import CFO
             algo = CFO(points_to_evaluate=[{
                 "l1": 2,
@@ -266,7 +266,7 @@ def cifar10_main(method='BlendSearch', num_samples=10, max_num_epochs=100,
                 "num_epochs": 1,
                 "batch_size": 4,
             }])
-        elif 'Nevergrad' == hpo_method:
+        elif 'Nevergrad' == method:
             from ray.tune.suggest.nevergrad import NevergradSearch
             import nevergrad as ng
             algo = NevergradSearch(optimizer=ng.optimizers.OnePlusOne)

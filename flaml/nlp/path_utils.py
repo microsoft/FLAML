@@ -19,7 +19,6 @@ class PathUtils:
     group_hash_id: str = field(default=None, metadata={"help": "hash code for the hpo run"})
 
     model_name: str = field(default= "google/electra-base-discriminator", metadata={"help": "model name."})
-    max_seq_length: Optional[int] = field(default= 128, metadata={"help": "max seq length"})
 
     def set_folder_name(self, search_algo, scheduler_name, model_type, submit_mode):
         if not scheduler_name:

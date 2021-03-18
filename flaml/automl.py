@@ -253,6 +253,8 @@ class AutoML:
 
     '''
 
+    from .version import __version__
+
     def __init__(self):
         self._track_iter = 0
         self._state = AutoMLState()
@@ -270,7 +272,7 @@ class AutoML:
         '''A dictionary of iter->(estimator, config, time),
         storing the best estimator, config, and the time when the best
         model is updated each time.
-        '''        
+        '''
         return self._config_history
 
     @property
@@ -283,20 +285,36 @@ class AutoML:
         else:
             return None
 
+    def best_model_for_estimator(self, estimator_name):
+        '''Return the best model found for a particular estimator
+
+        Args:
+            estimator_name: a str of the estimator's name
+
+        Returns:
+            An object with `predict()` and `predict_proba()` method (for
+        classification), storing the best trained model for estimator_name.
+        '''
+        if estimator_name in self._search_states:
+            state = self._search_states[estimator_name]
+            if hasattr(state, 'trained_estimator'):
+                return state.trained_estimator.model
+        return None
+
     @property
     def best_estimator(self):
-        '''A string indicating the best estimator found.'''        
+        '''A string indicating the best estimator found.'''
         return self._best_estimator
 
     @property
     def best_iteration(self):
         '''An integer of the iteration number where the best
-        config is found.'''        
+        config is found.'''
         return self._best_iteration
 
     @property
     def best_config(self):
-        '''A dictionary of the best configuration.'''        
+        '''A dictionary of the best configuration.'''
         return self._search_states[self._best_estimator].best_config
 
     @property
@@ -313,8 +331,8 @@ class AutoML:
 
     @property
     def classes_(self):
-        '''A list of n_classes elements for class labels.'''        
-        if self._label_transformer: 
+        '''A list of n_classes elements for class labels.'''
+        if self._label_transformer:
             return self._label_transformer.classes_.tolist()
         if self._trained_estimator:
             return self._trained_estimator.model.classes_.tolist()
@@ -359,7 +377,7 @@ class AutoML:
         return proba
 
     def _preprocess(self, X):
-        if issparse(X): 
+        if issparse(X):
             X = X.tocsr()
         if self._transformer:
             X = self._transformer.transform(X)
@@ -401,7 +419,7 @@ class AutoML:
         else:
             raise ValueError(
         "either X_train_all+y_train_all or dataframe+label need to be provided")
-        if issparse(X_train_all): 
+        if issparse(X_train_all):
             self._transformer = self._label_transformer = False
             self._X_train_all, self._y_train_all = X, y
         else:
@@ -410,7 +428,7 @@ class AutoML:
             self._X_train_all, self._y_train_all = \
                 self._transformer.fit_transform(X, y, self._state.task)
             self._label_transformer = self._transformer.label_transformer
-        self._sample_weight_full = self._state.fit_kwargs.get('sample_weight')      
+        self._sample_weight_full = self._state.fit_kwargs.get('sample_weight')
         if X_val is not None and y_val is not None:
             if not (isinstance(X_val, np.ndarray) or
                 issparse(X_val) or
@@ -448,11 +466,11 @@ class AutoML:
                       split_ratio,
                       n_splits):
         X_val, y_val = self._state.X_val, self._state.y_val
-        if issparse(X_val): 
+        if issparse(X_val):
             X_val = X_val.tocsr()
         X_train_all, y_train_all = \
             self._X_train_all, self._y_train_all
-        if issparse(X_train_all): 
+        if issparse(X_train_all):
             X_train_all = X_train_all.tocsr()
         if self._state.task != 'regression' and self._state.fit_kwargs.get(
             'sample_weight') is None:
@@ -548,7 +566,7 @@ class AutoML:
                     f"""{self._split_type} split for y_train \
                         {y_train_counts_elements}, \
                         y_val {y_val_counts_elements}""")
-            elif eval_method == 'holdout' and self._state.task == 'regression':                
+            elif eval_method == 'holdout' and self._state.task == 'regression':
                 if 'sample_weight' in self._state.fit_kwargs:
                     X_train, X_val, y_train, y_val, self._state.fit_kwargs[
                         'sample_weight'], self._state.weight_val = \
@@ -596,7 +614,7 @@ class AutoML:
             log_file_name: A string of the log file name
             record_id: An integer of the record ID in the file,
                 0 corresponds to the first trial
-            task: A string of the task type, 
+            task: A string of the task type,
                 'binary', 'multi', or 'regression'
 
         Returns:
@@ -765,6 +783,7 @@ class AutoML:
             split_type="stratified",
             learner_selector='sample',
             hpo_method=None,
+            verbose=1,
             **fit_kwargs):
         '''Find a model for a given task
 
@@ -795,7 +814,7 @@ class AutoML:
             n_jobs: An integer of the number of threads for training
             log_file_name: A string of the log file name
             estimator_list: A list of strings for estimator names, or 'auto'
-                e.g., 
+                e.g.,
 
                 .. code-block:: python
 
@@ -823,6 +842,8 @@ class AutoML:
             y_val: None | a numpy array or a pandas series of validation labels
             sample_weight_val: None | a numpy array of the sample weight of
                 validation data
+            verbose: int, default=1 | Controls the verbosity, higher means more
+                messages
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such sample_weight
         '''
@@ -835,6 +856,10 @@ class AutoML:
         self._search_states = {}  #key: estimator name; value: SearchState
         self._random = np.random.RandomState(RANDOM_SEED)
         self._learner_selector = learner_selector
+        old_level = logger.getEffectiveLevel()
+        self.verbose = verbose
+        if verbose==0:
+            logger.setLevel(logging.WARNING)
         if self._state.task == 'classification':
             self._state.task = get_classification_objective(
                 len(np.unique(self._y_train_all)))
@@ -849,9 +874,9 @@ class AutoML:
             # Add the console handler.
             _ch = logging.StreamHandler()
             _ch.setFormatter(logger_formatter)
-            logger.addHandler(_ch)        
+            logger.addHandler(_ch)
         logger.info("Evaluation method: {}".format(eval_method))
-        
+
         self._retrain_full = retrain_full and (eval_method == 'holdout' and
          self._state.X_val is None)
         self._prepare_data(eval_method, split_ratio, n_splits)
@@ -906,6 +931,8 @@ class AutoML:
             self._state.n_jobs = n_jobs
             self._search()
             logger.info("fit succeeded")
+        if verbose==0:
+            logger.setLevel(old_level)
 
     def _search(self):
         # initialize the search_states
@@ -1018,7 +1045,7 @@ class AutoML:
                 init_config=None,
                 search_alg=search_state.search_alg,
                 time_budget_s=budget_left,
-                verbose=0, local_dir='logs/tune_results',
+                verbose=max(self.verbose-1,0), local_dir='logs/tune_results',
                 use_ray=False,
                 )
             # warnings.resetwarnings()
@@ -1208,9 +1235,10 @@ class AutoML:
                 gap = search_state.best_loss - self._state.best_loss
                 if gap > 0 and not self._ensemble:
                     delta_loss = (search_state.best_loss_old -
-                                 search_state.best_loss)
+                                 search_state.best_loss) or \
+                                     search_state.best_loss
                     delta_time = (search_state.total_time_used -
-                                 search_state.time_best_found_old)
+                                 search_state.time_best_found_old) or 1e-10
                     speed = delta_loss / delta_time
                     try:
                         estimated_cost = 2*gap/speed
