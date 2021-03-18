@@ -8,8 +8,8 @@ from flaml import BlendSearch
 from ray.tune.suggest.dragonfly import DragonflySearch
 from ray.tune.suggest.skopt import SkOptSearch
 from ray.tune.suggest.nevergrad import NevergradSearch
-from ray.tune.suggest.zoopt import ZOOptSearch
-from ray.tune.suggest.ax import AxSearch
+#from ray.tune.suggest.zoopt import ZOOptSearch
+#from ray.tune.suggest.ax import AxSearch
 from ray.tune.suggest.hyperopt import HyperOptSearch
 
 HPO_METHOD_MAPPING = OrderedDict(
@@ -20,8 +20,8 @@ HPO_METHOD_MAPPING = OrderedDict(
         ("Dragonfly", DragonflySearch),
         ("SkOpt", SkOptSearch),
         ("Nevergrad", NevergradSearch),
-        ("ZOOpt", ZOOptSearch),
-        ("Ax", AxSearch),
+      #  ("ZOOpt", ZOOptSearch),
+      #  ("Ax", AxSearch),
         ("HyperOpt", HyperOptSearch),
     ]
 )

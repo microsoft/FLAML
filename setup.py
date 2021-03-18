@@ -48,6 +48,11 @@ setuptools.setup(
             "xgboost<1.3",
             "rgf-python",
             "optuna==2.3.0",
+            "transformers==4.4.1",
+            "wandb",
+            "ray[tune]==1.2.0",
+            "torch",
+            "datasets",
         ],
         "blendsearch": [
             "optuna==2.3.0"

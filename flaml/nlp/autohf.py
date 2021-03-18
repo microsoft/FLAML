@@ -1,28 +1,29 @@
 import os,json
 
-try:
-    import ray
-    import transformers
-    import wandb
-    import numpy as np
-    from ray.tune import CLIReporter
-    from datasets import Dataset
-    import time
-    import ray
-    import datasets
-    from datasets import load_dataset
-    from transformers.trainer_utils import IntervalStrategy
-    from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoConfig
-    from functools import partial
-    from flaml.nlp.path_utils import PathUtils
-    from flaml.nlp.searchalgo_auto import AutoSearchAlgorithm
-    from flaml.nlp.modeling_auto import AutoSeqClassificationHead
-    from dataclasses import dataclass, field
-    from typing import Any, Dict, List, Optional, Tuple
-    from flaml.nlp.trainer_for_autohf import TrainerForAutoHF
-    from flaml.nlp.training_args import TuneTrainingArguments
-except:
-    print("pip install torch transformers datasets flaml[blendsearch,ray]")
+import transformers
+import wandb
+import numpy as np
+
+from ray.tune import CLIReporter
+from datasets import Dataset
+
+import time
+import ray
+import datasets
+from datasets import load_dataset
+from transformers.trainer_utils import IntervalStrategy
+
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoConfig
+from functools import partial
+
+from flaml.nlp.path_utils import PathUtils
+from flaml.nlp.searchalgo_auto import AutoSearchAlgorithm
+from flaml.nlp.modeling_auto import AutoSeqClassificationHead
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Tuple
+
+from flaml.nlp.trainer_for_autohf import TrainerForAutoHF
+from flaml.nlp.training_args import TuneTrainingArguments
 
 task_list = [
     "text-classification",
