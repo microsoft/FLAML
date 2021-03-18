@@ -1,7 +1,11 @@
 import os,json
 
-import ray
-import transformers
+try:
+    import ray
+    import transformers
+except:
+    print("pip install torch transformers datasets flaml[blendsearch,ray]")
+
 import wandb
 import numpy as np
 
