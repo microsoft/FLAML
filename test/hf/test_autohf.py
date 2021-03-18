@@ -11,8 +11,8 @@ def _test_electra(method='BlendSearch'):
 
     preparedata_setting = {
         "dataset_config": {"task": "text-classification",
-                                          "dataset_name": ["glue"],
-                                          "subdataset_name": "rte"},
+                            "dataset_name": ["glue"],
+                            "subdataset_name": "rte"},
         "model_name": "google/electra-base-discriminator",
         "split_mode": "resplit",
         "output_path": "../../../data/",

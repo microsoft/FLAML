@@ -1,1 +1,1 @@
-from flaml.nlp import AutoHuggingFace
+from flaml.nlp.autohf import AutoHuggingFace
