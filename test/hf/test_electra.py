@@ -76,7 +76,6 @@ def train_electra(config: dict):
         predictions = np.argmax(predictions, axis=1)
         return metric.compute(predictions=predictions, references=labels)
 
-
     model = AutoModelForSequenceClassification.from_pretrained(
         MODEL_CHECKPOINT, num_labels=NUM_LABELS
     )
@@ -120,7 +119,7 @@ def train_electra(config: dict):
     except: pass
 
 def _test_electra(method='BlendSearch'):
-
+ 
     max_num_epoch = 9
     num_samples = -1
     time_budget_s = 3600
@@ -130,8 +129,14 @@ def _test_electra(method='BlendSearch'):
         "num_train_epochs": flaml.tune.loguniform(1, max_num_epoch),
         "learning_rate": flaml.tune.loguniform(3e-5, 1.5e-4),
         "weight_decay": flaml.tune.uniform(0, 0.3),
+        # "warmup_ratio": flaml.tune.uniform(0, 0.2),
+        # "hidden_dropout_prob": flaml.tune.uniform(0, 0.2),
+        # "attention_probs_dropout_prob": flaml.tune.uniform(0, 0.2),
         "per_device_train_batch_size": flaml.tune.choice([16, 32, 64, 128]),
         "seed": flaml.tune.choice([12, 22, 33, 42]),
+        # "adam_beta1": flaml.tune.uniform(0.8, 0.99),
+        # "adam_beta2": flaml.tune.loguniform(98e-2, 9999e-4),
+        # "adam_epsilon": flaml.tune.loguniform(1e-9, 1e-7),
     }
 
     start_time = time.time()

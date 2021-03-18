@@ -84,17 +84,17 @@ def _test_xgboost(method='BlendSearch'):
                     time_budget_s=time_budget_s,
                     use_ray=True)
             else:
-                if 'ASHA' == method:
+                if 'ASHA' == hpo_method:
                     algo = None
-                elif 'BOHB' == method:
+                elif 'BOHB' == hpo_method:
                     from ray.tune.schedulers import HyperBandForBOHB
                     from ray.tune.suggest.bohb import TuneBOHB
                     algo = TuneBOHB(max_concurrent=n_cpu)
                     scheduler = HyperBandForBOHB(max_t=max_iter)
-                elif 'Optuna' == method:
+                elif 'Optuna' == hpo_method:
                     from ray.tune.suggest.optuna import OptunaSearch
                     algo = OptunaSearch()
-                elif 'CFO' == method:
+                elif 'CFO' == hpo_method:
                     from flaml import CFO
                     algo = CFO(points_to_evaluate=[{
                         "max_depth": 1,
@@ -102,23 +102,23 @@ def _test_xgboost(method='BlendSearch'):
                     }], cat_hp_cost={
                         "min_child_weight": [6, 3, 2],
                     })
-                elif 'Dragonfly' == method:
+                elif 'Dragonfly' == hpo_method:
                     from ray.tune.suggest.dragonfly import DragonflySearch
                     algo = DragonflySearch()
-                elif 'SkOpt' == method:
+                elif 'SkOpt' == hpo_method:
                     from ray.tune.suggest.skopt import SkOptSearch
                     algo = SkOptSearch()
-                elif 'Nevergrad' == method:
+                elif 'Nevergrad' == hpo_method:
                     from ray.tune.suggest.nevergrad import NevergradSearch
                     import nevergrad as ng
                     algo = NevergradSearch(optimizer=ng.optimizers.OnePlusOne)
-                elif 'ZOOpt' == method:
+                elif 'ZOOpt' == hpo_method:
                     from ray.tune.suggest.zoopt import ZOOptSearch
                     algo = ZOOptSearch(budget=num_samples*n_cpu)
-                elif 'Ax' == method:
+                elif 'Ax' == hpo_method:
                     from ray.tune.suggest.ax import AxSearch
                     algo = AxSearch()
-                elif 'HyperOpt' == method:
+                elif 'HyperOpt' == hpo_method:
                     from ray.tune.suggest.hyperopt import HyperOptSearch
                     algo = HyperOptSearch()
                     scheduler = None

@@ -152,6 +152,3 @@ notebook/*.pkl
 notebook/.azureml
 mlruns
 logs
-
-# PyCharm
-.idea/
