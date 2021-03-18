@@ -7,10 +7,8 @@ import pandas as pd
 from sklearn.dummy import DummyClassifier, DummyRegressor
 try:
     import ray
-    from deeptables.models.deeptable import DeepTable, ModelConfig
-    from deeptables.models.deepnets import DCN, WideDeep, DeepFM
 except:
-    print("pip install tensorflow==2.2.0 deeptables[gpu] flaml[blendsearch,ray]")
+    print("pip install flaml[blendsearch,ray]")
    
 try: 
     from flaml import tune
@@ -405,8 +403,11 @@ class AutoML(Problem):
             return X
 
         def fit(self, X_train, y_train, budget=None, train_full=False):
-            from deeptables.models.deeptable import DeepTable, ModelConfig
-            from deeptables.models.deepnets import DCN, WideDeep, DeepFM
+            try:
+                from deeptables.models.deeptable import DeepTable, ModelConfig
+                from deeptables.models.deepnets import DCN, WideDeep, DeepFM
+            except ImportError:
+                print("pip install tensorflow==2.2.0 deeptables[gpu]")
             dropout = self.params.get('dropout', 0)
             learning_rate = self.params.get('learning_rate', 0.001)
             batch_norm = self.params.get('batch_norm', True)
@@ -650,7 +651,7 @@ class AutoML(Problem):
     
     #TODO: can ray tune serise this function?
     def trainable_func(self, config, start_time, log_file_name, resource_schedule,):
-        print('config in trainable_func', config)
+        # print('config in trainable_func', config)
         
         for epo in resource_schedule:
             loss, time2eval = self.compute_with_config(config)
@@ -660,7 +661,8 @@ class AutoML(Problem):
             eval_count, best_obj, best_config, choice = None, None, None, None  # missing fields
             obj = loss 
             i_config = config
-            i_config[self._prune_attribute] = epo
+            if self.prune_attribute:
+                i_config[self._prune_attribute] = epo
             log_param = [time_used, eval_count, best_obj, best_config, choice, obj, time2eval, i_config]
             add_res(log_file_name, log_param)
             # TODO: how to specify the name in tune.report properly
@@ -670,7 +672,7 @@ class AutoML(Problem):
         curent_time = time.time()
         objective_name = self.objective
         metric = self.metric[objective_name]
-        print('config', config)
+        # print('config', config)
         estimator = self.estimator(**config, objective_name = objective_name,
          n_jobs=self.n_jobs)
         if self.resampling_strategy == 'cv':
@@ -798,7 +800,8 @@ class AutoML(Problem):
         print('estimator', self.estimator)
         self._setup_search()
 
-        print('setup search ssss', self._search_space)
+        print('setup search space', self._search_space)
+
     def get_test_data(self):
         _, _, X_test, y_test = AutoML.load_openml_task(
             self.task_id, self.fold, self.task_type, self.transform)

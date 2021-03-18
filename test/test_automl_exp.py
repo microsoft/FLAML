@@ -40,7 +40,7 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
     except ImportError:
         return
     #TODO: use ray.tune by default?
-    from ray import tune
+    # from ray import tune
     # specify exp log file
     open(log_file_name,"w")
     search_space = problem.search_space
@@ -71,7 +71,7 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
     trainable_func = partial(problem.trainable_func, start_time=start_time, \
         resource_schedule=resource_schedule, log_file_name=log_file_name)
 
-    ray.init(num_cpus=n_total_pu, num_gpus=0) #n_total_pu
+    # ray.init(num_cpus=n_total_pu, num_gpus=0) #n_total_pu
     points_to_evaluate=[init_config]
 
     if 'BlendSearch' in method and False:
@@ -102,7 +102,8 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
             from ray.tune.suggest.optuna import OptunaSearch
             import optuna
             sampler = optuna.samplers.TPESampler(seed=RANDOMSEED+int(run_index))
-            algo = OptunaSearch(sampler=sampler)
+            algo = OptunaSearch(sampler=sampler,
+             space=search_space, mode=mode, metric=metric)
         elif 'CFO' in method:
             from flaml import CFO
             #TODO: CFO do not have max_concurrent?
@@ -120,6 +121,7 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
                 points_to_evaluate=points_to_evaluate, 
                 cat_hp_cost= cat_hp_cost,
                 global_search_alg=algo,
+                space=search_space, mode=mode, metric=metric, 
                 )
         if 'ASHA' in method:
             from ray.tune.schedulers import ASHAScheduler
@@ -157,6 +159,7 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
                         max_concurrent= 1)
         analysis = tune.run(
             trainable_func,
+            init_config=None,
             metric=metric, 
             mode=mode,
             resources_per_trial=resources_per_trial,
@@ -164,9 +167,10 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
             local_dir=log_dir_address,
             num_samples=-1, 
             time_budget_s=time_budget_s,
-            scheduler=scheduler, 
+            verbose=1,
+            # scheduler=scheduler, 
             search_alg=algo)
-    ray.shutdown()
+    # ray.shutdown()
 
     metric = 'loss'
     mode = 'min'
