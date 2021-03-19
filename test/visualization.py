@@ -59,7 +59,7 @@ def plot_lc(log_file_name, y_min=0, y_max=0.5, name=''):
 
     print('plot lc')
 
-def get_agg_lc_from_file(log_file_name_alias, method_alias, index_list=list(range(1,10))):
+def get_agg_lc_from_file(log_file_name_alias, method_alias, index_list=list(range(0,10))):
     log_file_list = []
     list_x_list = []
     list_y_list = []

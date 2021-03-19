@@ -248,11 +248,12 @@ if __name__ == "__main__":
                         n_total_pu= n_total_pu, n_per_trial_pu=n_per_trial_pu, \
                         method=method, log_dir_address=log_dir_address, log_file_name=log_file_name)
     
-        if args.agg:
-            fig_alias = f'LC_{learner_name}_lc' + '_'.join(str(s) for s in [n_total_pu, n_per_trial_pu, oml_dataset, time_budget_s])
-        else:
-            fig_alias = f'LC_{learner_name}_lc' + '_'.join(str(s) for s in [n_total_pu, n_per_trial_pu, oml_dataset, time_budget_s, run_index])
-        fig_name = log_dir_address + fig_alias + '.pdf'
-        plt.legend()
-        plt.savefig(fig_name)
+        if args.plot_only or args.agg:
+            if args.agg:
+                fig_alias = f'LC_{learner_name}_lc' + '_'.join(str(s) for s in [n_total_pu, n_per_trial_pu, oml_dataset, time_budget_s])
+            else:
+                fig_alias = f'LC_{learner_name}_lc' + '_'.join(str(s) for s in [n_total_pu, n_per_trial_pu, oml_dataset, time_budget_s, run_index])
+            fig_name = log_dir_address + fig_alias + '.pdf'
+            plt.legend()
+            plt.savefig(fig_name)
 # python test/test_automl_exp.py  -t 300 -trial_pu 1  -total_pu 1  -m 'CFO'

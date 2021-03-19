@@ -11,6 +11,7 @@
 
 ### Command to run all datasets
 # python gene_script.py  -l xgb_cat -t 60.0  -m Optuna CFO BlendSearch+Optuna -filename xgb_cat_all.sh -f 0 1 2 3 4 
+# python gene_script.py  -l xgb_cat -t 60.0  -m Optuna CFO BlendSearch+Optuna -filename xgb_cat_all.sh -agg -plot_only
 import argparse
 
 if __name__=='__main__':
@@ -96,6 +97,7 @@ if __name__=='__main__':
             argu_learner = '-l ' + str(l)
             argu_d = '-d ' + str(d)
             alias_screen =  d[0:4] + '-' + str(l)
+            if args.agg: method_list =  [ ' '.join([m for m in args.method_list])]
             for m in method_list:
                 method_short = m.replace('BlendSearch', 'BS').replace('FLOW2', 'F2')
                 alias_screen_method = alias_screen + '-' + method_short 
