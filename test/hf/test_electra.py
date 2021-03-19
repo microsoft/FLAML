@@ -15,7 +15,7 @@ try:
         Trainer,
         TrainingArguments,
     )
-    MODEL_CHECKPOINT = "google/grid-base-discriminator"
+    MODEL_CHECKPOINT = "google/electra-base-discriminator"
     task_to_keys = {
         "cola": ("sentence", None),
         "mnli": ("premise", "hypothesis"),
@@ -50,7 +50,7 @@ try:
 
 except:
     print("pip install torch transformers datasets flaml[blendsearch,ray]")
-    
+
 import logging
 logger = logging.getLogger(__name__)
 import os

@@ -1,5 +1,4 @@
-#ELECTRA: PRE-TRAINING TEXT ENCODERS AS DISCRIMINATORS RATHER THAN GENERATORS
-# https://arxiv.org/pdf/2003.10555.pdf
+# Grid search configs for electra on glue proposed in https://arxiv.org/pdf/2003.10555.pdf
 # TABLE 7 and Section Appendix.A
 
 electra_glue_grid = {

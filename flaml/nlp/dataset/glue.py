@@ -1,3 +1,5 @@
+# name mapping for evaluation metric for glue
+
 eval_name_mapping = {
     "cola": ("mcc"),
     "mnli": ("acc"),

@@ -1,3 +1,5 @@
+# name mapping for evaluation metric for super glue
+
 eval_name_mapping = {
     "axb": ("mcc"),
     "cb": ("acc", "f1"),

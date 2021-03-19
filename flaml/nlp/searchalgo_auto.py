@@ -1,15 +1,11 @@
 from collections import OrderedDict
-
 from ray.tune.suggest.optuna import OptunaSearch
-from transformers.models.auto.configuration_auto import replace_list_option_in_docstrings
 
 from flaml import CFO
 from flaml import BlendSearch
 from ray.tune.suggest.dragonfly import DragonflySearch
 from ray.tune.suggest.skopt import SkOptSearch
 from ray.tune.suggest.nevergrad import NevergradSearch
-#from ray.tune.suggest.zoopt import ZOOptSearch
-#from ray.tune.suggest.ax import AxSearch
 from ray.tune.suggest.hyperopt import HyperOptSearch
 
 HPO_METHOD_MAPPING = OrderedDict(
@@ -26,7 +22,17 @@ HPO_METHOD_MAPPING = OrderedDict(
     ]
 )
 
+
 class AutoSearchAlgorithm:
+    """
+    This is a generic model class that will be instantiated as one of the model classes of the library
+    ---with the search algorithm
+    ---when created with the when created with the
+    :meth:`~transformers.AutoSearchAlgorithm.from_config_and_method_name` class method.
+
+    This class cannot be instantiated directly using ``__init__()`` (throws an error).
+    """
+
     def __init__(self):
         raise EnvironmentError(
             "AutoSearchAlgorithm is designed to be instantiated "

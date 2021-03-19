@@ -14,6 +14,7 @@ MODEL_CLASSIFICATION_HEAD_MAPPING = OrderedDict(
     ]
 )
 
+
 class AutoSeqClassificationHead:
     """
     This is a generic model class that will be instantiated as one of the model classes of the library---with a head for sequence classification

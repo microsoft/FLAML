@@ -43,7 +43,5 @@ def test_electra(method='BlendSearch'):
 
     predictions = autohf.predict(test_dataset)
 
-    stop = 0
-
 if __name__ == "__main__":
     test_electra()

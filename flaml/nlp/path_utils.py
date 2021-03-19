@@ -1,11 +1,25 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
 import os, json
-from datasets import Dataset
 import pathlib
 
 @dataclass
 class PathUtils:
+    """
+    This is the class for maintaining the paths (checkpoints, results) in AutoHuggingFace.
+
+    Args:
+        hpo_output_dir:
+            A string variable, the root directory for outputing data
+        dataset_name:
+            A list, the first element in the list is the name of the dataset, e.g., ["glue"]
+            If the dataset contains a second component, the list should contain a second element, e.g., ["openbookqa", "main"]
+        subdataset_name:
+            The sub dataset name, e.g., "qnli", not required
+        group_hash_id:
+            The group name in wandb
+        model_name:
+            The model name for loading the model from huggingface.co/models, e.g., "google/electra-base-discriminator"
+    """
 
     hpo_output_dir: str = field(default="", metadata={"help": "the directory for hpo output"})
 

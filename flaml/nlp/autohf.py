@@ -33,6 +33,7 @@ task_list = [
     "question-answering"
 ]
 
+
 class AutoHuggingFace:
 
     '''The AutoHuggingFace class
