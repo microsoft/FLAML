@@ -112,7 +112,7 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
                 mode=mode,
                 space=search_space,
                 points_to_evaluate=points_to_evaluate, 
-                cat_hp_cost=at_hp_cost,
+                cat_hp_cost=cat_hp_cost,
                 ls_seed=ls_seed,
                 )
         # 'BlendSearch+Optuna',  'BlendSearch'
