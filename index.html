@@ -512,7 +512,7 @@ e.g.,</p>
 0 = silent, 1 = only status updates, 2 = status and brief trial
 results, 3 = status and detailed trial results. Defaults to 2.</p></li>
 <li><p><strong>local_dir</strong> – A string of the local dir to save ray logs if ray backend is
-used.</p></li>
+used; or a local dir to save the tuning log.</p></li>
 <li><p><strong>num_samples</strong> – An integer of the number of configs to try. Defaults to 1.</p></li>
 <li><p><strong>resources_per_trial</strong> – A dictionary of the hardware resources to allocate
 per trial, e.g., <cite>{‘mem’: 1024**3}</cite>. When not using ray backend,
