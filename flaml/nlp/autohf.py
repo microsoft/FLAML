@@ -5,7 +5,7 @@ import wandb
 import numpy as np
 
 from ray.tune import CLIReporter
-from datasets import Dataset
+from ray.tune.integration.wandb import WandbLoggerCallback
 
 import time
 import ray
@@ -17,6 +17,8 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification, Auto
 from functools import partial
 
 from flaml.nlp.path_utils import PathUtils
+from flaml.nlp.search_space.grid_searchspace_auto import AutoGridSearchSpace
+from flaml.nlp.search_space.hpo_searchspace_auto import AutoHPOSearchSpace
 from flaml.nlp.searchalgo_auto import AutoSearchAlgorithm
 from flaml.nlp.modeling_auto import AutoSeqClassificationHead
 from dataclasses import dataclass, field
@@ -59,8 +61,9 @@ class AutoHuggingFace:
     '''
 
     task_name: str = field(default="text-classification", metadata={"help": "task name"})
-    model_type: str = field(default="electra", metadata={"help": "model type."})
-    submit_mode: str = field(default="resplit", metadata={"help": "The submit mode."})
+    dataset_name: str = field(default="glue", metadata={"help": "dataset name"})
+    model_type: str = field(default="grid", metadata={"help": "model type."})
+    split_mode: str = field(default="resplit", metadata={"help": "The submit mode."})
 
     scheduler_name: str = field(default="asha", metadata={"help": "The scheduler name."})
     search_algo: str = field(default="bs", metadata={"help": "The hpo method."})
@@ -110,17 +113,18 @@ class AutoHuggingFace:
     def _set_search_space(self,
                           search_space_dir=None):
         assert self.model_type
-        if not search_space_dir:
-            search_space_dir = self.path_utils.get_search_space_dir(self.model_type)
-
-        search_space_grid_json = json.load(open(os.path.join(search_space_dir, self.model_type + "_grid.json"), "r"))
+        search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self.model_type, self.dataset_name[0])
         self.search_space_grid = self._convert_json_to_search_space(search_space_grid_json, mode="grid_search")
 
         if self.search_algo != "grid_search":
-            search_space_hpo_json = json.load(open(os.path.join(search_space_dir, self.model_type + "_hpo.json"), "r"))
+            if search_space_dir:
+                search_space_hpo_json = json.load(open(os.path.join(search_space_dir), "r"))
+            else:
+                search_space_hpo_json = AutoHPOSearchSpace.from_model_and_dataset_name(self.model_type, self.dataset_name[0])
             self.search_space_hpo = self._convert_json_to_search_space(search_space_hpo_json, mode="hpo")
+        else:
+            self.search_space_hpo = self.search_space_grid
 
-    #TODO: try remove the requirement on mapping
     @property
     def _eval_acc_name(self):
         return self.dataset_module.eval_name_mapping[self.path_utils.task_name][0]
@@ -191,7 +195,7 @@ class AutoHuggingFace:
                             "subdataset_name": "rte"}
                 model_name:
                     the model name path under huggingface.co/models
-                    e.g., "google/electra-base-discriminator"
+                    e.g., "google/grid-base-discriminator"
                 split_mode:
                     the mode for splitting the dataset, must be one of two:
                     -- "resplit": mixing train and dev, then resplit them into a proportion defined by the resplit_portion parameter, this
@@ -221,8 +225,9 @@ class AutoHuggingFace:
 
         assert (input_path) or (subdataset_name)
 
+        self.dataset_name = dataset_name
         self.task_name = task_name
-        self.submit_mode = split_mode
+        self.split_mode = split_mode
         self.max_seq_length = max_seq_length
 
         self.path_utils = PathUtils(
@@ -282,25 +287,24 @@ class AutoHuggingFace:
         model_type = model_config.get_config_dict(self.path_utils.model_checkpoint)[0]["model_type"]
         self.model_type = model_type
 
-    def _load_model(self):
+    def _load_model(self,
+                    checkpoint_path=None):
+        if not checkpoint_path:
+            checkpoint_path = self.path_utils.model_checkpoint
         if self.task_name == "text-classification":
-            model_config = AutoConfig.from_pretrained(self.path_utils.model_checkpoint)
+            model_config = AutoConfig.from_pretrained(checkpoint_path)
             num_labels_old = model_config.num_labels
 
             if self.num_labels != num_labels_old:
-                this_model = AutoModelForSequenceClassification.from_pretrained(self.path_utils.model_checkpoint, num_labels = num_labels_old)
+                this_model = AutoModelForSequenceClassification.from_pretrained(checkpoint_path, num_labels = num_labels_old)
                 this_model.num_labels = self.num_labels
                 this_model.classifier = AutoSeqClassificationHead.from_config(model_config)
             else:
-                this_model = AutoModelForSequenceClassification.from_pretrained(self.path_utils.model_checkpoint, num_labels = num_labels_old)
+                this_model = AutoModelForSequenceClassification.from_pretrained(checkpoint_path, num_labels = num_labels_old)
             this_model.resize_token_embeddings(len(self._tokenizer))
             return this_model
 
-    def _compute_metrics_by_dataset_name(self,
-                                         eval_pred):
-        predictions, labels = eval_pred
-        predictions = np.argmax(predictions, axis=1)
-
+    def _get_metric(self):
         if self.path_utils.dataset_name[0] in ("glue", "super_glue"):
             metric = datasets.load.load_metric(self.path_utils.dataset_name[0], self.path_utils.subdataset_name)
         elif self.path_utils.dataset_name[0] in ("squad", "squad_v2"):
@@ -308,7 +312,13 @@ class AutoHuggingFace:
         else:
             assert self.metric_name
             metric = datasets.load.load_metric(self.metric_name)
+        return metric
 
+    def _compute_metrics_by_dataset_name(self,
+                                         eval_pred):
+        predictions, labels = eval_pred
+        predictions = np.squeeze(predictions) if self.task_name == "regression" else np.argmax(predictions, axis=1)
+        metric = self._get_metric()
         return metric.compute(predictions=predictions, references=labels)
 
     def _compute_checkpoint_freq(self,
@@ -420,15 +430,34 @@ class AutoHuggingFace:
         assert len(subdirs) == 1, subdirs
         return subdirs[0]
 
-    def save_ckpt_json(self,
-                       best_ckpt):
-        json.dump({"best_ckpt": best_ckpt}, open(os.path.join(self.path_utils._result_dir_per_run, "result_" + self.path_utils.folder_name + ".json"), "w"))
+    def _save_ckpt_json(self,
+                        best_ckpt):
+        json.dump({"best_ckpt": best_ckpt}, open(os.path.join(self.path_utils._result_dir_per_run, "save_ckpt_" + self.path_utils.folder_name + ".json"), "w"))
 
-    def load_ckpt_json(self,
-                       ckpt_dir = None):
+    def _save_output_metric(self,
+                            output_metrics):
+        json.dump(output_metrics, open(
+            os.path.join(self.path_utils._result_dir_per_run, "output_metric_" + self.path_utils.folder_name + ".json"), "w"))
+
+    def _save_predictions(self,
+                     predictions):
+        prediction_path = os.path.join(self.path_utils._result_dir_per_run, "predictions_" + self.path_utils.folder_name + ".json")
+
+        with open(prediction_path, "w") as writer:
+            writer.write("index\tprediction\n")
+            count = 0
+            for index, item in enumerate(predictions):
+                if self.task_name == "regression":
+                    if item > 5.0:
+                        item = 5.0
+                writer.write(f"{index}\t{item:3.3f}\n")
+                count += 1
+
+    def _load_ckpt_json(self,
+                        ckpt_dir = None):
         if not ckpt_dir:
             assert self.path_utils.folder_name
-            ckpt_dir = os.path.join(self.path_utils._result_dir_per_run, "result_" + self.path_utils.folder_name + ".json")
+            ckpt_dir = os.path.join(self.path_utils._result_dir_per_run, "save_ckpt_" + self.path_utils.folder_name + ".json")
         ckpt_json = json.load(open(ckpt_dir))
         return ckpt_json["best_ckpt"]
 
@@ -479,7 +508,7 @@ class AutoHuggingFace:
                 e.g., "blendsearch" "cfo" "bo"
             search_space_path:
                 a path for the json file for search space,
-                e.g., search_space_path = "./search_space/electra/"
+                e.g., search_space_path = "./search_space/grid/"
             scheduler_name:
                 A string of the scheduler name,
                 e.g., "ASHA", "HyperBand"
@@ -502,12 +531,12 @@ class AutoHuggingFace:
         self.scheduler_name = scheduler_name
         self.metric_name = metric_name
 
-        ray.init(local_mode=True)
+        ray.init()
 
         self._set_model_type()
         self._set_search_space(search_space_path)
 
-        self.path_utils.set_folder_name(search_algo, scheduler_name, self.model_type, self.submit_mode)
+        self.path_utils.set_folder_name(search_algo, scheduler_name, self.model_type, self.split_mode)
 
         search_algo = self._get_hpo_algo(search_algo, **search_algo_kwargs)
         scheduler = self._get_scheduler(scheduler_name)
@@ -518,6 +547,13 @@ class AutoHuggingFace:
         start_time = time.time()
 
         assert self.path_utils._ckpt_dir_per_run
+
+        # self.search_space_hpo["wandb"] = {
+        #             "project": "hpo",
+        #             "group": "test",
+        #             "reinit": True,
+        #             "allow_val_change": True
+        #         }
 
         analysis = ray.tune.run(
             self._objective,
@@ -531,26 +567,23 @@ class AutoHuggingFace:
             time_budget_s= time_budget,
             keep_checkpoints_num = 1,
             scheduler= scheduler,
-            search_alg= search_algo)
+            search_alg= search_algo,
+            callbacks=[WandbLoggerCallback(
+                project="hpo",
+                api_key = os.environ["WANDB_API_KEY"],
+                group = os.environ["WANDB_RUN_GROUP"],
+                log_config=True)]
+        )
 
         ray.shutdown()
 
         best_trial = analysis.get_best_trial(scope="all", metric= metric_name, mode= mode_name)
         metric = best_trial.metric_analysis[metric_name][mode_name]
 
-        import logging
-        logger = logging.getLogger(__name__)
-
-        logger.info(f"method={search_algo}")
-        logger.info(f"n_trials={len(analysis.trials)}")
-        logger.info(f"time={time.time() - start_time}")
-        logger.info(f"Best model eval {metric_name}: {metric:.4f}")
-        logger.info(f"Best model parameters: {best_trial.config}")
-
         get_best_ckpt = analysis.get_best_checkpoint(best_trial, metric=metric_name, mode=mode_name)
         best_ckpt = self._recover_checkpoint(get_best_ckpt)
 
-        self.save_ckpt_json(best_ckpt)
+        self._save_ckpt_json(best_ckpt)
 
     def predict(self,
                 test_dataset,
@@ -568,14 +601,28 @@ class AutoHuggingFace:
             label for an instance.
         '''
 
-        best_checkpoint = self.load_ckpt_json(ckpt_json_dir)
-
-        best_model = AutoModelForSequenceClassification.from_pretrained(
-            best_checkpoint).to("cuda")
-
+        best_checkpoint = self._load_ckpt_json(ckpt_json_dir)
+        best_model = self._load_model(best_checkpoint)
         test_trainer = transformers.Trainer(best_model)
 
-        predictions = test_trainer.predict(test_dataset=test_dataset).predictions
-        predictions = np.squeeze(predictions) if self.task_name == "regression" else np.argmax(predictions, axis=1)
+        if self.split_mode == "origin":
+            try:
+                test_dataset.remove_columns_("label")
+            except ValueError:
+                pass
 
-        return predictions
+        test_dataloader = test_trainer.get_test_dataloader(test_dataset)
+        predictions, labels, _ = test_trainer.prediction_loop(test_dataloader, description="Prediction")
+        predictions = np.squeeze(predictions) if self.task_name == "regression" else np.argmax(predictions, axis=1)
+        #test_predictions = test_trainer.predict(test_dataset=test_dataset)
+
+        if self.split_mode == "resplit":
+            assert labels is not None
+            metric = self._get_metric()
+            output_metric = metric.compute(predictions=predictions, references=labels)
+            self._save_output_metric(output_metric)
+            self._save_predictions(predictions)
+            return predictions, output_metric
+        else:
+            self._save_predictions(predictions)
+            return predictions

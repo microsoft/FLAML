@@ -1,4 +1,8 @@
-{
+#ELECTRA: PRE-TRAINING TEXT ENCODERS AS DISCRIMINATORS RATHER THAN GENERATORS
+# https://arxiv.org/pdf/2003.10555.pdf
+# TABLE 7 and Section Appendix.A
+
+electra_glue_grid = {
     "learning_rate": [3e-5, 5e-5, 1e-4, 1.5e-4],
     "weight_decay": [0],
     "warmup_ratio": [0.1],

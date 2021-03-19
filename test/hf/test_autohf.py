@@ -4,7 +4,7 @@ import sys
 sys.path.insert(0, "../../")
 from flaml.nlp.autohf import AutoHuggingFace
 
-def _test_electra(method='BlendSearch'):
+def test_electra(method='BlendSearch'):
     wandb_key = "f38cc048c956367de27eeb2749c23e6a94519ab8"
 
     autohf = AutoHuggingFace()
@@ -46,4 +46,4 @@ def _test_electra(method='BlendSearch'):
     stop = 0
 
 if __name__ == "__main__":
-    _test_electra()
+    test_electra()

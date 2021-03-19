@@ -12,26 +12,28 @@ def _test_electra(method='BlendSearch'):
     preparedata_setting = {
         "dataset_config": {"task": "text-classification",
                             "dataset_name": ["glue"],
-                            "subdataset_name": "rte"},
+                            "subdataset_name": "qnli"},
         "model_name": "google/electra-base-discriminator",
         "split_mode": "resplit",
         "output_path": "../../../data/",
         "max_seq_length": 128,
         "resplit_portion": {"train": (0.0, 0.8),
-                                      "dev": (0.8, 0.9),
-                                      "test": (0.9, 1.0)}
+                            "dev": (0.8, 0.9),
+                            "test": (0.9, 1.0)}
     }
 
     train_dataset, eval_dataset, test_dataset =\
         autohf.prepare_data(**preparedata_setting)
 
+    search_algo = "CFO"
+
     autohf_settings = {"metric_name": "accuracy",
                        "mode_name": "max",
                        "resources_per_trial": {"gpu": 4, "cpu": 4},
                        "wandb_key": wandb_key,
-                       "search_algo": method,
-                       "num_samples": 4,
-                       "time_budget": 7200,
+                       "search_algo": search_algo,
+                       "num_samples": 1000 if search_algo != "grid_search" else 1,
+                       "time_budget": 3600,
                        "points_to_evaluate": [{
                            "num_train_epochs": 1,
                            "per_device_train_batch_size": 128, }]
@@ -42,8 +44,6 @@ def _test_electra(method='BlendSearch'):
                **autohf_settings,)
 
     predictions = autohf.predict(test_dataset)
-
-    stop = 0
 
 if __name__ == "__main__":
     _test_electra()

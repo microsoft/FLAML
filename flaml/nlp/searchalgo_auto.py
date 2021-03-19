@@ -20,25 +20,28 @@ HPO_METHOD_MAPPING = OrderedDict(
         ("Dragonfly", DragonflySearch),
         ("SkOpt", SkOptSearch),
         ("Nevergrad", NevergradSearch),
-      #  ("ZOOpt", ZOOptSearch),
-      #  ("Ax", AxSearch),
         ("HyperOpt", HyperOptSearch),
+        ("grid_search", None),
+        ("RandomSearch", None)
     ]
 )
 
 class AutoSearchAlgorithm:
     def __init__(self):
         raise EnvironmentError(
-            "AutoClassificationHead is designed to be instantiated "
+            "AutoSearchAlgorithm is designed to be instantiated "
             "using the `AutoHPO.from_config_and_method_name(method_name)` methods."
         )
 
     @classmethod
     def from_config_and_method_name(cls, method_name, **kwargs):
         if method_name in HPO_METHOD_MAPPING.keys():
-            return HPO_METHOD_MAPPING[method_name](**kwargs)
+            try:
+                return HPO_METHOD_MAPPING[method_name](**kwargs)
+            except:
+                return None
         raise ValueError(
-            "Unrecognized method {} for this kind of AutoHPO: {}.\n"
+            "Unrecognized method {} for this kind of AutoSearchAlgorithm: {}.\n"
             "Method name should be one of {}.".format(
                 method_name, cls.__name__, ", ".join(c.__name__ for c in HPO_METHOD_MAPPING.keys())
             )

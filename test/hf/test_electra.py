@@ -15,7 +15,7 @@ try:
         Trainer,
         TrainingArguments,
     )
-    MODEL_CHECKPOINT = "google/electra-base-discriminator"
+    MODEL_CHECKPOINT = "google/grid-base-discriminator"
     task_to_keys = {
         "cola": ("sentence", None),
         "mnli": ("premise", "hypothesis"),

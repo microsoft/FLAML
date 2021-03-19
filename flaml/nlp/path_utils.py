@@ -4,12 +4,8 @@ import os, json
 from datasets import Dataset
 import pathlib
 
-#TODO: is HPOUtils a good name?
 @dataclass
 class PathUtils:
-
-    CODE_PATH_REL: str = field(default="../../../", metadata={"help": "The folder name for hpo."})
-    DATA_PATH_REL: str = field(default="../../../../data/", metadata={"help": "The folder name for hpo."})
 
     hpo_output_dir: str = field(default="", metadata={"help": "the directory for hpo output"})
 
@@ -18,7 +14,7 @@ class PathUtils:
 
     group_hash_id: str = field(default=None, metadata={"help": "hash code for the hpo run"})
 
-    model_name: str = field(default= "google/electra-base-discriminator", metadata={"help": "model name."})
+    model_name: str = field(default= "google/grid-base-discriminator", metadata={"help": "model name."})
 
     def set_folder_name(self, search_algo, scheduler_name, model_type, submit_mode):
         if not scheduler_name:
@@ -28,7 +24,7 @@ class PathUtils:
 
     @property
     def model_checkpoint(self):
-        return os.path.join(self.hpo_output_dir, "model", self.model_name)
+        return self.model_name # os.path.join(self.hpo_output_dir, "model", self.model_name)
 
     @property
     def dataset_dir_name(self):
@@ -51,9 +47,6 @@ class PathUtils:
         output_dir = os.path.join(self.hpo_output_dir + "output/" + self.dataset_dir_name + "/")
         results_root_dir_abs = os.path.join(output_dir, "result/")
         return results_root_dir_abs
-
-    def get_search_space_dir(self, model_type):
-        return os.path.abspath(os.path.join(self.CODE_PATH_REL, "FLAML/flaml/nlp/search_space/", model_type))
 
     def init_and_make_one_dir(self, dir_path):
         assert dir_path

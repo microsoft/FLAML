@@ -10,8 +10,7 @@ class TrainerForAutoHF(transformers.Trainer):
     def get_optimizers(
             self, num_training_steps
     ):
-        self.current_optimizer, self.current_scheduler = super(
-        ).get_optimizers(num_training_steps)
+        self.current_optimizer, self.current_scheduler = super().get_optimizers(num_training_steps)
         return (self.current_optimizer, self.current_scheduler)
 
     def evaluate(self,
