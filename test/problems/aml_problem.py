@@ -15,6 +15,7 @@ try:
 except:
     from ray import tune
 
+from flaml.model import XGBoostSklearnEstimator
 import logging
 logger = logging.getLogger(__name__)
 
@@ -343,7 +344,7 @@ class AutoML(Problem):
             return self.model, train_time
 
 
-    class XGB_cat(SKLearnEstimator, LGBM):
+    class XGB_cat(XGBoostSklearnEstimator):
 
 
         def __init__(self, objective_name = 'binary', n_jobs=1, n_estimators = 4, 
@@ -384,7 +385,6 @@ class AutoML(Problem):
             n_estimators = self.params['n_estimators']
             return float((max_leaves*3 + (max_leaves-1)*4 + 1)*n_estimators*8)
     
-     
     class DeepTables(BaseEstimator):
 
 
@@ -650,11 +650,11 @@ class AutoML(Problem):
 
     
     #TODO: can ray tune serise this function?
-    def trainable_func(self, config, start_time, log_file_name, resource_schedule,):
+    def trainable_func(self, config, start_time, log_file_name, resource_schedule, total_budget=np.inf):
         # print('config in trainable_func', config)
-        
+        time_used = time.time() - start_time
         for epo in resource_schedule:
-            loss, time2eval = self.compute_with_config(config)
+            loss, time2eval = self.compute_with_config(config, total_budget-time_used)
             # write result
             time_used = time.time() - start_time
             # NOTE: these fields are missing

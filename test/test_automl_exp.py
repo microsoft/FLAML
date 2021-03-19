@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_trial_pu=1, method='BlendSearch', \
-    log_dir_address = 'logs/', log_file_name='logs/example.log'):
+    log_dir_address = 'logs/', log_file_name='logs/example.log', ls_seed=20):
     metric = 'loss'
     mode = 'min'
     resources_per_trial = {"cpu":n_per_trial_pu, "gpu":0 } #n_per_trial_pu
@@ -69,7 +69,7 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
 
     #TODO: specify the trainable_func through the AutoML problem
     trainable_func = partial(problem.trainable_func, start_time=start_time, \
-        resource_schedule=resource_schedule, log_file_name=log_file_name)
+        resource_schedule=resource_schedule, log_file_name=log_file_name, total_budget=time_budget_s)
 
     # ray.init(num_cpus=n_total_pu, num_gpus=0) #n_total_pu
     points_to_evaluate=[init_config]
@@ -113,6 +113,7 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
                 space=search_space,
                 points_to_evaluate=points_to_evaluate, 
                 cat_hp_cost=cat_hp_cost,
+                ls_seed=ls_seed,
                 )
         # 'BlendSearch+Optuna',  'BlendSearch'
         if 'BlendSearch' in method:
@@ -122,6 +123,7 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
                 cat_hp_cost=cat_hp_cost,
                 global_search_alg=algo,
                 space=search_space, mode=mode, metric=metric, 
+                ls_seed=ls_seed,
                 )
         if 'ASHA' in method:
             from ray.tune.schedulers import ASHAScheduler
@@ -246,7 +248,7 @@ if __name__ == "__main__":
                 else: 
                     _test_problem_parallel(problem=optimization_problem, time_budget_s= time_budget_s, \
                         n_total_pu= n_total_pu, n_per_trial_pu=n_per_trial_pu, \
-                        method=method, log_dir_address=log_dir_address, log_file_name=log_file_name)
+                        method=method, log_dir_address=log_dir_address, log_file_name=log_file_name, ls_seed=20+int(run_index))
     
         if args.plot_only or args.agg:
             if args.agg:
