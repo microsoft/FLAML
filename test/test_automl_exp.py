@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_trial_pu=1, method='BlendSearch', \
-    log_dir_address = 'logs/', log_file_name='logs/example.log', ls_seed=20):
+    log_dir_address = 'logs/', log_file_name='logs/example.log'):
     metric = 'loss'
     mode = 'min'
     resources_per_trial = {"cpu":n_per_trial_pu, "gpu":0 } #n_per_trial_pu
@@ -113,7 +113,6 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
                 space=search_space,
                 points_to_evaluate=points_to_evaluate, 
                 cat_hp_cost=cat_hp_cost,
-                ls_seed=ls_seed,
                 )
         # 'BlendSearch+Optuna',  'BlendSearch'
         if 'BlendSearch' in method:
@@ -123,7 +122,6 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
                 cat_hp_cost=cat_hp_cost,
                 global_search_alg=algo,
                 space=search_space, mode=mode, metric=metric, 
-                ls_seed=ls_seed,
                 )
         if 'ASHA' in method:
             from ray.tune.schedulers import ASHAScheduler
