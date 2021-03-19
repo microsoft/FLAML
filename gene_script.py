@@ -102,7 +102,7 @@ if __name__=='__main__':
                 alias_screen = 'agg-' + alias_screen
             for m in method_list:
                 method_short = m.replace('BlendSearch', 'BS').replace('FLOW2', 'F2')
-                alias_screen_method = alias_screen + '-' + method_short 
+                alias_screen_method = alias_screen + '-' + method_short[0:4] 
                 alias_method = ' -m ' + m
                 if len(fold_list)==0:
                     argument_list = [alias_time, argu_learner, argu_d, alias_method, alias_core, alias_core_per_trial,
