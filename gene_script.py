@@ -97,7 +97,9 @@ if __name__=='__main__':
             argu_learner = '-l ' + str(l)
             argu_d = '-d ' + str(d)
             alias_screen =  d[0:4] + '-' + str(l)
-            if args.agg: method_list =  [ ' '.join([m for m in args.method_list])]
+            if args.agg: 
+                method_list =  [ ' '.join([m for m in args.method_list])]
+                alias_screen = 'agg-' + alias_screen
             for m in method_list:
                 method_short = m.replace('BlendSearch', 'BS').replace('FLOW2', 'F2')
                 alias_screen_method = alias_screen + '-' + method_short 

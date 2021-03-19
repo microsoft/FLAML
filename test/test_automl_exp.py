@@ -221,7 +221,9 @@ if __name__ == "__main__":
     learner_name = args.learner_name
     cwd = os.getcwd()
     log_dir_address = cwd + f'/logs/{learner_name}/'
+    fig_dir_address = cwd + f'/plots/{learner_name}/'
     os.makedirs(log_dir_address, exist_ok=True)
+    os.makedirs(fig_dir_address, exist_ok=True)
     logger.addHandler(logging.FileHandler(log_dir_address+f'tune_{learner_name}.log'))
     logger.setLevel(logging.INFO)
     
@@ -253,7 +255,7 @@ if __name__ == "__main__":
                 fig_alias = f'LC_{learner_name}_lc' + '_'.join(str(s) for s in [n_total_pu, n_per_trial_pu, oml_dataset, time_budget_s])
             else:
                 fig_alias = f'LC_{learner_name}_lc' + '_'.join(str(s) for s in [n_total_pu, n_per_trial_pu, oml_dataset, time_budget_s, run_index])
-            fig_name = log_dir_address + fig_alias + '.pdf'
+            fig_name = fig_dir_address + fig_alias + '.pdf'
             plt.legend()
             plt.savefig(fig_name)
 # python test/test_automl_exp.py  -t 300 -trial_pu 1  -total_pu 1  -m 'CFO'
