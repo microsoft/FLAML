@@ -115,10 +115,12 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
                 )
         elif 'Dragonfly' in method:
             # pip install dragonfly-opt
+            # doesn't support categorical
             from ray.tune.suggest.dragonfly import DragonflySearch
             algo = DragonflySearch(space=search_space, mode=mode, metric=metric)
         elif 'SkOpt' == method:
             # pip install scikit-optimize
+            # TypeError: '<' not supported between instances of 'Version' and 'tuple'
             from ray.tune.suggest.skopt import SkOptSearch
             algo = SkOptSearch(space=search_space, mode=mode, metric=metric)
         elif 'Nevergrad' == method:
@@ -129,12 +131,14 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
                 optimizer=ng.optimizers.OnePlusOne)
         elif 'ZOOpt' == method:
             # pip install -U zoopt
+            # ValueError: ZOOpt does not support parameters of type `Float` with samplers of type `Quantized`
             from ray.tune.suggest.zoopt import ZOOptSearch
-            algo = ZOOptSearch(space=search_space, mode=mode, metric=metric)
+            algo = ZOOptSearch(dim_dict=search_space, mode=mode, metric=metric,
+             budget=1000000)
         elif 'Ax' == method:
             # pip install ax-platform sqlalchemy
             from ray.tune.suggest.ax import AxSearch
-            algo = AxSearch(max_concurrent=3)
+            algo = AxSearch(space=search_space, mode=mode, metric=metric)
         elif 'HyperOpt' == method:
             # pip install -U hyperopt
             from ray.tune.suggest.hyperopt import HyperOptSearch
