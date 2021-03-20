@@ -89,6 +89,7 @@ class BlendSearch(Searcher):
                 - HyperOptSearch raises exception sometimes
                 - TuneBOHB has its own scheduler
             mem_size: A function to estimate the memory size for a given config.
+            seed: An integer of the random seed.
         '''
         self._metric, self._mode = metric, mode
         if points_to_evaluate: init_config = points_to_evaluate[0]
