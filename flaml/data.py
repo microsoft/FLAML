@@ -206,7 +206,7 @@ class DataTransformer:
                                 '__NAN__').fillna('__NAN__')
                         cat_columns.append(column)
                     else:
-                        X[column].fillna('__NAN__', inplace=True)
+                        X[column] = X[column].fillna('__NAN__')
                         cat_columns.append(column)
                 else:
                     # print(X[column].dtype.name)
@@ -214,7 +214,7 @@ class DataTransformer:
                         X.drop(columns=column, inplace=True)
                         drop = True
                     else:
-                        X[column].fillna(np.nan, inplace=True)
+                        X[column] = X[column].fillna(np.nan)
                         num_columns.append(column)
             X = X[cat_columns + num_columns]
             if cat_columns:
@@ -249,7 +249,7 @@ class DataTransformer:
             for column in cat_columns:
                 # print(column, X[column].dtype.name)
                 if X[column].dtype.name == 'object':
-                    X[column].fillna('__NAN__', inplace=True)
+                    X[column] = X[column].fillna('__NAN__')
                 elif X[column].dtype.name == 'category':
                     current_categories = X[column].cat.categories
                     if '__NAN__' not in current_categories:
@@ -258,10 +258,8 @@ class DataTransformer:
             if cat_columns:
                 X[cat_columns] = X[cat_columns].astype('category')
             if num_columns:
+                X_num = X[num_columns].fillna(np.nan)
                 if self._drop:
-                    X_num = X[num_columns].copy()
                     X_num.columns = range(X_num.shape[1])
-                else: X_num = X[num_columns]
-                X[num_columns].fillna(np.nan, inplace=True)
                 X[num_columns] = self.transformer.transform(X_num)
         return X
