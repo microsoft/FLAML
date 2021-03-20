@@ -58,7 +58,7 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
         resource_schedule = problem.generate_resource_schedule(reduction_factor_asha, 
             min_epochs, max_epochs)
     elif 'hyberband' in method or 'BOHB' in method:
-        resource_schedule=  problem.generate_resource_schedule(reduction_factor_hyperband, 
+        resource_schedule = problem.generate_resource_schedule(reduction_factor_hyperband, 
             min_epochs, max_epochs)
     else: 
         # not tuning resource dim
@@ -68,8 +68,9 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
     max_resource = resource_schedule[-1]
 
     #TODO: specify the trainable_func through the AutoML problem
-    trainable_func = partial(problem.trainable_func, start_time=start_time, \
-        resource_schedule=resource_schedule, log_file_name=log_file_name, total_budget=time_budget_s)
+    trainable_func = partial(problem.trainable_func, start_time=start_time,
+        resource_schedule=resource_schedule, log_file_name=log_file_name, 
+        total_budget=time_budget_s)
 
     # ray.init(num_cpus=n_total_pu, num_gpus=0) #n_total_pu
     points_to_evaluate=[init_config]
@@ -79,8 +80,8 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
         # corresponding schedulers for BS are specified in flaml.tune.run
         analysis = tune.run(
             trainable_func,
-            init_config = init_config,
-            cat_hp_cost= cat_hp_cost,  #{"net": [2,1],},
+            init_config=init_config,
+            cat_hp_cost=cat_hp_cost,  #{"net": [2,1],},
             metric=metric, 
             mode=mode,
             prune_attr=prune_attr,
@@ -90,13 +91,11 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
             resources_per_trial=resources_per_trial,
             config=search_space, 
             local_dir=log_dir_address,
-            num_samples=-1, 
+            num_samples=-1,
             time_budget_s=time_budget_s,
             use_ray=True) 
     else: 
         from ray.tune.suggest import BasicVariantGenerator
-        from ray.tune.suggest import ConcurrencyLimiter
-        
         scheduler = None
         if 'Optuna' in method:
             from ray.tune.suggest.optuna import OptunaSearch
@@ -106,7 +105,6 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
              space=search_space, mode=mode, metric=metric)
         elif 'CFO' in method:
             from flaml import CFO
-            #TODO: CFO do not have max_concurrent?
             algo = CFO(
                 metric=metric,
                 mode=mode,
@@ -115,6 +113,34 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
                 cat_hp_cost=cat_hp_cost,
                 seed=ls_seed,
                 )
+        elif 'Dragonfly' in method:
+            # pip install dragonfly-opt
+            from ray.tune.suggest.dragonfly import DragonflySearch
+            algo = DragonflySearch(space=search_space, mode=mode, metric=metric)
+        elif 'SkOpt' == method:
+            # pip install scikit-optimize
+            from ray.tune.suggest.skopt import SkOptSearch
+            algo = SkOptSearch(space=search_space, mode=mode, metric=metric)
+        elif 'Nevergrad' == method:
+            # pip install nevergrad
+            from ray.tune.suggest.nevergrad import NevergradSearch
+            import nevergrad as ng
+            algo = NevergradSearch(space=search_space, mode=mode, metric=metric,
+                optimizer=ng.optimizers.OnePlusOne)
+        elif 'ZOOpt' == method:
+            # pip install -U zoopt
+            from ray.tune.suggest.zoopt import ZOOptSearch
+            algo = ZOOptSearch(space=search_space, mode=mode, metric=metric)
+        elif 'Ax' == method:
+            # pip install ax-platform sqlalchemy
+            from ray.tune.suggest.ax import AxSearch
+            algo = AxSearch(max_concurrent=3)
+        elif 'HyperOpt' == method:
+            # pip install -U hyperopt
+            from ray.tune.suggest.hyperopt import HyperOptSearch
+            algo = HyperOptSearch(space=search_space, mode=mode, metric=metric,
+                random_state_seed=RANDOMSEED+int(run_index))           
+
         # 'BlendSearch+Optuna',  'BlendSearch'
         if 'BlendSearch' in method:
             from flaml import BlendSearch
@@ -145,7 +171,6 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
                 )
                 mode = None 
                 metric = None
-        # else: scheduler = None
 
         if 'BOHB' == method:
             from ray.tune.schedulers import HyperBandForBOHB
@@ -156,23 +181,17 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
                 max_t=max_resource,
                 reduction_factor=reduction_factor_hyperband,
                 )
-        elif mode is not None:
-            algo = ConcurrencyLimiter(algo,
-                        max_concurrent= 1)
+
         analysis = tune.run(
             trainable_func,
             init_config=None,
-            metric=metric, 
-            mode=mode,
             resources_per_trial=resources_per_trial,
             config=search_space, 
             local_dir=log_dir_address,
             num_samples=-1, 
             time_budget_s=time_budget_s,
             verbose=1,
-            # scheduler=scheduler, 
             search_alg=algo)
-    # ray.shutdown()
 
     metric = 'loss'
     mode = 'min'
