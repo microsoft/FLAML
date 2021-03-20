@@ -113,7 +113,7 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
                 space=search_space,
                 points_to_evaluate=points_to_evaluate, 
                 cat_hp_cost=cat_hp_cost,
-                ls_seed=ls_seed,
+                seed=ls_seed,
                 )
         # 'BlendSearch+Optuna',  'BlendSearch'
         if 'BlendSearch' in method:
@@ -123,7 +123,7 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
                 cat_hp_cost=cat_hp_cost,
                 global_search_alg=algo,
                 space=search_space, mode=mode, metric=metric, 
-                ls_seed=ls_seed,
+                seed=ls_seed,
                 )
         if 'ASHA' in method:
             from ray.tune.schedulers import ASHAScheduler
