@@ -7,6 +7,7 @@ from typing import Dict, Optional, List, Tuple
 import numpy as np
 import time
 import pickle
+
 try:
     from ray.tune.suggest import Searcher
     from ray.tune.suggest.optuna import OptunaSearch as GlobalSearch
@@ -24,6 +25,8 @@ logger = logging.getLogger(__name__)
 class BlendSearch(Searcher):
     '''class for BlendSearch algorithm
     '''
+
+    cost_attr = "time_total_s" # cost attribute in result
 
     def __init__(self,
                  metric: Optional[str] = None,
@@ -133,26 +136,39 @@ class BlendSearch(Searcher):
         self._thread_count = 1 # total # threads created
         self._init_used = self._ls.init_config is None
         self._trial_proposed_by = {} # trial_id: str -> thread_id: int
-        self._admissible_min = self._ls.normalize(self._ls.init_config)
-        self._admissible_max = self._admissible_min.copy()
+        self._ls_bound_min = self._ls.normalize(self._ls.init_config)
+        self._ls_bound_max = self._ls_bound_min.copy()
+        self._gs_admissible_min = self._ls_bound_min.copy()
+        self._gs_admissible_max = self._ls_bound_max.copy()
         self._result = {} # config_signature: tuple -> result: Dict
         self._deadline = np.inf
 
     def save(self, checkpoint_path: str):
-        save_object = (self._metric_target, self._search_thread_pool,
-            self._thread_count, self._init_used, self._trial_proposed_by,
-            self._admissible_min, self._admissible_max, self._result,
-            self._deadline)
+        save_object = self
         with open(checkpoint_path, "wb") as outputFile:
             pickle.dump(save_object, outputFile)
             
     def restore(self, checkpoint_path: str):
         with open(checkpoint_path, "rb") as inputFile:
-            save_object = pickle.load(inputFile)
-        self._metric_target, self._search_thread_pool, \
-            self._thread_count, self._init_used, self._trial_proposed_by, \
-            self._admissible_min, self._admissible_max, self._result, \
-            self._deadline = save_object
+            state = pickle.load(inputFile)
+        self._metric_target = state._metric_target
+        self._search_thread_pool = state._search_thread_pool
+        self._thread_count = state._thread_count
+        self._init_used = state._init_used
+        self._trial_proposed_by = state._trial_proposed_by
+        self._ls_bound_min = state._ls_bound_min
+        self._ls_bound_max = state._ls_bound_max
+        self._gs_admissible_min = state._gs_admissible_min
+        self._gs_admissible_max = state._gs_admissible_max
+        self._result = state._result
+        self._deadline = state._deadline
+        self._metric, self._mode = state._metric, state._mode
+        self._points_to_evaluate = state._points_to_evaluate
+        self._gs = state._gs
+        self._ls = state._ls
+        self._resources_per_trial = state._resources_per_trial
+        self._mem_size = state._mem_size
+        self._mem_threshold = state._mem_threshold
 
     def restore_from_dir(self, checkpoint_dir: str):
         super.restore_from_dir(checkpoint_dir)
@@ -179,31 +195,36 @@ class BlendSearch(Searcher):
             # update target metric if improved
             if (result[self._metric]-self._metric_target)*self._ls.metric_op<0:
                 self._metric_target = result[self._metric]
-            if thread_id: # from local search
-                # update admissible region
-                normalized_config = self._ls.normalize(config)
-                for key in self._admissible_min:
-                    value = normalized_config[key]
-                    if value > self._admissible_max[key]:
-                        self._admissible_max[key] = value
-                    elif value < self._admissible_min[key]:
-                        self._admissible_min[key] = value
-            elif self._create_condition(result):
+            if not thread_id and self._create_condition(result): 
                 # thread creator
                 self._search_thread_pool[self._thread_count] = SearchThread(
                     self._ls.mode,
                     self._ls.create(config, result[self._metric], cost=result[
-                        "time_total_s"])
+                        self.cost_attr])
                 )
                 thread_id = self._thread_count
                 self._thread_count += 1
-                
+                self._update_admissible_region(config, self._ls_bound_min,
+                    self._ls_bound_max)
+            # reset admissible region to ls bounding box
+            self._gs_admissible_min.update(self._ls_bound_min)
+            self._gs_admissible_max.update(self._ls_bound_max)
         # cleaner
         # logger.info(f"thread {thread_id} in search thread pool="
         #     f"{thread_id in self._search_thread_pool}")
         if thread_id and thread_id in self._search_thread_pool:
             # local search thread
             self._clean(thread_id)
+
+    def _update_admissible_region(self, config, admissible_min, admissible_max):
+        # update admissible region
+        normalized_config = self._ls.normalize(config)
+        for key in admissible_min:
+            value = normalized_config[key]
+            if value > admissible_max[key]:
+                admissible_max[key] = value
+            elif value < admissible_min[key]:
+                admissible_min[key] = value
 
     def _create_condition(self, result: Dict) -> bool:
         ''' create thread condition
@@ -232,9 +253,9 @@ class BlendSearch(Searcher):
         #     f"{self._search_thread_pool[thread_id].converged}")
         if self._search_thread_pool[thread_id].converged:
             todelete.add(thread_id)
-            for key in self._admissible_min:
-                self._admissible_max[key] += self._ls.STEPSIZE
-                self._admissible_min[key] -= self._ls.STEPSIZE            
+            for key in self._ls_bound_max:
+                self._ls_bound_max[key] += self._ls.STEPSIZE
+                self._ls_bound_min[key] -= self._ls.STEPSIZE            
         for id in todelete:
             del self._search_thread_pool[id]
 
@@ -259,50 +280,66 @@ class BlendSearch(Searcher):
         '''
         if self._init_used and not self._points_to_evaluate:
             choice, backup = self._select_thread()
-            # logger.debug(f"choice={choice}, backup={backup}")
+            # print(f"choice={choice}, backup={backup}")
             if choice < 0: return None # timeout
             self._use_rs = False
             config = self._search_thread_pool[choice].suggest(trial_id)
+            # preliminary check; not checking config validation
             skip = self._should_skip(choice, trial_id, config)
             if skip:
                 if choice: 
-                    # logger.info(f"skipping choice={choice}, config={config}")
+                    # print(f"skipping choice={choice}, config={config}")
                     return None
-                # use rs
+                # use rs when BO fails to suggest a config
                 self._use_rs = True
                 for _, generated in generate_variants(
                     {'config': self._ls.space}):
                     config = generated['config']
-                    break
+                    break # get one random config
                 # logger.debug(f"random config {config}")
                 skip = self._should_skip(choice, trial_id, config)
                 if skip: return None
-            # if not choice: logger.info(config)
-            if choice or backup == choice or self._valid(config): 
+            # if not choice: print(config)
+            if choice or self._valid(config): 
                 # LS or valid or no backup choice
                 self._trial_proposed_by[trial_id] = choice
             else: # invalid config proposed by GS
-                if not self._use_rs:
-                    self._search_thread_pool[choice].on_trial_complete(
-                        trial_id, {}, error=True) # tell GS there is an error
+                # if not self._use_rs:
+                #     self._search_thread_pool[choice].on_trial_complete(
+                #         trial_id, {}, error=True) # tell GS there is an error
                 self._use_rs = False
-                config = self._search_thread_pool[backup].suggest(trial_id)
-                skip = self._should_skip(backup, trial_id, config)
-                if skip: 
-                    return None
-                self._trial_proposed_by[trial_id] = backup
-                choice = backup
-            # if choice: self._pending.add(choice) # local search thread pending
-            if not choice:
+                if choice == backup:
+                    # use CFO's init point
+                    init_config = self._ls.init_config
+                    config = self._ls.complete_config(init_config,
+                        self._ls_bound_min, self._ls_bound_max)
+                    self._trial_proposed_by[trial_id] = choice
+                else:
+                    config = self._search_thread_pool[backup].suggest(trial_id)
+                    skip = self._should_skip(backup, trial_id, config)
+                    if skip: 
+                        return None
+                    self._trial_proposed_by[trial_id] = backup
+                    choice = backup
+            if not choice: # global search
                 if self._ls._resource: 
                 # TODO: add resource to config proposed by GS, min or median?
                     config[self._ls.prune_attr] = self._ls.min_resource
+                # temporarily relax admissible region for parallel proposals
+                self._update_admissible_region(config, self._gs_admissible_min,
+                    self._gs_admissible_max)
+            else:
+                self._update_admissible_region(config, self._ls_bound_min,
+                    self._ls_bound_max)
+                self._gs_admissible_min.update(self._ls_bound_min)
+                self._gs_admissible_max.update(self._ls_bound_max)
             self._result[self._ls.config_signature(config)] = {}
         else: # use init config
+            # print("use init config")
             init_config = self._points_to_evaluate.pop(
                 0) if self._points_to_evaluate else self._ls.init_config
             config = self._ls.complete_config(init_config,
-             self._admissible_min, self._admissible_max)
+             self._ls_bound_min, self._ls_bound_max)
                 # logger.info(f"reset config to {config}")
             config_signature = self._ls.config_signature(config)
             result = self._result.get(config_signature)
@@ -313,6 +350,7 @@ class BlendSearch(Searcher):
                 self._result[config_signature] = {}
             else: return None # running but no result yet
             self._init_used = True
+            self._trial_proposed_by[trial_id] = 0
         # logger.info(f"config={config}")
         return config
 
@@ -338,10 +376,10 @@ class BlendSearch(Searcher):
                     if choice:
                         # local search thread
                         self._clean(choice)
-                else:
-                    # tell the thread there is an error
-                    self._search_thread_pool[choice].on_trial_complete(
-                        trial_id, {}, error=True) 
+                # else:
+                #     # tell the thread there is an error
+                #     self._search_thread_pool[choice].on_trial_complete(
+                #         trial_id, {}, error=True) 
             return True
         return False
 
@@ -362,10 +400,10 @@ class BlendSearch(Searcher):
 
         top_thread_id = backup_thread_id = 0
         priority1 = priority2 = self._search_thread_pool[0].priority
-        # logger.debug(f"priority of thread 0={priority1}")
+        # print(f"priority of thread 0={priority1}, obj_best1={self._search_thread_pool[0].obj_best1}")
         for thread_id, thread in self._search_thread_pool.items():
             # if thread_id:
-            #     logger.debug(
+            #     print(
             #         f"priority of thread {thread_id}={thread.priority}")
             #     logger.debug(
             #         f"thread {thread_id}.can_suggest={thread.can_suggest}")
@@ -382,18 +420,101 @@ class BlendSearch(Searcher):
     def _valid(self, config: Dict) -> bool:
         ''' config validator
         '''
-        for key in self._admissible_min:
+        normalized_config = self._ls.normalize(config)
+        for key in self._gs_admissible_min:
             if key in config:
-                value = config[key]
+                value = normalized_config[key]
                 # logger.info(
                 #     f"{key},{value},{self._admissible_min[key]},{self._admissible_max[key]}")
-                if value<self._admissible_min[
-                    key] or value>self._admissible_max[key]:
+                if value+self._ls.STEPSIZE<self._gs_admissible_min[
+                    key] or value>self._gs_admissible_max[key]+self._ls.STEPSIZE:
                     return False
         return True
 
 
-class CFO(BlendSearch):
+try:
+    from nni.tuner import Tuner as NNITuner
+    from nni.utils import extract_scalar_reward
+    try:
+        from ray.tune import (uniform, quniform, choice, randint, qrandint, randn,
+    qrandn, loguniform, qloguniform)
+    except:
+        from ..tune.sample import (uniform, quniform, choice, randint, qrandint, randn,
+    qrandn, loguniform, qloguniform)
+
+    class BlendSearchTuner(BlendSearch, NNITuner):
+        '''Tuner class for NNI
+        '''
+
+        def receive_trial_result(self, parameter_id, parameters, value,
+         **kwargs):
+            '''
+            Receive trial's final result.
+            parameter_id: int
+            parameters: object created by 'generate_parameters()'
+            value: final metrics of the trial, including default metric
+            '''
+            result = {}
+            for key, value in parameters:
+                result['config/'+key] = value
+            reward = extract_scalar_reward(value)
+            result[self._metric] = reward
+            # if nni does not report training cost, 
+            # using sequence as an approximation.
+            # if no sequence, using a constant 1
+            result[self.cost_attr] = value.get(self.cost_attr, value.get(
+                'sequence', 1))
+            self.on_trial_complete(str(parameter_id), result)
+        ...
+
+        def generate_parameters(self, parameter_id, **kwargs) -> Dict:
+            '''
+            Returns a set of trial (hyper-)parameters, as a serializable object
+            parameter_id: int
+            '''            
+            return self.suggest(str(parameter_id))
+        ...
+
+        def update_search_space(self, search_space):
+            '''
+            Tuners are advised to support updating search space at run-time.
+            If a tuner can only set search space once before generating first hyper-parameters,
+            it should explicitly document this behaviour.
+            search_space: JSON object created by experiment owner
+            '''
+            config = {}
+            for key, value in search_space.items():
+                v = value.get("_value")
+                _type = value['_type']
+                if _type == 'choice':
+                    config[key] = choice(v)
+                elif _type == 'randint':
+                    config[key] = randint(v[0], v[1]-1)
+                elif _type == 'uniform':
+                    config[key] = uniform(v[0], v[1])
+                elif _type == 'quniform':
+                    config[key] = quniform(v[0], v[1], v[2])
+                elif _type == 'loguniform':
+                    config[key] = loguniform(v[0], v[1])
+                elif _type == 'qloguniform':
+                    config[key] = qloguniform(v[0], v[1], v[2])
+                elif _type == 'normal':
+                    config[key] = randn(v[1], v[2])
+                elif _type == 'qnormal':
+                    config[key] = qrandn(v[1], v[2], v[3])
+                else:
+                    raise ValueError(
+                    f'unsupported type in search_space {_type}')
+            self._ls.set_search_properties(None, None, config)
+            if self._gs is not None:
+                self._gs.set_search_properties(None, None, config)
+            self._init_search()
+
+except:
+    class BlendSearchTuner(BlendSearch): pass
+
+
+class CFO(BlendSearchTuner):
     ''' class for CFO algorithm
     '''
 
@@ -416,3 +537,89 @@ class CFO(BlendSearch):
         ''' create thread condition
         '''
         return len(self._search_thread_pool) < 2
+
+
+def create_next(client):
+    '''A stateless API for HPO
+    '''
+    state = client.get_state()
+    setting = client.get_settings_dict()
+    if state is None:
+        # first time call
+        try:
+            from ray.tune import (uniform, quniform, choice, randint, qrandint, randn,
+        qrandn, loguniform, qloguniform)
+            from ray.tune.trial import Trial
+        except:
+            from ..tune.sample import (uniform, quniform, choice, randint, qrandint, randn,
+        qrandn, loguniform, qloguniform)
+            from ..tune.trial import Trial
+        method = setting.get('method', 'BlendSearch')
+        mode = client.get_optimization_mode()
+        if mode == 'minimize':
+            mode = 'min'
+        elif mode == 'maximize':
+            mode = 'max'
+        metric = client.get_primary_metric()
+        hp_space = client.get_hyperparameter_space_dict()
+        space = {}
+        for key, value in hp_space.items():
+            t = value["type"]
+            if t == 'continuous':
+                space[key] = uniform(value["min_val"], value["max_val"])
+            elif t == 'discrete':
+                space[key] = choice(value["values"])
+            elif t == 'integral':
+                space[key] = randint(value["min_val"], value["max_val"])
+            elif t == 'quantized_continuous':
+                space[key] = quniform(value["min_val"], value["max_val"],
+                 value["step"])
+        init_config = setting.get('init_config', None)
+        if init_config:
+            points_to_evaluate = [init_config]
+        else:
+            points_to_evaluate = None
+        cat_hp_cost = setting.get('cat_hp_cost', None)
+
+        if method == 'BlendSearch':
+            Algo = BlendSearch
+        elif method == 'CFO':
+            Algo = CFO
+        algo = Algo(
+            mode=mode, 
+            metric=metric, 
+            space=space,
+            points_to_evaluate=points_to_evaluate,
+            cat_hp_cost=cat_hp_cost,
+            )
+        time_budget_s = setting.get('time_budget_s', None)
+        if time_budget_s:
+            algo._deadline = time_budget_s + time.time()
+        config2trialid = {}
+    else:
+        algo = state['algo']
+        config2trialid = state['config2trialid']
+    # update finished trials
+    trials_completed = []
+    for trial in client.get_trials():
+        if trial.end_time is not None:
+            signature = algo._ls.config_signature(trial.hp_sample)
+            if not algo._result[signature]:
+                trials_completed.append((trial.end_time, trial))
+    trials_completed.sort()
+    for t in trials_completed:
+        end_time, trial = t
+        trial_id = config2trialid[trial.hp_sample]
+        result = {}
+        result[algo.metric] = trial.metrics[algo.metric].values[-1]
+        result[algo.cost_attr] = (end_time - trial.start_time).total_seconds()
+        for key, value in trial.hp_sample.items():
+            result['config/'+key] = value
+        algo.on_trial_complete(trial_id, result=result)
+    # propose new trial
+    trial_id = Trial.generate_id()
+    config = algo.suggest(trial_id)
+    if config:
+        config2trialid[config] = trial_id
+        client.launch_trial(config)
+    client.update_state({'algo': algo, 'config2trialid': config2trialid})

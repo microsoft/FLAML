@@ -15,40 +15,59 @@ try:
         Trainer,
         TrainingArguments,
     )
+    MODEL_CHECKPOINT = "microsoft/deberta-base"
+    task_to_keys = {
+        "cola": ("sentence", None),
+        "mnli": ("premise", "hypothesis"),
+        "mrpc": ("sentence1", "sentence2"),
+        "qnli": ("question", "sentence"),
+        "qqp": ("question1", "question2"),
+        "rte": ("sentence1", "sentence2"),
+        "sst2": ("sentence", None),
+        "stsb": ("sentence1", "sentence2"),
+        "wnli": ("sentence1", "sentence2"),
+    }
+    max_seq_length=128
+    overwrite_cache=False
+    pad_to_max_length=True
+    padding = "max_length"
+
+    TASK = "qnli"
+    # HP_METRIC, MODE = "loss", "min"
+    HP_METRIC, MODE = "accuracy", "max"
+
+    sentence1_key, sentence2_key = task_to_keys[TASK]
+    # Define tokenize method
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_CHECKPOINT, use_fast=True)
+
+    def tokenize(examples):
+        args = (
+            (examples[sentence1_key],) if sentence2_key is None else (
+                examples[sentence1_key], examples[sentence2_key])
+        )
+        return tokenizer(*args, padding=padding, max_length=max_seq_length,
+         truncation=True)
+
 except:
     print("pip install torch transformers datasets flaml[blendsearch,ray]")
     
 import logging
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.FileHandler('test/tune_distilbert.log'))
+import os
+os.makedirs('logs', exist_ok=True)
+logger.addHandler(logging.FileHandler('logs/tune_deberta.log'))
 logger.setLevel(logging.INFO)
 
 import flaml
 
+def train_deberta(config: dict):
 
-MODEL_CHECKPOINT = "distilbert-base-uncased"
-TASK = "cola"
-NUM_LABELS = 2
-COLUMN_NAME = "sentence"
-METRIC_NAME = "matthews_correlation"
+    # Load dataset and apply tokenizer
+    data_raw = load_dataset("glue", TASK)
+    data_encoded = data_raw.map(tokenize, batched=True)
+    train_dataset, eval_dataset = data_encoded["train"], data_encoded["validation"]
 
-# HP_METRIC, MODE = "loss", "min"
-HP_METRIC, MODE = "matthews_correlation", "max"
-
-def train_distilbert(config: dict):
-
-    # Define tokenize method
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_CHECKPOINT, use_fast=True)
-    def tokenize(examples):
-        return tokenizer(examples[COLUMN_NAME], truncation=True)
-    # Load CoLA dataset and apply tokenizer
-    cola_raw = load_dataset("glue", TASK)
-    cola_encoded = cola_raw.map(tokenize, batched=True)
-    train_dataset, eval_dataset = cola_encoded["train"], cola_encoded["validation"]
-
-    model = AutoModelForSequenceClassification.from_pretrained(
-        MODEL_CHECKPOINT, num_labels=NUM_LABELS
-    )
+    NUM_LABELS = len(train_dataset.features["label"].names)
 
     metric = load_metric("glue", TASK)
 
@@ -57,12 +76,18 @@ def train_distilbert(config: dict):
         predictions = np.argmax(predictions, axis=1)
         return metric.compute(predictions=predictions, references=labels)
 
+
+    model = AutoModelForSequenceClassification.from_pretrained(
+        MODEL_CHECKPOINT, num_labels=NUM_LABELS
+    )
+
     training_args = TrainingArguments(
         output_dir='.',
         do_eval=False,
         disable_tqdm=True,
         logging_steps=20000,
         save_total_limit=0,
+        fp16=True,
         **config,
     )
 
@@ -83,23 +108,30 @@ def train_distilbert(config: dict):
 
     flaml.tune.report(
         loss=eval_output["eval_loss"],
-        matthews_correlation=eval_output["eval_matthews_correlation"],
+        accuracy=eval_output["eval_accuracy"],
         )
 
+    try:
+        from azureml.core import Run
+        run = Run.get_context()
+        run.log('accuracy', eval_output["eval_accuracy"])
+        run.log('loss', eval_output["eval_loss"])
+        run.log('config', config)
+    except: pass
 
-def _test_distillbert(method='BlendSearch'):
+def _test_deberta(method='BlendSearch'):
  
-    max_num_epoch = 64
+    max_num_epoch = 100
     num_samples = -1
-    time_budget_s = 10800
+    time_budget_s = 3600
 
     search_space = {
         # You can mix constants with search space objects.
         "num_train_epochs": flaml.tune.loguniform(1, max_num_epoch),
-        "learning_rate": flaml.tune.loguniform(1e-6, 1e-4),
-        "adam_beta1": flaml.tune.uniform(0.8, 0.99),
-        "adam_beta2": flaml.tune.loguniform(98e-2, 9999e-4),
-        "adam_epsilon": flaml.tune.loguniform(1e-9, 1e-7),
+        "learning_rate": flaml.tune.loguniform(3e-5, 1.5e-4),
+        "weight_decay": flaml.tune.uniform(0, 0.3),
+        "per_device_train_batch_size": flaml.tune.choice([16, 32, 64, 128]),
+        "seed": flaml.tune.choice([12, 22, 33, 42]),
     }
 
     start_time = time.time()
@@ -118,12 +150,14 @@ def _test_distillbert(method='BlendSearch'):
         from flaml import CFO
         algo = CFO(points_to_evaluate=[{
             "num_train_epochs": 1,
+            "per_device_train_batch_size": 128,
         }])
     elif 'BlendSearch' == method:
         from flaml import BlendSearch
         algo = BlendSearch(points_to_evaluate=[{
             "num_train_epochs": 1,
-        }])        
+            "per_device_train_batch_size": 128,
+        }])
     elif 'Dragonfly' == method:
         from ray.tune.suggest.dragonfly import DragonflySearch
         algo = DragonflySearch()
@@ -139,7 +173,7 @@ def _test_distillbert(method='BlendSearch'):
         algo = ZOOptSearch(budget=num_samples)
     elif 'Ax' == method:
         from ray.tune.suggest.ax import AxSearch
-        algo = AxSearch()
+        algo = AxSearch(max_concurrent=3)
     elif 'HyperOpt' == method:
         from ray.tune.suggest.hyperopt import HyperOptSearch
         algo = HyperOptSearch()
@@ -151,12 +185,11 @@ def _test_distillbert(method='BlendSearch'):
             grace_period=1)
     scheduler = None
     analysis = ray.tune.run(
-        train_distilbert,
+        train_deberta,
         metric=HP_METRIC,
         mode=MODE,
-        # You can add "gpu": 1 to allocate GPUs
-        resources_per_trial={"gpu": 1},
-        config=search_space, local_dir='test/logs/',
+        resources_per_trial={"gpu": 4, "cpu": 4},
+        config=search_space, local_dir='logs/',
         num_samples=num_samples, time_budget_s=time_budget_s,
         keep_checkpoints_num=1, checkpoint_score_attr=HP_METRIC,
         scheduler=scheduler, search_alg=algo)
@@ -173,45 +206,45 @@ def _test_distillbert(method='BlendSearch'):
     logger.info(f"Best model parameters: {best_trial.config}")
 
 
-def _test_distillbert_cfo():
-    _test_distillbert('CFO')
+def _test_deberta_cfo():
+    _test_deberta('CFO')
 
 
-def _test_distillbert_dragonfly():
-    _test_distillbert('Dragonfly')
+def _test_deberta_dragonfly():
+    _test_deberta('Dragonfly')
 
 
-def _test_distillbert_skopt():
-    _test_distillbert('SkOpt')
+def _test_deberta_skopt():
+    _test_deberta('SkOpt')
 
 
-def _test_distillbert_nevergrad():
-    _test_distillbert('Nevergrad')
+def _test_deberta_nevergrad():
+    _test_deberta('Nevergrad')
 
 
-def _test_distillbert_zoopt():
-    _test_distillbert('ZOOpt')
+def _test_deberta_zoopt():
+    _test_deberta('ZOOpt')
 
 
-def _test_distillbert_ax():
-    _test_distillbert('Ax')
+def _test_deberta_ax():
+    _test_deberta('Ax')
 
 
-def __test_distillbert_hyperopt():
-    _test_distillbert('HyperOpt')
+def __test_deberta_hyperopt():
+    _test_deberta('HyperOpt')
 
 
-def _test_distillbert_optuna():
-    _test_distillbert('Optuna')
+def _test_deberta_optuna():
+    _test_deberta('Optuna')
 
 
-def _test_distillbert_asha():
-    _test_distillbert('ASHA')
+def _test_deberta_asha():
+    _test_deberta('ASHA')
 
 
-def _test_distillbert_bohb():
-    _test_distillbert('BOHB')
+def _test_deberta_bohb():
+    _test_deberta('BOHB')
 
 
 if __name__ == "__main__":
-    _test_distillbert()
+    _test_deberta()
