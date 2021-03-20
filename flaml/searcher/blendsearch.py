@@ -40,7 +40,8 @@ class BlendSearch(Searcher):
                  reduction_factor: Optional[float] = None,
                  resources_per_trial: Optional[dict] = None,
                  global_search_alg: Optional[Searcher] = None,
-                 mem_size = None):
+                 mem_size = None, 
+                 seed: Optional[int] = 20):
         '''Constructor
 
         Args:
@@ -100,7 +101,7 @@ class BlendSearch(Searcher):
         else:
             self._gs = None
         self._ls = LocalSearch(init_config, metric, mode, cat_hp_cost, space,
-         prune_attr, min_resource, max_resource, reduction_factor)
+         prune_attr, min_resource, max_resource, reduction_factor, seed)
         self._resources_per_trial = resources_per_trial
         self._mem_size = mem_size
         self._mem_threshold = resources_per_trial.get(
@@ -455,7 +456,7 @@ try:
             value: final metrics of the trial, including default metric
             '''
             result = {}
-            for key, value in parameters.items():
+            for key, value in parameters:
                 result['config/'+key] = value
             reward = extract_scalar_reward(value)
             result[self._metric] = reward
