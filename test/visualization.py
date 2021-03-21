@@ -1,23 +1,25 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import json
+
 def get_lc_from_log(log_file_name):
     x = []
     y = [] #minimizing 
     if os.path.isfile(log_file_name):
-        f = open(log_file_name, 'r')
-        best_obj = np.inf
+        best_obj = np.inf 
         total_time = 0
-        for line in f.readlines():
-            line_seg = line.strip('\n[]').split(',')
-            total_time = float(line_seg[0])
-            obj = float(line_seg[5])
-            if obj < best_obj: 
-                best_obj = obj
-                x.append(total_time)
-                y.append(best_obj)
-        x.append(total_time)
-        y.append(best_obj)
+        with open(log_file_name) as f:
+            for line in f:
+                record = json.loads(line)
+                total_time = float(record['total_search_time'])
+                obj = float(record['obj'])
+                if obj < best_obj: 
+                    best_obj = obj
+                    x.append(total_time)
+                    y.append(best_obj)
+            x.append(total_time)
+            y.append(best_obj)
     else:
         print('log_file_name', log_file_name)
         print('File does not exist')
