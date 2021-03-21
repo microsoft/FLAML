@@ -18,6 +18,16 @@ if __name__=='__main__':
     ###************************Datasets for ICLR21**************************************
     ###====================xgb_cat/lgbm datasets (34 + 5): =========================
     # datasetlist 1h
+    dataset_small = ['blood', 'Australian', 'credit', 'car','kc1',  'kr', 'phoneme',  'segment', ]
+    dataset_large_1= [
+        'Airlines', 'christine', 'shuttle',  'connect', 'sylvine',
+        'guillermo', 'volkert', 'MiniBooNE', 'Jannis', 'mfeat', 
+        'jungle', 'jasmine','riccardo', 'higgs', 'fabert', 'cnae', 
+        ] #'Fashion',
+    dataset_large_2= [
+        'bank', 'Albert',  'APSFailure',  'nomao', 'numerai28', 
+        'Helena','KDDCup09', 'adult', 'Amazon', 'vehicle', 'Dionis', 'dilbert','Covertype','Robert', 'Fashion'
+        ] #'Fashion',
     dataset_list_1h = [
         'Airlines', 'christine', 'shuttle', 'car', 'credit', 'connect', 'sylvine',
         'guillermo', 'volkert', 'MiniBooNE', 'Jannis', 'mfeat', 'jungle', 'jasmine',
