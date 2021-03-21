@@ -124,6 +124,7 @@ def log_file_name(problem, dataset, method, budget, run):
     '''
     return f'logs/{problem}/{problem}_1_1_{dataset}_{budget}_{method}_{run}.log'
 
+
 def agg_final_result(problems, datasets, methods, budget, run):
     '''aggregate the final results for problems * datasets * methods
     
@@ -131,10 +132,11 @@ def agg_final_result(problems, datasets, methods, budget, run):
         A dataframe with aggregated results
         e.g., problems = ["xgb_blendsearch", "xgb_cfo", "xgb_hpolib"]
         output = df
-            index | xgb_blendsearch | xgb_cfo | xgb_hpolib | winner
-            blood | 0.2             | 0.3     | 0.4        | xgb_blendsearch
+            index | xgb_blendsearch | xgb_cfo    | xgb_hpolib | winner
+            blood | (0.2, 1900)     | (0.3, 109) | (0.4, 800) | xgb_blendsearch
             ...
-        the number corresponds to the best loss found by all the methods for
+        the numbers correspond to the best loss and minimal time used 
+            by all the methods for
             blood * xgb_blendsearch, blood * xgb_cfo, blood * xgb_hpolib etc.
     '''
     results = {}
@@ -165,6 +167,40 @@ def agg_final_result(problems, datasets, methods, budget, run):
     return agg_results
 
 
+def final_result(problem, datasets, methods, budget, run):
+    '''compare the final results for problem on each dataset across methods
+    
+    Returns:
+        A dataframe for each dataset
+        e.g., methods = ["CFO", "BlendSearch+Optuna", "Optuna"]
+        output = df
+            index | CFO | BlendSearch+Optuna | Optuna      | winner
+            blood | (0.2, 312) | (0.2, 350)  | (0.4, 1800) | CFO
+            ...
+        the numbers correspond to the best loss and nimial time used 
+            among all the methods for each dataset
+    '''
+    results = {}
+    columns = methods
+    import pandas as pd
+    agg_results = pd.DataFrame(columns=columns, index=datasets)
+    for row_id, dataset in enumerate(datasets):
+        for col_id, method in enumerate(methods):
+            x, y = get_lc_from_log(log_file_name(
+                problem, dataset, method, budget, run))
+            if len(y)>0: 
+                agg_results.iloc[row_id, col_id] = (y[-1],x[y.index(y[-1])])
+    best_obj = agg_results.min(axis=1)
+    winner = []
+    for dataset in datasets:
+        for method in methods:
+            if agg_results[method][dataset] == best_obj[dataset]:
+                    winner.append(f'{method}')
+                    break
+    agg_results['winner'] = winner
+    return agg_results
+
+
 def test_agg_final_result():
     print(agg_final_result(['xgb_blendsearch', 'xgb_cfo', 'xgb_hpolib'],
         ['Australian', 'blood', 'car', 'credit', 'kc1', 'kr', 'phoneme', 'segment'], 
@@ -176,5 +212,18 @@ def test_agg_final_result():
         14400.0, 0))
 
 
+def test_final_result():
+    print('xgb_cfo')
+    print(final_result('xgb_cfo',
+        ['Australian', 'blood', 'car', 'credit', 'kc1', 'kr', 'phoneme', 'segment'], 
+        ['Ax', 'BlendSearch+Optuna', 'CFO', 'HyperOpt', 'Nevergrad', 'Optuna'],
+        3600.0, 0))
+    print(final_result('xgb_cfo',
+        ['Airlines', 'christine', 'shuttle', 'connect', 'sylvine',], 
+        ['Ax', 'BlendSearch+Optuna', 'CFO', 'HyperOpt', 'Nevergrad', 'Optuna'],
+        14400.0, 0))
+
+
 if __name__ == "__main__":
     test_agg_final_result()
+    test_final_result()
