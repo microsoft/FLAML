@@ -29,12 +29,10 @@ MIN_SAMPLE_TRAIN = 10000
 MIN_SAMPLE_VAL = 10000
 CV_HOLDOUT_THRESHOLD = 100000
 
-def add_res(log_file_name, *params):
-    # params =[time_used, eval_count, best_obj, best_config, choice, obj, eval_time, i_config]
-    file_save = open(log_file_name, 'a+')
-    line_info = '\t'.join(str(x) for x in params)
-    file_save.write(line_info)
-    file_save.write('\n')    
+def add_res(log_file_name, params_dic):
+    with open(log_file_name, "a+") as f:  
+        f.write(json.dumps(params_dic))
+        f.write('\n')
 
 class Problem:
 
@@ -750,14 +748,15 @@ class AutoML(Problem):
             loss, time2eval = self.compute_with_config(config, total_budget-time_used)
             # write result
             time_used = time.time() - start_time
-            # NOTE: these fields are missing
-            eval_count, best_obj, best_config, choice = None, None, None, None  # missing fields
-            obj = loss 
             i_config = config
-            if self.prune_attribute:
-                i_config[self._prune_attribute] = epo
-            log_param = [time_used, eval_count, best_obj, best_config, choice, obj, time2eval, i_config]
-            add_res(log_file_name, log_param)
+            if self.prune_attribute: i_config[self._prune_attribute] = epo
+            log_dic = {
+                'total_search_time': time_used,
+                'obj': loss,
+                'trial_time': time2eval,
+                'config': i_config
+            }
+            add_res(log_file_name, log_dic)
             # TODO: how to specify the name in tune.report properly
             tune.report(epochs=epo, loss=loss)
 
