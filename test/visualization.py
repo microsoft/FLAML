@@ -147,20 +147,21 @@ def agg_final_result(problems, datasets, methods, budget, run):
                     problem, dataset, method, budget, run))
                 if len(y)>0: 
                     result = results.get(key, [])
-                    if not result: results[key] = result
-                    result.append(y[-1])
+                    if not result: results[key] = result                    
+                    result.append((y[-1],x[y.index(y[-1])]))
     import pandas as pd
-    agg_results = pd.DataFrame(columns=columns, index=datasets, dtype=float)
+    agg_results = pd.DataFrame(columns=columns, index=datasets, dtype=object)
     for key, value in results.items():
         row_id, col_id = key
         agg_results.iloc[row_id, col_id] = min(value)
     best_obj = agg_results.min(axis=1)
-    agg_results['winner'] = agg_results.idxmin(axis=1)
+    winner = []
     for dataset in datasets:
         for problem in problems:
-            if agg_results[problem][dataset] == best_obj[dataset] and not (
-                problem in agg_results['winner'][dataset]):
-                    agg_results['winner'][dataset] += f',{problem}'                
+            if agg_results[problem][dataset] == best_obj[dataset]:
+                    winner.append(f'{problem}')
+                    break
+    agg_results['winner'] = winner
     return agg_results
 
 
