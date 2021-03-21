@@ -71,6 +71,8 @@ if __name__=='__main__':
         default='run_exp.sh', help="result filename")
     parser.add_argument('-max_job', '--max_job', metavar='max_job', type = int, 
         default=25, help="max number of jobs to include in a file")
+    parser.add_argument('-dlist', '--dlist', metavar='dlist', type = str, 
+        default=None, help="data list")
     args = parser.parse_args()
     max_job = args.max_job
     time_budget = args.time # seconds
@@ -87,9 +89,15 @@ if __name__=='__main__':
         additional_argument += ' -agg '
     
     argument_list = []
-    dataset_list = args.dataset_list
-    if len(dataset_list) == 0:
-        dataset_list = dataset_list_iclr
+    if args.dlist:
+        if 'small' in args.dlist: dataset_list = dataset_small
+        elif 'large1' in args.dlist: dataset_list = dataset_large_1 
+        elif 'large2' in args.dlist: dataset_list = dataset_large_2 
+        elif 'all' in args.dlist or 'iclr' in args.dlist: dataset_list = dataset_list_iclr 
+    else:
+        dataset_list = args.dataset_list
+        if len(dataset_list) == 0:
+            dataset_list = dataset_list_iclr
     # filename = 'run_flaml_bs.sh'
     filename = args.file_name
     f = open(filename,'w')
