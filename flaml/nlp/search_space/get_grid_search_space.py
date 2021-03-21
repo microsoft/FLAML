@@ -1,5 +1,4 @@
-# Grid search configs for electra on glue proposed in https://arxiv.org/pdf/2003.10555.pdf
-# TABLE 7 and Section Appendix.A
+# lookup table for the grid configs in each pre-trained language model for different tasks
 
 def get_bert_space(model_size_type = None,
                    dataset_name = None,
@@ -40,6 +39,35 @@ def get_bert_space(model_size_type = None,
         search_space_dict["num_train_epochs"] = [2, 3, 4]
     return search_space_dict
 
+def get_roberta_space(model_size_type = None,
+                      dataset_name = None,
+                      subdataset_name = None):
+    # RoBERTa: A Robustly Optimized BERT Pretraining Approach
+    # https://arxiv.org/pdf/1907.11692.pdf
+    search_space_dict = {}
+    # Table 10: Hyperparameters for finetuning RoBERTaLARGE on RACE, SQuAD and GLUE.
+    assert model_size_type == "large", "RoBERTa paper has only provided hyperparameter for the large model"
+    if model_size_type == "large":
+        if dataset_name == "glue":
+            search_space_dict["learning_rate"] = [1e-5, 2e-5, 3e-5]
+            search_space_dict["per_device_train_batch_size"] = [16, 32]
+            search_space_dict["weight_decay"] = [0.1]
+            search_space_dict["num_train_epochs"] = [10]
+            search_space_dict["warmup_ratio"] = [0.06]
+        elif dataset_name == "race":
+            search_space_dict["learning_rate"] = [1e-5]
+            search_space_dict["per_device_train_batch_size"] = [16]
+            search_space_dict["weight_decay"] = [0.1]
+            search_space_dict["num_train_epochs"] = [4]
+            search_space_dict["warmup_ratio"] = [0.06]
+        elif dataset_name == "squad":
+            search_space_dict["learning_rate"] = [1.5e-5]
+            search_space_dict["per_device_train_batch_size"] = [48]
+            search_space_dict["weight_decay"] = [0.01]
+            search_space_dict["num_train_epochs"] = [2]
+            search_space_dict["warmup_ratio"] = [0.06]
+    return search_space_dict
+
 def get_electra_space(model_size_type = None,
                       dataset_name = None,
                       subdataset_name = None):
@@ -47,14 +75,15 @@ def get_electra_space(model_size_type = None,
         ELECTRA: PRE-TRAINING TEXT ENCODERS AS DISCRIMINATORS RATHER THAN GENERATORS
         https://arxiv.org/pdf/2003.10555.pdf
     """
+    assert model_size_type in ("small", "base"), "Electra paper has only provided hyperparameter for the small and base model"
     search_space_dict = {}
+    # Appendix B: For Basesized models we searched for a learning
+    # rate out of [3e-5, 5e-5, 1e-4, 1.5e-4]
     if model_size_type == "base":
-        # Appendix B: For Basesized models we searched for a learning
-        # rate out of [3e-5, 5e-5, 1e-4, 1.5e-4]
         search_space_dict["learning_rate"] = [3e-5, 5e-5, 1e-4, 1.5e-4]
+    # Appendix B: We found the small models benefit from a larger learning rate and searched for the best one
+    # out of [1e-4, 2e-4, 3e-4, 5e-3]
     elif model_size_type == "small":
-        # Appendix B: We found the small models benefit from a larger learning rate and searched for the best one
-        # out of [1e-4, 2e-4, 3e-4, 5e-3]
         search_space_dict["learning_rate"] =  [1e-4, 2e-4, 3e-4, 5e-3]
     search_space_dict["adam_epsilon"] = [1e-6]
     search_space_dict["adam_beta1"] = [0.9]
@@ -86,3 +115,5 @@ def get_mobilebert_space(model_size_type = None,
     search_space_dict["per_device_train_batch_size"] = [16, 32, 48]
     search_space_dict["num_train_epochs"] = [x for x in range(2, 11)]
     return  search_space_dict
+
+
