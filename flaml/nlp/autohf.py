@@ -13,19 +13,17 @@ import datasets
 from datasets import load_dataset
 from transformers.trainer_utils import IntervalStrategy
 
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoConfig
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoConfig, TrainingArguments
 from functools import partial
 
 from flaml.nlp.path_utils import PathUtils
 from flaml.nlp.search_space.grid_searchspace_auto import AutoGridSearchSpace
-from flaml.nlp.search_space.hpo_searchspace_auto import AutoHPOSearchSpace
 from flaml.nlp.searchalgo_auto import AutoSearchAlgorithm
-from flaml.nlp.modeling_auto import AutoSeqClassificationHead
+from flaml.nlp.model.modeling_auto import AutoSeqClassificationHead, model_type_list
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from flaml.nlp.trainer_for_autohf import TrainerForAutoHF
-from flaml.nlp.training_args import TuneTrainingArguments
 
 task_list = [
     "text-classification",
@@ -70,10 +68,11 @@ class AutoHuggingFace:
     search_algo: str = field(default="bs", metadata={"help": "The hpo method."})
 
     num_labels: Optional[int] = field(default=2, metadata={"help": "number of labels"})
-
     metric_name: str = field(default=None, metadata={"help": "metric name"})
 
     max_seq_length: Optional[int] = field(default=128, metadata={"help": "max seq length"})
+
+    fp16: Optional[bool] = field(default=True, metadata={"help": "is fp16"})
 
     def _set_wandb(self,
                    wandb_key):
@@ -81,6 +80,25 @@ class AutoHuggingFace:
         self.path_utils.group_hash_id = wandb.util.generate_id()
         group_name = self.path_utils.folder_name + "_" + self.path_utils.group_hash_id
         os.environ["WANDB_RUN_GROUP"] = group_name
+
+    def _convert_grid_to_hpo_search_space(self,
+                                          config_json):
+        search_space = {}
+
+        for each_hp in config_json.keys():
+            if each_hp == "learning_rate":
+                if len(config_json[each_hp]) > 1:
+                    search_space[each_hp] = {"l": min(config_json[each_hp]), "u": max(config_json[each_hp]), "space": "linear"}
+                else:
+                    search_space[each_hp] = config_json[each_hp]
+            elif each_hp == "num_train_epochs":
+                search_space[each_hp] = {"l": 1.0, "u": 10.0, "space": "linear"}
+            elif each_hp == "per_device_train_batch_size":
+                search_space[each_hp] = config_json[each_hp]
+            else:
+                search_space[each_hp] = config_json[each_hp]
+
+        return search_space
 
     def _convert_json_to_search_space(self,
                                       config_json,
@@ -114,14 +132,14 @@ class AutoHuggingFace:
     def _set_search_space(self,
                           search_space_dir=None):
         assert self.model_type
-        search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self.model_type, self.dataset_name[0])
+        search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self.model_type, self.model_size_type, self.dataset_name[0], self.subdataset_name)
         self.search_space_grid = self._convert_json_to_search_space(search_space_grid_json, mode="grid_search")
 
         if self.search_algo != "grid_search":
             if search_space_dir:
                 search_space_hpo_json = json.load(open(os.path.join(search_space_dir), "r"))
             else:
-                search_space_hpo_json = AutoHPOSearchSpace.from_model_and_dataset_name(self.model_type, self.dataset_name[0])
+                search_space_hpo_json = self._convert_grid_to_hpo_search_space(search_space_grid_json)
             self.search_space_hpo = self._convert_json_to_search_space(search_space_hpo_json, mode="hpo")
         else:
             self.search_space_hpo = self.search_space_grid
@@ -227,6 +245,7 @@ class AutoHuggingFace:
         assert (input_path) or (subdataset_name)
 
         self.dataset_name = dataset_name
+        self.subdataset_name = subdataset_name
         self.task_name = task_name
         self.split_mode = split_mode
         self.max_seq_length = max_seq_length
@@ -283,17 +302,45 @@ class AutoHuggingFace:
 
         return train_dataset, eval_dataset, test_dataset
 
-    def _set_model_type(self):
+    def _extract_model_type_with_keywords_match(self):
+        matched_model_type = []
+        for each_model_type in model_type_list:
+            if each_model_type in self.path_utils.model_checkpoint:
+                matched_model_type.append(each_model_type)
+        assert len(matched_model_type) > 0
+        return max(enumerate(matched_model_type), key=lambda x: len(x[1]))[1]
+
+    def _extract_model_type(self):
         model_config = AutoConfig.from_pretrained(self.path_utils.model_checkpoint)
-        model_type = model_config.get_config_dict(self.path_utils.model_checkpoint)[0]["model_type"]
+        config_json_file = model_config.get_config_dict(self.path_utils.model_checkpoint)[0]
+        try:
+            model_type = config_json_file["model_type"]
+        except:
+            model_type = self._extract_model_type_with_keywords_match()
+
+        model_size_type = ""
+        if "-base-" in self.path_utils.model_checkpoint:
+            model_size_type = "base"
+        elif "-large-" in self.path_utils.model_checkpoint:
+            model_size_type = "large"
+        elif "-small-" in self.path_utils.model_checkpoint:
+            model_size_type = "small"
+
         self.model_type = model_type
+        self.model_size_type = model_size_type
 
     def _load_model(self,
-                    checkpoint_path=None):
+                    checkpoint_path = None,
+                    per_model_config=None):
         if not checkpoint_path:
             checkpoint_path = self.path_utils.model_checkpoint
         if self.task_name == "text-classification":
-            model_config = AutoConfig.from_pretrained(checkpoint_path)
+            if per_model_config and len(per_model_config) > 0:
+                model_config = AutoConfig.from_pretrained(
+                    checkpoint_path, **per_model_config)
+            else:
+                model_config = AutoConfig.from_pretrained(
+                    checkpoint_path)
             num_labels_old = model_config.num_labels
 
             if self.num_labels != num_labels_old:
@@ -327,17 +374,32 @@ class AutoHuggingFace:
                                  batch_size,
                                  mode="last"):
         assert mode in ("last")
-        if mode == "last":
-            ckpt_step_freq = int(num_train_epochs * len(self.train_dataset) / batch_size / self.resources_per_trial["gpu"]) + 1
+        if "gpu" in self.resources_per_trial:
+            assert self.resources_per_trial["gpu"] == self.resources_per_trial["cpu"]
+        ckpt_step_freq = int(num_train_epochs * len(self.train_dataset) / batch_size / self.resources_per_trial["cpu"]) + 1
 
         return ckpt_step_freq
+
+    def _separate_config(self,
+                         config):
+        training_args_config = {}
+        per_model_config = {}
+
+        for key in config.keys():
+            if key in TrainingArguments.__dict__.keys():
+                training_args_config[key] = config[key]
+            else:
+                per_model_config[key] = config[key]
+
+        return training_args_config, per_model_config
 
     def _objective(self,
                   config,
                   reporter,
                   checkpoint_dir=None):
 
-        this_model = self._load_model()
+        training_args_config, per_model_config = self._separate_config(config)
+        this_model = self._load_model(per_model_config=per_model_config)
 
         trial_id = reporter.trial_id
         self.path_utils.make_dir_per_trial(trial_id)
@@ -348,7 +410,7 @@ class AutoHuggingFace:
             mode="last")
 
         assert self.path_utils._ckpt_dir_per_trial
-        training_args = TuneTrainingArguments(
+        training_args = TrainingArguments(
             output_dir=self.path_utils._ckpt_dir_per_trial,
             do_eval=False,
             per_device_eval_batch_size=32,
@@ -356,8 +418,8 @@ class AutoHuggingFace:
             evaluation_strategy = IntervalStrategy.STEPS,
             save_steps= ckpt_freq,
             save_total_limit=0,
-            fp16=True,
-            **config,
+            fp16= self.fp16,
+            **training_args_config,
         )
 
         trainer = TrainerForAutoHF(
@@ -470,6 +532,7 @@ class AutoHuggingFace:
             resources_per_trial,
             wandb_key = "f38cc048c956367de27eeb2749c23e6a94519ab8",
             search_algo="bs",
+            fp16 = True,
             search_space_path = None,
             scheduler_name=None,
             num_samples=10000,
@@ -531,10 +594,11 @@ class AutoHuggingFace:
         self.search_algo = search_algo
         self.scheduler_name = scheduler_name
         self.metric_name = metric_name
+        self.fp16 = fp16
 
         ray.init()
 
-        self._set_model_type()
+        self._extract_model_type()
         self._set_search_space(search_space_path)
 
         self.path_utils.set_folder_name(search_algo, scheduler_name, self.model_type, self.split_mode)
@@ -548,13 +612,6 @@ class AutoHuggingFace:
         start_time = time.time()
 
         assert self.path_utils._ckpt_dir_per_run
-
-        # self.search_space_hpo["wandb"] = {
-        #             "project": "hpo",
-        #             "group": "test",
-        #             "reinit": True,
-        #             "allow_val_change": True
-        #         }
 
         analysis = ray.tune.run(
             self._objective,
@@ -603,7 +660,7 @@ class AutoHuggingFace:
         '''
 
         best_checkpoint = self._load_ckpt_json(ckpt_json_dir)
-        best_model = self._load_model(best_checkpoint)
+        best_model = self._load_model(checkpoint_path=best_checkpoint)
         test_trainer = transformers.Trainer(best_model)
 
         if self.split_mode == "origin":

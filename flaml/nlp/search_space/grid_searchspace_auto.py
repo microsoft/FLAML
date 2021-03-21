@@ -1,10 +1,16 @@
 from collections import OrderedDict
 
-from flaml.nlp.search_space.grid.electra import electra_glue_grid
+from flaml.nlp.search_space.get_grid_search_space import \
+    (get_electra_space,
+     get_bert_space,
+     get_mobilebert_space,
+     )
 
 GRID_SEARCH_SPACE_MAPPING = OrderedDict(
     [
-        (("electra", "glue"), electra_glue_grid),
+        (("electra"), get_electra_space),
+        (("bert"), get_bert_space),
+        (("mobilebert"), get_mobilebert_space),
     ]
 )
 
@@ -26,15 +32,15 @@ class AutoGridSearchSpace:
         )
 
     @classmethod
-    def from_model_and_dataset_name(cls, model_name, dataset_name):
-        if (model_name, dataset_name) in GRID_SEARCH_SPACE_MAPPING.keys():
+    def from_model_and_dataset_name(cls, model_type, model_size_type, dataset_name, subdataset_name = None):
+        if model_type in GRID_SEARCH_SPACE_MAPPING.keys():
             try:
-                return GRID_SEARCH_SPACE_MAPPING[(model_name, dataset_name)]
+                return GRID_SEARCH_SPACE_MAPPING[model_type](model_size_type, dataset_name, subdataset_name)
             except:
                 return None
         raise ValueError(
             "Unrecognized method {},{} for this kind of AutoGridSearchSpace: {}.\n"
             "Method name should be one of {}.".format(
-                model_name, dataset_name, cls.__name__, ", ".join(c.__name__ for c in GRID_SEARCH_SPACE_MAPPING.keys())
+                model_type, dataset_name, cls.__name__, ", ".join(c.__name__ for c in GRID_SEARCH_SPACE_MAPPING.keys())
             )
         )

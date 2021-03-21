@@ -57,3 +57,9 @@ class AutoSeqClassificationHead:
                 config.__class__, cls.__name__, ", ".join(c.__name__ for c in MODEL_CLASSIFICATION_HEAD_MAPPING.keys())
             )
         )
+
+model_type_list = [
+    "bert",
+    "mobilebert",
+    "electra"
+]

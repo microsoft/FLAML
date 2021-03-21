@@ -1,10 +1,11 @@
 '''Require: pip install torch transformers datasets flaml[blendsearch,ray]
 '''
-import sys
-sys.path.insert(0, "../../")
+import ray
+
 from flaml.nlp.autohf import AutoHuggingFace
 
 def test_electra(method='BlendSearch'):
+    # setting wandb key
     wandb_key = "f38cc048c956367de27eeb2749c23e6a94519ab8"
 
     autohf = AutoHuggingFace()
@@ -13,13 +14,10 @@ def test_electra(method='BlendSearch'):
         "dataset_config": {"task": "text-classification",
                             "dataset_name": ["glue"],
                             "subdataset_name": "rte"},
-        "model_name": "google/electra-base-discriminator",
-        "split_mode": "resplit",
+        "model_name": "google/mobilebert-uncased",
+        "split_mode": "origin",
         "output_path": "../../../data/",
         "max_seq_length": 128,
-        "resplit_portion": {"train": (0.0, 0.8),
-                                      "dev": (0.8, 0.9),
-                                      "test": (0.9, 1.0)}
     }
 
     train_dataset, eval_dataset, test_dataset =\
@@ -27,14 +25,15 @@ def test_electra(method='BlendSearch'):
 
     autohf_settings = {"metric_name": "accuracy",
                        "mode_name": "max",
-                       "resources_per_trial": {"gpu": 4, "cpu": 4},
+                       "resources_per_trial": {"cpu": 4},
                        "wandb_key": wandb_key,
                        "search_algo": method,
-                       "num_samples": 4,
+                       "num_samples": 1,
                        "time_budget": 7200,
+                       "fp16": False,
                        "points_to_evaluate": [{
                            "num_train_epochs": 1,
-                           "per_device_train_batch_size": 128, }]
+                           "per_device_train_batch_size": 48, }]
                        }
 
     autohf.fit(train_dataset,
