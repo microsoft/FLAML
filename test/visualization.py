@@ -132,9 +132,9 @@ def agg_final_result(problems, datasets, methods, budget, run):
         A dataframe with aggregated results
         e.g., problems = ["xgb_blendsearch", "xgb_cfo", "xgb_hpolib"]
         output = df
-            index | xgb_blendsearch | xgb_cfo    | xgb_hpolib | winner
-            blood | (0.2, 1900)     | (0.3, 109) | (0.4, 800) | xgb_blendsearch
-            ...
+index | xgb_blendsearch | xgb_cfo         | xgb_hpolib         | winner          | winner_method
+blood | (0.2, 1900, BS) | (0.3, 109, CFO) | (0.4, 800, Optuna) | xgb_blendsearch | CFO
+        ...
         the numbers correspond to the best loss and minimal time used 
             by all the methods for
             blood * xgb_blendsearch, blood * xgb_cfo, blood * xgb_hpolib etc.
@@ -150,7 +150,7 @@ def agg_final_result(problems, datasets, methods, budget, run):
                 if len(y)>0: 
                     result = results.get(key, [])
                     if not result: results[key] = result                    
-                    result.append((y[-1],x[y.index(y[-1])]))
+                    result.append((y[-1],x[y.index(y[-1])],method))
     import pandas as pd
     agg_results = pd.DataFrame(columns=columns, index=datasets, dtype=object)
     for key, value in results.items():
@@ -158,12 +158,15 @@ def agg_final_result(problems, datasets, methods, budget, run):
         agg_results.iloc[row_id, col_id] = min(value)
     best_obj = agg_results.min(axis=1)
     winner = []
+    winner_method = []
     for dataset in datasets:
         for problem in problems:
             if agg_results[problem][dataset] == best_obj[dataset]:
-                    winner.append(f'{problem}')
+                    winner.append(problem)
+                    winner_method.append(agg_results[problem][dataset][2])
                     break
     agg_results['winner'] = winner
+    agg_results['winner_method'] = winner_method
     return agg_results
 
 
