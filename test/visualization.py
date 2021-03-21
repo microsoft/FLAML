@@ -107,6 +107,7 @@ def plot_agg_lc(list_x_list, list_y_list, y_max, method_alias=''):
     all_y_list_mean = np.mean(all_y_list_arr, axis=0)
     all_y_list_std = np.std(all_y_list_arr, axis=0)
 
-    plt.plot(all_x_list, all_y_list_mean, label = method_alias)
+    # plt.plot(all_x_list, all_y_list_mean, label = method_alias)
+    plt.step(all_x_list, all_y_list_mean, where='post', label = method_alias)
     plt.fill_between(all_x_list, all_y_list_mean - all_y_list_std, all_y_list_mean + all_y_list_std, alpha=0.4)
     plt.yscale('log')
