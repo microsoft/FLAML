@@ -254,7 +254,8 @@ if __name__ == "__main__":
     # specify the problem
     for oml_dataset in dataset_list:
         for method in method_list:
-            exp_alias = f'{learner_name}_' + '_'.join(str(s) for s in [n_total_pu, n_per_trial_pu, oml_dataset, time_budget_s, method])
+            exp_alias = f'{learner_name}_' + '_'.join(str(s) for s in [
+                n_total_pu, n_per_trial_pu, oml_dataset, time_budget_s, method])
             if args.plot_only and args.agg:
                 log_file_name_alias =  log_dir_address + exp_alias
                 get_agg_lc_from_file(log_file_name_alias, method_alias=method)

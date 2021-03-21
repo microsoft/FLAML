@@ -3,6 +3,7 @@ import numpy as np
 import os
 import json
 
+
 def get_lc_from_log(log_file_name):
     x = []
     y = [] #minimizing 
@@ -26,6 +27,7 @@ def get_lc_from_log(log_file_name):
     assert len(x) == len(y) 
     return x, y
     
+
 # discretize curve_dic
 def discretize_learning_curves(self, time_budget, curve_dic):
     # curve_dic: key: method name, value: list of multiple run
@@ -61,6 +63,7 @@ def plot_lc(log_file_name, y_min=0, y_max=0.5, name=''):
 
     print('plot lc')
 
+
 def get_agg_lc_from_file(log_file_name_alias, method_alias, index_list=list(range(0,10))):
     log_file_list = []
     list_x_list = []
@@ -75,6 +78,7 @@ def get_agg_lc_from_file(log_file_name_alias, method_alias, index_list=list(rang
             print('Fail to get lc from log')
     
     plot_agg_lc(list_x_list, list_y_list, method_alias= method_alias, y_max=1,)
+
 
 def plot_agg_lc(list_x_list, list_y_list, y_max, method_alias=''):
 
@@ -113,3 +117,63 @@ def plot_agg_lc(list_x_list, list_y_list, y_max, method_alias=''):
     plt.step(all_x_list, all_y_list_mean, where='post', label = method_alias)
     plt.fill_between(all_x_list, all_y_list_mean - all_y_list_std, all_y_list_mean + all_y_list_std, alpha=0.4)
     plt.yscale('log')
+
+
+def log_file_name(problem, dataset, method, budget, run):
+    '''log file name
+    '''
+    return f'logs/{problem}/{problem}_1_1_{dataset}_{budget}_{method}_{run}.log'
+
+def agg_final_result(problems, datasets, methods, budget, run):
+    '''aggregate the final results for problems * datasets * methods
+    
+    Returns:
+        A dataframe with aggregated results
+        e.g., problems = ["xgb_blendsearch", "xgb_cfo", "xgb_hpolib"]
+        output = df
+            index | xgb_blendsearch | xgb_cfo | xgb_hpolib | winner
+            blood | 0.2             | 0.3     | 0.4        | xgb_blendsearch
+            ...
+        the number corresponds to the best loss found by all the methods for
+            blood * xgb_blendsearch, blood * xgb_cfo, blood * xgb_hpolib etc.
+    '''
+    results = {}
+    columns = problems
+    for i, problem in enumerate(problems):
+        for j, dataset in enumerate(datasets):
+            for method in methods:
+                key = (j, i)
+                x, y = get_lc_from_log(log_file_name(
+                    problem, dataset, method, budget, run))
+                if len(y)>0: 
+                    result = results.get(key, [])
+                    if not result: results[key] = result
+                    result.append(y[-1])
+    import pandas as pd
+    agg_results = pd.DataFrame(columns=columns, index=datasets, dtype=float)
+    for key, value in results.items():
+        row_id, col_id = key
+        agg_results.iloc[row_id, col_id] = min(value)
+    best_obj = agg_results.min(axis=1)
+    agg_results['winner'] = agg_results.idxmin(axis=1)
+    for dataset in datasets:
+        for problem in problems:
+            if agg_results[problem][dataset] == best_obj[dataset] and not (
+                problem in agg_results['winner'][dataset]):
+                    agg_results['winner'][dataset] += f',{problem}'                
+    return agg_results
+
+
+def test_agg_final_result():
+    print(agg_final_result(['xgb_blendsearch', 'xgb_cfo', 'xgb_hpolib'],
+        ['Australian', 'blood', 'car', 'credit', 'kc1', 'kr', 'phoneme', 'segment'], 
+        ['Ax', 'BlendSearch+Optuna', 'CFO', 'HyperOpt', 'Nevergrad', 'Optuna'],
+        3600.0, 0))
+    print(agg_final_result(['xgb_blendsearch', 'xgb_cfo', 'xgb_hpolib'],
+        ['Airlines', 'christine', 'shuttle', 'connect', 'sylvine',], 
+        ['Ax', 'BlendSearch+Optuna', 'CFO', 'HyperOpt', 'Nevergrad', 'Optuna'],
+        14400.0, 0))
+
+
+if __name__ == "__main__":
+    test_agg_final_result()
