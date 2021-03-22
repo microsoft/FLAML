@@ -32,7 +32,7 @@ def test_electra(method='BlendSearch'):
                        "time_budget": 7200,
                        "fp16": False,
                        "points_to_evaluate": [{
-                           "num_train_epochs": 1,
+                           "num_train_epochs": 0.05,
                            "per_device_train_batch_size": 4, }]
                        }
 

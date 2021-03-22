@@ -12,7 +12,7 @@ def _test_electra(method='BlendSearch'):
         "dataset_config": {"task": "text-classification",
                             "dataset_name": ["glue"],
                             "subdataset_name": "qnli"},
-        "model_name": "roberta-base",
+        "model_name": "google/electra-base-discriminator",
         "split_mode": "origin",
         "output_path": "../../../data/",
         "max_seq_length": 128,
@@ -33,7 +33,7 @@ def _test_electra(method='BlendSearch'):
                        "fp16": True,
                        "points_to_evaluate": [{
                            "num_train_epochs": 1,
-                           "per_device_train_batch_size": 48, }]
+                           "per_device_train_batch_size": 32, }]
                        }
 
     autohf.fit(train_dataset,
