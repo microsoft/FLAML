@@ -112,7 +112,7 @@ def get_mobilebert_space(model_size_type = None,
     # in a search space including different batch sizes (16/32/48), learning
     # rates ((1-10) * e-5), and the number of epochs (2-10)
     search_space_dict["learning_rate"] = [x * 1e-5 for x in range(1, 11)]
-    search_space_dict["per_device_train_batch_size"] = [16, 32, 48]
+    search_space_dict["per_device_train_batch_size"] = [4, 8, 16, 32, 48]
     search_space_dict["num_train_epochs"] = [x for x in range(2, 11)]
     return  search_space_dict
 
