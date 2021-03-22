@@ -242,7 +242,7 @@ class AutoHuggingFace:
         else:
             input_path = None
 
-        assert (input_path) or (subdataset_name)
+        assert (dataset_name == "other" and input_path) or (dataset_name != "other" and not input_path)
 
         self.dataset_name = dataset_name
         self.subdataset_name = subdataset_name
@@ -319,11 +319,11 @@ class AutoHuggingFace:
             model_type = self._extract_model_type_with_keywords_match()
 
         model_size_type = ""
-        if "-base-" in self.path_utils.model_checkpoint:
+        if "-base" in self.path_utils.model_checkpoint:
             model_size_type = "base"
-        elif "-large-" in self.path_utils.model_checkpoint:
+        elif "-large" in self.path_utils.model_checkpoint:
             model_size_type = "large"
-        elif "-small-" in self.path_utils.model_checkpoint:
+        elif "-small" in self.path_utils.model_checkpoint:
             model_size_type = "small"
 
         self.model_type = model_type
