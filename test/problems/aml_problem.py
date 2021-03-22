@@ -107,6 +107,7 @@ class AutoML(Problem):
     }
     data_dir = 'test/automl/'
 
+
     class BaseEstimator:
         '''The abstract class for all learners
     
@@ -225,18 +226,6 @@ class AutoML(Problem):
                 X_test = self.preprocess(X_test)
                 return self.model.predict_proba(X_test)
 
-    
-    class SKLearnEstimator(BaseEstimator):
-
-
-        def preprocess(self, X):
-            if isinstance(X, pd.DataFrame):
-                X = X.copy()
-                cat_columns = X.select_dtypes(include=['category']).columns
-                X[cat_columns] = X[cat_columns].apply(lambda x: x.cat.codes)            
-                X = X.fillna(0)
-            return X
-
 
     class LGBM_CFO(LGBMEstimator):
 
@@ -246,12 +235,8 @@ class AutoML(Problem):
             self.params["seed"] = 9999999
 
     
-    class LGBM_CFO_Large(LGBMEstimator):
+    class LGBM_CFO_Large(LGBM_CFO):
 
-
-        def __init__(self, objective_name = 'binary', n_jobs=1, **params):
-            super().__init__(objective_name, n_jobs, **params)
-            self.params["seed"] = 9999999
 
         @classmethod
         def search_space(cls, data_size, **params): 
@@ -304,12 +289,8 @@ class AutoML(Problem):
             self.params["seed"] = 9999999
 
     
-    class XGB_CFO_Large(XGBoostSklearnEstimator):
+    class XGB_CFO_Large(XGB_CFO):
 
-
-        def __init__(self, objective_name = 'binary', n_jobs = 1, **params):
-            super().__init__(objective_name, n_jobs, **params)
-            self.params["seed"] = 9999999
 
         @classmethod
         def search_space(cls, data_size, **params): 
@@ -433,23 +414,6 @@ class AutoML(Problem):
 
     class XGB_BlendSearch_Large(XGB_BlendSearch):
 
-
-        def __init__(self, objective_name = 'binary', n_jobs = 1,
-         n_estimators = 4, max_leaves = 4, subsample = 1.0, 
-         min_child_weight = 1, learning_rate = 0.1, reg_lambda = 1.0, 
-         reg_alpha = 0.0,  colsample_bylevel = 1.0, colsample_bytree = 1.0, 
-         tree_method = 'hist', booster = 'gbtree', **params):
-            super().__init__(objective_name, n_jobs, n_estimators, max_leaves,
-                subsample,
-                min_child_weight,
-                learning_rate,
-                reg_lambda,
-                reg_alpha,
-                colsample_bylevel,
-                colsample_bytree,
-                tree_method,
-                booster,
-                **params)
 
         @classmethod
         def search_space(cls, data_size, **params): 
@@ -813,14 +777,14 @@ class AutoML(Problem):
                 "booster": [2, 1],
                 }
         elif self.estimator == AutoML.XGB_CFO or self.estimator == AutoML.XGB_CFO_Large:
-            logger.info('setting up XGB_CFO or XGB_CFO_Largehpo')
+            logger.info('setting up XGB_CFO or XGB_CFO_Large hpo')
             self._init_config =  {
                 'n_estimators': 4,
                 'max_leaves': 4,
                 'min_child_weight': 20,
                 }   
         elif self.estimator == AutoML.LGBM_CFO or self.estimator == AutoML.LGBM_CFO_Large:
-            logger.info('setting up LGBM_CFO or LGBM_CFO_Largehpo')
+            logger.info('setting up LGBM_CFO or LGBM_CFO_Large hpo')
             self._init_config =  {
                 'n_estimators': 4,
                 'max_leaves': 4,

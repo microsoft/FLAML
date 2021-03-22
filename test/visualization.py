@@ -213,6 +213,11 @@ def test_agg_final_result():
         ['Airlines', 'christine', 'shuttle', 'connect', 'sylvine',], 
         ['Ax', 'BlendSearch+Optuna', 'CFO', 'HyperOpt', 'Nevergrad', 'Optuna'],
         14400.0, 0))
+    print(agg_final_result(['xgb_blendsearch', 'xgb_cfo', 'xgb_hpolib'],
+        ['guillermo', 'volkert', 'MiniBooNE', 'Jannis', 'mfeat', 'jungle',
+        'jasmine', 'riccardo', 'higgs', 'fabert', 'cnae', ], 
+        ['Ax', 'BlendSearch+Optuna', 'CFO', 'HyperOpt', 'Nevergrad', 'Optuna'],
+        14400.0, 0))
 
 
 def test_final_result():
