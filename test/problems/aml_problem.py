@@ -659,7 +659,7 @@ class AutoML(Problem):
     def get_estimator_from_name(name):
         if name == 'lgbm_cfo':
             estimator = AutoML.LGBM_CFO
-        if name == 'lgbm_cfo_large':
+        elif name == 'lgbm_cfo_large':
             estimator = AutoML.LGBM_CFO_Large
         elif name == 'xgb_cfo':
             estimator = AutoML.XGB_CFO
