@@ -15,7 +15,7 @@ try:
 except:
     from ray import tune
 
-from flaml.model import XGBoostSklearnEstimator
+from flaml.model import XGBoostSklearnEstimator, LGBMEstimator
 import logging
 logger = logging.getLogger(__name__)
 
@@ -238,108 +238,62 @@ class AutoML(Problem):
             return X
 
 
-    class LGBM(BaseEstimator):
+    class LGBM_CFO(LGBMEstimator):
 
 
-        def __init__(self, objective_name = 'binary', n_jobs=1, 
-            n_estimators = 2, max_leaves = 2, min_child_weight = 1e-3, 
-            learning_rate = 0.1, subsample = 1.0,  reg_lambda = 1.0, 
-            reg_alpha = 0.0,  colsample_bylevel = 1.0, colsample_bytree = 1.0,
-            log_max_bin=8, **params):
-            super().__init__(objective_name, n_jobs)
-            #Default: ‘regression’ for LGBMRegressor, ‘binary’ or ‘multiclass’ for LGBMClassifier
-            if 'regression' in objective_name:
-                final_objective_name = 'regression'
-            elif 'binary' in objective_name:
-                final_objective_name = 'binary'
-            elif 'multi' in objective_name:
-                final_objective_name = 'multiclass'
-            # print(n_estimators)
-            self.params = {
-            "n_estimators": int(round(n_estimators)),
-            "num_leaves": int(round(max_leaves)),
-            'objective': final_objective_name,
-            'n_jobs': n_jobs,
-            'learning_rate': float(learning_rate),
-            'reg_alpha': float(reg_alpha),
-            'reg_lambda': float(reg_lambda),
-            'min_child_weight': float(min_child_weight),
-            # 'colsample_bylevel': float(colsample_bylevel),
-            'colsample_bytree':float(colsample_bytree),
-            'subsample': float(subsample),
-            'max_bin': 1<<int(round(log_max_bin))-1,
-            'verbose': -1,
+        def __init__(self, objective_name = 'binary', n_jobs=1, **params):
+            super().__init__(objective_name, n_jobs, **params)
+            self.params["seed"] = 9999999
+
+    
+    class LGBM_CFO_Large(LGBMEstimator):
+
+
+        def __init__(self, objective_name = 'binary', n_jobs=1, **params):
+            super().__init__(objective_name, n_jobs, **params)
+            self.params["seed"] = 9999999
+
+        @classmethod
+        def search_space(cls, data_size, **params): 
+            upper = min(32768,int(data_size))
+            return {
+                'n_estimators': {
+                    'domain': tune.qloguniform(lower=4, upper=upper, q=1),
+                    'init_value': 4,
+                },
+                'max_leaves': {
+                    'domain': tune.qloguniform(lower=4, upper=upper, q=1),
+                    'init_value': 4,
+                },
+                'min_child_weight': {
+                    'domain': tune.loguniform(lower=1e-3, upper=2**7),
+                    'init_value': 20.0,
+                },
+                'learning_rate': {
+                    'domain': tune.loguniform(lower=2**-10, upper=1.0),
+                    'init_value': 0.1,
+                },
+                'subsample': {
+                    'domain': tune.uniform(lower=0.1, upper=1.0),
+                    'init_value': 1.0,
+                },                        
+                'log_max_bin': {
+                    'domain': tune.qloguniform(lower=3, upper=10, q=1),
+                    'init_value': 8,
+                },                        
+                'colsample_bytree': {
+                    'domain': tune.uniform(lower=0.01, upper=1.0),
+                    'init_value': 1.0,
+                },                        
+                'reg_alpha': {
+                    'domain': tune.loguniform(lower=2**-10, upper=2**10),
+                    'init_value': 1e-10,
+                },    
+                'reg_lambda': {
+                    'domain': tune.loguniform(lower=2**-10, upper=2**10),
+                    'init_value': 1.0,
+                },    
             }
-            import lightgbm
-            if 'regression' in objective_name:
-                self.estimator = lightgbm.LGBMRegressor
-            else:
-                self.estimator = lightgbm.LGBMClassifier    
-            self.time_per_iter = None
-            self.train_size = 0
-
-        def _size(self):
-            try:
-                max_leaves = self.params['num_leaves']
-                n_estimators = int(round(self.params['n_estimators']))
-            except:
-                return 0        
-            model_size = float((max_leaves*3 + (max_leaves-1)*4 + 1)*n_estimators*8)
-            return model_size
-
-        def preprocess(self, X):
-            import scipy.sparse
-            if not isinstance(X, pd.DataFrame) and scipy.sparse.issparse(
-                X) and np.issubdtype(X.dtype, np.integer):
-                X = X.astype(float)
-            return X
-
-        def fit(self, X_train, y_train, budget=None, train_full=False):
-            # print('restrict time', budget, self.params["n_estimators"])
-            start_time = time.time()
-            n_iter = self.params["n_estimators"]
-            processed = False
-            if (not self.time_per_iter or abs(
-                self.train_size - X_train.shape[0])>N_SPLITS) and budget:
-                X_train, processed = self.preprocess(X_train), True
-                self.params["n_estimators"] = 1
-                self.model, self.t1 = super().fit(X_train, y_train)
-                # print('t1', self.t1)
-                if self.t1 >= budget: 
-                    self.params["n_estimators"] = n_iter
-                    return self.model, self.t1
-                self.params["n_estimators"] = 4
-                self.model, self.t2 = super().fit(X_train, y_train)
-                # print('fit model', self.model, n_iter)
-                self.time_per_iter = (self.t2-self.t1)/(
-                    self.params["n_estimators"]-1
-                    ) if self.t2 > self.t1 else self.t1
-                self.train_size = X_train.shape[0]
-                if self.t1 + self.t2 >= budget or \
-                    n_iter == self.params["n_estimators"]: 
-                    self.params["n_estimators"] = n_iter
-                    return self.model, time.time() - start_time      
-            self.params["n_estimators"] = n_iter
-            if budget and budget != np.inf:  #TODO why budget !=np.inf?
-                train_times = 1 #+ int(train_full)
-                # self.params["n_estimators"] = min(n_iter, 
-                # int((budget-time.time()+start_time-self.t1)/train_times/
-                # self.time_per_iter+1))
-                est_cost = (n_iter - 1)*self.time_per_iter*train_times
-                # print('***est cost***:', est_cost) 
-                # print('***budget left***:', (budget-time.time()+start_time-self.t1))
-                # print('model', self.model)
-                if est_cost > (budget-time.time()+start_time-self.t1):
-                    # print('return mode', self.model)
-                    return self.dummy_model(X_train, y_train), self.t1 + self.t2
-            if self.params["n_estimators"] > 0:
-                if not processed: X_train = self.preprocess(X_train)
-                self.model, _ = super().fit(X_train, y_train)
-                # print('model', self.model)
-            # self.params["n_estimators"] = n_iter
-            train_time = time.time() - start_time
-            # print('train_time', train_time, self.params["n_estimators"])
-            return self.model, train_time
 
 
     class XGB_CFO(XGBoostSklearnEstimator):
@@ -348,6 +302,56 @@ class AutoML(Problem):
         def __init__(self, objective_name = 'binary', n_jobs = 1, **params):
             super().__init__(objective_name, n_jobs, **params)
             self.params["seed"] = 9999999
+
+    
+    class XGB_CFO_Large(XGBoostSklearnEstimator):
+
+
+        def __init__(self, objective_name = 'binary', n_jobs = 1, **params):
+            super().__init__(objective_name, n_jobs, **params)
+            self.params["seed"] = 9999999
+
+        @classmethod
+        def search_space(cls, data_size, **params): 
+            upper = min(32768,int(data_size))
+            return {
+                'n_estimators': {
+                    'domain': tune.qloguniform(lower=4, upper=upper, q=1),
+                    'init_value': 4,
+                },
+                'max_leaves': {
+                    'domain': tune.qloguniform(lower=4, upper=upper, q=1),
+                    'init_value': 4,
+                },
+                'min_child_weight': {
+                    'domain': tune.loguniform(lower=1e-3, upper=2**7),
+                    'init_value': 20.0,
+                },
+                'learning_rate': {
+                    'domain': tune.loguniform(lower=2**-10, upper=1.0),
+                    'init_value': 0.1,
+                },
+                'subsample': {
+                    'domain': tune.uniform(lower=0.1, upper=1.0),
+                    'init_value': 1.0,
+                },                        
+                'colsample_bylevel': {
+                    'domain': tune.uniform(lower=0.01, upper=1.0),
+                    'init_value': 1.0,
+                },                        
+                'colsample_bytree': {
+                    'domain': tune.uniform(lower=0.01, upper=1.0),
+                    'init_value': 1.0,
+                },                        
+                'reg_alpha': {
+                    'domain': tune.loguniform(lower=2**-10, upper=2**10),
+                    'init_value': 1e-10,
+                },    
+                'reg_lambda': {
+                    'domain': tune.loguniform(lower=2**-10, upper=2**10),
+                    'init_value': 1.0,
+                },    
+            }
 
 
     class XGB_BlendSearch(XGBoostSklearnEstimator):
@@ -377,7 +381,124 @@ class AutoML(Problem):
             'colsample_bytree': float(colsample_bytree),
             'seed': 9999999,
             }
+
+        @classmethod
+        def search_space(cls, data_size, **params): 
+            upper = min(32768,int(data_size))
+            return {
+                'n_estimators': {
+                    'domain': tune.qloguniform(lower=4, upper=upper, q=1),
+                    'init_value': 4,
+                },
+                'max_leaves': {
+                    'domain': tune.qloguniform(lower=4, upper=upper, q=1),
+                    'init_value': 4,
+                },
+                'min_child_weight': {
+                    'domain': tune.loguniform(lower=0.001, upper=20.0),
+                    'init_value': 20.0,
+                },
+                'learning_rate': {
+                    'domain': tune.loguniform(lower=0.01, upper=1.0),
+                    'init_value': 0.1,
+                },
+                'subsample': {
+                    'domain': tune.uniform(lower=0.6, upper=1.0),
+                    'init_value': 1.0,
+                },                        
+                'colsample_bylevel': {
+                    'domain': tune.uniform(lower=0.6, upper=1.0),
+                    'init_value': 1.0,
+                },                        
+                'colsample_bytree': {
+                    'domain': tune.uniform(lower=0.7, upper=1.0),
+                    'init_value': 1.0,
+                },                        
+                'reg_alpha': {
+                    'domain': tune.loguniform(lower=1e-10, upper=1.0),
+                    'init_value': 1e-10,
+                },    
+                'reg_lambda': {
+                    'domain': tune.loguniform(lower=1e-10, upper=1.0),
+                    'init_value': 1.0,
+                },  
+                'booster': {
+                    'domain': tune.choice(['gbtree', 'gblinear']),
+                },   
+                'tree_method': {
+                    'domain': tune.choice(['auto', 'approx', 'hist']),
+                },    
+            }
     
+
+    class XGB_BlendSearch_Large(XGB_BlendSearch):
+
+
+        def __init__(self, objective_name = 'binary', n_jobs = 1,
+         n_estimators = 4, max_leaves = 4, subsample = 1.0, 
+         min_child_weight = 1, learning_rate = 0.1, reg_lambda = 1.0, 
+         reg_alpha = 0.0,  colsample_bylevel = 1.0, colsample_bytree = 1.0, 
+         tree_method = 'hist', booster = 'gbtree', **params):
+            super().__init__(objective_name, n_jobs, n_estimators, max_leaves,
+                subsample,
+                min_child_weight,
+                learning_rate,
+                reg_lambda,
+                reg_alpha,
+                colsample_bylevel,
+                colsample_bytree,
+                tree_method,
+                booster,
+                **params)
+
+        @classmethod
+        def search_space(cls, data_size, **params): 
+            upper = min(32768,int(data_size))
+            return {
+                'n_estimators': {
+                    'domain': tune.qloguniform(lower=4, upper=upper, q=1),
+                    'init_value': 4,
+                },
+                'max_leaves': {
+                    'domain': tune.qloguniform(lower=4, upper=upper, q=1),
+                    'init_value': 4,
+                },
+                'min_child_weight': {
+                    'domain': tune.loguniform(lower=1e-3, upper=2**7),
+                    'init_value': 20.0,
+                },
+                'learning_rate': {
+                    'domain': tune.loguniform(lower=2**-10, upper=1.0),
+                    'init_value': 0.1,
+                },
+                'subsample': {
+                    'domain': tune.uniform(lower=0.1, upper=1.0),
+                    'init_value': 1.0,
+                },                        
+                'colsample_bylevel': {
+                    'domain': tune.uniform(lower=0.01, upper=1.0),
+                    'init_value': 1.0,
+                },                        
+                'colsample_bytree': {
+                    'domain': tune.uniform(lower=0.01, upper=1.0),
+                    'init_value': 1.0,
+                },                        
+                'reg_alpha': {
+                    'domain': tune.loguniform(lower=2**-10, upper=2**10),
+                    'init_value': 1e-10,
+                },    
+                'reg_lambda': {
+                    'domain': tune.loguniform(lower=2**-10, upper=2**10),
+                    'init_value': 1.0,
+                },   
+                'booster': {
+                    'domain': tune.choice(['gbtree', 'gblinear']),
+                },   
+                'tree_method': {
+                    'domain': tune.choice(['auto', 'approx', 'hist']),
+                },    
+            }
+
 
     class XGB_HPOLib(XGBoostSklearnEstimator):
 
@@ -536,16 +657,54 @@ class AutoML(Problem):
             if self.home_dir:
                 import shutil
                 shutil.rmtree(self.home_dir, ignore_errors=True)
-
+        
+        @classmethod
+        def search_space(cls, data_size, **params):
+            early_stopping_rounds = max(min(round(1500000/data_size),150), 10)
+            return {
+                'rounds': {
+                    'domain': tune.qloguniform(10,int(early_stopping_rounds), 1),
+                    },
+                'net': {
+                    'domain': tune.choice(['DCN', 'dnn_nets']),
+                    },
+                "learning_rate": {
+                    'domain': tune.loguniform(1e-4, 3e-2),
+                    },
+                'auto_discrete': {
+                    'domain': tune.choice([False, True]),
+                    },
+                'apply_gbm_features': {
+                    'domain': tune.choice([False, True]),
+                    },
+                'fixed_embedding_dim':  {
+                    'domain': tune.choice([False, True]),
+                    },
+                'dropout': {
+                    'domain': tune.uniform(0,0.5),
+                    },
+                'dense_dropout': {
+                    'domain': tune.uniform(0,0.5),
+                    },
+                "log_batchsize": {
+                    'domain':  8,     
+                    },
+                } 
 
     @staticmethod
     def get_estimator_from_name(name):
-        if 'lgbm' in name:
-            estimator = AutoML.LGBM
-        elif name in ('xgb_cat', 'xgb_blendsearch'):
-            estimator = AutoML.XGB_BlendSearch
+        if name == 'lgbm_cfo':
+            estimator = AutoML.LGBM_CFO
+        if name == 'lgbm_cfo_large':
+            estimator = AutoML.LGBM_CFO_Large
         elif name == 'xgb_cfo':
             estimator = AutoML.XGB_CFO
+        elif name == 'xgb_cfo_large':
+            estimator = AutoML.XGB_CFO_Large
+        elif name in ('xgb_cat', 'xgb_blendsearch'):
+            estimator = AutoML.XGB_BlendSearch
+        elif name == 'xgb_blendsearch_large':
+            estimator = AutoML.XGB_BlendSearch_Large
         elif name == 'xgb_hpolib':
             estimator = AutoML.XGB_HPOLib
         elif 'dt' in name or 'deeptable' in name:
@@ -624,23 +783,15 @@ class AutoML(Problem):
         # self._init_config = {} 
         # self._prune_attribute = None
         # self._resource_default, self._resource_min, self._resource_max = None, None, None
-
-        n_estimators_upper = min(32768, self.data_size)
-        max_leaves_upper = min(32768, self.data_size)
-        early_stopping_rounds = max(min(round(1500000/self.data_size),150), 10)
-        if AutoML.DeepTables == self.estimator:
+        try:
+            space = self.estimator.search_space(self.data_size)
+            self._search_space = dict((key, value['domain'])
+                for key, value in space.items())
+        except:
+            print('estimator', self.estimator)
+            raise NotImplementedError
+        if self.estimator ==  AutoML.DeepTables:
             logger.info('setting up deeptables hpo')
-            self._search_space = {
-                'rounds': tune.qloguniform(10,int(early_stopping_rounds), 1),
-                'net': tune.choice(['DCN', 'dnn_nets']),
-                "learning_rate": tune.loguniform(1e-4, 3e-2),
-                'auto_discrete': tune.choice([False, True]),
-                'apply_gbm_features': tune.choice([False, True]),
-                'fixed_embedding_dim': tune.choice([False, True]),
-                'dropout': tune.uniform(0,0.5),
-                'dense_dropout': tune.uniform(0,0.5),
-                "log_batchsize": 8,     
-                } 
             self._init_config =  {
             'rounds': 10,
                 }
@@ -650,41 +801,9 @@ class AutoML(Problem):
             self._cat_hp_cost={
                 "net": [2,1],
                 }
-
-        # TODO: specify the search space for other learners
-        elif AutoML.LGBM == self.estimator:
-            logger.info('setting up lgbm hpo')
-            self._search_space = {
-                'n_estimators': tune.qloguniform(4, n_estimators_upper, 1),
-                'max_leaves': tune.qloguniform(4, max_leaves_upper, 1),
-                "min_child_weight": tune.loguniform(1e-3, 20),
-                "learning_rate": tune.loguniform(1e-2, 1),
-                "reg_alpha": tune.loguniform(1e-10, 1),
-                "reg_lambda": tune.loguniform(1e-10, 1),
-                'log_max_bin': tune.randint(3, 10),
-                'subsample': tune.uniform(0.6, 1),
-                'colsample_bytree': tune.uniform(0.7, 1),
-                } 
-            self._init_config =  {
-                'n_estimators': 4,
-                'max_leaves': 4,
-                'min_child_weight': 20,
-                }
-        elif self.estimator == AutoML.XGB_BlendSearch:  
-            logger.info('setting up XGB_BlendSearch hpo')
-            self._search_space = {
-                'n_estimators': tune.qloguniform(4, n_estimators_upper, 1),
-                'max_leaves': tune.qloguniform(4, max_leaves_upper, 1),
-                "min_child_weight": tune.loguniform(1e-3, 20),
-                "learning_rate": tune.loguniform(1e-2, 1),
-                "reg_alpha": tune.loguniform(1e-10, 1),
-                "reg_lambda": tune.loguniform(1e-10, 1),
-                'subsample': tune.uniform(0.6, 1),
-                'colsample_bylevel': tune.uniform(0.7, 1),
-                'colsample_bytree': tune.uniform(0.7, 1),
-                'booster': tune.choice(['gbtree', 'gblinear']),
-                'tree_method': tune.choice(['auto', 'approx', 'hist']),
-                } 
+        elif self.estimator == AutoML.XGB_BlendSearch or \
+            self.estimator == AutoML.XGB_BlendSearch_Large:  
+            logger.info('setting up XGB_BlendSearch or XGB_BlendSearch_Large hpo')
             self._init_config =  {
                 'n_estimators': 4,
                 'max_leaves': 4,
@@ -693,21 +812,23 @@ class AutoML(Problem):
             self._cat_hp_cost={
                 "booster": [2, 1],
                 }
-        elif self.estimator == AutoML.XGB_CFO:
-            logger.info('setting up XGB_CFO hpo')
-            space = self.estimator.search_space(self.data_size)
-            self._search_space = dict((key, value['domain'])
-                for key, value in space.items())
+        elif self.estimator == AutoML.XGB_CFO or self.estimator == AutoML.XGB_CFO_Large:
+            logger.info('setting up XGB_CFO or XGB_CFO_Largehpo')
             self._init_config =  {
                 'n_estimators': 4,
                 'max_leaves': 4,
                 'min_child_weight': 20,
-                }            
+                }   
+        elif self.estimator == AutoML.LGBM_CFO or self.estimator == AutoML.LGBM_CFO_Large:
+            logger.info('setting up LGBM_CFO or LGBM_CFO_Largehpo')
+            self._init_config =  {
+                'n_estimators': 4,
+                'max_leaves': 4,
+                'min_child_weight': 20,
+                'log_max_bin': 8,
+                }   
         elif self.estimator == AutoML.XGB_HPOLib:
             logger.info('setting up XGB_HPOLib hpo')
-            space = self.estimator.search_space(self.data_size)
-            self._search_space = dict((key, value['domain'])
-                for key, value in space.items())
             self._init_config =  {
                 'n_estimators': 1,
                 'max_depth': 1,
