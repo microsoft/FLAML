@@ -281,6 +281,44 @@ class AutoML(Problem):
             }
 
 
+    class LGBM_MLNET(LGBM_CFO):
+
+
+        @classmethod
+        def search_space(cls, data_size, **params): 
+            return {
+                'n_estimators': {
+                    'domain': tune.qloguniform(lower=2, upper=256, q=1),
+                    'init_value': 2,
+                },
+                'max_leaves': {
+                    'domain': tune.qloguniform(lower=2, upper=256, q=1),
+                    'init_value': 2,
+                },
+                'min_data_in_leaf': {
+                    'domain': tune.qloguniform(lower=2, upper=2**7, q=1),
+                    'init_value': 128,
+                },
+                'learning_rate': {
+                    'domain': tune.loguniform(lower=1e-3, upper=1.0),
+                },
+            }
+
+
+    def __init__(self, task='binary:logistic', n_jobs=1, **params):
+        super().__init__(task, n_jobs, **params)
+        # Default: ‘regression’ for LGBMRegressor, 
+        # ‘binary’ or ‘multiclass’ for LGBMClassifier
+        self.params = {
+            "n_estimators": self.params["n_estimators"],
+            "num_leaves": self.params.get('num_leaves'),
+            'objective': self.params.get("objective"),
+            'n_jobs': n_jobs,
+            'learning_rate': params["learning_rate"],
+            "min_data_in_leaf": int(round(params["min_data_in_leaf"])),
+        }
+
+
     class XGB_CFO(XGBoostSklearnEstimator):
 
 
@@ -661,6 +699,8 @@ class AutoML(Problem):
             estimator = AutoML.LGBM_CFO
         elif name == 'lgbm_cfo_large':
             estimator = AutoML.LGBM_CFO_Large
+        elif name == 'lgbm_mlnet':
+            estimator = AutoML.LGBM_MLNET
         elif name == 'xgb_cfo':
             estimator = AutoML.XGB_CFO
         elif name == 'xgb_cfo_large':
@@ -797,7 +837,12 @@ class AutoML(Problem):
                 'n_estimators': 1,
                 'max_depth': 1,
                 'min_child_weight': 2**7,
-                }            
+                }
+        elif self.estimator == AutoML.LGBM_MLNET:
+            logger.info('setting up LGBM_MLNET hpo')
+            self._init_config = dict((key, value['init_value']) for key, value 
+             in self.estimator.search_space(self.data_size).items()
+             if 'init_value' in value)
         else: 
             NotImplementedError
         # set the configuration (to be always the largest, assuming best at max) for hp which is prune_attribute
