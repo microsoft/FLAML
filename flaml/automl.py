@@ -923,7 +923,7 @@ class AutoML:
             )
         logger.info("List of ML learners in AutoML Run: {}".format(
             estimator_list))
-        self._hpo_method = hpo_method or 'cfo'
+        self._hpo_method = hpo_method or 'bs'
         with training_log_writer(log_file_name) as save_helper:
             self._training_log = save_helper
             self._state.time_budget = time_budget

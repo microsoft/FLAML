@@ -188,15 +188,15 @@ class LGBMEstimator(BaseEstimator):
                 'init_value': 4,
             },
             'min_child_weight': {
-                'domain': tune.loguniform(lower=0.001, upper=20.0),
-                'init_value': 20.0,
+                'domain': tune.loguniform(lower=0.001, upper=128),
+                'init_value': 128,
             },
             'learning_rate': {
-                'domain': tune.loguniform(lower=0.01, upper=1.0),
+                'domain': tune.loguniform(lower=1/1024, upper=1.0),
                 'init_value': 0.1,
             },
             'subsample': {
-                'domain': tune.uniform(lower=0.6, upper=1.0),
+                'domain': tune.uniform(lower=0.1, upper=1.0),
                 'init_value': 1.0,
             },                        
             'log_max_bin': {
@@ -204,15 +204,15 @@ class LGBMEstimator(BaseEstimator):
                 'init_value': 8,
             },                        
             'colsample_bytree': {
-                'domain': tune.uniform(lower=0.7, upper=1.0),
+                'domain': tune.uniform(lower=0.01, upper=1.0),
                 'init_value': 1.0,
             },                        
             'reg_alpha': {
-                'domain': tune.loguniform(lower=1e-10, upper=1.0),
-                'init_value': 1e-10,
+                'domain': tune.loguniform(lower=1/1024, upper=1024),
+                'init_value': 1/1024,
             },    
             'reg_lambda': {
-                'domain': tune.loguniform(lower=1e-10, upper=1.0),
+                'domain': tune.loguniform(lower=1/1024, upper=1024),
                 'init_value': 1.0,
             },    
         }
@@ -310,31 +310,31 @@ class XGBoostEstimator(SKLearnEstimator):
                 'init_value': 4,
             },
             'min_child_weight': {
-                'domain': tune.loguniform(lower=0.001, upper=20.0),
-                'init_value': 20.0,
+                'domain': tune.loguniform(lower=0.001, upper=128),
+                'init_value': 128,
             },
             'learning_rate': {
-                'domain': tune.loguniform(lower=0.01, upper=1.0),
+                'domain': tune.loguniform(lower=1/1024, upper=1.0),
                 'init_value': 0.1,
             },
             'subsample': {
-                'domain': tune.uniform(lower=0.6, upper=1.0),
+                'domain': tune.uniform(lower=0.1, upper=1.0),
                 'init_value': 1.0,
             },                        
             'colsample_bylevel': {
-                'domain': tune.uniform(lower=0.6, upper=1.0),
+                'domain': tune.uniform(lower=0.01, upper=1.0),
                 'init_value': 1.0,
             },                        
             'colsample_bytree': {
-                'domain': tune.uniform(lower=0.7, upper=1.0),
+                'domain': tune.uniform(lower=0.01, upper=1.0),
                 'init_value': 1.0,
             },                        
             'reg_alpha': {
-                'domain': tune.loguniform(lower=1e-10, upper=1.0),
-                'init_value': 1e-10,
+                'domain': tune.loguniform(lower=1/1024, upper=1024),
+                'init_value': 1/1024,
             },    
             'reg_lambda': {
-                'domain': tune.loguniform(lower=1e-10, upper=1.0),
+                'domain': tune.loguniform(lower=1/1024, upper=1024),
                 'init_value': 1.0,
             },    
         }
