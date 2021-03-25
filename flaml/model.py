@@ -187,9 +187,9 @@ class LGBMEstimator(BaseEstimator):
                 'domain': tune.qloguniform(lower=4, upper=upper, q=1),
                 'init_value': 4,
             },
-            'min_child_weight': {
-                'domain': tune.loguniform(lower=0.001, upper=128),
-                'init_value': 128,
+            'min_data_in_leaf': {
+                'domain': tune.qloguniform(lower=2, upper=2**7, q=1),
+                'init_value': 20,
             },
             'learning_rate': {
                 'domain': tune.loguniform(lower=1/1024, upper=1.0),
@@ -224,7 +224,7 @@ class LGBMEstimator(BaseEstimator):
         return (max_leaves*3 + (max_leaves-1)*4 + 1.0)*n_estimators*8
 
     def __init__(self, task='binary:logistic', n_jobs=1,
-     n_estimators=2, max_leaves=2, min_child_weight=1e-3, learning_rate=0.1, 
+     n_estimators=2, max_leaves=2, min_data_in_leaf=20, learning_rate=0.1, 
      subsample=1.0, reg_lambda=1.0, reg_alpha=0.0,
      colsample_bytree=1.0, log_max_bin=8, **params):
         super().__init__(task, **params)
@@ -245,7 +245,7 @@ class LGBMEstimator(BaseEstimator):
             'learning_rate': float(learning_rate),
             'reg_alpha': float(reg_alpha),
             'reg_lambda': float(reg_lambda),
-            'min_child_weight': float(min_child_weight),
+            'min_data_in_leaf': int(round(min_data_in_leaf)),
             'colsample_bytree':float(colsample_bytree),
             'subsample': float(subsample),
         }
@@ -311,7 +311,7 @@ class XGBoostEstimator(SKLearnEstimator):
             },
             'min_child_weight': {
                 'domain': tune.loguniform(lower=0.001, upper=128),
-                'init_value': 128,
+                'init_value': 1,
             },
             'learning_rate': {
                 'domain': tune.loguniform(lower=1/1024, upper=1.0),
