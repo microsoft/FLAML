@@ -1,9 +1,9 @@
 # Economical Hyperparameter Optimization
 
 `flaml.tune` is a module for economical hyperparameter tuning. It frees users from manually tuning many hyperparameters for a software, such as machine learning training procedures. 
-The API is compatible with ray tune.
+It can be used standalone, or together with ray tune or nni.
 
-Example:
+* Example for sequential tuning (recommended when compute resource is limited and each trial can consume all the resources):
 
 ```python
 # require: pip install flaml[blendsearch]
@@ -41,7 +41,8 @@ print(analysis.best_trial.last_result)  # the best trial's result
 print(analysis.best_config) # the best config
 ```
 
-Or, using ray tune's API:
+* Example for using ray tune's API:
+
 ```python
 # require: pip install flaml[blendsearch] ray[tune]
 from ray import tune as raytune
@@ -71,14 +72,19 @@ analysis = raytune.run(
     time_budget_s=60,   # the time budget in seconds
     local_dir='logs/',  # the local directory to store logs
     search_alg=CFO(points_to_evaluate=[{'x':1}]) # or BlendSearch
-    # other algo example: raytune.create_searcher('optuna'),
     )
 
 print(analysis.best_trial.last_result)  # the best trial's result
 print(analysis.best_config) # the best config
 ```
 
-For more examples, please check out 
+* Example for using NNI: An example of using BlendSearch with NNI can be seen in [test](https://github.com/microsoft/FLAML/tree/main/test/nni). CFO can be used as well in a similar manner. To run the example, first make sure you have [NNI](https://nni.readthedocs.io/en/stable/) installed, then run:
+
+```shell
+$nnictl create --config ./config.yml
+```
+
+* For more examples, please check out 
 [notebooks](https://github.com/microsoft/FLAML/tree/main/notebook/).
 
 
@@ -172,7 +178,7 @@ For more technical details, please check our papers.
 }
 ```
 
-* Economical Hyperparameter Optimization With Blended Search Strategy. Chi Wang, Qingyun Wu, Silu Huang, Amin Saied. To appear in ICLR 2021.
+* [Economical Hyperparameter Optimization With Blended Search Strategy](https://www.microsoft.com/en-us/research/publication/economical-hyperparameter-optimization-with-blended-search-strategy/). Chi Wang, Qingyun Wu, Silu Huang, Amin Saied. To appear in ICLR 2021.
 
 ```
 @inproceedings{wang2021blendsearch,

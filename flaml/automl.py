@@ -253,6 +253,8 @@ class AutoML:
 
     '''
 
+    from .version import __version__
+
     def __init__(self):
         self._track_iter = 0
         self._state = AutoMLState()
@@ -282,6 +284,22 @@ class AutoML:
             return self._trained_estimator.model
         else:
             return None
+
+    def best_model_for_estimator(self, estimator_name):
+        '''Return the best model found for a particular estimator
+
+        Args:
+            estimator_name: a str of the estimator's name
+        
+        Returns:
+            An object with `predict()` and `predict_proba()` method (for
+        classification), storing the best trained model for estimator_name.
+        '''
+        if estimator_name in self._search_states:
+            state = self._search_states[estimator_name]
+            if hasattr(state, 'trained_estimator'):
+                return state.trained_estimator.model
+        return None
 
     @property
     def best_estimator(self):
@@ -571,6 +589,12 @@ class AutoML:
             self._state.y_val = (X_train, y_train, X_val, y_val)
         if self._split_type == "stratified":
             logger.info("Using StratifiedKFold")
+            assert y_train_all.size >= n_splits, (
+                f"{n_splits}-fold cross validation"
+                f" requires input data with at least {n_splits} examples.")
+            assert y_train_all.size >= 2*n_splits, (
+                f"{n_splits}-fold cross validation with metric=r2 "
+                f"requires input data with at least {n_splits*2} examples.")
             self._state.kf = RepeatedStratifiedKFold(n_splits=n_splits,
              n_repeats=1, random_state=RANDOM_SEED)
         else:
@@ -765,6 +789,7 @@ class AutoML:
             split_type="stratified",
             learner_selector='sample',
             hpo_method=None,
+            verbose=1,
             **fit_kwargs):
         '''Find a model for a given task
 
@@ -823,6 +848,8 @@ class AutoML:
             y_val: None | a numpy array or a pandas series of validation labels
             sample_weight_val: None | a numpy array of the sample weight of
                 validation data
+            verbose: int, default=1 | Controls the verbosity, higher means more
+                messages
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such sample_weight
         '''
@@ -835,6 +862,10 @@ class AutoML:
         self._search_states = {}  #key: estimator name; value: SearchState
         self._random = np.random.RandomState(RANDOM_SEED)
         self._learner_selector = learner_selector
+        old_level = logger.getEffectiveLevel()
+        self.verbose = verbose
+        if verbose==0:
+            logger.setLevel(logging.WARNING)
         if self._state.task == 'classification':
             self._state.task = get_classification_objective(
                 len(np.unique(self._y_train_all)))
@@ -904,6 +935,8 @@ class AutoML:
             self._state.n_jobs = n_jobs
             self._search()
             logger.info("fit succeeded")
+        if verbose==0:
+            logger.setLevel(old_level)
 
     def _search(self):
         # initialize the search_states
@@ -1016,7 +1049,7 @@ class AutoML:
                 init_config=None, 
                 search_alg=search_state.search_alg,
                 time_budget_s=budget_left,
-                verbose=0, local_dir='logs/tune_results',
+                verbose=max(self.verbose-1,0), #local_dir='logs/tune_results',
                 use_ray=False,
                 )
             # warnings.resetwarnings()
@@ -1206,9 +1239,10 @@ class AutoML:
                 gap = search_state.best_loss - self._state.best_loss
                 if gap > 0 and not self._ensemble:
                     delta_loss = (search_state.best_loss_old - 
-                                 search_state.best_loss)
+                                 search_state.best_loss) or \
+                                     search_state.best_loss
                     delta_time = (search_state.total_time_used - 
-                                 search_state.time_best_found_old)
+                                 search_state.time_best_found_old) or 1e-10
                     speed = delta_loss / delta_time
                     try:
                         estimated_cost = 2*gap/speed

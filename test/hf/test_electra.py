@@ -15,6 +15,7 @@ try:
         Trainer,
         TrainingArguments,
     )
+
     MODEL_CHECKPOINT = "google/electra-base-discriminator"
     task_to_keys = {
         "cola": ("sentence", None),
@@ -27,9 +28,9 @@ try:
         "stsb": ("sentence1", "sentence2"),
         "wnli": ("sentence1", "sentence2"),
     }
-    max_seq_length=128
-    overwrite_cache=False
-    pad_to_max_length=True
+    max_seq_length = 128
+    overwrite_cache = False
+    pad_to_max_length = True
     padding = "max_length"
 
     TASK = "qnli"
@@ -40,28 +41,31 @@ try:
     # Define tokenize method
     tokenizer = AutoTokenizer.from_pretrained(MODEL_CHECKPOINT, use_fast=True)
 
+
     def tokenize(examples):
         args = (
             (examples[sentence1_key],) if sentence2_key is None else (
                 examples[sentence1_key], examples[sentence2_key])
         )
         return tokenizer(*args, padding=padding, max_length=max_seq_length,
-         truncation=True)
+                         truncation=True)
 
 except:
     print("pip install torch transformers datasets flaml[blendsearch,ray]")
-    
+
 import logging
+
 logger = logging.getLogger(__name__)
 import os
+
 os.makedirs('logs', exist_ok=True)
 logger.addHandler(logging.FileHandler('logs/tune_electra.log'))
 logger.setLevel(logging.INFO)
 
 import flaml
 
-def train_electra(config: dict):
 
+def train_electra(config: dict):
     # Load dataset and apply tokenizer
     data_raw = load_dataset("glue", TASK)
     data_encoded = data_raw.map(tokenize, batched=True)
@@ -75,7 +79,6 @@ def train_electra(config: dict):
         predictions, labels = eval_pred
         predictions = np.argmax(predictions, axis=1)
         return metric.compute(predictions=predictions, references=labels)
-
 
     model = AutoModelForSequenceClassification.from_pretrained(
         MODEL_CHECKPOINT, num_labels=NUM_LABELS
@@ -109,7 +112,7 @@ def train_electra(config: dict):
     flaml.tune.report(
         loss=eval_output["eval_loss"],
         accuracy=eval_output["eval_accuracy"],
-        )
+    )
 
     try:
         from azureml.core import Run
@@ -117,10 +120,11 @@ def train_electra(config: dict):
         run.log('accuracy', eval_output["eval_accuracy"])
         run.log('loss', eval_output["eval_loss"])
         run.log('config', config)
-    except: pass
+    except:
+        pass
+
 
 def _test_electra(method='BlendSearch'):
- 
     max_num_epoch = 9
     num_samples = -1
     time_budget_s = 3600
@@ -130,14 +134,8 @@ def _test_electra(method='BlendSearch'):
         "num_train_epochs": flaml.tune.loguniform(1, max_num_epoch),
         "learning_rate": flaml.tune.loguniform(3e-5, 1.5e-4),
         "weight_decay": flaml.tune.uniform(0, 0.3),
-        # "warmup_ratio": flaml.tune.uniform(0, 0.2),
-        # "hidden_dropout_prob": flaml.tune.uniform(0, 0.2),
-        # "attention_probs_dropout_prob": flaml.tune.uniform(0, 0.2),
         "per_device_train_batch_size": flaml.tune.choice([16, 32, 64, 128]),
         "seed": flaml.tune.choice([12, 22, 33, 42]),
-        # "adam_beta1": flaml.tune.uniform(0.8, 0.99),
-        # "adam_beta2": flaml.tune.loguniform(98e-2, 9999e-4),
-        # "adam_epsilon": flaml.tune.loguniform(1e-9, 1e-7),
     }
 
     start_time = time.time()
@@ -207,7 +205,7 @@ def _test_electra(method='BlendSearch'):
 
     logger.info(f"method={method}")
     logger.info(f"n_trials={len(analysis.trials)}")
-    logger.info(f"time={time.time()-start_time}")
+    logger.info(f"time={time.time() - start_time}")
     logger.info(f"Best model eval {HP_METRIC}: {metric:.4f}")
     logger.info(f"Best model parameters: {best_trial.config}")
 
