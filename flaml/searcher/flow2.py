@@ -44,7 +44,7 @@ class FLOW2(Searcher):
         Args:
             init_config: a dictionary from a subset of controlled dimensions
                 to the initial low-cost values. e.g. {'epochs':1}
-            metric: A string of the metric name to optimize for.
+            metric: A string of the dataset name to optimize for.
                 minimization or maximization.
             mode: A string in ['min', 'max'] to specify the objective as
             cat_hp_cost: A dictionary from a subset of categorical dimensions

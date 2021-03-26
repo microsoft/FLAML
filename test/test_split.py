@@ -14,7 +14,7 @@ def _test(split_type):
 
     automl_settings = {
         "time_budget": 2,
-        # "metric": 'accuracy',
+        # "dataset": 'accuracy',
         "task": 'classification',
         "log_file_name": "test/{}.log".format(dataset),
         "model_history": True,

@@ -10,7 +10,7 @@ from .training_log import training_log_reader
 
 
 def load_openml_dataset(dataset_id, data_dir=None, random_state=0):
-    '''Load dataset from open ML. 
+    '''Load dataset from open ML.
 
     If the file is not cached locally, download it from open ML.
 
@@ -120,7 +120,7 @@ def get_output_from_log(filename, time_budget):
         error_list: A list of the validation error of each logged iter
         config_list: 
             A list of the estimator, sample size and config of each logged iter
-        logged_metric_list: A list of the logged metric of each logged iter 
+        logged_metric_list: A list of the logged dataset of each logged iter
     '''
 
     best_config = None

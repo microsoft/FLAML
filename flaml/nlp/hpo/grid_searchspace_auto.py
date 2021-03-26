@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-from flaml.nlp.search_space.get_grid_search_space import \
+from flaml.nlp.hpo.get_grid_search_space import \
     (get_electra_space,
      get_bert_space,
      get_mobilebert_space,
@@ -19,7 +19,7 @@ GRID_SEARCH_SPACE_MAPPING = OrderedDict(
 
 class AutoGridSearchSpace:
     """
-    This is a generic model class that will be instantiated as one of the model classes of the library
+    This is a generic huggingface class that will be instantiated as one of the huggingface classes of the library
     ---with the search space for grid search
     ---when created with the when created with the
     :meth:`~transformers.AutoGridSearchSpace.from_model_and_dataset_name` class method.

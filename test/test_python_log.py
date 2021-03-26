@@ -29,7 +29,7 @@ class TestLogging(unittest.TestCase):
             automl = AutoML()
             automl_settings = {
                 "time_budget": 1,
-                "metric": 'mse',
+                "dataset": 'mse',
                 "task": 'regression',
                 "log_file_name": training_log,
                 "log_training_metric": True,

@@ -63,7 +63,7 @@ def unflatten_dict(dt, delimiter="/"):
 
 
 class Trial:
-    """A trial object holds the state for one model training run.
+    """A trial object holds the state for one huggingface training run.
     Trials are themselves managed by the TrialRunner class, which implements
     the event loop for submitting trial runs to a Ray cluster.
     Trials start in the PENDING state, and transition to RUNNING once started.

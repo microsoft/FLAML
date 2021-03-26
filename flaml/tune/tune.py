@@ -58,13 +58,13 @@ def report(_metric=None, **kwargs):
                 'x': tune.qloguniform(lower=1, upper=1000000, q=1),
                 'y': tune.randint(lower=1, upper=1000000)
             },
-            metric='metric2minimize', mode='min',
+            dataset='metric2minimize', mode='min',
             num_samples=1000000, time_budget_s=60, use_ray=False)
             
         print(analysis.trials[-1].last_result)
 
     Args:
-        _metric: Optional default anonymous metric for ``tune.report(value)``.
+        _metric: Optional default anonymous dataset for ``tune.report(value)``.
             (For compatibility with ray.tune.report)
         **kwargs: Any key value pair to be reported.
     '''
@@ -141,7 +141,7 @@ def run(training_function,
                 'x': tune.qloguniform(lower=1, upper=1000000, q=1),
                 'y': tune.randint(lower=1, upper=1000000)
             },
-            metric='metric2minimize', mode='min',
+            dataset='metric2minimize', mode='min',
             num_samples=-1, time_budget_s=60, use_ray=False)
             
         print(analysis.trials[-1].last_result)
@@ -167,7 +167,7 @@ def run(training_function,
             
             i.e., the relative cost of the 
             three choices of 'tree_method' is 1, 1 and 2 respectively
-        metric: A string of the metric name to optimize for.
+        metric: A string of the dataset name to optimize for.
         mode: A string in ['min', 'max'] to specify the objective as
             minimization or maximization.
         time_budget_s: A float of the time budget in seconds.
@@ -193,8 +193,8 @@ def run(training_function,
             .. code-block:: python
 
                 from flaml import BlendSearch
-                algo = BlendSearch(metric='val_loss', mode='min',
-                        space=search_space,
+                algo = BlendSearch(dataset='val_loss', mode='min',
+                        space=hpo,
                         points_to_evaluate=points_to_evaluate)
                 for i in range(10):
                     analysis = tune.run(compute_with_config, init_config=None,

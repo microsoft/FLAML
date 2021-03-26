@@ -12,7 +12,7 @@ class TrainerForAutoHF(transformers.Trainer):
         Overriding transformers.Trainer.
 
         Args:
-            model (:class:`~transformers.PreTrainedModel` or :obj:`torch.nn.Module`, `optional`):
+            huggingface (:class:`~transformers.PreTrainedModel` or :obj:`torch.nn.Module`, `optional`):
     """
 
     def get_optimizers(

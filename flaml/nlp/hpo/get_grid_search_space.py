@@ -1,4 +1,4 @@
-# lookup table for the grid configs in each pre-trained language model for different tasks
+# lookup table for the grid configs in each pre-trained language huggingface for different tasks
 
 def get_bert_space(model_size_type = None,
                    dataset_name = None,
@@ -24,7 +24,7 @@ def get_bert_space(model_size_type = None,
         search_space_dict["learning_rate"] = [5e-5]
         search_space_dict["per_device_train_batch_size"] = [48]
         search_space_dict["num_train_epochs"] = [2]
-    # Section 4.4: We fine-tune the model for 3 epochs with a learning rate of 2e-5 and a batch size of 16.
+    # Section 4.4: We fine-tune the huggingface for 3 epochs with a learning rate of 2e-5 and a batch size of 16.
     elif dataset_name == "swag":
         search_space_dict["learning_rate"] = [2e-5]
         search_space_dict["per_device_train_batch_size"] = [16]
@@ -46,7 +46,7 @@ def get_roberta_space(model_size_type = None,
     # https://arxiv.org/pdf/1907.11692.pdf
     search_space_dict = {}
     # Table 10: Hyperparameters for finetuning RoBERTaLARGE on RACE, SQuAD and GLUE.
-    assert model_size_type == "large", "RoBERTa paper has only provided hyperparameter for the large model"
+    assert model_size_type == "large", "RoBERTa paper has only provided hyperparameter for the large huggingface"
     if model_size_type == "large":
         if dataset_name == "glue":
             search_space_dict["learning_rate"] = [1e-5, 2e-5, 3e-5]
@@ -75,7 +75,7 @@ def get_electra_space(model_size_type = None,
         ELECTRA: PRE-TRAINING TEXT ENCODERS AS DISCRIMINATORS RATHER THAN GENERATORS
         https://arxiv.org/pdf/2003.10555.pdf
     """
-    assert model_size_type in ("small", "base"), "Electra paper has only provided hyperparameter for the small and base model"
+    assert model_size_type in ("small", "base"), "Electra paper has only provided hyperparameter for the small and base huggingface"
     search_space_dict = {}
     # Appendix B: For Basesized models we searched for a learning
     # rate out of [3e-5, 5e-5, 1e-4, 1.5e-4]

@@ -63,7 +63,7 @@ class BaseEstimator:
 
     @property
     def model(self):
-        '''Trained model after fit() is called, or None before fit() is called
+        '''Trained huggingface after fit() is called, or None before fit() is called
         '''
         return self._model
 
@@ -81,7 +81,7 @@ class BaseEstimator:
         return train_time
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
-        '''Train the model from given training data
+        '''Train the huggingface from given training data
         
         Args:
             X_train: A numpy array of training data in shape n*m
@@ -112,7 +112,7 @@ class BaseEstimator:
         Only works for classification problems
 
         Args:
-            model: An object of trained model with method predict_proba()
+            huggingface: An object of trained huggingface with method predict_proba()
             X_test: A numpy array of featurized instances, shape n*m
 
         Returns:
@@ -688,7 +688,7 @@ class CatBoostEstimator(BaseEstimator):
                 data=X_train[l:], label=y_train[l:], cat_features=cat_features),
                 **kwargs)
             if weight is not None: kwargs['sample_weight'] = weight            
-            # print(self.params["n_estimators"], model.get_best_iteration())
+            # print(self.params["n_estimators"], huggingface.get_best_iteration())
             self._model = model
         self.params["n_estimators"] = n_iter
         train_time = time.time() - start_time

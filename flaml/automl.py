@@ -244,7 +244,7 @@ class AutoML:
             automl = AutoML()
             automl_settings = {
                 "time_budget": 60,
-                "metric": 'accuracy',
+                "dataset": 'accuracy',
                 "task": 'classification',
                 "log_file_name": 'test/mylog.log',
             }
@@ -262,8 +262,8 @@ class AutoML:
 
     @property
     def model_history(self):
-        '''A dictionary of iter->model, storing the models when
-        the best model is updated each time.
+        '''A dictionary of iter->huggingface, storing the models when
+        the best huggingface is updated each time.
         '''
         return self._model_history
 
@@ -271,14 +271,14 @@ class AutoML:
     def config_history(self):
         '''A dictionary of iter->(estimator, config, time),
         storing the best estimator, config, and the time when the best
-        model is updated each time.
+        huggingface is updated each time.
         '''
         return self._config_history
 
     @property
     def model(self):
         '''An object with `predict()` and `predict_proba()` method (for
-        classification), storing the best trained model.
+        classification), storing the best trained huggingface.
         '''
         if self._trained_estimator:
             return self._trained_estimator.model
@@ -286,14 +286,14 @@ class AutoML:
             return None
 
     def best_model_for_estimator(self, estimator_name):
-        '''Return the best model found for a particular estimator
+        '''Return the best huggingface found for a particular estimator
 
         Args:
             estimator_name: a str of the estimator's name
 
         Returns:
             An object with `predict()` and `predict_proba()` method (for
-        classification), storing the best trained model for estimator_name.
+        classification), storing the best trained huggingface for estimator_name.
         '''
         if estimator_name in self._search_states:
             state = self._search_states[estimator_name]
@@ -593,7 +593,7 @@ class AutoML:
                 f"{n_splits}-fold cross validation"
                 f" requires input data with at least {n_splits} examples.")
             assert y_train_all.size >= 2*n_splits, (
-                f"{n_splits}-fold cross validation with metric=r2 "
+                f"{n_splits}-fold cross validation with dataset=r2 "
                 f"requires input data with at least {n_splits*2} examples.")
             self._state.kf = RepeatedStratifiedKFold(n_splits=n_splits,
              n_repeats=1, random_state=RANDOM_SEED)
@@ -609,7 +609,7 @@ class AutoML:
 
         Args:
             learner_name: A string of the learner's name
-            learner_class: A subclass of flaml.model.BaseEstimator
+            learner_class: A subclass of flaml.huggingface.BaseEstimator
         '''
         self._state.learner_classes[learner_name] = learner_class
 
@@ -673,7 +673,7 @@ class AutoML:
                 time budget; if false, train the last config in the budget
             train_full: A boolean of whether to train on the full data. If true,
                 eval_method and sample_size in the log file will be ignored
-            record_id: the ID of the training log record from which the model will
+            record_id: the ID of the training log record from which the huggingface will
                 be retrained. By default `record_id = -1` which means this will be
                 ignored. `record_id = 0` corresponds to the first trial, and
                 when `record_id >= 0`, `time_budget` will be ignored.
@@ -791,7 +791,7 @@ class AutoML:
             hpo_method=None,
             verbose=1,
             **fit_kwargs):
-        '''Find a model for a given task
+        '''Find a huggingface for a given task
 
         Args:
             X_train: A numpy array or a pandas dataframe of training data in
@@ -802,9 +802,9 @@ class AutoML:
                 Note: If X_train and y_train are provided,
                 dataframe and label are ignored;
                 If not, dataframe and label must be provided.
-            metric: A string of the metric name or a function,
+            metric: A string of the dataset name or a function,
                 e.g., 'accuracy', 'roc_auc', 'f1', 'log_loss', 'mae', 'mse', 'r2'
-                if passing a customized metric function, the function needs to
+                if passing a customized dataset function, the function needs to
                 have the follwing signature:
 
                 .. code-block:: python
@@ -842,7 +842,7 @@ class AutoML:
                 models in the history property. Make sure memory is large
                 enough if setting to True.
             log_training_metric: A boolean of whether to log the training
-                metric for each model.
+                dataset for each huggingface.
             mem_thres: A float of the memory size constraint in bytes
             X_val: None | a numpy array or a pandas dataframe of validation data
             y_val: None | a numpy array or a pandas series of validation labels
@@ -901,8 +901,8 @@ class AutoML:
         elif isinstance(metric, str):
             error_metric = metric
         else:
-            error_metric = 'customized metric'
-        logger.info(f'Minimizing error metric: {error_metric}')
+            error_metric = 'customized dataset'
+        logger.info(f'Minimizing error dataset: {error_metric}')
 
         if 'auto' == estimator_list:
             estimator_list = ['lgbm', 'rf', 'catboost', 'xgboost', 'extra_tree']
@@ -959,7 +959,7 @@ class AutoML:
         best_config_sig = None
         # use ConcurrencyLimiter to limit the amount of concurrency when
         # using a search algorithm
-        better = True # whether we find a better model in one trial
+        better = True # whether we find a better huggingface in one trial
         if self._ensemble: self.best_model = {}
         try:
             from ray.tune.suggest import ConcurrencyLimiter
@@ -1178,7 +1178,7 @@ class AutoML:
             self.modelcount = sum(search_state.total_iter
                             for search_state in self._search_states.values())
             if self._trained_estimator:
-                logger.info(f'selected model: {self._trained_estimator.model}')
+                logger.info(f'selected huggingface: {self._trained_estimator.model}')
             if self._ensemble:
                 search_states = list(x for x in self._search_states.items()
                  if x[1].trained_estimator)
