@@ -12,20 +12,20 @@ def test_electra(method='BlendSearch'):
 
     preparedata_setting = {
         "dataset_config": {"task": "text-classification",
-                            "dataset_name": ["glue"],
-                            "subdataset_name": "rte"},
+                           "dataset_name": ["glue"],
+                           "subdataset_name": "rte"},
         "model_name": "google/mobilebert-uncased",
         "split_mode": "origin",
-        "output_path": "../../../data/",
+        "ckpt_path": "../../../data/checkpoint/",
+        "result_path": "../../../data/result/",
+        "log_path": "../../../data/result/",
         "max_seq_length": 128,
     }
 
     train_dataset, eval_dataset, test_dataset =\
         autohf.prepare_data(**preparedata_setting)
 
-    autohf_settings = {"metric_name": "accuracy",
-                       "mode_name": "max",
-                       "resources_per_trial": {"cpu": 1},
+    autohf_settings = {"resources_per_trial": {"cpu": 1},
                        "wandb_key": wandb_key,
                        "search_algo": method,
                        "num_samples": 1,
