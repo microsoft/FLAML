@@ -46,14 +46,14 @@ def get_estimator_class(task, estimator_name):
 
 def sklearn_metric_loss_score(metric_name, y_predict, y_true, labels=None,
     sample_weight=None):
-    '''Loss using the specified dataset
+    '''Loss using the specified metric
 
     Args:
         metric_name: A string of the mtric name, one of 
             'r2', 'rmse', 'mae', 'mse', 'accuracy', 'roc_auc', 'log_loss', 
             'f1', 'ap'
         y_predict: A 1d or 2d numpy array of the predictions which can be
-            used to calculate the dataset. E.g., 2d for log_loss and 1d
+            used to calculate the metric. E.g., 2d for log_loss and 1d
             for others. 
         y_true: A 1d numpy array of the true labels
         labels: A 1d numpy array of the unique labels
@@ -89,10 +89,10 @@ def sklearn_metric_loss_score(metric_name, y_predict, y_true, labels=None,
         score = 1 - average_precision_score(y_true, y_predict,
          sample_weight=sample_weight)
     else:
-        raise ValueError(metric_name+' is not a built-in dataset, '
+        raise ValueError(metric_name+' is not a built-in metric, '
         'currently built-in metrics are: '
         'r2, rmse, mae, mse, accuracy, roc_auc, log_loss, f1, ap. '
-        'please pass a customized dataset function to AutoML.fit(dataset=func)')
+        'please pass a customized metric function to AutoML.fit(metric=func)')
     return score
 
 
@@ -124,7 +124,7 @@ def get_test_loss(estimator, X_train, y_train, X_test, y_test, weight_test,
             test_pred_y = get_y_pred(estimator, X_train, eval_metric, obj)
             train_loss = sklearn_metric_loss_score(eval_metric, test_pred_y,
             y_train, labels, fit_kwargs.get('sample_weight'))
-    else: # customized dataset function
+    else: # customized metric function
         test_loss, train_loss = eval_metric(
             X_test, y_test, estimator, labels, X_train, y_train,
             weight_test, fit_kwargs.get('sample_weight'))

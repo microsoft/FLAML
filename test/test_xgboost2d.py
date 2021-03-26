@@ -35,7 +35,7 @@ def test_simple(method=None):
 
     automl_settings = {
         "estimator_list": ['XGBoost2D'],
-        # "dataset": 'accuracy',
+        # "metric": 'accuracy',
         "task": 'classification',
         "log_file_name": f"test/xgboost2d_{dataset}_{method}.log",
         # "model_history": True,

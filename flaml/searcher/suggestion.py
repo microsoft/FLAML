@@ -38,8 +38,8 @@ UNDEFINED_SEARCH_SPACE = str(
     "`tune.run()`.")
 
 UNDEFINED_METRIC_MODE = str(
-    "Trying to sample a configuration from {cls}, but the `dataset` "
-    "({dataset}) or `mode` ({mode}) parameters have not been set. "
+    "Trying to sample a configuration from {cls}, but the `metric` "
+    "({metric}) or `mode` ({mode}) parameters have not been set. "
     "Either pass these arguments when instantiating the search algorithm, "
     "or pass them to `tune.run()`.")
 
@@ -89,12 +89,12 @@ class Searcher:
             list then list of training result objective value attributes
         mode (str or list): If string One of {min, max}. If list then
             list of max and min, determines whether objective is minimizing
-            or maximizing the dataset attribute. Must match type of dataset.
+            or maximizing the metric attribute. Must match type of metric.
     .. code-block:: python
         class ExampleSearch(Searcher):
-            def __init__(self, dataset="mean_loss", mode="min", **kwargs):
+            def __init__(self, metric="mean_loss", mode="min", **kwargs):
                 super(ExampleSearch, self).__init__(
-                    dataset=dataset, mode=mode, **kwargs)
+                    metric=metric, mode=mode, **kwargs)
                 self.optimizer = Optimizer()
                 self.configurations = {}
             def suggest(self, trial_id):
@@ -102,8 +102,8 @@ class Searcher:
                 self.configurations[trial_id] = configuration
             def on_trial_complete(self, trial_id, result, **kwargs):
                 configuration = self.configurations[trial_id]
-                if result and self.dataset in result:
-                    self.optimizer.update(configuration, result[self.dataset])
+                if result and self.metric in result:
+                    self.optimizer.update(configuration, result[self.metric])
         tune.run(trainable_function, search_alg=ExampleSearch())
     """
     FINISHED = "FINISHED"
@@ -132,7 +132,7 @@ class Searcher:
             return
 
         assert isinstance(
-            metric, type(mode)), "dataset and mode must be of the same type"
+            metric, type(mode)), "metric and mode must be of the same type"
         if isinstance(mode, str):
             assert mode in ["min", "max"
                             ], "if `mode` is a str must be 'min' or 'max'!"
@@ -162,14 +162,14 @@ class Searcher:
     def on_trial_result(self, trial_id: str, result: Dict):
         """Optional notification for result during training.
         Note that by default, the result dict may include NaNs or
-        may not include the optimization dataset. It is up to the
+        may not include the optimization metric. It is up to the
         subclass implementation to preprocess the result to
         avoid breaking the optimization process.
         Args:
             trial_id (str): A unique string ID for the trial.
             result (dict): Dictionary of metrics for current training progress.
                 Note that the result dict may include NaNs or
-                may not include the optimization dataset. It is up to the
+                may not include the optimization metric. It is up to the
                 subclass implementation to preprocess the result to
                 avoid breaking the optimization process.
         """
@@ -186,7 +186,7 @@ class Searcher:
             trial_id (str): A unique string ID for the trial.
             result (dict): Dictionary of metrics for current training progress.
                 Note that the result dict may include NaNs or
-                may not include the optimization dataset. It is up to the
+                may not include the optimization metric. It is up to the
                 subclass implementation to preprocess the result to
                 avoid breaking the optimization process. Upon errors, this
                 may also be None.
@@ -310,7 +310,7 @@ class Searcher:
 
     @property
     def mode(self) -> str:
-        """Specifies if minimizing or maximizing the dataset."""
+        """Specifies if minimizing or maximizing the metric."""
         return self._mode
 
 
@@ -326,7 +326,7 @@ class ConcurrencyLimiter(Searcher):
     Example:
     .. code-block:: python
         from ray.tune.suggest import ConcurrencyLimiter
-        search_alg = HyperOptSearch(dataset="accuracy")
+        search_alg = HyperOptSearch(metric="accuracy")
         search_alg = ConcurrencyLimiter(search_alg, max_concurrent=2)
         tune.run(trainable, search_alg=search_alg)
     """
@@ -432,7 +432,7 @@ class _Param:
 param = _Param()
 
 
-# (Optional) Default (anonymous) dataset when using tune.report(x)
+# (Optional) Default (anonymous) metric when using tune.report(x)
 DEFAULT_METRIC = "_metric"
 
 # (Auto-filled) The index of this training iteration.
@@ -458,10 +458,10 @@ class OptunaSearch(Searcher):
             sampler. This is a list, and samples for the parameters will
             be obtained in order.
         metric (str): The training result objective value attribute. If None
-            but a mode was passed, the anonymous dataset `_metric` will be used
+            but a mode was passed, the anonymous metric `_metric` will be used
             per default.
         mode (str): One of {min, max}. Determines whether objective is
-            minimizing or maximizing the dataset attribute.
+            minimizing or maximizing the metric attribute.
         points_to_evaluate (list): Initial parameter suggestions to be run
             first. This is for when you already have some good parameters
             you want to run first to help the algorithm make better suggestions
@@ -477,7 +477,7 @@ class OptunaSearch(Searcher):
             "b": tune.uniform(10, 20)
         }
         optuna_search = OptunaSearch(
-            dataset="loss",
+            metric="loss",
             mode="min")
         tune.run(trainable, config=config, search_alg=optuna_search)
     If you would like to pass the search space manually, the code would
@@ -490,7 +490,7 @@ class OptunaSearch(Searcher):
         ]
         algo = OptunaSearch(
             space,
-            dataset="loss",
+            metric="loss",
             mode="min")
         tune.run(trainable, search_alg=optuna_search)
     .. versionadded:: 0.8.8
@@ -538,7 +538,7 @@ class OptunaSearch(Searcher):
 
     def _setup_study(self, mode: str):
         if self._metric is None and self._mode:
-            # If only a mode was passed, use anonymous dataset
+            # If only a mode was passed, use anonymous metric
             self._metric = DEFAULT_METRIC
 
         self._ot_study = ot.study.create_study(

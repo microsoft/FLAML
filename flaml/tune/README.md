@@ -18,7 +18,7 @@ def evaluate_config(config):
     # and the cost could be related to certain hyperparameters
     # in this example, we assume it's proportional to x
     time.sleep(config['x']/100000)
-    # use tune.report to report the dataset to optimize    
+    # use tune.report to report the metric to optimize    
     tune.report(metric=metric) 
 
 analysis = tune.run(
@@ -28,7 +28,7 @@ analysis = tune.run(
         'y': tune.randint(lower=1, upper=100000)
     }, # the search space
     init_config={'x':1},    # a initial (partial) config with low cost
-    metric='dataset',    # the name of the dataset used for optimization
+    metric='metric',    # the name of the metric used for optimization
     mode='min',         # the optimization mode, 'min' or 'max'
     num_samples=-1,    # the maximal number of configs to try, -1 means infinite
     time_budget_s=60,   # the time budget in seconds
@@ -57,7 +57,7 @@ def evaluate_config(config):
     # and the cost could be related to certain hyperparameters
     # in this example, we assume it's proportional to x
     time.sleep(config['x']/100000)
-    # use tune.report to report the dataset to optimize    
+    # use tune.report to report the metric to optimize    
     tune.report(metric=metric) 
 
 analysis = raytune.run(
@@ -66,7 +66,7 @@ analysis = raytune.run(
         'x': tune.qloguniform(lower=1, upper=100000, q=1),
         'y': tune.randint(lower=1, upper=100000)
     }, # the search space
-    metric='dataset',    # the name of the dataset used for optimization
+    metric='metric',    # the name of the metric used for optimization
     mode='min',         # the optimization mode, 'min' or 'max'
     num_samples=-1,    # the maximal number of configs to try, -1 means infinite
     time_budget_s=60,   # the time budget in seconds

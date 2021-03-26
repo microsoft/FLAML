@@ -45,7 +45,7 @@ class BlendSearch(Searcher):
         '''Constructor
 
         Args:
-            metric: A string of the dataset name to optimize for.
+            metric: A string of the metric name to optimize for.
                 minimization or maximization.
             mode: A string in ['min', 'max'] to specify the objective as
             space: A dictionary to specify the search space.
@@ -194,7 +194,7 @@ class BlendSearch(Searcher):
                 del self._result[self._ls.config_signature(config)]
             else: # add to result cache
                 self._result[self._ls.config_signature(config)] = result
-            # update target dataset if improved
+            # update target metric if improved
             if (result[self._metric]-self._metric_target)*self._ls.metric_op<0:
                 self._metric_target = result[self._metric]
             if not thread_id and self._create_condition(result): 
@@ -454,7 +454,7 @@ try:
             Receive trial's final result.
             parameter_id: int
             parameters: object created by 'generate_parameters()'
-            value: final metrics of the trial, including default dataset
+            value: final metrics of the trial, including default metric
             '''
             result = {}
             for key, value in parameters.items():
@@ -482,7 +482,7 @@ try:
             Tuners are advised to support updating search space at run-time.
             If a tuner can only set search space once before generating first hyper-parameters,
             it should explicitly document this behaviour.
-            hpo: JSON object created by experiment owner
+            search_space: JSON object created by experiment owner
             '''
             config = {}
             for key, value in search_space.items():
@@ -506,7 +506,7 @@ try:
                     config[key] = qrandn(v[1], v[2], v[3])
                 else:
                     raise ValueError(
-                    f'unsupported type in hpo {_type}')
+                    f'unsupported type in search_space {_type}')
             self._ls.set_search_properties(None, None, config)
             if self._gs is not None:
                 self._gs.set_search_properties(None, None, config)

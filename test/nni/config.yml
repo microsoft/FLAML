@@ -6,7 +6,7 @@ maxExecDuration: 1h
 maxTrialNum: 10
 trainingServicePlatform: local
 # The path to Search Space
-searchSpacePath: hpo.json
+searchSpacePath: search_space.json
 useAnnotation: false
 tuner:
   codeDir: ./

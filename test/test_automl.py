@@ -92,13 +92,13 @@ class TestAutoML(unittest.TestCase):
             "task": 'classification', # task type    
             "sample": True, # whether to subsample training data
             "log_file_name": "test/wine.log",
-            "log_training_metric": True, # whether to log training dataset
+            "log_training_metric": True, # whether to log training metric
             "n_jobs": 1,
         }
 
         '''The main flaml automl API'''
         automl.fit(X_train = X_train, y_train = y_train, **settings)
-        # print the best huggingface found for RGF
+        # print the best model found for RGF
         print(automl.best_model_for_estimator("RGF"))
 
     def test_ensemble(self):
@@ -113,7 +113,7 @@ class TestAutoML(unittest.TestCase):
             "task": 'classification', # task type    
             "sample": True, # whether to subsample training data
             "log_file_name": "test/wine.log",
-            "log_training_metric": True, # whether to log training dataset
+            "log_training_metric": True, # whether to log training metric
             "ensemble": True,
             "n_jobs": 1,
         }
@@ -131,7 +131,7 @@ class TestAutoML(unittest.TestCase):
         automl_settings = {
             "time_budget": 10,
             'eval_method': 'holdout',
-            "dataset": custom_metric,
+            "metric": custom_metric,
             "task": 'classification',
             "log_file_name": "test/iris_custom.log",
             "log_training_metric": True,
@@ -164,7 +164,7 @@ class TestAutoML(unittest.TestCase):
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 4,
-            "dataset": 'accuracy',
+            "metric": 'accuracy',
             "task": 'classification',
             "log_file_name": "test/iris.log",
             "log_training_metric": True,
@@ -185,7 +185,7 @@ class TestAutoML(unittest.TestCase):
         print(automl_experiment.model_history)
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
-        del automl_settings["dataset"]
+        del automl_settings["metric"]
         del automl_settings["model_history"]
         del automl_settings["log_training_metric"]
         automl_experiment = AutoML()
@@ -202,7 +202,7 @@ class TestAutoML(unittest.TestCase):
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 2,
-            "dataset": 'mse',
+            "metric": 'mse',
             "task": 'regression',
             "log_file_name": "test/boston.log",
             "log_training_metric": True,
@@ -228,7 +228,7 @@ class TestAutoML(unittest.TestCase):
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 2,
-            "dataset": 'auto',
+            "metric": 'auto',
             "task": 'classification',
             "log_file_name": "test/sparse_classification.log",
             "split_type": "uniform",
@@ -252,7 +252,7 @@ class TestAutoML(unittest.TestCase):
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 2,
-            "dataset": 'mae',
+            "metric": 'mae',
             "task": 'regression',
             "log_file_name": "test/sparse_regression.log",
             "n_jobs": 1,
@@ -282,7 +282,7 @@ class TestAutoML(unittest.TestCase):
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 3,
-            "dataset": 'ap',
+            "metric": 'ap',
             "task": 'classification',
             "log_file_name": "test/sparse_classification.log",
             "estimator_list": ["xgboost"],
@@ -305,7 +305,7 @@ class TestAutoML(unittest.TestCase):
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 2,
-            "dataset": 'f1',
+            "metric": 'f1',
             "task": 'classification',
             "log_file_name": "test/sparse_classification.log",
             "estimator_list": ["lrl1", "lrl2"],
@@ -333,7 +333,7 @@ class TestAutoML(unittest.TestCase):
             "log_file_name": "test/sparse_regression.log",
             "n_jobs": 1,
             "model_history": True,
-            "dataset": "mse"
+            "metric": "mse"
         }
         X_train = scipy.sparse.random(8, 100)
         y_train = np.random.uniform(size=8)

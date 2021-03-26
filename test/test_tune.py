@@ -36,7 +36,7 @@ def train_breast_cancer(config: dict):
         train_set,
         evals=[(test_set, "eval")],
         verbose_eval=False,
-        callbacks=[TuneReportCheckpointCallback(filename="huggingface.xgb")])
+        callbacks=[TuneReportCheckpointCallback(filename="model.xgb")])
 
 
 def _test_xgboost(method='BlendSearch'):
@@ -137,20 +137,20 @@ def _test_xgboost(method='BlendSearch'):
                     num_samples=num_samples*n_cpu, time_budget_s=time_budget_s,
                     scheduler=scheduler, search_alg=algo)
             ray.shutdown()
-            # # Load the best huggingface checkpoint
+            # # Load the best model checkpoint
             # import os
             # best_bst = xgb.Booster()
             # best_bst.load_model(os.path.join(analysis.best_checkpoint,
-            #  "huggingface.xgb"))
+            #  "model.xgb"))
             best_trial = analysis.get_best_trial("eval-logloss","min","all")
             accuracy = 1. - best_trial.metric_analysis["eval-error"]["min"]
             logloss = best_trial.metric_analysis["eval-logloss"]["min"]
             logger.info(f"method={method}")
             logger.info(f"n_samples={num_samples*n_cpu}")
             logger.info(f"time={time.time()-start_time}")
-            logger.info(f"Best huggingface eval loss: {logloss:.4f}")
-            logger.info(f"Best huggingface total accuracy: {accuracy:.4f}")
-            logger.info(f"Best huggingface parameters: {best_trial.config}")
+            logger.info(f"Best model eval loss: {logloss:.4f}")
+            logger.info(f"Best model total accuracy: {accuracy:.4f}")
+            logger.info(f"Best model parameters: {best_trial.config}")
 
 
 def test_nested():
@@ -172,7 +172,7 @@ def test_nested():
         init_config={
             "cost_related": {"a": 1,}
         },
-        metric="dataset",
+        metric="metric",
         mode="min",
         config=search_space,
         local_dir='logs/',

@@ -78,10 +78,10 @@ def train_distilbert(config: dict):
         compute_metrics=compute_metrics,
     )
 
-    # train huggingface
+    # train model
     trainer.train()
 
-    # evaluate huggingface
+    # evaluate model
     eval_output = trainer.evaluate()
 
     flaml.tune.report(

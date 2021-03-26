@@ -84,7 +84,7 @@ def get_electra_space(model_size_type = None,
     # Appendix B: We found the small models benefit from a larger learning rate and searched for the best one
     # out of [1e-4, 2e-4, 3e-4, 5e-3]
     elif model_size_type == "small":
-        search_space_dict["learning_rate"] =  [1e-4, 2e-4, 3e-4, 5e-3]
+        search_space_dict["learning_rate"] = [1e-4, 2e-4, 3e-4, 5e-3]
     search_space_dict["adam_epsilon"] = [1e-6]
     search_space_dict["warmup_ratio"] = [0.1]
     search_space_dict["per_device_train_batch_size"] = [32]

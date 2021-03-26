@@ -95,7 +95,7 @@ class SearchThread:
                 self.cost_last = result[self.cost_attr]
                 self.cost_total += self.cost_last
             # if not isinstance(self._search_alg, FLOW2):
-            #     logger.info(f"result.dataset{result[self._search_alg.dataset]}")
+            #     logger.info(f"result.metric{result[self._search_alg.metric]}")
             if self._search_alg.metric in result:
                 obj = result[self._search_alg.metric] * self._metric_op
                 if obj < self.obj_best1:

@@ -35,15 +35,15 @@ class ExperimentAnalysis:
     def best_trial(self) -> Trial:
         """Get the best trial of the experiment
         The best trial is determined by comparing the last trial results
-        using the `dataset` and `mode` parameters passed to `tune.run()`.
+        using the `metric` and `mode` parameters passed to `tune.run()`.
         If you didn't pass these parameters, use
-        `get_best_trial(dataset, mode, scope)` instead.
+        `get_best_trial(metric, mode, scope)` instead.
         """
         if not self.default_metric or not self.default_mode:
             raise ValueError(
-                "To fetch the `best_trial`, pass a `dataset` and `mode` "
+                "To fetch the `best_trial`, pass a `metric` and `mode` "
                 "parameter to `tune.run()`. Alternatively, use the "
-                "`get_best_trial(dataset, mode)` method to set the dataset "
+                "`get_best_trial(metric, mode)` method to set the metric "
                 "and mode explicitly.")
         return self.get_best_trial(self.default_metric, self.default_mode)
 
@@ -51,23 +51,23 @@ class ExperimentAnalysis:
     def best_config(self) -> Dict:
         """Get the config of the best trial of the experiment
         The best trial is determined by comparing the last trial results
-        using the `dataset` and `mode` parameters passed to `tune.run()`.
+        using the `metric` and `mode` parameters passed to `tune.run()`.
         If you didn't pass these parameters, use
-        `get_best_config(dataset, mode, scope)` instead.
+        `get_best_config(metric, mode, scope)` instead.
         """
         if not self.default_metric or not self.default_mode:
             raise ValueError(
-                "To fetch the `best_config`, pass a `dataset` and `mode` "
+                "To fetch the `best_config`, pass a `metric` and `mode` "
                 "parameter to `tune.run()`. Alternatively, use the "
-                "`get_best_config(dataset, mode)` method to set the dataset "
+                "`get_best_config(metric, mode)` method to set the metric "
                 "and mode explicitly.")
         return self.get_best_config(self.default_metric, self.default_mode)
 
     def _validate_metric(self, metric: str) -> str:
         if not metric and not self.default_metric:
             raise ValueError(
-                "No `dataset` has been passed and  `default_metric` has "
-                "not been set. Please specify the `dataset` parameter.")
+                "No `metric` has been passed and  `default_metric` has "
+                "not been set. Please specify the `metric` parameter.")
         return metric or self.default_metric
 
     def _validate_mode(self, mode: str) -> str:
@@ -85,10 +85,10 @@ class ExperimentAnalysis:
                        scope: str = "last",
                        filter_nan_and_inf: bool = True) -> Optional[Trial]:
         """Retrieve the best trial object.
-        Compares all trials' scores on ``dataset``.
-        If ``dataset`` is not specified, ``self.default_metric`` will be used.
+        Compares all trials' scores on ``metric``.
+        If ``metric`` is not specified, ``self.default_metric`` will be used.
         If `mode` is not specified, ``self.default_mode`` will be used.
-        These values are usually initialized by passing the ``dataset`` and
+        These values are usually initialized by passing the ``metric`` and
         ``mode`` parameters to ``tune.run()``.
         Args:
             metric (str): Key for trial info to order on. Defaults to
@@ -96,13 +96,13 @@ class ExperimentAnalysis:
             mode (str): One of [min, max]. Defaults to ``self.default_mode``.
             scope (str): One of [all, last, avg, last-5-avg, last-10-avg].
                 If `scope=last`, only look at each trial's final step for
-                `dataset`, and compare across trials based on `mode=[min,max]`.
+                `metric`, and compare across trials based on `mode=[min,max]`.
                 If `scope=avg`, consider the simple average over all steps
-                for `dataset` and compare across trials based on
+                for `metric` and compare across trials based on
                 `mode=[min,max]`. If `scope=last-5-avg` or `scope=last-10-avg`,
                 consider the simple average over the last 5 or 10 steps for
-                `dataset` and compare across trials based on `mode=[min,max]`.
-                If `scope=all`, find each trial's min/max score for `dataset`
+                `metric` and compare across trials based on `mode=[min,max]`.
+                If `scope=all`, find each trial's min/max score for `metric`
                 based on `mode`, and compare trials based on `mode=[min,max]`.
             filter_nan_and_inf (bool): If True (default), NaN or infinite
                 values are disregarded and these trials are never selected as
@@ -114,9 +114,9 @@ class ExperimentAnalysis:
         if scope not in ["all", "last", "avg", "last-5-avg", "last-10-avg"]:
             raise ValueError(
                 "ExperimentAnalysis: attempting to get best trial for "
-                "dataset {} for scope {} not in [\"all\", \"last\", \"avg\", "
+                "metric {} for scope {} not in [\"all\", \"last\", \"avg\", "
                 "\"last-5-avg\", \"last-10-avg\"]. "
-                "If you didn't pass a `dataset` parameter to `tune.run()`, "
+                "If you didn't pass a `metric` parameter to `tune.run()`, "
                 "you have to pass one when fetching the best trial.".format(
                     metric, scope))
         best_trial = None
@@ -147,7 +147,7 @@ class ExperimentAnalysis:
 
         if not best_trial:
             logger.warning(
-                "Could not find best trial. Did you pass the correct `dataset` "
+                "Could not find best trial. Did you pass the correct `metric` "
                 "parameter?")
         return best_trial
 
@@ -156,10 +156,10 @@ class ExperimentAnalysis:
                         mode: Optional[str] = None,
                         scope: str = "last") -> Optional[Dict]:
         """Retrieve the best config corresponding to the trial.
-        Compares all trials' scores on `dataset`.
-        If ``dataset`` is not specified, ``self.default_metric`` will be used.
+        Compares all trials' scores on `metric`.
+        If ``metric`` is not specified, ``self.default_metric`` will be used.
         If `mode` is not specified, ``self.default_mode`` will be used.
-        These values are usually initialized by passing the ``dataset`` and
+        These values are usually initialized by passing the ``metric`` and
         ``mode`` parameters to ``tune.run()``.
         Args:
             metric (str): Key for trial info to order on. Defaults to
@@ -167,13 +167,13 @@ class ExperimentAnalysis:
             mode (str): One of [min, max]. Defaults to ``self.default_mode``.
             scope (str): One of [all, last, avg, last-5-avg, last-10-avg].
                 If `scope=last`, only look at each trial's final step for
-                `dataset`, and compare across trials based on `mode=[min,max]`.
+                `metric`, and compare across trials based on `mode=[min,max]`.
                 If `scope=avg`, consider the simple average over all steps
-                for `dataset` and compare across trials based on
+                for `metric` and compare across trials based on
                 `mode=[min,max]`. If `scope=last-5-avg` or `scope=last-10-avg`,
                 consider the simple average over the last 5 or 10 steps for
-                `dataset` and compare across trials based on `mode=[min,max]`.
-                If `scope=all`, find each trial's min/max score for `dataset`
+                `metric` and compare across trials based on `mode=[min,max]`.
+                If `scope=all`, find each trial's min/max score for `metric`
                 based on `mode`, and compare trials based on `mode=[min,max]`.
         """
         best_trial = self.get_best_trial(metric, mode, scope)
