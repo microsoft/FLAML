@@ -86,11 +86,7 @@ def get_electra_space(model_size_type = None,
     elif model_size_type == "small":
         search_space_dict["learning_rate"] =  [1e-4, 2e-4, 3e-4, 5e-3]
     search_space_dict["adam_epsilon"] = [1e-6]
-    search_space_dict["adam_beta1"] = [0.9]
-    search_space_dict["adam_beta2"] = [0.999]
     search_space_dict["warmup_ratio"] = [0.1]
-    search_space_dict["attention_probs_dropout_prob_ratio"] = [0.1]
-    search_space_dict["weight_decay"] = [0]
     search_space_dict["per_device_train_batch_size"] = [32]
     if dataset_name == "squad" or dataset_name == "squad_v2":
         search_space_dict["num_train_epochs"] = [2]
