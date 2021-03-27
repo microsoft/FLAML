@@ -236,15 +236,17 @@ class AutoHuggingFace:
         return func(*args)
 
     def _get_split_name(self, data_raw, fold_name = None):
+        if fold_name:
+            return fold_name
         fold_keys = data_raw.keys()
         if fold_keys == {"train", "validation", "test"}:
             return "train", "validation", "test"
         for each_key in fold_keys:
             for each_split_name in {"train", "validation", "test"}:
                 assert not (each_key.startswith(each_split_name) and each_key != each_split_name), \
-                    "The split name of dataset {} is different from the standard 'train' 'validation'" \
-                 " 'test', therefore must be speficied in dataset_config, candidate values are {}".format(self.full_dataset_name,
-                    ",".join(fold_keys))
+                    "Dataset split must be within {}, must be explicitly specified in dataset_config, e.g.," \
+                    "'fold_name': ['train', 'validation_matched', 'test_matched']. Please refer to the example in the " \
+                    "documentation of AutoHuggingFace.prepare_data()".format(",".join(fold_keys))
         return "train", "validation", "test"
 
     def prepare_data(self,
@@ -565,15 +567,22 @@ class AutoHuggingFace:
                         ckpt_dir = None,
                         **kwargs):
         if not ckpt_dir:
-            try:
-                self._search_algo_name = self._search_algo_name or kwargs["search_algo_name"]
-                self._scheduler_name = self._scheduler_name or kwargs["scheduler_name"]
-                assert self._model_type
-                assert self._split_mode
-            except KeyError:
-                logger.error(
-                    "The following values must be specified for loading checkpoint: search_algo_name, "
-                    "scheduler_name, model_type and split_mode")
+            if not self._search_algo_name:
+                try:
+                    self._search_algo_name = kwargs["search_algo_name"]
+                except KeyError as err:
+                    logger.error("search_algo_name is not specified, must be explicitly specified"
+                    " in the arguments for AutoHugginFace.predict(). For example, search_algo_name='BlendSearch'. ")
+                    raise err
+            if not self._scheduler_name:
+                try:
+                    self._scheduler_name = kwargs["scheduler_name"]
+                except KeyError as err:
+                    logger.error("scheduler_name is not specified, must be explicitly specified "
+                    "in the arguments for AutoHugginFace.predict(). For example, scheduler_name='None'.")
+                    raise err
+            assert self._model_type, "model_type is not specified, did you specifity it in AutoHuggingFace.prepare_data?"
+            assert self._split_mode, "split_mode is not specified, did you specifity it in AutoHuggingFace.prepare_data?"
 
             if not self.path_utils.folder_name:
                 self.path_utils.set_folder_name(self)
@@ -582,8 +591,9 @@ class AutoHuggingFace:
         try:
             ckpt_json = json.load(open(ckpt_dir))
             return ckpt_json["best_ckpt"]
-        except FileNotFoundError:
+        except FileNotFoundError as err:
             logger.error("Saved checkpoint not found. Please make sure checkpoint is stored under {}".format(ckpt_dir))
+            raise err
 
     def _set_metric(self, metric_name, metric_mode_name):
         default_metric, default_mode, all_metrics, all_modes = get_default_and_alternative_metric(self._dataset_name[0], self._subdataset_name, metric_name, metric_mode_name)
