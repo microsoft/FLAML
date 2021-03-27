@@ -73,16 +73,18 @@ def _test_electra():
                 if this_search_algo == "grid_search":
                     this_grid_search_time = autohf.last_run_duration
 
-                predictions = autohf.predict(test_dataset)
                 save_file_name = autohf.full_dataset_name + "_" + autohf.model_type + "_" + autohf.search_algo_name + "_" + autohf.scheduler_name + "_" + autohf.path_utils.group_hash_id
+                if test_dataset:
+                    predictions = autohf.predict(test_dataset)
+                    autohf.output_prediction(predictions,
+                                             output_prediction_path="../../../data/result/",
+                                             output_dir_name=save_file_name)
+
                 fout.write(save_file_name + ":\n")
                 fout.write((autohf.metric_name) + ":" + json.dumps(validation_metric) + "\n")
                 fout.write("duration:" + str(autohf.last_run_duration) + "\n\n")
                 fout.flush()
 
-                autohf.output_prediction(predictions,
-                                         output_prediction_path="../../../data/result/",
-                                         output_dir_name=save_file_name)
                 if os.path.exists("/home/xliu127/ray_results/"):
                     shutil.rmtree("/home/xliu127/ray_results/")
 

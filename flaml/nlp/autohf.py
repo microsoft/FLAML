@@ -239,8 +239,6 @@ class AutoHuggingFace:
         fold_keys = data_raw.keys()
         if fold_keys == {"train", "validation", "test"}:
             return "train", "validation", "test"
-        elif fold_keys == {"train", "validation"}:
-            return "train", "validation", "None"
         for each_key in fold_keys.keys():
             for each_split_name in {"train", "validation", "test"}:
                 if each_key.startswith(each_split_name) and each_key != each_split_name:
@@ -365,8 +363,8 @@ class AutoHuggingFace:
             eval_dataset = data_train_dev.select([x for x in range(dev_start, dev_end)]).flatten_indices()
             test_dataset = data_train_dev.select([x for x in range(test_start, test_end)]).flatten_indices()
         else:
-            train_dataset, eval_dataset = data_encoded[self._train_name], data_encoded[self._dev_name]
-            test_dataset = data_encoded[self._test_name] if self._test_name != "None" else None
+            train_dataset, eval_dataset, test_dataset = data_encoded[self._train_name], data_encoded[self._dev_name], data_encoded[
+                self._test_name]
 
         if self._task_name == "text-classification":
             self._num_labels = len(train_dataset.features["label"].names)
