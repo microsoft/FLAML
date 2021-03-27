@@ -239,11 +239,12 @@ class AutoHuggingFace:
         fold_keys = data_raw.keys()
         if fold_keys == {"train", "validation", "test"}:
             return "train", "validation", "test"
-        for each_key in fold_keys.keys():
+        for each_key in fold_keys:
             for each_split_name in {"train", "validation", "test"}:
-                if each_key.startswith(each_split_name) and each_key != each_split_name:
-                    logger.error("The split name of dataset {} is different from the standard 'train' 'validation'"
-                                 " 'test', therefore must be speficied in dataset_config".format(self.full_dataset_name))
+                assert not (each_key.startswith(each_split_name) and each_key != each_split_name), \
+                    "The split name of dataset {} is different from the standard 'train' 'validation'" \
+                 " 'test', therefore must be speficied in dataset_config, candidate values are {}".format(self.full_dataset_name,
+                    ",".join(fold_keys))
         return "train", "validation", "test"
 
     def prepare_data(self,

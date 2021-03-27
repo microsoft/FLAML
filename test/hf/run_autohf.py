@@ -18,14 +18,14 @@ def _test_electra():
 
     autohf = AutoHuggingFace()
 
-    dataset_names = [["squad"]]
-    subdataset_names = [None]
+    dataset_names = [["glue"]]
+    subdataset_names = ["mnli"]
 
-    pretrained_models = ["bert-base-uncased", "google/electra-base-discriminator"]
+    pretrained_models = ["bert-base-uncased", "google/electra-base-discriminator", "google/electra-small-discriminator"]
 
-    search_algos = ["RandomSearch", "BlendSearch"]
-    scheduler_names = ["None", "None"]
-    time_limits = [4000, 4000]
+    search_algos = ["grid_search"]
+    scheduler_names = ["None"]
+    time_limits = [4000]
 
     fout = open("log.log", "w")
 
@@ -54,7 +54,7 @@ def _test_electra():
                 autohf_settings = {"resources_per_trial": {"gpu": 4, "cpu": 4},
                                    "wandb_key": wandb_key,
                                    "num_samples": 4 if this_search_algo != "grid_search" else 1,
-                                   "time_budget": time_limits[algo_idx],
+                                   "time_budget": 100000,
                                    "search_algo_name": this_search_algo,
                                    "scheduler_name": this_scheduler_name
                                    }
