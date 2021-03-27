@@ -676,7 +676,7 @@ class AutoHuggingFace:
 
         self._fp16 = fp16
 
-        ray.init(local_mode=True)
+        ray.init()
 
         self._extract_model_type()
         self._set_search_space(search_space_path)
