@@ -32,7 +32,8 @@ def _test_electra():
     for data_idx in range(len(dataset_names)):
         this_dataset_name = dataset_names[data_idx]
         this_subset_name = subdataset_names[data_idx]
-        for each_pretrained_model in pretrained_models:
+        for pretrained_idx in range(0, len(pretrained_models)):
+            each_pretrained_model = pretrained_models[pretrained_idx]
 
             for algo_idx in range(len(search_algos)):
                 this_search_algo = search_algos[algo_idx]
@@ -41,7 +42,8 @@ def _test_electra():
                     "dataset_config": {"task": dataset_to_task_mapping[this_dataset_name[0]],
                                        "dataset_name": this_dataset_name,
                                        "subdataset_name": this_subset_name,
-                                       "fold_name": ['train', 'validation_matched', 'test_matched']},
+                                       "fold_name": ['train', 'validation_matched', 'test_matched']
+                                    },
                     "model_name": each_pretrained_model,
                     "split_mode": "origin",
                     "ckpt_path": "../../../data/checkpoint/",

@@ -22,7 +22,7 @@ from .utils import PathUtils, _variable_override_default_alternative
 from .hpo.grid_searchspace_auto import AutoGridSearchSpace
 from .hpo.searchalgo_auto import AutoSearchAlgorithm, SEARCH_ALGO_MAPPING
 from .hpo.scheduler_auto import SCHEDULER_MAPPING, AutoScheduler
-from .huggingface.modeling_auto import AutoSeqClassificationHead, model_type_list
+from .hpo.grid_searchspace_auto import GRID_SEARCH_SPACE_MAPPING
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -378,7 +378,7 @@ class AutoHuggingFace:
 
     def _extract_model_type_with_keywords_match(self):
         matched_model_type = []
-        for each_model_type in model_type_list:
+        for each_model_type in GRID_SEARCH_SPACE_MAPPING.keys():
             if each_model_type in self.path_utils.model_checkpoint:
                 matched_model_type.append(each_model_type)
         assert len(matched_model_type) > 0
@@ -411,18 +411,12 @@ class AutoHuggingFace:
         if self._task_name == "text-classification":
             if per_model_config and len(per_model_config) > 0:
                 model_config = AutoConfig.from_pretrained(
-                    checkpoint_path, **per_model_config)
+                    checkpoint_path, **per_model_config, num_labels = self._num_labels)
             else:
                 model_config = AutoConfig.from_pretrained(
-                    checkpoint_path)
-            num_labels_old = model_config.num_labels
+                    checkpoint_path, num_labels = self._num_labels)
 
-            if self._num_labels != num_labels_old:
-                this_model = AutoModelForSequenceClassification.from_pretrained(checkpoint_path, num_labels = num_labels_old)
-                this_model._num_labels = self._num_labels
-                this_model.classifier = AutoSeqClassificationHead.from_config(model_config)
-            else:
-                this_model = AutoModelForSequenceClassification.from_pretrained(checkpoint_path, num_labels = num_labels_old)
+            this_model = AutoModelForSequenceClassification.from_config(model_config)
             this_model.resize_token_embeddings(len(self._tokenizer))
             return this_model
 
@@ -682,7 +676,7 @@ class AutoHuggingFace:
 
         self._fp16 = fp16
 
-        ray.init()
+        ray.init(local_mode=True)
 
         self._extract_model_type()
         self._set_search_space(search_space_path)
