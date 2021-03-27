@@ -33,7 +33,7 @@ class AutoSeqClassificationHead:
     @classmethod
     @replace_list_option_in_docstrings(MODEL_CLASSIFICATION_HEAD_MAPPING, use_model_types=False)
     def from_config(cls, config):
-        r"""
+        """
         Instantiates one of the huggingface classes of the library---with a head for sequence classification---from a configuration.
 
         Note:

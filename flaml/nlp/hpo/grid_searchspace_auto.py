@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-from flaml.nlp.hpo.get_grid_search_space import \
+from .get_grid_search_space import \
     (get_electra_space,
      get_bert_space,
      get_mobilebert_space,

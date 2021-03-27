@@ -16,17 +16,17 @@ from transformers.trainer_utils import IntervalStrategy
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoConfig, TrainingArguments
 from functools import partial
 
-from flaml.nlp.dataset.metric_auto import get_default_and_alternative_metric
-from flaml.nlp.dataset.submission_auto import auto_output_prediction
-from flaml.nlp.utils import PathUtils, _variable_override_default_alternative
-from flaml.nlp.hpo.grid_searchspace_auto import AutoGridSearchSpace
-from flaml.nlp.hpo.searchalgo_auto import AutoSearchAlgorithm, SEARCH_ALGO_MAPPING
-from flaml.nlp.hpo.scheduler_auto import SCHEDULER_MAPPING, AutoScheduler
-from flaml.nlp.huggingface.modeling_auto import AutoSeqClassificationHead, model_type_list
+from .dataset.metric_auto import get_default_and_alternative_metric
+from .dataset.submission_auto import auto_output_prediction
+from .utils import PathUtils, _variable_override_default_alternative
+from .hpo.grid_searchspace_auto import AutoGridSearchSpace
+from .hpo.searchalgo_auto import AutoSearchAlgorithm, SEARCH_ALGO_MAPPING
+from .hpo.scheduler_auto import SCHEDULER_MAPPING, AutoScheduler
+from .huggingface.modeling_auto import AutoSeqClassificationHead, model_type_list
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from flaml.nlp.huggingface.trainer import TrainerForAutoHF
+from .huggingface.trainer import TrainerForAutoHF
 
 import logging
 logger = logging.getLogger(__name__)
