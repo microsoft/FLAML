@@ -27,13 +27,14 @@ def test_electra(method='BlendSearch'):
 
     autohf_settings = {"resources_per_trial": {"cpu": 1},
                        "wandb_key": wandb_key,
-                       "search_algo": method,
+                       "search_algo_name": method,
                        "num_samples": 1,
                        "time_budget": 7200,
                        "fp16": False,
+                       "search_algo_args_mode": "custom",
                        "points_to_evaluate": [{
                            "num_train_epochs": 0.05,
-                           "per_device_train_batch_size": 1, }]
+                           "per_device_train_batch_size": 4, }]
                        }
 
     autohf.fit(train_dataset,
