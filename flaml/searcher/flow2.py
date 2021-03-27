@@ -200,6 +200,7 @@ class FLOW2(Searcher):
     def step_lower_bound(self) -> float:
         step_lb = self._step_lb
         for key in self._tunable_keys:
+            if key not in self.best_config: continue
             domain = self.space[key]
             sampler = domain.get_sampler()
             if isinstance(sampler, sample.Quantized):
