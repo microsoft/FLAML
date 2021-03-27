@@ -105,7 +105,7 @@ class AutoHuggingFace:
             elif each_hp == "num_train_epochs":
                 search_space[each_hp] = {"l": 0.05, "u": 10.0, "space": "linear"}
             elif each_hp == "per_device_train_batch_size":
-                search_space[each_hp] = [4, 8, 16, 32, 48, 64]
+                search_space[each_hp] = [1, 4, 8, 16, 32, 48, 64]
             else:
                 search_space[each_hp] = config_json[each_hp]
 
