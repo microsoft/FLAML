@@ -17,7 +17,7 @@ MODEL_CLASSIFICATION_HEAD_MAPPING = OrderedDict(
 
 class AutoSeqClassificationHead:
     """
-    This is a generic model class that will be instantiated as one of the model classes of the library---with a head for sequence classification
+    This is a generic huggingface class that will be instantiated as one of the huggingface classes of the library---with a head for sequence classification
     ---when created with the when created with the
     :meth:`~transformers.AutoSeqClassificationHead.from_config` class method.
 
@@ -33,17 +33,17 @@ class AutoSeqClassificationHead:
     @classmethod
     @replace_list_option_in_docstrings(MODEL_CLASSIFICATION_HEAD_MAPPING, use_model_types=False)
     def from_config(cls, config):
-        r"""
-        Instantiates one of the model classes of the library---with a head for sequence classification---from a configuration.
+        """
+        Instantiates one of the huggingface classes of the library---with a head for sequence classification---from a configuration.
 
         Note:
-            Loading a model from its configuration file does **not** load the model weights. It only affects the
-            model's configuration. Use :meth:`~transformers.AutoSeqClassificationHead.from_pretrained` to load the model
+            Loading a huggingface from its configuration file does **not** load the huggingface weights. It only affects the
+            huggingface's configuration. Use :meth:`~transformers.AutoSeqClassificationHead.from_pretrained` to load the huggingface
             weights.
 
         Args:
             config (:class:`~transformers.PretrainedConfig`):
-                The model class to instantiate is selected based on the configuration class:
+                The huggingface class to instantiate is selected based on the configuration class:
 
                 List options
 

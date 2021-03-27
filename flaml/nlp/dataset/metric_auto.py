@@ -1,0 +1,57 @@
+# https://github.com/huggingface/datasets/blob/master/metrics/glue/glue.py
+import os
+
+from collections import OrderedDict
+
+metric_mode_mapping_glue = {
+    "cola": [("mcc", "max")],
+    "mnli": [("accuracy", "max")],
+    "mrpc": [("accuracy", "max"), ("f1", "max")],
+    "qnli": [("accuracy", "max")],
+    "qqp":  [("accuracy", "max"), ("f1", "max")],
+    "rte":  [("accuracy", "max")],
+    "sst2": [("accuracy", "max")],
+    "stsb": [("pearson", "max"), ("spearman", "max")],
+    "wnli": [("accuracy", "max")]
+}
+
+metric_mode_mapping_squad = [("exact_match", "max"), ("f1", "max")]
+
+metric_mode_mapping_super_glue = {
+    "axb": [("mcc", "max")],
+    "cb": [("accuracy", "max"), ("f1", "max")],
+    "copa": [("accuracy", "max")],
+    "rte": [("accuracy", "max")],
+    "wic":  [("accuracy", "max")],
+    "wsc":  [("accuracy", "max")],
+    "wsc.fixed": [("accuracy", "max")],
+    "boolq": [("accuracy", "max")],
+    "axg": [("accuracy", "max")]
+}
+
+METRIC_MAPPING = OrderedDict(
+    [
+        ("squad", metric_mode_mapping_squad),
+        ("glue", metric_mode_mapping_glue),
+        ("super_glue", metric_mode_mapping_super_glue),
+    ]
+)
+
+def get_default_and_alternative_metric(dataset_name, subdataset_name = None, metric_name = None, mode_name = None):
+    if dataset_name in METRIC_MAPPING.keys():
+        eval_name_mapping = METRIC_MAPPING[dataset_name]
+        if isinstance(eval_name_mapping, dict):
+            assert subdataset_name and subdataset_name in eval_name_mapping, "dataset_name and subdataset_name not correctly specified"
+            default_metric, default_mode = eval_name_mapping[subdataset_name][0]
+            all_metrics, all_mode = [x[0] for x in eval_name_mapping[subdataset_name]] + ["loss"], [x[1] for x in eval_name_mapping[subdataset_name]] + ["min"]
+
+            return default_metric, default_mode, all_metrics, all_mode
+        else:
+            assert isinstance(eval_name_mapping, list), "dataset_name and subdataset_name not correctly specified"
+
+            default_metric, default_mode = eval_name_mapping[0]
+            all_metrics, all_mode = [x[0] for x in eval_name_mapping] + ["loss"], [x[1] for x in eval_name_mapping] + ["min"]
+
+            return default_metric, default_mode, all_metrics, all_mode
+    else:
+        assert metric_name and mode_name, "The dataset is not in {}, you must explicitly specify the metric name".format(",".join(METRIC_MAPPING.keys()))

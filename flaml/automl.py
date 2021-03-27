@@ -272,7 +272,7 @@ class AutoML:
         '''A dictionary of iter->(estimator, config, time),
         storing the best estimator, config, and the time when the best
         model is updated each time.
-        '''
+        '''        
         return self._config_history
 
     @property
@@ -290,7 +290,7 @@ class AutoML:
 
         Args:
             estimator_name: a str of the estimator's name
-
+        
         Returns:
             An object with `predict()` and `predict_proba()` method (for
         classification), storing the best trained model for estimator_name.
@@ -303,18 +303,18 @@ class AutoML:
 
     @property
     def best_estimator(self):
-        '''A string indicating the best estimator found.'''
+        '''A string indicating the best estimator found.'''        
         return self._best_estimator
 
     @property
     def best_iteration(self):
         '''An integer of the iteration number where the best
-        config is found.'''
+        config is found.'''        
         return self._best_iteration
 
     @property
     def best_config(self):
-        '''A dictionary of the best configuration.'''
+        '''A dictionary of the best configuration.'''        
         return self._search_states[self._best_estimator].best_config
 
     @property
@@ -331,8 +331,8 @@ class AutoML:
 
     @property
     def classes_(self):
-        '''A list of n_classes elements for class labels.'''
-        if self._label_transformer:
+        '''A list of n_classes elements for class labels.'''        
+        if self._label_transformer: 
             return self._label_transformer.classes_.tolist()
         if self._trained_estimator:
             return self._trained_estimator.model.classes_.tolist()
@@ -377,7 +377,7 @@ class AutoML:
         return proba
 
     def _preprocess(self, X):
-        if issparse(X):
+        if issparse(X): 
             X = X.tocsr()
         if self._transformer:
             X = self._transformer.transform(X)
@@ -419,7 +419,7 @@ class AutoML:
         else:
             raise ValueError(
         "either X_train_all+y_train_all or dataframe+label need to be provided")
-        if issparse(X_train_all):
+        if issparse(X_train_all): 
             self._transformer = self._label_transformer = False
             self._X_train_all, self._y_train_all = X, y
         else:
@@ -428,7 +428,7 @@ class AutoML:
             self._X_train_all, self._y_train_all = \
                 self._transformer.fit_transform(X, y, self._state.task)
             self._label_transformer = self._transformer.label_transformer
-        self._sample_weight_full = self._state.fit_kwargs.get('sample_weight')
+        self._sample_weight_full = self._state.fit_kwargs.get('sample_weight')      
         if X_val is not None and y_val is not None:
             if not (isinstance(X_val, np.ndarray) or
                 issparse(X_val) or
@@ -466,11 +466,11 @@ class AutoML:
                       split_ratio,
                       n_splits):
         X_val, y_val = self._state.X_val, self._state.y_val
-        if issparse(X_val):
+        if issparse(X_val): 
             X_val = X_val.tocsr()
         X_train_all, y_train_all = \
             self._X_train_all, self._y_train_all
-        if issparse(X_train_all):
+        if issparse(X_train_all): 
             X_train_all = X_train_all.tocsr()
         if self._state.task != 'regression' and self._state.fit_kwargs.get(
             'sample_weight') is None:
@@ -566,7 +566,7 @@ class AutoML:
                     f"""{self._split_type} split for y_train \
                         {y_train_counts_elements}, \
                         y_val {y_val_counts_elements}""")
-            elif eval_method == 'holdout' and self._state.task == 'regression':
+            elif eval_method == 'holdout' and self._state.task == 'regression':                
                 if 'sample_weight' in self._state.fit_kwargs:
                     X_train, X_val, y_train, y_val, self._state.fit_kwargs[
                         'sample_weight'], self._state.weight_val = \
@@ -620,7 +620,7 @@ class AutoML:
             log_file_name: A string of the log file name
             record_id: An integer of the record ID in the file,
                 0 corresponds to the first trial
-            task: A string of the task type,
+            task: A string of the task type, 
                 'binary', 'multi', or 'regression'
 
         Returns:
@@ -820,7 +820,7 @@ class AutoML:
             n_jobs: An integer of the number of threads for training
             log_file_name: A string of the log file name
             estimator_list: A list of strings for estimator names, or 'auto'
-                e.g.,
+                e.g., 
 
                 .. code-block:: python
 
@@ -880,9 +880,9 @@ class AutoML:
             # Add the console handler.
             _ch = logging.StreamHandler()
             _ch.setFormatter(logger_formatter)
-            logger.addHandler(_ch)
+            logger.addHandler(_ch)        
         logger.info("Evaluation method: {}".format(eval_method))
-
+        
         self._retrain_full = retrain_full and (eval_method == 'holdout' and
          self._state.X_val is None)
         self._prepare_data(eval_method, split_ratio, n_splits)
@@ -917,8 +917,8 @@ class AutoML:
         # set up learner search space
         for estimator_name in estimator_list:
             estimator_class = self._state.learner_classes[estimator_name]
-            self._search_states[estimator_name] = SearchState(
-                learner_class=estimator_class,
+            self._search_states[estimator_name] = SearchState( 
+                learner_class=estimator_class, 
                 data_size=self._state.data_size, task=self._state.task,
             )
         logger.info("List of ML learners in AutoML Run: {}".format(
@@ -957,7 +957,7 @@ class AutoML:
         self._retrained_config = {}
         est_retrain_time = next_trial_time = 0
         best_config_sig = None
-        # use ConcurrencyLimiter to limit the amount of concurrency when
+        # use ConcurrencyLimiter to limit the amount of concurrency when 
         # using a search algorithm
         better = True # whether we find a better model in one trial
         if self._ensemble: self.best_model = {}
@@ -994,7 +994,7 @@ class AutoML:
                         else time_left - est_retrain_time
             if not search_state.search_alg:
                 search_state.training_function = partial(
-                    AutoMLState._compute_with_config_base,
+                    AutoMLState._compute_with_config_base, 
                     self._state, estimator)
                 search_space = search_state.search_space
                 if self._sample:
@@ -1022,7 +1022,7 @@ class AutoML:
                 if self._hpo_method in ('bs', 'cfo', 'grid'):
                     algo = SearchAlgo(metric='val_loss', mode='min',
                         space=search_space,
-                        points_to_evaluate=points_to_evaluate,
+                        points_to_evaluate=points_to_evaluate, 
                         cat_hp_cost=search_state.cat_hp_cost,
                         prune_attr=prune_attr,
                         min_resource=min_resource,
@@ -1030,10 +1030,10 @@ class AutoML:
                         resources_per_trial={"cpu": self._state.n_jobs,
                         "mem": self._mem_thres},
                         mem_size=learner_class.size)
-                else:
+                else:                         
                     algo = SearchAlgo(metric='val_loss', mode='min',
                         space=search_space,
-                        points_to_evaluate=points_to_evaluate,
+                        points_to_evaluate=points_to_evaluate, 
                     )
                 search_state.search_alg = ConcurrencyLimiter(algo,
                     max_concurrent=1)
@@ -1048,7 +1048,7 @@ class AutoML:
             start_run_time = time.time()
             # warnings.filterwarnings("ignore")
             analysis = tune.run(search_state.training_function,
-                init_config=None,
+                init_config=None, 
                 search_alg=search_state.search_alg,
                 time_budget_s=budget_left,
                 verbose=max(self.verbose-1,0), #local_dir='logs/tune_results',
@@ -1057,7 +1057,7 @@ class AutoML:
             # warnings.resetwarnings()
             time_used = time.time()-start_run_time
             better = False
-            if analysis.trials:
+            if analysis.trials: 
                 search_state.update(analysis, time_used = time_used,
                     save_model_history = self._save_model_history)
                 if self._estimator_index is None:
@@ -1075,7 +1075,7 @@ class AutoML:
                         self._fullsize_reached = True
                 if search_state.best_loss < self._state.best_loss:
                     best_config_sig = estimator + search_state.get_hist_config_sig(
-                        self.data_size_full,
+                        self.data_size_full, 
                         search_state.best_config)
                     self._state.best_loss = search_state.best_loss
                     self._best_estimator = estimator
@@ -1095,18 +1095,18 @@ class AutoML:
                     self._trained_estimator = search_state.trained_estimator
                     self._best_iteration = self._track_iter
                     better = True
-                    next_trial_time = search_state.time2eval_best
+                    next_trial_time = search_state.time2eval_best                
                 if better or self._log_type == 'all':
                     self._training_log.append(self._iter_per_learner[estimator],
                                         search_state.train_loss,
-                                        search_state.trial_time,
+                                        search_state.trial_time, 
                                         self._state.time_from_start,
                                         search_state.val_loss,
                                         search_state.config,
                                         search_state.best_loss,
                                         search_state.best_config,
                                         estimator,
-                                        search_state.sample_size)
+                                        search_state.sample_size)                
                     if mlflow is not None and mlflow.active_run():
                         with mlflow.start_run(nested=True) as run:
                             mlflow.log_metric('iter_counter',
@@ -1150,8 +1150,8 @@ class AutoML:
                     est_retrain_time + next_trial_time):
                 self._trained_estimator, retrain_time = \
                     self._state._train_with_config(
-                    self._best_estimator,
-                    self._search_states[self._best_estimator].best_config,
+                    self._best_estimator, 
+                    self._search_states[self._best_estimator].best_config, 
                     self.data_size_full)
                 logger.info("retrain {} for {:.1f}s".format(
                           estimator, retrain_time,))
@@ -1177,7 +1177,7 @@ class AutoML:
             self._trained_estimator = self._selected.trained_estimator
             self.modelcount = sum(search_state.total_iter
                             for search_state in self._search_states.values())
-            if self._trained_estimator:
+            if self._trained_estimator: 
                 logger.info(f'selected model: {self._trained_estimator.model}')
             if self._ensemble:
                 search_states = list(x for x in self._search_states.items()
@@ -1186,7 +1186,7 @@ class AutoML:
                 estimators = [(x[0],x[1].trained_estimator) for x in search_states[
                     :2]]
                 estimators += [(x[0],x[1].trained_estimator) for x in search_states[
-                    2:] if x[1].best_loss<4*self._selected.best_loss]
+                    2:] if x[1].best_loss<4*self._selected.best_loss]        
                 logger.info(estimators)
                 if len(estimators)<=1: return
                 if self._state.task != "regression":
@@ -1236,14 +1236,14 @@ class AutoML:
                 eci_search_state = search_state.estimated_cost4improvement
                 if search_state.sample_size < self._state.data_size:
                     eci_search_state = min(eci_search_state,
-                        search_state.time2eval_best * min(SAMPLE_MULTIPLY_FACTOR,
+                        search_state.time2eval_best * min(SAMPLE_MULTIPLY_FACTOR, 
                         self._state.data_size/search_state.sample_size))
                 gap = search_state.best_loss - self._state.best_loss
                 if gap > 0 and not self._ensemble:
-                    delta_loss = (search_state.best_loss_old -
+                    delta_loss = (search_state.best_loss_old - 
                                  search_state.best_loss) or \
                                      search_state.best_loss
-                    delta_time = (search_state.total_time_used -
+                    delta_time = (search_state.total_time_used - 
                                  search_state.time_best_found_old) or 1e-10
                     speed = delta_loss / delta_time
                     try:

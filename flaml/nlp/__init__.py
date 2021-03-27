@@ -1,1 +1,2 @@
-from flaml.nlp.autohf import AutoHuggingFace
+from .autohf import AutoHuggingFace
+from .autohf import PathUtils

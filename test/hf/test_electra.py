@@ -50,7 +50,7 @@ try:
 
 except:
     print("pip install torch transformers datasets flaml[blendsearch,ray]")
-
+    
 import logging
 logger = logging.getLogger(__name__)
 import os
@@ -120,7 +120,7 @@ def train_electra(config: dict):
     except: pass
 
 def _test_electra(method='BlendSearch'):
-
+ 
     max_num_epoch = 9
     num_samples = -1
     time_budget_s = 3600
