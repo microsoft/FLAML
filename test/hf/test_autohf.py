@@ -33,8 +33,8 @@ def test_electra(method='BlendSearch'):
                        "fp16": False,
                        "search_algo_args_mode": "custom",
                        "points_to_evaluate": [{
-                           "num_train_epochs": 0.05,
-                           "per_device_train_batch_size": 1, }]
+                           "num_train_epochs": 0.01,
+                           "per_device_train_batch_size": 4, }]
                        }
 
     autohf.fit(train_dataset,
