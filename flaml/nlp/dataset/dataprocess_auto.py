@@ -17,8 +17,7 @@ def get_mapping_func_glue(logger, **kwargs):
         logger.error("for glue, you must specify 'sentence_keys'")
         raise err
 
-def tokenize_glue(
-                  max_seq_length,
+def tokenize_glue(max_seq_length,
                   this_tokenizer,
                   examples,
                   sentence_keys):

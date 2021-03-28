@@ -5,7 +5,7 @@ import os
 import shutil
 import time
 
-from flaml.nlp.autohf import AutoHuggingFace
+from flaml.nlp.autotransformers import AutoTransformers
 
 dataset_to_task_mapping = {
     "glue": "text-classification",
@@ -16,7 +16,7 @@ def _test_electra():
     # setting wandb key
     wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 
-    autohf = AutoHuggingFace()
+    autotransformers = AutoTransformers()
 
     dataset_names = [["glue"]]
     subdataset_names = ["qqp"]
@@ -52,7 +52,7 @@ def _test_electra():
                     "max_seq_length": 128,
                 }
                 train_dataset, eval_dataset, test_dataset =\
-                    autohf.prepare_data(**preparedata_setting)
+                    autotransformers.prepare_data(**preparedata_setting)
 
                 autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
                                    "wandb_key": wandb_key,
@@ -64,30 +64,30 @@ def _test_electra():
                                    }
 
                 try:
-                    validation_metric = autohf.fit(train_dataset,
+                    validation_metric = autotransformers.fit(train_dataset,
                                eval_dataset,
                                **autohf_settings,)
                 except AssertionError:
-                    save_file_name = autohf.full_dataset_name + "_" + autohf.model_type + "_" + autohf.search_algo_name \
-                                     + "_" + autohf.scheduler_name + "_" + autohf.path_utils.group_hash_id
+                    save_file_name = autotransformers.full_dataset_name + "_" + autotransformers.model_type + "_" + autotransformers.search_algo_name \
+                                     + "_" + autotransformers.scheduler_name + "_" + autotransformers.path_utils.group_hash_id
                     fout.write(save_file_name + ":\n")
                     fout.write("failed, no checkpoint found\n")
                     fout.flush()
                     continue
 
                 if this_search_algo == "grid_search":
-                    this_grid_search_time = autohf.last_run_duration
+                    this_grid_search_time = autotransformers.last_run_duration
 
-                save_file_name = autohf.full_dataset_name + "_" + autohf.model_type + "_" + autohf.search_algo_name + "_" + autohf.scheduler_name + "_" + autohf.path_utils.group_hash_id
+                save_file_name = autotransformers.full_dataset_name + "_" + autotransformers.model_type + "_" + autotransformers.search_algo_name + "_" + autotransformers.scheduler_name + "_" + autotransformers.path_utils.group_hash_id
                 if test_dataset:
-                    predictions = autohf.predict(test_dataset)
-                    autohf.output_prediction(predictions,
+                    predictions = autotransformers.predict(test_dataset)
+                    autotransformers.output_prediction(predictions,
                                              output_prediction_path="../../../data/result/",
                                              output_dir_name=save_file_name)
 
                 fout.write(save_file_name + ":\n")
-                fout.write((autohf.metric_name) + ":" + json.dumps(validation_metric) + "\n")
-                fout.write("duration:" + str(autohf.last_run_duration) + "\n\n")
+                fout.write((autotransformers.metric_name) + ":" + json.dumps(validation_metric) + "\n")
+                fout.write("duration:" + str(autotransformers.last_run_duration) + "\n\n")
                 fout.flush()
 
                 if os.path.exists("/home/xliu127/ray_results/"):

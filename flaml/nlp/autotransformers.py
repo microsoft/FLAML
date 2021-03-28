@@ -42,7 +42,7 @@ task_list = [
 ]
 
 
-class AutoHuggingFace:
+class AutoTransformers:
 
     '''The AutoHuggingFace class
 
@@ -145,14 +145,14 @@ class AutoHuggingFace:
                           search_space_dir=None):
         assert self._model_type
         search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self._model_type, self.model_size_type, self._dataset_name[0], self._subdataset_name)
-        self._search_space_grid = AutoHuggingFace._convert_json_to_search_space(search_space_grid_json, mode="grid_search")
+        self._search_space_grid = AutoTransformers._convert_json_to_search_space(search_space_grid_json, mode="grid_search")
 
         if self._search_algo_name != "grid_search":
             if search_space_dir:
                 search_space_hpo_json = json.load(open(os.path.join(search_space_dir), "r"))
             else:
-                search_space_hpo_json = AutoHuggingFace._convert_grid_to_hpo_search_space(search_space_grid_json)
-            self._search_space_hpo = AutoHuggingFace._convert_json_to_search_space(search_space_hpo_json, mode="hpo")
+                search_space_hpo_json = AutoTransformers._convert_grid_to_hpo_search_space(search_space_grid_json)
+            self._search_space_hpo = AutoTransformers._convert_json_to_search_space(search_space_hpo_json, mode="hpo")
         else:
             self._search_space_hpo = self._search_space_grid
 
@@ -345,7 +345,7 @@ class AutoHuggingFace:
             data_raw = load_dataset(input_path)
 
         self._train_name, self._dev_name, self._test_name = self._get_split_name(data_raw, fold_name=fold_name)
-        sentence_keys = AutoHuggingFace._get_sentence_keys(data_raw)
+        sentence_keys = AutoTransformers._get_sentence_keys(data_raw)
 
         data_encoded = data_raw.map(partial(self._tokenize, sentence_keys= sentence_keys), batched=True)
 
@@ -490,7 +490,7 @@ class AutoHuggingFace:
 
     def _objective(self, config, reporter, checkpoint_dir=None):
 
-        training_args_config, per_model_config = AutoHuggingFace._separate_config(config)
+        training_args_config, per_model_config = AutoTransformers._separate_config(config)
         this_model = self._load_model(per_model_config=per_model_config)
 
         trial_id = reporter.trial_id
@@ -753,7 +753,7 @@ class AutoHuggingFace:
         validation_metric = best_trial.metric_analysis[self._metric_name][self._metric_mode_name]
 
         get_best_ckpt = analysis.get_best_checkpoint(best_trial, metric= self._metric_name, mode= self._metric_mode_name)
-        best_ckpt = AutoHuggingFace._recover_checkpoint(get_best_ckpt)
+        best_ckpt = AutoTransformers._recover_checkpoint(get_best_ckpt)
 
         self._save_ckpt_json(best_ckpt)
 

@@ -2,13 +2,13 @@
 '''
 import ray
 
-from flaml.nlp.autohf import AutoHuggingFace
+from flaml.nlp.autotransformers import AutoTransformers
 
 def test_electra(method='BlendSearch'):
     # setting wandb key
     wandb_key = "f38cc048c956367de27eeb2749c23e6a94519ab8"
 
-    autohf = AutoHuggingFace()
+    autohf = AutoTransformers()
 
     preparedata_setting = {
         "dataset_config": {"task": "text-classification",
