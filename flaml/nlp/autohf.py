@@ -488,6 +488,21 @@ class AutoHuggingFace:
 
         return training_args_config, per_model_config
 
+    def _tokenize(self,
+                  examples,
+                  sentence_keys):
+        if len(sentence_keys) > 1:
+            sentence1_key, sentence2_key = sentence_keys[0], sentence_keys[1]
+        else:
+            sentence1_key = sentence_keys[0]
+            sentence2_key = None
+
+        args = (
+            (examples[sentence1_key],) if sentence2_key is None else (
+                examples[sentence1_key], examples[sentence2_key])
+        )
+        return self._tokenizer(*args, padding="max_length", max_length=self._max_seq_length, truncation=True)
+
     def _objective(self, config, reporter, checkpoint_dir=None):
 
         training_args_config, per_model_config = AutoHuggingFace._separate_config(config)
