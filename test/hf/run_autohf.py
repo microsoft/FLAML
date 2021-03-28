@@ -19,9 +19,9 @@ def _test_electra():
     autohf = AutoHuggingFace()
 
     dataset_names = [["glue"]]
-    subdataset_names = ["qqp"]
+    subdataset_names = ["mnli"]
 
-    pretrained_models = ["bert-base-uncased", "google/electra-base-discriminator", "google/electra-small-discriminator"]
+    pretrained_models = ["bert-base-uncased"] #, "google/electra-base-discriminator", "google/electra-small-discriminator"]
 
     search_algos = ["grid_search"]
     scheduler_names = ["None"]
@@ -93,7 +93,7 @@ def _test_electra():
                 if os.path.exists("/home/xliu127/ray_results/"):
                     shutil.rmtree("/home/xliu127/ray_results/")
 
-        fout.close()
+    fout.close()
 
 if __name__ == "__main__":
     _test_electra()
