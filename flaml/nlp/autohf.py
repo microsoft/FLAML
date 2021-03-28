@@ -18,6 +18,7 @@ from functools import partial
 
 from .dataset.metric_auto import get_default_and_alternative_metric
 from .dataset.submission_auto import auto_output_prediction
+from .huggingface.modeling_auto import AutoSeqClassificationHead
 from .utils import PathUtils, _variable_override_default_alternative
 from .hpo.grid_searchspace_auto import AutoGridSearchSpace
 from .hpo.searchalgo_auto import AutoSearchAlgorithm, SEARCH_ALGO_MAPPING
@@ -89,7 +90,8 @@ class AutoHuggingFace:
                    wandb_key):
         os.environ["WANDB_API_KEY"] = wandb_key
         self.path_utils.group_hash_id = wandb.util.generate_id()
-        group_name = self.path_utils.folder_name + "_" + self.path_utils.group_hash_id
+        group_name = self.full_dataset_name + "_" + self.model_type + "_" + self.search_algo_name \
+                                     + "_" + self.scheduler_name + "_" + self.path_utils.group_hash_id
         os.environ["WANDB_RUN_GROUP"] = group_name
 
     @staticmethod
@@ -154,20 +156,7 @@ class AutoHuggingFace:
         else:
             self._search_space_hpo = self._search_space_grid
 
-    def _tokenize(self,
-                  examples,
-                  sentence_keys):
-        if len(sentence_keys) > 1:
-            sentence1_key, sentence2_key = sentence_keys[0], sentence_keys[1]
-        else:
-            sentence1_key = sentence_keys[0]
-            sentence2_key = None
 
-        args = (
-            (examples[sentence1_key],) if sentence2_key is None else (
-                examples[sentence1_key], examples[sentence2_key])
-        )
-        return self._tokenizer(*args, padding="max_length", max_length=self._max_seq_length, truncation=True)
 
     @staticmethod
     def _get_sentence_keys(data_raw):
@@ -203,6 +192,13 @@ class AutoHuggingFace:
         Get the huggingface type, which is the concatenation of the dataset name and the subdataset name
         """
         return self._model_type
+
+    @property
+    def ckpt_per_epoch(self):
+        """
+        Get the huggingface type, which is the concatenation of the dataset name and the subdataset name
+        """
+        return self._ckpt_per_epoch
 
     @property
     def search_algo_name(self):
@@ -403,20 +399,48 @@ class AutoHuggingFace:
         self._model_type = model_type
         self.model_size_type = model_size_type
 
+    # def _load_model2(self,
+    #                 checkpoint_path = None,
+    #                 per_model_config=None):
+    #     if not checkpoint_path:
+    #         checkpoint_path = self.path_utils.model_checkpoint
+    #     if self._task_name == "text-classification":
+    #         if per_model_config and len(per_model_config) > 0:
+    #             model_config = AutoConfig.from_pretrained(
+    #                 checkpoint_path, **per_model_config, num_labels = self._num_labels)
+    #         else:
+    #             model_config = AutoConfig.from_pretrained(
+    #                 checkpoint_path, num_labels = self._num_labels)
+    #
+    #         this_model = AutoModelForSequenceClassification.from_config(model_config)
+    #         this_model.resize_token_embeddings(len(self._tokenizer))
+    #         return this_model
+
     def _load_model(self,
                     checkpoint_path = None,
                     per_model_config=None):
         if not checkpoint_path:
             checkpoint_path = self.path_utils.model_checkpoint
         if self._task_name == "text-classification":
+            num_labels_old = AutoConfig.from_pretrained(checkpoint_path).num_labels
             if per_model_config and len(per_model_config) > 0:
                 model_config = AutoConfig.from_pretrained(
-                    checkpoint_path, **per_model_config, num_labels = self._num_labels)
+                    checkpoint_path,
+                    num_labels = num_labels_old,
+                    **per_model_config)
             else:
                 model_config = AutoConfig.from_pretrained(
-                    checkpoint_path, num_labels = self._num_labels)
+                    checkpoint_path,
+                    num_labels = num_labels_old)
 
-            this_model = AutoModelForSequenceClassification.from_config(model_config)
+            if self._num_labels != num_labels_old:
+                model_config.num_labels = num_labels_old
+                this_model = AutoModelForSequenceClassification.from_pretrained(checkpoint_path, config=model_config)
+                model_config.num_labels = self._num_labels
+                this_model.num_labels = self._num_labels
+                this_model.classifier = AutoSeqClassificationHead.from_config(model_config)
+            else:
+                this_model = AutoModelForSequenceClassification.from_pretrained(checkpoint_path, config=model_config)
             this_model.resize_token_embeddings(len(self._tokenizer))
             return this_model
 
@@ -438,16 +462,15 @@ class AutoHuggingFace:
         return metric.compute(predictions=predictions, references=labels)
 
     def _compute_checkpoint_freq(self,
-                                 num_train_epochs,
                                  batch_size,
                                  mode="last"):
         assert mode in {"last"}
         if "gpu" in self._resources_per_trial:
-            ckpt_step_freq = int(num_train_epochs * len(self._train_dataset) / batch_size /
-                                 self._resources_per_trial["gpu"]) + 1
+            ckpt_step_freq = int(len(self._train_dataset) / batch_size /
+                                 self._resources_per_trial["gpu"] / self._ckpt_per_epoch) + 1
         else:
-            ckpt_step_freq = int(num_train_epochs * len(self._train_dataset) / batch_size /
-                                 self._resources_per_trial["cpu"]) + 1
+            ckpt_step_freq = int(len(self._train_dataset) / batch_size /
+                                 self._resources_per_trial["cpu"] / self._ckpt_per_epoch) + 1
 
         return ckpt_step_freq
 
@@ -473,7 +496,6 @@ class AutoHuggingFace:
         self.path_utils.make_dir_per_trial(trial_id)
 
         ckpt_freq = self._compute_checkpoint_freq(
-            num_train_epochs = config["num_train_epochs"],
             batch_size = config["per_device_train_batch_size"],
             mode="last")
 
@@ -604,6 +626,7 @@ class AutoHuggingFace:
             metric_name = None,
             metric_mode_name = "max",
             search_algo_name= None,
+            ckpt_per_epoch=1,
             fp16 = True,
             search_space_path = None,
             scheduler_name=None,
@@ -671,6 +694,7 @@ class AutoHuggingFace:
         _variable_override_default_alternative(logger, self, "search_algo_name", "BlendSearch", list(SEARCH_ALGO_MAPPING.keys()), search_algo_name)
         _variable_override_default_alternative(logger, self.path_utils, "search_algo_name", "BlendSearch", list(SEARCH_ALGO_MAPPING.keys()), search_algo_name)
         _variable_override_default_alternative(logger, self, "scheduler_name", "None", list(SCHEDULER_MAPPING.keys()), scheduler_name)
+        _variable_override_default_alternative(logger, self, "ckpt_per_epoch", 1, [x for x in range(1, 11)], ckpt_per_epoch)
 
         self._set_metric(metric_name, metric_mode_name)
 
@@ -787,6 +811,10 @@ class AutoHuggingFace:
     @scheduler_name.setter
     def scheduler_name(self, value):
         self._scheduler_name = value
+
+    @ckpt_per_epoch.setter
+    def ckpt_per_epoch(self, value):
+        self._ckpt_per_epoch = value
 
     @search_algo_name.setter
     def search_algo_name(self, value):

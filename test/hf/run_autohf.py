@@ -14,12 +14,12 @@ dataset_to_task_mapping = {
 
 def _test_electra():
     # setting wandb key
-    wandb_key = "f38cc048c956367de27eeb2749c23e6a94519ab8"
+    wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 
     autohf = AutoHuggingFace()
 
     dataset_names = [["glue"]]
-    subdataset_names = ["mnli"]
+    subdataset_names = ["qqp"]
 
     pretrained_models = ["bert-base-uncased", "google/electra-base-discriminator", "google/electra-small-discriminator"]
 
@@ -54,12 +54,13 @@ def _test_electra():
                 train_dataset, eval_dataset, test_dataset =\
                     autohf.prepare_data(**preparedata_setting)
 
-                autohf_settings = {"resources_per_trial": {"gpu": 4, "cpu": 4},
+                autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
                                    "wandb_key": wandb_key,
                                    "num_samples": 4 if this_search_algo != "grid_search" else 1,
                                    "time_budget": 100000,
                                    "search_algo_name": this_search_algo,
-                                   "scheduler_name": this_scheduler_name
+                                   "scheduler_name": this_scheduler_name,
+                                   "ckpt_per_epoch": 1,
                                    }
 
                 try:
@@ -67,7 +68,8 @@ def _test_electra():
                                eval_dataset,
                                **autohf_settings,)
                 except AssertionError:
-                    save_file_name = autohf.full_dataset_name + "_" + autohf.model_type + "_" + autohf.search_algo_name + "_" + autohf.scheduler_name + "_" + autohf.path_utils.group_hash_id
+                    save_file_name = autohf.full_dataset_name + "_" + autohf.model_type + "_" + autohf.search_algo_name \
+                                     + "_" + autohf.scheduler_name + "_" + autohf.path_utils.group_hash_id
                     fout.write(save_file_name + ":\n")
                     fout.write("failed, no checkpoint found\n")
                     fout.flush()
