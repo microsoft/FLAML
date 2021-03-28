@@ -3,7 +3,9 @@ from functools import partial
 def get_mapping_func_glue():
     return partial(self._tokenize, sentence_keys= sentence_keys)
 
-def _tokenize(self,
+def tokenize_glue(
+                  max_seq_length,
+                  this_tokenizer,
                   examples,
                   sentence_keys):
         if len(sentence_keys) > 1:
@@ -16,7 +18,7 @@ def _tokenize(self,
             (examples[sentence1_key],) if sentence2_key is None else (
                 examples[sentence1_key], examples[sentence2_key])
         )
-        return self._tokenizer(*args, padding="max_length", max_length=self._max_seq_length, truncation=True)
+        return this_tokenizer(*args, padding="max_length", max_length= max_seq_length, truncation=True)
 
 MAPPING_FUNC_MAPPING = OrderedDict(
     [
