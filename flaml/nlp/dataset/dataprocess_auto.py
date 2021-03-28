@@ -1,7 +1,21 @@
 from functools import partial
+from collections import OrderedDict
 
-def get_mapping_func_glue():
-    return partial(self._tokenize, sentence_keys= sentence_keys)
+def get_mapping_func_squad(logger, **kwargs):
+    try:
+        glue_sentence_keys = kwargs["sentence_keys"]
+        return partial(tokenize_glue, sentence_keys=glue_sentence_keys)
+    except KeyError as err:
+        logger.error("for glue, you must specify 'sentence_keys'")
+        raise err
+
+def get_mapping_func_glue(logger, **kwargs):
+    try:
+        glue_sentence_keys = kwargs["sentence_keys"]
+        return partial(tokenize_glue, sentence_keys=glue_sentence_keys)
+    except KeyError as err:
+        logger.error("for glue, you must specify 'sentence_keys'")
+        raise err
 
 def tokenize_glue(
                   max_seq_length,
@@ -22,8 +36,7 @@ def tokenize_glue(
 
 MAPPING_FUNC_MAPPING = OrderedDict(
     [
-        ("squad", metric_mode_mapping_squad),
-        ("glue", metric_mode_mapping_glue),
-        ("super_glue", metric_mode_mapping_super_glue),
+        ("squad", get_mapping_func_squad),
+        ("glue", get_mapping_func_glue),
     ]
 )
