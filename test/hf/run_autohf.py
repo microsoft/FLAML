@@ -42,7 +42,7 @@ def _test_electra():
                     "dataset_config": {"task": dataset_to_task_mapping[this_dataset_name[0]],
                                        "dataset_name": this_dataset_name,
                                        "subdataset_name": this_subset_name,
-                                       "fold_name": ['train', 'validation_matched', 'test_matched']
+                                       #"fold_name": ['train', 'validation_matched', 'test_matched']
                                     },
                     "model_name": each_pretrained_model,
                     "split_mode": "origin",
