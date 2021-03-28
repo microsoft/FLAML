@@ -19,7 +19,7 @@ def _test_electra():
     autohf = AutoHuggingFace()
 
     dataset_names = [["glue"]]
-    subdataset_names = ["mnli"]
+    subdataset_names = ["qqp"]
 
     pretrained_models = ["bert-base-uncased", "google/electra-base-discriminator", "google/electra-small-discriminator"]
 
