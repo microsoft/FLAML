@@ -245,21 +245,6 @@ class AutoHuggingFace:
                     "documentation of AutoHuggingFace.prepare_data()".format(",".join(fold_keys))
         return "train", "validation", "test"
 
-    def _tokenize(self,
-                  examples,
-                  sentence_keys):
-        if len(sentence_keys) > 1:
-            sentence1_key, sentence2_key = sentence_keys[0], sentence_keys[1]
-        else:
-            sentence1_key = sentence_keys[0]
-            sentence2_key = None
-
-        args = (
-            (examples[sentence1_key],) if sentence2_key is None else (
-                examples[sentence1_key], examples[sentence2_key])
-        )
-        return self._tokenizer(*args, padding="max_length", max_length=self._max_seq_length, truncation=True)
-
     def prepare_data(self,
                      dataset_config,
                      model_name,
@@ -477,14 +462,15 @@ class AutoHuggingFace:
         return metric.compute(predictions=predictions, references=labels)
 
     def _compute_checkpoint_freq(self,
+                                 num_train_epochs,
                                  batch_size,
                                  mode="last"):
         assert mode in {"last"}
         if "gpu" in self._resources_per_trial:
-            ckpt_step_freq = int(len(self._train_dataset) / batch_size /
+            ckpt_step_freq = int(min(num_train_epochs, 1) * len(self._train_dataset) / batch_size /
                                  self._resources_per_trial["gpu"] / self._ckpt_per_epoch) + 1
         else:
-            ckpt_step_freq = int(len(self._train_dataset) / batch_size /
+            ckpt_step_freq = int(min(num_train_epochs, 1) * len(self._train_dataset) / batch_size /
                                  self._resources_per_trial["cpu"] / self._ckpt_per_epoch) + 1
 
         return ckpt_step_freq
@@ -511,6 +497,7 @@ class AutoHuggingFace:
         self.path_utils.make_dir_per_trial(trial_id)
 
         ckpt_freq = self._compute_checkpoint_freq(
+            num_train_epochs = config["num_train_epochs"],
             batch_size = config["per_device_train_batch_size"],
             mode="last")
 
