@@ -17,12 +17,12 @@ def _test_electra():
     # setting wandb key
     wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
     # setting server name
-    server_name = "tmdev"
+    server_name = "dgx"
 
     autohf = AutoTransformers()
 
-    dataset_names = [["glue"], ["glue"]]
-    subdataset_names = ["qnli", "mnli"]
+    dataset_names = [["glue"]]
+    subdataset_names = ["qqp"]
 
     pretrained_models = ["bert-base-uncased", "google/electra-base-discriminator", "google/electra-small-discriminator", "roberta-base"]
 
