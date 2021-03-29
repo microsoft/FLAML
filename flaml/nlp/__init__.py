@@ -1,2 +1,2 @@
-from .autohf import AutoHuggingFace
-from .autohf import PathUtils
+from .autotransformers import AutoTransformers
+from .autotransformers import PathUtils

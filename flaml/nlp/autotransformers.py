@@ -18,6 +18,7 @@ from functools import partial
 
 from .dataset.metric_auto import get_default_and_alternative_metric
 from .dataset.submission_auto import auto_output_prediction
+from .hpo.hpo_searchspace import AutoHPOSearchSpace, HPO_SEARCH_SPACE_MAPPING
 from .huggingface.modeling_auto import AutoSeqClassificationHead
 from .utils import PathUtils, _variable_override_default_alternative
 from .hpo.grid_searchspace_auto import AutoGridSearchSpace
@@ -42,7 +43,7 @@ task_list = [
 ]
 
 
-class AutoHuggingFace:
+class AutoTransformers:
 
     '''The AutoHuggingFace class
 
@@ -95,25 +96,6 @@ class AutoHuggingFace:
         os.environ["WANDB_RUN_GROUP"] = group_name
 
     @staticmethod
-    def _convert_grid_to_hpo_search_space(config_json):
-        search_space = {}
-
-        for each_hp in config_json.keys():
-            if each_hp == "learning_rate":
-                if len(config_json[each_hp]) > 1:
-                    search_space[each_hp] = {"l": 1e-6, "u": 1e-3, "space": "log"}
-                else:
-                    search_space[each_hp] = config_json[each_hp]
-            elif each_hp == "num_train_epochs":
-                search_space[each_hp] = {"l": 0.01, "u": 10.0, "space": "linear"}
-            elif each_hp == "per_device_train_batch_size":
-                search_space[each_hp] = [1, 4, 8, 16, 32, 48, 64]
-            else:
-                search_space[each_hp] = config_json[each_hp]
-
-        return search_space
-
-    @staticmethod
     def _convert_json_to_search_space(config_json, mode = "grid_search"):
         search_space = {}
 
@@ -144,19 +126,17 @@ class AutoHuggingFace:
     def _set_search_space(self,
                           search_space_dir=None):
         assert self._model_type
-        search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self._model_type, self.model_size_type, self._dataset_name[0], self._subdataset_name)
-        self._search_space_grid = AutoHuggingFace._convert_json_to_search_space(search_space_grid_json, mode="grid_search")
+        search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name)
+        self._search_space_grid = AutoTransformers._convert_json_to_search_space(search_space_grid_json, mode="grid_search")
 
         if self._search_algo_name != "grid_search":
             if search_space_dir:
                 search_space_hpo_json = json.load(open(os.path.join(search_space_dir), "r"))
             else:
-                search_space_hpo_json = AutoHuggingFace._convert_grid_to_hpo_search_space(search_space_grid_json)
-            self._search_space_hpo = AutoHuggingFace._convert_json_to_search_space(search_space_hpo_json, mode="hpo")
+                search_space_hpo_json = AutoHPOSearchSpace.from_model_and_dataset_name(logger, self._hpo_searchspace_mode, self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name)
+            self._search_space_hpo = AutoTransformers._convert_json_to_search_space(search_space_hpo_json, mode="hpo")
         else:
             self._search_space_hpo = self._search_space_grid
-
-
 
     @staticmethod
     def _get_sentence_keys(data_raw):
@@ -228,6 +208,13 @@ class AutoHuggingFace:
         """
         return self._metric_mode_name
 
+    @property
+    def hpo_searchspace_mode(self):
+        """
+        Get the hpo searchspace choice name
+        """
+        return self._hpo_searchspace_mode
+
     def _wrapper(self, func, *args):  # with star
         return func(*args)
 
@@ -247,6 +234,7 @@ class AutoHuggingFace:
 
     def prepare_data(self,
                      dataset_config,
+                     server_name,
                      model_name,
                      split_mode,
                      ckpt_path,
@@ -317,6 +305,7 @@ class AutoHuggingFace:
         self._task_name = task_name
         self._split_mode = split_mode
         self._max_seq_length = max_seq_length
+        self._server_name = server_name
 
         self.path_utils = PathUtils(
                     hpo_ckpt_path = ckpt_path,
@@ -345,7 +334,7 @@ class AutoHuggingFace:
             data_raw = load_dataset(input_path)
 
         self._train_name, self._dev_name, self._test_name = self._get_split_name(data_raw, fold_name=fold_name)
-        sentence_keys = AutoHuggingFace._get_sentence_keys(data_raw)
+        sentence_keys = AutoTransformers._get_sentence_keys(data_raw)
 
         data_encoded = data_raw.map(partial(self._tokenize, sentence_keys= sentence_keys), batched=True)
 
@@ -397,7 +386,7 @@ class AutoHuggingFace:
             model_size_type = "small"
 
         self._model_type = model_type
-        self.model_size_type = model_size_type
+        self._model_size_type = model_size_type
 
     # def _load_model2(self,
     #                 checkpoint_path = None,
@@ -505,7 +494,7 @@ class AutoHuggingFace:
 
     def _objective(self, config, reporter, checkpoint_dir=None):
 
-        training_args_config, per_model_config = AutoHuggingFace._separate_config(config)
+        training_args_config, per_model_config = AutoTransformers._separate_config(config)
         this_model = self._load_model(per_model_config=per_model_config)
 
         trial_id = reporter.trial_id
@@ -569,10 +558,42 @@ class AutoHuggingFace:
                          search_algo_name,
                          search_algo_args_mode,
                          **custom_search_algo_args):
-
         self._verify_init_config(**custom_search_algo_args)
         search_algo = AutoSearchAlgorithm.from_method_name(search_algo_name, search_algo_args_mode, self._search_space_grid, self._search_space_hpo, **custom_search_algo_args)
         return search_algo
+
+    def _set_sample_num_time_budget(self,
+                        custom_num_samples,
+                        custom_time_budget,
+                        num_sample_time_budget_mode,
+                        times_as_grid):
+        if self.search_algo_name == "grid_search":
+            self._sample_num = 1
+            self._time_budget = float("inf")
+            logger.warning("Running grid search, setting number of trials to 1, setting time budget to infinity")
+        elif num_sample_time_budget_mode == "times_grid_sample_num":
+            grid_config = AutoGridSearchSpace.from_model_and_dataset_name(self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name)
+            grid_config_trial_number = AutoGridSearchSpace.get_trial_number_in_space(grid_config)
+            assert times_as_grid and (isinstance(times_as_grid, float) or isinstance(times_as_grid, int)), \
+                "When setting to the num_sample_time_budget_mode mode, must explicitly specify times_as_grid"
+            self._sample_num = times_as_grid * grid_config_trial_number
+            self._time_budget = float("inf")
+            logger.warning("HPO is set to {} times grid trial number or {} trials, time budget is "
+                           "set to {}".format(times_as_grid, self._sample_num, self._time_budget))
+        elif num_sample_time_budget_mode == "times_grid_time_budget":
+            time_budget = AutoGridSearchSpace.get_grid_time_budget(logger, self._model_type, self._model_size_type, self._dataset_name[0], self._server_name, self._subdataset_name)
+            assert times_as_grid and (isinstance(times_as_grid, float) or isinstance(times_as_grid, int)), \
+                "When setting to the times_grid_time_budget mode, must explicitly specify times_as_grid"
+            self._sample_num = int("inf")
+            self._time_budget = times_as_grid * time_budget
+            logger.warning("HPO is set to {} times time budget or time budget = {}, trial number is "
+                           "set to {}".format(times_as_grid, self._time_budget, self._sample_num))
+        else:
+            assert num_sample_time_budget_mode == "custom", "num_sample_time_budget_mode must be set to "
+            "('custom' 'times_grid_sample_num' 'times_grid_time_budget') in AutoTransformers.fit(). Please see the documentation for an example"
+            assert custom_num_samples and custom_time_budget, "custom_num_samples and custom_time_budget must be explicitly specified in AutoTransformers.fit, please see the documentation for an example"
+            self._sample_num = custom_num_samples
+            self._time_budget = custom_time_budget
 
     @staticmethod
     def _recover_checkpoint(tune_checkpoint_dir):
@@ -637,8 +658,6 @@ class AutoHuggingFace:
             train_dataset,
             eval_dataset,
             resources_per_trial,
-            num_samples,
-            time_budget,
             wandb_key,
             metric_name = None,
             metric_mode_name = "max",
@@ -649,6 +668,11 @@ class AutoHuggingFace:
             scheduler_name=None,
             verbose = 1,
             search_algo_args_mode = "default",
+            hpo_searchspace_mode = None,
+            num_sample_time_budget_mode = "custom",
+            custom_num_samples = None,
+            custom_time_budget = None,
+            time_as_grid = None,
             **custom_search_algo_args):
         '''Fine tuning the huggingface using the hpo setting
 
@@ -712,6 +736,7 @@ class AutoHuggingFace:
         _variable_override_default_alternative(logger, self.path_utils, "search_algo_name", "BlendSearch", list(SEARCH_ALGO_MAPPING.keys()), search_algo_name)
         _variable_override_default_alternative(logger, self, "scheduler_name", "None", list(SCHEDULER_MAPPING.keys()), scheduler_name)
         _variable_override_default_alternative(logger, self, "ckpt_per_epoch", 1, [x for x in range(1, 11)], ckpt_per_epoch)
+        _variable_override_default_alternative(logger, self, "hpo_searchspace_mode", "lr_epoch_bs_generic", list(HPO_SEARCH_SPACE_MAPPING.keys()), hpo_searchspace_mode)
 
         self._set_metric(metric_name, metric_mode_name)
 
@@ -725,6 +750,7 @@ class AutoHuggingFace:
         self.path_utils.set_folder_name(self)
 
         search_algo = self._get_search_algo(self._search_algo_name, search_algo_args_mode, **custom_search_algo_args)
+        self._set_sample_num_time_budget(custom_num_samples, custom_time_budget, num_sample_time_budget_mode, time_as_grid)
         scheduler = AutoScheduler.from_scheduler_name(self._scheduler_name)
 
         self._set_wandb(wandb_key)
@@ -747,8 +773,8 @@ class AutoHuggingFace:
             resources_per_trial = resources_per_trial,
             config= self._search_space_hpo,
             local_dir= self.path_utils.ckpt_dir_per_run,
-            num_samples = num_samples,
-            time_budget_s= time_budget,
+            num_samples = self._sample_num,
+            time_budget_s= self._time_budget,
             keep_checkpoints_num = 1,
             scheduler= scheduler,
             search_alg= search_algo,
@@ -768,7 +794,7 @@ class AutoHuggingFace:
         validation_metric = best_trial.metric_analysis[self._metric_name][self._metric_mode_name]
 
         get_best_ckpt = analysis.get_best_checkpoint(best_trial, metric= self._metric_name, mode= self._metric_mode_name)
-        best_ckpt = AutoHuggingFace._recover_checkpoint(get_best_ckpt)
+        best_ckpt = AutoTransformers._recover_checkpoint(get_best_ckpt)
 
         self._save_ckpt_json(best_ckpt)
 
@@ -844,3 +870,8 @@ class AutoHuggingFace:
     @metric_mode_name.setter
     def metric_mode_name(self, value):
         self._metric_mode_name = value
+
+    @hpo_searchspace_mode.setter
+    def hpo_searchspace_mode(self, value):
+        self._hpo_searchspace_mode = value
+

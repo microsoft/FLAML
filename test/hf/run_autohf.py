@@ -3,9 +3,10 @@
 import json
 import os
 import shutil
+import sys
 import time
 
-from flaml.nlp.autohf import AutoHuggingFace
+from flaml.nlp.autotransformers import AutoTransformers
 
 dataset_to_task_mapping = {
     "glue": "text-classification",
@@ -15,83 +16,95 @@ dataset_to_task_mapping = {
 def _test_electra():
     # setting wandb key
     wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
+    # setting server name
+    server_name = "tmdev"
 
-    autohf = AutoHuggingFace()
+    autohf = AutoTransformers()
 
-    dataset_names = [["glue"]]
-    subdataset_names = ["sst2"]
+    dataset_names = [["glue"], ["glue"]]
+    subdataset_names = ["qnli", "mnli"]
 
-    pretrained_models = ["bert-base-uncased", "google/electra-base-discriminator", "google/electra-small-discriminator"]
+    pretrained_models = ["bert-base-uncased", "google/electra-base-discriminator", "google/electra-small-discriminator", "roberta-base"]
 
-    search_algos = ["grid_search"]
+    search_algos = ["RandomSearch"]
     scheduler_names = ["None"]
-    time_limits = [4000]
 
-    fout = open("log.log", "w")
+    hpo_searchspace_modes = ["lr_epoch_bs_gridunion"]
+    num_sample_time_budget_modes = [("times_grid_sample_num", 1)]
 
-    for data_idx in range(len(dataset_names)):
-        this_dataset_name = dataset_names[data_idx]
-        this_subset_name = subdataset_names[data_idx]
-        for pretrained_idx in range(0, len(pretrained_models)):
-            each_pretrained_model = pretrained_models[pretrained_idx]
+    fout = open("log.log", "a")
 
-            for algo_idx in range(len(search_algos)):
-                this_search_algo = search_algos[algo_idx]
-                this_scheduler_name = scheduler_names[algo_idx]
-                preparedata_setting = {
-                    "dataset_config": {"task": dataset_to_task_mapping[this_dataset_name[0]],
-                                       "dataset_name": this_dataset_name,
-                                       "subdataset_name": this_subset_name,
-                                       #"fold_name": ['train', 'validation_matched', 'test_matched']
-                                    },
-                    "model_name": each_pretrained_model,
-                    "split_mode": "origin",
-                    "ckpt_path": "../../../data/checkpoint/",
-                    "result_path": "../../../data/result/",
-                    "log_path": "../../../data/result/",
-                    "max_seq_length": 128,
-                }
-                train_dataset, eval_dataset, test_dataset =\
-                    autohf.prepare_data(**preparedata_setting)
+    for rep in range(2):
+        for data_idx in range(len(dataset_names)):
 
-                autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
-                                   "wandb_key": wandb_key,
-                                   "num_samples": 4 if this_search_algo != "grid_search" else 1,
-                                   "time_budget": 100000,
-                                   "search_algo_name": this_search_algo,
-                                   "scheduler_name": this_scheduler_name,
-                                   "ckpt_per_epoch": 1,
-                                   }
+            this_dataset_name = dataset_names[data_idx]
+            this_subset_name = subdataset_names[data_idx]
+            for pretrained_idx in range(0, len(pretrained_models)):
+                each_pretrained_model = pretrained_models[pretrained_idx]
 
-                try:
-                    validation_metric = autohf.fit(train_dataset,
-                               eval_dataset,
-                               **autohf_settings,)
-                except AssertionError:
-                    save_file_name = autohf.full_dataset_name + "_" + autohf.model_type + "_" + autohf.search_algo_name \
-                                     + "_" + autohf.scheduler_name + "_" + autohf.path_utils.group_hash_id
-                    fout.write(save_file_name + ":\n")
-                    fout.write("failed, no checkpoint found\n")
-                    fout.flush()
-                    continue
+                for algo_idx in range(len(search_algos)):
+                    this_search_algo = search_algos[algo_idx]
+                    this_scheduler_name = scheduler_names[algo_idx]
 
-                if this_search_algo == "grid_search":
-                    this_grid_search_time = autohf.last_run_duration
+                    for searchspace_idx in range(len(hpo_searchspace_modes)):
+                        this_searchspace_mode = hpo_searchspace_modes[searchspace_idx]
+                        this_num_sample_time_budget_mode, time_as_grid = num_sample_time_budget_modes[searchspace_idx]
 
-                save_file_name = autohf.full_dataset_name + "_" + autohf.model_type + "_" + autohf.search_algo_name + "_" + autohf.scheduler_name + "_" + autohf.path_utils.group_hash_id
-                if test_dataset:
-                    predictions = autohf.predict(test_dataset)
-                    autohf.output_prediction(predictions,
-                                             output_prediction_path="../../../data/result/",
-                                             output_dir_name=save_file_name)
+                        preparedata_setting = {
+                            "dataset_config": {"task": dataset_to_task_mapping[this_dataset_name[0]],
+                                               "dataset_name": this_dataset_name,
+                                               "subdataset_name": this_subset_name,
+                                            },
+                            "model_name": each_pretrained_model,
+                            "server_name": server_name,
+                            "split_mode": "origin",
+                            "ckpt_path": "../../../data/checkpoint/",
+                            "result_path": "../../../data/result/",
+                            "log_path": "../../../data/result/",
+                            "max_seq_length": 128,
+                        }
+                        if this_dataset_name == "glue" and this_subset_name and this_subset_name == "mnli":
+                            preparedata_setting["dataset_config"]["fold_name"] = ['train', 'validation_matched', 'test_matched']
+                        train_dataset, eval_dataset, test_dataset =\
+                            autohf.prepare_data(**preparedata_setting)
 
-                fout.write(save_file_name + ":\n")
-                fout.write((autohf.metric_name) + ":" + json.dumps(validation_metric) + "\n")
-                fout.write("duration:" + str(autohf.last_run_duration) + "\n\n")
-                fout.flush()
+                        autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
+                                           "wandb_key": wandb_key,
+                                           "search_algo_name": this_search_algo,
+                                           "scheduler_name": this_scheduler_name,
+                                           "ckpt_per_epoch": 1,
+                                           "hpo_searchspace_mode": this_searchspace_mode,
+                                           "num_sample_time_budget_mode": this_num_sample_time_budget_mode,
+                                           "time_as_grid": time_as_grid,
+                                           }
 
-                if os.path.exists("/home/xliu127/ray_results/"):
-                    shutil.rmtree("/home/xliu127/ray_results/")
+                        try:
+                            validation_metric = autohf.fit(train_dataset,
+                                       eval_dataset,
+                                       **autohf_settings,)
+                        except AssertionError:
+                            save_file_name = autohf.full_dataset_name + "_" + autohf.model_type + "_" + autohf.search_algo_name \
+                                             + "_" + autohf.scheduler_name + "_" + autohf.path_utils.group_hash_id
+                            fout.write(save_file_name + ":\n")
+                            fout.write("timestamp:" + str(time.time()))
+                            fout.write("failed, no checkpoint found\n")
+                            fout.flush()
+                            continue
+
+                        save_file_name = autohf.full_dataset_name + "_" + autohf.model_type + "_" + autohf.search_algo_name + "_" + autohf.scheduler_name + "_" + autohf.path_utils.group_hash_id
+                        if test_dataset:
+                            predictions = autohf.predict(test_dataset)
+                            autohf.output_prediction(predictions,
+                                                     output_prediction_path="../../../data/result/",
+                                                     output_dir_name=save_file_name)
+
+                        fout.write(save_file_name + ":\n")
+                        fout.write((autohf.metric_name) + ":" + json.dumps(validation_metric) + "\n")
+                        fout.write("duration:" + str(autohf.last_run_duration) + "\n\n")
+                        fout.flush()
+
+                        if os.path.exists("/home/xliu127/ray_results/"):
+                            shutil.rmtree("/home/xliu127/ray_results/")
 
     fout.close()
 
