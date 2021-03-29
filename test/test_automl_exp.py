@@ -45,6 +45,7 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
     open(log_file_name,"w")
     search_space = problem.search_space
     init_config = problem.init_config
+    low_cost_partial_config = problem.low_cost_partial_config
     # specify pruning config
     prune_attr = problem.prune_attribute
     default_epochs, min_epochs, max_epochs = problem.prune_attribute_default_min_max #2**9, 2**1, 2**10
@@ -73,14 +74,18 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
         total_budget=time_budget_s)
 
     # ray.init(num_cpus=n_total_pu, num_gpus=0) #n_total_pu
-    points_to_evaluate=[init_config]
+    if isinstance(init_config, list):
+        points_to_evaluate=init_config
+    else:
+        points_to_evaluate=[init_config]
 
     if 'BlendSearch' in method and False:
         # the default search_alg is BlendSearch in flaml 
         # corresponding schedulers for BS are specified in flaml.tune.run
         analysis = tune.run(
             trainable_func,
-            init_config=init_config,
+            points_to_evaluate=points_to_evaluate,
+            low_cost_partial_config=low_cost_partial_config,
             cat_hp_cost=cat_hp_cost,  #{"net": [2,1],},
             metric=metric, 
             mode=mode,
@@ -96,13 +101,15 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
             use_ray=True) 
     else: 
         from ray.tune.suggest import BasicVariantGenerator
-        scheduler = None
+        scheduler = algo = None
         if 'Optuna' in method:
             from ray.tune.suggest.optuna import OptunaSearch
             import optuna
             sampler = optuna.samplers.TPESampler(seed=RANDOMSEED+int(run_index))
-            algo = OptunaSearch(sampler=sampler,
-             space=search_space, mode=mode, metric=metric)
+            algo = OptunaSearch(
+                points_to_evaluate=points_to_evaluate, 
+                sampler=sampler,
+                space=search_space, mode=mode, metric=metric)
         elif 'CFO' in method:
             from flaml import CFO
             algo = CFO(
@@ -110,6 +117,7 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
                 mode=mode,
                 space=search_space,
                 points_to_evaluate=points_to_evaluate, 
+                low_cost_partial_config=low_cost_partial_config,
                 cat_hp_cost=cat_hp_cost,
                 seed=ls_seed,
                 )
@@ -117,32 +125,44 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
             # pip install dragonfly-opt
             # doesn't support categorical
             from ray.tune.suggest.dragonfly import DragonflySearch
-            algo = DragonflySearch(space=search_space, mode=mode, metric=metric)
+            algo = DragonflySearch(
+                points_to_evaluate=points_to_evaluate, 
+                space=search_space, mode=mode, metric=metric)
         elif 'SkOpt' == method:
             # pip install scikit-optimize
             # TypeError: '<' not supported between instances of 'Version' and 'tuple'
             from ray.tune.suggest.skopt import SkOptSearch
-            algo = SkOptSearch(space=search_space, mode=mode, metric=metric)
+            algo = SkOptSearch(
+                points_to_evaluate=points_to_evaluate, 
+                space=search_space, mode=mode, metric=metric)
         elif 'Nevergrad' == method:
             # pip install nevergrad
             from ray.tune.suggest.nevergrad import NevergradSearch
             import nevergrad as ng
-            algo = NevergradSearch(space=search_space, mode=mode, metric=metric,
+            algo = NevergradSearch(
+                points_to_evaluate=points_to_evaluate, 
+                space=search_space, mode=mode, metric=metric,
                 optimizer=ng.optimizers.OnePlusOne)
         elif 'ZOOpt' == method:
             # pip install -U zoopt
             # ValueError: ZOOpt does not support parameters of type `Float` with samplers of type `Quantized`
             from ray.tune.suggest.zoopt import ZOOptSearch
-            algo = ZOOptSearch(dim_dict=search_space, mode=mode, metric=metric,
+            algo = ZOOptSearch(
+                points_to_evaluate=points_to_evaluate, 
+                dim_dict=search_space, mode=mode, metric=metric,
              budget=1000000)
         elif 'Ax' == method:
             # pip install ax-platform sqlalchemy
             from ray.tune.suggest.ax import AxSearch
-            algo = AxSearch(space=search_space, mode=mode, metric=metric)
+            algo = AxSearch(
+                points_to_evaluate=points_to_evaluate, 
+                space=search_space, mode=mode, metric=metric)
         elif 'HyperOpt' == method:
             # pip install -U hyperopt
             from ray.tune.suggest.hyperopt import HyperOptSearch
-            algo = HyperOptSearch(space=search_space, mode=mode, metric=metric,
+            algo = HyperOptSearch(
+                points_to_evaluate=points_to_evaluate, 
+                space=search_space, mode=mode, metric=metric,
                 random_state_seed=RANDOMSEED+int(run_index))           
 
         # 'BlendSearch+Optuna',  'BlendSearch'
@@ -150,6 +170,7 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
             from flaml import BlendSearch
             algo = BlendSearch(
                 points_to_evaluate=points_to_evaluate, 
+                low_cost_partial_config=low_cost_partial_config,
                 cat_hp_cost=cat_hp_cost,
                 global_search_alg=algo,
                 space=search_space, mode=mode, metric=metric, 
@@ -188,7 +209,6 @@ def _test_problem_parallel(problem, time_budget_s= 120, n_total_pu=4, n_per_tria
 
         analysis = tune.run(
             trainable_func,
-            init_config=None,
             resources_per_trial=resources_per_trial,
             config=search_space, 
             local_dir=log_dir_address,

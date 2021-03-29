@@ -32,7 +32,8 @@ class BlendSearch(Searcher):
                  metric: Optional[str] = None,
                  mode: Optional[str] = None,
                  space: Optional[dict] = None,
-                 points_to_evaluate: Optional[List[Dict]] = None,
+                 points_to_evaluate: Optional[List[dict]] = None,
+                 low_cost_partial_config: Optional[dict] = None,
                  cat_hp_cost: Optional[dict] = None,
                  prune_attr: Optional[str] = None,
                  min_resource: Optional[float] = None,
@@ -50,14 +51,14 @@ class BlendSearch(Searcher):
             mode: A string in ['min', 'max'] to specify the objective as
             space: A dictionary to specify the search space.
             points_to_evaluate: Initial parameter suggestions to be run first. 
-                The first element needs to be a dictionary from a subset of 
-                controlled dimensions to the initial low-cost values. 
-                e.g.,
-                
-                .. code-block:: python
-                
-                    [{'epochs': 1}]
+            low_cost_partial_config: A dictionary from a subset of 
+                controlled dimensions to the initial low-cost values.
+                e.g., 
 
+                .. code-block:: python
+
+                    {'n_estimators': 4, 'max_leaves': 4}
+                
             cat_hp_cost: A dictionary from a subset of categorical dimensions
                 to the relative cost of each choice. 
                 e.g.,
@@ -92,8 +93,7 @@ class BlendSearch(Searcher):
             seed: An integer of the random seed.
         '''
         self._metric, self._mode = metric, mode
-        if points_to_evaluate: init_config = points_to_evaluate[0]
-        else: init_config = {}
+        init_config = low_cost_partial_config or {}
         self._points_to_evaluate = points_to_evaluate
         if global_search_alg is not None:
             self._gs = global_search_alg
@@ -142,6 +142,7 @@ class BlendSearch(Searcher):
         self._ls_bound_max = self._ls_bound_min.copy()
         self._gs_admissible_min = self._ls_bound_min.copy()
         self._gs_admissible_max = self._ls_bound_max.copy()
+        logger.info(self._ls_bound_max)
         self._result = {} # config_signature: tuple -> result: Dict
         self._deadline = np.inf
 

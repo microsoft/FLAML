@@ -56,6 +56,10 @@ class Problem:
         return self._search_space
 
     @property
+    def low_cost_partial_config(self):
+        return self._low_cost_partial_config
+
+    @property
     def cat_hp_cost(self):
         return self._cat_hp_cost
 
@@ -697,8 +701,8 @@ class AutoML(Problem):
     def get_estimator_from_name(name):
         if name == 'lgbm_cfo':
             estimator = AutoML.LGBM_CFO
-        elif name == 'lgbm_cfo_large':
-            estimator = AutoML.LGBM_CFO_Large
+        elif name == 'lgbm':
+            estimator = AutoML.LGBM
         elif name == 'lgbm_mlnet':
             estimator = AutoML.LGBM_MLNET
         elif name == 'xgb_cfo':
@@ -823,14 +827,19 @@ class AutoML(Problem):
                 'max_leaves': 4,
                 'min_child_weight': 20,
                 }   
-        elif self.estimator == AutoML.LGBM_CFO or self.estimator == AutoML.LGBM_CFO_Large:
-            logger.info('setting up LGBM_CFO or LGBM_CFO_Large hpo')
-            self._init_config =  {
-                'n_estimators': 4,
-                'max_leaves': 4,
-                'min_child_weight': 20,
-                'log_max_bin': 8,
-                }   
+        elif self.estimator == AutoML.LGBM_CFO or self.estimator == AutoML.LGBM:
+            logger.info('setting up LGBM_CFO or LGBM hpo')
+            self._init_config = dict((key, value['init_value']) for key, value 
+             in self.estimator.search_space(self.data_size).items()
+             if 'init_value' in value)
+            self._low_cost_partial_config = dict(
+                (key, value['low_cost_init_value']) for key, value 
+                in self.estimator.search_space(self.data_size).items()
+                if 'low_cost_init_value' in value)
+            # if self.estimator == AutoML.LGBM_CFO:
+            #     self._init_config['min_child_weight'] = 20
+            # else:
+            #     self._init_config["min_data_in_leaf"] = 128
         elif self.estimator == AutoML.XGB_HPOLib:
             logger.info('setting up XGB_HPOLib hpo')
             self._init_config =  {
