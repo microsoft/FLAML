@@ -350,6 +350,7 @@
     <span class="k">def</span> <span class="nf">step_lower_bound</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
         <span class="n">step_lb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_lb</span>
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tunable_keys</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_config</span><span class="p">:</span> <span class="k">continue</span>
             <span class="n">domain</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
             <span class="n">sampler</span> <span class="o">=</span> <span class="n">domain</span><span class="o">.</span><span class="n">get_sampler</span><span class="p">()</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sampler</span><span class="p">,</span> <span class="n">sample</span><span class="o">.</span><span class="n">Quantized</span><span class="p">):</span>
@@ -649,7 +650,7 @@
 
     <span class="k">def</span> <span class="nf">rand_vector_unit_sphere</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
         <span class="n">vec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
-        <span class="n">mag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">vec</span><span class="p">)</span>        
+        <span class="n">mag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">vec</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">vec</span><span class="o">/</span><span class="n">mag</span>
 
 <div class="viewcode-block" id="FLOW2.suggest"><a class="viewcode-back" href="../../../index.html#flaml.FLOW2.suggest">[docs]</a>    <span class="k">def</span> <span class="nf">suggest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]:</span>
@@ -668,7 +669,6 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource_multiple_factor</span><span class="p">)</span>
             <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_config</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
             <span class="n">config</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">prune_attr</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span>
-            <span class="c1"># self.incumbent[self.prune_attr] = self._resource</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_direction_tried</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_configs</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">config</span>
             <span class="k">return</span> <span class="n">config</span>
