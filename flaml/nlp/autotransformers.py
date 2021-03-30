@@ -28,7 +28,7 @@ from .hpo.grid_searchspace_auto import GRID_SEARCH_SPACE_MAPPING
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from .huggingface.trainer import TrainerForAutoHF
+from .huggingface.trainer import TrainerForAutoTransformers
 
 import logging
 logger = logging.getLogger(__name__)
@@ -91,8 +91,8 @@ class AutoTransformers:
                    wandb_key):
         os.environ["WANDB_API_KEY"] = wandb_key
         self.path_utils.group_hash_id = wandb.util.generate_id()
-        group_name = self.full_dataset_name + "_" + self.model_type + "_" + self.search_algo_name \
-                                     + "_" + self.scheduler_name + "_" + self.path_utils.group_hash_id
+        group_name = self.full_dataset_name.lower() + "_" + self.model_type.lower() + "_" + self.search_algo_name.lower() \
+                                     + "_" + self.scheduler_name.lower() + "_" + self.path_utils.group_hash_id
         os.environ["WANDB_RUN_GROUP"] = group_name
 
     @staticmethod
@@ -518,7 +518,7 @@ class AutoTransformers:
             **training_args_config,
         )
 
-        trainer = TrainerForAutoHF(
+        trainer = TrainerForAutoTransformers(
             this_model,
             training_args,
             train_dataset=self._train_dataset,
@@ -526,6 +526,11 @@ class AutoTransformers:
             tokenizer=self._tokenizer,
             compute_metrics= self._compute_metrics_by_dataset_name,
         )
+        trainer.logger = logger
+        trainer.trial_id = reporter.trial_id
+
+        with open("/data/xliu127/projects/hyperopt/FLAML/test/hf/test.txt", "w") as fout:
+            fout.write(str(len(trainer.get_train_dataloader())))
 
         trainer.train()
 

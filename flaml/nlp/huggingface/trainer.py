@@ -1,13 +1,15 @@
 import copy
+import json
 import os
 
 import transformers
+import wandb
 from ray import tune
 import torch
 from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
 
 
-class TrainerForAutoHF(transformers.Trainer):
+class TrainerForAutoTransformers(transformers.Trainer):
     """
         Overriding transformers.Trainer.
 
