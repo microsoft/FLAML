@@ -94,11 +94,14 @@ class BlendSearch(Searcher):
         '''
         self._metric, self._mode = metric, mode
         init_config = low_cost_partial_config or {}
-        self._points_to_evaluate = points_to_evaluate
+        self._points_to_evaluate = points_to_evaluate or []
         if global_search_alg is not None:
             self._gs = global_search_alg
         elif getattr(self, '__name__', None) != 'CFO':
             self._gs = GlobalSearch(space=space, metric=metric, mode=mode)
+            if init_config: 
+                # try a random point with low cost initialization
+                self._points_to_evaluate.append(init_config)
         else:
             self._gs = None
         self._ls = LocalSearch(init_config, metric, mode, cat_hp_cost, space,
