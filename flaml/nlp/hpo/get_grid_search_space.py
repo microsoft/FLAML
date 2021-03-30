@@ -45,27 +45,30 @@ def get_roberta_space(model_size_type = None,
     # RoBERTa: A Robustly Optimized BERT Pretraining Approach
     # https://arxiv.org/pdf/1907.11692.pdf
     search_space_dict = {}
-    # Table 10: Hyperparameters for finetuning RoBERTaLARGE on RACE, SQuAD and GLUE.
-    assert model_size_type == "large", "RoBERTa paper has only provided hyperparameter for the large huggingface"
-    if model_size_type == "large":
-        if dataset_name == "glue":
-            search_space_dict["learning_rate"] = [1e-5, 2e-5, 3e-5]
-            search_space_dict["per_device_train_batch_size"] = [16, 32]
-            search_space_dict["weight_decay"] = [0.1]
-            search_space_dict["num_train_epochs"] = [10]
-            search_space_dict["warmup_ratio"] = [0.06]
-        elif dataset_name == "race":
-            search_space_dict["learning_rate"] = [1e-5]
-            search_space_dict["per_device_train_batch_size"] = [16]
-            search_space_dict["weight_decay"] = [0.1]
-            search_space_dict["num_train_epochs"] = [4]
-            search_space_dict["warmup_ratio"] = [0.06]
-        elif dataset_name == "squad":
-            search_space_dict["learning_rate"] = [1.5e-5]
-            search_space_dict["per_device_train_batch_size"] = [48]
-            search_space_dict["weight_decay"] = [0.01]
-            search_space_dict["num_train_epochs"] = [2]
-            search_space_dict["warmup_ratio"] = [0.06]
+    # Table 10: Hyperparameters for finetuning RoBERTa-LARGE on RACE, SQuAD and GLUE.
+    # We consider a limited hyperparameter
+    # sweep for each task, with batch sizes ∈ {16, 32}
+    # and learning rates ∈ {1e−5, 2e−5, 3e−5}, with a
+    # linear warmup for the first 6% of steps followed by
+    # a linear decay to 0.
+    if dataset_name == "glue":
+        search_space_dict["learning_rate"] = [1e-5, 2e-5, 3e-5]
+        search_space_dict["per_device_train_batch_size"] = [16, 32]
+        search_space_dict["weight_decay"] = [0.1]
+        search_space_dict["num_train_epochs"] = [10]
+        search_space_dict["warmup_ratio"] = [0.06]
+    elif dataset_name == "race":
+        search_space_dict["learning_rate"] = [1e-5]
+        search_space_dict["per_device_train_batch_size"] = [16]
+        search_space_dict["weight_decay"] = [0.1]
+        search_space_dict["num_train_epochs"] = [4]
+        search_space_dict["warmup_ratio"] = [0.06]
+    elif dataset_name == "squad":
+        search_space_dict["learning_rate"] = [1.5e-5]
+        search_space_dict["per_device_train_batch_size"] = [48]
+        search_space_dict["weight_decay"] = [0.01]
+        search_space_dict["num_train_epochs"] = [2]
+        search_space_dict["warmup_ratio"] = [0.06]
     return search_space_dict
 
 def get_electra_space(model_size_type = None,
@@ -108,7 +111,7 @@ def get_mobilebert_space(model_size_type = None,
     # in a search space including different batch sizes (16/32/48), learning
     # rates ((1-10) * e-5), and the number of epochs (2-10)
     search_space_dict["learning_rate"] = [x * 1e-5 for x in range(1, 11)]
-    search_space_dict["per_device_train_batch_size"] = [1, 4, 8, 16, 32, 48]
+    search_space_dict["per_device_train_batch_size"] = [4, 8, 16, 32, 48]
     search_space_dict["num_train_epochs"] = [x for x in range(2, 11)]
     return  search_space_dict
 
