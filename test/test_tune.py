@@ -28,9 +28,6 @@ def train_breast_cancer(config: dict):
     test_set = xgb.DMatrix(test_x, label=test_y)
     # HyperOpt returns a tuple
     config = config.copy()
-    config["max_depth"] = config["cost_related"]["max_depth"]
-    config["min_child_weight"] = config["cost_related"]["min_child_weight"]
-    del config["cost_related"]
     config["eval_metric"] = ["logloss", "error"]
     config["objective"] = "binary:logistic"
     # Train the classifier, using the Tune callback
@@ -70,7 +67,6 @@ def _test_xgboost(method='BlendSearch'):
                     config=search_space,
                     low_cost_partial_config={
                         "max_depth": 1,
-                        # "min_child_weight": 3,
                     },
                     cat_hp_cost={
                         "min_child_weight": [6, 3, 2],
@@ -101,7 +97,6 @@ def _test_xgboost(method='BlendSearch'):
                     from flaml import CFO
                     algo = CFO(low_cost_partial_config={
                         "max_depth": 1,
-                        # "min_child_weight": 3,
                     }, cat_hp_cost={
                         "min_child_weight": [6, 3, 2],
                     })
