@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE file in the
  * project root for license information.
 '''
-from typing import Optional, Union, List, Dict
+from typing import Optional, Union, List
 import datetime, time
 try:
     from ray.tune.analysis import ExperimentAnalysis as EA

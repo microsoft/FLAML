@@ -145,7 +145,6 @@ class BlendSearch(Searcher):
         self._ls_bound_max = self._ls_bound_min.copy()
         self._gs_admissible_min = self._ls_bound_min.copy()
         self._gs_admissible_max = self._ls_bound_max.copy()
-        logger.info(self._ls_bound_max)
         self._result = {} # config_signature: tuple -> result: Dict
         self._deadline = np.inf
 
