@@ -61,20 +61,16 @@ def _test_simple(method=None, size_ratio=1.0):
     automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
 
 
-# def _test_optuna():
-#     test_simple(method="optuna")
-
-
-def test_grid_1():
+def _test_grid_1():
     _test_simple(method="grid", size_ratio=1.0/3.0)
 
-def test_grid_2():
+def _test_grid_2():
     _test_simple(method="grid", size_ratio=2.0/3.0)
 
-def test_grid_4():
+def _test_grid_4():
     _test_simple(method="grid", size_ratio=0.5)
 
-def test_grid_3():
+def _test_grid_3():
     _test_simple(method="grid", size_ratio=1.0)
 
 
