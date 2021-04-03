@@ -148,7 +148,8 @@ def run(training_function,
     Args:
         training_function: A user-defined training function. 
         config: A dictionary to specify the search space.
-        points_to_evaluate: Initial parameter suggestions to be run first. 
+        points_to_evaluate: A list of initial hyperparameter
+            configurations to run first.
         low_cost_partial_config: A dictionary from a subset of 
             controlled dimensions to the initial low-cost values.
             e.g., 

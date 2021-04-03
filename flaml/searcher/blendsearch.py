@@ -101,9 +101,6 @@ class BlendSearch(Searcher):
             self._gs = GlobalSearch(space=space, metric=metric, mode=mode)
         else:
             self._gs = None
-        # if self._gs is not None and init_config: 
-        #     # try a random point with low cost initialization
-        #     self._points_to_evaluate.insert(0, init_config)
         self._ls = LocalSearch(init_config, metric, mode, cat_hp_cost, space,
          prune_attr, min_resource, max_resource, reduction_factor, seed)
         self._resources_per_trial = resources_per_trial
