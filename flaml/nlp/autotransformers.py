@@ -530,9 +530,6 @@ class AutoTransformers:
         trainer.logger = logger
         trainer.trial_id = reporter.trial_id
 
-        with open("/data/xliu127/projects/hyperopt/FLAML/test/hf/test.txt", "w") as fout:
-            fout.write(str(len(trainer.get_train_dataloader())))
-
         trainer.train()
         trainer.evaluate(self._eval_dataset)
 

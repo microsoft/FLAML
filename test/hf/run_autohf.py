@@ -24,7 +24,7 @@ def _test_electra():
     dataset_names = [["glue"]]
     subdataset_names = ["qnli"]
 
-    pretrained_models = ["bert-base-uncased", "google/electra-small-discriminator"]
+    pretrained_models = ["google/electra-small-discriminator", "google/electra-base-discriminator"]
 
     search_algos = ["BlendSearch"]
     scheduler_names = ["None"]
