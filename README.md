@@ -70,7 +70,7 @@ automl = AutoML()
 # Specify automl goal and constraint
 automl_settings = {
     "time_budget": 10,  # in seconds
-    "dataset": 'accuracy',
+    "metric": 'accuracy',
     "task": 'classification',
     "log_file_name": "test/iris.log",
 }
@@ -80,7 +80,7 @@ automl.fit(X_train=X_train, y_train=y_train,
                         **automl_settings)
 # Predict
 print(automl.predict_proba(X_train))
-# Export the best huggingface
+# Export the best model
 print(automl.model)
 ```
 
@@ -94,7 +94,7 @@ automl = AutoML()
 # Specify automl goal and constraint
 automl_settings = {
     "time_budget": 10,  # in seconds
-    "dataset": 'r2',
+    "metric": 'r2',
     "task": 'regression',
     "log_file_name": "test/boston.log",
 }
@@ -104,7 +104,7 @@ automl.fit(X_train=X_train, y_train=y_train,
                         **automl_settings)
 # Predict
 print(automl.predict(X_train))
-# Export the best huggingface
+# Export the best model
 print(automl.model)
 ```
 
