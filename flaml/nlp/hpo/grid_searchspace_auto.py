@@ -46,6 +46,7 @@ time_budget_grid_bert_base_glue_dgx = {
 
 GRID_SEARCH_TIME_BUDGET_LOOKUP_TABLE = OrderedDict(
     [
+        (("electra", "small", "glue", "tmdev"), time_budget_grid_electra_small_glue_tmdev),
         (("electra", "base", "glue", "tmdev"), time_budget_grid_electra_base_glue_tmdev),
         (("electra", "base", "glue", "dgx"), time_budget_grid_electra_base_glue_dgx),
         (("bert", "base", "glue", "tmdev"), time_budget_grid_bert_base_glue_tmdev),
