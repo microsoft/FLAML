@@ -741,7 +741,7 @@ class AutoTransformers:
         _variable_override_default_alternative(logger, self.path_utils, "search_algo_name", "BlendSearch", list(SEARCH_ALGO_MAPPING.keys()), search_algo_name)
         _variable_override_default_alternative(logger, self, "scheduler_name", "None", list(SCHEDULER_MAPPING.keys()), scheduler_name)
         _variable_override_default_alternative(logger, self, "ckpt_per_epoch", 1, [x for x in range(1, 11)], ckpt_per_epoch)
-        _variable_override_default_alternative(logger, self, "hpo_searchspace_mode", "lr_epoch_bs_generic", list(HPO_SEARCH_SPACE_MAPPING.keys()), hpo_searchspace_mode)
+        _variable_override_default_alternative(logger, self, "hpo_searchspace_mode", "hpo_space_generic", list(HPO_SEARCH_SPACE_MAPPING.keys()), hpo_searchspace_mode)
 
         self._set_metric(metric_name, metric_mode_name)
 

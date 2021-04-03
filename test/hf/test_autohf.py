@@ -15,7 +15,9 @@ def test_electra(method='BlendSearch'):
                            "dataset_name": ["glue"],
                            "subdataset_name": "rte"},
         "model_name": "google/mobilebert-uncased",
-        "split_mode": "origin",
+        "server_name": "tmdev",
+        "split_mode": "resplit",
+        "resplit_portion": {"train": [0, 0.01], "dev": [0.01, 0.02], "test": [0.02, 0.03]},
         "ckpt_path": "../../../data/checkpoint/",
         "result_path": "../../../data/result/",
         "log_path": "../../../data/result/",
@@ -27,13 +29,13 @@ def test_electra(method='BlendSearch'):
 
     autohf_settings = {"resources_per_trial": {"cpu": 1},
                        "wandb_key": wandb_key,
-                       "search_algo_name": "OptunaSearch",
-                       "num_samples": 1,
-                       "time_budget": 7200,
+                       "search_algo_name": method,
+                       "custom_num_samples": 1,
+                       "custom_time_budget": 7200,
                        "fp16": False,
                        "search_algo_args_mode": "custom",
                        "points_to_evaluate": [{
-                           "num_train_epochs": 0.01,
+                           "num_train_epochs": 1,
                            "per_device_train_batch_size": 4, }]
                        }
 
