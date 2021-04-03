@@ -24,7 +24,7 @@ def _test_electra():
     dataset_names = [["glue"]]
     subdataset_names = ["qnli"]
 
-    pretrained_models = ["bert-base-uncased", "google/electra-base-discriminator", "google/electra-small-discriminator"]
+    pretrained_models = ["bert-base-uncased", "google/electra-small-discriminator"]
 
     search_algos = ["BlendSearch"]
     scheduler_names = ["None"]
@@ -34,20 +34,25 @@ def _test_electra():
 
     fout = open("log.log", "a")
 
-    for rep in range(2):
-        for data_idx in range(len(dataset_names)):
-            this_dataset_name = dataset_names[data_idx]
-            this_subset_name = subdataset_names[data_idx]
+    for data_idx in range(len(dataset_names)):
+        this_dataset_name = dataset_names[data_idx]
+        this_subset_name = subdataset_names[data_idx]
 
-            for model_idx in range(0, len(pretrained_models)):
-                each_pretrained_model = pretrained_models[model_idx]
+        for model_idx in range(0, len(pretrained_models)):
+            each_pretrained_model = pretrained_models[model_idx]
 
-                for algo_idx in range(0, len(search_algos)):
-                    this_search_algo = search_algos[algo_idx]
-                    this_scheduler_name = scheduler_names[algo_idx]
+            for algo_idx in range(0, len(search_algos)):
+                this_search_algo = search_algos[algo_idx]
+                this_scheduler_name = scheduler_names[algo_idx]
 
-                    for space_idx in range(0, len(hpo_searchspace_modes)):
-                        hpo_searchspace_mode = hpo_searchspace_modes[space_idx]
+                for space_idx in range(0, len(hpo_searchspace_modes)):
+                    hpo_searchspace_mode = hpo_searchspace_modes[space_idx]
+
+                    for rep in range(2):
+                        if rep == 1:
+                            resources_dict = {"gpu": 1, "cpu": 1}
+                        else:
+                            resources_dict = {"gpu": 4, "cpu": 4}
 
                         preparedata_setting = {
                             "dataset_config": {"task": dataset_to_task_mapping[this_dataset_name[0]],
@@ -68,7 +73,7 @@ def _test_electra():
                         train_dataset, eval_dataset, test_dataset = \
                         autohf.prepare_data(**preparedata_setting)
 
-                        autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
+                        autohf_settings = {"resources_per_trial": resources_dict,
                                                "wandb_key": wandb_key,
                                                "search_algo_name": this_search_algo,
                                                "scheduler_name": this_scheduler_name,
