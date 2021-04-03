@@ -49,7 +49,7 @@ def _test_electra():
                     hpo_searchspace_mode = hpo_searchspace_modes[space_idx]
 
                     for rep in range(2):
-                        if rep == 1:
+                        if rep == 0:
                             resources_dict = {"gpu": 1, "cpu": 1}
                         else:
                             resources_dict = {"gpu": 4, "cpu": 4}
