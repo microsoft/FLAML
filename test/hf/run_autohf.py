@@ -111,9 +111,9 @@ def _test_hpo():
     autohf = AutoTransformers()
 
     dataset_names = [["glue"]]
-    subdataset_names = ["mnli"]
+    subdataset_names = ["qnli"]
 
-    pretrained_models = ["google/electra-small-discriminator", "google/electra-base-discriminator"]
+    pretrained_models = ["google/electra-base-discriminator", "google/electra-small-discriminator"]
 
     search_algos = ["BlendSearch"]
     scheduler_names = ["None"]
@@ -134,10 +134,10 @@ def _test_hpo():
                 this_search_algo = search_algos[algo_idx]
                 this_scheduler_name = scheduler_names[algo_idx]
 
-                for space_idx in range(0, len(hpo_searchspace_modes)):
+                for space_idx in range(0, 1): #len(hpo_searchspace_modes)):
                     hpo_searchspace_mode = hpo_searchspace_modes[space_idx]
 
-                    for rep in range(2):
+                    for rep in range(0, 1):
                         if rep == 0:
                             resources_dict = {"gpu": 1, "cpu": 1}
                         else:
@@ -148,7 +148,8 @@ def _test_hpo():
                                                "dataset_name": this_dataset_name,
                                                "subdataset_name": this_subset_name,
                                                },
-                            "resplit_portion": {"train": [0, 0.25], "dev": [0.25, 0.275], "test": [0.275, 0.3]},
+                            "resplit_portion": {"train": [0, 0.8], "dev": [0.8, 0.9], "test": [0.9, 1.0]},
+                            #"resplit_portion": {"train": [0, 0.25], "dev": [0.25, 0.275], "test": [0.275, 0.3]},
                             "model_name": each_pretrained_model,
                             "server_name": server_name,
                             "split_mode": "resplit",
@@ -163,11 +164,12 @@ def _test_hpo():
                         autohf.prepare_data(**preparedata_setting)
 
                         autohf_settings = {"resources_per_trial": resources_dict,
-                                               "wandb_key": wandb_key,
-                                               "search_algo_name": this_search_algo,
-                                               "scheduler_name": this_scheduler_name,
-                                               "ckpt_per_epoch": 1,
-                                               }
+                                           "wandb_key": wandb_key,
+                                           "search_algo_name": this_search_algo,
+                                           "scheduler_name": this_scheduler_name,
+                                           "ckpt_per_epoch": 1,
+                                           "search_algo_args_mode": "grid",
+                                          }
                         autohf_settings["hpo_searchspace_mode"] = hpo_searchspace_mode
                         autohf_settings["num_sample_time_budget_mode"] = num_sample_time_budget_mode
                         autohf_settings["time_as_grid"] = time_as_grid
@@ -177,16 +179,20 @@ def _test_hpo():
                                        eval_dataset,
                                        **autohf_settings,)
                         except AssertionError:
-                            save_file_name = autohf.full_dataset_name + "_" + autohf.model_type + "_" + autohf.search_algo_name \
-                                             + "_" + autohf.scheduler_name + "_" + autohf.path_utils.group_hash_id
+                            save_file_name = autohf.full_dataset_name.lower() + "_" + autohf.model_type.lower() + "_" + \
+                                             autohf.model_size_type.lower() + "_" + autohf.search_algo_name.lower() \
+                                             + "_" + autohf.scheduler_name.lower() + "_" + autohf.path_utils.group_hash_id \
+                                             + "_" + hpo_searchspace_mode.lower()
                             fout.write(save_file_name + ":\n")
                             fout.write("timestamp:" + str(time.time()))
                             fout.write("failed, no checkpoint found\n")
                             fout.flush()
                             continue
 
-                        save_file_name = autohf.full_dataset_name.lower() + "_" + autohf.model_type.lower() + "_" \
-                                         + autohf.search_algo_name.lower() + "_" + autohf.scheduler_name.lower() + "_" + autohf.path_utils.group_hash_id
+                        save_file_name = autohf.full_dataset_name.lower() + "_" + autohf.model_type.lower() + "_" + \
+                                         autohf.model_size_type.lower() + "_" + autohf.search_algo_name.lower() \
+                                         + "_" + autohf.scheduler_name.lower() + "_" + hpo_searchspace_mode.lower() \
+                                         + "_" + autohf.path_utils.group_hash_id
                         fout.write(save_file_name + ":\n")
                         fout.write("validation " + (autohf.metric_name) + ":" + json.dumps(validation_metric) + "\n")
                         fout.write("duration:" + str(autohf.last_run_duration) + "\n")

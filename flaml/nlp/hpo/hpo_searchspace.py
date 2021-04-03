@@ -58,7 +58,7 @@ def hpo_space_generic(logger, model_type, model_size_type, dataset_name, subdata
             else:
                 output_config[each_hp] = config_json[each_hp]
         elif each_hp == "num_train_epochs":
-            output_config[each_hp] = {"l": 1.0, "u": 10.0, "space": "linear"}
+            output_config[each_hp] = {"l": 1.0, "u": 10.0, "space": "log"}
         elif each_hp == "per_device_train_batch_size":
             output_config[each_hp] = [4, 8, 16, 32, 48, 64]
         elif each_hp == "warmup_ratio":

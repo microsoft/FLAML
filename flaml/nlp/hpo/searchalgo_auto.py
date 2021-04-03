@@ -51,7 +51,7 @@ class AutoSearchAlgorithm:
                 if search_algo_args_mode == "default":
                     search_algo_args = default_search_algo_kwargs
                 elif search_algo_args_mode == "grid":
-                    search_algo_args = AutoSearchAlgorithm.grid2list(grid_search_space)
+                    search_algo_args = {"points_to_evaluate": AutoSearchAlgorithm.grid2list(grid_search_space)}
                 else:
                     search_algo_args = custom_search_algo_args
 
@@ -67,7 +67,7 @@ class AutoSearchAlgorithm:
 
     @staticmethod
     def grid2list(grid_config):
-        key_val_list = [[(key, each_val) for each_val in val_list] for (key, val_list) in grid_config.items()]
+        key_val_list = [[(key, each_val) for each_val in val_list['grid_search']] for (key, val_list) in grid_config.items()]
         config_list = [dict(x) for x in itertools.product(*key_val_list)]
         return config_list
 

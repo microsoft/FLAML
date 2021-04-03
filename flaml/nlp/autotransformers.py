@@ -18,7 +18,7 @@ from functools import partial
 
 from .dataset.metric_auto import get_default_and_alternative_metric
 from .dataset.submission_auto import auto_output_prediction
-from .hpo.hpo_searchspace import AutoHPOSearchSpace, HPO_SEARCH_SPACE_MAPPING
+from .hpo.hpo_searchspace import AutoHPOSearchSpace, HPO_SEARCH_SPACE_MAPPING, hp_type_mapping
 from .huggingface.modeling_auto import AutoSeqClassificationHead
 from .utils import PathUtils, _variable_override_default_alternative
 from .hpo.grid_searchspace_auto import AutoGridSearchSpace
@@ -91,8 +91,11 @@ class AutoTransformers:
                    wandb_key):
         os.environ["WANDB_API_KEY"] = wandb_key
         self.path_utils.group_hash_id = wandb.util.generate_id()
-        group_name = self.full_dataset_name.lower() + "_" + self.model_type.lower() + "_" + self.search_algo_name.lower() \
-                                     + "_" + self.scheduler_name.lower() + "_" + self.path_utils.group_hash_id
+        group_name = self.full_dataset_name.lower() + "_" + self._model_type.lower() + "_" + \
+                     self._model_size_type.lower() + "_" + self._search_algo_name.lower() \
+                     + "_" + self._scheduler_name.lower() + "_" + self._hpo_searchspace_mode.lower() \
+                     + "_" + self.path_utils.group_hash_id
+
         os.environ["WANDB_RUN_GROUP"] = group_name
 
     @staticmethod
@@ -505,6 +508,10 @@ class AutoTransformers:
             num_train_epochs = config["num_train_epochs"],
             batch_size = config["per_device_train_batch_size"],
             mode="last")
+
+        for each_hp in config:
+            if each_hp in hp_type_mapping.keys():
+                wandb.log({each_hp: config[each_hp]})
 
         assert self.path_utils.ckpt_dir_per_trial
         training_args = TrainingArguments(
