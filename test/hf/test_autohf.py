@@ -1,13 +1,13 @@
 '''Require: pip install torch transformers datasets flaml[blendsearch,ray]
 '''
 import ray
-
+import subprocess
 from flaml.nlp.autotransformers import AutoTransformers
 
 def test_electra(method='BlendSearch'):
     # setting wandb key
     wandb_key = "f38cc048c956367de27eeb2749c23e6a94519ab8"
-
+    subprocess.run(["wandb", "login", "--relogin", wandb_key])
     autohf = AutoTransformers()
 
     preparedata_setting = {
