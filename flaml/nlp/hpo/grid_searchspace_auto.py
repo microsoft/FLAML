@@ -9,10 +9,10 @@ from .get_grid_search_space import \
 
 GRID_SEARCH_SPACE_MAPPING = OrderedDict(
     [
-        (("electra"), get_electra_space),
-        (("bert"), get_bert_space),
+        ("electra", get_electra_space),
+        ("bert", get_bert_space),
         #(("mobilebert"), get_mobilebert_space),
-        (("roberta"), get_roberta_space),
+        ("roberta", get_roberta_space),
     ]
 )
 
