@@ -20,7 +20,7 @@ def _variable_override_default_alternative(logger, obj_ref, var_name, default_va
 @dataclass
 class PathUtils:
     """
-    This is the class for maintaining the paths (checkpoints, results) in AutoHuggingFace.
+    This is the class for maintaining the paths (checkpoints, results) in AutoTransformers.
 
     Args:
         hpo_output_dir:

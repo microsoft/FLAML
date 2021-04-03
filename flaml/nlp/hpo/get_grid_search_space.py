@@ -124,5 +124,3 @@ def get_mobilebert_space(model_size_type = None,
     search_space_dict["per_device_train_batch_size"] = [4, 8, 16, 32, 48]
     search_space_dict["num_train_epochs"] = [x for x in range(2, 11)]
     return  search_space_dict
-
-

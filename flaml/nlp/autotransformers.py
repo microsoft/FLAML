@@ -38,20 +38,20 @@ logger_formatter = logging.Formatter(
 
 task_list = [
     "text-classification",
-    "regression",
+    "text-regression",
     "question-answering"
 ]
 
 
 class AutoTransformers:
 
-    '''The AutoHuggingFace class
+    '''The AutoTransformers class
 
     Example:
 
         .. code-block:: python
 
-            autohf = AutoHuggingFace()
+            autohf = AutoTransformers()
             autohf_settings = {"metric_name": "accuracy",
                    "mode_name": "max",
                    "resources_per_trial": {"gpu": 4, "cpu": 4},
@@ -145,7 +145,7 @@ class AutoTransformers:
     @property
     def last_run_duration(self):
         """
-        Get the running time for the last run with AutoHuggingFace.fit()
+        Get the running time for the last run with AutoTransformers.fit()
         """
         return self._last_run_duration
 
@@ -229,7 +229,7 @@ class AutoTransformers:
                 assert not (each_key.startswith(each_split_name) and each_key != each_split_name), \
                     "Dataset split must be within {}, must be explicitly specified in dataset_config, e.g.," \
                     "'fold_name': ['train', 'validation_matched', 'test_matched']. Please refer to the example in the " \
-                    "documentation of AutoHuggingFace.prepare_data()".format(",".join(fold_keys))
+                    "documentation of AutoTransformers.prepare_data()".format(",".join(fold_keys))
         return "train", "validation", "test"
 
     def prepare_data(self,
@@ -278,7 +278,7 @@ class AutoTransformers:
 
         assert isinstance(dataset_config, dict) and ("task" in dataset_config) and \
                ("dataset_name" in dataset_config), "dataset_config is not correctly formatted. Please " \
-               "refer to the example in the documentation of AutoHuggingFace.prepare_data()"
+               "refer to the example in the documentation of AutoTransformers.prepare_data()"
         assert dataset_config["task"] in task_list, "task is not correctly specified. The task must be from" \
                "one of {}".format(", ".join(task_list))
 
@@ -320,7 +320,7 @@ class AutoTransformers:
         assert split_mode in ("resplit", "origin"), "split mode can only be chosen from 'resplit' and 'origin'"
         if split_mode == "resplit":
             assert resplit_portion, "If split mode is 'resplit', the resplit_portion must be provided. Please " \
-                                    "refer to the example in the documentation of AutoHuggingFace.prepare_data()"
+                                    "refer to the example in the documentation of AutoTransformers.prepare_data()"
 
         self._tokenizer = AutoTokenizer.from_pretrained(self.path_utils.model_checkpoint, use_fast=True)
 
@@ -356,7 +356,7 @@ class AutoTransformers:
 
         if self._task_name == "text-classification":
             self._num_labels = len(train_dataset.features["label"].names)
-        elif self._task_name == "regression":
+        elif self._task_name == "text-regression":
             self._num_labels = 1
 
         return train_dataset, eval_dataset, test_dataset
@@ -446,7 +446,7 @@ class AutoTransformers:
     def _compute_metrics_by_dataset_name(self,
                                          eval_pred):
         predictions, labels = eval_pred
-        predictions = np.squeeze(predictions) if self._task_name == "regression" else np.argmax(predictions, axis=1)
+        predictions = np.squeeze(predictions) if self._task_name == "text-regression" else np.argmax(predictions, axis=1)
         metric = self._get_metric()
         return metric.compute(predictions=predictions, references=labels)
 
@@ -640,8 +640,8 @@ class AutoTransformers:
                     logger.error("scheduler_name is not specified, must be explicitly specified "
                     "in the arguments for AutoHugginFace.predict(). For example, scheduler_name='None'.")
                     raise err
-            assert self._model_type, "model_type is not specified, did you specifity it in AutoHuggingFace.prepare_data?"
-            assert self._split_mode, "split_mode is not specified, did you specifity it in AutoHuggingFace.prepare_data?"
+            assert self._model_type, "model_type is not specified, did you specifity it in AutoTransformers.prepare_data?"
+            assert self._split_mode, "split_mode is not specified, did you specifity it in AutoTransformers.prepare_data?"
 
             if not self.path_utils.folder_name:
                 self.path_utils.set_folder_name(self)
@@ -856,7 +856,7 @@ class AutoTransformers:
 
         test_dataloader = test_trainer.get_test_dataloader(test_dataset)
         predictions, labels, _ = test_trainer.prediction_loop(test_dataloader, description="Prediction")
-        predictions = np.squeeze(predictions) if self._task_name == "regression" else np.argmax(predictions, axis=1)
+        predictions = np.squeeze(predictions) if self._task_name == "text-regression" else np.argmax(predictions, axis=1)
 
         if self._split_mode == "resplit":
             assert labels is not None
@@ -899,4 +899,3 @@ class AutoTransformers:
     @hpo_searchspace_mode.setter
     def hpo_searchspace_mode(self, value):
         self._hpo_searchspace_mode = value
-

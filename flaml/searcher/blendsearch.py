@@ -195,11 +195,8 @@ class BlendSearch(Searcher):
             else: # add to result cache
                 self._result[self._ls.config_signature(config)] = result
             # update target metric if improved
-            try:
-                if (result[self._metric]-self._metric_target)*self._ls.metric_op<0:
-                    self._metric_target = result[self._metric]
-            except:
-                stop = 0
+            if (result[self._metric]-self._metric_target)*self._ls.metric_op<0:
+                self._metric_target = result[self._metric]
             if not thread_id and self._create_condition(result): 
                 # thread creator
                 self._search_thread_pool[self._thread_count] = SearchThread(
