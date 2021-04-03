@@ -27,7 +27,7 @@ def test_electra(method='BlendSearch'):
 
     autohf_settings = {"resources_per_trial": {"cpu": 1},
                        "wandb_key": wandb_key,
-                       "search_algo_name": method,
+                       "search_algo_name": "OptunaSearch",
                        "num_samples": 1,
                        "time_budget": 7200,
                        "fp16": False,

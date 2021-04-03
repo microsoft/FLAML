@@ -17,8 +17,12 @@ GRID_SEARCH_SPACE_MAPPING = OrderedDict(
 )
 
 time_budget_grid_electra_base_glue_tmdev = {
-    "qnli": 1678.1,
+    "qnli": 1386.57,
     "mnli": 6630.17,
+}
+
+time_budget_grid_electra_small_glue_tmdev = {
+    "qnli": 879.49,
 }
 
 time_budget_grid_electra_base_glue_dgx = {
@@ -26,8 +30,14 @@ time_budget_grid_electra_base_glue_dgx = {
 }
 
 time_budget_grid_bert_base_glue_tmdev = {
-    "qnli": 1777.34,
+    "rte": 300,
+    "mrpc": 300,
+    "qnli": 1410.16,
     "mnli": 5799,
+}
+
+time_budget_grid_roberta_base_glue_tmdev = {
+    "qnli": 1410.16,
 }
 
 time_budget_grid_bert_base_glue_dgx = {
@@ -76,16 +86,15 @@ class AutoGridSearchSpace:
 
     @classmethod
     def get_grid_time_budget(cls, logger, model_type, model_size_type, dataset_name, server_name, subdataset_name = None):
-        if (model_type, model_size_type, dataset_name, subdataset_name) in GRID_SEARCH_TIME_BUDGET_LOOKUP_TABLE.keys():
+        if (model_type, model_size_type, dataset_name, server_name) in GRID_SEARCH_TIME_BUDGET_LOOKUP_TABLE.keys():
             try:
                 return GRID_SEARCH_TIME_BUDGET_LOOKUP_TABLE[(model_type, model_size_type, dataset_name, server_name)][subdataset_name]
             except Exception as err:
                 logger.error("the time budget for this setting does not exist in the look up table")
                 raise err
         raise ValueError(
-            "Unrecognized method {},{} for this kind of AutoGridSearchSpace: {}.\n"
-            "Method name should be one of {}.".format(
-                model_type, dataset_name, cls.__name__, ", ".join(c.__name__ for c in GRID_SEARCH_SPACE_MAPPING.keys())
+            "Unrecognized method {},{} for this kind of AutoGridSearchSpace: {}".format(
+                model_type, dataset_name, cls.__name__
             )
         )
 

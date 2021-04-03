@@ -1,19 +1,35 @@
 from collections import OrderedDict
+
+from ray import tune
 from transformers import TrainingArguments
 
 from flaml.nlp.hpo.grid_searchspace_auto import GRID_SEARCH_SPACE_MAPPING, AutoGridSearchSpace
 
-def lr_epoch_bs_gridunion(logger, model_type, model_size_type, dataset_name, subdataset_name = None):
+hp_type_mapping = {"learning_rate": [tune.sample.Float, "log"],
+                   "num_train_epochs": [tune.sample.Float, "linear"],
+                   "per_device_train_batch_size": tune.sample.Categorical,
+                   "weight_decay": [tune.sample.Float, "linear"],
+                   "warmup_ratio": [tune.sample.Float, "linear"]}
+
+def hpo_space_gridunion_continuous(logger, model_type, model_size_type, dataset_name, subdataset_name = None):
+    gridunion_space = hpo_space_gridunion(logger, model_type, model_size_type, dataset_name, subdataset_name)
+    gridunion_space_continuous = {}
+    for each_hp in hp_type_mapping.keys():
+        if hp_type_mapping[each_hp] == tune.sample.Categorical:
+            gridunion_space_continuous[each_hp] = gridunion_space[each_hp]
+        else:
+            assert type(hp_type_mapping[each_hp]) == list
+            gridunion_space_continuous[each_hp] = {"l": min(gridunion_space[each_hp]), "u": max(gridunion_space[each_hp]), "space": hp_type_mapping[each_hp][1]}
+    return gridunion_space_continuous
+
+def hpo_space_gridunion(logger, model_type, model_size_type, dataset_name, subdataset_name = None):
     output_config = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
-
-    hps_to_union = {"learning_rate", "num_train_epochs", "per_device_train_batch_size", "weight_decay", "warmup_ratio"}
-
-    for each_hp in hps_to_union:
+    for each_hp in hp_type_mapping.keys():
         output_config[each_hp] = []
 
     for each_model_type in GRID_SEARCH_SPACE_MAPPING.keys():
         each_grid_search_config = AutoGridSearchSpace.from_model_and_dataset_name(each_model_type, model_size_type, dataset_name, subdataset_name)
-        for each_hp in hps_to_union:
+        for each_hp in hp_type_mapping.keys():
             try:
                 output_config[each_hp] = list(set(output_config[each_hp] + each_grid_search_config[each_hp]))
             except TypeError:
@@ -31,7 +47,7 @@ def lr_epoch_bs_gridunion(logger, model_type, model_size_type, dataset_name, sub
 
     return output_config
 
-def lr_epoch_bs_generic(logger, model_type, model_size_type, dataset_name, subdataset_name = None):
+def hpo_space_generic(logger, model_type, model_size_type, dataset_name, subdataset_name = None):
     config_json = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
     output_config = {}
 
@@ -42,9 +58,13 @@ def lr_epoch_bs_generic(logger, model_type, model_size_type, dataset_name, subda
             else:
                 output_config[each_hp] = config_json[each_hp]
         elif each_hp == "num_train_epochs":
-            output_config[each_hp] = {"l": 0.01, "u": 10.0, "space": "linear"}
+            output_config[each_hp] = {"l": 1.0, "u": 10.0, "space": "linear"}
         elif each_hp == "per_device_train_batch_size":
             output_config[each_hp] = [4, 8, 16, 32, 48, 64]
+        elif each_hp == "warmup_ratio":
+            output_config[each_hp] = {"l": 0.0, "u": 0.3, "space": "linear"}
+        elif each_hp == "weight_decay":
+            output_config[each_hp] = {"l": 0.0, "u": 0.3, "space": "linear"}
         else:
             output_config[each_hp] = config_json[each_hp]
 
@@ -52,8 +72,9 @@ def lr_epoch_bs_generic(logger, model_type, model_size_type, dataset_name, subda
 
 HPO_SEARCH_SPACE_MAPPING = OrderedDict(
     [
-        (("lr_epoch_bs_gridunion"), lr_epoch_bs_gridunion),
-        (("lr_epoch_bs_generic"), lr_epoch_bs_generic),
+        ("hpo_space_gridunion", hpo_space_gridunion),
+        ("hpo_space_generic", hpo_space_generic),
+        ("hpo_space_gridunion_continuous", hpo_space_gridunion_continuous)
     ]
 )
 

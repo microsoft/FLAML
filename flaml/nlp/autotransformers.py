@@ -1,11 +1,11 @@
 import os,json
 
-import transformers
+import transformers, math
 import wandb
 import numpy as np
 
 from ray.tune import CLIReporter
-from ray.tune.integration.wandb import WandbLoggerCallback
+from ray.tune.integration.wandb import WandbLoggerCallback, wandb_mixin
 
 import time
 import ray
@@ -492,6 +492,7 @@ class AutoTransformers:
         )
         return self._tokenizer(*args, padding="max_length", max_length=self._max_seq_length, truncation=True)
 
+    @wandb_mixin
     def _objective(self, config, reporter, checkpoint_dir=None):
 
         training_args_config, per_model_config = AutoTransformers._separate_config(config)
@@ -533,6 +534,7 @@ class AutoTransformers:
             fout.write(str(len(trainer.get_train_dataloader())))
 
         trainer.train()
+        trainer.evaluate(self._eval_dataset)
 
     def _verify_init_config(self,
                             **search_algo_args):
@@ -563,7 +565,8 @@ class AutoTransformers:
                          search_algo_name,
                          search_algo_args_mode,
                          **custom_search_algo_args):
-        self._verify_init_config(**custom_search_algo_args)
+        if search_algo_name == "BlendSearch":
+            self._verify_init_config(**custom_search_algo_args)
         search_algo = AutoSearchAlgorithm.from_method_name(search_algo_name, search_algo_args_mode, self._search_space_grid, self._search_space_hpo, **custom_search_algo_args)
         return search_algo
 
@@ -589,7 +592,7 @@ class AutoTransformers:
             time_budget = AutoGridSearchSpace.get_grid_time_budget(logger, self._model_type, self._model_size_type, self._dataset_name[0], self._server_name, self._subdataset_name)
             assert times_as_grid and (isinstance(times_as_grid, float) or isinstance(times_as_grid, int)), \
                 "When setting to the times_grid_time_budget mode, must explicitly specify times_as_grid"
-            self._sample_num = int("inf")
+            self._sample_num = 1000000
             self._time_budget = times_as_grid * time_budget
             logger.warning("HPO is set to {} times time budget or time budget = {}, trial number is "
                            "set to {}".format(times_as_grid, self._time_budget, self._sample_num))
@@ -770,24 +773,44 @@ class AutoTransformers:
         assert self.path_utils.ckpt_dir_per_run
 
         start_time = time.time()
+
+        # Documentation on the wandb setting:
+        # There are two ways to initialize wandb in tune.run:
+        # (1) using WandbLoggerCallback, by adding the following argument to tune.run:
+        #     callbacks=[WandbLoggerCallback(
+        #                  project="hpo",
+        #                  api_key = os.environ["WANDB_API_KEY"],
+        #                  group = os.environ["WANDB_RUN_GROUP"],
+        #                  log_config=True)]
+        # (2) using wandb_mixin decorator (the current implementation)
+        # The current implementation uses (2) because (1) has the following bug.
+        # In Ray 1.2, when using WandbLoggerCallback + setting time limit using the time_budget_s argument,
+        # A bug exists which is the previous run will not clear the cache after tune.run returns. After the
+        # later run has already starts, some zombie trials in the previous run remain in the memory and never stop.
+        # This bug can be reproduced by switching to (1) by adding the above callbacks argument and removing the wandb_mixin decorator
+        # https://docs.ray.io/en/master/tune/tutorials/tune-wandb.html
+
+        tune_config = self._search_space_hpo
+        tune_config["wandb"] = {
+                    "project": "hpo",
+                    "group": os.environ["WANDB_RUN_GROUP"],
+                    "reinit": True,
+                    "allow_val_change": True
+                }
+
         analysis = ray.tune.run(
             self._objective,
             metric= self._metric_name,
             mode = self._metric_mode_name,
             name = "ray_result",
             resources_per_trial = resources_per_trial,
-            config= self._search_space_hpo,
+            config= tune_config,
             local_dir= self.path_utils.ckpt_dir_per_run,
             num_samples = self._sample_num,
             time_budget_s= self._time_budget,
             keep_checkpoints_num = 1,
             scheduler= scheduler,
             search_alg= search_algo,
-            callbacks=[WandbLoggerCallback(
-                project="hpo",
-                api_key = os.environ["WANDB_API_KEY"],
-                group = os.environ["WANDB_RUN_GROUP"],
-                log_config=True)]
         )
         duration = time.time() - start_time
         self._last_run_duration = duration
@@ -845,7 +868,7 @@ class AutoTransformers:
             self._save_output_metric(output_metric)
             return predictions, output_metric
         else:
-            return predictions
+            return predictions, None
 
     def output_prediction(self,
                           predictions,

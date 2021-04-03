@@ -1,5 +1,15 @@
 # lookup table for the grid configs in each pre-trained language huggingface for different tasks
 
+def get_longformer_space(model_size_type = None,
+                   dataset_name = None,
+                   subdataset_name = None):
+    """
+        Longformer: The Long-Document Transformer
+    """
+    search_space_dict = {}
+    if dataset_name == "glue":
+        return
+
 def get_bert_space(model_size_type = None,
                    dataset_name = None,
                    subdataset_name = None):

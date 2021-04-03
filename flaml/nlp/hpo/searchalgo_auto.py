@@ -80,7 +80,7 @@ def default_search_algo_args_bs(hpo_search_space = None):
     default_search_algo_args = {
         "points_to_evaluate": [{
             "num_train_epochs": 1,
-            "per_device_train_batch_size": 4, #max(hpo_search_space["per_device_train_batch_size"].categories),
+            "per_device_train_batch_size": max(hpo_search_space["per_device_train_batch_size"].categories),
         }]}
     return default_search_algo_args
 
