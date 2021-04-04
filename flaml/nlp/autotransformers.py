@@ -21,7 +21,7 @@ from functools import partial
 from .dataset.metric_auto import get_default_and_alternative_metric
 from .dataset.submission_auto import auto_output_prediction
 from .hpo.hpo_searchspace import AutoHPOSearchSpace, HPO_SEARCH_SPACE_MAPPING, hp_type_mapping
-from .huggingface.modeling_auto import AutoSeqClassificationHead
+from .huggingface.switch_head_auto import AutoSeqClassificationHead, MODEL_CLASSIFICATION_HEAD_MAPPING
 from .utils import PathUtils, _variable_override_default_alternative
 from .hpo.grid_searchspace_auto import AutoGridSearchSpace
 from .hpo.searchalgo_auto import AutoSearchAlgorithm, SEARCH_ALGO_MAPPING
@@ -129,17 +129,17 @@ class AutoTransformers:
         return search_space
 
     def _set_search_space(self,
-                          search_space_dir=None):
+                          **custom_hpo_args):
         assert self._model_type
         search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name)
         self._search_space_grid = AutoTransformers._convert_json_to_search_space(search_space_grid_json, mode="grid_search")
 
-        if self._search_algo_name != "grid_search":
-            if search_space_dir:
-                search_space_hpo_json = json.load(open(os.path.join(search_space_dir), "r"))
-            else:
-                search_space_hpo_json = AutoHPOSearchSpace.from_model_and_dataset_name(logger, self._hpo_searchspace_mode, self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name)
+        if self._search_algo_name != "grid_search" and self._search_algo_name != "grid_search_enumerate":
+            search_space_hpo_json = AutoHPOSearchSpace.from_model_and_dataset_name(logger, self._hpo_searchspace_mode, self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name, **custom_hpo_args)
             self._search_space_hpo = AutoTransformers._convert_json_to_search_space(search_space_hpo_json, mode="hpo")
+        elif self._search_algo_name == "grid_search_enumerate":
+            search_space_hpo_json = AutoHPOSearchSpace.from_model_and_dataset_name(logger, self._hpo_searchspace_mode, self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name, **custom_hpo_args)
+            self._search_space_hpo = AutoTransformers._convert_json_to_search_space(search_space_hpo_json, mode="grid_search")
         else:
             self._search_space_hpo = self._search_space_grid
 
@@ -400,23 +400,6 @@ class AutoTransformers:
         self._model_type = model_type
         self._model_size_type = model_size_type
 
-    # def _load_model2(self,
-    #                 checkpoint_path = None,
-    #                 per_model_config=None):
-    #     if not checkpoint_path:
-    #         checkpoint_path = self.path_utils.model_checkpoint
-    #     if self._task_name == "text-classification":
-    #         if per_model_config and len(per_model_config) > 0:
-    #             model_config = AutoConfig.from_pretrained(
-    #                 checkpoint_path, **per_model_config, num_labels = self._num_labels)
-    #         else:
-    #             model_config = AutoConfig.from_pretrained(
-    #                 checkpoint_path, num_labels = self._num_labels)
-    #
-    #         this_model = AutoModelForSequenceClassification.from_config(model_config)
-    #         this_model.resize_token_embeddings(len(self._tokenizer))
-    #         return this_model
-
     def _load_model(self,
                     checkpoint_path = None,
                     per_model_config=None):
@@ -424,24 +407,44 @@ class AutoTransformers:
             checkpoint_path = self.path_utils.model_checkpoint
         if self._task_name == "text-classification":
             num_labels_old = AutoConfig.from_pretrained(checkpoint_path).num_labels
+            if self.model_type in MODEL_CLASSIFICATION_HEAD_MAPPING.keys():
+                model_config_num_labels = num_labels_old
+            else:
+                model_config_num_labels = self._num_labels
+
             if per_model_config and len(per_model_config) > 0:
                 model_config = AutoConfig.from_pretrained(
                     checkpoint_path,
-                    num_labels = num_labels_old,
+                    num_labels = model_config_num_labels,
                     **per_model_config)
             else:
                 model_config = AutoConfig.from_pretrained(
                     checkpoint_path,
-                    num_labels = num_labels_old)
+                    num_labels = model_config_num_labels)
 
-            if self._num_labels != num_labels_old:
-                model_config.num_labels = num_labels_old
-                this_model = AutoModelForSequenceClassification.from_pretrained(checkpoint_path, config=model_config)
-                model_config.num_labels = self._num_labels
-                this_model.num_labels = self._num_labels
-                this_model.classifier = AutoSeqClassificationHead.from_config(model_config)
+            if self.model_type in MODEL_CLASSIFICATION_HEAD_MAPPING.keys():
+                num_labels_old = AutoConfig.from_pretrained(checkpoint_path).num_labels
+                if per_model_config and len(per_model_config) > 0:
+                    model_config = AutoConfig.from_pretrained(
+                        checkpoint_path,
+                        num_labels = num_labels_old,
+                        **per_model_config)
+                else:
+                    model_config = AutoConfig.from_pretrained(
+                        checkpoint_path,
+                        num_labels = num_labels_old)
+
+                if self._num_labels != num_labels_old:
+                    model_config.num_labels = num_labels_old
+                    this_model = AutoModelForSequenceClassification.from_pretrained(checkpoint_path, config=model_config)
+                    model_config.num_labels = self._num_labels
+                    this_model.num_labels = self._num_labels
+                    this_model.classifier = AutoSeqClassificationHead.from_model_type_and_config(self.model_type, model_config)
+                else:
+                    this_model = AutoModelForSequenceClassification.from_pretrained(checkpoint_path, config=model_config)
             else:
                 this_model = AutoModelForSequenceClassification.from_pretrained(checkpoint_path, config=model_config)
+
             this_model.resize_token_embeddings(len(self._tokenizer))
             return this_model
 
@@ -558,10 +561,10 @@ class AutoTransformers:
         trainer.evaluate(self._eval_dataset)
 
     def _verify_init_config(self,
-                            **search_algo_args):
-        for key in search_algo_args.keys():
+                            **custom_hpo_args):
+        for key in custom_hpo_args.keys():
             if key == "points_to_evaluate":
-                for each_init_config in search_algo_args[key]:
+                for each_init_config in custom_hpo_args[key]:
                    for each_hp in each_init_config.keys():
                        assert each_hp in self._search_space_hpo.keys(), \
                            "points_to_evaluate hp must be within the search space"
@@ -585,10 +588,10 @@ class AutoTransformers:
     def _get_search_algo(self,
                          search_algo_name,
                          search_algo_args_mode,
-                         **custom_search_algo_args):
+                         **custom_hpo_args):
         if search_algo_name == "BlendSearch":
-            self._verify_init_config(**custom_search_algo_args)
-        search_algo = AutoSearchAlgorithm.from_method_name(search_algo_name, search_algo_args_mode, self._search_space_grid, self._search_space_hpo, **custom_search_algo_args)
+            self._verify_init_config(**custom_hpo_args)
+        search_algo = AutoSearchAlgorithm.from_method_name(search_algo_name, search_algo_args_mode, self._search_space_grid, self._search_space_hpo, **custom_hpo_args)
         return search_algo
 
     def _set_sample_num_time_budget(self,
@@ -693,7 +696,6 @@ class AutoTransformers:
             search_algo_name= None,
             ckpt_per_epoch=1,
             fp16 = True,
-            search_space_path = None,
             scheduler_name=None,
             verbose = 1,
             search_algo_args_mode = "default",
@@ -702,7 +704,7 @@ class AutoTransformers:
             custom_num_samples = None,
             custom_time_budget = None,
             time_as_grid = None,
-            **custom_search_algo_args):
+            **custom_hpo_args):
         '''Fine tuning the huggingface using the hpo setting
 
         Args:
@@ -774,11 +776,11 @@ class AutoTransformers:
         ray.init()
 
         self._extract_model_type()
-        self._set_search_space(search_space_path)
+        self._set_search_space(**custom_hpo_args)
 
         self.path_utils.set_folder_name(self)
 
-        search_algo = self._get_search_algo(self._search_algo_name, search_algo_args_mode, **custom_search_algo_args)
+        search_algo = self._get_search_algo(self._search_algo_name, search_algo_args_mode, **custom_hpo_args)
         self._set_sample_num_time_budget(custom_num_samples, custom_time_budget, num_sample_time_budget_mode, time_as_grid)
         scheduler = AutoScheduler.from_scheduler_name(self._scheduler_name)
 
@@ -851,7 +853,7 @@ class AutoTransformers:
         if verbose==0:
             logger.setLevel(old_level)
 
-        return validation_metric
+        return validation_metric, analysis
 
     def predict(self,
                 test_dataset,

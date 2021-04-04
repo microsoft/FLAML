@@ -21,6 +21,7 @@ SEARCH_ALGO_MAPPING = OrderedDict(
         ("Nevergrad", NevergradSearch),
         ("HyperOpt", HyperOptSearch),
         ("grid_search", None),
+        ("grid_search_enumerate", None),
         ("RandomSearch", None)
     ]
 )
@@ -43,7 +44,7 @@ class AutoSearchAlgorithm:
         )
 
     @classmethod
-    def from_method_name(cls, search_algo_name, search_algo_args_mode, grid_search_space, hpo_search_space, **custom_search_algo_args):
+    def from_method_name(cls, search_algo_name, search_algo_args_mode, grid_search_space, hpo_search_space, **custom_hpo_args):
         assert search_algo_args_mode in {"default", "grid", "custom"}
         if search_algo_name in SEARCH_ALGO_MAPPING.keys():
             try:
@@ -53,7 +54,12 @@ class AutoSearchAlgorithm:
                 elif search_algo_args_mode == "grid":
                     search_algo_args = {"points_to_evaluate": AutoSearchAlgorithm.grid2list(grid_search_space)}
                 else:
-                    search_algo_args = custom_search_algo_args
+                    search_algo_args = custom_hpo_args
+
+                algo = SEARCH_ALGO_MAPPING[search_algo_name]()
+                if algo:
+                    allowed_arguments = algo.__init__.__code__.co_varnames
+                    search_algo_args = {key: search_algo_args[key] for key in search_algo_args.keys() if key in allowed_arguments}
 
                 return SEARCH_ALGO_MAPPING[search_algo_name](**search_algo_args)
             except:

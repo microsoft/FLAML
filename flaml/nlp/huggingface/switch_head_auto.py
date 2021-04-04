@@ -1,19 +1,16 @@
 from collections import OrderedDict
 
-from transformers import ElectraConfig, BertConfig
+from transformers import ElectraConfig, BertConfig, DebertaConfig
 from transformers import RobertaConfig
 
 from transformers.models.auto.configuration_auto import replace_list_option_in_docstrings
 from transformers.models.electra.modeling_electra import ElectraClassificationHead
 from transformers.models.roberta.modeling_roberta import RobertaClassificationHead
 
-from flaml.nlp.huggingface.modeling_bert import BertClassificationHead
-
 MODEL_CLASSIFICATION_HEAD_MAPPING = OrderedDict(
     [
-        (BertConfig, BertClassificationHead),
-        (ElectraConfig, ElectraClassificationHead),
-        (RobertaConfig, RobertaClassificationHead),
+        ("electra", ElectraClassificationHead),
+        ("roberta", RobertaClassificationHead),
     ]
 )
 
@@ -34,8 +31,7 @@ class AutoSeqClassificationHead:
         )
 
     @classmethod
-    @replace_list_option_in_docstrings(MODEL_CLASSIFICATION_HEAD_MAPPING, use_model_types=False)
-    def from_config(cls, config):
+    def from_model_type_and_config(cls, model_type, config):
         """
         Instantiates one of the huggingface classes of the library---with a head for sequence classification---from a configuration.
 
@@ -53,7 +49,7 @@ class AutoSeqClassificationHead:
         Examples::
         """
         if type(config) in MODEL_CLASSIFICATION_HEAD_MAPPING.keys():
-            return MODEL_CLASSIFICATION_HEAD_MAPPING[type(config)](config)
+            return MODEL_CLASSIFICATION_HEAD_MAPPING[model_type](config)
         raise ValueError(
             "Unrecognized configuration class {} for this kind of AutoModel: {}.\n"
             "Model type should be one of {}.".format(

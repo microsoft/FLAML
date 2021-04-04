@@ -11,7 +11,7 @@ hp_type_mapping = {"learning_rate": [tune.sample.Float, "log"],
                    "weight_decay": [tune.sample.Float, "linear"],
                    "warmup_ratio": [tune.sample.Float, "linear"]}
 
-def hpo_space_gridunion_continuous(logger, model_type, model_size_type, dataset_name, subdataset_name = None):
+def hpo_space_gridunion_continuous(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
     gridunion_space = hpo_space_gridunion(logger, model_type, model_size_type, dataset_name, subdataset_name)
     gridunion_space_continuous = {}
     for each_hp in hp_type_mapping.keys():
@@ -22,7 +22,7 @@ def hpo_space_gridunion_continuous(logger, model_type, model_size_type, dataset_
             gridunion_space_continuous[each_hp] = {"l": min(gridunion_space[each_hp]), "u": max(gridunion_space[each_hp]), "space": hp_type_mapping[each_hp][1]}
     return gridunion_space_continuous
 
-def hpo_space_gridunion(logger, model_type, model_size_type, dataset_name, subdataset_name = None):
+def hpo_space_gridunion(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
     output_config = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
     for each_hp in hp_type_mapping.keys():
         output_config[each_hp] = []
@@ -47,7 +47,23 @@ def hpo_space_gridunion(logger, model_type, model_size_type, dataset_name, subda
 
     return output_config
 
-def hpo_space_generic(logger, model_type, model_size_type, dataset_name, subdataset_name = None):
+def enumerate_onehp(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
+    electra_config = AutoGridSearchSpace.from_model_and_dataset_name("electra", "base", dataset_name, subdataset_name)
+    try:
+        hp_to_fix, hp_to_fix_value = custom_hpo_args["hp_to_fix"]
+        hp_to_tune, hp_to_tune_grids = custom_hpo_args["hp_to_tune"]
+        assert type(hp_to_fix_value) in {int, float, bool}
+    except Exception as err:
+        logger.log("When hpo_searchspace_mode = enumerate_onehp must specify both hp_to_fix and hp_to_tune in custom_hpo_args. "
+                   "hp_to_fix must be a tuple containing the hp and a scaler, hp_to_tun must be a tuple containing the hp and "
+                   "a list. ")
+        raise err
+    electra_config[hp_to_fix] = [hp_to_fix_value]
+    electra_config[hp_to_tune] = hp_to_tune_grids
+
+    return electra_config
+
+def hpo_space_generic(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
     config_json = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
     output_config = {}
 
@@ -70,7 +86,7 @@ def hpo_space_generic(logger, model_type, model_size_type, dataset_name, subdata
 
     return output_config
 
-def hpo_space_small(logger, model_type, model_size_type, dataset_name, subdataset_name = None):
+def hpo_space_small(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
     config_json = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
     output_config = {}
 
@@ -98,7 +114,8 @@ HPO_SEARCH_SPACE_MAPPING = OrderedDict(
         ("hpo_space_gridunion", hpo_space_gridunion),
         ("hpo_space_generic", hpo_space_generic),
         ("hpo_space_small", hpo_space_small),
-        ("hpo_space_gridunion_continuous", hpo_space_gridunion_continuous)
+        ("hpo_space_gridunion_continuous", hpo_space_gridunion_continuous),
+        ("enumerate_onehp", enumerate_onehp)
     ]
 )
 
@@ -119,10 +136,10 @@ class AutoHPOSearchSpace:
         )
 
     @classmethod
-    def from_model_and_dataset_name(cls, logger, hpo_searchspace_name, model_type, model_size_type, dataset_name, subdataset_name = None):
+    def from_model_and_dataset_name(cls, logger, hpo_searchspace_name, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
         if hpo_searchspace_name in HPO_SEARCH_SPACE_MAPPING.keys():
             try:
-                return HPO_SEARCH_SPACE_MAPPING[hpo_searchspace_name](logger, model_type, model_size_type, dataset_name, subdataset_name)
+                return HPO_SEARCH_SPACE_MAPPING[hpo_searchspace_name](logger, model_type, model_size_type, dataset_name, subdataset_name, **custom_hpo_args)
             except:
                 return None
         raise ValueError(

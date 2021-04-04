@@ -43,7 +43,7 @@ time_budget_grid_electra_small_glue_dgx = {
 time_budget_grid_bert_base_glue_tmdev = {
     "rte": 300,
     "mrpc": 300,
-    "qnli": 1410.16,
+    "qnli": 1381.97,
     "mnli": 5799,
 }
 
@@ -52,6 +52,7 @@ time_budget_grid_roberta_base_glue_tmdev = {
 }
 
 time_budget_grid_bert_base_glue_dgx = {
+    "qnli": 1381.97,
     "qqp": 5625.18,
 }
 

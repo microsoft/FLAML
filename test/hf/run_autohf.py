@@ -24,13 +24,13 @@ wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 dataset_names = [["glue"]]
 subdataset_names = ["qnli"]
 
-pretrained_models = ["google/electra-base-discriminator", "google/electra-small-discriminator"]
+pretrained_models = ["bert-base-uncased"]
 
-search_algos = ["BlendSearch", "Optuna"]
-scheduler_names = ["None"]
+search_algos = ["BlendSearch"]
+scheduler_names = ["None", "None"]
 
-hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_generic", "hpo_space_gridunion"]
-search_algo_args_modes = ["grid", "default", "default"]
+hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_gridunion"]
+search_algo_args_modes = ["grid", "default"]
 num_sample_time_budget_mode, time_as_grid = ("times_grid_time_budget", 4.0)
 
 def get_full_name(autohf, is_grid, hpo_searchspace_mode = None):
@@ -69,21 +69,37 @@ def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pret
         preparedata_setting["dataset_config"]["fold_name"] = ['train', 'validation_matched', 'test_matched']
     return preparedata_setting
 
-def get_autohf_setting(this_search_algo, this_scheduler_name, search_algo_args_mode = None):
-    if this_search_algo != "grid_search":
-        autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
+def get_autohf_settings_grid():
+    autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
                            "wandb_key": wandb_key,
-                           "search_algo_name": this_search_algo,
-                           "scheduler_name": this_scheduler_name,
+                           "search_algo_name": "grid_search",
+                           "scheduler_name": "None",
                            "ckpt_per_epoch": 1,
-                           "search_algo_args_mode": search_algo_args_mode,
                            }
-    else:
-        autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
+    return autohf_settings
+
+def get_autohf_settings(this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode = None):
+    autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
+                       "wandb_key": wandb_key,
+                       "search_algo_name": this_search_algo,
+                       "scheduler_name": this_scheduler_name,
+                       "ckpt_per_epoch": 1,
+                       "search_algo_args_mode": search_algo_args_mode,
+                      }
+    autohf_settings["hpo_searchspace_mode"] = hpo_searchspace_mode
+    autohf_settings["num_sample_time_budget_mode"] = num_sample_time_budget_mode
+    autohf_settings["time_as_grid"] = time_as_grid
+    return autohf_settings
+
+def get_autohf_settings_enumeratehp():
+    autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
                            "wandb_key": wandb_key,
-                           "search_algo_name": this_search_algo,
-                           "scheduler_name": this_scheduler_name,
+                           "search_algo_name": "grid_search_enumerate",
+                           "scheduler_name": "None",
                            "ckpt_per_epoch": 1,
+                           "hp_to_fix": ("warmup_ratio", 0.05),
+                           "hp_to_tune": ("learning_rate", [1e-5 * x for x in range(1, 11)]),
+                            "hpo_searchspace_mode": "enumerate_onehp",
                            }
     return autohf_settings
 
@@ -96,7 +112,7 @@ def flush_and_upload(fout, args):
 def output_predict(args, test_dataset, autohf, fout, save_file_name):
     if test_dataset:
         predictions, output_metric = autohf.predict(test_dataset)
-        fout.write("test " + (autohf.metric_name) + ":" + json.dumps(output_metric) + "\n")
+        fout.write("test " + (autohf.metric_name) + ":" + json.dumps(output_metric) + "\n\n")
         flush_and_upload(fout, args)
         if autohf.split_mode == "origin":
             autohf.output_prediction(predictions,
@@ -112,14 +128,14 @@ def rm_home_result():
 def write_exception(args, save_file_name, fout):
     fout.write(save_file_name + ":\n")
     fout.write("timestamp:" + str(str(datetime.datetime.now()))  + ":\n")
-    fout.write("failed, no checkpoint found\n\n")
+    fout.write("failed, no checkpoint found\n")
     flush_and_upload(fout, args)
 
 def write_regular(autohf, args, validation_metric, save_file_name, fout):
     fout.write(save_file_name + ":\n")
     fout.write("timestamp:" + str(str(datetime.datetime.now())) + ":\n")
     fout.write("validation " + (autohf.metric_name) + ":" + json.dumps(validation_metric) + "\n")
-    fout.write("duration:" + str(autohf.last_run_duration) + "\n\n")
+    fout.write("duration:" + str(autohf.last_run_duration) + "\n")
     flush_and_upload(fout, args)
 
 def _test_grid(args, fout, autohf):
@@ -129,16 +145,14 @@ def _test_grid(args, fout, autohf):
 
         for model_idx in range(0, len(pretrained_models)):
             each_pretrained_model = pretrained_models[model_idx]
-            this_search_algo = "grid_search"
-            this_scheduler_name = "None"
 
             preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model)
             train_dataset, eval_dataset, test_dataset = \
             autohf.prepare_data(**preparedata_setting)
-            autohf_settings = get_autohf_setting(this_search_algo, this_scheduler_name)
+            autohf_settings = get_autohf_settings_grid()
 
             try:
-                validation_metric = autohf.fit(train_dataset,
+                validation_metric, analysis = autohf.fit(train_dataset,
                            eval_dataset,
                            **autohf_settings,)
             except AssertionError:
@@ -156,9 +170,9 @@ def _test_hpo(args, fout, autohf):
         this_dataset_name = dataset_names[data_idx]
         this_subset_name = subdataset_names[data_idx]
 
-        for algo_idx in range(0, len(search_algos)):
+        for algo_idx in range(1, len(search_algos)):
             this_search_algo = search_algos[algo_idx]
-            for model_idx in range(1, len(pretrained_models)):
+            for model_idx in range(0, len(pretrained_models)):
                 each_pretrained_model = pretrained_models[model_idx]
 
                 this_scheduler_name = scheduler_names[algo_idx]
@@ -169,14 +183,10 @@ def _test_hpo(args, fout, autohf):
                                                                   each_pretrained_model)
                     train_dataset, eval_dataset, test_dataset = \
                         autohf.prepare_data(**preparedata_setting)
-                    autohf_settings = get_autohf_setting(this_search_algo, this_scheduler_name, search_algo_args_mode)
-
-                    autohf_settings["hpo_searchspace_mode"] = hpo_searchspace_mode
-                    autohf_settings["num_sample_time_budget_mode"] = num_sample_time_budget_mode
-                    autohf_settings["time_as_grid"] = time_as_grid
+                    autohf_settings = get_autohf_settings(this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode)
 
                     try:
-                        validation_metric = autohf.fit(train_dataset,
+                        validation_metric, analysis = autohf.fit(train_dataset,
                                    eval_dataset,
                                    **autohf_settings,)
                     except AssertionError:
