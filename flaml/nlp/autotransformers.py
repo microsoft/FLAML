@@ -1,5 +1,7 @@
 import os,json
+import random
 
+import torch
 import transformers, math
 import wandb
 import numpy as np
@@ -217,6 +219,13 @@ class AutoTransformers:
         Get the hpo searchspace choice name
         """
         return self._hpo_searchspace_mode
+
+    @property
+    def model_size_type(self):
+        """
+        Get the model size type
+        """
+        return self._model_size_type
 
     def _wrapper(self, func, *args):  # with star
         return func(*args)
@@ -497,6 +506,14 @@ class AutoTransformers:
 
     @wandb_mixin
     def _objective(self, config, reporter, checkpoint_dir=None):
+
+        from transformers.trainer_utils import set_seed
+        set_seed(config["seed"])
+        np.random.seed(config["seed"])
+        torch.manual_seed(config["seed"])
+        torch.cuda.manual_seed(config["seed"])
+        np.random.seed(config["seed"])
+        random.seed(config["seed"])
 
         training_args_config, per_model_config = AutoTransformers._separate_config(config)
         this_model = self._load_model(per_model_config=per_model_config)
@@ -801,6 +818,7 @@ class AutoTransformers:
                     "reinit": True,
                     "allow_val_change": True
                 }
+        tune_config["seed"] = 42
 
         analysis = ray.tune.run(
             self._objective,
