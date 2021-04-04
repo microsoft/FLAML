@@ -1,6 +1,7 @@
 '''Require: pip install torch transformers datasets flaml[blendsearch,ray]
 '''
 import argparse
+import datetime
 import json
 import os
 import shutil
@@ -29,7 +30,7 @@ search_algos = ["BlendSearch", "Optuna"]
 scheduler_names = ["None"]
 
 hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_generic", "hpo_space_gridunion"]
-search_algo_args_modes = ["grid", "default", "default", "default"]
+search_algo_args_modes = ["grid", "default", "default"]
 num_sample_time_budget_mode, time_as_grid = ("times_grid_time_budget", 4.0)
 
 def get_full_name(autohf, is_grid, hpo_searchspace_mode = None):
@@ -110,15 +111,15 @@ def rm_home_result():
 
 def write_exception(args, save_file_name, fout):
     fout.write(save_file_name + ":\n")
-    fout.write("timestamp:" + str(time.time())  + ":\n")
-    fout.write("failed, no checkpoint found\n")
+    fout.write("timestamp:" + str(str(datetime.datetime.now()))  + ":\n")
+    fout.write("failed, no checkpoint found\n\n")
     flush_and_upload(fout, args)
 
 def write_regular(autohf, args, validation_metric, save_file_name, fout):
     fout.write(save_file_name + ":\n")
-    fout.write("timestamp:" + str(time.time()) + ":\n")
+    fout.write("timestamp:" + str(str(datetime.datetime.now())) + ":\n")
     fout.write("validation " + (autohf.metric_name) + ":" + json.dumps(validation_metric) + "\n")
-    fout.write("duration:" + str(autohf.last_run_duration) + "\n")
+    fout.write("duration:" + str(autohf.last_run_duration) + "\n\n")
     flush_and_upload(fout, args)
 
 def _test_grid(args, fout, autohf):
@@ -126,7 +127,7 @@ def _test_grid(args, fout, autohf):
         this_dataset_name = dataset_names[data_idx]
         this_subset_name = subdataset_names[data_idx]
 
-        for model_idx in range(0, len(pretrained_models)):
+        for model_idx in range(1, len(pretrained_models)):
             each_pretrained_model = pretrained_models[model_idx]
             this_search_algo = "grid_search"
             this_scheduler_name = "None"

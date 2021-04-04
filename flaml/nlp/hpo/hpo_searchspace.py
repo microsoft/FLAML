@@ -70,10 +70,34 @@ def hpo_space_generic(logger, model_type, model_size_type, dataset_name, subdata
 
     return output_config
 
+def hpo_space_small(logger, model_type, model_size_type, dataset_name, subdataset_name = None):
+    config_json = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
+    output_config = {}
+
+    for each_hp in config_json.keys():
+        if each_hp == "learning_rate":
+            if len(config_json[each_hp]) > 1:
+                output_config[each_hp] = {"l":3e-5, "u": 1.5e-4, "space": "log"}
+            else:
+                output_config[each_hp] = config_json[each_hp]
+        elif each_hp == "num_train_epochs":
+            output_config[each_hp] = {"l": 2.0, "u": 4.0, "space": "linear"}
+        elif each_hp == "per_device_train_batch_size":
+            output_config[each_hp] = [16, 32, 64]
+        elif each_hp == "warmup_ratio":
+            output_config[each_hp] = {"l": 0.0, "u": 0.2, "space": "linear"}
+        elif each_hp == "weight_decay":
+            output_config[each_hp] = {"l": 0.0, "u": 0.3, "space": "linear"}
+        else:
+            output_config[each_hp] = config_json[each_hp]
+
+    return output_config
+
 HPO_SEARCH_SPACE_MAPPING = OrderedDict(
     [
         ("hpo_space_gridunion", hpo_space_gridunion),
         ("hpo_space_generic", hpo_space_generic),
+        ("hpo_space_small", hpo_space_small),
         ("hpo_space_gridunion_continuous", hpo_space_gridunion_continuous)
     ]
 )
