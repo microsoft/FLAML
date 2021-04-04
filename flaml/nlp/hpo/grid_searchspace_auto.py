@@ -18,13 +18,13 @@ GRID_SEARCH_SPACE_MAPPING = OrderedDict(
 
 time_budget_grid_electra_base_glue_tmdev = {
     "rte": 100,
-    "qnli": 1386.57,
+    "qnli": 1456.84,
     "mnli": 1500,
 }
 
 time_budget_grid_electra_small_glue_tmdev = {
     "rte": 100,
-    "qnli": 879.49,
+    "qnli": 885.58,
     "mnli": 1030.21,
 }
 
