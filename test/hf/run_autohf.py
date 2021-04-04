@@ -127,7 +127,7 @@ def _test_grid(args, fout, autohf):
         this_dataset_name = dataset_names[data_idx]
         this_subset_name = subdataset_names[data_idx]
 
-        for model_idx in range(1, len(pretrained_models)):
+        for model_idx in range(0, len(pretrained_models)):
             each_pretrained_model = pretrained_models[model_idx]
             this_search_algo = "grid_search"
             this_scheduler_name = "None"
@@ -158,7 +158,7 @@ def _test_hpo(args, fout, autohf):
 
         for algo_idx in range(0, len(search_algos)):
             this_search_algo = search_algos[algo_idx]
-            for model_idx in range(0, len(pretrained_models)):
+            for model_idx in range(1, len(pretrained_models)):
                 each_pretrained_model = pretrained_models[model_idx]
 
                 this_scheduler_name = scheduler_names[algo_idx]
