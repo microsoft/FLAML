@@ -25,10 +25,10 @@ subdataset_names = ["qnli"]
 
 pretrained_models = ["google/electra-base-discriminator", "google/electra-small-discriminator"]
 
-search_algos = ["BlendSearch"]
+search_algos = ["BlendSearch", "Optuna"]
 scheduler_names = ["None"]
 
-hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_generic", "hpo_space_gridunion_continuous", "hpo_space_gridunion"]
+hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_generic", "hpo_space_gridunion"]
 search_algo_args_modes = ["grid", "default", "default", "default"]
 num_sample_time_budget_mode, time_as_grid = ("times_grid_time_budget", 4.0)
 
@@ -155,11 +155,11 @@ def _test_hpo(args, fout, autohf):
         this_dataset_name = dataset_names[data_idx]
         this_subset_name = subdataset_names[data_idx]
 
-        for model_idx in range(0, len(pretrained_models)):
-            each_pretrained_model = pretrained_models[model_idx]
+        for algo_idx in range(0, len(search_algos)):
+            this_search_algo = search_algos[algo_idx]
+            for model_idx in range(0, len(pretrained_models)):
+                each_pretrained_model = pretrained_models[model_idx]
 
-            for algo_idx in range(0, len(search_algos)):
-                this_search_algo = search_algos[algo_idx]
                 this_scheduler_name = scheduler_names[algo_idx]
                 for space_idx in range(0, len(hpo_searchspace_modes)):
                     hpo_searchspace_mode = hpo_searchspace_modes[space_idx]
