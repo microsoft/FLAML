@@ -30,7 +30,7 @@ search_algos = ["BlendSearch"]
 scheduler_names = ["None"]
 
 hpo_searchspace_modes = ["hpo_space_gridunion"]
-search_algo_args_modes = ["grid"]
+search_algo_args_modes = ["default"]
 num_sample_time_budget_mode, time_as_grid = ("times_grid_time_budget", 4.0)
 
 def get_full_name(autohf, is_grid, hpo_searchspace_mode = None):
