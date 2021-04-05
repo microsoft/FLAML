@@ -22,7 +22,7 @@ dataset_to_task_mapping = {
 wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 
 dataset_names = [["glue"]]
-subdataset_names = ["mnli"]
+subdataset_names = ["qnli"]
 
 pretrained_models = ["google/electra-small-discriminator", "google/electra-base-discriminator"]
 
