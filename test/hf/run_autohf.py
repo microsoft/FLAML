@@ -24,7 +24,7 @@ wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 dataset_names = [["glue"]]
 subdataset_names = ["qnli"]
 
-pretrained_models = ["google/electra-small-discriminator", "google/electra-base-discriminator"]
+pretrained_models = ["google/electra-small-discriminator", "google/electra-base-discriminator", "bert-base-uncased"]
 
 search_algos = ["BlendSearch"]
 scheduler_names = ["None"]
@@ -78,7 +78,7 @@ def get_autohf_settings_grid():
                            }
     return autohf_settings
 
-def get_autohf_settings(this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode = None):
+def get_autohf_settings(this_search_algo, this_scheduler_name, hpo_searchspace_mode, this_time_as_grid, search_algo_args_mode = None):
     autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
                        "wandb_key": wandb_key,
                        "search_algo_name": this_search_algo,
@@ -88,7 +88,7 @@ def get_autohf_settings(this_search_algo, this_scheduler_name, hpo_searchspace_m
                       }
     autohf_settings["hpo_searchspace_mode"] = hpo_searchspace_mode
     autohf_settings["num_sample_time_budget_mode"] = num_sample_time_budget_mode
-    autohf_settings["time_as_grid"] = time_as_grid
+    autohf_settings["time_as_grid"] = this_time_as_grid
     return autohf_settings
 
 def get_autohf_settings_enumeratehp():
@@ -172,7 +172,7 @@ def _test_hpo(args, fout, autohf):
 
         for algo_idx in range(0, len(search_algos)):
             this_search_algo = search_algos[algo_idx]
-            for model_idx in range(0, len(pretrained_models)):
+            for model_idx in range(2, len(pretrained_models)):
                 each_pretrained_model = pretrained_models[model_idx]
 
                 this_scheduler_name = scheduler_names[algo_idx]
@@ -181,9 +181,10 @@ def _test_hpo(args, fout, autohf):
                     search_algo_args_mode = search_algo_args_modes[space_idx]
                     preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
                                                                   each_pretrained_model)
+
                     train_dataset, eval_dataset, test_dataset = \
                         autohf.prepare_data(**preparedata_setting)
-                    autohf_settings = get_autohf_settings(this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode)
+                    autohf_settings = get_autohf_settings(this_search_algo, this_scheduler_name, hpo_searchspace_mode, time_as_grid, search_algo_args_mode)
 
                     try:
                         validation_metric, analysis = autohf.fit(train_dataset,
