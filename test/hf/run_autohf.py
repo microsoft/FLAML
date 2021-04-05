@@ -22,15 +22,15 @@ dataset_to_task_mapping = {
 wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 
 dataset_names = [["glue"]]
-subdataset_names = ["qnli"]
+subdataset_names = ["mnli"]
 
-pretrained_models = ["bert-base-uncased"]
+pretrained_models = ["google/electra-small-discriminator", "google/electra-base-discriminator"]
 
 search_algos = ["BlendSearch"]
-scheduler_names = ["None", "None"]
+scheduler_names = ["None"]
 
-hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_gridunion"]
-search_algo_args_modes = ["grid", "default"]
+hpo_searchspace_modes = ["hpo_space_gridunion"]
+search_algo_args_modes = ["grid"]
 num_sample_time_budget_mode, time_as_grid = ("times_grid_time_budget", 4.0)
 
 def get_full_name(autohf, is_grid, hpo_searchspace_mode = None):

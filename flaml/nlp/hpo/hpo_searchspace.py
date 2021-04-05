@@ -1,5 +1,6 @@
 from collections import OrderedDict
 
+from flaml.nlp.huggingface.trainer import TrainerForAutoTransformers
 from ray import tune
 from transformers import TrainingArguments
 
@@ -44,11 +45,14 @@ def hpo_space_gridunion(logger, model_type, model_size_type, dataset_name, subda
                     logger.error("Wrong hyperparameter {}, not specified in transformers.TrainingArguments".format(each_hp))
                     raise err
                 pass
+    for each_hp in hp_type_mapping.keys():
+        if each_hp == "warmup_ratio":
+            output_config[each_hp] = [x for x in output_config[each_hp] if x != 0]
 
     return output_config
 
 def enumerate_onehp(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
-    electra_config = AutoGridSearchSpace.from_model_and_dataset_name("electra", "base", dataset_name, subdataset_name)
+    electra_config = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
     try:
         hp_to_fix, hp_to_fix_value = custom_hpo_args["hp_to_fix"]
         hp_to_tune, hp_to_tune_grids = custom_hpo_args["hp_to_tune"]
@@ -60,6 +64,10 @@ def enumerate_onehp(logger, model_type, model_size_type, dataset_name, subdatase
         raise err
     electra_config[hp_to_fix] = [hp_to_fix_value]
     electra_config[hp_to_tune] = hp_to_tune_grids
+
+    electra_config = TrainerForAutoTransformers.resolve_hp_conflict(electra_config)
+
+    electra_config
 
     return electra_config
 

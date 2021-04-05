@@ -1,9 +1,5 @@
 from collections import OrderedDict
 
-from transformers import ElectraConfig, BertConfig, DebertaConfig
-from transformers import RobertaConfig
-
-from transformers.models.auto.configuration_auto import replace_list_option_in_docstrings
 from transformers.models.electra.modeling_electra import ElectraClassificationHead
 from transformers.models.roberta.modeling_roberta import RobertaClassificationHead
 
@@ -48,7 +44,7 @@ class AutoSeqClassificationHead:
 
         Examples::
         """
-        if type(config) in MODEL_CLASSIFICATION_HEAD_MAPPING.keys():
+        if model_type in MODEL_CLASSIFICATION_HEAD_MAPPING.keys():
             return MODEL_CLASSIFICATION_HEAD_MAPPING[model_type](config)
         raise ValueError(
             "Unrecognized configuration class {} for this kind of AutoModel: {}.\n"

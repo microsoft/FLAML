@@ -44,7 +44,7 @@ time_budget_grid_bert_base_glue_tmdev = {
     "rte": 300,
     "mrpc": 300,
     "qnli": 1381.97,
-    "mnli": 5799,
+    "mnli": 1512.72,
 }
 
 time_budget_grid_roberta_base_glue_tmdev = {

@@ -124,3 +124,30 @@ def get_mobilebert_space(model_size_type = None,
     search_space_dict["per_device_train_batch_size"] = [4, 8, 16, 32, 48]
     search_space_dict["num_train_epochs"] = [x for x in range(2, 11)]
     return  search_space_dict
+
+def get_albert_space(model_size_type = None,
+                         dataset_name = None,
+                         subdataset_name = None):
+    """
+        Hyperparameters for downstream tasks are shown in Table 14. We adapt these hyperparameters
+        from Liu et al. (2019), Devlin et al. (2019), and Yang et al. (2019).
+
+        LR BSZ ALBERT DR Classifier DR TS WS MSL
+        CoLA 1.00E-05 16 0 0.1 5336 320 512
+        STS 2.00E-05 16 0 0.1 3598 214 512
+        SST-2 1.00E-05 32 0 0.1 20935 1256 512
+        MNLI 3.00E-05 128 0 0.1 10000 1000 512
+        QNLI 1.00E-05 32 0 0.1 33112 1986 512
+        QQP 5.00E-05 128 0.1 0.1 14000 1000 512
+        RTE 3.00E-05 32 0.1 0.1 800 200 512
+        MRPC 2.00E-05 32 0 0.1 800 200 512
+        WNLI 2.00E-05 16 0.1 0.1 2000 250 512
+        SQuAD v1.1 5.00E-05 48 0 0.1 3649 365 384
+        SQuAD v2.0 3.00E-05 48 0 0.1 8144 814 512
+        RACE 2.00E-05 32 0.1 0.1 12000 1000 512
+    """
+    search_space_dict = {}
+    # To finetune the pre-trained models, we search the optimization hyperparameters
+    # in a search space including different batch sizes (16/32/48), learning
+    # rates ((1-10) * e-5), and the number of epochs (2-10)
+    return  search_space_dict

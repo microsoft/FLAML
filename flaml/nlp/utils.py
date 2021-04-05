@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 import os, json
 import pathlib
 
-
 def _variable_override_default_alternative(logger, obj_ref, var_name, default_value, all_values, overriding_value=None):
     """
         Setting the value of var. If overriding_value is specified, var is set to overriding_value;
