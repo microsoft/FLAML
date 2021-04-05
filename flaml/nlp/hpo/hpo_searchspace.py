@@ -49,6 +49,7 @@ def hpo_space_gridunion(logger, model_type, model_size_type, dataset_name, subda
         if each_hp == "warmup_ratio":
             output_config[each_hp] = [x for x in output_config[each_hp] if x != 0]
 
+    output_config["learning_rate"] = list(set(output_config["learning_rate"] + [3e-5, 5e-5, 1e-4, 1.5e-4]))
     return output_config
 
 def enumerate_onehp(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
