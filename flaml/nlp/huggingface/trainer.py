@@ -24,7 +24,8 @@ class TrainerForAutoTransformers(transformers.Trainer):
         return (self.current_optimizer, self.current_scheduler)
 
     def evaluate(self,
-                 eval_dataset= None):
+                 eval_dataset= None,
+                 test_dataset=None):
         """
                 Overriding transformers.Trainer.evaluate by saving state with save_state
 
@@ -44,8 +45,6 @@ class TrainerForAutoTransformers(transformers.Trainer):
             if key.startswith("eval_"):
                 output_metrics[key[5:]] = output_metrics[key]
 
-        if "accuracy" not in output_metrics:
-            stop = 0
         tune.report(**output_metrics)
 
         return output_metrics
