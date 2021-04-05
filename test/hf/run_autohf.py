@@ -22,7 +22,7 @@ dataset_to_task_mapping = {
 wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 
 dataset_names = [["glue"]]
-subdataset_names = ["qnli"]
+subdataset_names = ["qqp"]
 
 pretrained_models = ["google/electra-small-discriminator", "google/electra-base-discriminator", "bert-base-uncased"]
 
@@ -45,7 +45,7 @@ def get_full_name(autohf, is_grid, hpo_searchspace_mode = None):
                + "_" + autohf.scheduler_name.lower() + "_" + autohf.path_utils.group_hash_id
 
 def get_resplit_portion(this_dataset_name, this_subset_name):
-    if this_subset_name == "mnli":
+    if this_subset_name in {"mnli", "qqp"}:
         return {"train": [0, 0.25], "dev": [0.25, 0.275], "test": [0.275, 0.3]}
     else:
         return {"train": [0, 0.8], "dev": [0.8, 0.9], "test": [0.9, 1.0]}
