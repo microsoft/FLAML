@@ -34,23 +34,23 @@ class PathUtils:
         model_name:
             The huggingface name for loading the huggingface from huggingface.co/models, e.g., "google/electra-base-discriminator"
     """
-    _hpo_ckpt_path: str = field(default=None, metadata={"help": "the directory for hpo output"})
-    _hpo_result_path: str = field(default=None, metadata={"help": "the directory for hpo result"})
-    _hpo_log_path: str = field(default=None, metadata={"help": "the directory for log"})
+    _hpo_ckpt_path: str = field(metadata={"help": "the directory for hpo output"})
+    _hpo_result_path: str = field(metadata={"help": "the directory for hpo result"})
+    _hpo_log_path: str = field(metadata={"help": "the directory for log"})
 
-    _dataset_name: str = field(default=None, metadata={"help": "dataset name"})
-    _subdataset_name: str = field(default=None, metadata={"help": "sub dataset name"})
-    _search_algo_name: str = field(default=None, metadata={"help": "The hpo method."})
+    _dataset_name: str = field(metadata={"help": "dataset name"})
+    _subdataset_name: str = field(metadata={"help": "sub dataset name"})
+    _search_algo_name: str = field(metadata={"help": "The hpo method."})
 
-    _group_hash_id: str = field(default=None, metadata={"help": "hash code for the hpo run"})
+    _group_hash_id: str = field(metadata={"help": "hash code for the hpo run"})
 
-    _model_name: str = field(default= None, metadata={"help": "huggingface name."})
-    _folder_name: str = field(default=None, metadata={"help": "folder name."})
+    _model_name: str = field(metadata={"help": "huggingface name."})
+    _folder_name: str = field(metadata={"help": "folder name."})
 
-    _log_dir_per_run: str = field(default= None, metadata={"help": "log directory for each run."})
-    _result_dir_per_run: str = field(default=None, metadata={"help": "result directory for each run."})
-    _ckpt_dir_per_run: str = field(default=None, metadata={"help": "checkpoint directory for each run."})
-    _ckpt_dir_per_trial: str = field(default=None, metadata={"help": "checkpoint directory for each trial."})
+    _log_dir_per_run: str = field(metadata={"help": "log directory for each run."})
+    _result_dir_per_run: str = field(metadata={"help": "result directory for each run."})
+    _ckpt_dir_per_run: str = field(metadata={"help": "checkpoint directory for each run."})
+    _ckpt_dir_per_trial: str = field(metadata={"help": "checkpoint directory for each trial."})
 
     def __init__(self,
                  hpo_ckpt_path,
