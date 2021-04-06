@@ -76,13 +76,11 @@ class SearchState:
         self.time2eval_best = 0
         self.time2eval_best_old = 0
         self.trained_estimator = None 
-        self.update_count = 0
         self.sample_size = None
         self.trial_time = 0
 
     def update(self, analysis, time_used, save_model_history=False):
         if not analysis.trials: return
-        self.update_count += 1
         result = analysis.trials[-1].last_result
         if result:
             config = result['config']
