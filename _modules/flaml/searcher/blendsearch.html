@@ -182,7 +182,8 @@
                  <span class="n">metric</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                  <span class="n">mode</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                  <span class="n">space</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-                 <span class="n">points_to_evaluate</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">points_to_evaluate</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">low_cost_partial_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                  <span class="n">cat_hp_cost</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                  <span class="n">prune_attr</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                  <span class="n">min_resource</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -200,14 +201,14 @@
 <span class="sd">            mode: A string in [&#39;min&#39;, &#39;max&#39;] to specify the objective as</span>
 <span class="sd">            space: A dictionary to specify the search space.</span>
 <span class="sd">            points_to_evaluate: Initial parameter suggestions to be run first. </span>
-<span class="sd">                The first element needs to be a dictionary from a subset of </span>
-<span class="sd">                controlled dimensions to the initial low-cost values. </span>
-<span class="sd">                e.g.,</span>
-<span class="sd">                </span>
-<span class="sd">                .. code-block:: python</span>
-<span class="sd">                </span>
-<span class="sd">                    [{&#39;epochs&#39;: 1}]</span>
+<span class="sd">            low_cost_partial_config: A dictionary from a subset of </span>
+<span class="sd">                controlled dimensions to the initial low-cost values.</span>
+<span class="sd">                e.g., </span>
 
+<span class="sd">                .. code-block:: python</span>
+
+<span class="sd">                    {&#39;n_estimators&#39;: 4, &#39;max_leaves&#39;: 4}</span>
+<span class="sd">                </span>
 <span class="sd">            cat_hp_cost: A dictionary from a subset of categorical dimensions</span>
 <span class="sd">                to the relative cost of each choice. </span>
 <span class="sd">                e.g.,</span>
@@ -242,9 +243,8 @@
 <span class="sd">            seed: An integer of the random seed.</span>
 <span class="sd">        &#39;&#39;&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">=</span> <span class="n">metric</span><span class="p">,</span> <span class="n">mode</span>
-        <span class="k">if</span> <span class="n">points_to_evaluate</span><span class="p">:</span> <span class="n">init_config</span> <span class="o">=</span> <span class="n">points_to_evaluate</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span> <span class="n">init_config</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_points_to_evaluate</span> <span class="o">=</span> <span class="n">points_to_evaluate</span>
+        <span class="n">init_config</span> <span class="o">=</span> <span class="n">low_cost_partial_config</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_points_to_evaluate</span> <span class="o">=</span> <span class="n">points_to_evaluate</span> <span class="ow">or</span> <span class="p">[]</span>
         <span class="k">if</span> <span class="n">global_search_alg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span> <span class="o">=</span> <span class="n">global_search_alg</span>
         <span class="k">elif</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;__name__&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="o">!=</span> <span class="s1">&#39;CFO&#39;</span><span class="p">:</span>
@@ -451,10 +451,10 @@
                 <span class="c1"># logger.debug(f&quot;random config {config}&quot;)</span>
                 <span class="n">skip</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_should_skip</span><span class="p">(</span><span class="n">choice</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">skip</span><span class="p">:</span> <span class="k">return</span> <span class="kc">None</span>
-            <span class="c1"># if not choice: print(config)</span>
             <span class="k">if</span> <span class="n">choice</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_valid</span><span class="p">(</span><span class="n">config</span><span class="p">):</span> 
                 <span class="c1"># LS or valid or no backup choice</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">choice</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">choice</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span> <span class="c1"># invalid config proposed by GS</span>
                 <span class="c1"># if not self._use_rs:</span>
                 <span class="c1">#     self._search_thread_pool[choice].on_trial_complete(</span>

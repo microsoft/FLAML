@@ -153,7 +153,7 @@
 <span class="sd"> * Licensed under the MIT License. See LICENSE file in the</span>
 <span class="sd"> * project root for license information.</span>
 <span class="sd">&#39;&#39;&#39;</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">List</span>
 <span class="kn">import</span> <span class="nn">datetime</span><span class="o">,</span> <span class="nn">time</span>
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">from</span> <span class="nn">ray.tune.analysis</span> <span class="kn">import</span> <span class="n">ExperimentAnalysis</span> <span class="k">as</span> <span class="n">EA</span>
@@ -203,7 +203,6 @@
 
 <span class="sd">        analysis = tune.run(</span>
 <span class="sd">            compute_with_config,</span>
-<span class="sd">            init_config={},</span>
 <span class="sd">            config={</span>
 <span class="sd">                &#39;x&#39;: tune.qloguniform(lower=1, upper=1000000, q=1),</span>
 <span class="sd">                &#39;y&#39;: tune.randint(lower=1, upper=1000000)</span>
@@ -250,8 +249,9 @@
 
 
 <div class="viewcode-block" id="run"><a class="viewcode-back" href="../../../index.html#flaml.tune.run">[docs]</a><span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="n">training_function</span><span class="p">,</span>
-        <span class="n">init_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
         <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">points_to_evaluate</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">low_cost_partial_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">cat_hp_cost</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">mode</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -286,7 +286,6 @@
 
 <span class="sd">        analysis = tune.run(</span>
 <span class="sd">            compute_with_config,</span>
-<span class="sd">            init_config={},</span>
 <span class="sd">            config={</span>
 <span class="sd">                &#39;x&#39;: tune.qloguniform(lower=1, upper=1000000, q=1),</span>
 <span class="sd">                &#39;y&#39;: tune.randint(lower=1, upper=1000000)</span>
@@ -298,15 +297,17 @@
 
 <span class="sd">    Args:</span>
 <span class="sd">        training_function: A user-defined training function. </span>
-<span class="sd">        init_config: A dictionary from a subset of controlled dimensions</span>
-<span class="sd">            to the initial low-cost values. e.g.,            </span>
+<span class="sd">        config: A dictionary to specify the search space.</span>
+<span class="sd">        points_to_evaluate: A list of initial hyperparameter</span>
+<span class="sd">            configurations to run first.</span>
+<span class="sd">        low_cost_partial_config: A dictionary from a subset of </span>
+<span class="sd">            controlled dimensions to the initial low-cost values.</span>
+<span class="sd">            e.g., </span>
 
 <span class="sd">            .. code-block:: python</span>
 
-<span class="sd">                {&#39;epochs&#39;: 1}</span>
-
-<span class="sd">            If no such dimension, pass an empty dict {}.</span>
-<span class="sd">        config: A dictionary to specify the search space.</span>
+<span class="sd">                {&#39;n_estimators&#39;: 4, &#39;max_leaves&#39;: 4}</span>
+<span class="sd">            </span>
 <span class="sd">        cat_hp_cost: A dictionary from a subset of categorical dimensions</span>
 <span class="sd">            to the relative cost of each choice. </span>
 <span class="sd">            e.g.,</span>
@@ -345,9 +346,9 @@
 <span class="sd">                from flaml import BlendSearch</span>
 <span class="sd">                algo = BlendSearch(metric=&#39;val_loss&#39;, mode=&#39;min&#39;,</span>
 <span class="sd">                        space=search_space,</span>
-<span class="sd">                        points_to_evaluate=points_to_evaluate)</span>
+<span class="sd">                        low_cost_partial_config=low_cost_partial_config)</span>
 <span class="sd">                for i in range(10):</span>
-<span class="sd">                    analysis = tune.run(compute_with_config, init_config=None,</span>
+<span class="sd">                    analysis = tune.run(compute_with_config,</span>
 <span class="sd">                        search_alg=algo, use_ray=False)</span>
 <span class="sd">                    print(analysis.trials[-1].last_result)</span>
 <span class="sd">                    </span>
@@ -392,8 +393,9 @@
 
     <span class="k">if</span> <span class="n">search_alg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="kn">from</span> <span class="nn">..searcher.blendsearch</span> <span class="kn">import</span> <span class="n">BlendSearch</span>
-        <span class="n">search_alg</span> <span class="o">=</span> <span class="n">BlendSearch</span><span class="p">(</span><span class="n">points_to_evaluate</span><span class="o">=</span><span class="p">[</span><span class="n">init_config</span><span class="p">],</span> 
-                                <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span>
+        <span class="n">search_alg</span> <span class="o">=</span> <span class="n">BlendSearch</span><span class="p">(</span><span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span>
+                                <span class="n">points_to_evaluate</span><span class="o">=</span><span class="n">points_to_evaluate</span><span class="p">,</span>
+                                <span class="n">low_cost_partial_config</span><span class="o">=</span><span class="n">low_cost_partial_config</span><span class="p">,</span>
                                 <span class="n">cat_hp_cost</span><span class="o">=</span><span class="n">cat_hp_cost</span><span class="p">,</span>
                                 <span class="n">space</span><span class="o">=</span><span class="n">config</span><span class="p">,</span> <span class="n">prune_attr</span><span class="o">=</span><span class="n">prune_attr</span><span class="p">,</span>
                                 <span class="n">min_resource</span><span class="o">=</span><span class="n">min_resource</span><span class="p">,</span>
