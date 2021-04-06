@@ -32,12 +32,14 @@ time_budget_grid_electra_base_glue_dgx = {
     "rte": 100,
     "qnli": 1456.84,
     "mnli": 1500,
+    "qqp": 1608.56,
 }
 
 time_budget_grid_electra_small_glue_dgx = {
     "rte": 100,
     "qnli": 885.58,
     "mnli": 1030.21,
+    "qqp": 1332.52
 }
 
 time_budget_grid_bert_base_glue_tmdev = {
@@ -53,7 +55,7 @@ time_budget_grid_roberta_base_glue_tmdev = {
 
 time_budget_grid_bert_base_glue_dgx = {
     "qnli": 1381.97,
-    "qqp": 5625.18,
+    "qqp": 1615.48,
 }
 
 GRID_SEARCH_TIME_BUDGET_LOOKUP_TABLE = OrderedDict(
