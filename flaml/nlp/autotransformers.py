@@ -72,22 +72,24 @@ class AutoTransformers:
 
     '''
 
-    _task_name: str = field(default=None, metadata={"help": "task name"})
-    _dataset_name: list = field(default=None, metadata={"help": "dataset name"})
-    _subdataset_name: str = field(default=None, metadata={"help": "dataset name"})
-    _model_type: str = field(default=None, metadata={"help": "huggingface type."})
-    _split_mode: str = field(default=None, metadata={"help": "The submit mode."})
+    _task_name: str = field(default=None, metadata={"help": "The task name, e.g., text-classification, question-answering"})
+    _dataset_name: list = field(default=None, metadata={"help": "The dataset name, e.g., glue"})
+    _subdataset_name: Optional[str] = field(default=None, metadata={"help": "The subdataset name if there's any, e.g., mnli"})
+    _model_type: str = field(default=None, metadata={"help": "The model type, e.g., bert, roberta, etc."})
+    _split_mode: str = field(default=None, metadata={"help": "The split mode of the dataset, it can only be resplit or origin"})
 
     _scheduler_name: str = field(default=None, metadata={"help": "The scheduler name."})
-    _search_algo_name: str = field(default=None, metadata={"help": "The hpo method."})
+    _search_algo_name: str = field(default=None, metadata={"help": "The hpo method name."})
 
-    _num_labels: Optional[int] = field(default=None, metadata={"help": "number of labels"})
     _metric_name: str = field(default=None, metadata={"help": "metric name"})
     _metric_mode_name: str = field(default=None, metadata={"help": "metric mode name"})
 
     _max_seq_length: Optional[int] = field(default=None, metadata={"help": "max seq length"})
-
     _fp16: Optional[bool] = field(default=True, metadata={"help": "is fp16"})
+
+    # the following arguments are specific to text classification
+    _num_labels: Optional[int] = field(default=None, metadata={"help": "The number of labels of output classes"})
+
 
     def _set_wandb(self,
                    wandb_key):

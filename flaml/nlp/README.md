@@ -1,10 +1,9 @@
-How to run coverage report:
+How to use AutoTransformers:
 
-coverage run -a -m pytest test
-coverage xml
+```python
+from flaml.nlp.autotransformers import AutoTransformers
 
-How to merge with microsoft/FLAML:
-
-git commit
-git fetch upstream
-git merge upstream/main v0.2.7
+autohf = AutoTransformers()
+autohf.fit(train_dataset,
+           eval_dataset)
+```
