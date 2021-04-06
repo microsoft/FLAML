@@ -642,52 +642,6 @@ class AutoML:
             )
         return estimator
 
-    def summary_learner_from_log(self, log_file_name, estimator_list):
-        """Summarize learner info from the specified log file
-
-        Args:
-            log_file_name: A string of the log file name
-            estimator_list: A list of strings for estimator names, or 'auto'. (same format as that in fit())
-        """
-        class LearnerLogInfo:
-            def __init__(self, learner):
-                self.learner = learner
-                self.iter_num = 0
-                self.val_loss = np.inf
-                self.time_used = 0
-            def update(self, iter_num, val_loss, trial_time):
-                self.iter_num = iter_num
-                if val_loss < self.val_loss: self.val_loss = val_loss
-                self.time_used += trial_time
- 
-        logger.info('log file name {}'.format(log_file_name))
-        if 'auto' == estimator_list:
-            estimator_list = ['lgbm', 'rf', 'catboost', 'xgboost', 'extra_tree']
-        estimator_info = {estimator: LearnerLogInfo(estimator) for estimator in estimator_list}
-        with training_log_reader(log_file_name) as reader:
-            for record in reader.records():
-                if record.learner in estimator_info:
-                    estimator_info[record.learner].update(
-                        record.iter_per_learner, 
-                        record.validation_loss, 
-                        record.trial_time)
-
-        # print learner info summarized from log.
-        # NOTE about total time in this table: The total time is calculated based
-        # on the recorded trials in the log. Thus It is the actual total time used 
-        # by the learner only when one set log_type='all' in fit()
-        info_name = ['Learner', 'Iteration', 'Val loss', 'Total time']
-        row_format ="{:>15}" * (len(info_name))
-        header = row_format.format(*info_name)
-        print(header)
-        print('-'*len(header))
-        logger.info('{}'.format(header))
-        for k, v in estimator_info.items():
-            if k is not None and v is not None:
-                info = [k, v.iter_num, format(v.val_loss, '.4f'), format(v.time_used, '.4f')]
-                print(row_format.format(*info))
-                logger.info('{}'.format(row_format.format(*info)))
-
     def retrain_from_log(self,
                          log_file_name,
                          X_train=None,
