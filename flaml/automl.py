@@ -1173,9 +1173,6 @@ class AutoML:
                     self._best_estimator].time2eval_best
                 if time_left < time_ensemble < 2*time_left:
                     break
-            if self._search_states[estimator].time2eval_best > \
-                self._state.time_budget-self._state.time_from_start:
-                self._iter_per_learner[estimator] = self._max_iter_per_learner
         # Add a checkpoint for the current best config to the log.
         self._training_log.checkpoint()
         if self._best_estimator:
@@ -1236,7 +1233,9 @@ class AutoML:
             if estimator in self._search_states and self._search_states[
                 estimator].sample_size: # sample_size=none meaning no result
                 search_state = self._search_states[estimator]
-                if self._iter_per_learner[estimator]>=self._max_iter_per_learner:
+                if self._search_states[estimator].time2eval_best > \
+                self._state.time_budget-self._state.time_from_start or \
+                self._iter_per_learner[estimator]>=self._max_iter_per_learner:
                     inv.append(0)
                     continue
                 eci_search_state = search_state.estimated_cost4improvement
