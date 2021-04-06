@@ -176,7 +176,7 @@ class TestAutoML(unittest.TestCase):
             # test drop column
             X_train.columns = range(X_train.shape[1])
             X_train[X_train.shape[1]] = np.zeros(len(y_train))
-        automl_experiment.fit(X_train=X_train, y_train=y_train,
+        automl_experiment.fit(X_train=X_train, y_train=y_train, log_type='all',
                               **automl_settings)
         print(automl_experiment.classes_)
         print(automl_experiment.predict_proba(X_train)[:5])
@@ -193,6 +193,7 @@ class TestAutoML(unittest.TestCase):
             log_file_name=automl_settings["log_file_name"],
             X_train=X_train, y_train=y_train,
             train_full=True, record_id=0)
+        automl_experiment.summary_learner_from_log(automl_settings["log_file_name"], 'auto')
         print(duration)
         print(automl_experiment.model)
         print(automl_experiment.predict_proba(X_train)[:5])
