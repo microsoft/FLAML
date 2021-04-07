@@ -11,7 +11,6 @@ GRID_SEARCH_SPACE_MAPPING = OrderedDict(
     [
         ("electra", get_electra_space),
         ("bert", get_bert_space),
-        #(("mobilebert"), get_mobilebert_space),
         ("roberta", get_roberta_space),
         ("funnel", get_funnel_space),
     ]
@@ -59,26 +58,9 @@ time_budget_grid_bert_base_glue_dgx = {
     "qqp": 1615.48,
 }
 
-time_budget_grid_funnel_small_yelp_tmdev = 1864
-
-time_budget_grid_electra_small_yelp_tmdev = 733.82
-
-time_budget_grid_electra_base_yelp_tmdev = 1921.91
-
-GRID_SEARCH_TIME_BUDGET_LOOKUP_TABLE = OrderedDict(
-    [
-
-        (("electra", "small", "glue", "tmdev"), time_budget_grid_electra_small_glue_tmdev),
-        (("electra", "base", "glue", "tmdev"), time_budget_grid_electra_base_glue_tmdev),
-        (("electra", "base", "glue", "dgx"), time_budget_grid_electra_base_glue_dgx),
-        (("electra", "small", "glue", "dgx"), time_budget_grid_electra_small_glue_dgx),
-        (("bert", "base", "glue", "tmdev"), time_budget_grid_bert_base_glue_tmdev),
-        (("bert", "base", "glue", "dgx"), time_budget_grid_bert_base_glue_dgx),
-        (("funnel", "small", "yelp_review_full", "tmdev"), time_budget_grid_funnel_small_yelp_tmdev),
-        (("electra", "small", "yelp_review_full", "tmdev"), time_budget_grid_electra_small_yelp_tmdev),
-        (("electra", "base", "yelp_review_full", "tmdev"), time_budget_grid_electra_base_yelp_tmdev),
-    ]
-)
+time_budget_grid_funnel_small_yelp_review_full_tmdev = time_budget_grid_funnel_small_yelp_review_full_dgx = 1864
+time_budget_grid_electra_small_yelp_review_full_tmdev = time_budget_grid_electra_small_yelp_review_full_dgx = 733.82
+time_budget_grid_electra_base_yelp_review_full_tmdev = time_budget_grid_electra_base_yelp_review_full_dgx = 1921.91
 
 
 class AutoGridSearchSpace:
@@ -101,7 +83,8 @@ class AutoGridSearchSpace:
     def from_model_and_dataset_name(cls, model_type, model_size_type, dataset_name, subdataset_name = None):
         if model_type in GRID_SEARCH_SPACE_MAPPING.keys():
             try:
-                return GRID_SEARCH_SPACE_MAPPING[model_type](model_size_type, dataset_name, subdataset_name)
+                search_space_union, search_space_unique = GRID_SEARCH_SPACE_MAPPING[model_type](model_size_type, dataset_name, subdataset_name)
+                return search_space_union, search_space_unique
             except:
                 return None
         raise ValueError(
@@ -113,21 +96,19 @@ class AutoGridSearchSpace:
 
     @classmethod
     def get_grid_time_budget(cls, logger, model_type, model_size_type, dataset_name, server_name, subdataset_name = None):
-        if (model_type, model_size_type, dataset_name, server_name) in GRID_SEARCH_TIME_BUDGET_LOOKUP_TABLE.keys():
-            try:
-                if subdataset_name:
-                    return GRID_SEARCH_TIME_BUDGET_LOOKUP_TABLE[(model_type, model_size_type, dataset_name, server_name)][subdataset_name]
-                else:
-                    return \
-                    GRID_SEARCH_TIME_BUDGET_LOOKUP_TABLE[(model_type, model_size_type, dataset_name, server_name)]
-            except Exception as err:
-                logger.error("the time budget for this setting does not exist in the look up table")
-                raise err
-        raise ValueError(
-            "Unrecognized method {},{} for this kind of AutoGridSearchSpace: {}".format(
-                model_type, dataset_name, cls.__name__
+        try:
+            grid_lookup_table_name = "time_budget_grid_" + model_type + "_" + model_size_type + "_" + dataset_name + "_" + server_name
+            grid_lookup_table_vale = globals()[grid_lookup_table_name]
+            if subdataset_name:
+                return grid_lookup_table_vale[subdataset_name]
+            else:
+                return grid_lookup_table_vale
+        except KeyError:
+            raise ValueError(
+                "Unrecognized method {},{},{},{} for this kind of AutoGridSearchSpace: {}".format(
+                    model_type, model_size_type, dataset_name,server_name, cls.__name__
+                )
             )
-        )
 
     @staticmethod
     def get_trial_number_in_space(grid_config):

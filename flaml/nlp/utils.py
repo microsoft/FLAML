@@ -2,6 +2,21 @@ from dataclasses import dataclass, field
 import os, json
 import pathlib
 
+def merge_dicts(dict1, dict2):
+    for key2 in dict2.keys():
+        if key2 in dict1:
+            dict1_vals = set(dict1[key2])
+            dict2_vals = set(dict2[key2])
+            dict1[key2] = list(dict1_vals.union(dict2_vals))
+        else:
+            dict1[key2] = dict2[key2]
+    return dict1
+
+def _check_dict_keys_overlaps(dict1: dict, dict2: dict):
+    dict1_keys = set(dict1.keys())
+    dict2_keys = set(dict2.keys())
+    return len(dict1_keys.intersection(dict2_keys)) > 0
+
 def _variable_override_default_alternative(logger, obj_ref, var_name, default_value, all_values, overriding_value=None):
     """
         Setting the value of var. If overriding_value is specified, var is set to overriding_value;

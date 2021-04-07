@@ -1,10 +1,10 @@
 from collections import OrderedDict
 
-from flaml.nlp.huggingface.trainer import TrainerForAutoTransformers
+from ..huggingface.trainer import TrainerForAutoTransformers
 from ray import tune
 from transformers import TrainingArguments
 
-from flaml.nlp.hpo.grid_searchspace_auto import GRID_SEARCH_SPACE_MAPPING, AutoGridSearchSpace
+from .grid_searchspace_auto import GRID_SEARCH_SPACE_MAPPING, AutoGridSearchSpace
 
 hp_type_mapping = {"learning_rate": [tune.sample.Float, "log"],
                    "num_train_epochs": [tune.sample.Float, "linear"],
@@ -24,13 +24,57 @@ def hpo_space_gridunion_continuous(logger, model_type, model_size_type, dataset_
             gridunion_space_continuous[each_hp] = {"l": min(gridunion_space[each_hp]), "u": max(gridunion_space[each_hp]), "space": hp_type_mapping[each_hp][1]}
     return gridunion_space_continuous
 
+def hpo_space_gridunion_other_large(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
+    output_config = {}
+    for each_model_type in GRID_SEARCH_SPACE_MAPPING.keys():
+        if each_model_type == model_type: continue
+        each_grid_search_config, _ = AutoGridSearchSpace.from_model_and_dataset_name(each_model_type, model_size_type, dataset_name, subdataset_name)
+        from ..utils import merge_dicts
+        output_config = merge_dicts(output_config, each_grid_search_config)
+        default_values = {}
+        training_args = TrainingArguments(output_dir=".")
+        for each_hp in output_config.keys():
+            try:
+                default_values[each_hp] = [getattr(training_args, each_hp)]
+            except AttributeError:
+                pass
+        output_config = merge_dicts(output_config, default_values)
+
+    for each_hp in hp_type_mapping.keys():
+        if each_hp == "warmup_ratio":
+            output_config[each_hp] = [x for x in output_config[each_hp] if x != 0]
+
+    return output_config
+
+def hpo_space_gridunion_other(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
+    output_config = {}
+    for each_model_type in GRID_SEARCH_SPACE_MAPPING.keys():
+        if each_model_type == model_type: continue
+        _, each_grid_search_config = AutoGridSearchSpace.from_model_and_dataset_name(each_model_type, model_size_type, dataset_name, subdataset_name)
+        from ..utils import merge_dicts
+        output_config = merge_dicts(output_config, each_grid_search_config)
+        default_values = {}
+        training_args = TrainingArguments(output_dir=".")
+        for each_hp in output_config.keys():
+            try:
+                default_values[each_hp] = [getattr(training_args, each_hp)]
+            except AttributeError:
+                pass
+        output_config = merge_dicts(output_config, default_values)
+
+    for each_hp in hp_type_mapping.keys():
+        if each_hp == "warmup_ratio":
+            output_config[each_hp] = [x for x in output_config[each_hp] if x != 0]
+
+    return output_config
+
 def hpo_space_gridunion(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
-    output_config = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
+    _, output_config = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
     for each_hp in hp_type_mapping.keys():
         output_config[each_hp] = []
 
     for each_model_type in GRID_SEARCH_SPACE_MAPPING.keys():
-        each_grid_search_config = AutoGridSearchSpace.from_model_and_dataset_name(each_model_type, model_size_type, dataset_name, subdataset_name)
+        _, each_grid_search_config = AutoGridSearchSpace.from_model_and_dataset_name(each_model_type, model_size_type, dataset_name, subdataset_name)
         for each_hp in hp_type_mapping.keys():
             try:
                 output_config[each_hp] = list(set(output_config[each_hp] + each_grid_search_config[each_hp]))
@@ -54,7 +98,7 @@ def hpo_space_gridunion(logger, model_type, model_size_type, dataset_name, subda
     return output_config
 
 def enumerate_onehp(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
-    electra_config = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
+    _, electra_config = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
     try:
         hp_to_fix, hp_to_fix_value = custom_hpo_args["hp_to_fix"]
         hp_to_tune, hp_to_tune_grids = custom_hpo_args["hp_to_tune"]
@@ -69,12 +113,10 @@ def enumerate_onehp(logger, model_type, model_size_type, dataset_name, subdatase
 
     electra_config = TrainerForAutoTransformers.resolve_hp_conflict(electra_config)
 
-    electra_config
-
     return electra_config
 
 def hpo_space_generic(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
-    config_json = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
+    _, config_json = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
     output_config = {}
 
     for each_hp in config_json.keys():
@@ -97,7 +139,7 @@ def hpo_space_generic(logger, model_type, model_size_type, dataset_name, subdata
     return output_config
 
 def hpo_space_small(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
-    config_json = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
+    _, config_json = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
     output_config = {}
 
     for each_hp in config_json.keys():
@@ -121,6 +163,8 @@ def hpo_space_small(logger, model_type, model_size_type, dataset_name, subdatase
 
 HPO_SEARCH_SPACE_MAPPING = OrderedDict(
     [
+        ("hpo_space_gridunion_other_large", hpo_space_gridunion_other_large),
+        ("hpo_space_gridunion_other", hpo_space_gridunion_other),
         ("hpo_space_gridunion", hpo_space_gridunion),
         ("hpo_space_generic", hpo_space_generic),
         ("hpo_space_small", hpo_space_small),

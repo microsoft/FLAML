@@ -133,7 +133,7 @@ class AutoTransformers:
     def _set_search_space(self,
                           **custom_hpo_args):
         assert self._model_type
-        search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name)
+        _, search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name)
         search_space_dict_grid = AutoTransformers._convert_json_to_search_space(search_space_grid_json, mode="grid_search")
 
         if self._search_algo_name != "grid_search" and self._search_algo_name != "grid_search_enumerate":
@@ -167,9 +167,13 @@ class AutoTransformers:
         """
         Get the full dataset name, which is the concatenation of the dataset name and the subdataset name
         """
-        full_dataset_name = self._dataset_name[0]
-        if self._subdataset_name:
-            full_dataset_name = full_dataset_name + "_" + self._subdataset_name
+        return AutoTransformers.get_full_data_name(self._dataset_name[0], self._subdataset_name)
+
+    @staticmethod
+    def get_full_data_name(dataset_name, subdataset_name = None):
+        full_dataset_name = dataset_name
+        if subdataset_name:
+            full_dataset_name = full_dataset_name + "_" + subdataset_name
         return full_dataset_name
 
     @property
@@ -625,7 +629,7 @@ class AutoTransformers:
             self._time_budget = float("inf")
             logger.warning("Running grid search, setting number of trials to 1, setting time budget to infinity")
         elif num_sample_time_budget_mode == "times_grid_sample_num":
-            grid_config = AutoGridSearchSpace.from_model_and_dataset_name(self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name)
+            _, grid_config = AutoGridSearchSpace.from_model_and_dataset_name(self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name)
             grid_config_trial_number = AutoGridSearchSpace.get_trial_number_in_space(grid_config)
             assert times_as_grid and (isinstance(times_as_grid, float) or isinstance(times_as_grid, int)), \
                 "When setting to the num_sample_time_budget_mode mode, must explicitly specify times_as_grid"
