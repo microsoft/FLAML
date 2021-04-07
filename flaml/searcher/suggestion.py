@@ -72,7 +72,7 @@ def log_once(key):
         return False
     else:
         return False
-        
+
 
 class Searcher:
     """Abstract class for wrapping suggesting algorithms.
