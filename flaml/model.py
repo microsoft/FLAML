@@ -183,12 +183,12 @@ class LGBMEstimator(BaseEstimator):
                 'init_value': 4,
                 'low_cost_init_value': 4,
             },
-            'max_leaves': {
+            'num_leaves': {
                 'domain': tune.qloguniform(lower=4, upper=upper, q=1),
                 'init_value': 4,
                 'low_cost_init_value': 4,
             },
-            'min_data_in_leaf': {
+            'min_child_samples': {
                 'domain': tune.qloguniform(lower=2, upper=2**7, q=1),
                 'init_value': 20,
             },
@@ -220,13 +220,13 @@ class LGBMEstimator(BaseEstimator):
 
     @classmethod
     def size(cls, config):
-        max_leaves = int(round(config['max_leaves']))
+        num_leaves = int(round(config.get('num_leaves') or config['max_leaves']))
         n_estimators = int(round(config['n_estimators']))
-        return (max_leaves * 3 + (max_leaves - 1) * 4 + 1.0) * n_estimators * 8
+        return (num_leaves * 3 + (num_leaves - 1) * 4 + 1.0) * n_estimators * 8
 
     def __init__(
         self, task='binary:logistic', n_jobs=1,
-        n_estimators=2, max_leaves=2, min_data_in_leaf=20, learning_rate=0.1,
+        n_estimators=2, num_leaves=2, min_child_samples=20, learning_rate=0.1,
         subsample=1.0, reg_lambda=1.0, reg_alpha=0.0,
         colsample_bytree=1.0, log_max_bin=8, **params
     ):
@@ -243,13 +243,13 @@ class LGBMEstimator(BaseEstimator):
             objective = 'regression'
         self.params = {
             "n_estimators": int(round(n_estimators)),
-            "max_leaves": int(round(max_leaves)),
+            "num_leaves": int(round(num_leaves)),
             'objective': params.get("objective", objective),
             'n_jobs': n_jobs,
             'learning_rate': float(learning_rate),
             'reg_alpha': float(reg_alpha),
             'reg_lambda': float(reg_lambda),
-            'min_data_in_leaf': int(round(min_data_in_leaf)),
+            'min_child_samples': int(round(min_child_samples)),
             'colsample_bytree': float(colsample_bytree),
             'subsample': float(subsample),
         }

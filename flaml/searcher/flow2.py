@@ -45,7 +45,7 @@ class FLOW2(Searcher):
             init_config: a dictionary of a partial or full initial config,
                 e.g. from a subset of controlled dimensions
                 to the initial low-cost values.
-                e.g. {'epochs':1}
+                e.g. {'epochs': 1}
             metric: A string of the metric name to optimize for.
                 minimization or maximization.
             mode: A string in ['min', 'max'] to specify the objective as

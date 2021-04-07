@@ -3,13 +3,17 @@
  * Licensed under the MIT License.
 '''
 
-from .model import *
 import time
+import numpy as np
+import pandas as pd
 from sklearn.metrics import mean_squared_error, r2_score, roc_auc_score, \
     accuracy_score, mean_absolute_error, log_loss, average_precision_score, \
     f1_score
-import numpy as np
 from sklearn.model_selection import RepeatedStratifiedKFold
+from .model import (
+    XGBoostEstimator, XGBoostSklearnEstimator, RandomForestEstimator,
+    LGBMEstimator, LRL1Classifier, LRL2Classifier, CatBoostEstimator,
+    ExtraTreeEstimator, KNeighborsEstimator)
 
 import logging
 logger = logging.getLogger(__name__)
