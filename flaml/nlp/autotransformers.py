@@ -359,17 +359,30 @@ class AutoTransformers:
         data_encoded = data_raw.map(partial(self._tokenize, sentence_keys= sentence_keys), batched=True)
 
         if split_mode == "resplit":
-            train_dataset, val_dataset = data_encoded[self._train_name], data_encoded[self._dev_name]
-            data_train_dev = datasets.concatenate_datasets([train_dataset, val_dataset])
-            data_train_dev = data_train_dev.shuffle(seed=42)
+            all_folds_from_source = []
+            assert "source" in resplit_portion.keys(), "Must specify the source for resplitting the dataset in" \
+            "resplit_portion, which is a list of folder names, e.g., resplit_portion = {'source': ['train']}"
 
-            train_start, train_end = int(resplit_portion["train"][0] * len(data_train_dev)), int(resplit_portion["train"][1] * len(data_train_dev))
-            dev_start, dev_end = int(resplit_portion["dev"][0] * len(data_train_dev)), int(resplit_portion["dev"][1] * len(data_train_dev))
-            test_start, test_end = int(resplit_portion["test"][0] * len(data_train_dev)), int(resplit_portion["test"][1] * len(data_train_dev))
+            source_fold_names = resplit_portion['source']
+            for each_fold_name in source_fold_names:
+                this_fold_dataset = data_encoded[each_fold_name]
+                all_folds_from_source.append(this_fold_dataset)
 
-            train_dataset = data_train_dev.select([x for x in range(train_start, train_end)]).flatten_indices()
-            eval_dataset = data_train_dev.select([x for x in range(dev_start, dev_end)]).flatten_indices()
-            test_dataset = data_train_dev.select([x for x in range(test_start, test_end)]).flatten_indices()
+            merged_folds_from_source = datasets.concatenate_datasets(all_folds_from_source)
+            merged_folds_from_source = merged_folds_from_source.shuffle(seed=42)
+
+            assert "train" in resplit_portion.keys() and "validation" in resplit_portion.keys() \
+                and "test" in resplit_portion.keys(), "train, validation, test must exist in resplit_portion"
+
+            for key in ["train", "validation", "test"]:
+                target_fold_start, target_fold_end = int(resplit_portion[key][0] * len(merged_folds_from_source)), \
+                        int(resplit_portion[key][1] * len(merged_folds_from_source))
+                if key == "train":
+                    train_dataset = merged_folds_from_source.select([x for x in range(target_fold_start, target_fold_end)]).flatten_indices()
+                elif key == "validation":
+                    eval_dataset = merged_folds_from_source.select([x for x in range(target_fold_start, target_fold_end)]).flatten_indices()
+                else:
+                    test_dataset = merged_folds_from_source.select([x for x in range(target_fold_start, target_fold_end)]).flatten_indices()
         else:
             train_dataset, eval_dataset, test_dataset = data_encoded[self._train_name], data_encoded[self._dev_name], data_encoded[
                 self._test_name]
@@ -689,18 +702,21 @@ class AutoTransformers:
             logger.error("Saved checkpoint not found. Please make sure checkpoint is stored under {}".format(ckpt_dir))
             raise err
 
-    def _set_metric(self, metric_name, metric_mode_name):
-        default_metric, default_mode, all_metrics, all_modes = get_default_and_alternative_metric(self._dataset_name[0], self._subdataset_name, metric_name, metric_mode_name)
-        _variable_override_default_alternative(logger, self, "metric_name", default_metric, all_metrics, metric_name)
-        _variable_override_default_alternative(logger, self, "metric_mode_name", default_mode, all_modes, metric_mode_name)
+    def _set_metric(self, custom_metric_name = None, custom_metric_mode_name = None):
+        default_metric, default_mode, all_metrics, all_modes = get_default_and_alternative_metric(self._dataset_name[0],
+                            subdataset_name=self._subdataset_name,
+                            custom_metric_name= custom_metric_name,
+                            custom_metric_mode_name= custom_metric_mode_name)
+        _variable_override_default_alternative(logger, self, "metric_name", default_metric, all_metrics, custom_metric_name)
+        _variable_override_default_alternative(logger, self, "metric_mode_name", default_mode, all_modes, custom_metric_mode_name)
 
     def fit(self,
             train_dataset,
             eval_dataset,
             resources_per_trial,
             wandb_key,
-            metric_name = None,
-            metric_mode_name = "max",
+            custom_metric_name = None,
+            custom_metric_mode_name = None,
             search_algo_name= None,
             ckpt_per_epoch=1,
             fp16 = True,
@@ -777,7 +793,7 @@ class AutoTransformers:
         _variable_override_default_alternative(logger, self, "ckpt_per_epoch", 1, [x for x in range(1, 11)], ckpt_per_epoch)
         _variable_override_default_alternative(logger, self, "hpo_searchspace_mode", "hpo_space_generic", list(HPO_SEARCH_SPACE_MAPPING.keys()), hpo_searchspace_mode)
 
-        self._set_metric(metric_name, metric_mode_name)
+        self._set_metric(custom_metric_name, custom_metric_mode_name)
 
         self._fp16 = fp16
 

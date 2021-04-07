@@ -29,18 +29,24 @@ metric_mode_mapping_super_glue = {
     "axg": [("accuracy", "max")]
 }
 
+metric_mode_mapping_imdb = [("accuracy", "max")]
+
+metric_mode_mapping_yelp = [("accuracy", "max")]
+
 METRIC_MAPPING = OrderedDict(
     [
         ("squad", metric_mode_mapping_squad),
         ("glue", metric_mode_mapping_glue),
         ("super_glue", metric_mode_mapping_super_glue),
+        ("imdb", metric_mode_mapping_imdb),
+        ("yelp_review_full", metric_mode_mapping_yelp)
     ]
 )
 
 def get_default_and_alternative_metric(dataset_name, subdataset_name = None, custom_metric_name = None, custom_metric_mode_name = None):
     if dataset_name not in METRIC_MAPPING.keys():
         assert custom_metric_name and custom_metric_mode_name, "The dataset is not in {}, you must explicitly specify " \
-            "the custom metric name and custom metric mode name".format(",".join(METRIC_MAPPING.keys()))
+            "the custom_metric_name and custom_metric_mode_name".format(",".join(METRIC_MAPPING.keys()))
     eval_name_mapping = METRIC_MAPPING[dataset_name]
     if isinstance(eval_name_mapping, dict):
         assert subdataset_name and subdataset_name in eval_name_mapping, "dataset_name and subdataset_name not correctly specified"

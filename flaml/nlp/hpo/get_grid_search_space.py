@@ -10,6 +10,22 @@ def get_longformer_space(model_size_type = None,
     if dataset_name == "glue":
         return
 
+def get_funnel_space(model_size_type = None,
+                   dataset_name = None,
+                   subdataset_name = None):
+    search_space_dict = {}
+    search_space_dict["learning_rate"] =  [1e-5, 2e-5, 3e-5]
+    search_space_dict["hidden_dropout"] = [0.1]
+    search_space_dict["activation_dropout"] = [0.0]
+    search_space_dict["attention_dropout"] = [0.1]
+    search_space_dict["weight_decay"] = [0.01]
+    search_space_dict["warmup_ratio"] = [0.1]
+    search_space_dict["adam_epsilon"] = [1e-6]
+    if dataset_name == "yelp_review_full":
+        search_space_dict["per_device_train_batch_size"] = [32]
+        search_space_dict["num_train_epochs"] = [3]
+    return search_space_dict
+
 def get_bert_space(model_size_type = None,
                    dataset_name = None,
                    subdataset_name = None):

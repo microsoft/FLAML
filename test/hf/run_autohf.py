@@ -13,18 +13,13 @@ import wandb
 
 from flaml.nlp.autotransformers import AutoTransformers
 
-dataset_to_task_mapping = {
-    "glue": "text-classification",
-    "squad": "question-answering",
-}
-
 # setting wandb key
 wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 
-dataset_names = [["glue"]]
-subdataset_names = ["qqp"]
+dataset_names = [["yelp_review_full"]]
+subdataset_names = [None]
 
-pretrained_models = ["google/electra-small-discriminator", "google/electra-base-discriminator", "bert-base-uncased"]
+pretrained_models = ["funnel-transformer/small"] #"google/electra-small-discriminator", "google/electra-base-discriminator", "bert-base-uncased"]
 
 search_algos = ["BlendSearch"]
 scheduler_names = ["None"]
@@ -45,14 +40,16 @@ def get_full_name(autohf, is_grid, hpo_searchspace_mode = None):
                + "_" + autohf.scheduler_name.lower() + "_" + autohf.path_utils.group_hash_id
 
 def get_resplit_portion(this_dataset_name, this_subset_name):
-    if this_subset_name in {"mnli", "qqp"}:
-        return {"train": [0, 0.25], "dev": [0.25, 0.275], "test": [0.275, 0.3]}
+    if this_dataset_name == ["glue"] and this_subset_name in {"mnli", "qqp"}:
+        return {"source": ["train", "validation"], "train": [0, 0.25], "validation": [0.25, 0.275], "test": [0.275, 0.3]}
+    elif this_dataset_name[0] in {"imdb", "dbpedia_14", "yelp_review_full"}:
+        return {"source": ["train", "test"], "train": [0, 0.05], "validation": [0.05, 0.55], "test": [0.055, 0.06]}
     else:
-        return {"train": [0, 0.8], "dev": [0.8, 0.9], "test": [0.9, 1.0]}
+        return {"source": ["train", "validation"], "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
 
 def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model):
     preparedata_setting = {
-        "dataset_config": {"task": dataset_to_task_mapping[this_dataset_name[0]],
+        "dataset_config": {"task": "text-classification",
                            "dataset_name": this_dataset_name,
                            "subdataset_name": this_subset_name,
                            },
@@ -63,7 +60,7 @@ def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pret
         "ckpt_path": "../../../data/checkpoint/",
         "result_path": "../../../data/result/",
         "log_path": "../../../data/result/",
-        "max_seq_length": 128,
+        "max_seq_length": 512,
         }
     if this_dataset_name[0] == "glue" and this_subset_name and this_subset_name == "mnli":
         preparedata_setting["dataset_config"]["fold_name"] = ['train', 'validation_matched', 'test_matched']
@@ -75,6 +72,8 @@ def get_autohf_settings_grid():
                            "search_algo_name": "grid_search",
                            "scheduler_name": "None",
                            "ckpt_per_epoch": 1,
+                           "custom_metric_name": "accuracy",
+                           "custom_metric_mode_name": "max",
                            }
     return autohf_settings
 
@@ -155,10 +154,8 @@ def _test_grid(args, fout, autohf):
                 validation_metric, analysis = autohf.fit(train_dataset,
                            eval_dataset,
                            **autohf_settings,)
-            except AssertionError:
-                save_file_name = get_full_name(autohf, is_grid=True)
-                write_exception(args, save_file_name, fout)
-                continue
+            except AssertionError as err:
+                raise err
 
             save_file_name = get_full_name(autohf, is_grid=True)
             write_regular(autohf, args, validation_metric, save_file_name, fout)

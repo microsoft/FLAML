@@ -4,7 +4,7 @@ from .get_grid_search_space import \
     (get_electra_space,
      get_bert_space,
      get_mobilebert_space,
-     get_roberta_space,
+     get_roberta_space, get_funnel_space,
      )
 
 GRID_SEARCH_SPACE_MAPPING = OrderedDict(
@@ -13,6 +13,7 @@ GRID_SEARCH_SPACE_MAPPING = OrderedDict(
         ("bert", get_bert_space),
         #(("mobilebert"), get_mobilebert_space),
         ("roberta", get_roberta_space),
+        ("funnel", get_funnel_space),
     ]
 )
 
