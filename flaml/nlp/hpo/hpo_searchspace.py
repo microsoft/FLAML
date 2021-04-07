@@ -10,7 +10,8 @@ hp_type_mapping = {"learning_rate": [tune.sample.Float, "log"],
                    "num_train_epochs": [tune.sample.Float, "linear"],
                    "per_device_train_batch_size": tune.sample.Categorical,
                    "weight_decay": [tune.sample.Float, "linear"],
-                   "warmup_ratio": [tune.sample.Float, "linear"]}
+                   "warmup_ratio": [tune.sample.Float, "linear"],
+                   }
 
 def hpo_space_gridunion_continuous(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
     gridunion_space = hpo_space_gridunion(logger, model_type, model_size_type, dataset_name, subdataset_name)
