@@ -183,8 +183,9 @@ def _test_accuracy(net, device="cpu"):
 
 
 # __main_begin__
-def cifar10_main(method='BlendSearch', num_samples=10, max_num_epochs=100,
-    gpus_per_trial=2):
+def cifar10_main(
+    method='BlendSearch', num_samples=10, max_num_epochs=100, gpus_per_trial=2
+):
     data_dir = os.path.abspath("test/data")
     load_data(data_dir)  # Download data for all trials before starting the run
     if method == 'BlendSearch':
@@ -280,7 +281,7 @@ def cifar10_main(method='BlendSearch', num_samples=10, max_num_epochs=100,
         best_trial.metric_analysis["accuracy"]["max"]))
 
     best_trained_model = Net(2**best_trial.config["l1"],
-        2**best_trial.config["l2"])
+                             2**best_trial.config["l2"])
     device = "cpu"
     if torch.cuda.is_available():
         device = "cuda:0"
@@ -298,8 +299,8 @@ def cifar10_main(method='BlendSearch', num_samples=10, max_num_epochs=100,
 # __main_end__
 
 
-gpus_per_trial=0#.5
-num_samples=500
+gpus_per_trial = 0#.5
+num_samples = 500
 
 
 def _test_cifar10_bs():
@@ -308,27 +309,27 @@ def _test_cifar10_bs():
 
 def _test_cifar10_cfo():
     cifar10_main('CFO',
-        num_samples=num_samples, gpus_per_trial=gpus_per_trial)
+                 num_samples=num_samples, gpus_per_trial=gpus_per_trial)
 
 
 def _test_cifar10_optuna():
     cifar10_main('Optuna',
-        num_samples=num_samples, gpus_per_trial=gpus_per_trial)
+                 num_samples=num_samples, gpus_per_trial=gpus_per_trial)
 
 
 def _test_cifar10_asha():
     cifar10_main('ASHA',
-        num_samples=num_samples, gpus_per_trial=gpus_per_trial)
+                 num_samples=num_samples, gpus_per_trial=gpus_per_trial)
 
 
 def _test_cifar10_bohb():
     cifar10_main('BOHB',
-        num_samples=num_samples, gpus_per_trial=gpus_per_trial)
+                 num_samples=num_samples, gpus_per_trial=gpus_per_trial)
 
 
 def _test_cifar10_nevergrad():
     cifar10_main('Nevergrad',
-        num_samples=num_samples, gpus_per_trial=gpus_per_trial)
+                 num_samples=num_samples, gpus_per_trial=gpus_per_trial)
 
 
 if __name__ == "__main__":

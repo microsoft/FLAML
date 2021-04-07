@@ -2,7 +2,7 @@
  * Copyright (c) 2020-2021 Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
 '''
- 
+
 from .model import *
 import time
 from sklearn.metrics import mean_squared_error, r2_score, roc_auc_score, \
@@ -106,11 +106,11 @@ def get_y_pred(estimator, X, eval_metric, obj):
     elif eval_metric in ['log_loss', 'roc_auc']:
         y_pred = estimator.predict_proba(X)
     else:
-        try:
-            y_pred = estimator.predict(X)
-        except:
-            logger.debug("prediction failed. Using a constant predictor.")
-            y_pred = np.ones(X.shape[0])
+        # try:
+        y_pred = estimator.predict(X)
+        # except:
+        #     logger.debug("prediction failed. Using a constant predictor.")
+        #     y_pred = np.ones(X.shape[0])
     return y_pred
 
 
@@ -123,7 +123,7 @@ def get_test_loss(
     if isinstance(eval_metric, str):
         test_pred_y = get_y_pred(estimator, X_test, eval_metric, obj)
         test_loss = sklearn_metric_loss_score(eval_metric, test_pred_y, y_test,
-            labels, weight_test)
+                                              labels, weight_test)
         if train_loss is not False:
             test_pred_y = get_y_pred(estimator, X_train, eval_metric, obj)
             train_loss = sklearn_metric_loss_score(
@@ -168,11 +168,12 @@ def evaluate_model_holdout(
     val_loss, train_time, train_loss = get_test_loss(
         estimator, X_train, y_train, X_val, y_val, weight_val, eval_metric,
         task, budget=budget, train_loss=train_loss, fit_kwargs=fit_kwargs)
-    return  val_loss, train_loss, train_time
+    return val_loss, train_loss, train_time
 
 
-def evaluate_model_CV(estimator, X_train_all, y_train_all, budget, kf,
- task, eval_metric, best_val_loss, train_loss=False, fit_kwargs={}):
+def evaluate_model_CV(
+    estimator, X_train_all, y_train_all, budget, kf,
+    task, eval_metric, best_val_loss, train_loss=False, fit_kwargs={}):
     start_time = time.time()
     total_val_loss = total_train_loss = 0
     train_time = 0
@@ -235,7 +236,7 @@ def evaluate_model_CV(estimator, X_train_all, y_train_all, budget, kf,
             val_loss_list.append(total_val_loss / valid_fold_num)
             break
     val_loss = np.max(val_loss_list)
-    if train_loss != False:
+    if train_loss is not False:
         train_loss = total_train_loss / n
     budget -= time.time() - start_time
     if val_loss < best_val_loss and budget > budget_per_train:

@@ -199,7 +199,7 @@ class BlendSearch(Searcher):
             # update target metric if improved
             if (result[self._metric] - self._metric_target) * self._ls.metric_op < 0:
                 self._metric_target = result[self._metric]
-            if not thread_id and self._create_condition(result): 
+            if not thread_id and self._create_condition(result):
                 # thread creator
                 self._search_thread_pool[self._thread_count] = SearchThread(
                     self._ls.mode,
@@ -235,7 +235,7 @@ class BlendSearch(Searcher):
             return True
         obj_median = np.median(
             [thread.obj_best1 for id, thread in self._search_thread_pool.items()
-            if id])
+             if id])
         return result[self._metric] * self._ls.metric_op < obj_median
 
     def _clean(self, thread_id: int):
@@ -362,11 +362,11 @@ class BlendSearch(Searcher):
         exists = config_signature in self._result
         # check mem constraint
         if not exists and self._mem_threshold and self._mem_size(
-            config) > self._mem_threshold:
-                self._result[config_signature] = {
-                    self._metric: np.inf * self._ls.metric_op, 'time_total_s': 1
-                }
-                exists = True
+                config) > self._mem_threshold:
+            self._result[config_signature] = {
+                self._metric: np.inf * self._ls.metric_op, 'time_total_s': 1
+            }
+            exists = True
         if exists:
             if not self._use_rs:
                 result = self._result.get(config_signature)
@@ -427,17 +427,17 @@ class BlendSearch(Searcher):
             if key in config:
                 value = normalized_config[key]
                 if value + self._ls.STEPSIZE < self._gs_admissible_min[key] \
-                    or value > self._gs_admissible_max[key] + self._ls.STEPSIZE:
-                        return False
+                        or value > self._gs_admissible_max[key] + self._ls.STEPSIZE:
+                    return False
         return True
 
 
 try:
     from ray.tune import (uniform, quniform, choice, randint, qrandint, randn,
-        qrandn, loguniform, qloguniform)
+                          qrandn, loguniform, qloguniform)
 except ImportError:
     from ..tune.sample import (uniform, quniform, choice, randint, qrandint, randn,
-        qrandn, loguniform, qloguniform)
+                               qrandn, loguniform, qloguniform)
 
 try:
     from nni.tuner import Tuner as NNITuner
@@ -448,7 +448,7 @@ try:
         '''
 
         def receive_trial_result(self, parameter_id, parameters, value,
-                                **kwargs):
+                                 **kwargs):
             '''
             Receive trial's final result.
             parameter_id: int
@@ -524,7 +524,7 @@ class CFO(BlendSearchTuner):
 
     def suggest(self, trial_id: str) -> Optional[Dict]:
         # Number of threads is 1 or 2. Thread 0 is a vacuous thread
-        assert len(self._search_thread_pool)<3, len(self._search_thread_pool)
+        assert len(self._search_thread_pool) < 3, len(self._search_thread_pool)
         if len(self._search_thread_pool) < 2:
             # When a local converges, the number of threads is 1
             # Need to restart
@@ -533,7 +533,8 @@ class CFO(BlendSearchTuner):
 
     def _select_thread(self) -> Tuple:
         for key in self._search_thread_pool:
-            if key: return key, key
+            if key:
+                return key, key
 
     def _create_condition(self, result: Dict) -> bool:
         ''' create thread condition

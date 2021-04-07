@@ -157,17 +157,17 @@ class FLOW2(Searcher):
                         d = {}
                         for i, choice in enumerate(ordered):
                             d[choice] = i
-                        self._ordered_choice_hp[key] = (ordered, d) 
+                        self._ordered_choice_hp[key] = (ordered, d)
                     else:
                         self._unordered_cat_hp[key] = len(domain.categories)
                 if str(sampler) != 'Normal':
                     self._bounded_keys.append(key)
         self._space_keys = list(self.space.keys())
         if (self.prune_attr and self.prune_attr not in self.space
-            and self.max_resource):
-                self._space_keys.append(self.prune_attr)
-                self.min_resource = self.min_resource or self._min_resource()
-                self._resource = self._round(self.min_resource)
+                and self.max_resource):
+            self._space_keys.append(self.prune_attr)
+            self.min_resource = self.min_resource or self._min_resource()
+            self._resource = self._round(self.min_resource)
         else:
             self._resource = None
         self.incumbent = {}
@@ -371,7 +371,7 @@ class FLOW2(Searcher):
                             else:  # ****random value each time!****
                                 config_denorm[key] = self._random.choice(
                                     [x for x in domain.categories
-                                    if x != self.best_config[key]])
+                                     if x != self.best_config[key]])
                         continue
                     # Uniform/LogUniform/Normal/Base
                     sampler = domain.get_sampler()
@@ -460,8 +460,8 @@ class FLOW2(Searcher):
             if self._num_complete4incumbent >= 2 * self.dim and \
                     self._num_allowed4incumbent == 0:
                 self._num_allowed4incumbent = 2
-            if self._num_complete4incumbent == self.dir and (not self._resource
-                    or self._resource == self.max_resource):
+            if self._num_complete4incumbent == self.dir and (
+                    not self._resource or self._resource == self.max_resource):
                 # check stuck condition if using max resource
                 if self.step >= self.step_lower_bound:
                     # decrease step size

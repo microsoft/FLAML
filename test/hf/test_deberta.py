@@ -52,7 +52,7 @@ try:
 
 except ImportError:
     print("pip install torch transformers datasets flaml[blendsearch,ray]")
-    
+
 import logging
 logger = logging.getLogger(__name__)
 os.makedirs('logs', exist_ok=True)
@@ -75,7 +75,6 @@ def train_deberta(config: dict):
         predictions, labels = eval_pred
         predictions = np.argmax(predictions, axis=1)
         return metric.compute(predictions=predictions, references=labels)
-
 
     model = AutoModelForSequenceClassification.from_pretrained(
         MODEL_CHECKPOINT, num_labels=NUM_LABELS
@@ -122,7 +121,7 @@ def train_deberta(config: dict):
 
 
 def _test_deberta(method='BlendSearch'):
- 
+
     max_num_epoch = 100
     num_samples = -1
     time_budget_s = 3600

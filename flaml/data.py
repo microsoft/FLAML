@@ -120,7 +120,7 @@ def get_output_from_log(filename, time_budget):
         error_list: A list of the validation error of each logged iter
         config_list:
             A list of the estimator, sample size and config of each logged iter
-        logged_metric_list: A list of the logged metric of each logged iter 
+        logged_metric_list: A list of the logged metric of each logged iter
     '''
 
     best_config = None
@@ -229,7 +229,7 @@ class DataTransformer:
                 self.transformer = ColumnTransformer([(
                     'continuous',
                     SimpleImputer(missing_values=np.nan, strategy='median'),
-                                X_num.columns)])
+                                  X_num.columns)])
                 X[num_columns] = self.transformer.fit_transform(X_num)
             self._cat_columns, self._num_columns = cat_columns, num_columns
             self._drop = drop

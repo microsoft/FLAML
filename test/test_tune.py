@@ -163,8 +163,8 @@ def test_nested():
     }
 
     def simple_func(config):
-        tune.report(metric=(config["cost_related"]["a"] - 4) ** 2
-            * (config["b"] - 0.7) ** 2)
+        tune.report(metric=(config["cost_related"]["a"] - 4)**2
+                    * (config["b"] - 0.7)**2)
 
     tune.run(
         simple_func,

@@ -70,10 +70,10 @@ def custom_metric(X_test, y_test, estimator, labels, X_train, y_train,
     from sklearn.metrics import log_loss
     y_pred = estimator.predict_proba(X_test)
     test_loss = log_loss(y_test, y_pred, labels=labels,
-        sample_weight=weight_test)
+                         sample_weight=weight_test)
     y_pred = estimator.predict_proba(X_train)
     train_loss = log_loss(y_train, y_pred, labels=labels,
-        sample_weight=weight_train)
+                          sample_weight=weight_train)
     alpha = 0.5
     return test_loss * (1 + alpha) - alpha * train_loss, [test_loss, train_loss]
 
@@ -83,7 +83,7 @@ class TestAutoML(unittest.TestCase):
     def test_custom_learner(self):
         automl = AutoML()
         automl.add_learner(learner_name='RGF',
-            learner_class=MyRegularizedGreedyForest)
+                           learner_class=MyRegularizedGreedyForest)
         X_train, y_train = load_wine(return_X_y=True)
         settings = {
             "time_budget": 10,  # total running time in seconds
@@ -103,11 +103,11 @@ class TestAutoML(unittest.TestCase):
     def test_ensemble(self):
         automl = AutoML()
         automl.add_learner(learner_name='RGF',
-            learner_class=MyRegularizedGreedyForest)
+                           learner_class=MyRegularizedGreedyForest)
         X_train, y_train = load_wine(return_X_y=True)
         settings = {
             "time_budget": 10,  # total running time in seconds
-            "estimator_list": ['RGF', 'lgbm', 'rf', 'xgboost'], 
+            "estimator_list": ['RGF', 'lgbm', 'rf', 'xgboost'],
             "task": 'classification',  # task type
             "sample": True,  # whether to subsample training data
             "log_file_name": "test/wine.log",

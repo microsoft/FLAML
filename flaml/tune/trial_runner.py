@@ -48,9 +48,9 @@ class BaseTrialRunner:
     """
 
     def __init__(self,
-                search_alg=None, scheduler=None,
-                metric: Optional[str] = None,
-                mode: Optional[str] = 'min'):
+                 search_alg=None, scheduler=None,
+                 metric: Optional[str] = None,
+                 mode: Optional[str] = 'min'):
         self._search_alg = search_alg
         self._scheduler_alg = scheduler
         self._trials = []

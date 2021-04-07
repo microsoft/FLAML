@@ -121,7 +121,7 @@ def train_roberta(config: dict):
 
 
 def _test_roberta(method='BlendSearch'):
- 
+
     max_num_epoch = 100
     num_samples = -1
     time_budget_s = 3600
