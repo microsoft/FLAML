@@ -411,11 +411,11 @@ class AutoTransformers:
             model_type = self._extract_model_type_with_keywords_match()
 
         model_size_type = ""
-        if "-base" in self.path_utils.model_checkpoint:
+        if "base" in self.path_utils.model_checkpoint:
             model_size_type = "base"
-        elif "-large" in self.path_utils.model_checkpoint:
+        elif "large" in self.path_utils.model_checkpoint:
             model_size_type = "large"
-        elif "-small" in self.path_utils.model_checkpoint:
+        elif "small" in self.path_utils.model_checkpoint:
             model_size_type = "small"
 
         self._model_type = model_type

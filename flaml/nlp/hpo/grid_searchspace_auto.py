@@ -59,6 +59,12 @@ time_budget_grid_bert_base_glue_dgx = {
     "qqp": 1615.48,
 }
 
+time_budget_grid_funnel_small_yelp_tmdev = 1864
+
+time_budget_grid_electra_small_yelp_tmdev = 733.82
+
+time_budget_grid_electra_base_yelp_tmdev = 1921.91
+
 GRID_SEARCH_TIME_BUDGET_LOOKUP_TABLE = OrderedDict(
     [
 
@@ -68,6 +74,9 @@ GRID_SEARCH_TIME_BUDGET_LOOKUP_TABLE = OrderedDict(
         (("electra", "small", "glue", "dgx"), time_budget_grid_electra_small_glue_dgx),
         (("bert", "base", "glue", "tmdev"), time_budget_grid_bert_base_glue_tmdev),
         (("bert", "base", "glue", "dgx"), time_budget_grid_bert_base_glue_dgx),
+        (("funnel", "small", "yelp_review_full", "tmdev"), time_budget_grid_funnel_small_yelp_tmdev),
+        (("electra", "small", "yelp_review_full", "tmdev"), time_budget_grid_electra_small_yelp_tmdev),
+        (("electra", "base", "yelp_review_full", "tmdev"), time_budget_grid_electra_base_yelp_tmdev),
     ]
 )
 
@@ -106,7 +115,11 @@ class AutoGridSearchSpace:
     def get_grid_time_budget(cls, logger, model_type, model_size_type, dataset_name, server_name, subdataset_name = None):
         if (model_type, model_size_type, dataset_name, server_name) in GRID_SEARCH_TIME_BUDGET_LOOKUP_TABLE.keys():
             try:
-                return GRID_SEARCH_TIME_BUDGET_LOOKUP_TABLE[(model_type, model_size_type, dataset_name, server_name)][subdataset_name]
+                if subdataset_name:
+                    return GRID_SEARCH_TIME_BUDGET_LOOKUP_TABLE[(model_type, model_size_type, dataset_name, server_name)][subdataset_name]
+                else:
+                    return \
+                    GRID_SEARCH_TIME_BUDGET_LOOKUP_TABLE[(model_type, model_size_type, dataset_name, server_name)]
             except Exception as err:
                 logger.error("the time budget for this setting does not exist in the look up table")
                 raise err

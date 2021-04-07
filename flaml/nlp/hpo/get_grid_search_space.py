@@ -22,7 +22,7 @@ def get_funnel_space(model_size_type = None,
     search_space_dict["warmup_ratio"] = [0.1]
     search_space_dict["adam_epsilon"] = [1e-6]
     if dataset_name == "yelp_review_full":
-        search_space_dict["per_device_train_batch_size"] = [32]
+        search_space_dict["per_device_train_batch_size"] = [64]
         search_space_dict["num_train_epochs"] = [3]
     return search_space_dict
 

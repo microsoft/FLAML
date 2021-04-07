@@ -19,7 +19,7 @@ wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 dataset_names = [["yelp_review_full"]]
 subdataset_names = [None]
 
-pretrained_models = ["funnel-transformer/small"] #"google/electra-small-discriminator", "google/electra-base-discriminator", "bert-base-uncased"]
+pretrained_models = ["funnel-transformer/small", "google/electra-small-discriminator", "google/electra-base-discriminator"] #, "bert-base-uncased"]
 
 search_algos = ["BlendSearch"]
 scheduler_names = ["None"]
@@ -43,7 +43,7 @@ def get_resplit_portion(this_dataset_name, this_subset_name):
     if this_dataset_name == ["glue"] and this_subset_name in {"mnli", "qqp"}:
         return {"source": ["train", "validation"], "train": [0, 0.25], "validation": [0.25, 0.275], "test": [0.275, 0.3]}
     elif this_dataset_name[0] in {"imdb", "dbpedia_14", "yelp_review_full"}:
-        return {"source": ["train", "test"], "train": [0, 0.05], "validation": [0.05, 0.55], "test": [0.055, 0.06]}
+        return {"source": ["train", "test"], "train": [0, 0.05], "validation": [0.05, 0.055], "test": [0.055, 0.06]}
     else:
         return {"source": ["train", "validation"], "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
 
@@ -169,7 +169,7 @@ def _test_hpo(args, fout, autohf):
 
         for algo_idx in range(0, len(search_algos)):
             this_search_algo = search_algos[algo_idx]
-            for model_idx in range(0, len(pretrained_models)):
+            for model_idx in range(1, len(pretrained_models)):
                 each_pretrained_model = pretrained_models[model_idx]
 
                 this_scheduler_name = scheduler_names[algo_idx]
