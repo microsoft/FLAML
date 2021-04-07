@@ -995,7 +995,7 @@ class AutoML:
             time_left = self._state.time_budget - self._state.time_from_start
             budget_left = time_left if not self._retrain_full or better or (
                 not self.best_estimator) or self._search_states[
-                self.best_estimator].sample_siz < self._state.data_size \
+                self.best_estimator].sample_size < self._state.data_size \
                 else time_left - est_retrain_time
             if not search_state.search_alg:
                 search_state.training_function = partial(
