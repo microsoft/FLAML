@@ -299,7 +299,7 @@ def cifar10_main(
 # __main_end__
 
 
-gpus_per_trial = 0#.5
+gpus_per_trial = 0  # 0.5 on GPU server
 num_samples = 500
 
 

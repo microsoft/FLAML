@@ -702,8 +702,10 @@ class CatBoostEstimator(BaseEstimator):
             from catboost import Pool
             model = self.estimator_class(**self.params)
             model.fit(
-                X_tr, y_tr, cat_features=cat_features, eval_set=Pool(
-                data=X_train[n:], label=y_train[n:], cat_features=cat_features),
+                X_tr, y_tr, cat_features=cat_features,
+                eval_set=Pool(
+                    data=X_train[n:], label=y_train[n:],
+                    cat_features=cat_features),
                 **kwargs)   # model.get_best_iteration()
             if weight is not None:
                 kwargs['sample_weight'] = weight
