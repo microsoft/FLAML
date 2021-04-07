@@ -229,7 +229,7 @@ class DataTransformer:
                 self.transformer = ColumnTransformer([(
                     'continuous',
                     SimpleImputer(missing_values=np.nan, strategy='median'),
-                                  X_num.columns)])
+                    X_num.columns)])
                 X[num_columns] = self.transformer.fit_transform(X_num)
             self._cat_columns, self._num_columns = cat_columns, num_columns
             self._drop = drop

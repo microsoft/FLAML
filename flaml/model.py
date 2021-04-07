@@ -680,7 +680,7 @@ class CatBoostEstimator(BaseEstimator):
                 CatBoostEstimator._time_per_iter = CatBoostEstimator._t1
             CatBoostEstimator._train_size = len(y_train)
             if time.time() - start_time >= budget or n_iter == self.params[
-                "n_estimators"]:
+                    "n_estimators"]:
                 self.params["n_estimators"] = n_iter
                 self._model = CatBoostEstimator._smallmodel
                 return time.time() - start_time
@@ -706,7 +706,7 @@ class CatBoostEstimator(BaseEstimator):
                 data=X_train[n:], label=y_train[n:], cat_features=cat_features),
                 **kwargs)   # model.get_best_iteration()
             if weight is not None:
-                kwargs['sample_weight'] = weight            
+                kwargs['sample_weight'] = weight
             self._model = model
         self.params["n_estimators"] = n_iter
         train_time = time.time() - start_time

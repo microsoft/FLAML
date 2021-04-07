@@ -177,7 +177,8 @@ def evaluate_model_holdout(
 
 def evaluate_model_CV(
     estimator, X_train_all, y_train_all, budget, kf,
-    task, eval_metric, best_val_loss, train_loss=False, fit_kwargs={}):
+    task, eval_metric, best_val_loss, train_loss=False, fit_kwargs={}
+):
     start_time = time.time()
     total_val_loss = total_train_loss = 0
     train_time = 0
