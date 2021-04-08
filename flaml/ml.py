@@ -110,11 +110,7 @@ def get_y_pred(estimator, X, eval_metric, obj):
     elif eval_metric in ['log_loss', 'roc_auc']:
         y_pred = estimator.predict_proba(X)
     else:
-        # try:
         y_pred = estimator.predict(X)
-        # except:
-        #     logger.debug("prediction failed. Using a constant predictor.")
-        #     y_pred = np.ones(X.shape[0])
     return y_pred
 
 
