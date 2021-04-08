@@ -24,8 +24,8 @@ pretrained_models = ["funnel-transformer/small", "google/electra-small-discrimin
 search_algos = ["BlendSearch"]
 scheduler_names = ["None"]
 
-hpo_searchspace_modes = ["hpo_space_gridunion_other", "hpo_space_gridunion_other_large"]
-search_algo_args_modes = ["default", "default"]
+hpo_searchspace_modes = ["hpo_space_gridunion", "hpo_space_gridunion_other", "hpo_space_gridunion_other_large"]
+search_algo_args_modes = ["default", "default", "default"]
 num_sample_time_budget_mode, time_as_grid = ("times_grid_time_budget", 4.0)
 
 def get_full_name(autohf, is_grid, hpo_searchspace_mode = None):
@@ -169,7 +169,7 @@ def _test_hpo(args, fout, autohf):
 
         for algo_idx in range(0, len(search_algos)):
             this_search_algo = search_algos[algo_idx]
-            for model_idx in range(0, 1): #len(pretrained_models)):
+            for model_idx in range(1, len(pretrained_models)):
                 each_pretrained_model = pretrained_models[model_idx]
 
                 this_scheduler_name = scheduler_names[algo_idx]
