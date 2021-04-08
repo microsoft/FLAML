@@ -153,7 +153,7 @@
 <span class="sd"> * Licensed under the MIT License. See LICENSE file in the</span>
 <span class="sd"> * project root for license information.</span>
 <span class="sd">&#39;&#39;&#39;</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Callable</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">pickle</span>
@@ -176,7 +176,7 @@
     <span class="sd">&#39;&#39;&#39;class for BlendSearch algorithm</span>
 <span class="sd">    &#39;&#39;&#39;</span>
 
-    <span class="n">cost_attr</span> <span class="o">=</span> <span class="s2">&quot;time_total_s&quot;</span> <span class="c1"># cost attribute in result</span>
+    <span class="n">cost_attr</span> <span class="o">=</span> <span class="s2">&quot;time_total_s&quot;</span>  <span class="c1"># cost attribute in result</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
                  <span class="n">metric</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -191,7 +191,7 @@
                  <span class="n">reduction_factor</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                  <span class="n">resources_per_trial</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                  <span class="n">global_search_alg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Searcher</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-                 <span class="n">mem_size</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+                 <span class="n">mem_size</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">dict</span><span class="p">],</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                  <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">20</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;Constructor</span>
 
@@ -200,35 +200,35 @@
 <span class="sd">                minimization or maximization.</span>
 <span class="sd">            mode: A string in [&#39;min&#39;, &#39;max&#39;] to specify the objective as</span>
 <span class="sd">            space: A dictionary to specify the search space.</span>
-<span class="sd">            points_to_evaluate: Initial parameter suggestions to be run first. </span>
-<span class="sd">            low_cost_partial_config: A dictionary from a subset of </span>
+<span class="sd">            points_to_evaluate: Initial parameter suggestions to be run first.</span>
+<span class="sd">            low_cost_partial_config: A dictionary from a subset of</span>
 <span class="sd">                controlled dimensions to the initial low-cost values.</span>
-<span class="sd">                e.g., </span>
+<span class="sd">                e.g.,</span>
 
 <span class="sd">                .. code-block:: python</span>
 
 <span class="sd">                    {&#39;n_estimators&#39;: 4, &#39;max_leaves&#39;: 4}</span>
-<span class="sd">                </span>
+
 <span class="sd">            cat_hp_cost: A dictionary from a subset of categorical dimensions</span>
-<span class="sd">                to the relative cost of each choice. </span>
+<span class="sd">                to the relative cost of each choice.</span>
 <span class="sd">                e.g.,</span>
-<span class="sd">                </span>
+
 <span class="sd">                .. code-block:: python</span>
 
 <span class="sd">                    {&#39;tree_method&#39;: [1, 1, 2]}</span>
-<span class="sd">                </span>
-<span class="sd">                i.e., the relative cost of the </span>
+
+<span class="sd">                i.e., the relative cost of the</span>
 <span class="sd">                three choices of &#39;tree_method&#39; is 1, 1 and 2 respectively.</span>
-<span class="sd">            prune_attr: A string of the attribute used for pruning. </span>
+<span class="sd">            prune_attr: A string of the attribute used for pruning.</span>
 <span class="sd">                Not necessarily in space.</span>
-<span class="sd">                When prune_attr is in space, it is a hyperparameter, e.g., </span>
+<span class="sd">                When prune_attr is in space, it is a hyperparameter, e.g.,</span>
 <span class="sd">                    &#39;n_iters&#39;, and the best value is unknown.</span>
-<span class="sd">                When prune_attr is not in space, it is a resource dimension, </span>
+<span class="sd">                When prune_attr is not in space, it is a resource dimension,</span>
 <span class="sd">                    e.g., &#39;sample_size&#39;, and the peak performance is assumed</span>
 <span class="sd">                    to be at the max_resource.</span>
-<span class="sd">            min_resource: A float of the minimal resource to use for the </span>
+<span class="sd">            min_resource: A float of the minimal resource to use for the</span>
 <span class="sd">                prune_attr; only valid if prune_attr is not in space.</span>
-<span class="sd">            max_resource: A float of the maximal resource to use for the </span>
+<span class="sd">            max_resource: A float of the maximal resource to use for the</span>
 <span class="sd">                prune_attr; only valid if prune_attr is not in space.</span>
 <span class="sd">            reduction_factor: A float of the reduction factor used for</span>
 <span class="sd">                incremental pruning.</span>
@@ -251,14 +251,15 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span> <span class="o">=</span> <span class="n">GlobalSearch</span><span class="p">(</span><span class="n">space</span><span class="o">=</span><span class="n">space</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span> <span class="o">=</span> <span class="n">LocalSearch</span><span class="p">(</span><span class="n">init_config</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">cat_hp_cost</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span>
-         <span class="n">prune_attr</span><span class="p">,</span> <span class="n">min_resource</span><span class="p">,</span> <span class="n">max_resource</span><span class="p">,</span> <span class="n">reduction_factor</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span> <span class="o">=</span> <span class="n">LocalSearch</span><span class="p">(</span>
+            <span class="n">init_config</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">cat_hp_cost</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span>
+            <span class="n">prune_attr</span><span class="p">,</span> <span class="n">min_resource</span><span class="p">,</span> <span class="n">max_resource</span><span class="p">,</span> <span class="n">reduction_factor</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_resources_per_trial</span> <span class="o">=</span> <span class="n">resources_per_trial</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_mem_size</span> <span class="o">=</span> <span class="n">mem_size</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_mem_threshold</span> <span class="o">=</span> <span class="n">resources_per_trial</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
             <span class="s1">&#39;mem&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">resources_per_trial</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_init_search</span><span class="p">()</span>
-        
+
 <div class="viewcode-block" id="BlendSearch.set_search_properties"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.set_search_properties">[docs]</a>    <span class="k">def</span> <span class="nf">set_search_properties</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
                               <span class="n">metric</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                               <span class="n">mode</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -269,8 +270,10 @@
             <span class="k">if</span> <span class="s1">&#39;metric_target&#39;</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_metric_target</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;metric_target&#39;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">metric</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric</span> <span class="o">=</span> <span class="n">metric</span>
-            <span class="k">if</span> <span class="n">mode</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">=</span> <span class="n">mode</span>
+            <span class="k">if</span> <span class="n">metric</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_metric</span> <span class="o">=</span> <span class="n">metric</span>
+            <span class="k">if</span> <span class="n">mode</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">=</span> <span class="n">mode</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">set_search_properties</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span><span class="o">.</span><span class="n">set_search_properties</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
@@ -284,22 +287,22 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span> <span class="o">=</span> <span class="p">{</span>
             <span class="c1"># id: int -&gt; thread: SearchThread</span>
             <span class="mi">0</span><span class="p">:</span> <span class="n">SearchThread</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span><span class="p">)</span>
-            <span class="p">}</span> 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_thread_count</span> <span class="o">=</span> <span class="mi">1</span> <span class="c1"># total # threads created</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_thread_count</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># total # threads created</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_init_used</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">init_config</span> <span class="ow">is</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span> <span class="o">=</span> <span class="p">{}</span> <span class="c1"># trial_id: str -&gt; thread_id: int</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># trial_id: str -&gt; thread_id: int</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">init_config</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_min</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_result</span> <span class="o">=</span> <span class="p">{}</span> <span class="c1"># config_signature: tuple -&gt; result: Dict</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_result</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># config_signature: tuple -&gt; result: Dict</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_deadline</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
 
 <div class="viewcode-block" id="BlendSearch.save"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.save">[docs]</a>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">checkpoint_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
         <span class="n">save_object</span> <span class="o">=</span> <span class="bp">self</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">checkpoint_path</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">outputFile</span><span class="p">:</span>
             <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">save_object</span><span class="p">,</span> <span class="n">outputFile</span><span class="p">)</span></div>
-            
+
 <div class="viewcode-block" id="BlendSearch.restore"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.restore">[docs]</a>    <span class="k">def</span> <span class="nf">restore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">checkpoint_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">checkpoint_path</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">inputFile</span><span class="p">:</span>
             <span class="n">state</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">inputFile</span><span class="p">)</span>
@@ -330,24 +333,23 @@
         <span class="sd">&#39;&#39;&#39; search thread updater and cleaner</span>
 <span class="sd">        &#39;&#39;&#39;</span>
         <span class="n">thread_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">trial_id</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">thread_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">:</span> 
+        <span class="k">if</span> <span class="n">thread_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="n">thread_id</span><span class="p">]</span><span class="o">.</span><span class="n">on_trial_complete</span><span class="p">(</span>
-            <span class="n">trial_id</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span>
+                <span class="n">trial_id</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span>
             <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span>
-            <span class="c1"># if not thread_id: logger.info(f&quot;result {result}&quot;)</span>
         <span class="k">if</span> <span class="n">result</span><span class="p">:</span>
             <span class="n">config</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                 <span class="k">if</span> <span class="n">key</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;config/&#39;</span><span class="p">):</span>
                     <span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">[</span><span class="mi">7</span><span class="p">:]]</span> <span class="o">=</span> <span class="n">value</span>
-            <span class="k">if</span> <span class="n">error</span><span class="p">:</span> <span class="c1"># remove from result cache</span>
+            <span class="k">if</span> <span class="n">error</span><span class="p">:</span>  <span class="c1"># remove from result cache</span>
                 <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">config_signature</span><span class="p">(</span><span class="n">config</span><span class="p">)]</span>
-            <span class="k">else</span><span class="p">:</span> <span class="c1"># add to result cache</span>
+            <span class="k">else</span><span class="p">:</span>  <span class="c1"># add to result cache</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">config_signature</span><span class="p">(</span><span class="n">config</span><span class="p">)]</span> <span class="o">=</span> <span class="n">result</span>
             <span class="c1"># update target metric if improved</span>
-            <span class="k">if</span> <span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">]</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric_target</span><span class="p">)</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">metric_op</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_target</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">metric_op</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_metric_target</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">]</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">thread_id</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_condition</span><span class="p">(</span><span class="n">result</span><span class="p">):</span> 
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">thread_id</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_condition</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
                 <span class="c1"># thread creator</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_thread_count</span><span class="p">]</span> <span class="o">=</span> <span class="n">SearchThread</span><span class="p">(</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
@@ -356,14 +358,12 @@
                 <span class="p">)</span>
                 <span class="n">thread_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_thread_count</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_thread_count</span> <span class="o">+=</span> <span class="mi">1</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_update_admissible_region</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">,</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_update_admissible_region</span><span class="p">(</span>
+                    <span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">)</span>
             <span class="c1"># reset admissible region to ls bounding box</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_min</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_max</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">)</span>
         <span class="c1"># cleaner</span>
-        <span class="c1"># logger.info(f&quot;thread {thread_id} in search thread pool=&quot;</span>
-        <span class="c1">#     f&quot;{thread_id in self._search_thread_pool}&quot;)</span>
         <span class="k">if</span> <span class="n">thread_id</span> <span class="ow">and</span> <span class="n">thread_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">:</span>
             <span class="c1"># local search thread</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_clean</span><span class="p">(</span><span class="n">thread_id</span><span class="p">)</span></div>
@@ -381,9 +381,11 @@
     <span class="k">def</span> <span class="nf">_create_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="sd">&#39;&#39;&#39; create thread condition</span>
 <span class="sd">        &#39;&#39;&#39;</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span> <span class="k">return</span> <span class="kc">True</span>
-        <span class="n">obj_median</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">([</span><span class="n">thread</span><span class="o">.</span><span class="n">obj_best1</span> <span class="k">for</span> <span class="nb">id</span><span class="p">,</span> <span class="n">thread</span> <span class="ow">in</span>
-         <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="nb">id</span><span class="p">])</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="n">obj_median</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">thread</span><span class="o">.</span><span class="n">obj_best1</span> <span class="k">for</span> <span class="nb">id</span><span class="p">,</span> <span class="n">thread</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+             <span class="k">if</span> <span class="nb">id</span><span class="p">])</span>
         <span class="k">return</span> <span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">metric_op</span> <span class="o">&lt;</span> <span class="n">obj_median</span>
 
     <span class="k">def</span> <span class="nf">_clean</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">thread_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
@@ -393,21 +395,19 @@
         <span class="k">assert</span> <span class="n">thread_id</span>
         <span class="n">todelete</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">:</span>
-            <span class="k">if</span> <span class="nb">id</span> <span class="ow">and</span> <span class="nb">id</span><span class="o">!=</span><span class="n">thread_id</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">id</span> <span class="ow">and</span> <span class="nb">id</span> <span class="o">!=</span> <span class="n">thread_id</span><span class="p">:</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_inferior</span><span class="p">(</span><span class="nb">id</span><span class="p">,</span> <span class="n">thread_id</span><span class="p">):</span>
                     <span class="n">todelete</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="nb">id</span><span class="p">)</span>
         <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">:</span>
-            <span class="k">if</span> <span class="nb">id</span> <span class="ow">and</span> <span class="nb">id</span><span class="o">!=</span><span class="n">thread_id</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">id</span> <span class="ow">and</span> <span class="nb">id</span> <span class="o">!=</span> <span class="n">thread_id</span><span class="p">:</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_inferior</span><span class="p">(</span><span class="n">thread_id</span><span class="p">,</span> <span class="nb">id</span><span class="p">):</span>
                     <span class="n">todelete</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">thread_id</span><span class="p">)</span>
-                    <span class="k">break</span>        
-        <span class="c1"># logger.info(f&quot;thead {thread_id}.converged=&quot;</span>
-        <span class="c1">#     f&quot;{self._search_thread_pool[thread_id].converged}&quot;)</span>
+                    <span class="k">break</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="n">thread_id</span><span class="p">]</span><span class="o">.</span><span class="n">converged</span><span class="p">:</span>
             <span class="n">todelete</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">thread_id</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">STEPSIZE</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">-=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">STEPSIZE</span>            
+                <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">-=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">STEPSIZE</span>
         <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="n">todelete</span><span class="p">:</span>
             <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="nb">id</span><span class="p">]</span>
 
@@ -416,15 +416,20 @@
 <span class="sd">        &#39;&#39;&#39;</span>
         <span class="n">t1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="n">id1</span><span class="p">]</span>
         <span class="n">t2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="n">id2</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">t1</span><span class="o">.</span><span class="n">obj_best1</span> <span class="o">&lt;</span> <span class="n">t2</span><span class="o">.</span><span class="n">obj_best2</span><span class="p">:</span> <span class="k">return</span> <span class="kc">False</span>
-        <span class="k">elif</span> <span class="n">t1</span><span class="o">.</span><span class="n">resource</span> <span class="ow">and</span> <span class="n">t1</span><span class="o">.</span><span class="n">resource</span> <span class="o">&lt;</span> <span class="n">t2</span><span class="o">.</span><span class="n">resource</span><span class="p">:</span> <span class="k">return</span> <span class="kc">False</span>
-        <span class="k">elif</span> <span class="n">t2</span><span class="o">.</span><span class="n">reach</span><span class="p">(</span><span class="n">t1</span><span class="p">):</span> <span class="k">return</span> <span class="kc">True</span>
-        <span class="k">else</span><span class="p">:</span> <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">t1</span><span class="o">.</span><span class="n">obj_best1</span> <span class="o">&lt;</span> <span class="n">t2</span><span class="o">.</span><span class="n">obj_best2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">elif</span> <span class="n">t1</span><span class="o">.</span><span class="n">resource</span> <span class="ow">and</span> <span class="n">t1</span><span class="o">.</span><span class="n">resource</span> <span class="o">&lt;</span> <span class="n">t2</span><span class="o">.</span><span class="n">resource</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">elif</span> <span class="n">t2</span><span class="o">.</span><span class="n">reach</span><span class="p">(</span><span class="n">t1</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span>
 
 <div class="viewcode-block" id="BlendSearch.on_trial_result"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.on_trial_result">[docs]</a>    <span class="k">def</span> <span class="nf">on_trial_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">Dict</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">trial_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="p">:</span> <span class="k">return</span>
+        <span class="k">if</span> <span class="n">trial_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="p">:</span>
+            <span class="k">return</span>
         <span class="n">thread_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">thread_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">:</span> <span class="k">return</span>
+        <span class="k">if</span> <span class="n">thread_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">:</span>
+            <span class="k">return</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="n">thread_id</span><span class="p">]</span><span class="o">.</span><span class="n">on_trial_result</span><span class="p">(</span><span class="n">trial_id</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="BlendSearch.suggest"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.suggest">[docs]</a>    <span class="k">def</span> <span class="nf">suggest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]:</span>
@@ -432,92 +437,85 @@
 <span class="sd">        &#39;&#39;&#39;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_used</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_points_to_evaluate</span><span class="p">:</span>
             <span class="n">choice</span><span class="p">,</span> <span class="n">backup</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_thread</span><span class="p">()</span>
-            <span class="c1"># print(f&quot;choice={choice}, backup={backup}&quot;)</span>
-            <span class="k">if</span> <span class="n">choice</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span> <span class="k">return</span> <span class="kc">None</span> <span class="c1"># timeout</span>
+            <span class="k">if</span> <span class="n">choice</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># timeout</span>
+                <span class="k">return</span> <span class="kc">None</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_use_rs</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="n">choice</span><span class="p">]</span><span class="o">.</span><span class="n">suggest</span><span class="p">(</span><span class="n">trial_id</span><span class="p">)</span>
             <span class="c1"># preliminary check; not checking config validation</span>
             <span class="n">skip</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_should_skip</span><span class="p">(</span><span class="n">choice</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">skip</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">choice</span><span class="p">:</span> 
-                    <span class="c1"># print(f&quot;skipping choice={choice}, config={config}&quot;)</span>
+                <span class="k">if</span> <span class="n">choice</span><span class="p">:</span>
                     <span class="k">return</span> <span class="kc">None</span>
                 <span class="c1"># use rs when BO fails to suggest a config</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_use_rs</span> <span class="o">=</span> <span class="kc">True</span>
-                <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">generated</span> <span class="ow">in</span> <span class="n">generate_variants</span><span class="p">(</span>
-                    <span class="p">{</span><span class="s1">&#39;config&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">space</span><span class="p">}):</span>
+                <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">generated</span> <span class="ow">in</span> <span class="n">generate_variants</span><span class="p">({</span><span class="s1">&#39;config&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">space</span><span class="p">}):</span>
                     <span class="n">config</span> <span class="o">=</span> <span class="n">generated</span><span class="p">[</span><span class="s1">&#39;config&#39;</span><span class="p">]</span>
-                    <span class="k">break</span> <span class="c1"># get one random config</span>
-                <span class="c1"># logger.debug(f&quot;random config {config}&quot;)</span>
+                    <span class="k">break</span>  <span class="c1"># get one random config</span>
                 <span class="n">skip</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_should_skip</span><span class="p">(</span><span class="n">choice</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">skip</span><span class="p">:</span> <span class="k">return</span> <span class="kc">None</span>
-            <span class="k">if</span> <span class="n">choice</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_valid</span><span class="p">(</span><span class="n">config</span><span class="p">):</span> 
+                <span class="k">if</span> <span class="n">skip</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">choice</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_valid</span><span class="p">(</span><span class="n">config</span><span class="p">):</span>
                 <span class="c1"># LS or valid or no backup choice</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">choice</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">choice</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span> <span class="c1"># invalid config proposed by GS</span>
-                <span class="c1"># if not self._use_rs:</span>
-                <span class="c1">#     self._search_thread_pool[choice].on_trial_complete(</span>
-                <span class="c1">#         trial_id, {}, error=True) # tell GS there is an error</span>
+            <span class="k">else</span><span class="p">:</span>  <span class="c1"># invalid config proposed by GS</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_use_rs</span> <span class="o">=</span> <span class="kc">False</span>
                 <span class="k">if</span> <span class="n">choice</span> <span class="o">==</span> <span class="n">backup</span><span class="p">:</span>
                     <span class="c1"># use CFO&#39;s init point</span>
                     <span class="n">init_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">init_config</span>
-                    <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">complete_config</span><span class="p">(</span><span class="n">init_config</span><span class="p">,</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">)</span>
+                    <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">complete_config</span><span class="p">(</span>
+                        <span class="n">init_config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">choice</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="n">backup</span><span class="p">]</span><span class="o">.</span><span class="n">suggest</span><span class="p">(</span><span class="n">trial_id</span><span class="p">)</span>
                     <span class="n">skip</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_should_skip</span><span class="p">(</span><span class="n">backup</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="n">skip</span><span class="p">:</span> 
+                    <span class="k">if</span> <span class="n">skip</span><span class="p">:</span>
                         <span class="k">return</span> <span class="kc">None</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">backup</span>
                     <span class="n">choice</span> <span class="o">=</span> <span class="n">backup</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">choice</span><span class="p">:</span> <span class="c1"># global search</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">_resource</span><span class="p">:</span> 
-                <span class="c1"># TODO: add resource to config proposed by GS, min or median?</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">choice</span><span class="p">:</span>  <span class="c1"># global search</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">_resource</span><span class="p">:</span>
+                    <span class="c1"># TODO: min or median?</span>
                     <span class="n">config</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">prune_attr</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">min_resource</span>
                 <span class="c1"># temporarily relax admissible region for parallel proposals</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_update_admissible_region</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_min</span><span class="p">,</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_max</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_update_admissible_region</span><span class="p">(</span>
+                    <span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_max</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_update_admissible_region</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">,</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_update_admissible_region</span><span class="p">(</span>
+                    <span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_min</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_max</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">config_signature</span><span class="p">(</span><span class="n">config</span><span class="p">)]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">else</span><span class="p">:</span> <span class="c1"># use init config</span>
-            <span class="c1"># print(&quot;use init config&quot;)</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># use init config</span>
             <span class="n">init_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_points_to_evaluate</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span>
                 <span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_points_to_evaluate</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">init_config</span>
-            <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">complete_config</span><span class="p">(</span><span class="n">init_config</span><span class="p">,</span>
-             <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">)</span>
-                <span class="c1"># logger.info(f&quot;reset config to {config}&quot;)</span>
+            <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">complete_config</span><span class="p">(</span>
+                <span class="n">init_config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">)</span>
             <span class="n">config_signature</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">config_signature</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
             <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">config_signature</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">result</span><span class="p">:</span> <span class="c1"># tried before</span>
-                <span class="c1"># self.on_trial_complete(trial_id, result)</span>
+            <span class="k">if</span> <span class="n">result</span><span class="p">:</span>  <span class="c1"># tried before</span>
                 <span class="k">return</span> <span class="kc">None</span>
-            <span class="k">elif</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="c1"># not tried before</span>
+            <span class="k">elif</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># not tried before</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_result</span><span class="p">[</span><span class="n">config_signature</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-            <span class="k">else</span><span class="p">:</span> <span class="k">return</span> <span class="kc">None</span> <span class="c1"># running but no result yet</span>
+            <span class="k">else</span><span class="p">:</span>  <span class="c1"># running but no result yet</span>
+                <span class="k">return</span> <span class="kc">None</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_init_used</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="c1"># logger.info(f&quot;config={config}&quot;)</span>
         <span class="k">return</span> <span class="n">config</span></div>
 
     <span class="k">def</span> <span class="nf">_should_skip</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">choice</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="sd">&#39;&#39;&#39; if config is None or config&#39;s result is known or above mem threshold</span>
 <span class="sd">            return True; o.w. return False</span>
 <span class="sd">        &#39;&#39;&#39;</span>
-        <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
         <span class="n">config_signature</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">config_signature</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
         <span class="n">exists</span> <span class="o">=</span> <span class="n">config_signature</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_result</span>
         <span class="c1"># check mem constraint</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">exists</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mem_threshold</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mem_size</span><span class="p">(</span>
-            <span class="n">config</span><span class="p">)</span><span class="o">&gt;</span><span class="bp">self</span><span class="o">.</span><span class="n">_mem_threshold</span><span class="p">:</span>
+                <span class="n">config</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mem_threshold</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_result</span><span class="p">[</span><span class="n">config_signature</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">:</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">metric_op</span><span class="p">,</span> <span class="s1">&#39;time_total_s&#39;</span><span class="p">:</span><span class="mi">1</span><span class="p">}</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">metric_op</span><span class="p">,</span> <span class="s1">&#39;time_total_s&#39;</span><span class="p">:</span> <span class="mi">1</span>
+            <span class="p">}</span>
             <span class="n">exists</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">if</span> <span class="n">exists</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_use_rs</span><span class="p">:</span>
@@ -531,7 +529,7 @@
                 <span class="c1"># else:</span>
                 <span class="c1">#     # tell the thread there is an error</span>
                 <span class="c1">#     self._search_thread_pool[choice].on_trial_complete(</span>
-                <span class="c1">#         trial_id, {}, error=True) </span>
+                <span class="c1">#         trial_id, {}, error=True)</span>
             <span class="k">return</span> <span class="kc">True</span>
         <span class="k">return</span> <span class="kc">False</span>
 
@@ -540,19 +538,21 @@
 <span class="sd">        &#39;&#39;&#39;</span>
         <span class="c1"># update priority</span>
         <span class="n">min_eci</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_deadline</span> <span class="o">-</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">min_eci</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span> <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">if</span> <span class="n">min_eci</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span>
         <span class="n">max_speed</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">for</span> <span class="n">thread</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>            
-            <span class="k">if</span> <span class="n">thread</span><span class="o">.</span><span class="n">speed</span> <span class="o">&gt;</span> <span class="n">max_speed</span><span class="p">:</span> <span class="n">max_speed</span> <span class="o">=</span> <span class="n">thread</span><span class="o">.</span><span class="n">speed</span>
-        <span class="k">for</span> <span class="n">thread</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>            
+        <span class="k">for</span> <span class="n">thread</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">thread</span><span class="o">.</span><span class="n">speed</span> <span class="o">&gt;</span> <span class="n">max_speed</span><span class="p">:</span>
+                <span class="n">max_speed</span> <span class="o">=</span> <span class="n">thread</span><span class="o">.</span><span class="n">speed</span>
+        <span class="k">for</span> <span class="n">thread</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
             <span class="n">thread</span><span class="o">.</span><span class="n">update_eci</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric_target</span><span class="p">,</span> <span class="n">max_speed</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">thread</span><span class="o">.</span><span class="n">eci</span> <span class="o">&lt;</span> <span class="n">min_eci</span><span class="p">:</span> <span class="n">min_eci</span> <span class="o">=</span> <span class="n">thread</span><span class="o">.</span><span class="n">eci</span>
+            <span class="k">if</span> <span class="n">thread</span><span class="o">.</span><span class="n">eci</span> <span class="o">&lt;</span> <span class="n">min_eci</span><span class="p">:</span>
+                <span class="n">min_eci</span> <span class="o">=</span> <span class="n">thread</span><span class="o">.</span><span class="n">eci</span>
         <span class="k">for</span> <span class="n">thread</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
             <span class="n">thread</span><span class="o">.</span><span class="n">update_priority</span><span class="p">(</span><span class="n">min_eci</span><span class="p">)</span>
 
         <span class="n">top_thread_id</span> <span class="o">=</span> <span class="n">backup_thread_id</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">priority1</span> <span class="o">=</span> <span class="n">priority2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">priority</span>
-        <span class="c1"># print(f&quot;priority of thread 0={priority1}, obj_best1={self._search_thread_pool[0].obj_best1}&quot;)</span>
         <span class="k">for</span> <span class="n">thread_id</span><span class="p">,</span> <span class="n">thread</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="c1"># if thread_id:</span>
             <span class="c1">#     print(</span>
@@ -561,7 +561,7 @@
             <span class="c1">#         f&quot;thread {thread_id}.can_suggest={thread.can_suggest}&quot;)</span>
             <span class="k">if</span> <span class="n">thread_id</span> <span class="ow">and</span> <span class="n">thread</span><span class="o">.</span><span class="n">can_suggest</span><span class="p">:</span>
                 <span class="n">priority</span> <span class="o">=</span> <span class="n">thread</span><span class="o">.</span><span class="n">priority</span>
-                <span class="k">if</span> <span class="n">priority</span> <span class="o">&gt;</span> <span class="n">priority1</span><span class="p">:</span> 
+                <span class="k">if</span> <span class="n">priority</span> <span class="o">&gt;</span> <span class="n">priority1</span><span class="p">:</span>
                     <span class="n">priority1</span> <span class="o">=</span> <span class="n">priority</span>
                     <span class="n">top_thread_id</span> <span class="o">=</span> <span class="n">thread_id</span>
                 <span class="k">if</span> <span class="n">priority</span> <span class="o">&gt;</span> <span class="n">priority2</span> <span class="ow">or</span> <span class="n">backup_thread_id</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -576,30 +576,29 @@
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_min</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span>
                 <span class="n">value</span> <span class="o">=</span> <span class="n">normalized_config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
-                <span class="c1"># logger.info(</span>
-                <span class="c1">#     f&quot;{key},{value},{self._admissible_min[key]},{self._admissible_max[key]}&quot;)</span>
-                <span class="k">if</span> <span class="n">value</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">STEPSIZE</span><span class="o">&lt;</span><span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_min</span><span class="p">[</span>
-                    <span class="n">key</span><span class="p">]</span> <span class="ow">or</span> <span class="n">value</span><span class="o">&gt;</span><span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_max</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">STEPSIZE</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">value</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">STEPSIZE</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_min</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> \
+                        <span class="ow">or</span> <span class="n">value</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_max</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">STEPSIZE</span><span class="p">:</span>
                     <span class="k">return</span> <span class="kc">False</span>
         <span class="k">return</span> <span class="kc">True</span></div>
 
 
 <span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">ray.tune</span> <span class="kn">import</span> <span class="p">(</span><span class="n">uniform</span><span class="p">,</span> <span class="n">quniform</span><span class="p">,</span> <span class="n">choice</span><span class="p">,</span> <span class="n">randint</span><span class="p">,</span> <span class="n">qrandint</span><span class="p">,</span> <span class="n">randn</span><span class="p">,</span>
+                          <span class="n">qrandn</span><span class="p">,</span> <span class="n">loguniform</span><span class="p">,</span> <span class="n">qloguniform</span><span class="p">)</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">..tune.sample</span> <span class="kn">import</span> <span class="p">(</span><span class="n">uniform</span><span class="p">,</span> <span class="n">quniform</span><span class="p">,</span> <span class="n">choice</span><span class="p">,</span> <span class="n">randint</span><span class="p">,</span> <span class="n">qrandint</span><span class="p">,</span> <span class="n">randn</span><span class="p">,</span>
+                               <span class="n">qrandn</span><span class="p">,</span> <span class="n">loguniform</span><span class="p">,</span> <span class="n">qloguniform</span><span class="p">)</span>
+
+<span class="k">try</span><span class="p">:</span>
     <span class="kn">from</span> <span class="nn">nni.tuner</span> <span class="kn">import</span> <span class="n">Tuner</span> <span class="k">as</span> <span class="n">NNITuner</span>
     <span class="kn">from</span> <span class="nn">nni.utils</span> <span class="kn">import</span> <span class="n">extract_scalar_reward</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="kn">from</span> <span class="nn">ray.tune</span> <span class="kn">import</span> <span class="p">(</span><span class="n">uniform</span><span class="p">,</span> <span class="n">quniform</span><span class="p">,</span> <span class="n">choice</span><span class="p">,</span> <span class="n">randint</span><span class="p">,</span> <span class="n">qrandint</span><span class="p">,</span> <span class="n">randn</span><span class="p">,</span>
-    <span class="n">qrandn</span><span class="p">,</span> <span class="n">loguniform</span><span class="p">,</span> <span class="n">qloguniform</span><span class="p">)</span>
-    <span class="k">except</span><span class="p">:</span>
-        <span class="kn">from</span> <span class="nn">..tune.sample</span> <span class="kn">import</span> <span class="p">(</span><span class="n">uniform</span><span class="p">,</span> <span class="n">quniform</span><span class="p">,</span> <span class="n">choice</span><span class="p">,</span> <span class="n">randint</span><span class="p">,</span> <span class="n">qrandint</span><span class="p">,</span> <span class="n">randn</span><span class="p">,</span>
-    <span class="n">qrandn</span><span class="p">,</span> <span class="n">loguniform</span><span class="p">,</span> <span class="n">qloguniform</span><span class="p">)</span>
 
     <span class="k">class</span> <span class="nc">BlendSearchTuner</span><span class="p">(</span><span class="n">BlendSearch</span><span class="p">,</span> <span class="n">NNITuner</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;Tuner class for NNI</span>
 <span class="sd">        &#39;&#39;&#39;</span>
 
         <span class="k">def</span> <span class="nf">receive_trial_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter_id</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span>
-         <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+                                 <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
             <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">            Receive trial&#39;s final result.</span>
 <span class="sd">            parameter_id: int</span>
@@ -608,10 +607,10 @@
 <span class="sd">            &#39;&#39;&#39;</span>
             <span class="n">result</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="n">result</span><span class="p">[</span><span class="s1">&#39;config/&#39;</span><span class="o">+</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+                <span class="n">result</span><span class="p">[</span><span class="s1">&#39;config/&#39;</span> <span class="o">+</span> <span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
             <span class="n">reward</span> <span class="o">=</span> <span class="n">extract_scalar_reward</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
             <span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">]</span> <span class="o">=</span> <span class="n">reward</span>
-            <span class="c1"># if nni does not report training cost, </span>
+            <span class="c1"># if nni does not report training cost,</span>
             <span class="c1"># using sequence as an approximation.</span>
             <span class="c1"># if no sequence, using a constant 1</span>
             <span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cost_attr</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cost_attr</span><span class="p">,</span> <span class="n">value</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
@@ -623,7 +622,7 @@
             <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">            Returns a set of trial (hyper-)parameters, as a serializable object</span>
 <span class="sd">            parameter_id: int</span>
-<span class="sd">            &#39;&#39;&#39;</span>            
+<span class="sd">            &#39;&#39;&#39;</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">suggest</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">parameter_id</span><span class="p">))</span>
         <span class="o">...</span>
 
@@ -641,7 +640,7 @@
                 <span class="k">if</span> <span class="n">_type</span> <span class="o">==</span> <span class="s1">&#39;choice&#39;</span><span class="p">:</span>
                     <span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">choice</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
                 <span class="k">elif</span> <span class="n">_type</span> <span class="o">==</span> <span class="s1">&#39;randint&#39;</span><span class="p">:</span>
-                    <span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">randint</span><span class="p">(</span><span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+                    <span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">randint</span><span class="p">(</span><span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
                 <span class="k">elif</span> <span class="n">_type</span> <span class="o">==</span> <span class="s1">&#39;uniform&#39;</span><span class="p">:</span>
                     <span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">uniform</span><span class="p">(</span><span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
                 <span class="k">elif</span> <span class="n">_type</span> <span class="o">==</span> <span class="s1">&#39;quniform&#39;</span><span class="p">:</span>
@@ -656,14 +655,15 @@
                     <span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">qrandn</span><span class="p">(</span><span class="n">v</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s1">&#39;unsupported type in search_space </span><span class="si">{</span><span class="n">_type</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                        <span class="sa">f</span><span class="s1">&#39;unsupported type in search_space </span><span class="si">{</span><span class="n">_type</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">set_search_properties</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span><span class="o">.</span><span class="n">set_search_properties</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_init_search</span><span class="p">()</span>
 
-<span class="k">except</span><span class="p">:</span>
-    <span class="k">class</span> <span class="nc">BlendSearchTuner</span><span class="p">(</span><span class="n">BlendSearch</span><span class="p">):</span> <span class="k">pass</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="k">class</span> <span class="nc">BlendSearchTuner</span><span class="p">(</span><span class="n">BlendSearch</span><span class="p">):</span>
+        <span class="k">pass</span>
 
 
 <div class="viewcode-block" id="CFO"><a class="viewcode-back" href="../../../index.html#flaml.CFO">[docs]</a><span class="k">class</span> <span class="nc">CFO</span><span class="p">(</span><span class="n">BlendSearchTuner</span><span class="p">):</span>
@@ -674,7 +674,7 @@
 
 <div class="viewcode-block" id="CFO.suggest"><a class="viewcode-back" href="../../../index.html#flaml.CFO.suggest">[docs]</a>    <span class="k">def</span> <span class="nf">suggest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]:</span>
         <span class="c1"># Number of threads is 1 or 2. Thread 0 is a vacuous thread</span>
-        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">)</span><span class="o">&lt;</span><span class="mi">3</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
             <span class="c1"># When a local converges, the number of threads is 1</span>
             <span class="c1"># Need to restart</span>
@@ -683,7 +683,8 @@
 
     <span class="k">def</span> <span class="nf">_select_thread</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">key</span><span class="p">:</span> <span class="k">return</span> <span class="n">key</span><span class="p">,</span> <span class="n">key</span>
+            <span class="k">if</span> <span class="n">key</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">key</span><span class="p">,</span> <span class="n">key</span>
 
     <span class="k">def</span> <span class="nf">_create_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="sd">&#39;&#39;&#39; create thread condition</span>
@@ -692,19 +693,15 @@
 
 
 <span class="k">def</span> <span class="nf">create_next</span><span class="p">(</span><span class="n">client</span><span class="p">):</span>
-    <span class="sd">&#39;&#39;&#39;A stateless API for HPO</span>
+    <span class="sd">&#39;&#39;&#39; functional API for HPO</span>
 <span class="sd">    &#39;&#39;&#39;</span>
     <span class="n">state</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_state</span><span class="p">()</span>
     <span class="n">setting</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_settings_dict</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="c1"># first time call</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="kn">from</span> <span class="nn">ray.tune</span> <span class="kn">import</span> <span class="p">(</span><span class="n">uniform</span><span class="p">,</span> <span class="n">quniform</span><span class="p">,</span> <span class="n">choice</span><span class="p">,</span> <span class="n">randint</span><span class="p">,</span> <span class="n">qrandint</span><span class="p">,</span> <span class="n">randn</span><span class="p">,</span>
-        <span class="n">qrandn</span><span class="p">,</span> <span class="n">loguniform</span><span class="p">,</span> <span class="n">qloguniform</span><span class="p">)</span>
             <span class="kn">from</span> <span class="nn">ray.tune.trial</span> <span class="kn">import</span> <span class="n">Trial</span>
-        <span class="k">except</span><span class="p">:</span>
-            <span class="kn">from</span> <span class="nn">..tune.sample</span> <span class="kn">import</span> <span class="p">(</span><span class="n">uniform</span><span class="p">,</span> <span class="n">quniform</span><span class="p">,</span> <span class="n">choice</span><span class="p">,</span> <span class="n">randint</span><span class="p">,</span> <span class="n">qrandint</span><span class="p">,</span> <span class="n">randn</span><span class="p">,</span>
-        <span class="n">qrandn</span><span class="p">,</span> <span class="n">loguniform</span><span class="p">,</span> <span class="n">qloguniform</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
             <span class="kn">from</span> <span class="nn">..tune.trial</span> <span class="kn">import</span> <span class="n">Trial</span>
         <span class="n">method</span> <span class="o">=</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;method&#39;</span><span class="p">,</span> <span class="s1">&#39;BlendSearch&#39;</span><span class="p">)</span>
         <span class="n">mode</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_optimization_mode</span><span class="p">()</span>
@@ -725,7 +722,7 @@
                 <span class="n">space</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">randint</span><span class="p">(</span><span class="n">value</span><span class="p">[</span><span class="s2">&quot;min_val&quot;</span><span class="p">],</span> <span class="n">value</span><span class="p">[</span><span class="s2">&quot;max_val&quot;</span><span class="p">])</span>
             <span class="k">elif</span> <span class="n">t</span> <span class="o">==</span> <span class="s1">&#39;quantized_continuous&#39;</span><span class="p">:</span>
                 <span class="n">space</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">quniform</span><span class="p">(</span><span class="n">value</span><span class="p">[</span><span class="s2">&quot;min_val&quot;</span><span class="p">],</span> <span class="n">value</span><span class="p">[</span><span class="s2">&quot;max_val&quot;</span><span class="p">],</span>
-                 <span class="n">value</span><span class="p">[</span><span class="s2">&quot;step&quot;</span><span class="p">])</span>
+                                      <span class="n">value</span><span class="p">[</span><span class="s2">&quot;step&quot;</span><span class="p">])</span>
         <span class="n">init_config</span> <span class="o">=</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;init_config&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">init_config</span><span class="p">:</span>
             <span class="n">points_to_evaluate</span> <span class="o">=</span> <span class="p">[</span><span class="n">init_config</span><span class="p">]</span>
@@ -738,12 +735,12 @@
         <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;CFO&#39;</span><span class="p">:</span>
             <span class="n">Algo</span> <span class="o">=</span> <span class="n">CFO</span>
         <span class="n">algo</span> <span class="o">=</span> <span class="n">Algo</span><span class="p">(</span>
-            <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span> 
-            <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span> 
+            <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span>
+            <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span>
             <span class="n">space</span><span class="o">=</span><span class="n">space</span><span class="p">,</span>
             <span class="n">points_to_evaluate</span><span class="o">=</span><span class="n">points_to_evaluate</span><span class="p">,</span>
             <span class="n">cat_hp_cost</span><span class="o">=</span><span class="n">cat_hp_cost</span><span class="p">,</span>
-            <span class="p">)</span>
+        <span class="p">)</span>
         <span class="n">time_budget_s</span> <span class="o">=</span> <span class="n">setting</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;time_budget_s&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">time_budget_s</span><span class="p">:</span>
             <span class="n">algo</span><span class="o">.</span><span class="n">_deadline</span> <span class="o">=</span> <span class="n">time_budget_s</span> <span class="o">+</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
@@ -766,7 +763,7 @@
         <span class="n">result</span><span class="p">[</span><span class="n">algo</span><span class="o">.</span><span class="n">metric</span><span class="p">]</span> <span class="o">=</span> <span class="n">trial</span><span class="o">.</span><span class="n">metrics</span><span class="p">[</span><span class="n">algo</span><span class="o">.</span><span class="n">metric</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
         <span class="n">result</span><span class="p">[</span><span class="n">algo</span><span class="o">.</span><span class="n">cost_attr</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">end_time</span> <span class="o">-</span> <span class="n">trial</span><span class="o">.</span><span class="n">start_time</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">trial</span><span class="o">.</span><span class="n">hp_sample</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">result</span><span class="p">[</span><span class="s1">&#39;config/&#39;</span><span class="o">+</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="n">result</span><span class="p">[</span><span class="s1">&#39;config/&#39;</span> <span class="o">+</span> <span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
         <span class="n">algo</span><span class="o">.</span><span class="n">on_trial_complete</span><span class="p">(</span><span class="n">trial_id</span><span class="p">,</span> <span class="n">result</span><span class="o">=</span><span class="n">result</span><span class="p">)</span>
     <span class="c1"># propose new trial</span>
     <span class="n">trial_id</span> <span class="o">=</span> <span class="n">Trial</span><span class="o">.</span><span class="n">generate_id</span><span class="p">()</span>
