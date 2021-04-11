@@ -22,6 +22,7 @@ SEARCH_ALGO_MAPPING = OrderedDict(
         ("HyperOpt", HyperOptSearch),
         ("grid_search", None),
         ("grid_search_enumerate", None),
+        ("grid_search_bert", None),
         ("RandomSearch", None)
     ]
 )

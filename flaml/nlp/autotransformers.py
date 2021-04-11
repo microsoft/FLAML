@@ -136,11 +136,14 @@ class AutoTransformers:
         _, search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name)
         search_space_dict_grid = AutoTransformers._convert_json_to_search_space(search_space_grid_json, mode="grid_search")
 
-        if self._search_algo_name != "grid_search" and self._search_algo_name != "grid_search_enumerate":
+        if self._search_algo_name != "grid_search" and self._search_algo_name != "grid_search_enumerate" and self._search_algo_name != "grid_search_bert":
             search_space_hpo_json = AutoHPOSearchSpace.from_model_and_dataset_name(logger, self._hpo_searchspace_mode, self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name, **custom_hpo_args)
             search_space_dict_hpo = AutoTransformers._convert_json_to_search_space(search_space_hpo_json, mode="hpo")
         elif self._search_algo_name == "grid_search_enumerate":
             search_space_hpo_json = AutoHPOSearchSpace.from_model_and_dataset_name(logger, self._hpo_searchspace_mode, self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name, **custom_hpo_args)
+            search_space_dict_hpo = AutoTransformers._convert_json_to_search_space(search_space_hpo_json, mode="grid_search")
+        elif self._search_algo_name == "grid_search_bert":
+            _, search_space_hpo_json = AutoGridSearchSpace.from_model_and_dataset_name("bert", "base", "dummy", "None")
             search_space_dict_hpo = AutoTransformers._convert_json_to_search_space(search_space_hpo_json, mode="grid_search")
         else:
             search_space_dict_hpo = search_space_dict_grid
@@ -624,7 +627,7 @@ class AutoTransformers:
                         custom_time_budget,
                         num_sample_time_budget_mode,
                         times_as_grid):
-        if self.search_algo_name == "grid_search":
+        if self.search_algo_name.startswith("grid_search"):
             self._sample_num = 1
             self._time_budget = float("inf")
             logger.warning("Running grid search, setting number of trials to 1, setting time budget to infinity")
@@ -633,7 +636,7 @@ class AutoTransformers:
             grid_config_trial_number = AutoGridSearchSpace.get_trial_number_in_space(grid_config)
             assert times_as_grid and (isinstance(times_as_grid, float) or isinstance(times_as_grid, int)), \
                 "When setting to the num_sample_time_budget_mode mode, must explicitly specify times_as_grid"
-            self._sample_num = times_as_grid * grid_config_trial_number
+            self._sample_num = int(times_as_grid * grid_config_trial_number)
             self._time_budget = float("inf")
             logger.warning("HPO is set to {} times grid trial number or {} trials, time budget is "
                            "set to {}".format(times_as_grid, self._sample_num, self._time_budget))

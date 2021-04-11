@@ -16,17 +16,17 @@ from flaml.nlp.autotransformers import AutoTransformers
 # setting wandb key
 wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 
-dataset_names = [["yelp_review_full"]]
-subdataset_names = [None]
+dataset_names = [["glue"]] #, ["glue"], ["glue"], ["glue"]]
+subdataset_names = ["rte"] #, "mrpc",  "qnli", "mnli"]
 
-pretrained_models = ["funnel-transformer/small", "google/electra-small-discriminator", "google/electra-base-discriminator"] #, "bert-base-uncased"]
+pretrained_models = ["google/electra-small-discriminator"] #, "google/electra-base-discriminator", "bert-base-uncased"] #, "google/electra-base-discriminator", "bert-base-uncased"]
 
 search_algos = ["BlendSearch"]
 scheduler_names = ["None"]
 
-hpo_searchspace_modes = ["hpo_space_gridunion", "hpo_space_gridunion_other", "hpo_space_gridunion_other_large"]
-search_algo_args_modes = ["default", "default", "default"]
-num_sample_time_budget_mode, time_as_grid = ("times_grid_time_budget", 4.0)
+hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_gridunion_other"]
+search_algo_args_modes = ["default", "default"]
+num_sample_time_budget_mode, time_as_grid = ("times_grid_time_budget", 8)
 
 def get_full_name(autohf, is_grid, hpo_searchspace_mode = None):
     if is_grid == False:
@@ -60,16 +60,16 @@ def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pret
         "ckpt_path": "../../../data/checkpoint/",
         "result_path": "../../../data/result/",
         "log_path": "../../../data/result/",
-        "max_seq_length": 512,
+        "max_seq_length": 128,
         }
     if this_dataset_name[0] == "glue" and this_subset_name and this_subset_name == "mnli":
         preparedata_setting["dataset_config"]["fold_name"] = ['train', 'validation_matched', 'test_matched']
     return preparedata_setting
 
-def get_autohf_settings_grid():
+def get_autohf_settings_grid(args):
     autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
                            "wandb_key": wandb_key,
-                           "search_algo_name": "grid_search",
+                           "search_algo_name": args.algo,
                            "scheduler_name": "None",
                            "ckpt_per_epoch": 1,
                            "custom_metric_name": "accuracy",
@@ -105,7 +105,7 @@ def get_autohf_settings_enumeratehp():
 def flush_and_upload(fout, args):
     fout.flush()
     api = wandb.Api()
-    runs = api.runs("liususan/upload_file")
+    runs = api.runs("liususan/upload_file_" + args.server_name)
     runs[0].upload_file(os.path.abspath("log_" + args.server_name + ".log"))
 
 def output_predict(args, test_dataset, autohf, fout, save_file_name):
@@ -148,7 +148,7 @@ def _test_grid(args, fout, autohf):
             preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model)
             train_dataset, eval_dataset, test_dataset = \
             autohf.prepare_data(**preparedata_setting)
-            autohf_settings = get_autohf_settings_grid()
+            autohf_settings = get_autohf_settings_grid(args)
 
             try:
                 validation_metric, analysis = autohf.fit(train_dataset,
@@ -169,7 +169,7 @@ def _test_hpo(args, fout, autohf):
 
         for algo_idx in range(0, len(search_algos)):
             this_search_algo = search_algos[algo_idx]
-            for model_idx in range(1, len(pretrained_models)):
+            for model_idx in range(0, len(pretrained_models)):
                 each_pretrained_model = pretrained_models[model_idx]
 
                 this_scheduler_name = scheduler_names[algo_idx]
@@ -202,11 +202,11 @@ def _test_hpo(args, fout, autohf):
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('--server_name', type=str, help='server name', required=True, choices=["tmdev", "dgx"])
-    arg_parser.add_argument('--algo', type=str, help='hpo or grid search', required=True, choices=["grid", "hpo"])
+    arg_parser.add_argument('--algo', type=str, help='hpo or grid search', required=True, choices=["grid_search", "grid_search_bert", "hpo"])
     args = arg_parser.parse_args()
 
     fout = open("log_" + args.server_name + ".log", "a")
-    if args.algo == "grid":
+    if args.algo.startswith("grid"):
         _test_grid(args, fout, autohf = AutoTransformers())
     else:
         _test_hpo(args, fout, autohf = AutoTransformers())
