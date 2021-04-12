@@ -18,6 +18,7 @@ GRID_SEARCH_SPACE_MAPPING = OrderedDict(
 
 time_budget_grid_electra_base_glue_tmdev = {
     "rte": 100,
+    "cola": 300,
     "mrpc": 40,
     "qnli": 1456.84,
     "mnli": 1500,
@@ -25,6 +26,7 @@ time_budget_grid_electra_base_glue_tmdev = {
 
 time_budget_grid_electra_small_glue_tmdev = {
     "rte": 60,
+    "cola": 100,
     "mrpc": 30,
     "qnli": 885.58,
     "mnli": 1030.21,
@@ -32,6 +34,7 @@ time_budget_grid_electra_small_glue_tmdev = {
 
 time_budget_grid_electra_base_glue_dgx = {
     "rte": 100,
+    "cola": 300,
     "mrpc": 40,
     "qnli": 1456.84,
     "mnli": 1500,
@@ -40,6 +43,7 @@ time_budget_grid_electra_base_glue_dgx = {
 
 time_budget_grid_electra_small_glue_dgx = {
     "rte": 60,
+    "cola": 100,
     "mrpc": 30,
     "qnli": 885.58,
     "mnli": 1030.21,
@@ -48,6 +52,7 @@ time_budget_grid_electra_small_glue_dgx = {
 
 time_budget_grid_bert_base_glue_tmdev = {
     "rte": 30,
+    "cola": 300,
     "mrpc": 40,
     "qnli": 1381.97,
     "mnli": 1512.72,
@@ -61,6 +66,7 @@ time_budget_grid_roberta_base_glue_tmdev = {
 
 time_budget_grid_bert_base_glue_dgx = {
     "rte": 30,
+    "cola": 300,
     "mrpc": 40,
     "qnli": 1381.97,
     "qqp": 1615.48,
