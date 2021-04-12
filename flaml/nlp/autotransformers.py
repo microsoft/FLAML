@@ -133,8 +133,10 @@ class AutoTransformers:
     def _set_search_space(self,
                           **custom_hpo_args):
         assert self._model_type
-        _, search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name)
-        search_space_dict_grid = AutoTransformers._convert_json_to_search_space(search_space_grid_json, mode="grid_search")
+
+        if self._search_algo_name == "grid_search":
+            _, search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name)
+            search_space_dict_grid = AutoTransformers._convert_json_to_search_space(search_space_grid_json, mode="grid_search")
 
         if self._search_algo_name != "grid_search" and self._search_algo_name != "grid_search_enumerate" and self._search_algo_name != "grid_search_bert":
             search_space_hpo_json = AutoHPOSearchSpace.from_model_and_dataset_name(logger, self._hpo_searchspace_mode, self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name, **custom_hpo_args)
@@ -145,14 +147,15 @@ class AutoTransformers:
         elif self._search_algo_name == "grid_search_bert":
             _, search_space_hpo_json = AutoGridSearchSpace.from_model_and_dataset_name("bert", "base", self._dataset_name[0], self._subdataset_name)
             search_space_dict_hpo = AutoTransformers._convert_json_to_search_space(search_space_hpo_json, mode="grid_search")
-        else:
-            search_space_dict_hpo = search_space_dict_grid
 
         search_space_dict_hpo = TrainerForAutoTransformers.resolve_hp_conflict(search_space_dict_hpo)
         self._search_space_hpo = search_space_dict_hpo
 
-        search_space_dict_grid = TrainerForAutoTransformers.resolve_hp_conflict(search_space_dict_grid)
-        self._search_space_grid = search_space_dict_grid
+        if self._search_algo_name == "grid_search":
+            search_space_dict_grid = TrainerForAutoTransformers.resolve_hp_conflict(search_space_dict_grid)
+            self._search_space_grid = search_space_dict_grid
+        else:
+            self._search_space_grid = None
 
     @staticmethod
     def _get_sentence_keys(data_raw):
