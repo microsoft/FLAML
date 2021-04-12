@@ -19,7 +19,7 @@ wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 dataset_names = [["glue"]] #, ["glue"], ["glue"], ["glue"]]
 subdataset_names = ["rte"] #, "mrpc",  "qnli", "mnli"]
 
-pretrained_models = ["google/electra-small-discriminator"] #, "google/electra-base-discriminator", "bert-base-uncased"] #, "google/electra-base-discriminator", "bert-base-uncased"]
+pretrained_models = ["google/electra-small-discriminator", "google/electra-base-discriminator", "bert-base-uncased"] #, "google/electra-base-discriminator", "bert-base-uncased"]
 
 search_algos = ["BlendSearch"]
 scheduler_names = ["None"]
