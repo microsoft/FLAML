@@ -4,7 +4,7 @@ import os
 from collections import OrderedDict
 
 metric_mode_mapping_glue = {
-    "cola": [("mcc", "max")],
+    "cola": [("matthews_correlation", "max")],
     "mnli": [("accuracy", "max")],
     "mrpc": [("accuracy", "max"), ("f1", "max")],
     "qnli": [("accuracy", "max")],
@@ -18,7 +18,7 @@ metric_mode_mapping_glue = {
 metric_mode_mapping_squad = [("exact_match", "max"), ("f1", "max")]
 
 metric_mode_mapping_super_glue = {
-    "axb": [("mcc", "max")],
+    "axb": [("matthews_correlation", "max")],
     "cb": [("accuracy", "max"), ("f1", "max")],
     "copa": [("accuracy", "max")],
     "rte": [("accuracy", "max")],

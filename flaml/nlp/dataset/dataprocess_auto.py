@@ -11,9 +11,6 @@
 #         return_overflowing_tokens=True,
 #         return_offsets_mapping=True,
 #         padding="max_length" if data_args.pad_to_max_length else False,
-#     )
-#
-#     # Since one example might give us several features if it has a long context, we need a map from a feature to
 #     # its corresponding example. This key gives us just that.
 #     sample_mapping = tokenized_examples.pop("overflow_to_sample_mapping")
 #     # The offset mappings will give us a map from token to character position in the original context. This will

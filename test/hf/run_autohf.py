@@ -16,8 +16,8 @@ from flaml.nlp.autotransformers import AutoTransformers
 # setting wandb key
 wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 
-dataset_names = [["glue"], ["glue"], ["glue"]]
-subdataset_names = ["rte", "mrpc",  "qnli"]
+dataset_names = [["glue"], ["glue"]]
+subdataset_names = ["cola", "sst2"]
 
 pretrained_models = ["google/electra-small-discriminator", "google/electra-base-discriminator", "bert-base-uncased"] #, "google/electra-base-discriminator", "bert-base-uncased"]
 
@@ -72,8 +72,6 @@ def get_autohf_settings_grid(args):
                            "search_algo_name": args.algo,
                            "scheduler_name": "None",
                            "ckpt_per_epoch": 1,
-                           "custom_metric_name": "accuracy",
-                           "custom_metric_mode_name": "max",
                            }
     return autohf_settings
 
