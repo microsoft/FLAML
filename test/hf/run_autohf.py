@@ -17,7 +17,7 @@ from flaml.nlp.autotransformers import AutoTransformers
 wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 
 dataset_names = [["glue"], ["glue"]]
-subdataset_names = ["rte", "mrpc"]
+subdataset_names = ["cola", "sst2"]
 
 pretrained_models = ["roberta-base", "microsoft/deberta-base"]
 
@@ -26,7 +26,7 @@ scheduler_names = ["None"]
 
 hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_gridunion_other"]
 search_algo_args_modes = ["default", "default"]
-num_sample_time_budget_mode, time_as_grid = ("times_grid_time_budget", 8)
+num_sample_time_budget_mode, time_as_grid = ("times_grid_time_budget", 4)
 
 def get_full_name(autohf, is_grid, hpo_searchspace_mode = None):
     if is_grid == False:
@@ -171,7 +171,7 @@ def _test_hpo(args, fout, autohf):
                 each_pretrained_model = pretrained_models[model_idx]
 
                 this_scheduler_name = scheduler_names[algo_idx]
-                for space_idx in range(0, 1): #len(hpo_searchspace_modes)):
+                for space_idx in range(1, len(hpo_searchspace_modes)):
                     hpo_searchspace_mode = hpo_searchspace_modes[space_idx]
                     search_algo_args_mode = search_algo_args_modes[space_idx]
                     preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
