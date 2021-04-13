@@ -17,7 +17,7 @@ from flaml.nlp.autotransformers import AutoTransformers
 wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 
 dataset_names = [["glue"], ["glue"]]
-subdataset_names = ["rte", "mrpc"]
+subdataset_names = ["cola", "sst2"]
 
 pretrained_models = ["roberta-base", "microsoft/deberta-base"]
 
