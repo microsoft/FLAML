@@ -16,8 +16,8 @@ from flaml.nlp.autotransformers import AutoTransformers
 # setting wandb key
 wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 
-dataset_names = [["glue"], ["glue"]]
-subdataset_names = ["cola", "sst2"]
+dataset_names = [["glue"], ["glue"], ["glue"]]
+subdataset_names = ["rte", "mrpc", "cola"]
 
 pretrained_models = ["roberta-base", "microsoft/deberta-base"]
 
@@ -26,7 +26,7 @@ scheduler_names = ["None"]
 
 hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_gridunion_other"]
 search_algo_args_modes = ["default", "default"]
-num_sample_time_budget_mode, time_as_grid = ("times_grid_time_budget", 8)
+num_sample_time_budget_mode, time_as_grid = ("times_grid_time_budget", 4)
 
 def get_full_name(autohf, is_grid, hpo_searchspace_mode = None):
     if is_grid == False:
@@ -140,7 +140,7 @@ def _test_grid(args, fout, autohf):
         this_dataset_name = dataset_names[data_idx]
         this_subset_name = subdataset_names[data_idx]
 
-        for model_idx in range(0, len(pretrained_models)):
+        for model_idx in range(1, len(pretrained_models)):
             each_pretrained_model = pretrained_models[model_idx]
 
             preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model)
