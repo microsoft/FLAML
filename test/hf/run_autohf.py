@@ -16,8 +16,8 @@ from flaml.nlp.autotransformers import AutoTransformers
 # setting wandb key
 wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 
-dataset_names = [["glue"], ["glue"]]
-subdataset_names = ["cola", "sst2"]
+dataset_names = [["glue"], ["glue"], ["glue"], ["glue"]]
+subdataset_names = ["rte", "mrpc" "cola", "sst2"]
 
 pretrained_models = ["roberta-base", "microsoft/deberta-base"]
 
@@ -26,7 +26,7 @@ scheduler_names = ["None"]
 
 hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_gridunion_other"]
 search_algo_args_modes = ["default", "default"]
-num_sample_time_budget_mode, time_as_grid = ("times_grid_time_budget", 4)
+num_sample_time_budget_mode, time_as_grid = ("times_grid_time_budget", 8)
 
 def get_full_name(autohf, is_grid, hpo_searchspace_mode = None):
     if is_grid == False:
@@ -136,11 +136,11 @@ def write_regular(autohf, args, validation_metric, save_file_name, fout):
     flush_and_upload(fout, args)
 
 def _test_grid(args, fout, autohf):
-    for data_idx in range(len(dataset_names)):
+    for data_idx in range(0, len(dataset_names)):
         this_dataset_name = dataset_names[data_idx]
         this_subset_name = subdataset_names[data_idx]
 
-        for model_idx in range(1, len(pretrained_models)):
+        for model_idx in range(0, len(pretrained_models)):
             each_pretrained_model = pretrained_models[model_idx]
 
             preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model)
@@ -171,7 +171,7 @@ def _test_hpo(args, fout, autohf):
                 each_pretrained_model = pretrained_models[model_idx]
 
                 this_scheduler_name = scheduler_names[algo_idx]
-                for space_idx in range(1, len(hpo_searchspace_modes)):
+                for space_idx in range(0, len(hpo_searchspace_modes)):
                     hpo_searchspace_mode = hpo_searchspace_modes[space_idx]
                     search_algo_args_mode = search_algo_args_modes[space_idx]
                     preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,

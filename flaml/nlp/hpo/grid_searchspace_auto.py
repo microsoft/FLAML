@@ -75,23 +75,29 @@ time_budget_grid_bert_base_glue_dgx = {
 time_budget_grid_deberta_base_glue_dgx = {
     "rte": 120,
     "mrpc": 140,
+    "cola": 339.85,
+    "sst2": 1214.32,
 }
 
 time_budget_grid_deberta_base_glue_tmdev = {
     "rte": 120,
     "mrpc": 140,
+    "cola": 339.85,
+    "sst2": 1214.32,
 }
 
 time_budget_grid_roberta_base_glue_tmdev = {
     "rte": 100,
     "mrpc": 120,
-    "cola": 350,
+    "cola": 278.58,
+    "sst2": 909.17,
 }
 
 time_budget_grid_roberta_base_glue_dgx = {
     "rte": 100,
     "mrpc": 120,
-    "cola": 350,
+    "cola": 278.58,
+    "sst2": 909.17,
 }
 
 time_budget_grid_funnel_small_yelp_review_full_tmdev = time_budget_grid_funnel_small_yelp_review_full_dgx = 1864
