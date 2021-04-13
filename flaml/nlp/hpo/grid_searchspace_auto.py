@@ -19,6 +19,7 @@ GRID_SEARCH_SPACE_MAPPING = OrderedDict(
 time_budget_grid_electra_base_glue_tmdev = {
     "rte": 100,
     "cola": 300,
+    "sst2": 900,
     "mrpc": 40,
     "qnli": 1456.84,
     "mnli": 1500,
@@ -27,6 +28,7 @@ time_budget_grid_electra_base_glue_tmdev = {
 time_budget_grid_electra_small_glue_tmdev = {
     "rte": 60,
     "cola": 100,
+    "sst2": 600,
     "mrpc": 30,
     "qnli": 885.58,
     "mnli": 1030.21,
@@ -35,6 +37,7 @@ time_budget_grid_electra_small_glue_tmdev = {
 time_budget_grid_electra_base_glue_dgx = {
     "rte": 100,
     "cola": 300,
+    "sst2": 900,
     "mrpc": 40,
     "qnli": 1456.84,
     "mnli": 1500,
@@ -44,6 +47,7 @@ time_budget_grid_electra_base_glue_dgx = {
 time_budget_grid_electra_small_glue_dgx = {
     "rte": 60,
     "cola": 100,
+    "sst2": 600,
     "mrpc": 30,
     "qnli": 885.58,
     "mnli": 1030.21,
@@ -53,23 +57,39 @@ time_budget_grid_electra_small_glue_dgx = {
 time_budget_grid_bert_base_glue_tmdev = {
     "rte": 30,
     "cola": 300,
+    "sst2": 900,
     "mrpc": 40,
     "qnli": 1381.97,
     "mnli": 1512.72,
 }
 
-time_budget_grid_roberta_base_glue_tmdev = {
-    "rte": 100,
-    "mrpc": 100,
-    "qnli": 1410.16,
-}
-
 time_budget_grid_bert_base_glue_dgx = {
     "rte": 30,
+    "sst2": 900,
     "cola": 300,
     "mrpc": 40,
     "qnli": 1381.97,
     "qqp": 1615.48,
+}
+
+time_budget_grid_deberta_base_glue_dgx = {
+    "rte": 120,
+    "mrpc": 140,
+}
+
+time_budget_grid_deberta_base_glue_tmdev = {
+    "rte": 120,
+    "mrpc": 140,
+}
+
+time_budget_grid_roberta_base_glue_tmdev = {
+    "rte": 100,
+    "mrpc": 120,
+}
+
+time_budget_grid_roberta_base_glue_dgx = {
+    "rte": 100,
+    "mrpc": 120,
 }
 
 time_budget_grid_funnel_small_yelp_review_full_tmdev = time_budget_grid_funnel_small_yelp_review_full_dgx = 1864
