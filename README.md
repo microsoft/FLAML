@@ -40,7 +40,7 @@ automl.fit(X_train, y_train, task="classification", estimator_list=["lgbm"])
 * You can also run generic ray-tune style hyperparameter tuning for a custom function.
 ```python
 from flaml import tune
-tune.run(train_with_config, config={…}, init_config={…}, time_budget_s=3600)
+tune.run(train_with_config, config={…}, low_cost_partial_config={…}, time_budget_s=3600)
 ```
 
 ## Installation
@@ -121,7 +121,7 @@ And they can be used in distributed HPO frameworks such as ray tune or nni.
 
 For more technical details, please check our papers.
 
-* [FLAML: A Fast and Lightweight AutoML Library](https://www.microsoft.com/en-us/research/publication/flaml-a-fast-and-lightweight-automl-library/). Chi Wang, Qingyun Wu, Markus Weimer, Erkang Zhu. To appear in MLSys, 2021.
+* [FLAML: A Fast and Lightweight AutoML Library](https://www.microsoft.com/en-us/research/publication/flaml-a-fast-and-lightweight-automl-library/). Chi Wang, Qingyun Wu, Markus Weimer, Erkang Zhu. In MLSys, 2021.
 ```
 @inproceedings{wang2021flaml,
     title={FLAML: A Fast and Lightweight AutoML Library},
