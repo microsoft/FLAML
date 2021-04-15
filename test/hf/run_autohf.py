@@ -17,9 +17,9 @@ from flaml.nlp.autotransformers import AutoTransformers
 wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 
 dataset_names = [["glue"], ["glue"], ["glue"], ["glue"]]
-subdataset_names = ["rte", "mrpc" "cola", "sst2"]
+subdataset_names = ["rte", "mrpc", "cola", "sst2"]
 
-pretrained_models = ["roberta-base", "microsoft/deberta-base"]
+pretrained_models = ["google/electra-small-discriminator", "google/electra-base-discriminator", "bert-base-uncased", "roberta-base", "microsoft/deberta-base"]
 
 search_algos = ["BlendSearch"]
 scheduler_names = ["None"]
@@ -62,6 +62,9 @@ def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pret
         "log_path": "../../../data/result/",
         "max_seq_length": 128,
         }
+    if ("albert" in each_pretrained_model and this_dataset_name == "squad") or \
+        ("funnel" in each_pretrained_model and this_dataset_name in {"imdb", "yelp_review_full", "yelp_polarity", "amazon_polarity", "amazon_review_multi"}):
+        preparedata_setting["max_seq_length"] = 512
     if this_dataset_name[0] == "glue" and this_subset_name and this_subset_name == "mnli":
         preparedata_setting["dataset_config"]["fold_name"] = ['train', 'validation_matched', 'test_matched']
     return preparedata_setting
@@ -161,7 +164,7 @@ def _test_grid(args, fout, autohf):
             rm_home_result()
 
 def _test_hpo(args, fout, autohf):
-    for data_idx in range(len(dataset_names)):
+    for data_idx in range(0, 3): #len(dataset_names)):
         this_dataset_name = dataset_names[data_idx]
         this_subset_name = subdataset_names[data_idx]
 

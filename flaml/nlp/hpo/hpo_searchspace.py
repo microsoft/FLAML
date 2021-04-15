@@ -62,9 +62,11 @@ def hpo_space_gridunion_other(logger, model_type, model_size_type, dataset_name,
                 pass
         output_config = merge_dicts(output_config, default_values)
 
-    for each_hp in hp_type_mapping.keys():
+    for each_hp in output_config.keys():
         if each_hp == "warmup_ratio":
             output_config[each_hp] = [x for x in output_config[each_hp] if x != 0]
+        if each_hp == "max_steps":
+            output_config[each_hp] = [x for x in output_config[each_hp] if x != -1]
 
     return output_config
 
@@ -116,26 +118,13 @@ def enumerate_onehp(logger, model_type, model_size_type, dataset_name, subdatase
     return electra_config
 
 def hpo_space_generic(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
-    _, config_json = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
-    output_config = {}
-
-    for each_hp in config_json.keys():
-        if each_hp == "learning_rate":
-            if len(config_json[each_hp]) > 1:
-                output_config[each_hp] = {"l": 1e-6, "u": 1e-3, "space": "log"}
-            else:
-                output_config[each_hp] = config_json[each_hp]
-        elif each_hp == "num_train_epochs":
-            output_config[each_hp] = {"l": 1.0, "u": 10.0, "space": "log"}
-        elif each_hp == "per_device_train_batch_size":
-            output_config[each_hp] = [4, 8, 16, 32, 48, 64]
-        elif each_hp == "warmup_ratio":
-            output_config[each_hp] = {"l": 0.0, "u": 0.3, "space": "linear"}
-        elif each_hp == "weight_decay":
-            output_config[each_hp] = {"l": 0.0, "u": 0.3, "space": "linear"}
-        else:
-            output_config[each_hp] = config_json[each_hp]
-
+    output_config = {
+        "learning_rate": {"l": 1e-6, "u": 1e-3, "space": "log"},
+        "num_train_epochs": {"l": 1.0, "u": 10.0, "space": "log"},
+        "per_device_train_batch_size": [4, 8, 16, 32, 48, 64],
+        "warmup_ratio": {"l": 0.0, "u": 0.3, "space": "linear"},
+        "weight_decay": {"l": 0.0, "u": 0.3, "space": "linear"}
+    }
     return output_config
 
 def hpo_space_small(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
@@ -193,7 +182,14 @@ class AutoHPOSearchSpace:
     def from_model_and_dataset_name(cls, logger, hpo_searchspace_name, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
         if hpo_searchspace_name in HPO_SEARCH_SPACE_MAPPING.keys():
             try:
-                return HPO_SEARCH_SPACE_MAPPING[hpo_searchspace_name](logger, model_type, model_size_type, dataset_name, subdataset_name, **custom_hpo_args)
+                hpo_space = HPO_SEARCH_SPACE_MAPPING[hpo_searchspace_name](logger, model_type, model_size_type, dataset_name, subdataset_name, **custom_hpo_args)
+                if "warmup_steps" in hpo_space:
+                    hpo_space["warmup_ratio"] = hpo_space["warmup_ratio"] + hpo_space["warmup_steps"]
+                    del hpo_space["warmup_steps"]
+                if "max_steps" in hpo_space:
+                    hpo_space["num_train_epochs"] = hpo_space["num_train_epochs"] + hpo_space["max_steps"]
+                    del hpo_space["max_steps"]
+                return hpo_space
             except:
                 return None
         raise ValueError(

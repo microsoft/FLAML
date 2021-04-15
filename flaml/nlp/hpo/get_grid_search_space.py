@@ -22,6 +22,31 @@ def get_space_union_and_unique(search_space_common, search_space_unique, this_ca
             search_space_union = merge_dicts(search_space_union, search_space_unique["other"])
     return search_space_union, this_search_space
 
+def get_deberta_space(model_size_type = None,
+                   dataset_name = None,
+                   subdataset_name = None):
+    """
+        DEBERTA: DECODING-ENHANCED BERT WITH DISENTANGLED ATTENTION: Table 9
+        https://arxiv.org/abs/2006.03654
+    """
+    search_space_common = {
+                           "cls_dropout": [0,0.1,0.15],
+                           "warmup_steps": [50,100,500,1000],
+                           "per_device_train_batch_size": [16,32,48,64],
+                           "num_train_epochs": [10],
+                           "adam_epsilon": [1e-6],
+                           }
+    search_space_unique = {
+            "large": {
+                "learning_rate": [5e-6, 8e-6, 9e-6, 1e-5],
+                "weight_decay": [0.01],
+            },
+            "base": {
+                "learning_rate": [1.5e-5,2e-5, 3e-5, 4e-5],
+            }
+        }
+    return get_space_union_and_unique(search_space_common, search_space_unique, [model_size_type])
+
 def get_longformer_space(model_size_type = None,
                    dataset_name = None,
                    subdataset_name = None):
@@ -35,6 +60,10 @@ def get_longformer_space(model_size_type = None,
 def get_funnel_space(model_size_type = None,
                    dataset_name = None,
                    subdataset_name = None):
+    """
+    Funnel-Transformer: Filtering out Sequential Redundancy for Efficient Language Processing
+    https://arxiv.org/abs/2006.03236
+    """
     search_space_common = {"learning_rate":[1e-5, 2e-5, 3e-5],
                          "hidden_dropout": [0.1],
                          "activation_dropout": [0.0],
@@ -44,12 +73,70 @@ def get_funnel_space(model_size_type = None,
                          "adam_epsilon": [1e-6],
                          }
     search_space_unique = {
-        "yelp_review_full": {
+        "imdb": {
+            "per_device_train_batch_size": [32],
+            "num_train_epochs": [5]
+        },
+        "ag_news": {
+            "per_device_train_batch_size": [32],
+            "num_train_epochs": [3]
+        },
+        "dbpedia_14": {
             "per_device_train_batch_size": [64],
             "num_train_epochs": [3]
+        },
+        "yelp_polarity": {
+            "per_device_train_batch_size": [128],
+            "num_train_epochs": [3]
+        },
+        "yelp_review_full": {
+            "per_device_train_batch_size": [128],
+            "num_train_epochs": [3]
+        },
+        "amazon_polarity": {
+            "per_device_train_batch_size": [128],
+            "num_train_epochs": [3]
+        },
+        "amazon_review_multi": {
+            "per_device_train_batch_size": [128],
+            "num_train_epochs": [3]
+        },
+        "glue_rte": {
+            "per_device_train_batch_size": [16],
+            "num_train_epochs": [10]
+        },
+        "glue_mrpc": {
+            "per_device_train_batch_size": [16],
+            "num_train_epochs": [10]
+        },
+        "glue_stsb": {
+            "per_device_train_batch_size": [16],
+            "num_train_epochs": [10]
+        },
+        "glue_cola": {
+            "per_device_train_batch_size": [16],
+            "num_train_epochs": [10]
+        },
+        "glue_sst2": {
+            "per_device_train_batch_size": [32],
+            "num_train_epochs": [5]
+        },
+        "glue_qnli": {
+            "per_device_train_batch_size": [32],
+            "num_train_epochs": [3]
+        },
+        "glue_mnli": {
+            "per_device_train_batch_size": [64],
+            "num_train_epochs": [3]
+        },
+        "glue_qqp": {
+            "per_device_train_batch_size": [64],
+            "num_train_epochs": [5]
         }
     }
-    return get_space_union_and_unique(search_space_common, search_space_unique, dataset_name)
+    from ..autotransformers import AutoTransformers
+    return get_space_union_and_unique(search_space_common, search_space_unique,
+            [AutoTransformers.get_full_data_name(dataset_name, subdataset_name)])
 
 def get_bert_space(model_size_type = None,
                    dataset_name = None,
@@ -217,8 +304,8 @@ def get_mobilebert_space(model_size_type = None,
     return get_space_union_and_unique(search_space_common, search_space_unique, [])
 
 def get_albert_space(model_size_type = None,
-                         dataset_name = None,
-                         subdataset_name = None):
+                     dataset_name = None,
+                     subdataset_name = None):
     """
         Hyperparameters for downstream tasks are shown in Table 14. We adapt these hyperparameters
         from Liu et al. (2019), Devlin et al. (2019), and Yang et al. (2019).
@@ -237,8 +324,110 @@ def get_albert_space(model_size_type = None,
         SQuAD v2.0 3.00E-05 48 0 0.1 8144 814 512
         RACE 2.00E-05 32 0.1 0.1 12000 1000 512
     """
-    search_space_dict = {}
+    search_space_common = {
+    }
+    search_space_unique = {
+        "glue_cola": {
+           "learning_rate":  [1e-5],
+            "per_device_train_batch_size": [16],
+            "attention_probs_dropout_prob": [0],
+            "classifier_dropout_prob": [0.1],
+            "max_steps": [5336],
+            "warmup_steps": [320],
+        },
+        "glue_stsb": {
+            "learning_rate": [2e-5],
+            "per_device_train_batch_size": [16],
+            "attention_probs_dropout_prob": [0],
+            "classifier_dropout_prob": [0.1],
+            "max_steps": [3598],
+            "warmup_steps": [214],
+        },
+        "glue_sst2": {
+            "learning_rate": [1e-5],
+            "per_device_train_batch_size": [32],
+            "attention_probs_dropout_prob": [0],
+            "classifier_dropout_prob": [0.1],
+            "max_steps": [20935],
+            "warmup_steps": [1256],
+        },
+        "glue_mnli": {
+            "learning_rate": [3e-5],
+            "per_device_train_batch_size": [128],
+            "attention_probs_dropout_prob": [0],
+            "classifier_dropout_prob": [0.1],
+            "max_steps": [10000],
+            "warmup_steps": [1000],
+        },
+        "glue_qnli": {
+            "learning_rate": [1e-5],
+            "per_device_train_batch_size": [32],
+            "attention_probs_dropout_prob": [0],
+            "classifier_dropout_prob": [0.1],
+            "max_steps": [33112],
+            "warmup_steps": [1986],
+        },
+        "glue_qqp": {
+            "learning_rate": [5e-5],
+            "per_device_train_batch_size": [128],
+            "attention_probs_dropout_prob": [0.1],
+            "classifier_dropout_prob": [0.1],
+            "max_steps": [14000],
+            "warmup_steps": [1000],
+        },
+        "glue_rte": {
+            "learning_rate": [3e-5],
+            "per_device_train_batch_size": [32],
+            "attention_probs_dropout_prob": [0.1],
+            "classifier_dropout_prob": [0.1],
+            "max_steps": [800],
+            "warmup_steps": [200],
+        },
+        "glue_mrpc": {
+            "learning_rate": [2e-5],
+            "per_device_train_batch_size": [32],
+            "attention_probs_dropout_prob": [0],
+            "classifier_dropout_prob": [0.1],
+            "max_steps": [800],
+            "warmup_steps": [200],
+        },
+        "glue_wnli": {
+            "learning_rate": [2e-5],
+            "per_device_train_batch_size": [16],
+            "attention_probs_dropout_prob": [0.1],
+            "classifier_dropout_prob": [0.1],
+            "max_steps": [2000],
+            "warmup_steps": [250],
+        },
+        "squad": {
+            "learning_rate": [5e-5],
+            "per_device_train_batch_size": [48],
+            "attention_probs_dropout_prob": [0],
+            "classifier_dropout_prob": [0.1],
+            "max_steps": [3649],
+            "warmup_steps": [365],
+        },
+        "squad_v2": {
+            "learning_rate": [3e-5],
+            "per_device_train_batch_size": [48],
+            "attention_probs_dropout_prob": [0],
+            "classifier_dropout_prob": [0.1],
+            "max_steps": [8144],
+            "warmup_steps": [814],
+        },
+        "race": {
+            "learning_rate": [2e-5],
+            "per_device_train_batch_size": [32],
+            "attention_probs_dropout_prob": [0.1],
+            "classifier_dropout_prob": [0.1],
+            "max_steps": [12000],
+            "warmup_steps": [1000],
+        },
+    }
+
     # To finetune the pre-trained models, we search the optimization hyperparameters
     # in a search space including different batch sizes (16/32/48), learning
     # rates ((1-10) * e-5), and the number of epochs (2-10)
-    return  search_space_dict
+    from ..autotransformers import AutoTransformers
+    return get_space_union_and_unique(search_space_common, search_space_unique,
+        [AutoTransformers.get_full_data_name(dataset_name, subdataset_name)])

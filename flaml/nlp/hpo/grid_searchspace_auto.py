@@ -3,8 +3,10 @@ from collections import OrderedDict
 from .get_grid_search_space import \
     (get_electra_space,
      get_bert_space,
-     get_mobilebert_space,
-     get_roberta_space, get_funnel_space,
+     get_roberta_space,
+     get_funnel_space,
+     get_deberta_space,
+     get_albert_space
      )
 
 GRID_SEARCH_SPACE_MAPPING = OrderedDict(
@@ -12,7 +14,9 @@ GRID_SEARCH_SPACE_MAPPING = OrderedDict(
         ("electra", get_electra_space),
         ("bert", get_bert_space),
         ("roberta", get_roberta_space),
-        ("funnel", get_funnel_space),
+        # ("funnel", get_funnel_space),
+        # ("deberta", get_deberta_space),
+        # ("albert", get_albert_space),
     ]
 )
 
@@ -128,7 +132,7 @@ class AutoGridSearchSpace:
                 search_space_union, search_space_unique = GRID_SEARCH_SPACE_MAPPING[model_type](model_size_type, dataset_name, subdataset_name)
                 return search_space_union, search_space_unique
             except:
-                return None
+                raise ValueError("{}, {}, {}, {} Return empty".format(model_type, model_size_type, dataset_name, str(subdataset_name)))
         raise ValueError(
             "Unrecognized method {},{} for this kind of AutoGridSearchSpace: {}.\n"
             "Method name should be one of {}.".format(
