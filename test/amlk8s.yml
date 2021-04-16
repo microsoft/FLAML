@@ -2,9 +2,7 @@ description: finetuning test on AMLK8s
 
 target:
   service: amlk8s
-  # run "pt target list amlk8s" to list the names of available AMLK8s targets
   name: ms-shared-v100
-  # vc: resrchvc
 
 environment:
   image: pytorch/pytorch:1.4-cuda10.1-cudnn7-devel
@@ -23,7 +21,6 @@ code:
 # data:
 #   data upload is not required for this example
 
-# list of jobs to run, we run 2 jobs in this example
 jobs:
 - name: test
   sku: G8
