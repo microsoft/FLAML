@@ -18,7 +18,7 @@ def test_electra(method='BlendSearch'):
             "model_name": "google/mobilebert-uncased",
             "server_name": "tmdev",
             "split_mode": "resplit",
-            "resplit_portion": {"train": [0, 0.01], "validation": [0.01, 0.02], "test": [0.02, 0.03]},
+            "resplit_portion": {"source": ["train", "validation"], "train": [0, 0.01], "validation": [0.01, 0.02], "test": [0.02, 0.03]},
             "ckpt_path": "../../../data/checkpoint/",
             "result_path": "../../../data/result/",
             "log_path": "../../../data/result/",
