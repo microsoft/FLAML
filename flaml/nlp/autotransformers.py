@@ -637,21 +637,20 @@ class AutoTransformers:
                         custom_num_samples,
                         custom_time_budget,
                         num_sample_time_budget_mode,
-                        times_as_grid,
-                        max_time_s):
+                        times_as_grid):
         if self.search_algo_name.startswith("grid_search"):
             self._sample_num = 1
             self._time_budget = float("inf")
             logger.warning("Running grid search, setting number of trials to 1, setting time budget to infinity")
-        elif num_sample_time_budget_mode == "times_grid_sample_num":
-            _, grid_config = AutoGridSearchSpace.from_model_and_dataset_name(self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name)
-            grid_config_trial_number = AutoGridSearchSpace.get_trial_number_in_space(grid_config)
-            assert times_as_grid and (isinstance(times_as_grid, float) or isinstance(times_as_grid, int)), \
-                "When setting to the num_sample_time_budget_mode mode, must explicitly specify times_as_grid"
-            self._sample_num = int(times_as_grid * grid_config_trial_number)
-            self._time_budget = max_time_s
-            logger.warning("HPO is set to {} times grid trial number or {} trials, time budget is "
-                           "set to {}".format(times_as_grid, self._sample_num, self._time_budget))
+        # elif num_sample_time_budget_mode == "times_grid_sample_num":
+        #     _, grid_config = AutoGridSearchSpace.from_model_and_dataset_name(self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name)
+        #     grid_config_trial_number = AutoGridSearchSpace.get_trial_number_in_space(grid_config)
+        #     assert times_as_grid and (isinstance(times_as_grid, float) or isinstance(times_as_grid, int)), \
+        #         "When setting to the num_sample_time_budget_mode mode, must explicitly specify times_as_grid"
+        #     self._sample_num = int(times_as_grid * grid_config_trial_number)
+        #     self._time_budget = max_time_s
+        #     logger.warning("HPO is set to {} times grid trial number or {} trials, time budget is "
+        #                    "set to {}".format(times_as_grid, self._sample_num, self._time_budget))
         elif num_sample_time_budget_mode == "times_grid_time_budget":
             time_budget = AutoGridSearchSpace.get_grid_time_budget(logger, self._model_type, self._model_size_type, self._dataset_name[0], self._server_name, self._subdataset_name)
             assert times_as_grid and (isinstance(times_as_grid, float) or isinstance(times_as_grid, int)), \
@@ -747,7 +746,6 @@ class AutoTransformers:
             custom_num_samples = None,
             custom_time_budget = None,
             time_as_grid = None,
-            max_time_s = None,
             **custom_hpo_args):
         '''Fine tuning the huggingface using the hpo setting
 
@@ -825,7 +823,7 @@ class AutoTransformers:
         self.path_utils.set_folder_name(self)
 
         search_algo = self._get_search_algo(self._search_algo_name, search_algo_args_mode, **custom_hpo_args)
-        self._set_sample_num_time_budget(custom_num_samples, custom_time_budget, num_sample_time_budget_mode, time_as_grid, max_time_s)
+        self._set_sample_num_time_budget(custom_num_samples, custom_time_budget, num_sample_time_budget_mode, time_as_grid)
         scheduler = AutoScheduler.from_scheduler_name(self._scheduler_name)
 
         self._set_wandb(wandb_key)

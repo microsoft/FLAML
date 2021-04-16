@@ -27,7 +27,7 @@ scheduler_names = ["None"]
 
 hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_gridunion_other"]
 search_algo_args_modes = ["default", "default"]
-num_sample_time_budget_mode, time_as_grid, max_time_s = ("times_grid_sample_num", 16, 3600)
+num_sample_time_budget_mode, custom_num_samples, custom_time_budget = ("custom", 64, 3600)
 
 def get_full_name(autohf, is_grid, hpo_searchspace_mode = None):
     if is_grid == False:
@@ -79,7 +79,7 @@ def get_autohf_settings_grid(args):
                            }
     return autohf_settings
 
-def get_autohf_settings(this_search_algo, this_scheduler_name, hpo_searchspace_mode, this_time_as_grid, max_time_s, search_algo_args_mode = None):
+def get_autohf_settings(this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode = None):
     autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
                        "wandb_key": wandb_key,
                        "search_algo_name": this_search_algo,
@@ -89,8 +89,8 @@ def get_autohf_settings(this_search_algo, this_scheduler_name, hpo_searchspace_m
                       }
     autohf_settings["hpo_searchspace_mode"] = hpo_searchspace_mode
     autohf_settings["num_sample_time_budget_mode"] = num_sample_time_budget_mode
-    autohf_settings["max_time_s"] = max_time_s
-    autohf_settings["time_as_grid"] = this_time_as_grid
+    autohf_settings["custom_num_samples"] = custom_num_samples
+    autohf_settings["custom_time_budget"] = custom_time_budget
     return autohf_settings
 
 def get_autohf_settings_enumeratehp():
@@ -166,13 +166,13 @@ def _test_grid(args, fout, autohf):
             rm_home_result()
 
 def _test_hpo(args, fout, autohf):
-    for data_idx in range(0, 1): #len(dataset_names)):
+    for data_idx in range(0, 1):
         this_dataset_name = dataset_names[data_idx]
         this_subset_name = subdataset_names[data_idx]
 
         for algo_idx in range(0, len(search_algos)):
             this_search_algo = search_algos[algo_idx]
-            for model_idx in range(0, len(pretrained_models)):
+            for model_idx in range(4, len(pretrained_models)):
                 each_pretrained_model = pretrained_models[model_idx]
 
                 this_scheduler_name = scheduler_names[algo_idx]
@@ -184,7 +184,7 @@ def _test_hpo(args, fout, autohf):
 
                     train_dataset, eval_dataset, test_dataset = \
                         autohf.prepare_data(**preparedata_setting)
-                    autohf_settings = get_autohf_settings(this_search_algo, this_scheduler_name, hpo_searchspace_mode, time_as_grid, max_time_s, search_algo_args_mode)
+                    autohf_settings = get_autohf_settings(this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode)
 
                     try:
                         validation_metric, analysis = autohf.fit(train_dataset,
