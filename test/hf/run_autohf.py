@@ -1,4 +1,4 @@
-'''Require: pip install torch transformers datasets flaml[blendsearch,ray]
+'''Require: pip install torch transformers datasets wandb flaml[blendsearch,ray]
 '''
 #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
 import argparse
@@ -27,7 +27,7 @@ scheduler_names = ["None"]
 
 hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_gridunion_other"]
 search_algo_args_modes = ["default", "default"]
-num_sample_time_budget_mode, custom_num_samples, custom_time_budget = ("custom", 64, 3600)
+num_sample_time_budget_mode, custom_num_samples, custom_time_budget = ("custom", 64, 7200)
 
 def get_full_name(autohf, is_grid, hpo_searchspace_mode = None):
     if is_grid == False:
@@ -49,6 +49,10 @@ def get_resplit_portion(this_dataset_name, this_subset_name):
         return {"source": ["train", "validation"], "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
 
 def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model):
+    if args.server_name == "azureml":
+        local_path = "./"
+    else:
+        local_path = "../../../"
     preparedata_setting = {
         "dataset_config": {"task": "text-classification",
                            "dataset_name": this_dataset_name,
@@ -58,9 +62,9 @@ def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pret
         "model_name": each_pretrained_model,
         "server_name": args.server_name,
         "split_mode": "resplit",
-        "ckpt_path": "../../../data/checkpoint/",
-        "result_path": "../../../data/result/",
-        "log_path": "../../../data/result/",
+        "ckpt_path": local_path + "data/checkpoint/",
+        "result_path": local_path + "data/result/",
+        "log_path": local_path + "result/",
         "max_seq_length": 128,
         }
     if ("albert" in each_pretrained_model and this_dataset_name == "squad") or \
@@ -204,7 +208,7 @@ def _test_hpo(args, fout, autohf):
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('--server_name', type=str, help='server name', required=True, choices=["tmdev", "dgx"])
+    arg_parser.add_argument('--server_name', type=str, help='server name', required=True, choices=["tmdev", "dgx", "azureml"])
     arg_parser.add_argument('--algo', type=str, help='hpo or grid search', required=True, choices=["grid_search", "grid_search_bert", "hpo"])
     args = arg_parser.parse_args()
 
