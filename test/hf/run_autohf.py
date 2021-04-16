@@ -27,7 +27,7 @@ scheduler_names = ["None"]
 
 hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_gridunion_other"]
 search_algo_args_modes = ["default", "default"]
-num_sample_time_budget_mode, custom_num_samples, custom_time_budget = ("custom", 64, 7200)
+num_sample_time_budget_mode, custom_num_samples, custom_time_budget = ("custom", 64, 3600)
 
 def get_full_name(autohf, is_grid, hpo_searchspace_mode = None):
     if is_grid == False:
