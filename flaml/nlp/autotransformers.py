@@ -637,7 +637,8 @@ class AutoTransformers:
                         custom_num_samples,
                         custom_time_budget,
                         num_sample_time_budget_mode,
-                        times_as_grid):
+                        times_as_grid,
+                        max_time_s):
         if self.search_algo_name.startswith("grid_search"):
             self._sample_num = 1
             self._time_budget = float("inf")
@@ -648,7 +649,7 @@ class AutoTransformers:
             assert times_as_grid and (isinstance(times_as_grid, float) or isinstance(times_as_grid, int)), \
                 "When setting to the num_sample_time_budget_mode mode, must explicitly specify times_as_grid"
             self._sample_num = int(times_as_grid * grid_config_trial_number)
-            self._time_budget = float("inf")
+            self._time_budget = max_time_s
             logger.warning("HPO is set to {} times grid trial number or {} trials, time budget is "
                            "set to {}".format(times_as_grid, self._sample_num, self._time_budget))
         elif num_sample_time_budget_mode == "times_grid_time_budget":
@@ -746,6 +747,7 @@ class AutoTransformers:
             custom_num_samples = None,
             custom_time_budget = None,
             time_as_grid = None,
+            max_time_s = None,
             **custom_hpo_args):
         '''Fine tuning the huggingface using the hpo setting
 
@@ -823,7 +825,7 @@ class AutoTransformers:
         self.path_utils.set_folder_name(self)
 
         search_algo = self._get_search_algo(self._search_algo_name, search_algo_args_mode, **custom_hpo_args)
-        self._set_sample_num_time_budget(custom_num_samples, custom_time_budget, num_sample_time_budget_mode, time_as_grid)
+        self._set_sample_num_time_budget(custom_num_samples, custom_time_budget, num_sample_time_budget_mode, time_as_grid, max_time_s)
         scheduler = AutoScheduler.from_scheduler_name(self._scheduler_name)
 
         self._set_wandb(wandb_key)
