@@ -16,6 +16,7 @@ from flaml.nlp.autotransformers import AutoTransformers
 
 # setting wandb key
 wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
+subprocess.run(["wandb", "login", "--relogin", wandb_key])
 
 dataset_names = [["glue"], ["glue"], ["glue"], ["glue"]]
 subdataset_names = ["rte", "mrpc", "cola", "sst2"]
