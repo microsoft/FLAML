@@ -1,0 +1,34 @@
+description: finetuning test on AMLK8s
+
+target:
+  service: amlk8s
+  # run "pt target list amlk8s" to list the names of available AMLK8s targets
+  name: ms-shared-v100
+  # vc: resrchvc
+
+environment:
+  image: pytorch/pytorch:1.4-cuda10.1-cudnn7-devel
+  setup:
+    - pip install transformers datasets wandb prompt_toolkit==1.0.14 --user
+    - git clone https://github.com/liususan091219/FLAML.git
+    - cd FLAML
+    - git checkout v0.2.7
+    - pip install -e.[blendsearch,ray] --user
+
+code:
+  # local directory of the code. this will be uploaded to the server.
+  # $CONFIG_DIR is expanded to the directory of this config file
+  local_dir: $CONFIG_DIR/hf/
+
+# data:
+#   data upload is not required for this example
+
+# list of jobs to run, we run 2 jobs in this example
+jobs:
+- name: test
+  sku: G8
+  command:
+  - python test_autohf.py
+  submit_args: &retry_args
+    # Max numbers of attempts to retry job. Default: 3.
+    max_attempts: 1
