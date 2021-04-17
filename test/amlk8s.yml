@@ -10,6 +10,7 @@ environment:
     # - pip install transformers datasets wandb prompt_toolkit==1.0.14 --user
     # - sudo apt-get -y install git
     - export TMPDIR="./data/"
+    - mkdir ./data/
     - git clone https://github.com/liususan091219/FLAML.git
     - cd FLAML
     - git checkout v0.2.7
