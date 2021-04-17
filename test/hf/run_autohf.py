@@ -154,7 +154,7 @@ def _test_grid(args, fout, autohf):
         this_dataset_name = dataset_names[data_idx]
         this_subset_name = subdataset_names[data_idx]
 
-        for model_idx in range(0, 1): #len(pretrained_models)):
+        for model_idx in range(0, len(pretrained_models)):
             each_pretrained_model = pretrained_models[model_idx]
 
             preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model)
