@@ -50,9 +50,7 @@ def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pret
         "model_name": each_pretrained_model,
         "server_name": args.server_name,
         "split_mode": "resplit",
-        "ckpt_path": args.data_dir + "data/checkpoint/",
-        "result_path": args.data_dir + "data/result/",
-        "log_path": args.data_dir + "result/",
+        "data_root_path": args.data_root_dir,
         "max_seq_length": 128,
         }
     if ("albert" in each_pretrained_model and this_dataset_name == "squad") or \
@@ -200,7 +198,7 @@ if __name__ == "__main__":
                             choices=["tmdev", "dgx", "azureml"])
     arg_parser.add_argument('--algo', type=str, help='hpo or grid search', required=True,
                             choices=["grid_search", "grid_search_bert", "hpo"])
-    arg_parser.add_argument('--data_dir', type=str, help='data dir', required=True)
+    arg_parser.add_argument('--data_root_dir', type=str, help='data dir', required=True)
     arg_parser.add_argument('--dataset_idx', type=int, help='data index', required=False)
     arg_parser.add_argument('--sample_num', type=int, help='sample num', required=False)
     arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False)

@@ -9,6 +9,7 @@ environment:
   setup:
     # - pip install transformers datasets wandb prompt_toolkit==1.0.14 --user
     # - sudo apt-get -y install git
+    - export TMPDIR="./data/"
     - git clone https://github.com/liususan091219/FLAML.git
     - cd FLAML
     - git checkout v0.2.7
@@ -32,25 +33,25 @@ jobs:
 - name: rte_grid_bert
   sku: 32G4
   command:
-  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 0 --suffix rte_grid_bert --data_dir "./" --sample_num 64 --time_budget 3600
+  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 0 --suffix rte_grid_bert --data_dir "./data/" --sample_num 64 --time_budget 3600
   submit_args: &retry_args
     # Max numbers of attempts to retry job. Default: 3.
     max_attempts: 1
 - name: cola_grid_bert
   sku: 32G4
   command:
-  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 2 --suffix cola_grid_bert --data_dir "./" --sample_num 64 --time_budget 3600
+  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 2 --suffix cola_grid_bert --data_dir "./data/" --sample_num 64 --time_budget 3600
   submit_args:
     <<: *retry_args
 - name: rte_hpo
   sku: 32G4
   command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix rte_hpo --data_dir "./" --sample_num 64 --time_budget 3600
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix rte_hpo --data_dir "./data/" --sample_num 64 --time_budget 3600
   submit_args:
     <<: *retry_args
 - name: cola_hpo
   sku: 32G4
   command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix cola_hpo --data_dir "./" --sample_num 64 --time_budget 3600
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix cola_hpo --data_dir "./data/" --sample_num 64 --time_budget 3600
   submit_args:
     <<: *retry_args

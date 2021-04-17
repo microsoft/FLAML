@@ -92,7 +92,7 @@ class AutoTransformers:
 
     def _set_wandb(self,
                    wandb_key):
-        os.environ["TMPDIR"] = "/data/xliu127/projects/hyperopt/data/"
+        os.environ["TMPDIR"] = os.path.abspath(self.path_utils.hpo_data_root_path) + "/"
         os.environ["WANDB_API_KEY"] = wandb_key
         self.path_utils.group_hash_id = wandb.util.generate_id()
         group_name = self.full_dataset_name.lower() + "_" + self._model_type.lower() + "_" + \
@@ -267,9 +267,7 @@ class AutoTransformers:
                      server_name,
                      model_name,
                      split_mode,
-                     ckpt_path,
-                     result_path,
-                     log_path,
+                     data_root_path,
                      max_seq_length = 128,
                      resplit_portion=None):
         '''Prepare data
@@ -338,9 +336,7 @@ class AutoTransformers:
         self._server_name = server_name
 
         self.path_utils = PathUtils(
-                    hpo_ckpt_path = ckpt_path,
-                    hpo_result_path= result_path,
-                    hpo_log_path= log_path,
+                    hpo_data_root_path = data_root_path,
                     dataset_name = dataset_name,
                     subdataset_name = subdataset_name,
                     model_name= model_name,

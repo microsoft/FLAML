@@ -49,17 +49,17 @@ class PathUtils:
         model_name:
             The huggingface name for loading the huggingface from huggingface.co/models, e.g., "google/electra-base-discriminator"
     """
-    _hpo_ckpt_path: str = field(metadata={"help": "the directory for hpo output"})
-    _hpo_result_path: str = field(metadata={"help": "the directory for hpo result"})
-    _hpo_log_path: str = field(metadata={"help": "the directory for log"})
+    hpo_ckpt_path: str = field(metadata={"help": "the directory for hpo output"})
+    hpo_result_path: str = field(metadata={"help": "the directory for hpo result"})
+    hpo_log_path: str = field(metadata={"help": "the directory for log"})
 
-    _dataset_name: str = field(metadata={"help": "dataset name"})
-    _subdataset_name: str = field(metadata={"help": "sub dataset name"})
+    dataset_name: str = field(metadata={"help": "dataset name"})
+    subdataset_name: str = field(metadata={"help": "sub dataset name"})
     _search_algo_name: str = field(metadata={"help": "The hpo method."})
 
     _group_hash_id: str = field(metadata={"help": "hash code for the hpo run"})
 
-    _model_name: str = field(metadata={"help": "huggingface name."})
+    model_name: str = field(metadata={"help": "huggingface name."})
     _folder_name: str = field(metadata={"help": "folder name."})
 
     _log_dir_per_run: str = field(metadata={"help": "log directory for each run."})
@@ -68,19 +68,18 @@ class PathUtils:
     _ckpt_dir_per_trial: str = field(metadata={"help": "checkpoint directory for each trial."})
 
     def __init__(self,
-                 hpo_ckpt_path,
-                 hpo_result_path,
-                 hpo_log_path,
+                 hpo_data_root_path,
                  dataset_name,
                  subdataset_name,
                  model_name,
                  ):
-        self._hpo_ckpt_path = hpo_ckpt_path
-        self._hpo_result_path = hpo_result_path
-        self._hpo_log_path = hpo_log_path
-        self._dataset_name = dataset_name
-        self._subdataset_name = subdataset_name
-        self._model_name = model_name
+        self.hpo_data_root_path = hpo_data_root_path
+        self.hpo_ckpt_path = os.path.join(hpo_data_root_path, "checkpoint")
+        self.hpo_result_path = os.path.join(hpo_data_root_path, "result")
+        self.hpo_log_path = self.hpo_result_path
+        self.dataset_name = dataset_name
+        self.subdataset_name = subdataset_name
+        self.model_name = model_name
 
     def set_folder_name(self, autohf_ref):
         self._folder_name = autohf_ref.search_algo_name.lower() + "_" + autohf_ref.scheduler_name.lower() + "_" \
@@ -96,32 +95,32 @@ class PathUtils:
 
     @property
     def model_checkpoint(self):
-        return self._model_name # os.path.join(self.hpo_output_dir, "huggingface", self.model_name)
+        return self.model_name # os.path.join(self.hpo_output_dir, "huggingface", self.model_name)
 
     @property
     def dataset_dir_name(self):
-        assert self._dataset_name, "dataset name is required"
-        data_dir_name = "_".join(self._dataset_name)
-        if self._subdataset_name:
-            data_dir_name = data_dir_name + "/" + self._subdataset_name
+        assert self.dataset_name, "dataset name is required"
+        data_dir_name = "_".join(self.dataset_name)
+        if self.subdataset_name:
+            data_dir_name = data_dir_name + "/" + self.subdataset_name
         return data_dir_name
 
     @property
     def _ckpt_root_dir_abs(self):
-        assert self._hpo_ckpt_path, "output directory is required"
-        checkpoint_root_dir_abs = os.path.join(self._hpo_ckpt_path + "/" + self.dataset_dir_name + "/")
+        assert self.hpo_ckpt_path, "output directory is required"
+        checkpoint_root_dir_abs = os.path.join(self.hpo_ckpt_path + "/" + self.dataset_dir_name + "/")
         return checkpoint_root_dir_abs
 
     @property
     def _result_root_dir_abs(self):
-        assert self._hpo_result_path, "output directory is required"
-        results_root_dir_abs = os.path.join(self._hpo_result_path + "/" + self.dataset_dir_name + "/")
+        assert self.hpo_result_path, "output directory is required"
+        results_root_dir_abs = os.path.join(self.hpo_result_path + "/" + self.dataset_dir_name + "/")
         return results_root_dir_abs
 
     @property
     def _log_root_dir_abs(self):
-        assert self._hpo_log_path, "output directory is required"
-        log_root_dir_abs = os.path.join(self._hpo_log_path + "/" + self.dataset_dir_name + "/")
+        assert self.hpo_log_path, "output directory is required"
+        log_root_dir_abs = os.path.join(self.hpo_log_path + "/" + self.dataset_dir_name + "/")
         return log_root_dir_abs
 
     @property
