@@ -12,6 +12,12 @@ environment:
     - cd FLAML
     - git checkout v0.2.7
     - pip install -e.[blendsearch,ray] --user
+    - cd ..
+    - git clone https://github.com/NVIDIA/apex
+    - cd apex
+    - pip install --user -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
+    - cd ..
+    - rm -rf apex/.git
 
 code:
   # local directory of the code. this will be uploaded to the server.
@@ -25,7 +31,7 @@ jobs:
 - name: test
   sku: G8
   command:
-  - CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_autohf.py --server_name azureml --algo hpo
+  - python run_autohf.py --server_name azureml --algo hpo
   submit_args: &retry_args
     # Max numbers of attempts to retry job. Default: 3.
     max_attempts: 1
