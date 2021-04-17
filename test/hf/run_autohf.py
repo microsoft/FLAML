@@ -114,16 +114,20 @@ def flush_and_upload(fout, args):
     fout.flush()
     api = wandb.Api()
     runs = api.runs("liususan/upload_file_" + args.server_name)
-    runs[0].upload_file(os.path.abspath("log_" + args.server_name + ".log"))
+    runs[0].upload_file(os.path.abspath("log_" + args.server_name + "_" + args.suffix + ".log"))
 
 def output_predict(args, test_dataset, autohf, fout, save_file_name):
+    if args.server_name == "azureml":
+        local_path = "./"
+    else:
+        local_path = "../../../"
     if test_dataset:
         predictions, output_metric = autohf.predict(test_dataset)
         fout.write("test " + (autohf.metric_name) + ":" + json.dumps(output_metric) + "\n\n")
         flush_and_upload(fout, args)
         if autohf.split_mode == "origin":
             autohf.output_prediction(predictions,
-                                     output_prediction_path="../../../data/result/",
+                                     output_prediction_path=local_path + "data/result/",
                                      output_dir_name=save_file_name)
 
 def rm_home_result():
@@ -150,7 +154,7 @@ def _test_grid(args, fout, autohf):
         this_dataset_name = dataset_names[data_idx]
         this_subset_name = subdataset_names[data_idx]
 
-        for model_idx in range(0, len(pretrained_models)):
+        for model_idx in range(0, 1): #len(pretrained_models)):
             each_pretrained_model = pretrained_models[model_idx]
 
             preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model)
@@ -212,9 +216,10 @@ if __name__ == "__main__":
     arg_parser.add_argument('--server_name', type=str, help='server name', required=True, choices=["tmdev", "dgx", "azureml"])
     arg_parser.add_argument('--algo', type=str, help='hpo or grid search', required=True, choices=["grid_search", "grid_search_bert", "hpo"])
     arg_parser.add_argument('--dataset_idx', type=int, help='hpo or grid search', required=False)
+    arg_parser.add_argument('--suffix', type=str, help='suffix', required=False)
     args = arg_parser.parse_args()
 
-    fout = open("log_" + args.server_name + ".log", "a")
+    fout = open("log_" + args.server_name + "_" + args.suffix + ".log", "a")
     if args.algo.startswith("grid"):
         _test_grid(args, fout, autohf = AutoTransformers())
     else:

@@ -871,6 +871,7 @@ class AutoTransformers:
             name = "ray_result",
             resources_per_trial = resources_per_trial,
             config= tune_config,
+            verbose=0,
             local_dir= self.path_utils.ckpt_dir_per_run,
             num_samples = self._sample_num,
             time_budget_s= self._time_budget,

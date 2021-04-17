@@ -29,27 +29,27 @@ code:
 
 jobs:
 - name: rte_grid_bert
-  sku: G8
+  sku: 32G4
   command:
-  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 0
+  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 0 --suffix rte_grid_bert
   submit_args: &retry_args
     # Max numbers of attempts to retry job. Default: 3.
     max_attempts: 1
-- name: rte_hpo
-  sku: G8
+- name: cola_grid_bert
+  sku: 32G4
   command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0
+  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 2 --suffix cola_grid_bert
   submit_args:
     <<: *retry_args
-- name: cola_grid_bert
-  sku: G8
+- name: rte_hpo
+  sku: 32G4
   command:
-  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 2
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix rte_hpo
   submit_args:
     <<: *retry_args
 - name: cola_hpo
-  sku: G8
+  sku: 32G4
   command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix cola_hpo
   submit_args:
     <<: *retry_args
