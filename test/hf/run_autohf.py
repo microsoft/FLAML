@@ -1,22 +1,30 @@
 '''Require: pip install torch transformers datasets wandb flaml[blendsearch,ray]
 '''
 #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
-import argparse
-import datetime
-import json
-import os
-import shutil
-import subprocess
-import sys
-import time
+import tempfile, os, argparse, subprocess
+wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
+arg_parser = argparse.ArgumentParser()
+arg_parser.add_argument('--server_name', type=str, help='server name', required=True, choices=["tmdev", "dgx", "azureml"])
+arg_parser.add_argument('--algo', type=str, help='hpo or grid search', required=True, choices=["grid_search", "grid_search_bert", "hpo"])
+arg_parser.add_argument('--data_dir', type=str, help='data dir', required=True)
+arg_parser.add_argument('--dataset_idx', type=int, help='data index', required=False)
+arg_parser.add_argument('--sample_num', type=int, help='sample num', required=False)
+arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False)
+arg_parser.add_argument('--suffix', type=str, help='suffix', required=False)
+args = arg_parser.parse_args()
+
+tempfile_dir = os.path.abspath(os.path.join("./", "data"))
+if not os.path.exists(tempfile_dir):
+    os.mkdir(tempfile_dir)
+tempfile.tempdir = tempfile_dir
 
 import wandb
-
-from flaml.nlp.autotransformers import AutoTransformers
-
-# setting wandb key
-wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 subprocess.run(["wandb", "login", "--relogin", wandb_key])
+
+import datetime
+import json
+import shutil
+from flaml.nlp.autotransformers import AutoTransformers
 
 dataset_names = [["glue"], ["glue"], ["glue"], ["glue"]]
 subdataset_names = ["rte", "mrpc", "cola", "sst2"]
@@ -28,7 +36,7 @@ scheduler_names = ["None"]
 
 hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_gridunion_other"]
 search_algo_args_modes = ["default", "default"]
-num_sample_time_budget_mode, custom_num_samples, custom_time_budget = ("custom", 64, 3600)
+num_sample_time_budget_mode = "custom"
 
 def get_full_name(autohf, is_grid, hpo_searchspace_mode = None):
     if is_grid == False:
@@ -50,10 +58,6 @@ def get_resplit_portion(this_dataset_name, this_subset_name):
         return {"source": ["train", "validation"], "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
 
 def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model):
-    if args.server_name == "azureml":
-        local_path = "./"
-    else:
-        local_path = "../../../"
     preparedata_setting = {
         "dataset_config": {"task": "text-classification",
                            "dataset_name": this_dataset_name,
@@ -63,9 +67,9 @@ def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pret
         "model_name": each_pretrained_model,
         "server_name": args.server_name,
         "split_mode": "resplit",
-        "ckpt_path": local_path + "data/checkpoint/",
-        "result_path": local_path + "data/result/",
-        "log_path": local_path + "result/",
+        "ckpt_path": args.data_dir + "data/checkpoint/",
+        "result_path": args.data_dir + "data/result/",
+        "log_path": args.data_dir + "result/",
         "max_seq_length": 128,
         }
     if ("albert" in each_pretrained_model and this_dataset_name == "squad") or \
@@ -84,7 +88,7 @@ def get_autohf_settings_grid(args):
                            }
     return autohf_settings
 
-def get_autohf_settings(this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode = None):
+def get_autohf_settings(args, this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode = None):
     autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
                        "wandb_key": wandb_key,
                        "search_algo_name": this_search_algo,
@@ -94,8 +98,8 @@ def get_autohf_settings(this_search_algo, this_scheduler_name, hpo_searchspace_m
                       }
     autohf_settings["hpo_searchspace_mode"] = hpo_searchspace_mode
     autohf_settings["num_sample_time_budget_mode"] = num_sample_time_budget_mode
-    autohf_settings["custom_num_samples"] = custom_num_samples
-    autohf_settings["custom_time_budget"] = custom_time_budget
+    autohf_settings["custom_num_samples"] = args.sample_num
+    autohf_settings["custom_time_budget"] = args.time_budget
     return autohf_settings
 
 def get_autohf_settings_enumeratehp():
@@ -117,17 +121,13 @@ def flush_and_upload(fout, args):
     runs[0].upload_file(os.path.abspath("log_" + args.server_name + "_" + args.suffix + ".log"))
 
 def output_predict(args, test_dataset, autohf, fout, save_file_name):
-    if args.server_name == "azureml":
-        local_path = "./"
-    else:
-        local_path = "../../../"
     if test_dataset:
         predictions, output_metric = autohf.predict(test_dataset)
         fout.write("test " + (autohf.metric_name) + ":" + json.dumps(output_metric) + "\n\n")
         flush_and_upload(fout, args)
         if autohf.split_mode == "origin":
             autohf.output_prediction(predictions,
-                                     output_prediction_path=local_path + "data/result/",
+                                     output_prediction_path= args.args.data_dir + "data/result/",
                                      output_dir_name=save_file_name)
 
 def rm_home_result():
@@ -193,7 +193,7 @@ def _test_hpo(args, fout, autohf):
 
                     train_dataset, eval_dataset, test_dataset = \
                         autohf.prepare_data(**preparedata_setting)
-                    autohf_settings = get_autohf_settings(this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode)
+                    autohf_settings = get_autohf_settings(args, this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode)
 
                     try:
                         validation_metric, analysis = autohf.fit(train_dataset,
@@ -212,13 +212,6 @@ def _test_hpo(args, fout, autohf):
     fout.close()
 
 if __name__ == "__main__":
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('--server_name', type=str, help='server name', required=True, choices=["tmdev", "dgx", "azureml"])
-    arg_parser.add_argument('--algo', type=str, help='hpo or grid search', required=True, choices=["grid_search", "grid_search_bert", "hpo"])
-    arg_parser.add_argument('--dataset_idx', type=int, help='hpo or grid search', required=False)
-    arg_parser.add_argument('--suffix', type=str, help='suffix', required=False)
-    args = arg_parser.parse_args()
-
     fout = open("log_" + args.server_name + "_" + args.suffix + ".log", "a")
     if args.algo.startswith("grid"):
         _test_grid(args, fout, autohf = AutoTransformers())

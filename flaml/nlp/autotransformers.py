@@ -2,12 +2,16 @@ import os,json
 import random
 
 import torch
-import transformers, math
+import transformers, math, tempfile
+tempfile_dir = os.path.abspath(os.path.join("./", "data"))
+if not os.path.exists(tempfile_dir):
+    os.mkdir(tempfile_dir)
+tempfile.tempdir = tempfile_dir
 import wandb
 import numpy as np
 
 from ray.tune import CLIReporter
-from ray.tune.integration.wandb import WandbLoggerCallback, wandb_mixin
+from ray.tune.integration.wandb import wandb_mixin
 
 import time
 import ray
@@ -43,7 +47,6 @@ task_list = [
     "text-regression",
     "question-answering"
 ]
-
 
 class AutoTransformers:
 
@@ -540,6 +543,10 @@ class AutoTransformers:
 
     @wandb_mixin
     def _objective(self, config, reporter, checkpoint_dir=None):
+        tempfile_dir = os.path.abspath(os.path.join("./", "data"))
+        if not os.path.exists(tempfile_dir):
+            os.mkdir(tempfile_dir)
+        tempfile.tempdir = tempfile_dir
 
         from transformers.trainer_utils import set_seed
         set_seed(config["seed"])
@@ -568,9 +575,9 @@ class AutoTransformers:
             batch_size = config["per_device_train_batch_size"],
             mode="last")
 
-        for each_hp in config:
-            if each_hp in hp_type_mapping.keys():
-                wandb.log({each_hp: config[each_hp]})
+        # for each_hp in config:
+        #     if each_hp in hp_type_mapping.keys():
+        #         wandb.log({each_hp: config[each_hp]})
 
         assert self.path_utils.ckpt_dir_per_trial
         training_args = TrainingArguments(
