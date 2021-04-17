@@ -91,10 +91,11 @@ def default_search_algo_args_bs(hpo_search_space = None):
         assert isinstance(hpo_search_space["num_train_epochs"], ray.tune.sample.Float)
         min_epoch = hpo_search_space["num_train_epochs"].lower
     default_search_algo_args = {
-        "points_to_evaluate": [{
+        "low_cost_partial_config": {
             "num_train_epochs": max(1, min_epoch),
             "per_device_train_batch_size": max(hpo_search_space["per_device_train_batch_size"].categories),
-        }]}
+        },
+    }
     return default_search_algo_args
 
 def default_search_algo_args_skopt(hpo_search_space = None):
