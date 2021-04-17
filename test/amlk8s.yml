@@ -5,19 +5,20 @@ target:
   name: ms-shared-v100
 
 environment:
-  image: pytorch/pytorch:1.4-cuda10.1-cudnn7-devel
+  image: pytorch/pytorch:1.7.0-cuda11.0-cudnn8-devel # pytorch/pytorch:1.4-cuda10.1-cudnn7-devel
   setup:
     - pip install transformers datasets wandb prompt_toolkit==1.0.14 --user
+    - sudo apt-get -y install git
     - git clone https://github.com/liususan091219/FLAML.git
     - cd FLAML
     - git checkout v0.2.7
     - pip install -e.[blendsearch,ray] --user
-    - cd ..
-    - git clone https://github.com/NVIDIA/apex
-    - cd apex
-    - pip install --user -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
-    - cd ..
-    - rm -rf apex/.git
+    # - cd ..
+    # - git clone https://github.com/NVIDIA/apex
+    # - cd apex
+    # - pip install --user -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
+    # - cd ..
+    # - rm -rf apex/.git
 
 code:
   # local directory of the code. this will be uploaded to the server.
