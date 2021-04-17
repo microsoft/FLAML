@@ -549,11 +549,11 @@ class AutoTransformers:
         np.random.seed(config["seed"])
         random.seed(config["seed"])
 
-        if config["warmup_ratio"] > 1:
+        if "warmup_ratio" in config.keys() and config["warmup_ratio"] > 1:
             config["warmup_steps"] = config["warmup_ratio"]
             config["warmup_ratio"] = 0
 
-        if config["num_train_epochs"] > 100:
+        if "num_train_epochs" in config.keys() and config["num_train_epochs"] > 100:
             config["max_steps"] = config["num_train_epochs"]
             config["num_train_epochs"] = 0
 

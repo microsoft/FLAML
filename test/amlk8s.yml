@@ -35,3 +35,9 @@ jobs:
   submit_args: &retry_args
     # Max numbers of attempts to retry job. Default: 3.
     max_attempts: 1
+- name: test
+  sku: G8
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo
+  submit_args:
+    <<: *retry_args
