@@ -206,7 +206,6 @@ if __name__ == "__main__":
     args = arg_parser.parse_args()
 
     import wandb
-
     subprocess.run(["wandb", "login", "--relogin", wandb_key])
 
     fout = open("log_" + args.server_name + "_" + args.suffix + ".log", "a")

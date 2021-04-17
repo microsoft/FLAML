@@ -15,6 +15,7 @@ environment:
     - cd FLAML
     - git checkout v0.2.7
     - pip install -e.[blendsearch,ray] --user
+    - export WANDB_MODE=disabled
     # - cd ..
     # - git clone https://github.com/NVIDIA/apex
     # - cd apex
