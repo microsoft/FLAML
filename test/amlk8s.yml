@@ -28,26 +28,26 @@ code:
 #   data upload is not required for this example
 
 jobs:
-- name: test
+- name: rte_grid_bert
   sku: G8
   command:
   - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 0
   submit_args: &retry_args
     # Max numbers of attempts to retry job. Default: 3.
     max_attempts: 1
-- name: test
+- name: rte_hpo
   sku: G8
   command:
   - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0
   submit_args:
     <<: *retry_args
-- name: test
+- name: cola_grid_bert
   sku: G8
   command:
   - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 2
   submit_args:
     <<: *retry_args
-- name: test
+- name: cola_hpo
   sku: G8
   command:
   - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2
