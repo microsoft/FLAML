@@ -146,7 +146,7 @@ def write_regular(autohf, args, validation_metric, save_file_name, fout):
     flush_and_upload(fout, args)
 
 def _test_grid(args, fout, autohf):
-    for data_idx in range(0, 1): #len(dataset_names)):
+    for data_idx in range(args.dataset_idx, args.dataset_idx + 1):
         this_dataset_name = dataset_names[data_idx]
         this_subset_name = subdataset_names[data_idx]
 
@@ -171,7 +171,7 @@ def _test_grid(args, fout, autohf):
             rm_home_result()
 
 def _test_hpo(args, fout, autohf):
-    for data_idx in range(0, 1):
+    for data_idx in range(args.dataset_idx, args.dataset_idx + 1):
         this_dataset_name = dataset_names[data_idx]
         this_subset_name = subdataset_names[data_idx]
 
@@ -211,6 +211,7 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('--server_name', type=str, help='server name', required=True, choices=["tmdev", "dgx", "azureml"])
     arg_parser.add_argument('--algo', type=str, help='hpo or grid search', required=True, choices=["grid_search", "grid_search_bert", "hpo"])
+    arg_parser.add_argument('--dataset_idx', type=int, help='hpo or grid search', required=False)
     args = arg_parser.parse_args()
 
     fout = open("log_" + args.server_name + ".log", "a")
