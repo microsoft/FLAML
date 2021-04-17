@@ -1,25 +1,8 @@
 '''Require: pip install torch transformers datasets wandb flaml[blendsearch,ray]
 '''
 #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
-import tempfile, os, argparse, subprocess
+import os, argparse, subprocess
 wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
-arg_parser = argparse.ArgumentParser()
-arg_parser.add_argument('--server_name', type=str, help='server name', required=True, choices=["tmdev", "dgx", "azureml"])
-arg_parser.add_argument('--algo', type=str, help='hpo or grid search', required=True, choices=["grid_search", "grid_search_bert", "hpo"])
-arg_parser.add_argument('--data_dir', type=str, help='data dir', required=True)
-arg_parser.add_argument('--dataset_idx', type=int, help='data index', required=False)
-arg_parser.add_argument('--sample_num', type=int, help='sample num', required=False)
-arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False)
-arg_parser.add_argument('--suffix', type=str, help='suffix', required=False)
-args = arg_parser.parse_args()
-
-tempfile_dir = os.path.abspath(os.path.join("./", "data"))
-if not os.path.exists(tempfile_dir):
-    os.mkdir(tempfile_dir)
-tempfile.tempdir = tempfile_dir
-
-import wandb
-subprocess.run(["wandb", "login", "--relogin", wandb_key])
 
 import datetime
 import json
@@ -212,6 +195,22 @@ def _test_hpo(args, fout, autohf):
     fout.close()
 
 if __name__ == "__main__":
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument('--server_name', type=str, help='server name', required=True,
+                            choices=["tmdev", "dgx", "azureml"])
+    arg_parser.add_argument('--algo', type=str, help='hpo or grid search', required=True,
+                            choices=["grid_search", "grid_search_bert", "hpo"])
+    arg_parser.add_argument('--data_dir', type=str, help='data dir', required=True)
+    arg_parser.add_argument('--dataset_idx', type=int, help='data index', required=False)
+    arg_parser.add_argument('--sample_num', type=int, help='sample num', required=False)
+    arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False)
+    arg_parser.add_argument('--suffix', type=str, help='suffix', required=False)
+    args = arg_parser.parse_args()
+
+    import wandb
+
+    subprocess.run(["wandb", "login", "--relogin", wandb_key])
+
     fout = open("log_" + args.server_name + "_" + args.suffix + ".log", "a")
     if args.algo.startswith("grid"):
         _test_grid(args, fout, autohf = AutoTransformers())
