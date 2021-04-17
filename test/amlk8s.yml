@@ -32,25 +32,25 @@ jobs:
 - name: rte_grid_bert
   sku: 32G4
   command:
-  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 0 --suffix rte_grid_bert
+  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 0 --suffix rte_grid_bert --data_dir "./" --sample_num 64 --time_budget 3600
   submit_args: &retry_args
     # Max numbers of attempts to retry job. Default: 3.
     max_attempts: 1
 - name: cola_grid_bert
   sku: 32G4
   command:
-  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 2 --suffix cola_grid_bert
+  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 2 --suffix cola_grid_bert --data_dir "./" --sample_num 64 --time_budget 3600
   submit_args:
     <<: *retry_args
 - name: rte_hpo
   sku: 32G4
   command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix rte_hpo
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix rte_hpo --data_dir "./" --sample_num 64 --time_budget 3600
   submit_args:
     <<: *retry_args
 - name: cola_hpo
   sku: 32G4
   command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix cola_hpo
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix cola_hpo --data_dir "./" --sample_num 64 --time_budget 3600
   submit_args:
     <<: *retry_args
