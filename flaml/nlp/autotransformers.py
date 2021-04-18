@@ -851,12 +851,12 @@ class AutoTransformers:
         # https://docs.ray.io/en/master/tune/tutorials/tune-wandb.html
 
         tune_config = self._search_space_hpo
-        tune_config["wandb"] = {
-                    "project": "hpo",
-                    "group": os.environ["WANDB_RUN_GROUP"],
-                    "reinit": True,
-                    "allow_val_change": True
-                }
+        # tune_config["wandb"] = {
+        #             "project": "hpo",
+        #             "group": os.environ["WANDB_RUN_GROUP"],
+        #             "reinit": True,
+        #             "allow_val_change": True
+        #         }
         tune_config["seed"] = 42
 
         analysis = ray.tune.run(
