@@ -3,7 +3,7 @@ import random
 
 import torch
 import transformers
-# import wandb
+import wandb
 import numpy as np
 
 from ray.tune import CLIReporter
@@ -821,7 +821,7 @@ class AutoTransformers:
         self._set_sample_num_time_budget(custom_num_samples, custom_time_budget, num_sample_time_budget_mode, time_as_grid)
         scheduler = AutoScheduler.from_scheduler_name(self._scheduler_name)
 
-        # self._set_wandb(wandb_key)
+        self._set_wandb(wandb_key)
         self.path_utils.make_dir_per_run()
 
         logger.addHandler(logging.FileHandler(os.path.join(self.path_utils.log_dir_per_run, 'tune.log')))
