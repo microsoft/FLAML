@@ -1,7 +1,7 @@
 '''Require: pip install torch transformers datasets wandb flaml[blendsearch,ray]
 '''
 #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
-import os, argparse, subprocess
+import os, argparse
 wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 
 import datetime
@@ -135,7 +135,7 @@ def _test_grid(args, fout, autohf):
         this_dataset_name = dataset_names[data_idx]
         this_subset_name = subdataset_names[data_idx]
 
-        for model_idx in range(0, len(pretrained_models)):
+        for model_idx in range(0, 1):#len(pretrained_models)):
             each_pretrained_model = pretrained_models[model_idx]
 
             preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model)
@@ -204,9 +204,6 @@ if __name__ == "__main__":
     arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False)
     arg_parser.add_argument('--suffix', type=str, help='suffix', required=False)
     args = arg_parser.parse_args()
-
-    import wandb
-    subprocess.run(["wandb", "login", "--relogin", wandb_key])
 
     fout = open("log_" + args.server_name + "_" + args.suffix + ".log", "a")
     if args.algo.startswith("grid"):
