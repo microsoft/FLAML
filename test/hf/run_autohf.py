@@ -100,7 +100,7 @@ def flush_and_upload(fout, args):
     import wandb
     api = wandb.Api()
     runs = api.runs("liususan/upload_file_" + args.server_name)
-    runs[0].upload_file(os.path.abspath("log_" + args.server_name + "_" + args.suffix + ".log"))
+    runs[0].upload_file(os.path.abspath("./logs/log_" + args.server_name + "_" + args.suffix + ".log"))
 
 def output_predict(args, test_dataset, autohf, fout, save_file_name):
     if test_dataset:
@@ -136,7 +136,7 @@ def _test_grid(args, fout, autohf):
         this_dataset_name = dataset_names[data_idx]
         this_subset_name = subdataset_names[data_idx]
 
-        for model_idx in range(0, 1):#len(pretrained_models)):
+        for model_idx in range(0, len(pretrained_models)):
             each_pretrained_model = pretrained_models[model_idx]
 
             preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model)
@@ -206,7 +206,9 @@ if __name__ == "__main__":
     arg_parser.add_argument('--suffix', type=str, help='suffix', required=False)
     args = arg_parser.parse_args()
 
-    fout = open("log_" + args.server_name + "_" + args.suffix + ".log", "a")
+    if not os.path.exists("./logs/"):
+        os.mkdir("./logs/")
+    fout = open("./logs/log_" + args.server_name + "_" + args.suffix + ".log", "a")
     if args.algo.startswith("grid"):
         _test_grid(args, fout, autohf = AutoTransformers())
     else:
