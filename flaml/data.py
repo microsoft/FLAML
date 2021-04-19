@@ -197,7 +197,7 @@ class DataTransformer:
             for column in X.columns:
                 # sklearn\utils\validation.py needs int/float values
                 if X[column].dtype.name == 'datetime64[ns]':
-                    X.loc[:, column] = X[column].map(datetime.toordinal)
+                    X[column] = X[column].map(datetime.toordinal)
                 if X[column].dtype.name in ('object', 'category'):
                     if X[column].nunique() == 1 or X[column].nunique(
                             dropna=True) == n - X[column].isnull().sum():
