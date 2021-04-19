@@ -97,6 +97,7 @@ def get_autohf_settings_enumeratehp():
 
 def flush_and_upload(fout, args):
     fout.flush()
+    import wandb
     api = wandb.Api()
     runs = api.runs("liususan/upload_file_" + args.server_name)
     runs[0].upload_file(os.path.abspath("log_" + args.server_name + "_" + args.suffix + ".log"))
