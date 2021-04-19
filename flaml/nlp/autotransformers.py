@@ -7,7 +7,7 @@ import wandb
 import numpy as np
 
 from ray.tune import CLIReporter
-# from ray.tune.integration.wandb import wandb_mixin
+from ray.tune.integration.wandb import wandb_mixin
 
 import time
 import ray
@@ -534,7 +534,7 @@ class AutoTransformers:
         )
         return self._tokenizer(*args, padding="max_length", max_length=self._max_seq_length, truncation=True)
 
-    # @wandb_mixin
+    @wandb_mixin
     def _objective(self, config, reporter, checkpoint_dir=None):
         from transformers.trainer_utils import set_seed
         set_seed(config["seed"])
@@ -851,12 +851,12 @@ class AutoTransformers:
         # https://docs.ray.io/en/master/tune/tutorials/tune-wandb.html
 
         tune_config = self._search_space_hpo
-        # tune_config["wandb"] = {
-        #             "project": "hpo",
-        #             "group": os.environ["WANDB_RUN_GROUP"],
-        #             "reinit": True,
-        #             "allow_val_change": True
-        #         }
+        tune_config["wandb"] = {
+                    "project": "hpo",
+                    "group": os.environ["WANDB_RUN_GROUP"],
+                    "reinit": True,
+                    "allow_val_change": True
+                }
         tune_config["seed"] = 42
 
         analysis = ray.tune.run(
@@ -866,7 +866,7 @@ class AutoTransformers:
             name = "ray_result",
             resources_per_trial = resources_per_trial,
             config= tune_config,
-            verbose=1,
+            verbose=0,
             local_dir= self.path_utils.ckpt_dir_per_run,
             num_samples = self._sample_num,
             time_budget_s= self._time_budget,

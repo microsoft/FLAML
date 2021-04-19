@@ -205,6 +205,9 @@ if __name__ == "__main__":
     arg_parser.add_argument('--suffix', type=str, help='suffix', required=False)
     args = arg_parser.parse_args()
 
+    import wandb
+    subprocess.run(["wandb", "login", "--relogin", wandb_key])
+
     fout = open("log_" + args.server_name + "_" + args.suffix + ".log", "a")
     if args.algo.startswith("grid"):
         _test_grid(args, fout, autohf = AutoTransformers())
