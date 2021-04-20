@@ -152,8 +152,6 @@ def _test_grid(args, fout, autohf):
             api = wandb.Api()
             runs = api.runs("liususan/upload_file_" + args.server_name)
             runs[0].upload_file(os.path.abspath("./logs/traindata_order_" + str(hash) + ".txt"))
-            import sys
-            sys.exit(1)
 
             try:
                 validation_metric, analysis = autohf.fit(train_dataset,
