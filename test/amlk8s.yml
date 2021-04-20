@@ -37,12 +37,11 @@ parameters:
   model_names: ["electra_small", "electra_base", "bert", "roberta", "deberta"]
 
 jobs:
-  steps:
-    - ${{ each model in parameters.model_names }}:
-      - name: rte_hpo
-        sku: 32G4
-        command:
-        - python run_autohf.py --dataset_idx 0 --model_name ${{ model }} --server_name azureml --algo hpo --suffix ${{ model }}_rte_hpo --data_root_dir "./data/" --sample_num 64 --time_budget 3600
-        submit_args: &retry_args
-        # Max numbers of attempts to retry job. Default: 3.
-          max_attempts: 0
+  - ${{ each model in parameters.model_names }}:
+    - name: rte_hpo
+      sku: 32G4
+      command:
+      - python run_autohf.py --dataset_idx 0 --model_name ${{ model }} --server_name azureml --algo hpo --suffix ${{ model }}_rte_hpo --data_root_dir "./data/" --sample_num 64 --time_budget 3600
+      submit_args: &retry_args
+      # Max numbers of attempts to retry job. Default: 3.
+        max_attempts: 0
