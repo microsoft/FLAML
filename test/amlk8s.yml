@@ -34,14 +34,14 @@ code:
 
 jobs:
 - name: rte_grid_bert1
-  sku: 16G4
+  sku: G0
   command:
   - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 0 --suffix rte_grid_bert --data_root_dir "./data/" --sample_num 64 --time_budget 3600
   submit_args: &retry_args
     # Max numbers of attempts to retry job. Default: 3.
     max_attempts: 0
 - name: rte_grid_bert2
-  sku: 16G4
+  sku: G0
   command:
   - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 0 --suffix rte_grid_bert --data_root_dir "./data/" --sample_num 64 --time_budget 3600
   submit_args:
