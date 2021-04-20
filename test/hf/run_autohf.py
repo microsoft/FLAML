@@ -8,6 +8,7 @@ os.environ["WANDB_API_KEY"] = wandb_key
 import datetime
 import json
 import shutil
+from collections import OrderedDict
 from flaml.nlp.autotransformers import AutoTransformers
 
 dataset_names = [["glue"], ["glue"], ["glue"], ["glue"]]
@@ -133,11 +134,12 @@ def write_exception(args, save_file_name, fout):
     fout.write("failed, no checkpoint found\n")
     flush_and_upload(fout, args)
 
-def write_regular(autohf, args, validation_metric, save_file_name, fout):
+def write_regular(autohf, args, validation_metric, save_file_name, fout, sample_num):
     fout.write(save_file_name + ":\n")
     fout.write("timestamp:" + str(str(datetime.datetime.now())) + ":\n")
     fout.write("validation " + (autohf.metric_name) + ":" + json.dumps(validation_metric) + "\n")
     fout.write("duration:" + str(autohf.last_run_duration) + "\n")
+    fout.write("sample num:" + str(sample_num) + "\n")
     flush_and_upload(fout, args)
 
 def _test_grid(args, fout, autohf):
@@ -159,7 +161,7 @@ def _test_grid(args, fout, autohf):
             raise err
 
         save_file_name = get_full_name(autohf, is_grid=True)
-        write_regular(autohf, args, validation_metric, save_file_name, fout)
+        write_regular(autohf, args, validation_metric, save_file_name, fout, len(analysis.trials))
         output_predict(args, test_dataset, autohf, fout, save_file_name)
         rm_home_result()
 
@@ -193,7 +195,7 @@ def _test_hpo(args, fout, autohf):
                     continue
 
                 save_file_name = get_full_name(autohf, is_grid=True)
-                write_regular(autohf, args, validation_metric, save_file_name, fout)
+                write_regular(autohf, args, validation_metric, save_file_name, fout, len(analysis.trials))
                 output_predict(args, test_dataset, autohf, fout, save_file_name)
                 rm_home_result()
 
