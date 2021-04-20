@@ -52,3 +52,17 @@ jobs:
     - python run_autohf.py --dataset_idx 2 --model_name ${{ model }} --server_name azureml --algo hpo --suffix ${{ model }}_cola_hpo --data_root_dir "./data/" --sample_num 64 --time_budget 7200
     submit_args:
       <<: *retry_args
+- ${{ each model in parameters.model_names }}
+  - name: cola_grid
+    sku: 32G4
+    command:
+    - python run_autohf.py --dataset_idx 2 --model_name ${{ model }} --server_name azureml --algo grid_search_bert --suffix ${{ model }}_cola_grid --data_root_dir "./data/" --sample_num 64 --time_budget 7200
+    submit_args:
+      <<: *retry_args
+- ${{ each model in parameters.model_names }}
+  - name: rte_grid
+    sku: 32G4
+    command:
+    - python run_autohf.py --dataset_idx 0 --model_name ${{ model }} --server_name azureml --algo grid_search_bert --suffix ${{ model }}_rte_grid --data_root_dir "./data/" --sample_num 64 --time_budget 7200
+    submit_args:
+      <<: *retry_args
