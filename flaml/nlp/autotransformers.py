@@ -91,17 +91,14 @@ class AutoTransformers:
     _num_labels: Optional[int] = field(metadata={"help": "The number of labels of output classes"})
 
 
-    def _set_wandb(self,
-                   wandb_key):
-        os.environ["TMPDIR"] = os.path.abspath(self.path_utils.hpo_data_root_path) + "/"
-        os.environ["WANDB_API_KEY"] = wandb_key
+    def _set_wandb(self):
         self.path_utils.group_hash_id = wandb.util.generate_id()
         group_name = self.full_dataset_name.lower() + "_" + self._model_type.lower() + "_" + \
                      self._model_size_type.lower() + "_" + self._search_algo_name.lower() \
                      + "_" + self._scheduler_name.lower() + "_" + self._hpo_searchspace_mode.lower() \
                      + "_" + self.path_utils.group_hash_id
 
-        os.environ["WANDB_RUN_GROUP"] = group_name
+        os.environ["WANDB_RUN_GROUP"] = "test"
 
     @staticmethod
     def _convert_json_to_search_space(config_json, mode = "grid_search"):
@@ -564,9 +561,9 @@ class AutoTransformers:
             batch_size = config["per_device_train_batch_size"],
             mode="last")
 
-        # for each_hp in config:
-        #     if each_hp in hp_type_mapping.keys():
-        #         wandb.log({each_hp: config[each_hp]})
+        for each_hp in config:
+            if each_hp in hp_type_mapping.keys():
+                wandb.log({each_hp: config[each_hp]})
 
         assert self.path_utils.ckpt_dir_per_trial
         training_args = TrainingArguments(
@@ -822,7 +819,7 @@ class AutoTransformers:
         self._set_sample_num_time_budget(custom_num_samples, custom_time_budget, num_sample_time_budget_mode, time_as_grid)
         scheduler = AutoScheduler.from_scheduler_name(self._scheduler_name)
 
-        self._set_wandb(wandb_key)
+        self._set_wandb()
         self.path_utils.make_dir_per_run()
 
         logger.addHandler(logging.FileHandler(os.path.join(self.path_utils.log_dir_per_run, 'tune.log')))
@@ -854,7 +851,7 @@ class AutoTransformers:
         tune_config = self._search_space_hpo
         tune_config["wandb"] = {
                     "project": "hpo",
-                    "group": os.environ["WANDB_RUN_GROUP"],
+                    "group": "test", # os.environ["WANDB_RUN_GROUP"],
                     "reinit": True,
                     "allow_val_change": True
                 }

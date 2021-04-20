@@ -32,29 +32,23 @@ code:
 # data:
 #   data upload is not required for this example
 
+parameters:
+  subdataset_names: ["rte", "mrpc", "cola", "sst2"]
+  model_names: ["electra_small", "electra_base", "bert", "roberta", "deberta"]
+
 jobs:
-- name: rte_grid_bert
-  sku: 32G4
-  command:
-  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 0 --suffix rte_grid_bert --data_root_dir "./data/" --sample_num 64 --time_budget 3600
-  submit_args: &retry_args
+- ${{ each model in parameters.model_names }}
+  - name: ${{ model }}_rte_hpo
+    sku: 32G4
+    command:
+    - python run_autohf.py --dataset_idx 0 --model_name ${{ model }} --server_name azureml --algo hpo --suffix ${{ model }}_rte_hpo --data_root_dir "./data/" --sample_num 64 --time_budget 3600
+    submit_args: &retry_args
     # Max numbers of attempts to retry job. Default: 3.
-    max_attempts: 1
-- name: cola_grid_bert
-  sku: 32G4
-  command:
-  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 2 --suffix cola_grid_bert --data_root_dir "./data/" --sample_num 64 --time_budget 7200
-  submit_args:
-    <<: *retry_args
-- name: rte_hpo
-  sku: 32G4
-  command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix rte_hpo --data_root_dir "./data/" --sample_num 64 --time_budget 3600
-  submit_args:
-    <<: *retry_args
-- name: cola_hpo
-  sku: 32G4
-  command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix cola_hpo --data_root_dir "./data/" --sample_num 64 --time_budget 7200
-  submit_args:
-    <<: *retry_args
+      max_attempts: 0
+- ${{ each model in parameters.model_names }}
+  - name: ${{ model }}_cola_hpo
+    sku: 32G4
+    command:
+    - python run_autohf.py --dataset_idx 2 --model_name ${{ model }} --server_name azureml --algo hpo --suffix ${{ model }}_cola_hpo --data_root_dir "./data/" --sample_num 64 --time_budget 7200
+    submit_args:
+      <<: *retry_args
