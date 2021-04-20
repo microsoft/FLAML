@@ -37,46 +37,12 @@ parameters:
   model_names: ["electra_small", "electra_base", "bert", "roberta", "deberta"]
 
 jobs:
-- ${{ each model in parameters.model_names }}
-  - name: rte_hpo
-    sku: 32G4
-    command:
-    - python run_autohf.py --dataset_idx 0 --model_name ${{ model }} --server_name azureml --algo hpo --suffix ${{ model }}_rte_hpo --data_root_dir "./data/" --sample_num 64 --time_budget 3600
-    submit_args: &retry_args
-    # Max numbers of attempts to retry job. Default: 3.
-      max_attempts: 0
-- ${{ each model in parameters.model_names }}
-  - name: cola_hpo
-    sku: 32G4
-    command:
-    - python run_autohf.py --dataset_idx 2 --model_name ${{ model }} --server_name azureml --algo hpo --suffix ${{ model }}_cola_hpo --data_root_dir "./data/" --sample_num 64 --time_budget 7200
-    submit_args:
-      <<: *retry_args
-- ${{ each model in parameters.model_names }}
-  - name: sst_hpo
-    sku: 32G4
-    command:
-    - python run_autohf.py --dataset_idx 3 --model_name ${{ model }} --server_name azureml --algo hpo --suffix ${{ model }}_sst_hpo --data_root_dir "./data/" --sample_num 64 --time_budget 7200
-    submit_args:
-      <<: *retry_args
-- ${{ each model in parameters.model_names }}
-  - name: cola_grid
-    sku: 32G4
-    command:
-    - python run_autohf.py --dataset_idx 2 --model_name ${{ model }} --server_name azureml --algo grid_search_bert --suffix ${{ model }}_cola_grid --data_root_dir "./data/" --sample_num 64 --time_budget 7200
-    submit_args:
-      <<: *retry_args
-- ${{ each model in parameters.model_names }}
-  - name: rte_grid
-    sku: 32G4
-    command:
-    - python run_autohf.py --dataset_idx 0 --model_name ${{ model }} --server_name azureml --algo grid_search_bert --suffix ${{ model }}_rte_grid --data_root_dir "./data/" --sample_num 64 --time_budget 7200
-    submit_args:
-      <<: *retry_args
-- ${{ each model in parameters.model_names }}
-  - name: sst_grid
-    sku: 32G4
-    command:
-    - python run_autohf.py --dataset_idx 3 --model_name ${{ model }} --server_name azureml --algo grid_search_bert --suffix ${{ model }}_sst_grid --data_root_dir "./data/" --sample_num 64 --time_budget 7200
-    submit_args:
-      <<: *retry_args
+  steps:
+    - ${{ each model in parameters.model_names }}:
+      - name: rte_hpo
+        sku: 32G4
+        command:
+        - python run_autohf.py --dataset_idx 0 --model_name ${{ model }} --server_name azureml --algo hpo --suffix ${{ model }}_rte_hpo --data_root_dir "./data/" --sample_num 64 --time_budget 3600
+        submit_args: &retry_args
+        # Max numbers of attempts to retry job. Default: 3.
+          max_attempts: 0
