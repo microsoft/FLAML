@@ -147,11 +147,15 @@ def _test_grid(args, fout, autohf):
             autohf_settings = get_autohf_settings_grid(args)
             hash = random.getrandbits(10)
             with open("./logs/traindata_order_" + str(hash) + ".txt", "w") as fout2:
-                for i in range(10):
-                    fout2.write(train_dataset[i]['sentence'] + "\n")
+                for i in range(100):
+                    try:
+                        fout2.write(str(train_dataset[i]['input_ids'][1]) + "\n")
+                    except:
+                        pass
             api = wandb.Api()
             runs = api.runs("liususan/upload_file_" + args.server_name)
             runs[0].upload_file(os.path.abspath("./logs/traindata_order_" + str(hash) + ".txt"))
+            sys.exit(1)
 
             try:
                 validation_metric, analysis = autohf.fit(train_dataset,
