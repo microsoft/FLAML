@@ -33,10 +33,17 @@ code:
 #   data upload is not required for this example
 
 jobs:
-- name: sst_hpo
+- name: rte_grid_bert
   sku: 32G4
   command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 3 --suffix sst_hpo --data_root_dir "./data/" --sample_num 64 --time_budget 3600
+  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 0 --suffix rte_grid_bert --data_root_dir "./data/" --sample_num 64 --time_budget 3600
+  submit_args: &retry_args
+    # Max numbers of attempts to retry job. Default: 3.
+    max_attempts: 1
+- name: rte_grid_bert
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 0 --suffix rte_grid_bert --data_root_dir "./data/" --sample_num 64 --time_budget 3600
   submit_args: &retry_args
     # Max numbers of attempts to retry job. Default: 3.
     max_attempts: 1

@@ -7,6 +7,7 @@ wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 import datetime
 import json
 import shutil
+import wandb, random
 from flaml.nlp.autotransformers import AutoTransformers
 
 dataset_names = [["glue"], ["glue"], ["glue"], ["glue"]]
@@ -37,8 +38,10 @@ def get_resplit_portion(this_dataset_name, this_subset_name):
         return {"source": ["train", "validation"], "train": [0, 0.25], "validation": [0.25, 0.275], "test": [0.275, 0.3]}
     elif this_dataset_name[0] in {"imdb", "dbpedia_14", "yelp_review_full"}:
         return {"source": ["train", "test"], "train": [0, 0.05], "validation": [0.05, 0.055], "test": [0.055, 0.06]}
-    else:
+    elif this_dataset_name == ["glue"] and this_subset_name in {"sst2"}:
         return {"source": ["train", "validation"], "train": [0, 0.4], "validation": [0.4, 0.5], "test": [0.5, 0.6]}
+    else:
+        return {"source": ["train", "validation"], "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
 
 def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model):
     preparedata_setting = {
@@ -97,7 +100,6 @@ def get_autohf_settings_enumeratehp():
 
 def flush_and_upload(fout, args):
     fout.flush()
-    import wandb
     api = wandb.Api()
     runs = api.runs("liususan/upload_file_" + args.server_name)
     runs[0].upload_file(os.path.abspath("./logs/log_" + args.server_name + "_" + args.suffix + ".log"))
@@ -143,6 +145,15 @@ def _test_grid(args, fout, autohf):
             train_dataset, eval_dataset, test_dataset = \
             autohf.prepare_data(**preparedata_setting)
             autohf_settings = get_autohf_settings_grid(args)
+            hash = random.getrandbits(10)
+            with open("./logs/traindata_order_" + str(hash) + ".txt", "w") as fout2:
+                for i in range(10):
+                    fout2.write(train_dataset[i]['sentence'] + "\n")
+            api = wandb.Api()
+            runs = api.runs("liususan/upload_file_" + args.server_name)
+            runs[0].upload_file(os.path.abspath("./logs/traindata_order_" + str(hash) + ".txt"))
+
+            sys.exit(1)
 
             try:
                 validation_metric, analysis = autohf.fit(train_dataset,
