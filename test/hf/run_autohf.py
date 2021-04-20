@@ -9,6 +9,7 @@ import datetime
 import json
 import shutil
 from flaml.nlp.autotransformers import AutoTransformers
+from collections import OrderedDict
 
 dataset_names = [["glue"], ["glue"], ["glue"], ["glue"]]
 subdataset_names = ["rte", "mrpc", "cola", "sst2"]
