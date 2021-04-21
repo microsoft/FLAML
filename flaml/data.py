@@ -237,7 +237,8 @@ class DataTransformer:
                     SimpleImputer(missing_values=np.nan, strategy='median'),
                     X_num.columns)])
                 X[num_columns] = self.transformer.fit_transform(X_num)
-            self._cat_columns, self._num_columns, self._datetime_columns = cat_columns, num_columns, datetime_columns
+            self._cat_columns, self._num_columns, self._datetime_columns = cat_columns, \
+                                                                           num_columns, datetime_columns
             self._drop = drop
 
         if task == 'regression':
@@ -250,7 +251,8 @@ class DataTransformer:
 
     def transform(self, X):
         if isinstance(X, pd.DataFrame):
-            cat_columns, num_columns, datetime_columns = self._cat_columns, self._num_columns, self._datetime_columns
+            cat_columns, num_columns, datetime_columns = self._cat_columns, \
+                                                         self._num_columns, self._datetime_columns
             if datetime_columns:
                 for dt_column in datetime_columns:
                     X[dt_column] = X[dt_column].map(datetime.toordinal)
