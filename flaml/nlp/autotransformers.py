@@ -143,7 +143,7 @@ class AutoTransformers:
             search_space_hpo_json = AutoHPOSearchSpace.from_model_and_dataset_name(logger, self._hpo_searchspace_mode, self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name, **custom_hpo_args)
             search_space_dict_hpo = AutoTransformers._convert_json_to_search_space(search_space_hpo_json, mode="grid_search")
         elif self._search_algo_name == "grid_search_bert":
-            _, search_space_hpo_json = AutoGridSearchSpace.from_model_and_dataset_name("electra", "base", self._dataset_name[0], self._subdataset_name)
+            _, search_space_hpo_json = AutoGridSearchSpace.from_model_and_dataset_name("bert", "base", self._dataset_name[0], self._subdataset_name)
             search_space_dict_hpo = AutoTransformers._convert_json_to_search_space(search_space_hpo_json, mode="grid_search")
 
         search_space_dict_hpo = TrainerForAutoTransformers.resolve_hp_conflict(search_space_dict_hpo)

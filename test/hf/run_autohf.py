@@ -133,7 +133,7 @@ def write_regular(autohf, args, validation_metric, save_file_name, fout, sample_
     flush_and_upload(fout, args)
 
 def _test_grid(args, fout, autohf):
-    for data_idx in range(0, len(dataset_names)): #args.dataset_idx, args.dataset_idx + 1):
+    for data_idx in range(args.dataset_idx, args.dataset_idx + 1):
         this_dataset_name = dataset_names[data_idx]
         this_subset_name = subdataset_names[data_idx]
 

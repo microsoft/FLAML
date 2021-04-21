@@ -20,31 +20,17 @@ code:
   local_dir: $CONFIG_DIR/../
 
 jobs:
-- name: rte_grid
-  sku: 32G4
-  command:
-  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 0 --suffix rte_grid --data_root_dir './data/' --sample_num 64 --time_budget 3600
-  submit_args: &retry_args
-    max_attempts: 0
-
-- name: rte_hpo0
-  sku: 32G4
-  command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix rte_hpo0 --data_root_dir './data/' --sample_num 64 --time_budget 3600 --space_idx 0
-  submit_args:
-    <<: *retry_args
-
-- name: rte_hpo1
-  sku: 32G4
-  command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix rte_hpo1 --data_root_dir './data/' --sample_num 64 --time_budget 3600 --space_idx 1
-  submit_args:
-    <<: *retry_args
-
 - name: mrpc_grid
   sku: 32G4
   command:
   - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 1 --suffix mrpc_grid --data_root_dir './data/' --sample_num 64 --time_budget 3600
+  submit_args: &retry_args
+    max_attempts: 0
+
+- name: rte_grid
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 0 --suffix rte_grid --data_root_dir './data/' --sample_num 64 --time_budget 3600
   submit_args:
     <<: *retry_args
 
@@ -80,27 +66,6 @@ jobs:
   sku: 32G4
   command:
   - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix cola_hpo1 --data_root_dir './data/' --sample_num 64 --time_budget 7200 --space_idx 1
-  submit_args:
-    <<: *retry_args
-
-- name: sst2_grid
-  sku: 32G4
-  command:
-  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 3 --suffix sst2_grid --data_root_dir './data/' --sample_num 64 --time_budget 7200
-  submit_args:
-    <<: *retry_args
-
-- name: sst2_hpo0
-  sku: 32G4
-  command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 3 --suffix sst2_hpo0 --data_root_dir './data/' --sample_num 64 --time_budget 7200 --space_idx 0
-  submit_args:
-    <<: *retry_args
-
-- name: sst2_hpo1
-  sku: 32G4
-  command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 3 --suffix sst2_hpo1 --data_root_dir './data/' --sample_num 64 --time_budget 7200 --space_idx 1
   submit_args:
     <<: *retry_args
 
