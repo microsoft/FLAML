@@ -100,7 +100,7 @@ def flush_and_upload(fout, args):
     import wandb
     api = wandb.Api()
     runs = api.runs("liususan/upload_file_" + args.server_name)
-    runs[0].upload_file(os.path.abspath("./logs/log_" + args.server_name + "_" + args.suffix + "_" + str(args.space_idx) + ".log"))
+    runs[0].upload_file(os.path.abspath("./logs/log_" + args.server_name + "_" + args.suffix + ".log"))
 
 def output_predict(args, test_dataset, autohf, fout, save_file_name):
     if test_dataset:
@@ -124,15 +124,16 @@ def write_exception(args, save_file_name, fout):
     fout.write("failed, no checkpoint found\n")
     flush_and_upload(fout, args)
 
-def write_regular(autohf, args, validation_metric, save_file_name, fout):
+def write_regular(autohf, args, validation_metric, save_file_name, fout, sample_num):
     fout.write(save_file_name + ":\n")
     fout.write("timestamp:" + str(str(datetime.datetime.now())) + ":\n")
     fout.write("validation " + (autohf.metric_name) + ":" + json.dumps(validation_metric) + "\n")
     fout.write("duration:" + str(autohf.last_run_duration) + "\n")
+    fout.write("sample_num: " + str(sample_num) + "\n")
     flush_and_upload(fout, args)
 
 def _test_grid(args, fout, autohf):
-    for data_idx in range(args.dataset_idx, args.dataset_idx + 1):
+    for data_idx in range(0, len(dataset_names)): #args.dataset_idx, args.dataset_idx + 1):
         this_dataset_name = dataset_names[data_idx]
         this_subset_name = subdataset_names[data_idx]
 
@@ -152,7 +153,7 @@ def _test_grid(args, fout, autohf):
                 raise err
 
             save_file_name = get_full_name(autohf, is_grid=True)
-            write_regular(autohf, args, validation_metric, save_file_name, fout)
+            write_regular(autohf, args, validation_metric, save_file_name, fout, len(analysis.trials))
             output_predict(args, test_dataset, autohf, fout, save_file_name)
             rm_home_result()
 
@@ -186,7 +187,7 @@ def _test_hpo(args, fout, autohf):
                     continue
 
                 save_file_name = get_full_name(autohf, is_grid=True)
-                write_regular(autohf, args, validation_metric, save_file_name, fout)
+                write_regular(autohf, args, validation_metric, save_file_name, fout, len(analysis.trials))
                 output_predict(args, test_dataset, autohf, fout, save_file_name)
                 rm_home_result()
 
@@ -208,7 +209,7 @@ if __name__ == "__main__":
 
     if not os.path.exists("./logs/"):
         os.mkdir("./logs/")
-    fout = open("./logs/log_" + args.server_name + "_" + args.suffix + "_" + str(args.space_idx) + ".log", "a")
+    fout = open("./logs/log_" + args.server_name + "_" + args.suffix + ".log", "a")
     if args.algo.startswith("grid"):
         _test_grid(args, fout, autohf = AutoTransformers())
     else:
