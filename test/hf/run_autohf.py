@@ -9,6 +9,12 @@ import json
 import shutil
 from flaml.nlp.autotransformers import AutoTransformers
 
+import mlflow
+from azureml.core import Workspace
+
+ws = Workspace.from_config()
+mlflow.set_tracking_uri(ws.get_mlflow_tracking_uri())
+
 dataset_names = [["glue"], ["glue"], ["glue"], ["glue"]]
 subdataset_names = ["rte", "mrpc", "cola", "sst2"]
 
