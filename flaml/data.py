@@ -254,10 +254,10 @@ class DataTransformer:
         if isinstance(X, pd.DataFrame):
             cat_columns, num_columns, datetime_columns = self._cat_columns, \
                                                          self._num_columns, self._datetime_columns
+            X = X[cat_columns + num_columns].copy()
             if datetime_columns:
                 for dt_column in datetime_columns:
                     X[dt_column] = X[dt_column].map(datetime.toordinal)
-            X = X[cat_columns + num_columns].copy()
             for column in cat_columns:
                 # print(column, X[column].dtype.name)
                 if X[column].dtype.name == 'object':
