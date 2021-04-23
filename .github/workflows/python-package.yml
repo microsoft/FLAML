@@ -55,6 +55,7 @@ jobs:
       - name: Coverage
         if: ${{ matrix.python-version == '3.7' && matrix.os != 'macos-latest' }}
         run: |
+          pip install coverage
           coverage run -a -m pytest test
           coverage xml
       - name: Upload coverage to Codecov
