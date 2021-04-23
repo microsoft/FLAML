@@ -5,7 +5,7 @@ is_first = True
 
 copyfile("amlk8s_header.yml", "amlk8s.yml")
 with open("amlk8s.yml", "a") as fout:
-    for data_idx in range(0, 3):
+    for data_idx in range(2, 3):
         names = [subdataset_names[data_idx] + "_grid",
                  subdataset_names[data_idx] + "_hpo0",
                  subdataset_names[data_idx] + "_hpo10",

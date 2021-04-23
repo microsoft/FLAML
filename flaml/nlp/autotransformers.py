@@ -103,7 +103,7 @@ class AutoTransformers:
                      self._model_size_type.lower() + "_" + self._search_algo_name.lower() \
                      + "_" + self._scheduler_name.lower() + "_" + self._hpo_searchspace_mode.lower() \
                      + "_" + self.path_utils.group_hash_id
-        wandb.init(project = "hpo", group=group_name, name= str(self._get_next_trial_ids()), reinit=True)
+        wandb.init(project = "debug", group=group_name, name= str(self._get_next_trial_ids()), reinit=True)
         os.environ["WANDB_RUN_GROUP"] = group_name
 
     @staticmethod
@@ -903,7 +903,9 @@ class AutoTransformers:
         '''
         best_checkpoint = self._load_ckpt_json(ckpt_json_dir, **kwargs)
         best_model = self._load_model(checkpoint_path=best_checkpoint)
-        test_trainer = transformers.Trainer(best_model)
+        training_args = TrainingArguments(per_device_eval_batch_size=1,
+                                          output_dir=self.path_utils.result_dir_per_run)
+        test_trainer = TrainerForAutoTransformers(best_model, training_args)
 
         if self._split_mode == "origin":
             try:
@@ -914,7 +916,8 @@ class AutoTransformers:
         test_dataloader = test_trainer.get_test_dataloader(test_dataset)
         predictions, labels, _ = test_trainer.prediction_loop(test_dataloader, description="Prediction")
         predictions = np.squeeze(predictions) if self._task_name == "text-regression" else np.argmax(predictions, axis=1)
-
+        torch.cuda.empty_cache()
+        
         if self._split_mode == "resplit":
             assert labels is not None
             metric = self._get_metric()
