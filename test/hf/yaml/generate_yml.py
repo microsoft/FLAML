@@ -5,7 +5,7 @@ is_first = True
 
 copyfile("amlk8s_header.yml", "amlk8s.yml")
 with open("amlk8s.yml", "a") as fout:
-    for data_idx in range(2, 3):
+    for data_idx in range(0, 3):
         names = [subdataset_names[data_idx] + "_grid",
                  subdataset_names[data_idx] + "_hpo0",
                  subdataset_names[data_idx] + "_hpo10",
@@ -20,7 +20,7 @@ with open("amlk8s.yml", "a") as fout:
             time_budget = 3600
         else:
             time_budget = 7200
-        for name_idx in range(len(names)):
+        for name_idx in range(3, len(names)):
             space_idx = space_idxs[name_idx]
             this_name = names[name_idx]
             this_algo_mode = algo_modes[name_idx]
@@ -31,7 +31,7 @@ with open("amlk8s.yml", "a") as fout:
             fout.write("  command:\n")
             fout.write("  - python run_autohf.py --server_name azureml --algo " + this_algo_mode + " "
                        "--dataset_idx " + str(data_idx) + " --suffix " + this_name + " "
-                       "--data_root_dir './data/' --sample_num 64 --time_budget " + str(time_budget))
+                       "--data_root_dir './data/' --sample_num 100000 --time_budget " + str(time_budget))
             if space_idx is not None:
                 fout.write(" --space_idx " + str(space_idx))
             if this_algo_idx is not None:

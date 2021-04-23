@@ -114,6 +114,7 @@ def flush_and_upload(fout, args):
 def output_predict(args, test_dataset, autohf, fout, save_file_name):
     if test_dataset:
         predictions, output_metric = autohf.predict(test_dataset)
+        fout.write(str(output_metric[autohf.metric_name]) + "\n")
         fout.write("test " + (autohf.metric_name) + ":" + json.dumps(output_metric) + "\n\n")
         flush_and_upload(fout, args)
         if autohf.split_mode == "origin":
@@ -139,6 +140,7 @@ def write_regular(autohf, args, validation_metric, save_file_name, fout, sample_
     fout.write("validation " + (autohf.metric_name) + ":" + json.dumps(validation_metric) + "\n")
     fout.write("duration:" + str(autohf.last_run_duration) + "\n")
     fout.write("sample_num: " + str(sample_num) + "\n")
+    fout.write(save_file_name.split("_")[-1] + "," + str(sample_num) + "," + str(autohf.last_run_duration) + "," + str(validation_metric) + ",")
     flush_and_upload(fout, args)
 
 def _test_grid(args, fout, autohf):

@@ -19,31 +19,24 @@ code:
   local_dir: $CONFIG_DIR/../
 
 jobs:
-- name: rte_grid
+- name: cola_hpo11
   sku: 32G4
   command:
-  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 2 --suffix rte_grid --data_root_dir './data/' --sample_num 64 --time_budget 3600
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix cola_hpo11 --data_root_dir './data/' --sample_num 100000 --time_budget 7200 --space_idx 1 --algo_idx 1
   submit_args: &retry_args
     max_attempts: 0
 
-- name: rte_hpo0
+- name: mrpc_hpo11
   sku: 32G4
   command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix rte_hpo0 --data_root_dir './data/' --sample_num 64 --time_budget 3600 --space_idx 0 --algo_idx 0
-  submit_args:
-    <<: *retry_args
-
-- name: rte_hpo10
-  sku: 32G4
-  command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix rte_hpo10 --data_root_dir './data/' --sample_num 64 --time_budget 3600 --space_idx 1 --algo_idx 0
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 1 --suffix mrpc_hpo11 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 1
   submit_args:
     <<: *retry_args
 
 - name: rte_hpo11
   sku: 32G4
   command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix rte_hpo11 --data_root_dir './data/' --sample_num 64 --time_budget 3600 --space_idx 1 --algo_idx 1
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix rte_hpo11 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 1
   submit_args:
     <<: *retry_args
 
