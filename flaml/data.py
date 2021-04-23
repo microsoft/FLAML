@@ -255,7 +255,8 @@ class DataTransformer:
                                                          self._num_columns, self._datetime_columns
             if datetime_columns:
                 for dt_column in datetime_columns:
-                    X[dt_column] = X[dt_column].map(datetime.toordinal)
+                    if X[dt_column].dtype.name == 'datetime64[n]':
+                        X[dt_column] = X[dt_column].map(datetime.toordinal)
             X = X[cat_columns + num_columns].copy()
             for column in cat_columns:
                 # print(column, X[column].dtype.name)
