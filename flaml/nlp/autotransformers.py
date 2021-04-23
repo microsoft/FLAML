@@ -8,7 +8,6 @@ import wandb
 import numpy as np
 
 from ray.tune import CLIReporter
-from ray.tune.integration.wandb import wandb_mixin
 
 import time
 import ray
