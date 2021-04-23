@@ -1,3 +1,4 @@
+import hashlib
 import os,json
 import random
 
@@ -92,24 +93,17 @@ class AutoTransformers:
     def _set_wandb_hash(self):
         self.path_utils.group_hash_id = wandb.util.generate_id()
 
-    def _get_next_trial_ids(self, group_name):
-        import wandb
-        api = wandb.Api()
-        runs = api.runs('liususan/hpo', filters={"group": group_name})
-        time.sleep(0.5)
-        if len(runs) == 0:
-            return 0
-        else:
-            return max([int(run.name) for run in runs]) + 1
+    def _get_next_trial_ids(self):
+        hash = hashlib.sha1()
+        hash.update(str(time.time()).encode('utf-8'))
+        return "trial_" + hash.hexdigest()[:3]
 
     def _set_wandb(self):
-
         group_name = self.full_dataset_name.lower() + "_" + self._model_type.lower() + "_" + \
                      self._model_size_type.lower() + "_" + self._search_algo_name.lower() \
                      + "_" + self._scheduler_name.lower() + "_" + self._hpo_searchspace_mode.lower() \
                      + "_" + self.path_utils.group_hash_id
-        a = torch.zeros(10, 10).cuda()
-        wandb.init(project = "hpo", group=group_name, name= str(self._get_next_trial_ids(group_name)), reinit=True)
+        wandb.init(project = "hpo", group=group_name, name= str(self._get_next_trial_ids()), reinit=True)
         os.environ["WANDB_RUN_GROUP"] = group_name
 
     @staticmethod
@@ -276,6 +270,7 @@ class AutoTransformers:
                      dataset_config,
                      server_name,
                      model_name,
+                     model_size_type,
                      split_mode,
                      data_root_path,
                      max_seq_length = 128,
@@ -350,6 +345,7 @@ class AutoTransformers:
                     dataset_name = dataset_name,
                     subdataset_name = subdataset_name,
                     model_name= model_name,
+                    model_size_type = model_size_type,
         )
         self.path_utils.init_and_make_dirs()
 
@@ -426,16 +422,8 @@ class AutoTransformers:
         except:
             model_type = self._extract_model_type_with_keywords_match()
 
-        model_size_type = ""
-        if "base" in self.path_utils.model_checkpoint:
-            model_size_type = "base"
-        elif "large" in self.path_utils.model_checkpoint:
-            model_size_type = "large"
-        elif "small" in self.path_utils.model_checkpoint:
-            model_size_type = "small"
-
         self._model_type = model_type
-        self._model_size_type = model_size_type
+        self._model_size_type = self.path_utils.model_size_type
 
     def _load_model(self,
                     checkpoint_path = None,

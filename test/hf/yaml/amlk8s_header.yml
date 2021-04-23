@@ -13,7 +13,6 @@ environment:
     - cd FLAML
     - git checkout v0.2.7
     - pip install -e.[blendsearch,ray] --user
-    - export WANDB_MODE=disabled
     - export WANDB_API_KEY=7553d982a2247ca8324ec648bd302678105e1058
 
 code:

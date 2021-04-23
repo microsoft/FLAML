@@ -40,16 +40,16 @@ def hpo_space_gridunion_other_large(logger, model_type, model_size_type, dataset
                 pass
         output_config = merge_dicts(output_config, default_values)
 
-    for each_hp in hp_type_mapping.keys():
-        if each_hp == "warmup_ratio":
-            output_config[each_hp] = [x for x in output_config[each_hp] if x != 0]
+    # for each_hp in hp_type_mapping.keys():
+    #     if each_hp == "warmup_ratio":
+    #         output_config[each_hp] = [x for x in output_config[each_hp] if x != 0]
 
     return output_config
 
 def hpo_space_gridunion_other(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
     output_config = {}
     for each_model_type in GRID_SEARCH_SPACE_MAPPING.keys():
-        if each_model_type == model_type: continue
+        #if each_model_type == model_type: continue
         _, each_grid_search_config = AutoGridSearchSpace.from_model_and_dataset_name(each_model_type, model_size_type, dataset_name, subdataset_name)
         from ..utils import merge_dicts
         output_config = merge_dicts(output_config, each_grid_search_config)
@@ -62,11 +62,11 @@ def hpo_space_gridunion_other(logger, model_type, model_size_type, dataset_name,
                 pass
         output_config = merge_dicts(output_config, default_values)
 
-    for each_hp in output_config.keys():
-        if each_hp == "warmup_ratio":
-            output_config[each_hp] = [x for x in output_config[each_hp] if x != 0]
-        if each_hp == "max_steps":
-            output_config[each_hp] = [x for x in output_config[each_hp] if x != -1]
+    # for each_hp in output_config.keys():
+    #     if each_hp == "warmup_ratio":
+    #         output_config[each_hp] = [x for x in output_config[each_hp] if x != 0]
+    #     if each_hp == "max_steps":
+    #         output_config[each_hp] = [x for x in output_config[each_hp] if x != -1]
 
     return output_config
 
@@ -124,6 +124,16 @@ def hpo_space_generic(logger, model_type, model_size_type, dataset_name, subdata
         "per_device_train_batch_size": [4, 8, 16, 32, 48, 64],
         "warmup_ratio": {"l": 0.0, "u": 0.3, "space": "linear"},
         "weight_decay": {"l": 0.0, "u": 0.3, "space": "linear"}
+    }
+    return output_config
+
+def hpo_space_generic_grid(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
+    output_config = {
+        "learning_rate": [1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1.5e-4],
+        "num_train_epochs": [3, 10],
+        "per_device_train_batch_size": [16, 32],
+        "warmup_ratio": [0, 0.06, 0.1],
+        "weight_decay": [0, 0.1]
     }
     return output_config
 

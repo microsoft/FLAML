@@ -60,6 +60,7 @@ class PathUtils:
     _group_hash_id: str = field(metadata={"help": "hash code for the hpo run"})
 
     model_name: str = field(metadata={"help": "huggingface name."})
+    model_size_type: str = field(metadata={"help": "model size type."})
     _folder_name: str = field(metadata={"help": "folder name."})
 
     _log_dir_per_run: str = field(metadata={"help": "log directory for each run."})
@@ -72,6 +73,7 @@ class PathUtils:
                  dataset_name,
                  subdataset_name,
                  model_name,
+                 model_size_type,
                  ):
         self.hpo_data_root_path = hpo_data_root_path
         self.hpo_ckpt_path = os.path.join(hpo_data_root_path, "checkpoint")
@@ -80,6 +82,7 @@ class PathUtils:
         self.dataset_name = dataset_name
         self.subdataset_name = subdataset_name
         self.model_name = model_name
+        self.model_size_type = model_size_type
 
     def set_folder_name(self, autohf_ref):
         self._folder_name = autohf_ref.search_algo_name.lower() + "_" + autohf_ref.scheduler_name.lower() + "_" \

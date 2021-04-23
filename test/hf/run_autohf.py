@@ -12,10 +12,15 @@ import json
 import shutil
 from flaml.nlp.autotransformers import AutoTransformers
 
-dataset_names = [["glue"], ["glue"], ["glue"], ["glue"]]
-subdataset_names = ["rte", "mrpc", "cola", "sst2"]
+dataset_names = [["glue"], ["glue"], ["glue"]]
+subdataset_names = ["cola", "mrpc", "rte"]
 
-pretrained_models = ["google/electra-small-discriminator", "google/electra-base-discriminator", "bert-base-uncased", "roberta-base", "microsoft/deberta-base"]
+pretrained_models = [("xlnet-base-cased", "base"),
+                     ("albert-large-v1", "small"),
+                     ("distilbert-base-uncased", "base"),
+                     ("microsoft/deberta-base", "base"),
+                     ("google/mobilebert-uncased", "base"),
+                     ("funnel-transformer/small-base", "base")]
 
 search_algos = ["BlendSearch"]
 scheduler_names = ["None"]
@@ -43,7 +48,7 @@ def get_resplit_portion(this_dataset_name, this_subset_name):
     else:
         return {"source": ["train", "validation"], "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
 
-def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model):
+def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model, each_model_size_type):
     preparedata_setting = {
         "dataset_config": {"task": "text-classification",
                            "dataset_name": this_dataset_name,
@@ -51,6 +56,7 @@ def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pret
                            },
         "resplit_portion": get_resplit_portion(this_dataset_name, this_subset_name),
         "model_name": each_pretrained_model,
+        "model_size_type": each_model_size_type,
         "server_name": args.server_name,
         "split_mode": "resplit",
         "data_root_path": args.data_root_dir,
@@ -141,9 +147,10 @@ def _test_grid(args, fout, autohf):
         this_subset_name = subdataset_names[data_idx]
 
         for model_idx in range(0, len(pretrained_models)):
-            each_pretrained_model = pretrained_models[model_idx]
+            each_pretrained_model = pretrained_models[model_idx][0]
+            each_model_size_type = pretrained_models[model_idx][1]
 
-            preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model)
+            preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model, each_model_size_type)
             train_dataset, eval_dataset, test_dataset = \
             autohf.prepare_data(**preparedata_setting)
             autohf_settings = get_autohf_settings_grid(args)
@@ -168,13 +175,14 @@ def _test_hpo(args, fout, autohf):
         for algo_idx in range(0, len(search_algos)):
             this_search_algo = search_algos[algo_idx]
             for model_idx in range(0, len(pretrained_models)):
-                each_pretrained_model = pretrained_models[model_idx]
+                each_pretrained_model = pretrained_models[model_idx][0]
+                each_model_size_type = pretrained_models[model_idx][1]
 
                 this_scheduler_name = scheduler_names[algo_idx]
                 hpo_searchspace_mode = hpo_searchspace_modes[args.space_idx]
                 search_algo_args_mode = search_algo_args_modes[args.space_idx]
                 preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
-                                                              each_pretrained_model)
+                                                              each_pretrained_model, each_model_size_type)
 
                 train_dataset, eval_dataset, test_dataset = \
                     autohf.prepare_data(**preparedata_setting)
