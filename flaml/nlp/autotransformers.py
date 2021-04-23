@@ -27,7 +27,7 @@ from .utils import PathUtils, _variable_override_default_alternative
 from .hpo.grid_searchspace_auto import AutoGridSearchSpace
 from .hpo.searchalgo_auto import AutoSearchAlgorithm, SEARCH_ALGO_MAPPING
 from .hpo.scheduler_auto import SCHEDULER_MAPPING, AutoScheduler
-from .hpo.grid_searchspace_auto import GRID_SEARCH_SPACE_MAPPING
+from .hpo.grid_searchspace_auto import HF_MODEL_LIST
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -408,7 +408,7 @@ class AutoTransformers:
 
     def _extract_model_type_with_keywords_match(self):
         matched_model_type = []
-        for each_model_type in GRID_SEARCH_SPACE_MAPPING.keys():
+        for each_model_type in HF_MODEL_LIST:
             if each_model_type in self.path_utils.model_checkpoint:
                 matched_model_type.append(each_model_type)
         assert len(matched_model_type) > 0

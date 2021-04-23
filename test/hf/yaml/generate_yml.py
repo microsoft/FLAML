@@ -6,23 +6,36 @@ is_first = True
 copyfile("amlk8s_header.yml", "amlk8s.yml")
 with open("amlk8s.yml", "a") as fout:
     for data_idx in range(0, 3):
-        names = [subdataset_names[data_idx] + "_grid", subdataset_names[data_idx] + "_hpo0", subdataset_names[data_idx] + "_hpo1"]
-        algos = ["grid_search_bert", "hpo", "hpo"]
+        names = [subdataset_names[data_idx] + "_grid",
+                 subdataset_names[data_idx] + "_hpo0",
+                 subdataset_names[data_idx] + "_hpo1",
+                 subdataset_names[data_idx] + "_hpo1"]
+        algo_modes = ["grid_search_bert",
+                 "hpo",
+                 "hpo",
+                 "hpo"]
+        space_idxs = [None, 0, 1, 1]
+        algo_idxs = [None, 0, 0, 1]
+        if data_idx == 2 or data_idx == 1:
+            time_budget = 3600
+        else:
+            time_budget = 7200
         for name_idx in range(len(names)):
-            if data_idx == 2 or data_idx == 1:
-                time_budget = 3600
-            else:
-                time_budget = 7200
-            space_idx = name_idx - 1
+            space_idx = space_idxs[name_idx]
+            this_name = names[name_idx]
+            this_algo_mode = algo_modes[name_idx]
+            this_algo_idx = algo_idxs[name_idx]
 
-            fout.write("- name: " + names[name_idx] + "\n")
+            fout.write("- name: " + this_name + "\n")
             fout.write("  sku: 32G4\n")
             fout.write("  command:\n")
-            fout.write("  - python run_autohf.py --server_name azureml --algo " + algos[name_idx] + " "
-                       "--dataset_idx " + str(data_idx) + " --suffix " + names[name_idx] + " "
+            fout.write("  - python run_autohf.py --server_name azureml --algo " + this_algo_mode + " "
+                       "--dataset_idx " + str(data_idx) + " --suffix " + this_name + " "
                        "--data_root_dir './data/' --sample_num 64 --time_budget " + str(time_budget))
-            if algos[name_idx] == "hpo":
+            if space_idx is not None:
                 fout.write(" --space_idx " + str(space_idx))
+            if this_algo_idx is not None:
+                fout.write(" --algo_idx " + str(this_algo_idx))
             fout.write("\n")
             if is_first:
                 is_first = False

@@ -4,9 +4,6 @@ from .get_grid_search_space import \
     (get_electra_space,
      get_bert_space,
      get_roberta_space,
-     get_funnel_space,
-     get_deberta_space,
-     get_albert_space
      )
 
 GRID_SEARCH_SPACE_MAPPING = OrderedDict(
@@ -19,6 +16,18 @@ GRID_SEARCH_SPACE_MAPPING = OrderedDict(
         # ("albert", get_albert_space),
     ]
 )
+
+HF_MODEL_LIST = [
+    "bert",
+    "roberta",
+    "electra",
+    "xlnet",
+    "albert",
+    "distilbert",
+    "deberta",
+    "mobilebert",
+    "funnel"
+]
 
 time_budget_grid_electra_base_glue = {
     "rte": 100,

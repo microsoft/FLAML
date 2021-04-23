@@ -22,8 +22,8 @@ pretrained_models = [("xlnet-base-cased", "base"),
                      ("google/mobilebert-uncased", "base"),
                      ("funnel-transformer/small-base", "base")]
 
-search_algos = ["BlendSearch"]
-scheduler_names = ["None"]
+search_algos = ["BlendSearch", "BlendSearch"]
+scheduler_names = ["None", "ASHA"]
 
 hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_gridunion_other"]
 search_algo_args_modes = ["default", "default"]
@@ -63,7 +63,7 @@ def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pret
         "max_seq_length": 128,
         }
     if ("albert" in each_pretrained_model and this_dataset_name == "squad") or \
-        ("funnel" in each_pretrained_model and this_dataset_name in {"imdb", "yelp_review_full", "yelp_polarity", "amazon_polarity", "amazon_review_multi"}):
+        ("funnel" in each_pretrained_model and isinstance(this_dataset_name, str) and this_dataset_name in {"imdb", "yelp_review_full", "yelp_polarity", "amazon_polarity", "amazon_review_multi"}):
         preparedata_setting["max_seq_length"] = 512
     if this_dataset_name[0] == "glue" and this_subset_name and this_subset_name == "mnli":
         preparedata_setting["dataset_config"]["fold_name"] = ['train', 'validation_matched', 'test_matched']
@@ -172,35 +172,36 @@ def _test_hpo(args, fout, autohf):
         this_dataset_name = dataset_names[data_idx]
         this_subset_name = subdataset_names[data_idx]
 
-        for algo_idx in range(0, len(search_algos)):
-            this_search_algo = search_algos[algo_idx]
-            for model_idx in range(0, len(pretrained_models)):
-                each_pretrained_model = pretrained_models[model_idx][0]
-                each_model_size_type = pretrained_models[model_idx][1]
+        this_search_algo = search_algos[args.algo_idx]
+        this_scheduler_name = scheduler_names[args.algo_idx]
 
-                this_scheduler_name = scheduler_names[algo_idx]
-                hpo_searchspace_mode = hpo_searchspace_modes[args.space_idx]
-                search_algo_args_mode = search_algo_args_modes[args.space_idx]
-                preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
-                                                              each_pretrained_model, each_model_size_type)
+        for model_idx in range(0, len(pretrained_models)):
+            each_pretrained_model = pretrained_models[model_idx][0]
+            each_model_size_type = pretrained_models[model_idx][1]
 
-                train_dataset, eval_dataset, test_dataset = \
-                    autohf.prepare_data(**preparedata_setting)
-                autohf_settings = get_autohf_settings(args, this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode)
 
-                try:
-                    validation_metric, analysis = autohf.fit(train_dataset,
-                               eval_dataset,
-                               **autohf_settings,)
-                except AssertionError:
-                    save_file_name = get_full_name(autohf, is_grid=True)
-                    write_exception(args, save_file_name, fout)
-                    continue
+            hpo_searchspace_mode = hpo_searchspace_modes[args.space_idx]
+            search_algo_args_mode = search_algo_args_modes[args.space_idx]
+            preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
+                                                          each_pretrained_model, each_model_size_type)
 
+            train_dataset, eval_dataset, test_dataset = \
+                autohf.prepare_data(**preparedata_setting)
+            autohf_settings = get_autohf_settings(args, this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode)
+
+            try:
+                validation_metric, analysis = autohf.fit(train_dataset,
+                           eval_dataset,
+                           **autohf_settings,)
+            except AssertionError:
                 save_file_name = get_full_name(autohf, is_grid=True)
-                write_regular(autohf, args, validation_metric, save_file_name, fout, len(analysis.trials))
-                output_predict(args, test_dataset, autohf, fout, save_file_name)
-                rm_home_result()
+                write_exception(args, save_file_name, fout)
+                continue
+
+            save_file_name = get_full_name(autohf, is_grid=True)
+            write_regular(autohf, args, validation_metric, save_file_name, fout, len(analysis.trials))
+            output_predict(args, test_dataset, autohf, fout, save_file_name)
+            rm_home_result()
 
     fout.close()
 
@@ -213,6 +214,7 @@ if __name__ == "__main__":
     arg_parser.add_argument('--data_root_dir', type=str, help='data dir', required=True)
     arg_parser.add_argument('--dataset_idx', type=int, help='data index', required=False)
     arg_parser.add_argument('--space_idx', type=int, help='space index', required=False)
+    arg_parser.add_argument('--algo_idx', type=int, help='algorithm index', required=False)
     arg_parser.add_argument('--sample_num', type=int, help='sample num', required=False)
     arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False)
     arg_parser.add_argument('--suffix', type=str, help='suffix', required=False)
