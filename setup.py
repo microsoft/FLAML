@@ -51,8 +51,8 @@ setuptools.setup(
             "transformers==4.4.1",
             "wandb",
             "ray[tune]==1.2.0",
-            "torch",
-            "datasets",
+            "torch==1.8.1",
+            "datasets==1.4.1",
         ],
         "blendsearch": [
             "optuna==2.3.0"

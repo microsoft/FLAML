@@ -13,38 +13,24 @@ environment:
     - cd FLAML
     - git checkout v0.2.7
     - pip install -e.[blendsearch,ray] --user
-    - export WANDB_MODE=disabled
+    - export WANDB_MODE=enabled
     - export WANDB_API_KEY=7553d982a2247ca8324ec648bd302678105e1058
 
 code:
   local_dir: $CONFIG_DIR/../
 
 jobs:
-- name: mrpc_grid
-  sku: 32G4
-  command:
-  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 1 --suffix mrpc_grid --data_root_dir './data/' --sample_num 64 --time_budget 3600
-  submit_args: &retry_args
-    max_attempts: 0
-
 - name: rte_grid
   sku: 32G4
   command:
   - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 0 --suffix rte_grid --data_root_dir './data/' --sample_num 64 --time_budget 3600
-  submit_args:
-    <<: *retry_args
+  submit_args: &retry_args
+    max_attempts: 0
 
-- name: mrpc_hpo0
+- name: mrpc_grid
   sku: 32G4
   command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 1 --suffix mrpc_hpo0 --data_root_dir './data/' --sample_num 64 --time_budget 3600 --space_idx 0
-  submit_args:
-    <<: *retry_args
-
-- name: mrpc_hpo1
-  sku: 32G4
-  command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 1 --suffix mrpc_hpo1 --data_root_dir './data/' --sample_num 64 --time_budget 3600 --space_idx 1
+  - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 1 --suffix mrpc_grid --data_root_dir './data/' --sample_num 64 --time_budget 3600
   submit_args:
     <<: *retry_args
 
@@ -52,20 +38,6 @@ jobs:
   sku: 32G4
   command:
   - python run_autohf.py --server_name azureml --algo grid_search_bert --dataset_idx 2 --suffix cola_grid --data_root_dir './data/' --sample_num 64 --time_budget 7200
-  submit_args:
-    <<: *retry_args
-
-- name: cola_hpo0
-  sku: 32G4
-  command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix cola_hpo0 --data_root_dir './data/' --sample_num 64 --time_budget 7200 --space_idx 0
-  submit_args:
-    <<: *retry_args
-
-- name: cola_hpo1
-  sku: 32G4
-  command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix cola_hpo1 --data_root_dir './data/' --sample_num 64 --time_budget 7200 --space_idx 1
   submit_args:
     <<: *retry_args
 

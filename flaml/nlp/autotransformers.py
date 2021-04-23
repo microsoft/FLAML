@@ -90,14 +90,27 @@ class AutoTransformers:
     # the following arguments are specific to text classification
     _num_labels: Optional[int] = field(metadata={"help": "The number of labels of output classes"})
 
+    def _set_wandb_hash(self):
+        self.path_utils.group_hash_id = wandb.util.generate_id()
+
+    def _get_next_trial_ids(self, group_name):
+        import wandb
+        api = wandb.Api()
+        runs = api.runs('liususan/hpo', filters={"group": group_name})
+        time.sleep(0.5)
+        if len(runs) == 0:
+            return 0
+        else:
+            return max([int(run.name) for run in runs]) + 1
 
     def _set_wandb(self):
-        self.path_utils.group_hash_id = wandb.util.generate_id()
+
         group_name = self.full_dataset_name.lower() + "_" + self._model_type.lower() + "_" + \
                      self._model_size_type.lower() + "_" + self._search_algo_name.lower() \
                      + "_" + self._scheduler_name.lower() + "_" + self._hpo_searchspace_mode.lower() \
                      + "_" + self.path_utils.group_hash_id
-
+        a = torch.zeros(10, 10).cuda()
+        wandb.init(project = "hpo", group=group_name, name= str(self._get_next_trial_ids(group_name)), reinit=True)
         os.environ["WANDB_RUN_GROUP"] = group_name
 
     @staticmethod
@@ -532,7 +545,6 @@ class AutoTransformers:
         )
         return self._tokenizer(*args, padding="max_length", max_length=self._max_seq_length, truncation=True)
 
-    @wandb_mixin
     def _objective(self, config, reporter, checkpoint_dir=None):
         from transformers.trainer_utils import set_seed
         set_seed(config["seed"])
@@ -561,6 +573,7 @@ class AutoTransformers:
             batch_size = config["per_device_train_batch_size"],
             mode="last")
 
+        self._set_wandb()
         for each_hp in config:
             if each_hp in hp_type_mapping.keys():
                 wandb.log({each_hp: config[each_hp]})
@@ -819,7 +832,7 @@ class AutoTransformers:
         self._set_sample_num_time_budget(custom_num_samples, custom_time_budget, num_sample_time_budget_mode, time_as_grid)
         scheduler = AutoScheduler.from_scheduler_name(self._scheduler_name)
 
-        self._set_wandb()
+        self._set_wandb_hash()
         self.path_utils.make_dir_per_run()
 
         logger.addHandler(logging.FileHandler(os.path.join(self.path_utils.log_dir_per_run, 'tune.log')))
@@ -849,12 +862,6 @@ class AutoTransformers:
         # https://docs.ray.io/en/master/tune/tutorials/tune-wandb.html
 
         tune_config = self._search_space_hpo
-        tune_config["wandb"] = {
-                    "project": "hpo",
-                    "group": os.environ["WANDB_RUN_GROUP"],
-                    "reinit": True,
-                    "allow_val_change": True
-                }
         tune_config["seed"] = 42
 
         analysis = ray.tune.run(

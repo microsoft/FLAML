@@ -5,10 +5,10 @@ is_first = True
 
 copyfile("amlk8s_header.yml", "amlk8s.yml")
 with open("amlk8s.yml", "a") as fout:
-    for data_idx in range(1, 3):
+    for data_idx in range(0, 3):
         names = [subdataset_names[data_idx] + "_grid", subdataset_names[data_idx] + "_hpo0", subdataset_names[data_idx] + "_hpo1"]
         algos = ["grid_search_bert", "hpo", "hpo"]
-        for name_idx in range(len(names)):
+        for name_idx in range(1): #len(names)):
             if data_idx == 0 or data_idx == 1:
                 time_budget = 3600
             else:
