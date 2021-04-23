@@ -8,8 +8,8 @@ with open("amlk8s.yml", "a") as fout:
     for data_idx in range(0, 3):
         names = [subdataset_names[data_idx] + "_grid",
                  subdataset_names[data_idx] + "_hpo0",
-                 subdataset_names[data_idx] + "_hpo1",
-                 subdataset_names[data_idx] + "_hpo1"]
+                 subdataset_names[data_idx] + "_hpo10",
+                 subdataset_names[data_idx] + "_hpo11"]
         algo_modes = ["grid_search_bert",
                  "hpo",
                  "hpo",
