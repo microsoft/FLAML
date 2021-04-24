@@ -7,7 +7,7 @@
 # FLAML - Fast and Lightweight AutoML
 
 <p align="center">
-    <img src="https://github.com/microsoft/FLAML/raw/v0.2.2/docs/images/FLAML.png"  width=200>
+    <img src="https://github.com/microsoft/FLAML/blob/main/docs/images/FLAML.png"  width=200>
     <br>
 </p>
 
@@ -19,7 +19,7 @@ adding customized learners or metrics. FLAML is powered by a new, [cost-effectiv
 hyperparameter optimization](https://github.com/microsoft/FLAML/tree/main/flaml/tune)
 and learner selection method invented by Microsoft Research.
 FLAML leverages the structure of the search space to choose a search order optimized for both cost and error. For example, the system tends to propose cheap configurations at the beginning stage of the search,
-but quickly moves to configurations with high model complexity and large sample size when needed in the later stage of the search. For another example, it favors cheap learners in the beginning but penalizes them later if the error improvement is slow. The cost-bounded search and cost-based prioritization make a big difference in the the search efficiency under budget constraints.
+but quickly moves to configurations with high model complexity and large sample size when needed in the later stage of the search. For another example, it favors cheap learners in the beginning but penalizes them later if the error improvement is slow. The cost-bounded search and cost-based prioritization make a big difference in the search efficiency under budget constraints.
 
 FLAML is easy to use:
 
@@ -40,7 +40,7 @@ automl.fit(X_train, y_train, task="classification", estimator_list=["lgbm"])
 * You can also run generic ray-tune style hyperparameter tuning for a custom function.
 ```python
 from flaml import tune
-tune.run(train_with_config, config={…}, init_config={…}, time_budget_s=3600)
+tune.run(train_with_config, config={…}, low_cost_partial_config={…}, time_budget_s=3600)
 ```
 
 ## Installation
@@ -121,7 +121,7 @@ And they can be used in distributed HPO frameworks such as ray tune or nni.
 
 For more technical details, please check our papers.
 
-* [FLAML: A Fast and Lightweight AutoML Library](https://www.microsoft.com/en-us/research/publication/flaml-a-fast-and-lightweight-automl-library/). Chi Wang, Qingyun Wu, Markus Weimer, Erkang Zhu. To appear in MLSys, 2021.
+* [FLAML: A Fast and Lightweight AutoML Library](https://www.microsoft.com/en-us/research/publication/flaml-a-fast-and-lightweight-automl-library/). Chi Wang, Qingyun Wu, Markus Weimer, Erkang Zhu. In MLSys, 2021.
 ```
 @inproceedings{wang2021flaml,
     title={FLAML: A Fast and Lightweight AutoML Library},

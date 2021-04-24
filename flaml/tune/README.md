@@ -1,9 +1,9 @@
 # Economical Hyperparameter Optimization
 
 `flaml.tune` is a module for economical hyperparameter tuning. It frees users from manually tuning many hyperparameters for a software, such as machine learning training procedures. 
-The API is compatible with ray tune.
+It can be used standalone, or together with ray tune or nni.
 
-Example:
+* Example for sequential tuning (recommended when compute resource is limited and each trial can consume all the resources):
 
 ```python
 # require: pip install flaml[blendsearch]
@@ -27,7 +27,7 @@ analysis = tune.run(
         'x': tune.qloguniform(lower=1, upper=100000, q=1),
         'y': tune.randint(lower=1, upper=100000)
     }, # the search space
-    init_config={'x':1},    # a initial (partial) config with low cost
+    low_cost_partial_config={'x':1},    # a initial (partial) config with low cost
     metric='metric',    # the name of the metric used for optimization
     mode='min',         # the optimization mode, 'min' or 'max'
     num_samples=-1,    # the maximal number of configs to try, -1 means infinite
@@ -41,7 +41,8 @@ print(analysis.best_trial.last_result)  # the best trial's result
 print(analysis.best_config) # the best config
 ```
 
-Or, using ray tune's API:
+* Example for using ray tune's API:
+
 ```python
 # require: pip install flaml[blendsearch] ray[tune]
 from ray import tune as raytune
@@ -70,15 +71,20 @@ analysis = raytune.run(
     num_samples=-1,    # the maximal number of configs to try, -1 means infinite
     time_budget_s=60,   # the time budget in seconds
     local_dir='logs/',  # the local directory to store logs
-    search_alg=CFO(points_to_evaluate=[{'x':1}]) # or BlendSearch
-    # other algo example: raytune.create_searcher('optuna'),
+    search_alg=CFO(low_cost_partial_config=[{'x':1}]) # or BlendSearch
     )
 
 print(analysis.best_trial.last_result)  # the best trial's result
 print(analysis.best_config) # the best config
 ```
 
-For more examples, please check out 
+* Example for using NNI: An example of using BlendSearch with NNI can be seen in [test](https://github.com/microsoft/FLAML/tree/main/test/nni). CFO can be used as well in a similar manner. To run the example, first make sure you have [NNI](https://nni.readthedocs.io/en/stable/) installed, then run:
+
+```shell
+$nnictl create --config ./config.yml
+```
+
+* For more examples, please check out 
 [notebooks](https://github.com/microsoft/FLAML/tree/main/notebook/).
 
 
@@ -88,7 +94,7 @@ For more examples, please check out
 ## CFO: Frugal Optimization for Cost-related Hyperparameters
 
 <p align="center">
-    <img src="https://github.com/microsoft/FLAML/raw/v0.2.2/docs/images/CFO.png"  width=200>
+    <img src="https://github.com/microsoft/FLAML/blob/main/docs/images/CFO.png"  width=200>
     <br>
 </p>
 
@@ -107,7 +113,7 @@ FLOW<sup>2</sup> only requires pairwise comparisons between function values to p
 The GIFs attached below demostrates an example search trajectory of FLOW<sup>2</sup> shown in the loss and evaluation cost (i.e., the training time ) space respectively. From the demonstration, we can see that (1) FLOW<sup>2</sup> can quickly move toward the low-loss region, showing good convergence property and (2) FLOW<sup>2</sup> tends to avoid exploring the high-cost region until necessary.
 
 <p align="center">
-    <img align="center", src="https://github.com/microsoft/FLAML/raw/v0.2.2/docs/images/heatmap_loss_cfo_12s.gif"  width=360>  <img align="center", src="https://github.com/microsoft/FLAML/raw/v0.2.2/docs/images/heatmap_cost_cfo_12s.gif"  width=360> 
+    <img align="center", src="https://github.com/microsoft/FLAML/blob/main/docs/images/heatmap_loss_cfo_12s.gif"  width=360>  <img align="center", src="https://github.com/microsoft/FLAML/blob/main/docs/images/heatmap_cost_cfo_12s.gif"  width=360> 
     <br>
     <figcaption>Figure 1. FLOW<sup>2</sup> in tuning the # of leaves and the # of trees for XGBoost. The two background heatmaps show the loss and cost distribution of all configurations. The black dots are the points evaluated in FLOW<sup>2</sup>. Black dots connected by lines are points that yield better loss performance when evaluated.</figcaption>
 </p>
@@ -118,7 +124,7 @@ Example:
 ```python
 from flaml import CFO
 tune.run(...
-    search_alg = CFO(points_to_evaluate=[init_config]),
+    search_alg = CFO(low_cost_partial_config=low_cost_partial_config),
 )
 ```
 
@@ -130,7 +136,7 @@ using BlendSearch.
 ## BlendSearch: Economical Hyperparameter Optimization With Blended Search Strategy
 
 <p align="center">
-    <img src="https://github.com/microsoft/FLAML/raw/v0.2.2/docs/images/BlendSearch.png"  width=200>
+    <img src="https://github.com/microsoft/FLAML/blob/main/docs/images/BlendSearch.png"  width=200>
     <br>
 </p>
 
@@ -151,19 +157,13 @@ Example:
 # require: pip install flaml[blendsearch]
 from flaml import BlendSearch
 tune.run(...
-    search_alg = BlendSearch(points_to_evaluate=[init_config]),
+    search_alg = BlendSearch(low_cost_partial_config=low_cost_partial_config),
 )
 ```
 
 Recommended scenario: cost-related hyperparameters exist, a low-cost
 initial point is known, and the search space is complex such that local search
 is prone to be stuck at local optima.
-
-An example of using BlendSearch with NNI can be seen in [test](https://github.com/microsoft/FLAML/tree/main/test/nni), CFO can be used with NNI as well in a similar manner. To run the example, first make sure you have [NNI](https://nni.readthedocs.io/en/stable/) installed, then run:
-
-```shell
-$nnictl create --config ./config.yml
-```
 
 For more technical details, please check our papers.
 

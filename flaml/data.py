@@ -1,6 +1,6 @@
 '''!
  * Copyright (c) 2020-2021 Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. 
+ * Licensed under the MIT License.
 '''
 
 import numpy as np
@@ -8,9 +8,11 @@ from scipy.sparse import vstack, issparse
 import pandas as pd
 from .training_log import training_log_reader
 
+from datetime import datetime
+
 
 def load_openml_dataset(dataset_id, data_dir=None, random_state=0):
-    '''Load dataset from open ML. 
+    '''Load dataset from open ML.
 
     If the file is not cached locally, download it from open ML.
 
@@ -23,7 +25,7 @@ def load_openml_dataset(dataset_id, data_dir=None, random_state=0):
         X_train: A 2d numpy array of training data
         X_test:  A 2d numpy array of test data
         y_train: A 1d numpy arrya of labels for training data
-        y_test:  A 1d numpy arrya of labels for test data        
+        y_test:  A 1d numpy arrya of labels for test data
     '''
     import os
     import openml
@@ -58,9 +60,9 @@ def load_openml_dataset(dataset_id, data_dir=None, random_state=0):
 
 
 def load_openml_task(task_id, data_dir):
-    '''Load task from open ML. 
+    '''Load task from open ML.
 
-    Use the first fold of the task. 
+    Use the first fold of the task.
     If the file is not cached locally, download it from open ML.
 
     Args:
@@ -71,7 +73,7 @@ def load_openml_task(task_id, data_dir):
         X_train: A 2d numpy array of training data
         X_test:  A 2d numpy array of test data
         y_train: A 1d numpy arrya of labels for training data
-        y_test:  A 1d numpy arrya of labels for test data        
+        y_test:  A 1d numpy arrya of labels for test data
     '''
     import os
     import openml
@@ -115,12 +117,12 @@ def get_output_from_log(filename, time_budget):
 
     Returns:
         training_time_list: A list of the finished time of each logged iter
-        best_error_list: 
+        best_error_list:
             A list of the best validation error after each logged iter
         error_list: A list of the validation error of each logged iter
-        config_list: 
+        config_list:
             A list of the estimator, sample size and config of each logged iter
-        logged_metric_list: A list of the logged metric of each logged iter 
+        logged_metric_list: A list of the logged metric of each logged iter
     '''
 
     best_config = None
@@ -186,14 +188,17 @@ class DataTransformer:
     '''transform X, y
     '''
 
-
     def fit_transform(self, X, y, task):
         if isinstance(X, pd.DataFrame):
             X = X.copy()
             n = X.shape[0]
-            cat_columns, num_columns = [], []
+            cat_columns, num_columns, datetime_columns = [], [], []
             drop = False
             for column in X.columns:
+                # sklearn\utils\validation.py needs int/float values
+                if X[column].dtype.name == 'datetime64[ns]':
+                    X[column] = X[column].map(datetime.toordinal)
+                    datetime_columns.append(column)
                 if X[column].dtype.name in ('object', 'category'):
                     if X[column].nunique() == 1 or X[column].nunique(
                             dropna=True) == n - X[column].isnull().sum():
@@ -223,17 +228,19 @@ class DataTransformer:
                 X_num = X[num_columns]
                 if drop and np.issubdtype(X_num.columns.dtype, np.integer):
                     X_num.columns = range(X_num.shape[1])
-                else: drop = False
+                else:
+                    drop = False
                 from sklearn.impute import SimpleImputer
                 from sklearn.compose import ColumnTransformer
                 self.transformer = ColumnTransformer([(
                     'continuous',
                     SimpleImputer(missing_values=np.nan, strategy='median'),
-                        X_num.columns)])
+                    X_num.columns)])
                 X[num_columns] = self.transformer.fit_transform(X_num)
-            self._cat_columns, self._num_columns = cat_columns, num_columns
+            self._cat_columns, self._num_columns, self._datetime_columns = cat_columns, \
+                                                                           num_columns, datetime_columns
             self._drop = drop
-            
+
         if task == 'regression':
             self.label_transformer = None
         else:
@@ -243,9 +250,14 @@ class DataTransformer:
         return X, y
 
     def transform(self, X):
+        X = X.copy()
         if isinstance(X, pd.DataFrame):
-            cat_columns, num_columns = self._cat_columns, self._num_columns
+            cat_columns, num_columns, datetime_columns = self._cat_columns, \
+                self._num_columns, self._datetime_columns
             X = X[cat_columns + num_columns].copy()
+            if datetime_columns:
+                for dt_column in datetime_columns:
+                    X[dt_column] = X[dt_column].map(datetime.toordinal)
             for column in cat_columns:
                 # print(column, X[column].dtype.name)
                 if X[column].dtype.name == 'object':
@@ -263,3 +275,4 @@ class DataTransformer:
                     X_num.columns = range(X_num.shape[1])
                 X[num_columns] = self.transformer.transform(X_num)
         return X
+
