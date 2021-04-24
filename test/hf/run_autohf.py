@@ -19,7 +19,6 @@ pretrained_models = [("xlnet-base-cased", "base"),
                      ("albert-large-v1", "small"),
                      ("distilbert-base-uncased", "base"),
                      ("microsoft/deberta-base", "base"),
-                     ("google/mobilebert-uncased", "base"),
                      ("funnel-transformer/small-base", "base")]
 
 search_algos = ["BlendSearch", "BlendSearch"]
