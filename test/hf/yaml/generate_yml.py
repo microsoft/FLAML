@@ -6,10 +6,10 @@ is_first = True
 copyfile("amlk8s_header.yml", "amlk8s.yml")
 with open("amlk8s.yml", "a") as fout:
     for data_idx in range(0, 3):
-        names = [subdataset_names[data_idx] + "_hpo11" + str(x) for x in range(6)]
+        names = [subdataset_names[data_idx] + "_hpo10" + str(x) for x in range(6)]
         algo_modes = ["hpo"] * 6
         space_idxs = [1] * 6
-        algo_idxs = [1] * 6
+        algo_idxs = [0] * 6
         pretrained_idxs = [0, 1, 2, 3, 4, 5]
         if data_idx == 2 or data_idx == 1:
             time_budget = 3600

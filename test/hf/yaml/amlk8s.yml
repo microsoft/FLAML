@@ -19,12 +19,138 @@ code:
   local_dir: $CONFIG_DIR/../
 
 jobs:
+- name: cola_hpo100
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix cola_hpo100 --data_root_dir './data/' --sample_num 100000 --time_budget 7200 --space_idx 1 --algo_idx 0 --pretrained_idx 0
+  submit_args: &retry_args
+    max_attempts: 0
+
+- name: cola_hpo101
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix cola_hpo101 --data_root_dir './data/' --sample_num 100000 --time_budget 7200 --space_idx 1 --algo_idx 0 --pretrained_idx 1
+  submit_args:
+    <<: *retry_args
+
+- name: cola_hpo102
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix cola_hpo102 --data_root_dir './data/' --sample_num 100000 --time_budget 7200 --space_idx 1 --algo_idx 0 --pretrained_idx 2
+  submit_args:
+    <<: *retry_args
+
+- name: cola_hpo103
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix cola_hpo103 --data_root_dir './data/' --sample_num 100000 --time_budget 7200 --space_idx 1 --algo_idx 0 --pretrained_idx 3
+  submit_args:
+    <<: *retry_args
+
+- name: cola_hpo104
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix cola_hpo104 --data_root_dir './data/' --sample_num 100000 --time_budget 7200 --space_idx 1 --algo_idx 0 --pretrained_idx 4
+  submit_args:
+    <<: *retry_args
+
+- name: cola_hpo105
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix cola_hpo105 --data_root_dir './data/' --sample_num 100000 --time_budget 7200 --space_idx 1 --algo_idx 0 --pretrained_idx 5
+  submit_args:
+    <<: *retry_args
+
+- name: mrpc_hpo100
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 1 --suffix mrpc_hpo100 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 0
+  submit_args:
+    <<: *retry_args
+
+- name: mrpc_hpo101
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 1 --suffix mrpc_hpo101 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 1
+  submit_args:
+    <<: *retry_args
+
+- name: mrpc_hpo102
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 1 --suffix mrpc_hpo102 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 2
+  submit_args:
+    <<: *retry_args
+
+- name: mrpc_hpo103
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 1 --suffix mrpc_hpo103 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 3
+  submit_args:
+    <<: *retry_args
+
+- name: mrpc_hpo104
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 1 --suffix mrpc_hpo104 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 4
+  submit_args:
+    <<: *retry_args
+
+- name: mrpc_hpo105
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 1 --suffix mrpc_hpo105 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 5
+  submit_args:
+    <<: *retry_args
+
+- name: rte_hpo100
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix rte_hpo100 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 0
+  submit_args:
+    <<: *retry_args
+
+- name: rte_hpo101
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix rte_hpo101 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 1
+  submit_args:
+    <<: *retry_args
+
+- name: rte_hpo102
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix rte_hpo102 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 2
+  submit_args:
+    <<: *retry_args
+
+- name: rte_hpo103
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix rte_hpo103 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 3
+  submit_args:
+    <<: *retry_args
+
+- name: rte_hpo104
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix rte_hpo104 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 4
+  submit_args:
+    <<: *retry_args
+
+- name: rte_hpo105
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix rte_hpo105 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 5
+  submit_args:
+    <<: *retry_args
+
 - name: cola_hpo111
   sku: 32G4
   command:
   - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix cola_hpo111 --data_root_dir './data/' --sample_num 100000 --time_budget 7200 --space_idx 1 --algo_idx 1 --pretrained_idx 1
-  submit_args: &retry_args
-    max_attempts: 0
+  submit_args:
+    <<: *retry_args
 
 - name: cola_hpo112
   sku: 32G4
@@ -95,4 +221,3 @@ jobs:
   - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix rte_hpo115 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 1 --pretrained_idx 5
   submit_args:
     <<: *retry_args
-
