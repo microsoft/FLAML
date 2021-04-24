@@ -177,33 +177,32 @@ def _test_hpo(args, fout, autohf):
         this_search_algo = search_algos[args.algo_idx]
         this_scheduler_name = scheduler_names[args.algo_idx]
 
-        for model_idx in range(0, len(pretrained_models)):
-            each_pretrained_model = pretrained_models[model_idx][0]
-            each_model_size_type = pretrained_models[model_idx][1]
+        each_pretrained_model = pretrained_models[args.pretrained_idx][0]
+        each_model_size_type = pretrained_models[args.pretrained_idx][1]
 
 
-            hpo_searchspace_mode = hpo_searchspace_modes[args.space_idx]
-            search_algo_args_mode = search_algo_args_modes[args.space_idx]
-            preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
-                                                          each_pretrained_model, each_model_size_type)
+        hpo_searchspace_mode = hpo_searchspace_modes[args.space_idx]
+        search_algo_args_mode = search_algo_args_modes[args.space_idx]
+        preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
+                                                      each_pretrained_model, each_model_size_type)
 
-            train_dataset, eval_dataset, test_dataset = \
-                autohf.prepare_data(**preparedata_setting)
-            autohf_settings = get_autohf_settings(args, this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode)
+        train_dataset, eval_dataset, test_dataset = \
+            autohf.prepare_data(**preparedata_setting)
+        autohf_settings = get_autohf_settings(args, this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode)
 
-            try:
-                validation_metric, analysis = autohf.fit(train_dataset,
-                           eval_dataset,
-                           **autohf_settings,)
-            except AssertionError:
-                save_file_name = get_full_name(autohf, is_grid=True)
-                write_exception(args, save_file_name, fout)
-                continue
-
+        try:
+            validation_metric, analysis = autohf.fit(train_dataset,
+                       eval_dataset,
+                       **autohf_settings,)
+        except AssertionError:
             save_file_name = get_full_name(autohf, is_grid=True)
-            write_regular(autohf, args, validation_metric, save_file_name, fout, len(analysis.trials))
-            output_predict(args, test_dataset, autohf, fout, save_file_name)
-            rm_home_result()
+            write_exception(args, save_file_name, fout)
+            continue
+
+        save_file_name = get_full_name(autohf, is_grid=True)
+        write_regular(autohf, args, validation_metric, save_file_name, fout, len(analysis.trials))
+        output_predict(args, test_dataset, autohf, fout, save_file_name)
+        rm_home_result()
 
     fout.close()
 
@@ -217,6 +216,7 @@ if __name__ == "__main__":
     arg_parser.add_argument('--dataset_idx', type=int, help='data index', required=False)
     arg_parser.add_argument('--space_idx', type=int, help='space index', required=False)
     arg_parser.add_argument('--algo_idx', type=int, help='algorithm index', required=False)
+    arg_parser.add_argument('--pretrained_idx', type=int, help='pretrained index', required=False)
     arg_parser.add_argument('--sample_num', type=int, help='sample num', required=False)
     arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False)
     arg_parser.add_argument('--suffix', type=str, help='suffix', required=False)
