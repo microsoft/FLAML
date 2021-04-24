@@ -5,7 +5,7 @@ is_first = True
 
 copyfile("amlk8s_header.yml", "amlk8s.yml")
 with open("amlk8s.yml", "a") as fout:
-    for data_idx in range(0, 3):
+    for data_idx in range(0, 1):
         names = [subdataset_names[data_idx] + "_hpo10" + str(x) for x in range(6)]
         algo_modes = ["hpo"] * 6
         space_idxs = [1] * 6
@@ -15,7 +15,7 @@ with open("amlk8s.yml", "a") as fout:
             time_budget = 3600
         else:
             time_budget = 7200
-        for name_idx in range(0, len(names)):
+        for name_idx in range(2, 3): #len(names)):
             space_idx = space_idxs[name_idx]
             this_name = names[name_idx]
             this_algo_mode = algo_modes[name_idx]
