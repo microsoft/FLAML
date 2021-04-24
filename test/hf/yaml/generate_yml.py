@@ -5,18 +5,18 @@ is_first = True
 
 copyfile("amlk8s_header.yml", "amlk8s.yml")
 with open("amlk8s.yml", "a") as fout:
-    for data_idx in range(2, 3):
-        names = [subdataset_names[data_idx] + "_hpo10" + str(x) for x in range(6)]
+    for data_idx in range(0, 1):
+        names = [subdataset_names[data_idx] + "_hpo0" + str(x) for x in range(6)]
         algo_modes = ["hpo"] * 6
-        space_idxs = [1] * 6
+        space_idxs = [0] * 6
         algo_idxs = [0] * 6
         pretrained_idxs = [0, 1, 2, 3, 4, 5]
         if data_idx == 2 or data_idx == 1:
             time_budget = 3600
         else:
             time_budget = 7200
-        for name_idx in range(1, 2): #len(names)):
-            #if name_idx != 2: continue
+        for name_idx in range(0, len(names)):
+            if name_idx == 4: continue
             space_idx = space_idxs[name_idx]
             this_name = names[name_idx]
             this_algo_mode = algo_modes[name_idx]
