@@ -20,8 +20,8 @@ pretrained_models = [("xlnet-base-cased", "base"),
                      ("microsoft/deberta-base", "base"),
                      ("funnel-transformer/small-base", "base")]
 
-search_algos = ["BlendSearch", "BlendSearch"]
-scheduler_names = ["None", "ASHA"]
+search_algos = ["BlendSearch", "BlendSearch", "Optuna"]
+scheduler_names = ["None", "ASHA", "None"]
 
 hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_gridunion_other"]
 search_algo_args_modes = ["default", "default"]
