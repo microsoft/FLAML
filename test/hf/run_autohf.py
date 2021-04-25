@@ -70,7 +70,6 @@ def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pret
 
 def get_autohf_settings_grid(args):
     autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
-                           "wandb_key": wandb_key,
                            "search_algo_name": args.algo,
                            "scheduler_name": "None",
                            "ckpt_per_epoch": 1,
@@ -79,7 +78,6 @@ def get_autohf_settings_grid(args):
 
 def get_autohf_settings(args, this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode = None):
     autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
-                       "wandb_key": wandb_key,
                        "search_algo_name": this_search_algo,
                        "scheduler_name": this_scheduler_name,
                        "ckpt_per_epoch": 1,
@@ -93,7 +91,6 @@ def get_autohf_settings(args, this_search_algo, this_scheduler_name, hpo_searchs
 
 def get_autohf_settings_enumeratehp():
     autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
-                           "wandb_key": wandb_key,
                            "search_algo_name": "grid_search_enumerate",
                            "scheduler_name": "None",
                            "ckpt_per_epoch": 1,
