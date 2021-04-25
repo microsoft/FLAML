@@ -2,15 +2,14 @@
 '''
 #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
 import os, argparse, subprocess
-wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
-import wandb
-wandb.init()
-subprocess.run(["wandb", "login", "--relogin", wandb_key])
-
 import datetime
 import json
 import shutil
 from flaml.nlp.autotransformers import AutoTransformers
+wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
+import wandb
+wandb.init()
+subprocess.run(["wandb", "login", "--relogin", wandb_key])
 
 dataset_names = [["glue"], ["glue"], ["glue"]]
 subdataset_names = ["cola", "mrpc", "rte"]
@@ -35,9 +34,10 @@ def get_full_name(autohf, is_grid, hpo_searchspace_mode = None):
         + "_" + autohf.scheduler_name.lower() + "_" \
         + "_" + hpo_searchspace_mode.lower() + "_" + autohf.path_utils.group_hash_id
     else:
-        return autohf.full_dataset_name.lower() + "_" + autohf.model_type.lower() + "_" + \
-               autohf.model_size_type.lower() + "_" + autohf.search_algo_name.lower() \
-               + "_" + autohf.scheduler_name.lower() + "_" + autohf.path_utils.group_hash_id
+        return autohf.full_dataset_name.lower() + "_" + autohf._model_type.lower() + "_" + \
+                     autohf.model_size_type.lower() + "_" + autohf.search_algo_name.lower() \
+                     + "_" + autohf.scheduler_name.lower() + "_" + autohf.hpo_searchspace_mode.lower() \
+                     + "_" + autohf.path_utils.group_hash_id
 
 def get_resplit_portion(this_dataset_name, this_subset_name):
     if this_dataset_name == ["glue"] and this_subset_name in {"mnli", "qqp"}:
@@ -70,7 +70,6 @@ def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pret
 
 def get_autohf_settings_grid(args):
     autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
-                           "wandb_key": wandb_key,
                            "search_algo_name": args.algo,
                            "scheduler_name": "None",
                            "ckpt_per_epoch": 1,
@@ -79,7 +78,6 @@ def get_autohf_settings_grid(args):
 
 def get_autohf_settings(args, this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode = None):
     autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
-                       "wandb_key": wandb_key,
                        "search_algo_name": this_search_algo,
                        "scheduler_name": this_scheduler_name,
                        "ckpt_per_epoch": 1,
@@ -93,7 +91,6 @@ def get_autohf_settings(args, this_search_algo, this_scheduler_name, hpo_searchs
 
 def get_autohf_settings_enumeratehp():
     autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
-                           "wandb_key": wandb_key,
                            "search_algo_name": "grid_search_enumerate",
                            "scheduler_name": "None",
                            "ckpt_per_epoch": 1,

@@ -57,7 +57,6 @@ class AutoTransformers:
             autohf_settings = {"metric_name": "accuracy",
                    "mode_name": "max",
                    "resources_per_trial": {"gpu": 4, "cpu": 4},
-                   "wandb_key": wandb_key,
                    "search_algo_name": method,
                    "num_samples": 4,
                    "time_budget": 7200,
@@ -725,7 +724,6 @@ class AutoTransformers:
             train_dataset,
             eval_dataset,
             resources_per_trial,
-            wandb_key,
             custom_metric_name = None,
             custom_metric_mode_name = None,
             search_algo_name= None,
@@ -767,8 +765,6 @@ class AutoTransformers:
             resources_per_trial:
                 A dict showing the resources used by each trial,
                 e.g., {"gpu": 4, "cpu": 4}
-            wandb_key:
-                The hash code for wandb
             search_algo_name:
                 The search algoritihm for AutoHF()
                 e.g., "blendsearch" "cfo" "bo"
