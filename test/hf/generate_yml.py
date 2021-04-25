@@ -20,7 +20,7 @@ with open("./yaml/amlk8s_" + str(suffix) + ".yml", "a") as fout:
             time_budget = 3600
         else:
             time_budget = 7200
-        for name_idx in range(1, 2): #len(names)):
+        for name_idx in range(4, len(names)):
             space_idx = space_idxs[name_idx]
             this_name = names[name_idx]
             this_algo_mode = algo_modes[name_idx]
