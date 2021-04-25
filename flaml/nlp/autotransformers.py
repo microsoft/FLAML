@@ -97,13 +97,20 @@ class AutoTransformers:
         hash.update(str(time.time()).encode('utf-8'))
         return "trial_" + hash.hexdigest()[:3]
 
-    def _set_wandb(self):
+    def set_wandb(self):
         group_name = self.full_dataset_name.lower() + "_" + self._model_type.lower() + "_" + \
                      self._model_size_type.lower() + "_" + self._search_algo_name.lower() \
                      + "_" + self._scheduler_name.lower() + "_" + self._hpo_searchspace_mode.lower() \
                      + "_" + self.path_utils.group_hash_id
-        wandb.init(project = "hpo", group=group_name, name= str(self._get_next_trial_ids()), reinit=True)
         os.environ["WANDB_RUN_GROUP"] = group_name
+        os.environ["WANDB_SILENT"] = "true"
+        return wandb.init(project = self.full_dataset_name,
+                   group=group_name,
+                   name= str(self._get_next_trial_ids()),
+                   settings=wandb.Settings(
+                       _disable_stats=True,
+                       start_method="fork"),
+                   resume=True)
 
     @staticmethod
     def _convert_json_to_search_space(config_json, mode = "grid_search"):
@@ -559,11 +566,6 @@ class AutoTransformers:
             batch_size = config["per_device_train_batch_size"],
             mode="last")
 
-        self._set_wandb()
-        for each_hp in config:
-            if each_hp in hp_type_mapping.keys():
-                wandb.log({each_hp: config[each_hp]})
-
         assert self.path_utils.ckpt_dir_per_trial
         training_args = TrainingArguments(
             output_dir=self.path_utils.ckpt_dir_per_trial,
@@ -589,7 +591,16 @@ class AutoTransformers:
         trainer.trial_id = reporter.trial_id
 
         trainer.train()
-        trainer.evaluate(self._eval_dataset)
+        output_metrics = trainer.evaluate(self._eval_dataset)
+
+        run = self.set_wandb()
+        with run:
+            for each_hp in config:
+                if each_hp in hp_type_mapping.keys():
+                    run.log({each_hp: config[each_hp]})
+            for key in output_metrics.keys():
+                if key.startswith("eval_"):
+                    run.log({"final_" + key: output_metrics[key]})
 
     def _verify_init_config(self,
                             **custom_hpo_args):

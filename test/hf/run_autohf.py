@@ -7,8 +7,6 @@ import json
 import shutil
 from flaml.nlp.autotransformers import AutoTransformers
 wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
-import wandb
-wandb.init()
 subprocess.run(["wandb", "login", "--relogin", wandb_key])
 
 dataset_names = [["glue"], ["glue"], ["glue"]]
