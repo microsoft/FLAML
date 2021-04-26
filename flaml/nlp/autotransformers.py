@@ -91,6 +91,14 @@ class AutoTransformers:
 
     def _set_wandb_hash(self):
         self.path_utils.group_hash_id = wandb.util.generate_id()
+        self.group_name = self.full_dataset_name.lower() + "_" + self._model_type.lower() + "_" + \
+                     self._model_size_type.lower() + "_" + self._search_algo_name.lower() \
+                     + "_" + self._scheduler_name.lower() + "_" + self._hpo_searchspace_mode.lower() \
+                     + "_" + self.path_utils.group_hash_id
+        # os.environ["WANDB_IGNORE_GLOBS"] = "*.json,*.csv,*.tmdev,*.pkl"
+        # os.environ["WANDB_PROJECT"] = self.full_dataset_name
+        # os.environ["WANDB_RUN_GROUP"] = self.group_name
+        os.environ["WANDB_SILENT"] = "false"
 
     def _get_next_trial_ids(self):
         hash = hashlib.sha1()
@@ -98,19 +106,14 @@ class AutoTransformers:
         return "trial_" + hash.hexdigest()[:3]
 
     def set_wandb(self):
-        group_name = self.full_dataset_name.lower() + "_" + self._model_type.lower() + "_" + \
-                     self._model_size_type.lower() + "_" + self._search_algo_name.lower() \
-                     + "_" + self._scheduler_name.lower() + "_" + self._hpo_searchspace_mode.lower() \
-                     + "_" + self.path_utils.group_hash_id
-        os.environ["WANDB_RUN_GROUP"] = group_name
-        os.environ["WANDB_SILENT"] = "true"
+        print("before wandb.init\n\n\n")
         return wandb.init(project = self.full_dataset_name,
-                   group=group_name,
+                   group=self.group_name,
                    name= str(self._get_next_trial_ids()),
                    settings=wandb.Settings(
-                       _disable_stats=True,
-                       start_method="fork"),
-                   resume=True)
+                   _disable_stats=True),
+                   #ignore_globs="*.json,*.csv,*.tmdev,*.pkl"),
+                   reinit=False)
 
     @staticmethod
     def _convert_json_to_search_space(config_json, mode = "grid_search"):
@@ -590,17 +593,14 @@ class AutoTransformers:
         trainer.logger = logger
         trainer.trial_id = reporter.trial_id
 
+        run = self.set_wandb()
+        for each_hp in config:
+            if each_hp in hp_type_mapping.keys():
+                wandb.log({each_hp: config[each_hp]})
+
         trainer.train()
         output_metrics = trainer.evaluate(self._eval_dataset)
-
-        run = self.set_wandb()
-        with run:
-            for each_hp in config:
-                if each_hp in hp_type_mapping.keys():
-                    run.log({each_hp: config[each_hp]})
-            for key in output_metrics.keys():
-                if key.startswith("eval_"):
-                    run.log({"final_" + key: output_metrics[key]})
+        run.finish()
 
     def _verify_init_config(self,
                             **custom_hpo_args):
