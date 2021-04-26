@@ -14,7 +14,7 @@ with open("./yml_files/amlk8s_" + str(suffix) + ".yml", "a") as fout:
             names = [subdataset_names[data_idx] + "_hpo0" + str(x) + "_" + sys.argv[1] for x in range(5)]
             algo_modes = ["hpo"] * 5
             space_idxs = [0] * 5
-            algo_idxs = [2] * 5
+            algo_idxs = [0] * 5
             pretrained_idxs = [0, 1, 2, 3, 4]
             if data_idx == 2 or data_idx == 1:
                 time_budget = 3600

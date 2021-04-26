@@ -1,0 +1,126 @@
+description: finetuning test on AMLK8s
+
+target:
+  service: amlk8s
+  name: ms-shared-v100
+
+environment:
+  image: sonichi/hpo4hf:latest
+  setup:
+    # - pip install transformers datasets wandb prompt_toolkit==1.0.14 --user
+    # - sudo apt-get -y install git
+    - git clone https://github.com/liususan091219/FLAML.git
+    - cd FLAML
+    - git checkout exp
+    - pip install -e.[blendsearch,ray] --user
+    - export WANDB_API_KEY=7553d982a2247ca8324ec648bd302678105e1058
+
+code:
+  local_dir: $CONFIG_DIR/../
+
+jobs:
+- name: cola_hpo100_gridunion_rep2
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix cola_hpo100_gridunion_rep2 --data_root_dir './data/' --sample_num 100000 --time_budget 7200 --space_idx 1 --algo_idx 0 --pretrained_idx 0
+  submit_args: &retry_args
+    max_attempts: 0
+
+- name: cola_hpo101_gridunion_rep2
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix cola_hpo101_gridunion_rep2 --data_root_dir './data/' --sample_num 100000 --time_budget 7200 --space_idx 1 --algo_idx 0 --pretrained_idx 1
+  submit_args:
+    <<: *retry_args
+
+- name: cola_hpo102_gridunion_rep2
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix cola_hpo102_gridunion_rep2 --data_root_dir './data/' --sample_num 100000 --time_budget 7200 --space_idx 1 --algo_idx 0 --pretrained_idx 2
+  submit_args:
+    <<: *retry_args
+
+- name: cola_hpo103_gridunion_rep2
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix cola_hpo103_gridunion_rep2 --data_root_dir './data/' --sample_num 100000 --time_budget 7200 --space_idx 1 --algo_idx 0 --pretrained_idx 3
+  submit_args:
+    <<: *retry_args
+
+- name: cola_hpo104_gridunion_rep2
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 0 --suffix cola_hpo104_gridunion_rep2 --data_root_dir './data/' --sample_num 100000 --time_budget 7200 --space_idx 1 --algo_idx 0 --pretrained_idx 4
+  submit_args:
+    <<: *retry_args
+
+- name: mrpc_hpo100_gridunion_rep2
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 1 --suffix mrpc_hpo100_gridunion_rep2 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 0
+  submit_args:
+    <<: *retry_args
+
+- name: mrpc_hpo101_gridunion_rep2
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 1 --suffix mrpc_hpo101_gridunion_rep2 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 1
+  submit_args:
+    <<: *retry_args
+
+- name: mrpc_hpo102_gridunion_rep2
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 1 --suffix mrpc_hpo102_gridunion_rep2 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 2
+  submit_args:
+    <<: *retry_args
+
+- name: mrpc_hpo103_gridunion_rep2
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 1 --suffix mrpc_hpo103_gridunion_rep2 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 3
+  submit_args:
+    <<: *retry_args
+
+- name: mrpc_hpo104_gridunion_rep2
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 1 --suffix mrpc_hpo104_gridunion_rep2 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 4
+  submit_args:
+    <<: *retry_args
+
+- name: rte_hpo100_gridunion_rep2
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix rte_hpo100_gridunion_rep2 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 0
+  submit_args:
+    <<: *retry_args
+
+- name: rte_hpo101_gridunion_rep2
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix rte_hpo101_gridunion_rep2 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 1
+  submit_args:
+    <<: *retry_args
+
+- name: rte_hpo102_gridunion_rep2
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix rte_hpo102_gridunion_rep2 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 2
+  submit_args:
+    <<: *retry_args
+
+- name: rte_hpo103_gridunion_rep2
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix rte_hpo103_gridunion_rep2 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 3
+  submit_args:
+    <<: *retry_args
+
+- name: rte_hpo104_gridunion_rep2
+  sku: 32G4
+  command:
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix rte_hpo104_gridunion_rep2 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 1 --algo_idx 0 --pretrained_idx 4
+  submit_args:
+    <<: *retry_args
+
