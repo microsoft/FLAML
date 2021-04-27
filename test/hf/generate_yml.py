@@ -11,10 +11,10 @@ suffix = sys.argv[1] + "_" + now.strftime("%m%d%H%M")
 copyfile("./yml_files/amlk8s_header.yml", "./yml_files/amlk8s_" + str(suffix) + ".yml")
 with open("./yml_files/amlk8s_" + str(suffix) + ".yml", "a") as fout:
         for data_idx in range(0, 3):
-            names = [subdataset_names[data_idx] + "_hpo0" + str(x) + "_" + sys.argv[1] for x in range(5)]
+            names = [subdataset_names[data_idx] + "_hpo1" + str(x) + "_" + sys.argv[1] for x in range(5)]
             algo_modes = ["hpo"] * 5
-            space_idxs = [0] * 5
-            algo_idxs = [0] * 5
+            space_idxs = [1] * 5
+            algo_idxs = [3] * 5
             pretrained_idxs = [0, 1, 2, 3, 4]
             if data_idx == 2 or data_idx == 1:
                 time_budget = 3600

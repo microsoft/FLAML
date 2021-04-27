@@ -9,6 +9,9 @@ from flaml.nlp.autotransformers import AutoTransformers
 wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 subprocess.run(["wandb", "login", "--relogin", wandb_key])
 
+#os.environ['WANDB_MODE'] = 'dryrun'
+os.environ["WANDB_API_KEY"] = wandb_key
+
 dataset_names = [["glue"], ["glue"], ["glue"]]
 subdataset_names = ["cola", "mrpc", "rte"]
 
@@ -18,8 +21,8 @@ pretrained_models = [("xlnet-base-cased", "base"),
                      ("microsoft/deberta-base", "base"),
                      ("funnel-transformer/small-base", "base")]
 
-search_algos = ["BlendSearch", "BlendSearch", "Optuna"]
-scheduler_names = ["None", "ASHA", "None"]
+search_algos = ["BlendSearch", "BlendSearch", "Optuna", "RandomSearch"]
+scheduler_names = ["None", "ASHA", "None", "ASHA"]
 
 hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_gridunion_other"]
 search_algo_args_modes = ["default", "default"]

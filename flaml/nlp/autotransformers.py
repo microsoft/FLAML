@@ -96,9 +96,9 @@ class AutoTransformers:
                      + "_" + self._scheduler_name.lower() + "_" + self._hpo_searchspace_mode.lower() \
                      + "_" + self.path_utils.group_hash_id
         # os.environ["WANDB_IGNORE_GLOBS"] = "*.json,*.csv,*.tmdev,*.pkl"
-        # os.environ["WANDB_PROJECT"] = self.full_dataset_name
-        # os.environ["WANDB_RUN_GROUP"] = self.group_name
+        os.environ["WANDB_RUN_GROUP"] = self.group_name
         os.environ["WANDB_SILENT"] = "false"
+        os.environ["WANDB_MODE"] = "online"
 
     def _get_next_trial_ids(self):
         hash = hashlib.sha1()
@@ -107,6 +107,9 @@ class AutoTransformers:
 
     def set_wandb(self):
         print("before wandb.init\n\n\n")
+        os.environ["WANDB_RUN_GROUP"] = self.group_name
+        os.environ["WANDB_SILENT"] = "false"
+        os.environ["WANDB_MODE"] = "online"
         return wandb.init(project = self.full_dataset_name,
                    group=self.group_name,
                    name= str(self._get_next_trial_ids()),
@@ -600,6 +603,7 @@ class AutoTransformers:
 
         trainer.train()
         output_metrics = trainer.evaluate(self._eval_dataset)
+
         run.finish()
 
     def _verify_init_config(self,
