@@ -161,9 +161,13 @@ tune.run(...
 )
 ```
 
-Recommended scenario: cost-related hyperparameters exist, a low-cost
+- Recommended scenario: cost-related hyperparameters exist, a low-cost
 initial point is known, and the search space is complex such that local search
 is prone to be stuck at local optima.
+
+
+- Suggestion about using larger search space in BlendSearch: 
+In hyperparameter optimization, a larger search space is desirable because it is more likely to include the optimal configuration (or one of the optimal configurations) in hindsight. However the performance (especially anytime performance) of most the existing HPO methods, for exmaple Bayesian Optimization, is sensitive to search space when the problem is cost-related. Thus small search spaces are commonly used in practice. BlendSearch combines the benefits of local search and global, which enables a smart (economical) way of deciding where to explore in the search space even though it is unnecessarily large. This allows users to use a larger search space in BlendSearch.
 
 For more technical details, please check our papers.
 
