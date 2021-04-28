@@ -89,19 +89,24 @@ class AutoTransformers:
     # # the following arguments are specific to text classification
     # _num_labels: Optional[int] = field(metadata={"help": "The number of labels of output classes"})
 
-    def _set_wandb_hash(self):
+    def _set_wandb_per_run(self):
         self.path_utils.group_hash_id = wandb.util.generate_id()
         # os.environ["WANDB_IGNORE_GLOBS"] = "*.json,*.csv,*.tmdev,*.pkl"
         os.environ["WANDB_RUN_GROUP"] = self.group_name
         os.environ["WANDB_SILENT"] = "false"
         os.environ["WANDB_MODE"] = "online"
+        return wandb.init(project=self.full_dataset_name,
+                   group=self.group_name,
+                   settings=wandb.Settings(
+                       _disable_stats=True),
+                   reinit=False)
 
     def _get_next_trial_ids(self):
         hash = hashlib.sha1()
         hash.update(str(time.time()).encode('utf-8'))
         return "trial_" + hash.hexdigest()[:3]
 
-    def set_wandb(self):
+    def _set_wandb_per_trial(self):
         print("before wandb.init\n\n\n")
         os.environ["WANDB_RUN_GROUP"] = self.group_name
         os.environ["WANDB_SILENT"] = "false"
@@ -606,7 +611,7 @@ class AutoTransformers:
         trainer.logger = logger
         trainer.trial_id = reporter.trial_id
 
-        run = self.set_wandb()
+        run = self._set_wandb_per_trial()
         for each_hp in config:
             if each_hp in hp_type_mapping.keys():
                 wandb.log({each_hp: config[each_hp]})
@@ -764,13 +769,12 @@ class AutoTransformers:
             return {
                 "learning_rate": ray.tune.loguniform(1e-6, 1e-4),
                 "num_train_epochs": ray.tune.choice(list(range(1, 6))),
-                "seed": ray.tune.quniform(1, 40, 1),
+                "seed": ray.tune.quniform(1, 41, 1),
                 "per_device_train_batch_size": ray.tune.choice([4, 8, 16, 32, 64]),
             }
 
         self._set_metric(custom_metric_name, custom_metric_mode_name)
         self._extract_model_type()
-        self._set_wandb_hash()
         self._set_sample_num_time_budget(custom_num_samples, custom_time_budget, num_sample_time_budget_mode,
                                          time_as_grid)
 
@@ -790,7 +794,7 @@ class AutoTransformers:
             compute_metrics=self._compute_metrics_by_dataset_name,
         )
         self.path_utils.set_folder_name(self)
-        run = self.set_wandb()
+        run = self._set_wandb_per_run()
         self.path_utils.make_dir_per_run()
 
         start_time = time.time()
@@ -928,7 +932,7 @@ class AutoTransformers:
         self._set_sample_num_time_budget(custom_num_samples, custom_time_budget, num_sample_time_budget_mode, time_as_grid)
         scheduler = AutoScheduler.from_scheduler_name(self._scheduler_name)
 
-        self._set_wandb_hash()
+        self._set_wandb_per_run()
         self.path_utils.make_dir_per_run()
 
         logger.addHandler(logging.FileHandler(os.path.join(self.path_utils.log_dir_per_run, 'tune.log')))
