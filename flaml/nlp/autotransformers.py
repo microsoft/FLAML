@@ -764,7 +764,7 @@ class AutoTransformers:
             return {
                 "learning_rate": ray.tune.loguniform(1e-6, 1e-4),
                 "num_train_epochs": ray.tune.choice(list(range(1, 6))),
-                "seed": ray.tune.quniform(1, 40, 1),
+                "seed": ray.tune.quniform(1, 41, 1),
                 "per_device_train_batch_size": ray.tune.choice([4, 8, 16, 32, 64]),
             }
 
