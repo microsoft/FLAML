@@ -14,7 +14,7 @@ import time
 import ray
 import datasets
 from datasets import load_dataset
-from transformers.trainer_utils import IntervalStrategy
+from transformers.trainer_utils import IntervalStrategy, HPSearchBackend
 
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoConfig, TrainingArguments
 from functools import partial
@@ -71,30 +71,26 @@ class AutoTransformers:
 
     '''
 
-    _task_name: str = field(metadata={"help": "The task name, e.g., text-classification, question-answering"})
-    _dataset_name: list = field(metadata={"help": "The dataset name, e.g., glue"})
-    _subdataset_name: Optional[str] = field(metadata={"help": "The subdataset name if there's any, e.g., mnli"})
-    _model_type: str = field(metadata={"help": "The model type, e.g., bert, roberta, etc."})
-    _split_mode: str = field(metadata={"help": "The split mode of the dataset, it can only be resplit or origin"})
-
-    _scheduler_name: str = field(metadata={"help": "The scheduler name."})
-    _search_algo_name: str = field(metadata={"help": "The hpo method name."})
-
-    _metric_name: str = field(metadata={"help": "metric name"})
-    _metric_mode_name: str = field(metadata={"help": "metric mode name"})
-
-    _max_seq_length: Optional[int] = field(metadata={"help": "max seq length"})
-    _fp16: Optional[bool] = field(metadata={"help": "is fp16"})
-
-    # the following arguments are specific to text classification
-    _num_labels: Optional[int] = field(metadata={"help": "The number of labels of output classes"})
+    # _task_name: str = field(metadata={"help": "The task name, e.g., text-classification, question-answering"})
+    # _dataset_name: list = field(metadata={"help": "The dataset name, e.g., glue"})
+    # _subdataset_name: Optional[str] = field(metadata={"help": "The subdataset name if there's any, e.g., mnli"})
+    # _model_type: str = field(metadata={"help": "The model type, e.g., bert, roberta, etc."})
+    # _split_mode: str = field(metadata={"help": "The split mode of the dataset, it can only be resplit or origin"})
+    #
+    # _scheduler_name: str = field(metadata={"help": "The scheduler name."})
+    # _search_algo_name: str = field(metadata={"help": "The hpo method name."})
+    #
+    # _metric_name: str = field(metadata={"help": "metric name"})
+    # _metric_mode_name: str = field(metadata={"help": "metric mode name"})
+    #
+    # _max_seq_length: Optional[int] = field(metadata={"help": "max seq length"})
+    # _fp16: Optional[bool] = field(metadata={"help": "is fp16"})
+    #
+    # # the following arguments are specific to text classification
+    # _num_labels: Optional[int] = field(metadata={"help": "The number of labels of output classes"})
 
     def _set_wandb_hash(self):
         self.path_utils.group_hash_id = wandb.util.generate_id()
-        self.group_name = self.full_dataset_name.lower() + "_" + self._model_type.lower() + "_" + \
-                     self._model_size_type.lower() + "_" + self._search_algo_name.lower() \
-                     + "_" + self._scheduler_name.lower() + "_" + self._hpo_searchspace_mode.lower() \
-                     + "_" + self.path_utils.group_hash_id
         # os.environ["WANDB_IGNORE_GLOBS"] = "*.json,*.csv,*.tmdev,*.pkl"
         os.environ["WANDB_RUN_GROUP"] = self.group_name
         os.environ["WANDB_SILENT"] = "false"
@@ -190,6 +186,20 @@ class AutoTransformers:
         Get the full dataset name, which is the concatenation of the dataset name and the subdataset name
         """
         return AutoTransformers.get_full_data_name(self._dataset_name[0], self._subdataset_name)
+
+    @property
+    def group_name(self):
+        group_name_str = self.full_dataset_name.lower() \
+                          + "_" + self._model_type.lower() + "_" \
+                          + self._model_size_type.lower()
+        if hasattr(self, "_search_algo_name"):
+            group_name_str += "_" + self._search_algo_name.lower()
+        if hasattr(self, "_scheduler_name"):
+            group_name_str += "_" + self._scheduler_name.lower()
+        if hasattr(self, "_hpo_searchspace_mode"):
+            group_name_str += "_" + self._hpo_searchspace_mode.lower()
+        group_name_str += "_" + self.path_utils.group_hash_id
+        return group_name_str
 
     @staticmethod
     def get_full_data_name(dataset_name, subdataset_name = None):
@@ -437,7 +447,7 @@ class AutoTransformers:
         self._model_type = model_type
         self._model_size_type = self.path_utils.model_size_type
 
-    def _load_model(self,
+    def  _load_model(self,
                     checkpoint_path = None,
                     per_model_config=None):
         if not checkpoint_path:
@@ -645,7 +655,7 @@ class AutoTransformers:
                         custom_time_budget,
                         num_sample_time_budget_mode,
                         times_as_grid):
-        if self.search_algo_name.startswith("grid_search"):
+        if hasattr(self, "_search_algo_name") and self._search_algo_name.startswith("grid_search"):
             self._sample_num = 1
             self._time_budget = float("inf")
             logger.warning("Running grid search, setting number of trials to 1, setting time budget to infinity")
@@ -699,14 +709,14 @@ class AutoTransformers:
                         ckpt_dir = None,
                         **kwargs):
         if not ckpt_dir:
-            if not self._search_algo_name:
+            if hasattr(self, "_search_algo_name") and not self._search_algo_name:
                 try:
                     self._search_algo_name = kwargs["search_algo_name"]
                 except KeyError as err:
                     logger.error("search_algo_name is not specified, must be explicitly specified"
                     " in the arguments for AutoHugginFace.predict(). For example, search_algo_name='BlendSearch'. ")
                     raise err
-            if not self._scheduler_name:
+            if hasattr(self, "_scheduler_name") and not self._scheduler_name:
                 try:
                     self._scheduler_name = kwargs["scheduler_name"]
                 except KeyError as err:
@@ -734,6 +744,94 @@ class AutoTransformers:
                             custom_metric_mode_name= custom_metric_mode_name)
         _variable_override_default_alternative(logger, self, "metric_name", default_metric, all_metrics, custom_metric_name)
         _variable_override_default_alternative(logger, self, "metric_mode_name", default_mode, all_modes, custom_metric_mode_name)
+
+    def fit_hf(self,
+               train_dataset,
+               eval_dataset,
+               resources_per_trial,
+               custom_metric_name=None,
+               custom_metric_mode_name=None,
+               search_algo_name=None,
+               num_sample_time_budget_mode="custom",
+               custom_num_samples=None,
+               custom_time_budget=None,
+               time_as_grid=None,
+               _fp16 = True,
+               ):
+        def model_init():
+            return self._load_model()
+        def ray_hp_space(trial):
+            return {
+                "learning_rate": ray.tune.loguniform(1e-6, 1e-4),
+                "num_train_epochs": ray.tune.choice(list(range(1, 6))),
+                "seed": ray.tune.quniform(1, 40, 1),
+                "per_device_train_batch_size": ray.tune.choice([4, 8, 16, 32, 64]),
+            }
+
+        self._set_metric(custom_metric_name, custom_metric_mode_name)
+        self._extract_model_type()
+        self._set_wandb_hash()
+        self._set_sample_num_time_budget(custom_num_samples, custom_time_budget, num_sample_time_budget_mode,
+                                         time_as_grid)
+
+        training_args = TrainingArguments(
+            output_dir=self.path_utils.hpo_ckpt_path,
+            fp16=_fp16,
+        )
+        this_model = self._load_model()
+
+        trainer = TrainerForAutoTransformers(
+            this_model,
+            training_args,
+            model_init=model_init,
+            train_dataset= train_dataset,
+            eval_dataset= eval_dataset,
+            tokenizer=self._tokenizer,
+            compute_metrics=self._compute_metrics_by_dataset_name,
+        )
+        self.path_utils.set_folder_name(self)
+        run = self.set_wandb()
+        self.path_utils.make_dir_per_run()
+
+        start_time = time.time()
+        best_run = trainer.hyperparameter_search(
+            n_trials = 2, #self._sample_num,
+            time_budget_s= self._time_budget,
+            hp_space = ray_hp_space,
+            backend=HPSearchBackend.RAY,
+            resources_per_trial = resources_per_trial)
+        duration = time.time() - start_time
+        self._last_run_duration = duration
+
+        hp_dict = best_run.hyperparameters
+        hp_dict["seed"] = int(hp_dict["seed"])
+
+        best_training_args = TrainingArguments(
+            output_dir=self.path_utils.hpo_ckpt_path,
+            fp16=_fp16,
+            **hp_dict,
+        )
+
+        best_trainer = TrainerForAutoTransformers(
+            this_model,
+            best_training_args,
+            model_init=model_init,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            tokenizer=self._tokenizer,
+            compute_metrics=self._compute_metrics_by_dataset_name,
+        )
+
+        best_model_checkpoint_path = os.path.join(self.path_utils.hpo_ckpt_path, "hpo_hf")
+        if not os.path.exists(best_model_checkpoint_path):
+            os.mkdir(best_model_checkpoint_path)
+        best_trainer.train()
+        best_trainer.save_model(best_model_checkpoint_path)
+        self._save_ckpt_json(best_model_checkpoint_path)
+        validation_metric = best_trainer.evaluate()
+        run.finish()
+
+        return validation_metric
 
     def fit(self,
             train_dataset,

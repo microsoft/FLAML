@@ -28,18 +28,6 @@ hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_gridunion_other"]
 search_algo_args_modes = ["default", "default"]
 num_sample_time_budget_mode = "custom"
 
-def get_full_name(autohf, is_grid, hpo_searchspace_mode = None):
-    if is_grid == False:
-        return autohf.full_dataset_name.lower() + "_" + autohf.model_type.lower() + "_" + \
-        autohf.model_size_type.lower() + "_" + autohf.search_algo_name.lower() \
-        + "_" + autohf.scheduler_name.lower() + "_" \
-        + "_" + hpo_searchspace_mode.lower() + "_" + autohf.path_utils.group_hash_id
-    else:
-        return autohf.full_dataset_name.lower() + "_" + autohf._model_type.lower() + "_" + \
-                     autohf.model_size_type.lower() + "_" + autohf.search_algo_name.lower() \
-                     + "_" + autohf.scheduler_name.lower() + "_" + autohf.hpo_searchspace_mode.lower() \
-                     + "_" + autohf.path_utils.group_hash_id
-
 def get_resplit_portion(this_dataset_name, this_subset_name):
     if this_dataset_name == ["glue"] and this_subset_name in {"mnli", "qqp"}:
         return {"source": ["train", "validation"], "train": [0, 0.25], "validation": [0.25, 0.275], "test": [0.275, 0.3]}
@@ -131,11 +119,13 @@ def write_exception(args, save_file_name, fout):
     fout.write("failed, no checkpoint found\n")
     flush_and_upload(fout, args)
 
-def write_regular(autohf, args, validation_metric, save_file_name, fout, sample_num):
+def write_regular(autohf, args, validation_metric, save_file_name, fout, sample_num=None):
     fout.write(save_file_name + ":\n")
     fout.write("timestamp:" + str(str(datetime.datetime.now())) + ":\n")
     fout.write("validation " + (autohf.metric_name) + ":" + json.dumps(validation_metric) + "\n")
     fout.write("duration:" + str(autohf.last_run_duration) + "\n")
+    if not sample_num:
+        sample_num = 0
     fout.write("sample_num: " + str(sample_num) + "\n")
     fout.write(save_file_name.split("_")[-1] + "," + str(sample_num) + "," + str(autohf.last_run_duration) + "," + str(validation_metric) + ",")
     flush_and_upload(fout, args)
@@ -161,10 +151,34 @@ def _test_grid(args, fout, autohf):
             except AssertionError as err:
                 raise err
 
-            save_file_name = get_full_name(autohf, is_grid=True)
-            write_regular(autohf, args, validation_metric, save_file_name, fout, len(analysis.trials))
-            output_predict(args, test_dataset, autohf, fout, save_file_name)
+            write_regular(autohf, args, validation_metric, autohf.group_name, fout, len(analysis.trials))
+            output_predict(args, test_dataset, autohf, fout, autohf.group_name)
             rm_home_result()
+
+def _test_hpo_hf(args, fout, autohf):
+    for data_idx in range(args.dataset_idx, args.dataset_idx + 1):
+        this_dataset_name = dataset_names[data_idx]
+        this_subset_name = subdataset_names[data_idx]
+        each_pretrained_model = pretrained_models[args.pretrained_idx][0]
+        each_model_size_type = pretrained_models[args.pretrained_idx][1]
+        preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
+                                                      each_pretrained_model, each_model_size_type)
+        train_dataset, eval_dataset, test_dataset = \
+            autohf.prepare_data(**preparedata_setting)
+        try:
+            autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
+                               "num_sample_time_budget_mode": "custom",
+                               "custom_num_samples": args.sample_num,
+                               "custom_time_budget": args.time_budget}
+            validation_metric = autohf.fit_hf(train_dataset,
+                                                         eval_dataset,
+                                                        **autohf_settings)
+        except AssertionError:
+            write_exception(args, autohf.group_name, fout)
+            continue
+        write_regular(autohf, args, validation_metric, autohf.group_name, fout)
+        output_predict(args, test_dataset, autohf, fout, autohf.group_name)
+        rm_home_result()
 
 def _test_hpo(args, fout, autohf):
     for data_idx in range(args.dataset_idx, args.dataset_idx + 1):
@@ -192,13 +206,11 @@ def _test_hpo(args, fout, autohf):
                        eval_dataset,
                        **autohf_settings,)
         except AssertionError:
-            save_file_name = get_full_name(autohf, is_grid=True)
-            write_exception(args, save_file_name, fout)
+            write_exception(args, autohf.group_name, fout)
             continue
 
-        save_file_name = get_full_name(autohf, is_grid=True)
-        write_regular(autohf, args, validation_metric, save_file_name, fout, len(analysis.trials))
-        output_predict(args, test_dataset, autohf, fout, save_file_name)
+        write_regular(autohf, args, validation_metric, autohf.group_name, fout, len(analysis.trials))
+        output_predict(args, test_dataset, autohf, fout, autohf.group_name)
         rm_home_result()
 
     fout.close()
@@ -208,7 +220,7 @@ if __name__ == "__main__":
     arg_parser.add_argument('--server_name', type=str, help='server name', required=True,
                             choices=["tmdev", "dgx", "azureml"])
     arg_parser.add_argument('--algo', type=str, help='hpo or grid search', required=True,
-                            choices=["grid_search", "grid_search_bert", "hpo"])
+                            choices=["grid_search", "grid_search_bert", "hpo", "hpo_hf"])
     arg_parser.add_argument('--data_root_dir', type=str, help='data dir', required=True)
     arg_parser.add_argument('--dataset_idx', type=int, help='data index', required=False)
     arg_parser.add_argument('--space_idx', type=int, help='space index', required=False)
@@ -224,6 +236,8 @@ if __name__ == "__main__":
     fout = open("./logs/log_" + args.server_name + "_" + args.suffix + ".log", "a")
     if args.algo.startswith("grid"):
         _test_grid(args, fout, autohf = AutoTransformers())
-    else:
+    elif args.algo == "hpo":
         _test_hpo(args, fout, autohf = AutoTransformers())
+    else:
+        _test_hpo_hf(args, fout, autohf = AutoTransformers())
     fout.close()
