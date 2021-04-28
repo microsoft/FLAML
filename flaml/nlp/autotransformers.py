@@ -176,7 +176,7 @@ class AutoTransformers:
 
     @staticmethod
     def _get_sentence_keys(data_raw):
-        return [x for x in data_raw["train"].features.keys() if x not in ("label", "idx")]
+        return [x for x in data_raw["train"].features.keys() if x.startswith("sentence")]
 
     @property
     def last_run_duration(self):
@@ -396,6 +396,12 @@ class AutoTransformers:
         sentence_keys = AutoTransformers._get_sentence_keys(data_raw)
 
         data_encoded = data_raw.map(partial(self._tokenize, sentence_keys= sentence_keys), batched=True)
+        self._max_seq_length = 0
+        for each_fold in data_encoded.keys():
+            self._max_seq_length = max(self._max_seq_length,
+                max([sum(data_encoded[each_fold][x]['attention_mask']) for x in range(len(data_encoded[each_fold]))]))
+        self._max_seq_length = int((self._max_seq_length + 15) / 16) * 16
+        data_encoded = data_raw.map(partial(self._tokenize, sentence_keys=sentence_keys), batched=True)
 
         if split_mode == "resplit":
             all_folds_from_source = []
