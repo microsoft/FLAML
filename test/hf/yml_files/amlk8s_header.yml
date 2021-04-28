@@ -13,6 +13,7 @@ environment:
     - cd FLAML
     - git checkout exp
     - pip install -e.[blendsearch,ray] --user
+    - pip install transformers==4.4.1
     - export WANDB_API_KEY=7553d982a2247ca8324ec648bd302678105e1058
 
 code:
