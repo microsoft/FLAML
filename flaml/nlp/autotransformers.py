@@ -4,6 +4,9 @@ import random
 
 import torch
 import transformers
+
+from .dataset.sentence_keys_auto import get_sentence_keys
+
 transformers.logging.set_verbosity_error()
 import wandb
 import numpy as np
@@ -174,10 +177,6 @@ class AutoTransformers:
         else:
             self._search_space_grid = None
 
-    @staticmethod
-    def _get_sentence_keys(data_raw):
-        return [x for x in data_raw["train"].features.keys() if x.startswith("sentence")]
-
     @property
     def last_run_duration(self):
         """
@@ -301,7 +300,8 @@ class AutoTransformers:
                      split_mode,
                      data_root_path,
                      max_seq_length = 128,
-                     resplit_portion=None):
+                     resplit_portion=None,
+                     custom_sentence_keys = None):
         '''Prepare data
 
             Args:
@@ -393,7 +393,11 @@ class AutoTransformers:
             data_raw = load_dataset(input_path)
 
         self._train_name, self._dev_name, self._test_name = self._get_split_name(data_raw, fold_name=fold_name)
-        sentence_keys = AutoTransformers._get_sentence_keys(data_raw)
+
+        if custom_sentence_keys:
+            sentence_keys = custom_sentence_keys
+        else:
+            sentence_keys = get_sentence_keys(dataset_name[0], subdataset_name)
 
         data_encoded = data_raw.map(partial(self._tokenize, sentence_keys= sentence_keys), batched=True)
         self._max_seq_length = 0

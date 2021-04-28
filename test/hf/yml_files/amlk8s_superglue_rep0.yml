@@ -23,9 +23,11 @@ search:
     name: search_{experiment_name:s}_{auto:3s}
     sku: 32G4
     command:
-    - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 3 --suffix rep0 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx {space_idx} --algo_idx 0 --pretrained_idx {pretrained_idx}
+    - python run_autohf.py --server_name azureml --algo hpo --dataset_idx {dataset_idx} --suffix rep0 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx {space_idx} --algo_idx 0 --pretrained_idx {pretrained_idx}
+    submit_args: &retry_args
+      max_attempts: 0
   type: grid
-  max_trials: 10
+  max_trials: 20
   params:
     - name: space_idx
       spec: discrete
@@ -33,3 +35,6 @@ search:
     - name: pretrained_idx
       spec: discrete
       values: [3, 1, 2, 0, 4]
+    - name: dataset_idx
+      spec: discrete
+      values: [3, 4]

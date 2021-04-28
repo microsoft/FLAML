@@ -8,7 +8,7 @@ is_first = True
 
 def write_batch(args):
     now = datetime.now()
-    suffix = args.suffix + "_" + now.strftime("%m%d%H%M")
+    suffix = args.suffix # + "_" + now.strftime("%m%d%H%M")
     copyfile("./yml_files/amlk8s_header.yml", "./yml_files/amlk8s_" + str(suffix) + ".yml")
     with open("./yml_files/amlk8s_" + str(suffix) + ".yml", "a") as fout:
         for data_idx in range(0, 3):
