@@ -205,6 +205,12 @@ def get_roberta_space(model_size_type = None,
             "weight_decay": [0.1],
             "num_train_epochs": [10],
         },
+        "super_glue": {
+            "learning_rate": [1e-5, 2e-5, 3e-5],
+            "per_device_train_batch_size": [16, 32],
+            "weight_decay": [0.1],
+            "num_train_epochs": [10],
+        },
         "race":{
             "learning_rate": [1e-5],
             "per_device_train_batch_size": [16],

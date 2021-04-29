@@ -4,6 +4,7 @@
 import os, argparse, subprocess
 import datetime
 import json
+import pathlib
 import shutil
 from flaml.nlp.autotransformers import AutoTransformers
 wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
@@ -94,11 +95,11 @@ def flush_and_upload(fout, args):
     import wandb
     api = wandb.Api()
     runs = api.runs("liususan/upload_file_" + args.server_name)
-    runs[0].upload_file(os.path.abspath("./logs/log_"
-                + subdataset_names[args.dataset_idx] + "_model"
+    runs[0].upload_file(os.path.abspath(os.path.join(path_for_subdataset,
+                "log_" + subdataset_names[args.dataset_idx] + "_model"
                 + str(args.pretrained_idx)
                 + "_" + str(args.algo_idx) + "_" + str(args.space_idx)
-                + "_" + args.suffix + ".log"))
+                + "_" + args.suffix + ".log")))
 
 def output_predict(args, test_dataset, autohf, fout, save_file_name):
     if test_dataset:
@@ -235,13 +236,15 @@ if __name__ == "__main__":
     arg_parser.add_argument('--suffix', type=str, help='suffix', required=False)
     args = arg_parser.parse_args()
 
-    if not os.path.exists("./logs/"):
-        os.mkdir("./logs/")
-    fout = open("./logs/log_"
-                + subdataset_names[args.dataset_idx] + "_model"
+    path_for_subdataset = os.path.join("./logs/", subdataset_names[args.dataset_idx])
+    if not os.path.exists(path_for_subdataset):
+        pathlib.Path(path_for_subdataset).mkdir(parents=True, exist_ok=True)
+
+    fout = open(os.path.join(path_for_subdataset,
+                "log_" + subdataset_names[args.dataset_idx] + "_model"
                 + str(args.pretrained_idx)
                 + "_" + str(args.algo_idx) + "_" + str(args.space_idx)
-                + "_" + args.suffix + ".log", "a")
+                + "_" + args.suffix + ".log"), "a")
     if args.algo.startswith("grid"):
         _test_grid(args, fout, autohf = AutoTransformers())
     elif args.algo == "hpo":
