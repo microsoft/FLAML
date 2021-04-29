@@ -20,7 +20,7 @@ code:
 
 search:
   job_template:
-    name: {experiment_name:s}_{auto:3s}
+    name: _{experiment_name:s}_{auto:3s}
     sku: 32G4
     command:
     - python run_autohf.py --server_name azureml --algo hpo --dataset_idx {dataset_idx} --suffix rep0 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx {space_idx} --algo_idx 0 --pretrained_idx {pretrained_idx}
