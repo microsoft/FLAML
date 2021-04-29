@@ -94,7 +94,11 @@ def flush_and_upload(fout, args):
     import wandb
     api = wandb.Api()
     runs = api.runs("liususan/upload_file_" + args.server_name)
-    runs[0].upload_file(os.path.abspath("./logs/log_" + args.server_name + "_" + args.suffix + ".log"))
+    runs[0].upload_file(os.path.abspath("./logs/log_"
+                + subdataset_names[args.dataset_idx] + "_model"
+                + str(args.pretrained_idx)
+                + "_" + str(args.algo_idx) + "_" + str(args.space_idx)
+                + "_" + args.suffix + ".log"))
 
 def output_predict(args, test_dataset, autohf, fout, save_file_name):
     if test_dataset:
@@ -233,7 +237,11 @@ if __name__ == "__main__":
 
     if not os.path.exists("./logs/"):
         os.mkdir("./logs/")
-    fout = open("./logs/log_" + args.server_name + "_" + args.suffix + ".log", "a")
+    fout = open("./logs/log_"
+                + subdataset_names[args.dataset_idx] + "_model"
+                + str(args.pretrained_idx)
+                + "_" + str(args.algo_idx) + "_" + str(args.space_idx)
+                + "_" + args.suffix + ".log", "a")
     if args.algo.startswith("grid"):
         _test_grid(args, fout, autohf = AutoTransformers())
     elif args.algo == "hpo":

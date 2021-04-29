@@ -178,8 +178,8 @@ def get_bert_space(model_size_type = None,
         # - Number of epochs: 2, 3, 4
         "other": {
             "learning_rate": [5e-5, 3e-5, 2e-5],
-            "per_device_train_batch_size": [16, 32],
-            "num_train_epochs": [2, 3, 4],
+            "per_device_train_batch_size": [16], #, 32],
+            "num_train_epochs": [2] #, 3, 4],
         }
     }
     return get_space_union_and_unique(search_space_common, search_space_unique, [dataset_name])
