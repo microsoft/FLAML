@@ -5,6 +5,7 @@ import random
 import torch
 import transformers
 
+from .dataset.dataprocess_auto import AutoToEncoded
 from .dataset.sentence_keys_auto import get_sentence_keys
 
 transformers.logging.set_verbosity_error()
@@ -300,8 +301,7 @@ class AutoTransformers:
                      split_mode,
                      data_root_path,
                      max_seq_length = 128,
-                     resplit_portion=None,
-                     custom_sentence_keys = None):
+                     resplit_portion=None):
         '''Prepare data
 
             Args:
@@ -381,8 +381,6 @@ class AutoTransformers:
             assert resplit_portion, "If split mode is 'resplit', the resplit_portion must be provided. Please " \
                                     "refer to the example in the documentation of AutoTransformers.prepare_data()"
 
-        self._tokenizer = AutoTokenizer.from_pretrained(self.path_utils.model_checkpoint, use_fast=True)
-
         if not input_path:
             if subdataset_name:
                 data_raw = load_dataset(dataset_name[0], subdataset_name)
@@ -393,19 +391,24 @@ class AutoTransformers:
             data_raw = load_dataset(input_path)
 
         self._train_name, self._dev_name, self._test_name = self._get_split_name(data_raw, fold_name=fold_name)
+        auto_tokentoids_config = {"max_seq_length": self._max_seq_length}
 
-        if custom_sentence_keys:
-            sentence_keys = custom_sentence_keys
-        else:
-            sentence_keys = get_sentence_keys(dataset_name[0], subdataset_name)
-
-        data_encoded = data_raw.map(partial(self._tokenize, sentence_keys= sentence_keys), batched=True)
+        data_encoded = AutoToEncoded.from_model_and_dataset_name(data_raw,
+                                                                   self.path_utils.model_checkpoint,
+                                                                   dataset_name[0],
+                                                                   subdataset_name,
+                                                                   **auto_tokentoids_config)
         self._max_seq_length = 0
         for each_fold in data_encoded.keys():
             self._max_seq_length = max(self._max_seq_length,
                 max([sum(data_encoded[each_fold][x]['attention_mask']) for x in range(len(data_encoded[each_fold]))]))
         self._max_seq_length = int((self._max_seq_length + 15) / 16) * 16
-        data_encoded = data_raw.map(partial(self._tokenize, sentence_keys=sentence_keys), batched=True)
+
+        data_encoded = AutoToEncoded.from_model_and_dataset_name(data_raw,
+                                                                  self.path_utils.model_checkpoint,
+                                                                  dataset_name[0],
+                                                                  subdataset_name,
+                                                                  **auto_tokentoids_config)
 
         if split_mode == "resplit":
             all_folds_from_source = []
@@ -553,21 +556,6 @@ class AutoTransformers:
                 per_model_config[key] = config[key]
 
         return training_args_config, per_model_config
-
-    def _tokenize(self,
-                  examples,
-                  sentence_keys):
-        if len(sentence_keys) > 1:
-            sentence1_key, sentence2_key = sentence_keys[0], sentence_keys[1]
-        else:
-            sentence1_key = sentence_keys[0]
-            sentence2_key = None
-
-        args = (
-            (examples[sentence1_key],) if sentence2_key is None else (
-                examples[sentence1_key], examples[sentence2_key])
-        )
-        return self._tokenizer(*args, padding="max_length", max_length=self._max_seq_length, truncation=True)
 
     def _objective(self, config, reporter, checkpoint_dir=None):
         from transformers.trainer_utils import set_seed

@@ -13,8 +13,8 @@ subprocess.run(["wandb", "login", "--relogin", wandb_key])
 #os.environ['WANDB_MODE'] = 'dryrun'
 os.environ["WANDB_API_KEY"] = wandb_key
 
-dataset_names = [["glue"], ["glue"], ["glue"], ["super_glue"], ["super_glue"]]
-subdataset_names = ["cola", "mrpc", "rte", "wic", "rte"]
+dataset_names = [["glue"], ["glue"], ["glue"], ["super_glue"], ["super_glue"], ["super_glue"]]
+subdataset_names = ["cola", "mrpc", "rte", "wic", "rte", "copa"]
 
 pretrained_models = [("xlnet-base-cased", "base"),
                      ("albert-large-v1", "small"),

@@ -12,7 +12,8 @@ sentence_keys_glue = {
 
 sentence_keys_super_glue = {
     "rte": ["hypothesis", "premise"],
-    "wic": ["sentence1", "sentence2"]
+    "wic": ["sentence1", "sentence2"],
+    "wsc": ["text"]
 }
 
 def get_sentence_keys(dataset_name, subdataset_name = None):
