@@ -1,11 +1,11 @@
 sentence_keys_glue = {
-    "cola": ["sentence1", "sentence2"],
-    "mnli": ["sentence1", "sentence2"],
+    "cola": ["sentence"],
+    "mnli": ["premise", "hypothesis"],
     "mrpc": ["sentence1", "sentence2"],
-    "qnli": ["sentence1", "sentence2"],
-    "qqp":  ["sentence1", "sentence2"],
+    "qnli": ["sentence", "question"],
+    "qqp":  ["question1", "question2"],
     "rte":  ["sentence1", "sentence2"],
-    "sst2": ["sentence1", "sentence2"],
+    "sst2": ["sentence"],
     "stsb": ["sentence1", "sentence2"],
     "wnli": ["sentence1", "sentence2"]
 }

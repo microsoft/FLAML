@@ -392,6 +392,7 @@ class AutoTransformers:
 
         self._train_name, self._dev_name, self._test_name = self._get_split_name(data_raw, fold_name=fold_name)
         auto_tokentoids_config = {"max_seq_length": self._max_seq_length}
+        self._tokenizer = AutoTokenizer.from_pretrained(self.path_utils.model_checkpoint, use_fast=True)
 
         data_encoded = AutoToEncoded.from_model_and_dataset_name(data_raw,
                                                                    self.path_utils.model_checkpoint,
