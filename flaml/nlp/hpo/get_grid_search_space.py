@@ -16,11 +16,12 @@ def get_space_union_and_unique(search_space_common, search_space_unique, this_ca
                 "the hyperparameters of common and unique search spaces should not have overlaps"
             this_search_space.update(search_space_unique[each_case])
         search_space_union = merge_dicts(search_space_union, search_space_unique[each_case])
-    if not is_included:
+    if is_included:
+        return this_search_space
+    else:
         if "other" in search_space_unique.keys():
-            this_search_space.update(search_space_unique["other"])
             search_space_union = merge_dicts(search_space_union, search_space_unique["other"])
-    return search_space_union, this_search_space
+        return search_space_union
 
 def get_deberta_space(model_size_type = None,
                    dataset_name = None,
