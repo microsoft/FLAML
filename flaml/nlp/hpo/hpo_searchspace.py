@@ -28,7 +28,7 @@ def hpo_space_gridunion_other_large(logger, model_type, model_size_type, dataset
     output_config = {}
     for each_model_type in GRID_SEARCH_SPACE_MAPPING.keys():
         if each_model_type == model_type: continue
-        each_grid_search_config, _ = AutoGridSearchSpace.from_model_and_dataset_name(each_model_type, model_size_type, dataset_name, subdataset_name)
+        each_grid_search_config = AutoGridSearchSpace.from_model_and_dataset_name(each_model_type, model_size_type, dataset_name, subdataset_name)
         from ..utils import merge_dicts
         output_config = merge_dicts(output_config, each_grid_search_config)
         default_values = {}
@@ -72,12 +72,12 @@ def hpo_space_gridunion_other(logger, model_type, model_size_type, dataset_name,
     return output_config
 
 def hpo_space_gridunion(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
-    _, output_config = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
+    output_config = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
     for each_hp in hp_type_mapping.keys():
         output_config[each_hp] = []
 
     for each_model_type in GRID_SEARCH_SPACE_MAPPING.keys():
-        _, each_grid_search_config = AutoGridSearchSpace.from_model_and_dataset_name(each_model_type, model_size_type, dataset_name, subdataset_name)
+        each_grid_search_config = AutoGridSearchSpace.from_model_and_dataset_name(each_model_type, model_size_type, dataset_name, subdataset_name)
         for each_hp in hp_type_mapping.keys():
             try:
                 output_config[each_hp] = list(set(output_config[each_hp] + each_grid_search_config[each_hp]))
@@ -101,7 +101,7 @@ def hpo_space_gridunion(logger, model_type, model_size_type, dataset_name, subda
     return output_config
 
 def enumerate_onehp(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
-    _, electra_config = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
+    electra_config = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
     try:
         hp_to_fix, hp_to_fix_value = custom_hpo_args["hp_to_fix"]
         hp_to_tune, hp_to_tune_grids = custom_hpo_args["hp_to_tune"]
@@ -139,7 +139,7 @@ def hpo_space_generic_grid(logger, model_type, model_size_type, dataset_name, su
     return output_config
 
 def hpo_space_small(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
-    _, config_json = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
+    config_json = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
     output_config = {}
 
     for each_hp in config_json.keys():
