@@ -27,7 +27,7 @@ search:
     submit_args: &retry_args
       max_attempts: 0
   type: grid
-  max_trials: 15
+  max_trials: 30
   params:
     - name: space_idx
       spec: discrete
