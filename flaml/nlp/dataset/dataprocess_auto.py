@@ -15,31 +15,19 @@ def inserting_sepp(sent, start, end, this_tokenizer):
         + " " + this_tokenizer.sep_token + " " \
         + sent[end:].lstrip()
 
-# def merge_underline_specialchar(this_tokenizer, tokens):
-#     """when special characters exist in the sentence, e.g., [SEP], , the tokenization
-#     will convert the sentence into ['[SEP]', '_', ',']. Need to concatenate '_' and ',' """
-#     new_tokens = []
-#     x = 0
-#     while x < len(tokens):
-#         first_token = this_tokenizer.convert_ids_to_tokens([tokens[x]])[0]
-#         if x + 1 < len(tokens):
-#             second_token = this_tokenizer.convert_ids_to_tokens([tokens[x + 1]])[0]
-#             if first_token in ('▁', '_') and x + 1 < len(tokens) and len(second_token) == 1 and len(re.sub("[^a-zA-Z0-9]", "", second_token)) == 0:
-#                 new_tokens.append(tokens[x + 1])
-#                 x += 1
-#             else:
-#                 new_tokens.append(tokens[x])
-#         else:
-#             new_tokens.append(tokens[x])
-#         x += 1
-#     new_tokens = new_tokens + [0] * (len(tokens) - len(new_tokens))
-#     return new_tokens
-
-def tokenize_superglue_wsc(this_example,
+def tokenize_superglue_copa(this_example,
                            this_tokenizer,
                            dataset_name,
                            subdataset_name=None,
                            **kwargs):
+
+    return None
+
+def tokenize_superglue_wic_gpt2(this_example,
+                               this_tokenizer,
+                               dataset_name,
+                               subdataset_name=None,
+                               **kwargs):
     return None
 
 def tokenize_superglue_wic(this_example,
@@ -78,7 +66,6 @@ def tokenize_superglue_wic(this_example,
             ptr_sepp += 1; ptr_nosepp += 1
         else:
             if not (input_ids_sepp[ptr_sepp] == sep_id or this_tokenizer.convert_ids_to_tokens([input_ids_sepp[ptr_sepp]])[0] in ('▁', '_')):
-                #import pdb; pdb.set_trace()
                 break
             if input_ids_sepp[ptr_sepp] == sep_id:
                 span_start_end[int(which_sepp / 2)][which_sepp % 2] = ptr_nosepp
@@ -94,20 +81,6 @@ def tokenize_superglue_wic(this_example,
                         + [0] * (max_word_span - span_start_end[idx1][1] + span_start_end[idx1][0])
             word_indices.append(first_span)
     this_data["word_spans"] = word_indices
-    # sent1_set = set([])
-    # if span_start_end[0][0] < 100000 and span_start_end[0][1] < 100000:
-    #     for x in range(span_start_end[0][0], span_start_end[0][1]):
-    #         for each_char in this_tokenizer.convert_ids_to_tokens([this_data['input_ids'][x]])[0]:
-    #             if re.search("[a-zA-Z]", each_char):
-    #                 sent1_set.add(each_char)
-    # sent2_set = set([])
-    # if span_start_end[1][0] < 100000 and span_start_end[1][1] < 100000:
-    #     for x in range(span_start_end[1][0], span_start_end[1][1]):
-    #         for each_char in this_tokenizer.convert_ids_to_tokens([this_data['input_ids'][x]])[0]:
-    #             if re.search("[a-zA-Z]", each_char):
-    #                 sent2_set.add(each_char)
-    # if len(sent1_set.intersection(sent2_set)) < 0.5 * max(len(sent1_set), len(sent2_set)):
-    #     import pdb; pdb.set_trace()
     return this_data
 
 def tokenize_gule(this_example,
@@ -171,8 +144,8 @@ class AutoToEncoded:
                     partial(token_func,
                             this_tokenizer=this_tokenizer,
                             dataset_name = dataset_name,
-                            subdataset_name = subdataset_name
-                            ,**kwargs), batched=False)
+                            subdataset_name = subdataset_name,
+                            **kwargs), batched=False)
             except:
                 raise ValueError("{}, {}, Return empty".format(dataset_name, subdataset_name))
         raise ValueError(

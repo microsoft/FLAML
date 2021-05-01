@@ -395,10 +395,10 @@ class AutoTransformers:
         self._tokenizer = AutoTokenizer.from_pretrained(self.path_utils.model_checkpoint, use_fast=True)
 
         data_encoded = AutoToEncoded.from_model_and_dataset_name(data_raw,
-                                                                   self.path_utils.model_checkpoint,
-                                                                   dataset_name[0],
-                                                                   subdataset_name,
-                                                                   **auto_tokentoids_config)
+                                                               self.path_utils.model_checkpoint,
+                                                               dataset_name[0],
+                                                               subdataset_name,
+                                                               **auto_tokentoids_config)
         self._max_seq_length = 0
         for each_fold in data_encoded.keys():
             self._max_seq_length = max(self._max_seq_length,
