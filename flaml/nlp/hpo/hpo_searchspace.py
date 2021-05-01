@@ -51,7 +51,6 @@ def hpo_space_gridunion_other(logger, model_type, model_size_type, dataset_name,
     for each_model_type in GRID_SEARCH_SPACE_MAPPING.keys():
         #if each_model_type == model_type: continue
         this_config = AutoGridSearchSpace.from_model_and_dataset_name(each_model_type, model_size_type, dataset_name, subdataset_name)
-        import pdb; pdb.set_trace()
         from ..utils import merge_dicts
         output_config = merge_dicts(output_config, this_config)
         default_values = {}
