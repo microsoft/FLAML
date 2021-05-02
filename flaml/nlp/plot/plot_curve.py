@@ -67,7 +67,7 @@ if __name__ == "__main__":
     model2id = {}
     id2model = {}
 
-    for run_idx in range(2, 3):
+    for run_idx in range(0, 1):
         all_runs = []
         task_name = all_run_names[run_idx][0]
         eval_name = all_run_names[run_idx][1]
