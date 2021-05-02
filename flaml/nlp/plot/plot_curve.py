@@ -28,7 +28,29 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('--task_name', type=str, help='scheduler name', required=False)
 
-    task2ylim = {"mrpc": [0.8, 0.9], "rte": [0.6, 0.81], "cola": [0.4, 0.7]}
+    task2ylim = {"mrpc":
+                     {
+                        "xlnet": [0.8, 0.88],
+                         "albert": [0.82, 0.88],
+                         "distilbert": [0.8, 0.88],
+                         "deberta": [0.7, 0.9],
+                         "funnel": [0.7, 0.9]
+                     },
+                "rte": {
+                       "xlnet": [0.5, 0.75],
+                        "albert": [0.65, 0.81],
+                        "distilbert": [0.5, 0.65],
+                        "deberta": [0.55, 0.81],
+                        "funnel": [0.6, 0.81]
+                },
+                "cola": {
+                   "xlnet": [0.0, 0.6],
+                    "albert": [0.3, 0.65],
+                    "distilbert": [0.1, 0.6],
+                    "deberta": [0.3, 0.75],
+                    "funnel": [0.1, 0.75]
+                }
+                }
 
     all_run_names = [("mrpc", "eval/accuracy"), ("rte", "eval/accuracy"), ("cola", "eval/matthews_correlation")]
     run_idx = 1
@@ -42,18 +64,23 @@ if __name__ == "__main__":
     task2files = get_all_runs()
     space2color = {"gridunion": "blue", "generic": "green"}
 
-    fig, axs = plt.subplots(1, 2)
     model2id = {}
+    id2model = {}
 
-    for run_idx in range(1, 2):
+    for run_idx in range(2, 3):
         all_runs = []
         task_name = all_run_names[run_idx][0]
         eval_name = all_run_names[run_idx][1]
+
+        fig, axs = plt.subplots(3, 2, figsize=(10, 6), constrained_layout=True)
+        fig.tight_layout()
+        fig.suptitle(task_name, fontsize=14)
+
         all_files = task2files[task_name]
         print("downloading files for task " + task_name)
-        for model_id in range(2):
+        for model_id in range(5):
             for space_id in range(2):
-                for rep_id in range(2):
+                for rep_id in range(3):
                     this_file = all_files[model_id][space_id][rep_id]
                     this_file.download(replace = True)
                     with open(this_file.name, "r") as fin:
@@ -72,6 +99,7 @@ if __name__ == "__main__":
             model = group_name.split("_")[2]
             ts2acc = {}
             model2id[model] = model_id
+            id2model[model_id] = model
 
             runs = api.runs('liususan/' + proj_name, filters={"group": group_name})
             is_this_run_recorded = False
@@ -123,10 +151,16 @@ if __name__ == "__main__":
                     means.append(avg_y)
                     stds.append(std_y)
                 model_id = model2id[each_model]
-                line1, = axs[0, model_id].plot(sorted_ticks, means, color= space2color[space], label=space)
-                axs[0, model_id].fill_between(sorted_ticks, np.subtract(means, stds), np.add(means, stds), color=space2color[space], alpha=0.2)
-                axs[0, model_id].legend()
-        for ax in axs.flat:
-            ax.set(xlabel='wall clock time (s)', ylabel='validation acc')
-            ax.title()
-            ax.ylim(task2ylim[task_name][0], task2ylim[task_name][1])
+                first_ax_id = int(model_id / 2)
+                second_ax_id = model_id % 2
+                line1, = axs[first_ax_id, second_ax_id].plot(sorted_ticks, means, color=space2color[space], label=space)
+                axs[first_ax_id, second_ax_id].fill_between(sorted_ticks, np.subtract(means, stds), np.add(means, stds), color=space2color[space], alpha=0.2)
+                axs[first_ax_id, second_ax_id].legend(loc=4)
+        for model_id in range(max(id2model.keys()) + 1):
+            first_ax_id = int(model_id / 2)
+            second_ax_id = model_id % 2
+            model = id2model[model_id]
+            axs[first_ax_id, second_ax_id].set(ylabel='validation acc')
+            axs[first_ax_id, second_ax_id].set_title(id2model[model_id])
+            axs[first_ax_id, second_ax_id].axis(ymin=task2ylim[task_name][model][0],ymax=task2ylim[task_name][model][1])
+        plt.show()
