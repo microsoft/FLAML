@@ -67,7 +67,7 @@ if __name__ == "__main__":
     model2id = {}
     id2model = {}
 
-    for run_idx in range(0, 1):
+    for run_idx in range(2, 3):
         all_runs = []
         task_name = all_run_names[run_idx][0]
         eval_name = all_run_names[run_idx][1]
@@ -80,7 +80,7 @@ if __name__ == "__main__":
         print("downloading files for task " + task_name)
         for model_id in range(5):
             for space_id in range(2):
-                for rep_id in range(3):
+                for rep_id in range(2):
                     this_file = all_files[model_id][space_id][rep_id]
                     this_file.download(replace = True)
                     with open(this_file.name, "r") as fin:
