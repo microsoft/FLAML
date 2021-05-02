@@ -10,15 +10,17 @@ environment:
     # - pip install transformers datasets wandb prompt_toolkit==1.0.14 --user
     # - sudo apt-get -y install git
     - lsblk
-    - pip install torch==1.7.1+cu110 torchvision==0.8.2+cu110 -f https://download.pytorch.org/whl/torch_stable.html
+    # - pip install torch==1.7.1+cu110 torchvision==0.8.2+cu110 -f https://download.pytorch.org/whl/torch_stable.html
     - pip install git+https://github.com/microsoft/deepspeed
     - git clone https://github.com/huggingface/transformers
     - cd transformers
     - git checkout 1c06240e1b34777281
     - sudo pip install -e .
     - pip install -r examples/_tests_requirements.txt
-    - export BS=4
     - echo "{\"fp16\":{\"enabled\":true,\"loss_scale\":0,\"loss_scale_window\":1000,\"hysteresis\":2,\"min_loss_scale\":1},\"zero_optimization\":{\"stage\":2,\"allgather_partitions\":true,\"allgather_bucket_size\":2e8,\"reduce_scatter\":true,\"reduce_bucket_size\":2e8,\"overlap_comm\":true,\"contiguous_gradients\":true,\"cpu_offload\":true},\"optimizer\":{\"type\":\"Adam\",\"params\":{\"adam_w_mode\":true,\"lr\":3e-5,\"betas\":[0.9,0.999],\"eps\":1e-8,\"weight_decay\":3e-7}},\"scheduler\":{\"type\":\"WarmupLR\",\"params\":{\"warmup_min_lr\":0,\"warmup_max_lr\":3e-5,\"warmup_num_steps\":500}}}" | tee ds_config_1gpu.json
+
+env_defaults:
+  BS: 4
 
 code:
   local_dir: $CONFIG_DIR/../
