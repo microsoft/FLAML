@@ -11,16 +11,18 @@ def get_all_runs():
     runs = api.runs("liususan/upload_file_azureml")
     task2files = {}
     for file in runs[0].files():
-        result = re.search(".*_model(?P<model_id>\d+)_0_(?P<space_id>\d+)_rep(?P<rep_id>\d+).log", file.name)
+        result = re.search(".*_model(?P<model_id>\d+)_(?P<algo_id>\d+)_(?P<space_id>\d+)_rep(?P<rep_id>\d+).log", file.name)
         if result:
             task_name = file.name.split("/")[1]
             model_id = int(result.group("model_id"))
             space_id = int(result.group("space_id"))
             rep_id = int(result.group("rep_id"))
+            algo_id = int(result.group("algo_id"))
             task2files.setdefault(task_name, {})
             task2files[task_name].setdefault(model_id, {})
-            task2files[task_name][model_id].setdefault(space_id, {})
-            task2files[task_name][model_id][space_id][rep_id] = file
+            task2files[task_name][model_id].setdefault(algo_id, {})
+            task2files[task_name][model_id][algo_id].setdefault(space_id, {})
+            task2files[task_name][model_id][algo_id][space_id][rep_id] = file
 
     return task2files
 
@@ -55,19 +57,16 @@ if __name__ == "__main__":
     all_run_names = [("mrpc", "eval/accuracy"), ("rte", "eval/accuracy"), ("cola", "eval/matthews_correlation")]
     run_idx = 1
 
-    # space2ticks = {}
-    # space2reps = {}
-
-    space2model2ticks = {}
-    space2model2reps = {}
+    tovar2model2ticks = {}
+    tovar2model2reps = {}
 
     task2files = get_all_runs()
-    space2color = {"gridunion": "blue", "generic": "green"}
+    tovar2color = {"optuna": "blue", "blendsearch": "green"}
 
     model2id = {}
     id2model = {}
 
-    for run_idx in range(0, 1):
+    for run_idx in range(1, 2):
         all_runs = []
         task_name = all_run_names[run_idx][0]
         eval_name = all_run_names[run_idx][1]
@@ -79,9 +78,9 @@ if __name__ == "__main__":
         all_files = task2files[task_name]
         print("downloading files for task " + task_name)
         for model_id in range(5):
-            for space_id in range(2):
-                for rep_id in range(2):
-                    this_file = all_files[model_id][space_id][rep_id]
+            for algo_id in range(0, 3, 2):
+                for rep_id in range(3):
+                    this_file = all_files[model_id][algo_id][1][rep_id]
                     this_file.download(replace = True)
                     with open(this_file.name, "r") as fin:
                         proj_name = fin.readline().rstrip(":\n")
@@ -95,7 +94,7 @@ if __name__ == "__main__":
             model_id = all_runs[idx][2]
 
             print("collecting data for the " + str(idx) + "th project")
-            space = group_name.split("_")[8]
+            dim_to_var = group_name.split("_")[4]
             model = group_name.split("_")[2]
             ts2acc = {}
             model2id[model] = model_id
@@ -125,23 +124,23 @@ if __name__ == "__main__":
                 xs.append(each_ts - sorted_ts[0])
                 ys.append(max_acc_sofar)
 
-            space2model2reps.setdefault(space, {})
-            space2model2reps[space].setdefault(model, [])
-            space2model2reps[space][model].append((xs, ys))
-            space2model2ticks.setdefault(space, {})
-            space2model2ticks[space].setdefault(model, set([]))
-            space2model2ticks[space][model].update(xs)
+            tovar2model2reps.setdefault(dim_to_var, {})
+            tovar2model2reps[dim_to_var].setdefault(model, [])
+            tovar2model2reps[dim_to_var][model].append((xs, ys))
+            tovar2model2ticks.setdefault(dim_to_var, {})
+            tovar2model2ticks[dim_to_var].setdefault(model, set([]))
+            tovar2model2ticks[dim_to_var][model].update(xs)
 
         for each_model in model2id.keys():
-            for space in space2model2reps.keys():
-                sorted_ticks = sorted(space2model2ticks[space][each_model])
+            for tovar in tovar2model2reps.keys():
+                sorted_ticks = sorted(tovar2model2ticks[tovar][each_model])
                 means = []
                 stds = []
                 for each_tick in sorted_ticks:
                     all_ys = []
-                    for i in range(len(space2model2reps[space][each_model])):
-                        xs = space2model2reps[space][each_model][i][0]
-                        ys = space2model2reps[space][each_model][i][1]
+                    for i in range(len(tovar2model2reps[tovar][each_model])):
+                        xs = tovar2model2reps[tovar][each_model][i][0]
+                        ys = tovar2model2reps[tovar][each_model][i][1]
                         if len(ys) == 0: continue
                         y_pos = max(0, min(bisect.bisect_left(xs, each_tick), len(ys) - 1))
                         this_y = ys[y_pos]
@@ -153,8 +152,8 @@ if __name__ == "__main__":
                 model_id = model2id[each_model]
                 first_ax_id = int(model_id / 2)
                 second_ax_id = model_id % 2
-                line1, = axs[first_ax_id, second_ax_id].plot(sorted_ticks, means, color=space2color[space], label=space)
-                axs[first_ax_id, second_ax_id].fill_between(sorted_ticks, np.subtract(means, stds), np.add(means, stds), color=space2color[space], alpha=0.2)
+                line1, = axs[first_ax_id, second_ax_id].plot(sorted_ticks, means, color=tovar2color[tovar], label=tovar)
+                axs[first_ax_id, second_ax_id].fill_between(sorted_ticks, np.subtract(means, stds), np.add(means, stds), color=tovar2color[tovar], alpha=0.2)
                 axs[first_ax_id, second_ax_id].legend(loc=4)
         for model_id in range(max(id2model.keys()) + 1):
             first_ax_id = int(model_id / 2)

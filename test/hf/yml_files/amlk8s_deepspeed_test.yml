@@ -14,9 +14,8 @@ environment:
     - git clone https://github.com/huggingface/transformers
     - cd transformers
     - git checkout 1c06240e1b34777281
-    - pip install -e . --user
     - pip install -r examples/_tests_requirements.txt --user
-    - echo "{\"fp16\":{\"enabled\":true,\"loss_scale\":0,\"loss_scale_window\":1000,\"hysteresis\":2,\"min_loss_scale\":1},\"zero_optimization\":{\"stage\":2,\"allgather_partitions\":true,\"allgather_bucket_size\":2e8,\"reduce_scatter\":true,\"reduce_bucket_size\":2e8,\"overlap_comm\":true,\"contiguous_gradients\":true,\"cpu_offload\":true},\"optimizer\":{\"type\":\"Adam\",\"params\":{\"adam_w_mode\":true,\"lr\":3e-5,\"betas\":[0.9,0.999],\"eps\":1e-8,\"weight_decay\":3e-7}},\"scheduler\":{\"type\":\"WarmupLR\",\"params\":{\"warmup_min_lr\":0,\"warmup_max_lr\":3e-5,\"warmup_num_steps\":500}}}" | tee ds_config_1gpu.json
+    - pip install git+https://github.com/huggingface/transformers.git@1c06240e1b34777281
 
 env_defaults:
   BS: 4
@@ -28,6 +27,6 @@ jobs:
 - name: test_deepspeed
   sku: 16G4
   command:
-  - PYTHONPATH=transformers/src USE_TF=0 CUDA_VISIBLE_DEVICES=0 deepspeed --num_gpus=1 transformers/examples/seq2seq/run_translation.py --model_name_or_path t5-3b --output_dir output_dir --adam_eps 1e-06 --evaluation_strategy=steps --do_train --do_eval --label_smoothing 0.1 --learning_rate 3e-5 --logging_first_step --logging_steps 1000 --max_source_length 128 --max_target_length 128 --num_train_epochs 2 --overwrite_output_dir  --per_device_train_batch_size $BS --per_device_eval_batch_size $BS --predict_with_generate --sortish_sampler --val_max_target_length 128 --warmup_steps 500 --max_train_samples 2000 --max_val_samples 500 --dataset_name wmt16 --dataset_config ro-en --source_lang en --target_lang ro --source_prefix "translate English to Romanian:" --deepspeed ds_config_1gpu.json --fp16
+  - USE_TF=0 CUDA_VISIBLE_DEVICES=0 deepspeed --num_gpus=1 FLAML/test/hf/run_translation.py --model_name_or_path t5-3b --output_dir output_dir --adam_eps 1e-06 --evaluation_strategy=steps --do_train --do_eval --label_smoothing 0.1 --learning_rate 3e-5 --logging_first_step --logging_steps 1000 --max_source_length 128 --max_target_length 128 --num_train_epochs 2 --overwrite_output_dir  --per_device_train_batch_size $BS --per_device_eval_batch_size $BS --predict_with_generate --sortish_sampler --val_max_target_length 128 --warmup_steps 500 --max_train_samples 2000 --max_val_samples 500 --dataset_name wmt16 --dataset_config ro-en --source_lang en --target_lang ro --source_prefix "translate English to Romanian:" --deepspeed FLAML/test/hf/ds_configs/ds_config_1gpu.json --fp16
   submit_args: &retry_args
     max_attempts: 0
