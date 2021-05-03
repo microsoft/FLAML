@@ -1,0 +1,40 @@
+description: finetuning test on AMLK8s
+
+target:
+  service: amlk8s
+  name: ms-shared-v100
+
+environment:
+  image: sonichi/hpo4hf:latest
+  setup:
+    # - pip install transformers datasets wandb prompt_toolkit==1.0.14 --user
+    # - sudo apt-get -y install git
+    - git clone https://github.com/liususan091219/FLAML.git
+    - cd FLAML
+    - git checkout exp
+    - pip install -e.[blendsearch,ray] --user
+    - export WANDB_API_KEY=7553d982a2247ca8324ec648bd302678105e1058
+
+code:
+  local_dir: $CONFIG_DIR/../
+
+search:
+  job_template:
+    name: _{experiment_name:s}_{auto:3s}
+    sku: 32G4
+    command:
+    - python run_autohf.py --server_name azureml --algo hpo --dataset_idx {dataset_idx} --suffix rep0 --data_root_dir './data/' --sample_num 100000 --time_budget 7200 --space_idx 0 --algo_idx {algo_idx} --pretrained_idx {pretrained_idx}
+    submit_args: &retry_args
+      max_attempts: 0
+  type: grid
+  max_trials: 30
+  params:
+    - name: algo_idx
+      spec: discrete
+      values: [2, 4]
+    - name: pretrained_idx
+      spec: discrete
+      values: [3, 1, 2, 0, 4]
+    - name: dataset_idx
+      spec: discrete
+      values: [0, 1, 2]
