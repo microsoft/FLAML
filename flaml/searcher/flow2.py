@@ -190,7 +190,8 @@ class FLOW2(Searcher):
         self.dir = 2**(self.dim)
         self._configs = {}  # dict from trial_id to (config, stepsize)
         self._K = 0
-        self._iter_best_config = self.trial_count = 1
+        self._iter_best_config = self.trial_count_proposed = self.trial_count_complete = 1
+        self._num_proposedby_incumbent = 0
         self._reset_times = 0
         # record intermediate trial cost
         self._trial_cost = {}
@@ -440,6 +441,7 @@ class FLOW2(Searcher):
                         self._resource = self.best_config[self.prune_attr]
                     self._num_complete4incumbent = 0
                     self._cost_complete4incumbent = 0
+                    self._num_proposedby_incumbent = 0
                     self._num_allowed4incumbent = 2 * self.dim
                     self._proposed_by.clear()
                     if self._K > 0:
@@ -486,9 +488,10 @@ class FLOW2(Searcher):
                         self.cost_incumbent = result.get(self.cost_attr)
                         self._cost_complete4incumbent = 0
                         self._num_complete4incumbent = 0
+                        self._num_proposedby_incumbent = 0
                         self._num_allowed4incumbent = 2 * self.dim
                         self._proposed_by.clear()
-                        self._iter_best_config = self.trial_count
+                        self._iter_best_config = self.trial_count_complete
             cost = result.get(self.cost_attr)
             # record the cost in case it is pruned and cost info is lost
             self._trial_cost[trial_id] = cost
