@@ -13,6 +13,7 @@ environment:
     - git clone https://github.com/liususan091219/FLAML.git
     - cd FLAML
     - git checkout exp
+    - cd ..
     - pip install git+https://github.com/microsoft/deepspeed
     - git clone https://github.com/huggingface/transformers
     - cd transformers
