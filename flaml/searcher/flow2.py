@@ -188,7 +188,7 @@ class FLOW2(Searcher):
             self.step = self.step_ub
         # maximal # consecutive no improvements
         self.dir = 2**(self.dim)
-        self._configs = {}  # dict from trial_id to config
+        self._configs = {}  # dict from trial_id to (config, stepsize)
         self._K = 0
         self._iter_best_config = self.trial_count = 1
         self._reset_times = 0
@@ -426,14 +426,14 @@ class FLOW2(Searcher):
         '''
         # if better, move, reset num_complete and num_proposed
         # if not better and num_complete >= 2*dim, num_allowed += 2
-        self.trial_count += 1
+        self.trial_count_complete += 1
         if not error and result:
             obj = result.get(self._metric)
             if obj:
                 obj *= self.metric_op
                 if self.best_obj is None or obj < self.best_obj:
-                    self.best_obj, self.best_config = obj, self._configs[
-                        trial_id]
+                    self.best_obj = obj
+                    self.best_config, self.step = self._configs[trial_id]
                     self.incumbent = self.normalize(self.best_config)
                     self.cost_incumbent = result.get(self.cost_attr)
                     if self._resource:
@@ -447,7 +447,7 @@ class FLOW2(Searcher):
                         self.step *= np.sqrt(self._K / self._oldK)
                     if self.step > self.step_ub:
                         self.step = self.step_ub
-                    self._iter_best_config = self.trial_count
+                    self._iter_best_config = self.trial_count_complete
                     return
         proposed_by = self._proposed_by.get(trial_id)
         if proposed_by == self.incumbent:
@@ -463,11 +463,6 @@ class FLOW2(Searcher):
             if self._num_complete4incumbent == self.dir and (
                     not self._resource or self._resource == self.max_resource):
                 # check stuck condition if using max resource
-                if self.step >= self.step_lower_bound:
-                    # decrease step size
-                    self._oldK = self._K if self._K else self._iter_best_config
-                    self._K = self.trial_count + 1
-                    self.step *= np.sqrt(self._oldK / self._K)
                 self._num_complete4incumbent -= 2
                 if self._num_allowed4incumbent < 2:
                     self._num_allowed4incumbent = 2
@@ -482,7 +477,7 @@ class FLOW2(Searcher):
                 obj *= self.metric_op
                 if self.best_obj is None or obj < self.best_obj:
                     self.best_obj = obj
-                    config = self._configs[trial_id]
+                    config = self._configs[trial_id][0]
                     if self.best_config != config:
                         self.best_config = config
                         if self._resource:
@@ -509,18 +504,21 @@ class FLOW2(Searcher):
         2. same resource, move from the incumbent to a random direction
         3. same resource, move from the incumbent to the opposite direction
         '''
+        self.trial_count_proposed += 1
         if self._num_complete4incumbent > 0 and self.cost_incumbent and \
             self._resource and self._resource < self.max_resource and (
                 self._cost_complete4incumbent
                 >= self.cost_incumbent * self.resource_multiple_factor):
             # consider increasing resource using sum eval cost of complete
             # configs
+            old_resource = self._resource
             self._resource = self._round(
                 self._resource * self.resource_multiple_factor)
+            self.cost_incumbent *= self._resource / old_resource
             config = self.best_config.copy()
             config[self.prune_attr] = self._resource
             self._direction_tried = None
-            self._configs[trial_id] = config
+            self._configs[trial_id] = (config, self.step)
             return config
         self._num_allowed4incumbent -= 1
         move = self.incumbent.copy()
@@ -538,7 +536,17 @@ class FLOW2(Searcher):
         self._project(move)
         config = self.denormalize(move)
         self._proposed_by[trial_id] = self.incumbent
-        self._configs[trial_id] = config
+        self._configs[trial_id] = (config, self.step)
+        self._num_proposedby_incumbent += 1
+        if self._num_proposedby_incumbent == self.dir and (
+            not self._resource or self._resource == self.max_resource):
+                # check stuck condition if using max resource
+                if self.step >= self.step_lower_bound:
+                    # decrease step size
+                    self._oldK = self._K if self._K else self._iter_best_config
+                    self._K = self.trial_count_proposed + 1
+                    self.step *= np.sqrt(self._oldK / self._K)
+                self._num_proposedby_incumbent -= 2
         return unflatten_dict(config)
 
     def _project(self, config):
