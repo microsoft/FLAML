@@ -10,6 +10,7 @@ environment:
     # - pip install transformers datasets wandb prompt_toolkit==1.0.14 --user
     # - sudo apt-get -y install git
     # - pip install torch==1.7.1+cu110 torchvision==0.8.2+cu110 -f https://download.pytorch.org/whl/torch_stable.html
+    - git clone https://github.com/liususan091219/FLAML.git
     - pip install git+https://github.com/microsoft/deepspeed
     - git clone https://github.com/huggingface/transformers
     - cd transformers
