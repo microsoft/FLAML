@@ -61,12 +61,13 @@ if __name__ == "__main__":
     tovar2model2reps = {}
 
     task2files = get_all_runs()
-    tovar2color = {"optuna": "blue", "blendsearch": "green"}
+    #tovar2color = {"optuna": "blue", "blendsearch": "green"}
+    tovar2color = {"gridunion": "blue", "generic": "green"}
 
     model2id = {}
     id2model = {}
 
-    for run_idx in range(1, 2):
+    for run_idx in range(0, 1):
         all_runs = []
         task_name = all_run_names[run_idx][0]
         eval_name = all_run_names[run_idx][1]
@@ -78,9 +79,9 @@ if __name__ == "__main__":
         all_files = task2files[task_name]
         print("downloading files for task " + task_name)
         for model_id in range(5):
-            for algo_id in range(0, 3, 2):
+            for space_id in range(2): #3, 2):
                 for rep_id in range(3):
-                    this_file = all_files[model_id][algo_id][1][rep_id]
+                    this_file = all_files[model_id][2][space_id][rep_id]
                     this_file.download(replace = True)
                     with open(this_file.name, "r") as fin:
                         proj_name = fin.readline().rstrip(":\n")
@@ -94,8 +95,9 @@ if __name__ == "__main__":
             model_id = all_runs[idx][2]
 
             print("collecting data for the " + str(idx) + "th project")
-            dim_to_var = group_name.split("_")[4]
+            dim_to_var = group_name.split("_")[8]
             model = group_name.split("_")[2]
+            fixed_algo = group_name.split("_")[4]
             ts2acc = {}
             model2id[model] = model_id
             id2model[model_id] = model
@@ -152,7 +154,7 @@ if __name__ == "__main__":
                 model_id = model2id[each_model]
                 first_ax_id = int(model_id / 2)
                 second_ax_id = model_id % 2
-                line1, = axs[first_ax_id, second_ax_id].plot(sorted_ticks, means, color=tovar2color[tovar], label=tovar)
+                line1, = axs[first_ax_id, second_ax_id].plot(sorted_ticks, means, color=tovar2color[tovar], label= "bo_" + tovar)
                 axs[first_ax_id, second_ax_id].fill_between(sorted_ticks, np.subtract(means, stds), np.add(means, stds), color=tovar2color[tovar], alpha=0.2)
                 axs[first_ax_id, second_ax_id].legend(loc=4)
         for model_id in range(max(id2model.keys()) + 1):

@@ -22,6 +22,6 @@ jobs:
 - name: rte_deberta_bo_generic
   sku: 32G4
   command:
-  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix rte_deberta_bo_generic --data_root_dir './data/' --sample_num 100000 --time_budget 7200 --space_idx 0 --algo_idx 2 --pretrained_idx 3
+  - python run_autohf.py --server_name azureml --algo hpo --dataset_idx 2 --suffix rep0 --data_root_dir './data/' --sample_num 100000 --time_budget 3600 --space_idx 0 --algo_idx 2 --pretrained_idx 3
   submit_args: &retry_args
     max_attempts: 0
