@@ -3,14 +3,17 @@
 #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
 import os, argparse, subprocess
 import datetime
-import json
+import json, wandb
 import pathlib
 import shutil
 from flaml.nlp.autotransformers import AutoTransformers
+from flaml.nlp.wandb.utils import search_file_to_delete
+
+global wandb_log_path
+
 wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 subprocess.run(["wandb", "login", "--relogin", wandb_key])
 
-#os.environ['WANDB_MODE'] = 'dryrun'
 os.environ["WANDB_API_KEY"] = wandb_key
 
 dataset_names = [["glue"], ["glue"], ["glue"], ["super_glue"], ["super_glue"], ["super_glue"]]
@@ -60,7 +63,7 @@ def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pret
 
 def get_autohf_settings_grid(args):
     autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
-                           "search_algo_name": args.algo,
+                           "search_algo_name": args.algo_mode,
                            "scheduler_name": "None",
                            "ckpt_per_epoch": 1,
                            }
@@ -90,16 +93,25 @@ def get_autohf_settings_enumeratehp():
                            }
     return autohf_settings
 
+def clean_outdated_results(args):
+    if args.is_rerun:
+        files_to_delete = search_file_to_delete(args,
+                                                dataset_names[args.dataset_idx],
+                                                subdataset_names[args.dataset_idx],
+                                                mode = "delete_one")
+    else:
+        files_to_delete = search_file_to_delete(args,
+                                                dataset_names[args.dataset_idx],
+                                                subdataset_names[args.dataset_idx],
+                                                mode="delete_all")
+    for each_file in files_to_delete:
+        each_file.delete()
+
 def flush_and_upload(fout, args):
     fout.flush()
-    import wandb
     api = wandb.Api()
     runs = api.runs("liususan/upload_file_" + args.server_name)
-    runs[0].upload_file(os.path.abspath(os.path.join(path_for_subdataset,
-                "log_" + subdataset_names[args.dataset_idx] + "_model"
-                + str(args.pretrained_idx)
-                + "_" + str(args.algo_idx) + "_" + str(args.space_idx)
-                + "_" + args.suffix + ".log")))
+    runs[0].upload_file(wandb_log_path)
 
 def output_predict(args, test_dataset, autohf, fout, save_file_name):
     if test_dataset:
@@ -143,7 +155,7 @@ def _test_grid(args, fout, autohf):
         for model_idx in range(0, len(pretrained_models)):
             each_pretrained_model = pretrained_models[model_idx][0]
             each_model_size_type = pretrained_models[model_idx][1]
-
+            clean_outdated_results(args)
             preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model, each_model_size_type)
             train_dataset, eval_dataset, test_dataset = \
             autohf.prepare_data(**preparedata_setting)
@@ -168,6 +180,7 @@ def _test_hpo_hf(args, fout, autohf):
         each_model_size_type = pretrained_models[args.pretrained_idx][1]
         preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
                                                       each_pretrained_model, each_model_size_type)
+        clean_outdated_results(args)
         train_dataset, eval_dataset, test_dataset = \
             autohf.prepare_data(**preparedata_setting)
         try:
@@ -195,13 +208,11 @@ def _test_hpo(args, fout, autohf):
 
         each_pretrained_model = pretrained_models[args.pretrained_idx][0]
         each_model_size_type = pretrained_models[args.pretrained_idx][1]
-
-
+        clean_outdated_results(args)
         hpo_searchspace_mode = hpo_searchspace_modes[args.space_idx]
         search_algo_args_mode = search_algo_args_modes[args.space_idx]
         preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
                                                       each_pretrained_model, each_model_size_type)
-
         train_dataset, eval_dataset, test_dataset = \
             autohf.prepare_data(**preparedata_setting)
         autohf_settings = get_autohf_settings(args, this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode)
@@ -224,31 +235,28 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('--server_name', type=str, help='server name', required=True,
                             choices=["tmdev", "dgx", "azureml"])
-    arg_parser.add_argument('--algo', type=str, help='hpo or grid search', required=True,
+    arg_parser.add_argument('--algo_mode', type=str, help='hpo or grid search', required=True,
                             choices=["grid_search", "grid_search_bert", "hpo", "hpo_hf"])
     arg_parser.add_argument('--data_root_dir', type=str, help='data dir', required=True)
     arg_parser.add_argument('--dataset_idx', type=int, help='data index', required=False)
+    arg_parser.add_argument('--is_rerun', type=bool, help='whether to rerun', required=False, default=False)
     arg_parser.add_argument('--space_idx', type=int, help='space index', required=False)
     arg_parser.add_argument('--algo_idx', type=int, help='algorithm index', required=False)
     arg_parser.add_argument('--pretrained_idx', type=int, help='pretrained index', required=False)
     arg_parser.add_argument('--sample_num', type=int, help='sample num', required=False)
     arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False)
-    arg_parser.add_argument('--suffix', type=str, help='suffix', required=False)
+    arg_parser.add_argument('--rep_id', type=int, help='rep id', required=False)
     args = arg_parser.parse_args()
 
-    path_for_subdataset = os.path.join("./logs/", subdataset_names[args.dataset_idx])
-    if not os.path.exists(path_for_subdataset):
-        pathlib.Path(path_for_subdataset).mkdir(parents=True, exist_ok=True)
+    from flaml.nlp.wandb.utils import get_wandpath
+    wandb_log_path = get_wandpath(args, dataset_names, subdataset_names)
 
-    fout = open(os.path.join(path_for_subdataset,
-                "log_" + subdataset_names[args.dataset_idx] + "_model"
-                + str(args.pretrained_idx)
-                + "_" + str(args.algo_idx) + "_" + str(args.space_idx)
-                + "_" + args.suffix + ".log"), "a")
-    if args.algo.startswith("grid"):
+    fout = open(wandb_log_path, "a")
+    if args.algo_mode.startswith("grid"):
         _test_grid(args, fout, autohf = AutoTransformers())
-    elif args.algo == "hpo":
+    elif args.algo_mode == "hpo":
         _test_hpo(args, fout, autohf = AutoTransformers())
     else:
         _test_hpo_hf(args, fout, autohf = AutoTransformers())
+
     fout.close()

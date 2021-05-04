@@ -3,32 +3,11 @@ import bisect
 import wandb
 import matplotlib.pyplot as plt
 import numpy as np
-import argparse, re
+from flaml.nlp.wandb.utils import get_all_runs
+
 api = wandb.Api()
 
-def get_all_runs():
-    api = wandb.Api()
-    runs = api.runs("liususan/upload_file_azureml")
-    task2files = {}
-    for file in runs[0].files():
-        result = re.search(".*_model(?P<model_id>\d+)_(?P<algo_id>\d+)_(?P<space_id>\d+)_rep(?P<rep_id>\d+).log", file.name)
-        if result:
-            task_name = file.name.split("/")[1]
-            model_id = int(result.group("model_id"))
-            space_id = int(result.group("space_id"))
-            rep_id = int(result.group("rep_id"))
-            algo_id = int(result.group("algo_id"))
-            task2files.setdefault(task_name, {})
-            task2files[task_name].setdefault(model_id, {})
-            task2files[task_name][model_id].setdefault(algo_id, {})
-            task2files[task_name][model_id][algo_id].setdefault(space_id, {})
-            task2files[task_name][model_id][algo_id][space_id][rep_id] = file
-
-    return task2files
-
 if __name__ == "__main__":
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('--task_name', type=str, help='scheduler name', required=False)
 
     task2ylim = {"mrpc":
                      {
@@ -84,8 +63,8 @@ if __name__ == "__main__":
                     this_file = all_files[model_id][2][space_id][rep_id]
                     this_file.download(replace = True)
                     with open(this_file.name, "r") as fin:
-                        proj_name = fin.readline().rstrip(":\n")
-                        all_runs.append(("glue_" + task_name, proj_name, model_id))
+                        this_group_name = fin.readline().rstrip(":\n")
+                        all_runs.append(("glue_" + task_name, this_group_name, model_id))
 
         run_count = len(all_runs)
         print("there are " + str(run_count) + " runs ")
