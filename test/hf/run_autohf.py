@@ -100,10 +100,16 @@ def clean_outdated_results(args):
                                                 subdataset_names[args.dataset_idx],
                                                 mode = "delete_one")
     else:
-        files_to_delete = search_file_to_delete(args,
-                                                dataset_names[args.dataset_idx],
-                                                subdataset_names[args.dataset_idx],
-                                                mode="delete_all")
+        if args.rep_id == 0:
+            files_to_delete = search_file_to_delete(args,
+                                                    dataset_names[args.dataset_idx],
+                                                    subdataset_names[args.dataset_idx],
+                                                    mode="delete_all")
+        else:
+            files_to_delete = search_file_to_delete(args,
+                                                    dataset_names[args.dataset_idx],
+                                                    subdataset_names[args.dataset_idx],
+                                                    mode="delete_one")
     for each_file in files_to_delete:
         each_file.delete()
 
@@ -239,7 +245,7 @@ if __name__ == "__main__":
                             choices=["grid_search", "grid_search_bert", "hpo", "hpo_hf"])
     arg_parser.add_argument('--data_root_dir', type=str, help='data dir', required=True)
     arg_parser.add_argument('--dataset_idx', type=int, help='data index', required=False)
-    arg_parser.add_argument('--is_rerun', type=bool, help='whether to rerun', required=False, default=False)
+    arg_parser.add_argument('--is_rerun', action='store_false', help='whether to rerun')
     arg_parser.add_argument('--space_idx', type=int, help='space index', required=False)
     arg_parser.add_argument('--algo_idx', type=int, help='algorithm index', required=False)
     arg_parser.add_argument('--pretrained_idx', type=int, help='pretrained index', required=False)
