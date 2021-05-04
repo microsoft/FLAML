@@ -568,13 +568,15 @@ class FLOW2(Searcher):
         if self._num_proposedby_incumbent == self.dir and (
             not self._resource or self._resource == self.max_resource):
                 # check stuck condition if using max resource
+                self._num_proposedby_incumbent -= 2
+                self._init_phrase = False
                 if self.step >= self.step_lower_bound:
                     # decrease step size
                     self._oldK = self._K if self._K else self._iter_best_config
                     self._K = self.trial_count_proposed + 1
                     self.step *= np.sqrt(self._oldK / self._K)
-                self._num_proposedby_incumbent -= 2
-                self._init_phrase = False
+                else:
+                    return None
         return unflatten_dict(config)
 
     def _project(self, config):
