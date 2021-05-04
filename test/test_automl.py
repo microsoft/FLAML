@@ -4,6 +4,9 @@ import numpy as np
 import scipy.sparse
 from sklearn.datasets import load_boston, load_iris, load_wine
 
+import pandas as pd
+from datetime import datetime
+
 from flaml import AutoML
 from flaml.data import get_output_from_log
 
@@ -218,6 +221,42 @@ class TestAutoML(unittest.TestCase):
         print(duration)
         print(automl_experiment.model)
         print(automl_experiment.predict_proba(X_train)[:5])
+
+    def test_datetime_columns(self):
+
+        automl_experiment = AutoML()
+        automl_settings = {
+            "time_budget":         2,
+            "metric":              'mse',
+            "task":                'regression',
+            "log_file_name":       "test/datetime_columns.log",
+            "log_training_metric": True,
+            "n_jobs":              1,
+            "model_history":       True
+        }
+
+        fake_df = pd.DataFrame({'A': [datetime(1900, 2, 3), datetime(1900, 3, 4)]})
+        y = np.array([0, 1])
+        automl_experiment.fit(X_train=fake_df, X_val=fake_df, y_train=y, y_val=y, **automl_settings)
+
+        y_pred = automl_experiment.predict(fake_df)
+
+    def test_micro_macro_f1(self):
+        automl_experiment = AutoML()
+        automl_experiment_macro = AutoML()
+
+        automl_settings = {
+            "time_budget":         2,
+            "task":                'classification',
+            "log_file_name":       "test/micro_macro_f1.log",
+            "log_training_metric": True,
+            "n_jobs":              1,
+            "model_history":       True
+        }
+
+        X_train, y_train = load_iris(return_X_y=True)
+        automl_experiment.fit(X_train=X_train, y_train=y_train, metric='micro_f1', **automl_settings)
+        automl_experiment_macro.fit(X_train=X_train, y_train=y_train, metric='macro_f1', **automl_settings)
 
     def test_regression(self):
 

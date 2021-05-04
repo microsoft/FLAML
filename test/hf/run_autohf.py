@@ -2,18 +2,22 @@
 '''
 #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
 import os, argparse, subprocess
-wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
-import wandb
-wandb.init()
-subprocess.run(["wandb", "login", "--relogin", wandb_key])
-
 import datetime
-import json
+import json, wandb
+import pathlib
 import shutil
 from flaml.nlp.autotransformers import AutoTransformers
+from flaml.nlp.wandb.utils import search_file_to_delete
 
-dataset_names = [["glue"], ["glue"], ["glue"]]
-subdataset_names = ["cola", "mrpc", "rte"]
+global wandb_log_path
+
+wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
+subprocess.run(["wandb", "login", "--relogin", wandb_key])
+
+os.environ["WANDB_API_KEY"] = wandb_key
+
+dataset_names = [["glue"], ["glue"], ["glue"], ["super_glue"], ["super_glue"], ["super_glue"]]
+subdataset_names = ["cola", "mrpc", "rte", "wic", "rte", "copa"]
 
 pretrained_models = [("xlnet-base-cased", "base"),
                      ("albert-large-v1", "small"),
@@ -21,23 +25,12 @@ pretrained_models = [("xlnet-base-cased", "base"),
                      ("microsoft/deberta-base", "base"),
                      ("funnel-transformer/small-base", "base")]
 
-search_algos = ["BlendSearch", "BlendSearch"]
-scheduler_names = ["None", "ASHA"]
+search_algos = ["BlendSearch", "BlendSearch", "Optuna", "RandomSearch", "CFO"]
+scheduler_names = ["None", "ASHA", "None", "ASHA", "None"]
 
 hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_gridunion_other"]
 search_algo_args_modes = ["default", "default"]
 num_sample_time_budget_mode = "custom"
-
-def get_full_name(autohf, is_grid, hpo_searchspace_mode = None):
-    if is_grid == False:
-        return autohf.full_dataset_name.lower() + "_" + autohf.model_type.lower() + "_" + \
-        autohf.model_size_type.lower() + "_" + autohf.search_algo_name.lower() \
-        + "_" + autohf.scheduler_name.lower() + "_" \
-        + "_" + hpo_searchspace_mode.lower() + "_" + autohf.path_utils.group_hash_id
-    else:
-        return autohf.full_dataset_name.lower() + "_" + autohf.model_type.lower() + "_" + \
-               autohf.model_size_type.lower() + "_" + autohf.search_algo_name.lower() \
-               + "_" + autohf.scheduler_name.lower() + "_" + autohf.path_utils.group_hash_id
 
 def get_resplit_portion(this_dataset_name, this_subset_name):
     if this_dataset_name == ["glue"] and this_subset_name in {"mnli", "qqp"}:
@@ -70,7 +63,7 @@ def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pret
 
 def get_autohf_settings_grid(args):
     autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
-                           "search_algo_name": args.algo,
+                           "search_algo_name": args.algo_mode,
                            "scheduler_name": "None",
                            "ckpt_per_epoch": 1,
                            }
@@ -100,12 +93,25 @@ def get_autohf_settings_enumeratehp():
                            }
     return autohf_settings
 
+def clean_outdated_results(args):
+    if args.is_rerun:
+        files_to_delete = search_file_to_delete(args,
+                                                dataset_names[args.dataset_idx],
+                                                subdataset_names[args.dataset_idx],
+                                                mode = "delete_one")
+    else:
+        files_to_delete = search_file_to_delete(args,
+                                                dataset_names[args.dataset_idx],
+                                                subdataset_names[args.dataset_idx],
+                                                mode="delete_all")
+    for each_file in files_to_delete:
+        each_file.delete()
+
 def flush_and_upload(fout, args):
     fout.flush()
-    import wandb
     api = wandb.Api()
     runs = api.runs("liususan/upload_file_" + args.server_name)
-    runs[0].upload_file(os.path.abspath("./logs/log_" + args.server_name + "_" + args.suffix + ".log"))
+    runs[0].upload_file(wandb_log_path)
 
 def output_predict(args, test_dataset, autohf, fout, save_file_name):
     if test_dataset:
@@ -130,11 +136,13 @@ def write_exception(args, save_file_name, fout):
     fout.write("failed, no checkpoint found\n")
     flush_and_upload(fout, args)
 
-def write_regular(autohf, args, validation_metric, save_file_name, fout, sample_num):
+def write_regular(autohf, args, validation_metric, save_file_name, fout, sample_num=None):
     fout.write(save_file_name + ":\n")
     fout.write("timestamp:" + str(str(datetime.datetime.now())) + ":\n")
     fout.write("validation " + (autohf.metric_name) + ":" + json.dumps(validation_metric) + "\n")
     fout.write("duration:" + str(autohf.last_run_duration) + "\n")
+    if not sample_num:
+        sample_num = 0
     fout.write("sample_num: " + str(sample_num) + "\n")
     fout.write(save_file_name.split("_")[-1] + "," + str(sample_num) + "," + str(autohf.last_run_duration) + "," + str(validation_metric) + ",")
     flush_and_upload(fout, args)
@@ -147,7 +155,7 @@ def _test_grid(args, fout, autohf):
         for model_idx in range(0, len(pretrained_models)):
             each_pretrained_model = pretrained_models[model_idx][0]
             each_model_size_type = pretrained_models[model_idx][1]
-
+            clean_outdated_results(args)
             preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model, each_model_size_type)
             train_dataset, eval_dataset, test_dataset = \
             autohf.prepare_data(**preparedata_setting)
@@ -160,10 +168,35 @@ def _test_grid(args, fout, autohf):
             except AssertionError as err:
                 raise err
 
-            save_file_name = get_full_name(autohf, is_grid=True)
-            write_regular(autohf, args, validation_metric, save_file_name, fout, len(analysis.trials))
-            output_predict(args, test_dataset, autohf, fout, save_file_name)
+            write_regular(autohf, args, validation_metric, autohf.group_name, fout, len(analysis.trials))
+            output_predict(args, test_dataset, autohf, fout, autohf.group_name)
             rm_home_result()
+
+def _test_hpo_hf(args, fout, autohf):
+    for data_idx in range(args.dataset_idx, args.dataset_idx + 1):
+        this_dataset_name = dataset_names[data_idx]
+        this_subset_name = subdataset_names[data_idx]
+        each_pretrained_model = pretrained_models[args.pretrained_idx][0]
+        each_model_size_type = pretrained_models[args.pretrained_idx][1]
+        preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
+                                                      each_pretrained_model, each_model_size_type)
+        clean_outdated_results(args)
+        train_dataset, eval_dataset, test_dataset = \
+            autohf.prepare_data(**preparedata_setting)
+        try:
+            autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
+                               "num_sample_time_budget_mode": "custom",
+                               "custom_num_samples": args.sample_num,
+                               "custom_time_budget": args.time_budget}
+            validation_metric = autohf.fit_hf(train_dataset,
+                                                         eval_dataset,
+                                                        **autohf_settings)
+        except AssertionError:
+            write_exception(args, autohf.group_name, fout)
+            continue
+        write_regular(autohf, args, validation_metric, autohf.group_name, fout)
+        output_predict(args, test_dataset, autohf, fout, autohf.group_name)
+        rm_home_result()
 
 def _test_hpo(args, fout, autohf):
     for data_idx in range(args.dataset_idx, args.dataset_idx + 1):
@@ -175,13 +208,11 @@ def _test_hpo(args, fout, autohf):
 
         each_pretrained_model = pretrained_models[args.pretrained_idx][0]
         each_model_size_type = pretrained_models[args.pretrained_idx][1]
-
-
+        clean_outdated_results(args)
         hpo_searchspace_mode = hpo_searchspace_modes[args.space_idx]
         search_algo_args_mode = search_algo_args_modes[args.space_idx]
         preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
                                                       each_pretrained_model, each_model_size_type)
-
         train_dataset, eval_dataset, test_dataset = \
             autohf.prepare_data(**preparedata_setting)
         autohf_settings = get_autohf_settings(args, this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode)
@@ -191,13 +222,11 @@ def _test_hpo(args, fout, autohf):
                        eval_dataset,
                        **autohf_settings,)
         except AssertionError:
-            save_file_name = get_full_name(autohf, is_grid=True)
-            write_exception(args, save_file_name, fout)
+            write_exception(args, autohf.group_name, fout)
             continue
 
-        save_file_name = get_full_name(autohf, is_grid=True)
-        write_regular(autohf, args, validation_metric, save_file_name, fout, len(analysis.trials))
-        output_predict(args, test_dataset, autohf, fout, save_file_name)
+        write_regular(autohf, args, validation_metric, autohf.group_name, fout, len(analysis.trials))
+        output_predict(args, test_dataset, autohf, fout, autohf.group_name)
         rm_home_result()
 
     fout.close()
@@ -206,23 +235,28 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('--server_name', type=str, help='server name', required=True,
                             choices=["tmdev", "dgx", "azureml"])
-    arg_parser.add_argument('--algo', type=str, help='hpo or grid search', required=True,
-                            choices=["grid_search", "grid_search_bert", "hpo"])
+    arg_parser.add_argument('--algo_mode', type=str, help='hpo or grid search', required=True,
+                            choices=["grid_search", "grid_search_bert", "hpo", "hpo_hf"])
     arg_parser.add_argument('--data_root_dir', type=str, help='data dir', required=True)
     arg_parser.add_argument('--dataset_idx', type=int, help='data index', required=False)
+    arg_parser.add_argument('--is_rerun', type=bool, help='whether to rerun', required=False, default=False)
     arg_parser.add_argument('--space_idx', type=int, help='space index', required=False)
     arg_parser.add_argument('--algo_idx', type=int, help='algorithm index', required=False)
     arg_parser.add_argument('--pretrained_idx', type=int, help='pretrained index', required=False)
     arg_parser.add_argument('--sample_num', type=int, help='sample num', required=False)
     arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False)
-    arg_parser.add_argument('--suffix', type=str, help='suffix', required=False)
+    arg_parser.add_argument('--rep_id', type=int, help='rep id', required=False)
     args = arg_parser.parse_args()
 
-    if not os.path.exists("./logs/"):
-        os.mkdir("./logs/")
-    fout = open("./logs/log_" + args.server_name + "_" + args.suffix + ".log", "a")
-    if args.algo.startswith("grid"):
+    from flaml.nlp.wandb.utils import get_wandpath
+    wandb_log_path = get_wandpath(args, dataset_names, subdataset_names)
+
+    fout = open(wandb_log_path, "a")
+    if args.algo_mode.startswith("grid"):
         _test_grid(args, fout, autohf = AutoTransformers())
-    else:
+    elif args.algo_mode == "hpo":
         _test_hpo(args, fout, autohf = AutoTransformers())
+    else:
+        _test_hpo_hf(args, fout, autohf = AutoTransformers())
+
     fout.close()

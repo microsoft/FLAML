@@ -81,9 +81,6 @@ class AutoSearchAlgorithm:
 def get_search_algo_args_optuna(hpo_search_space = None):
     return {}
 
-def default_search_algo_args_cfo(hpo_search_space = None):
-    return {}
-
 def default_search_algo_args_bs(hpo_search_space = None):
     if isinstance(hpo_search_space["num_train_epochs"], ray.tune.sample.Categorical):
         min_epoch = min(hpo_search_space["num_train_epochs"].categories)
@@ -119,7 +116,7 @@ def default_search_algo_args_random_search(hpo_search_space = None):
 DEFAULT_SEARCH_ALGO_ARGS_MAPPING = OrderedDict(
         [
             ("Optuna", get_search_algo_args_optuna),
-            ("CFO", default_search_algo_args_cfo),
+            ("CFO", default_search_algo_args_bs),
             ("BlendSearch", default_search_algo_args_bs),
             ("Dragonfly", default_search_algo_args_dragonfly),
             ("SkOpt", default_search_algo_args_skopt),

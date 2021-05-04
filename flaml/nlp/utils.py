@@ -85,8 +85,11 @@ class PathUtils:
         self.model_size_type = model_size_type
 
     def set_folder_name(self, autohf_ref):
-        self._folder_name = autohf_ref.search_algo_name.lower() + "_" + autohf_ref.scheduler_name.lower() + "_" \
-                            + autohf_ref.model_type.lower() + "_" + autohf_ref.split_mode.lower()
+        self._folder_name = autohf_ref.model_type.lower() + "_" + autohf_ref.split_mode.lower()
+        if hasattr(autohf_ref, "search_algo_name"):
+            self._folder_name = autohf_ref.search_algo_name.lower() + "_" + self._folder_name
+        if hasattr(autohf_ref, "scheduler_name"):
+            self._folder_name =  autohf_ref.scheduler_name.lower() + "_" + self._folder_name
 
     @property
     def folder_name(self):

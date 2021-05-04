@@ -95,8 +95,8 @@ class AutoGridSearchSpace:
     def from_model_and_dataset_name(cls, model_type, model_size_type, dataset_name, subdataset_name = None):
         if model_type in GRID_SEARCH_SPACE_MAPPING.keys():
             try:
-                search_space_union, search_space_unique = GRID_SEARCH_SPACE_MAPPING[model_type](model_size_type, dataset_name, subdataset_name)
-                return search_space_union, search_space_unique
+                this_model_recommended_space = GRID_SEARCH_SPACE_MAPPING[model_type](model_size_type, dataset_name, subdataset_name)
+                return this_model_recommended_space
             except:
                 raise ValueError("{}, {}, {}, {} Return empty".format(model_type, model_size_type, dataset_name, str(subdataset_name)))
         raise ValueError(
