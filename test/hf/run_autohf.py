@@ -7,14 +7,10 @@ import json, wandb
 import pathlib
 import shutil
 from flaml.nlp.autotransformers import AutoTransformers
-from flaml.nlp.wandbazureblob.utils import search_blob_to_delete, init_azure_clients
+from flaml.nlp.wandbazure.utils import flush_and_upload, clean_outdated_results
 
 global azure_log_path
-
-wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
-subprocess.run(["wandb", "login", "--relogin", wandb_key])
-
-os.environ["WANDB_API_KEY"] = wandb_key
+global azure_key
 
 dataset_names = [["glue"], ["glue"], ["glue"], ["super_glue"], ["super_glue"], ["super_glue"]]
 subdataset_names = ["cola", "mrpc", "rte", "wic", "rte", "copa"]
@@ -93,34 +89,12 @@ def get_autohf_settings_enumeratehp():
                            }
     return autohf_settings
 
-def clean_outdated_results(args):
-    if args.is_rerun:
-        blobs_to_delete = search_blob_to_delete(args,
-                                                dataset_names,
-                                                subdataset_names,
-                                                mode = "delete_one")
-    else:
-        if args.rep_id == 0:
-            blobs_to_delete = search_blob_to_delete(args,
-                                                    dataset_names,
-                                                    subdataset_names,
-                                                    mode="delete_all")
-        else:
-            blobs_to_delete = search_blob_to_delete(args,
-                                                    dataset_names,
-                                                    subdataset_names,
-                                                    mode="delete_one")
-    for each_blob_client in blobs_to_delete:
-        each_blob_client.delete()
-
-
-
 def output_predict(args, test_dataset, autohf, fout, save_file_name):
     if test_dataset:
         predictions, output_metric = autohf.predict(test_dataset)
         fout.write(str(output_metric[autohf.metric_name]) + "\n")
         fout.write("test " + (autohf.metric_name) + ":" + json.dumps(output_metric) + "\n\n")
-        flush_and_upload(fout, args)
+        flush_and_upload(fout, args, azure_log_path)
         if autohf.split_mode == "origin":
             autohf.output_prediction(predictions,
                                      output_prediction_path= args.args.data_dir + "data/result/",
@@ -136,7 +110,7 @@ def write_exception(args, save_file_name, fout):
     fout.write(save_file_name + ":\n")
     fout.write("timestamp:" + str(str(datetime.datetime.now()))  + ":\n")
     fout.write("failed, no checkpoint found\n")
-    flush_and_upload(fout, args)
+    flush_and_upload(fout, args, azure_log_path)
 
 def write_regular(autohf, args, validation_metric, save_file_name, fout, sample_num=None):
     fout.write(save_file_name + ":\n")
@@ -147,7 +121,7 @@ def write_regular(autohf, args, validation_metric, save_file_name, fout, sample_
         sample_num = 0
     fout.write("sample_num: " + str(sample_num) + "\n")
     fout.write(save_file_name.split("_")[-1] + "," + str(sample_num) + "," + str(autohf.last_run_duration) + "," + str(validation_metric) + ",")
-    flush_and_upload(fout, args)
+    flush_and_upload(fout, args, azure_log_path)
 
 def _test_grid(args, fout, autohf):
     for data_idx in range(args.dataset_idx, args.dataset_idx + 1):
@@ -157,7 +131,7 @@ def _test_grid(args, fout, autohf):
         for model_idx in range(0, len(pretrained_models)):
             each_pretrained_model = pretrained_models[model_idx][0]
             each_model_size_type = pretrained_models[model_idx][1]
-            clean_outdated_results(args)
+            clean_outdated_results(args, dataset_names, subdataset_names)
             preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model, each_model_size_type)
             train_dataset, eval_dataset, test_dataset = \
             autohf.prepare_data(**preparedata_setting)
@@ -182,7 +156,7 @@ def _test_hpo_hf(args, fout, autohf):
         each_model_size_type = pretrained_models[args.pretrained_idx][1]
         preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
                                                       each_pretrained_model, each_model_size_type)
-        clean_outdated_results(args)
+        clean_outdated_results(args, dataset_names, subdataset_names)
         train_dataset, eval_dataset, test_dataset = \
             autohf.prepare_data(**preparedata_setting)
         try:
@@ -210,7 +184,7 @@ def _test_hpo(args, fout, autohf):
 
         each_pretrained_model = pretrained_models[args.pretrained_idx][0]
         each_model_size_type = pretrained_models[args.pretrained_idx][1]
-        clean_outdated_results(args)
+        clean_outdated_results(args, dataset_names, subdataset_names)
         hpo_searchspace_mode = hpo_searchspace_modes[args.space_idx]
         search_algo_args_mode = search_algo_args_modes[args.space_idx]
         preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
@@ -233,6 +207,12 @@ def _test_hpo(args, fout, autohf):
 
     fout.close()
 
+def get_wandb_azure_key():
+    key_json = json.load(open("key.json", "r"))
+    wandb_key = key_json["wandb_key"]
+    azure_key = key_json["azure_key"]
+    return wandb_key, azure_key
+
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('--server_name', type=str, help='server name', required=True,
@@ -248,9 +228,14 @@ if __name__ == "__main__":
     arg_parser.add_argument('--sample_num', type=int, help='sample num', required=False)
     arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False)
     arg_parser.add_argument('--rep_id', type=int, help='rep id', required=False)
+    arg_parser.add_argument('--azure_key', type=str, help='azure key', required=False)
     args = arg_parser.parse_args()
 
-    from flaml.nlp.wandbazureblob.utils import get_azurepath
+    wandb_key, args.azure_key = get_wandb_azure_key()
+    subprocess.run(["wandb", "login", "--relogin", wandb_key])
+    os.environ["WANDB_API_KEY"] = wandb_key
+
+    from flaml.nlp.wandbazure.utils import get_azurepath
     azure_log_path = get_azurepath(args, dataset_names, subdataset_names)
 
     fout = open(azure_log_path, "a")

@@ -3,7 +3,8 @@ import argparse
 import wandb
 import matplotlib.pyplot as plt
 import numpy as np
-from flaml.nlp.wandb.utils import get_all_runs
+from flaml.nlp.wandbazure.utils import get_all_runs, init_blob_client
+from test.hf.run_autohf import get_wandb_azure_key
 
 api = wandb.Api()
 
@@ -11,7 +12,10 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('--server_name', type=str, help='server name', required=True,
                             choices=["tmdev", "dgx", "azureml"])
+    arg_parser.add_argument('--azure_key', type=str, help='azure key', required=False)
     args = arg_parser.parse_args()
+
+    wandb_key, args.azure_key = get_wandb_azure_key()
 
     task2ylim = {"mrpc":
                      {
@@ -43,7 +47,7 @@ if __name__ == "__main__":
     tovar2model2ticks = {}
     tovar2model2reps = {}
 
-    task2files = get_all_runs(args)
+    task2blobs, _ = get_all_runs(args)
     #tovar2color = {"optuna": "blue", "blendsearch": "green"}
     tovar2color = {"gridunion": "blue", "generic": "green"}
 
@@ -59,14 +63,15 @@ if __name__ == "__main__":
         fig.tight_layout()
         fig.suptitle(task_name, fontsize=14)
 
-        all_files = task2files[task_name]
+        all_blobs = task2blobs[task_name]
         print("downloading files for task " + task_name)
         for model_id in range(5):
             for space_id in range(2): #3, 2):
                 for rep_id in range(3):
-                    this_file = all_files[model_id][2][space_id][rep_id]
-                    this_file.download(replace = True)
-                    with open(this_file.name, "r") as fin:
+                    this_blob_file = all_blobs[model_id][2][space_id][rep_id]
+                    blob_client = init_blob_client(args.azure_key, this_blob_file)
+                    blob_client.download_blob()
+                    with open(this_blob_file, "r") as fin:
                         this_group_name = fin.readline().rstrip(":\n")
                         all_runs.append(("glue_" + task_name, this_group_name, model_id))
 
