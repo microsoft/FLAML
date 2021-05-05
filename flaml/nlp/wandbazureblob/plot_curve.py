@@ -1,5 +1,5 @@
 import bisect
-
+import argparse
 import wandb
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,6 +8,10 @@ from flaml.nlp.wandb.utils import get_all_runs
 api = wandb.Api()
 
 if __name__ == "__main__":
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument('--server_name', type=str, help='server name', required=True,
+                            choices=["tmdev", "dgx", "azureml"])
+    args = arg_parser.parse_args()
 
     task2ylim = {"mrpc":
                      {
@@ -39,7 +43,7 @@ if __name__ == "__main__":
     tovar2model2ticks = {}
     tovar2model2reps = {}
 
-    task2files = get_all_runs()
+    task2files = get_all_runs(args)
     #tovar2color = {"optuna": "blue", "blendsearch": "green"}
     tovar2color = {"gridunion": "blue", "generic": "green"}
 

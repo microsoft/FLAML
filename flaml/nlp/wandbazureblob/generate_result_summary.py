@@ -2,7 +2,7 @@ import pandas
 import wandb
 from flaml.nlp.wandb.utils import get_all_runs
 import pandas as pd
-import re
+import argparse
 from flaml.nlp.wandb.utils import extract_ts, compare_dates
 
 all_tasks = ["mrpc", "rte", "cola"]
@@ -76,6 +76,10 @@ def generate_result_csv(task2files):
         sys.exit(1)
 
 if __name__ == "__main__":
-    task2files, tasklist = get_all_runs()
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument('--server_name', type=str, help='server name', required=True,
+                            choices=["tmdev", "dgx", "azureml"])
+    args = arg_parser.parse_args()
+    task2files, tasklist = get_all_runs(args)
 
     remove_by_date(tasklist, "2021-05-03")

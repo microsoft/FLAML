@@ -7,9 +7,9 @@ import json, wandb
 import pathlib
 import shutil
 from flaml.nlp.autotransformers import AutoTransformers
-from flaml.nlp.wandb.utils import search_file_to_delete
+from flaml.nlp.wandbazureblob.utils import search_blob_to_delete, init_azure_clients
 
-global wandb_log_path
+global azure_log_path
 
 wandb_key = "7553d982a2247ca8324ec648bd302678105e1058"
 subprocess.run(["wandb", "login", "--relogin", wandb_key])
@@ -95,29 +95,25 @@ def get_autohf_settings_enumeratehp():
 
 def clean_outdated_results(args):
     if args.is_rerun:
-        files_to_delete = search_file_to_delete(args,
-                                                dataset_names[args.dataset_idx],
-                                                subdataset_names[args.dataset_idx],
+        blobs_to_delete = search_blob_to_delete(args,
+                                                dataset_names,
+                                                subdataset_names,
                                                 mode = "delete_one")
     else:
         if args.rep_id == 0:
-            files_to_delete = search_file_to_delete(args,
-                                                    dataset_names[args.dataset_idx],
-                                                    subdataset_names[args.dataset_idx],
+            blobs_to_delete = search_blob_to_delete(args,
+                                                    dataset_names,
+                                                    subdataset_names,
                                                     mode="delete_all")
         else:
-            files_to_delete = search_file_to_delete(args,
-                                                    dataset_names[args.dataset_idx],
-                                                    subdataset_names[args.dataset_idx],
+            blobs_to_delete = search_blob_to_delete(args,
+                                                    dataset_names,
+                                                    subdataset_names,
                                                     mode="delete_one")
-    for each_file in files_to_delete:
-        each_file.delete()
+    for each_blob_client in blobs_to_delete:
+        each_blob_client.delete()
 
-def flush_and_upload(fout, args):
-    fout.flush()
-    api = wandb.Api()
-    runs = api.runs("liususan/upload_file_" + args.server_name)
-    runs[0].upload_file(wandb_log_path)
+
 
 def output_predict(args, test_dataset, autohf, fout, save_file_name):
     if test_dataset:
@@ -245,7 +241,7 @@ if __name__ == "__main__":
                             choices=["grid_search", "grid_search_bert", "hpo", "hpo_hf"])
     arg_parser.add_argument('--data_root_dir', type=str, help='data dir', required=True)
     arg_parser.add_argument('--dataset_idx', type=int, help='data index', required=False)
-    arg_parser.add_argument('--is_rerun', action='store_false', help='whether to rerun')
+    arg_parser.add_argument('--is_rerun', action='store_true', help='whether to rerun')
     arg_parser.add_argument('--space_idx', type=int, help='space index', required=False)
     arg_parser.add_argument('--algo_idx', type=int, help='algorithm index', required=False)
     arg_parser.add_argument('--pretrained_idx', type=int, help='pretrained index', required=False)
@@ -254,10 +250,10 @@ if __name__ == "__main__":
     arg_parser.add_argument('--rep_id', type=int, help='rep id', required=False)
     args = arg_parser.parse_args()
 
-    from flaml.nlp.wandb.utils import get_wandpath
-    wandb_log_path = get_wandpath(args, dataset_names, subdataset_names)
+    from flaml.nlp.wandbazureblob.utils import get_azurepath
+    azure_log_path = get_azurepath(args, dataset_names, subdataset_names)
 
-    fout = open(wandb_log_path, "a")
+    fout = open(azure_log_path, "a")
     if args.algo_mode.startswith("grid"):
         _test_grid(args, fout, autohf = AutoTransformers())
     elif args.algo_mode == "hpo":
