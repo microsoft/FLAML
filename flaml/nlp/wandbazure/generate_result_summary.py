@@ -1,9 +1,9 @@
 import pandas
 import wandb
-from flaml.nlp.wandb.utils import get_all_runs
+from flaml.nlp.wandbazure.utils import get_all_runs
 import pandas as pd
 import argparse
-from flaml.nlp.wandb.utils import extract_ts, compare_dates
+from flaml.nlp.wandbazure.utils import extract_ts, compare_dates
 
 all_tasks = ["mrpc", "rte", "cola"]
 search_algos = ["BlendSearch", "BlendSearch", "Optuna", "RandomSearch", "CFO"]
@@ -31,9 +31,9 @@ def remove_by_date(tasklist, earliest_ts):
         if compare_dates(this_time, earliest_time) == -1:
             each_file.delete()
 
-def generate_result_csv(task2files):
+def generate_result_csv(task2blobs):
     for task_id in range(len(all_tasks)):
-        all_files = task2files[all_tasks[task_id]]
+        all_files = task2blobs[all_tasks[task_id]]
         tasktab = None
         is_first = True
         new_columnnames = []
@@ -64,7 +64,6 @@ def generate_result_csv(task2files):
             each_df = each_df.reindex(columns=each_df.columns.tolist()
                                     + [offset + 5,
                                        offset + 6])
-            #each_df.columns = [subtab_name, "", "", "", "", "", ""]
             if is_first:
                 tasktab = each_df
                 is_first = False
@@ -73,13 +72,12 @@ def generate_result_csv(task2files):
 
         tasktab.columns = new_columnnames
         tasktab.to_csv(all_tasks[task_id] + ".csv", index=False)
-        sys.exit(1)
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('--server_name', type=str, help='server name', required=True,
                             choices=["tmdev", "dgx", "azureml"])
     args = arg_parser.parse_args()
-    task2files, tasklist = get_all_runs(args)
+    task2blobs, tasklist = get_all_runs(args)
 
-    remove_by_date(tasklist, "2021-05-03")
+    generate_result_csv(task2blobs)
