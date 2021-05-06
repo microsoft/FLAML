@@ -8,7 +8,7 @@ import pathlib
 import shutil
 from flaml.nlp.autotransformers import AutoTransformers
 from flaml.nlp.wandbazure.utils import flush_and_upload, clean_outdated_results
-from test.hf.utils import get_wandb_azure_key
+from utils import get_wandb_azure_key
 
 global azure_log_path
 global azure_key
