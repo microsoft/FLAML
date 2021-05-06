@@ -8,6 +8,7 @@ import pathlib
 import shutil
 from flaml.nlp.autotransformers import AutoTransformers
 from flaml.nlp.wandbazure.utils import flush_and_upload, clean_outdated_results
+from test.hf.utils import get_wandb_azure_key
 
 global azure_log_path
 global azure_key
@@ -206,12 +207,6 @@ def _test_hpo(args, fout, autohf):
         rm_home_result()
 
     fout.close()
-
-def get_wandb_azure_key():
-    key_json = json.load(open("key.json", "r"))
-    wandb_key = key_json["wandb_key"]
-    azure_key = key_json["azure_key"]
-    return wandb_key, azure_key
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
