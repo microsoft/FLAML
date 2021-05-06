@@ -1,5 +1,5 @@
 import pandas
-import wandb,pathlib,re
+import pathlib,re
 from flaml.nlp.wandbazure.utils import get_all_runs
 import pandas as pd
 import argparse
@@ -16,8 +16,6 @@ algo_space_to_summarize = [(4, 1)]
 
 repid_max = 4
 modelid_max = 5
-
-api = wandb.Api()
 
 def remove_by_date(tasklist, earliest_ts):
     earliest_time = extract_ts(earliest_ts)
