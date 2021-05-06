@@ -4,7 +4,7 @@ import wandb
 import matplotlib.pyplot as plt
 import numpy as np
 from flaml.nlp.wandbazure.utils import get_all_runs, init_blob_client
-from test.hf.run_autohf import get_wandb_azure_key
+from utils import get_wandb_azure_key
 
 api = wandb.Api()
 

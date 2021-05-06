@@ -5,7 +5,7 @@ import argparse,json
 
 from flaml.nlp.wandbazure.generate_result_summary import generate_result_csv
 from flaml.nlp.wandbazure.utils import get_all_runs
-from test.hf.run_autohf import get_wandb_azure_key
+from utils import get_wandb_azure_key
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
