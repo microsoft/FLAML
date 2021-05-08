@@ -177,6 +177,7 @@ class AutoTransformers:
             self._search_space_grid = search_space_dict_grid
         else:
             self._search_space_grid = None
+        self.ds_config = custom_hpo_args["ds_config"]
 
     @property
     def last_run_duration(self):
@@ -596,6 +597,7 @@ class AutoTransformers:
             save_steps= ckpt_freq,
             save_total_limit=0,
             fp16= self._fp16,
+            deepspeed = self.ds_config,
             **training_args_config,
         )
 

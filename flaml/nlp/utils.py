@@ -52,6 +52,7 @@ class PathUtils:
     hpo_ckpt_path: str = field(metadata={"help": "the directory for hpo output"})
     hpo_result_path: str = field(metadata={"help": "the directory for hpo result"})
     hpo_log_path: str = field(metadata={"help": "the directory for log"})
+    hpo_config_path: str = field(metadata={"help": "the directory for log"})
 
     dataset_name: str = field(metadata={"help": "dataset name"})
     subdataset_name: str = field(metadata={"help": "sub dataset name"})

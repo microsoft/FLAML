@@ -20,7 +20,9 @@ pretrained_models = [("xlnet-base-cased", "base"),
                      ("albert-large-v1", "small"),
                      ("distilbert-base-uncased", "base"),
                      ("microsoft/deberta-base", "base"),
-                     ("funnel-transformer/small-base", "base")]
+                     ("funnel-transformer/small-base", "base"),
+                     ("microsoft/deberta-large", "large"),
+                     ("funnel-transformer/large-base", "large")]
 
 search_algos = ["BlendSearch", "BlendSearch", "Optuna", "Optuna", "CFO", "CFO"]
 scheduler_names = ["None", "ASHA", "None", "ASHA", "None", "ASHA"]
@@ -77,6 +79,10 @@ def get_autohf_settings(args, this_search_algo, this_scheduler_name, hpo_searchs
     autohf_settings["num_sample_time_budget_mode"] = num_sample_time_budget_mode
     autohf_settings["custom_num_samples"] = args.sample_num
     autohf_settings["custom_time_budget"] = args.time_budget
+    if args.ds_config:
+        autohf_settings["ds_config"] = args.ds_config
+    else:
+        autohf_settings["ds_config"] = None
     return autohf_settings
 
 def get_autohf_settings_enumeratehp():
@@ -224,6 +230,7 @@ if __name__ == "__main__":
     arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False)
     arg_parser.add_argument('--rep_id', type=int, help='rep id', required=False)
     arg_parser.add_argument('--azure_key', type=str, help='azure key', required=False)
+    arg_parser.add_argument('--ds_config', type=str, help='deep speed config file path', required = False)
     args = arg_parser.parse_args()
 
     wandb_key, args.azure_key = get_wandb_azure_key()

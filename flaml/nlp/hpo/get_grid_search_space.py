@@ -228,7 +228,7 @@ def get_electra_space(model_size_type = None,
         ELECTRA: PRE-TRAINING TEXT ENCODERS AS DISCRIMINATORS RATHER THAN GENERATORS
         https://arxiv.org/pdf/2003.10555.pdf
     """
-    assert model_size_type in ("small", "base"), "Electra paper has only provided hyperparameter for the small and base huggingface"
+    assert model_size_type in ("small", "base", "large"), "Electra paper has only provided hyperparameter for the small and base huggingface"
     search_space_common = {
         "weight_decay": [0.0],
         "adam_epsilon": [1e-6],
@@ -240,6 +240,9 @@ def get_electra_space(model_size_type = None,
     search_space_unique = {
         # Appendix B: For Basesized models we searched for a learning
         # rate out of [3e-5, 5e-5, 1e-4, 1.5e-4]
+        "large": {
+            "learning_rate": [3e-5, 5e-5, 1e-4, 1.5e-4],
+        },
         "base": {
             "learning_rate": [3e-5, 5e-5, 1e-4, 1.5e-4],
         },
