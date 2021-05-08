@@ -90,7 +90,7 @@ def default_search_algo_args_bs(hpo_search_space = None):
     default_search_algo_args = {
         "low_cost_partial_config": {
             "num_train_epochs": max(1, min_epoch),
-            "per_device_train_batch_size": max(hpo_search_space["per_device_train_batch_size"].categories),
+           # "per_device_train_batch_size": max(hpo_search_space["per_device_train_batch_size"].categories),
         },
     }
     return default_search_algo_args
