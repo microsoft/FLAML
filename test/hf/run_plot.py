@@ -1,5 +1,8 @@
 import bisect
 import argparse
+import pathlib
+import re
+
 import wandb
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,44 +20,44 @@ if __name__ == "__main__":
 
     wandb_key, args.azure_key = get_wandb_azure_key()
 
-    task2ylim = {"mrpc":
+    task2ylim = {"glue_mrpc":
                      {
-                        "xlnet": [0.8, 0.88],
-                         "albert": [0.82, 0.88],
-                         "distilbert": [0.8, 0.88],
-                         "deberta": [0.7, 0.9],
-                         "funnel": [0.7, 0.9]
+                        "xlnet": [0.82, 0.86],
+                         "albert": [0.84, 0.87],
+                         "distilbert": [0.83, 0.86],
+                         "deberta": [0.85, 0.9],
+                         "funnel": [0.85, 0.9]
                      },
-                "rte": {
-                       "xlnet": [0.5, 0.75],
-                        "albert": [0.65, 0.81],
-                        "distilbert": [0.5, 0.65],
-                        "deberta": [0.55, 0.81],
-                        "funnel": [0.6, 0.81]
+                "glue_rte": {
+                       "xlnet": [0.65, 0.75],
+                        "albert": [0.74, 0.81],
+                        "distilbert": [0.6, 0.68],
+                        "deberta": [0.6, 0.81],
+                        "funnel": [0.75, 0.81]
                 },
-                "cola": {
-                   "xlnet": [0.0, 0.6],
-                    "albert": [0.3, 0.65],
-                    "distilbert": [0.1, 0.6],
-                    "deberta": [0.3, 0.75],
-                    "funnel": [0.1, 0.75]
+                "glue_cola": {
+                   "xlnet": [0.2, 0.6],
+                    "albert": [0.45, 0.65],
+                    "distilbert": [0.45, 0.6],
+                    "deberta": [0.5, 0.75],
+                    "funnel": [0.6, 0.75]
                 }
                 }
 
-    all_run_names = [("mrpc", "eval/accuracy"), ("rte", "eval/accuracy"), ("cola", "eval/matthews_correlation")]
+    all_run_names = [("glue_mrpc", "eval/accuracy"), ("glue_rte", "eval/accuracy"), ("glue_cola", "eval/matthews_correlation")]
     run_idx = 1
 
     tovar2model2ticks = {}
     tovar2model2reps = {}
 
     task2blobs, _ = get_all_runs(args)
-    #tovar2color = {"optuna": "blue", "blendsearch": "green"}
-    tovar2color = {"gridunion": "blue", "generic": "green"}
+    tovar2color = {"optuna": "blue", "blendsearch": "green", "cfo": "red"}
+   # tovar2color = {"gridunion": "blue", "generic": "green"}
 
     model2id = {}
     id2model = {}
 
-    for run_idx in range(2, 3):
+    for run_idx in range(1, 2):
         all_runs = []
         task_name = all_run_names[run_idx][0]
         eval_name = all_run_names[run_idx][1]
@@ -65,15 +68,19 @@ if __name__ == "__main__":
 
         all_blobs = task2blobs[task_name]
         print("downloading files for task " + task_name)
+        fixed_var = ""
         for model_id in range(5):
-            for space_id in range(2): #3, 2):
+            for algo_id in range(0, 5, 2):
                 for rep_id in range(3):
-                    this_blob_file = all_blobs[model_id][2][space_id][rep_id]
+                    this_blob_file = all_blobs[model_id][algo_id][1][rep_id]
                     blob_client = init_blob_client(args.azure_key, this_blob_file)
-                    blob_client.download_blob()
+                    pathlib.Path(re.search("(?P<parent_path>^.*)/[^/]+$", this_blob_file).group("parent_path")).mkdir(
+                        parents=True, exist_ok=True)
+                    with open(this_blob_file, "wb") as fout:
+                        fout.write(blob_client.download_blob().readall())
                     with open(this_blob_file, "r") as fin:
                         this_group_name = fin.readline().rstrip(":\n")
-                        all_runs.append(("glue_" + task_name, this_group_name, model_id))
+                        all_runs.append((task_name, this_group_name, model_id))
 
         run_count = len(all_runs)
         print("there are " + str(run_count) + " runs ")
@@ -83,9 +90,9 @@ if __name__ == "__main__":
             model_id = all_runs[idx][2]
 
             print("collecting data for the " + str(idx) + "th project")
-            dim_to_var = group_name.split("_")[8]
+            dim_to_var = group_name.split("_")[4] # 8: space, 4: algo
             model = group_name.split("_")[2]
-            fixed_algo = group_name.split("_")[4]
+            fixed_var = group_name.split("_")[8]
             ts2acc = {}
             model2id[model] = model_id
             id2model[model_id] = model
@@ -142,7 +149,7 @@ if __name__ == "__main__":
                 model_id = model2id[each_model]
                 first_ax_id = int(model_id / 2)
                 second_ax_id = model_id % 2
-                line1, = axs[first_ax_id, second_ax_id].plot(sorted_ticks, means, color=tovar2color[tovar], label= "bo_" + tovar)
+                line1, = axs[first_ax_id, second_ax_id].plot(sorted_ticks, means, color=tovar2color[tovar], label= fixed_var + "_" + tovar)
                 axs[first_ax_id, second_ax_id].fill_between(sorted_ticks, np.subtract(means, stds), np.add(means, stds), color=tovar2color[tovar], alpha=0.2)
                 axs[first_ax_id, second_ax_id].legend(loc=4)
         for model_id in range(max(id2model.keys()) + 1):
