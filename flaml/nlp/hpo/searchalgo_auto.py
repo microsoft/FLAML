@@ -46,14 +46,17 @@ class AutoSearchAlgorithm:
 
     @classmethod
     def from_method_name(cls, search_algo_name, search_algo_args_mode, grid_search_space, hpo_search_space, **custom_hpo_args):
-        assert search_algo_args_mode in {"default", "grid", "custom"}
+        assert search_algo_args_mode in {"default", "grid", "custom", "experiment"}
         if search_algo_name in SEARCH_ALGO_MAPPING.keys():
             try:
                 default_search_algo_kwargs = DEFAULT_SEARCH_ALGO_ARGS_MAPPING[search_algo_name](hpo_search_space = hpo_search_space)
+                experiment_search_algo_kwargs = EXPERIMENT_SEARCH_ALGO_ARGS_MAPPING[search_algo_name](hpo_search_space = hpo_search_space)
                 if search_algo_args_mode == "default":
                     search_algo_args = default_search_algo_kwargs
                 elif search_algo_args_mode == "grid":
                     search_algo_args = {"points_to_evaluate": AutoSearchAlgorithm.grid2list(grid_search_space)}
+                elif search_algo_args_mode == "experiment":
+                    search_algo_args = experiment_search_algo_kwargs
                 else:
                     search_algo_args = custom_hpo_args
 
@@ -90,7 +93,20 @@ def default_search_algo_args_bs(hpo_search_space = None):
     default_search_algo_args = {
         "low_cost_partial_config": {
             "num_train_epochs": max(1, min_epoch),
-           # "per_device_train_batch_size": max(hpo_search_space["per_device_train_batch_size"].categories),
+            "per_device_train_batch_size": max(hpo_search_space["per_device_train_batch_size"].categories),
+        },
+    }
+    return default_search_algo_args
+
+def experiment_search_algo_args_bs(hpo_search_space = None):
+    if isinstance(hpo_search_space["num_train_epochs"], ray.tune.sample.Categorical):
+        min_epoch = min(hpo_search_space["num_train_epochs"].categories)
+    else:
+        assert isinstance(hpo_search_space["num_train_epochs"], ray.tune.sample.Float)
+        min_epoch = hpo_search_space["num_train_epochs"].lower
+    default_search_algo_args = {
+        "low_cost_partial_config": {
+            "num_train_epochs": max(1, min_epoch),
         },
     }
     return default_search_algo_args
@@ -124,5 +140,11 @@ DEFAULT_SEARCH_ALGO_ARGS_MAPPING = OrderedDict(
             ("HyperOpt", default_search_algo_args_hyperopt),
             ("grid_search", default_search_algo_args_grid_search),
             ("RandomSearch", default_search_algo_args_random_search)
+        ]
+    )
+
+EXPERIMENT_SEARCH_ALGO_ARGS_MAPPING = OrderedDict(
+        [
+            ("CFO", experiment_search_algo_args_bs),
         ]
     )

@@ -27,8 +27,8 @@ pretrained_models = [("xlnet-base-cased", "base"),
 search_algos = ["BlendSearch", "BlendSearch", "Optuna", "Optuna", "CFO", "CFO"]
 scheduler_names = ["None", "ASHA", "None", "ASHA", "None", "ASHA"]
 
-hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_gridunion_other"]
-search_algo_args_modes = ["default", "default"]
+hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_gridunion_other", "hpo_space_generic", "hpo_space_gridunion_other"]
+search_algo_args_modes = ["default", "default", "experiment", "experiment"]
 num_sample_time_budget_mode = "custom"
 
 def get_resplit_portion(this_dataset_name, this_subset_name):
