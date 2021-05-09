@@ -57,7 +57,7 @@ if __name__ == "__main__":
     model2id = {}
     id2model = {}
 
-    for run_idx in range(1, 2):
+    for run_idx in range(0, 1):
         all_runs = []
         task_name = all_run_names[run_idx][0]
         eval_name = all_run_names[run_idx][1]
@@ -69,10 +69,14 @@ if __name__ == "__main__":
         all_blobs = task2blobs[task_name]
         print("downloading files for task " + task_name)
         fixed_var = ""
-        for model_id in range(5):
-            for algo_id in range(0, 5, 2):
-                for rep_id in range(3):
-                    this_blob_file = all_blobs[model_id][algo_id][1][rep_id]
+        for model_id in range(5, 7):
+            for algo_id in range(2, 5, 2):
+                for rep_id in range(1):
+                    if algo_id == 4:
+                        space_id = 1
+                    elif algo_id == 2:
+                        space_id = 0
+                    this_blob_file = all_blobs[model_id][algo_id][space_id][rep_id]
                     blob_client = init_blob_client(args.azure_key, this_blob_file)
                     pathlib.Path(re.search("(?P<parent_path>^.*)/[^/]+$", this_blob_file).group("parent_path")).mkdir(
                         parents=True, exist_ok=True)
@@ -92,7 +96,7 @@ if __name__ == "__main__":
             print("collecting data for the " + str(idx) + "th project")
             dim_to_var = group_name.split("_")[4] # 8: space, 4: algo
             model = group_name.split("_")[2]
-            fixed_var = group_name.split("_")[8]
+            #fixed_var = group_name.split("_")[8]
             ts2acc = {}
             model2id[model] = model_id
             id2model[model_id] = model
@@ -146,17 +150,17 @@ if __name__ == "__main__":
                     std_y = np.std(all_ys)
                     means.append(avg_y)
                     stds.append(std_y)
-                model_id = model2id[each_model]
+                model_id = model2id[each_model] - 5
                 first_ax_id = int(model_id / 2)
                 second_ax_id = model_id % 2
-                line1, = axs[first_ax_id, second_ax_id].plot(sorted_ticks, means, color=tovar2color[tovar], label= fixed_var + "_" + tovar)
-                axs[first_ax_id, second_ax_id].fill_between(sorted_ticks, np.subtract(means, stds), np.add(means, stds), color=tovar2color[tovar], alpha=0.2)
+                line1, = axs[first_ax_id, second_ax_id].plot(sorted_ticks, means, color=tovar2color[tovar], label= tovar)
+                #axs[first_ax_id, second_ax_id].fill_between(sorted_ticks, np.subtract(means, stds), np.add(means, stds), color=tovar2color[tovar], alpha=0.2)
                 axs[first_ax_id, second_ax_id].legend(loc=4)
-        for model_id in range(max(id2model.keys()) + 1):
-            first_ax_id = int(model_id / 2)
-            second_ax_id = model_id % 2
+        for model_id in range(5, max(id2model.keys()) + 1):
+            first_ax_id = int((model_id - 5) / 2)
+            second_ax_id = (model_id - 5) % 2
             model = id2model[model_id]
             axs[first_ax_id, second_ax_id].set(ylabel='validation acc')
             axs[first_ax_id, second_ax_id].set_title(id2model[model_id])
-            axs[first_ax_id, second_ax_id].axis(ymin=task2ylim[task_name][model][0],ymax=task2ylim[task_name][model][1])
+            axs[first_ax_id, second_ax_id].axis(ymin=0.8,ymax=0.95)
         plt.show()
