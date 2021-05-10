@@ -104,7 +104,7 @@ def get_funnel_space(model_size_type = None,
         },
         "glue_rte": {
             "per_device_train_batch_size": [16],
-            "num_train_epochs": [0.5]
+            "num_train_epochs": [10]
         },
         "glue_mrpc": {
             "per_device_train_batch_size": [16],
