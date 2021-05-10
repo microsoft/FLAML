@@ -158,7 +158,7 @@ class AutoTransformers:
         if self._search_algo_name == "grid_search":
             search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name)
             search_space_dict_grid = AutoTransformers._convert_json_to_search_space(search_space_grid_json, mode="grid_search")
-
+            search_space_dict_hpo = search_space_dict_grid
         if self._search_algo_name != "grid_search" and self._search_algo_name != "grid_search_enumerate" and self._search_algo_name != "grid_search_bert":
             search_space_hpo_json = AutoHPOSearchSpace.from_model_and_dataset_name(logger, self._hpo_searchspace_mode, self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name, **custom_hpo_args)
             search_space_dict_hpo = AutoTransformers._convert_json_to_search_space(search_space_hpo_json, mode="hpo")
@@ -177,7 +177,11 @@ class AutoTransformers:
             self._search_space_grid = search_space_dict_grid
         else:
             self._search_space_grid = None
-        self.ds_config = custom_hpo_args["ds_config"]
+
+        try:
+            self.ds_config = custom_hpo_args["ds_config"]
+        except KeyError:
+            self.ds_config = None
 
     @property
     def last_run_duration(self):

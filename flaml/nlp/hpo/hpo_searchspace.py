@@ -26,7 +26,7 @@ def hpo_space_gridunion_continuous(logger, model_type, model_size_type, dataset_
 
 def hpo_space_gridunion_other_large(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
     output_config = {}
-    for each_model_type in GRID_SEARCH_SPACE_MAPPING.keys():
+    for each_model_type in {"electra", "roberta", "bert"}:
         if each_model_type == model_type: continue
         each_grid_search_config = AutoGridSearchSpace.from_model_and_dataset_name(each_model_type, model_size_type, dataset_name, subdataset_name)
         from ..utils import merge_dicts
@@ -48,7 +48,7 @@ def hpo_space_gridunion_other_large(logger, model_type, model_size_type, dataset
 
 def hpo_space_gridunion_other(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
     output_config = {}
-    for each_model_type in GRID_SEARCH_SPACE_MAPPING.keys():
+    for each_model_type in {"electra", "roberta", "bert"}:
         #if each_model_type == model_type: continue
         this_config = AutoGridSearchSpace.from_model_and_dataset_name(each_model_type, model_size_type, dataset_name, subdataset_name)
         from ..utils import merge_dicts

@@ -7,7 +7,7 @@ import json, wandb
 import pathlib
 import shutil
 from flaml.nlp.autotransformers import AutoTransformers
-from flaml.nlp.wandbazure.utils import flush_and_upload, clean_outdated_results
+from flaml.nlp.wandbazure.utils import flush_and_upload, clean_outdated_results, flush_and_upload_prediction
 from utils import get_wandb_azure_key
 
 global azure_log_path
@@ -45,11 +45,11 @@ def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pret
                            "dataset_name": this_dataset_name,
                            "subdataset_name": this_subset_name,
                            },
-        "resplit_portion": get_resplit_portion(this_dataset_name, this_subset_name),
+        #"resplit_portion": get_resplit_portion(this_dataset_name, this_subset_name),
         "model_name": each_pretrained_model,
         "model_size_type": each_model_size_type,
         "server_name": args.server_name,
-        "split_mode": "resplit",
+        "split_mode": "origin",
         "data_root_path": args.data_root_dir,
         "max_seq_length": 128,
         }
@@ -99,13 +99,17 @@ def get_autohf_settings_enumeratehp():
 def output_predict(args, test_dataset, autohf, fout, save_file_name):
     if test_dataset:
         predictions, output_metric = autohf.predict(test_dataset)
-        fout.write(str(output_metric[autohf.metric_name]) + "\n")
-        fout.write("test " + (autohf.metric_name) + ":" + json.dumps(output_metric) + "\n\n")
-        flush_and_upload(fout, args, azure_log_path)
+        if output_metric:
+            fout.write(str(output_metric[autohf.metric_name]) + "\n")
+            fout.write("test " + (autohf.metric_name) + ":" + json.dumps(output_metric) + "\n\n")
+            flush_and_upload(fout, args, azure_log_path)
         if autohf.split_mode == "origin":
+            azure_save_file_name = azure_log_path.split("/")[-1][:-4]
+            output_prediction_path = os.path.join(args.data_root_dir + "result/", azure_save_file_name + ".zip")
             autohf.output_prediction(predictions,
-                                     output_prediction_path= args.args.data_dir + "data/result/",
-                                     output_dir_name=save_file_name)
+                                     output_prediction_path= args.data_root_dir + "result/",
+                                     output_dir_name=azure_save_file_name)
+            flush_and_upload_prediction(args, output_prediction_path)
 
 def rm_home_result():
     from os.path import expanduser
@@ -131,29 +135,27 @@ def write_regular(autohf, args, validation_metric, save_file_name, fout, sample_
     flush_and_upload(fout, args, azure_log_path)
 
 def _test_grid(args, fout, autohf):
-    for data_idx in range(args.dataset_idx, args.dataset_idx + 1):
-        this_dataset_name = dataset_names[data_idx]
-        this_subset_name = subdataset_names[data_idx]
+        this_dataset_name = dataset_names[args.dataset_idx]
+        this_subset_name = subdataset_names[args.dataset_idx]
 
-        for model_idx in range(0, len(pretrained_models)):
-            each_pretrained_model = pretrained_models[model_idx][0]
-            each_model_size_type = pretrained_models[model_idx][1]
-            clean_outdated_results(args, dataset_names, subdataset_names)
-            preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model, each_model_size_type)
-            train_dataset, eval_dataset, test_dataset = \
-            autohf.prepare_data(**preparedata_setting)
-            autohf_settings = get_autohf_settings_grid(args)
+        each_pretrained_model = pretrained_models[args.pretrained_idx][0]
+        each_model_size_type = pretrained_models[args.pretrained_idx][1]
+        clean_outdated_results(args, dataset_names, subdataset_names)
+        preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model, each_model_size_type)
+        train_dataset, eval_dataset, test_dataset = \
+        autohf.prepare_data(**preparedata_setting)
+        autohf_settings = get_autohf_settings_grid(args)
 
-            try:
-                validation_metric, analysis = autohf.fit(train_dataset,
-                           eval_dataset,
-                           **autohf_settings,)
-            except AssertionError as err:
-                raise err
+        try:
+            validation_metric, analysis = autohf.fit(train_dataset,
+                       eval_dataset,
+                       **autohf_settings,)
+        except AssertionError as err:
+            raise err
 
-            write_regular(autohf, args, validation_metric, autohf.group_name, fout, len(analysis.trials))
-            output_predict(args, test_dataset, autohf, fout, autohf.group_name)
-            rm_home_result()
+        write_regular(autohf, args, validation_metric, autohf.group_name, fout, len(analysis.trials))
+        output_predict(args, test_dataset, autohf, fout, autohf.group_name)
+        rm_home_result()
 
 def _test_hpo_hf(args, fout, autohf):
     for data_idx in range(args.dataset_idx, args.dataset_idx + 1):
@@ -182,35 +184,34 @@ def _test_hpo_hf(args, fout, autohf):
         rm_home_result()
 
 def _test_hpo(args, fout, autohf):
-    for data_idx in range(args.dataset_idx, args.dataset_idx + 1):
-        this_dataset_name = dataset_names[data_idx]
-        this_subset_name = subdataset_names[data_idx]
+    this_dataset_name = dataset_names[args.dataset_idx]
+    this_subset_name = subdataset_names[args.dataset_idx]
 
-        this_search_algo = search_algos[args.algo_idx]
-        this_scheduler_name = scheduler_names[args.algo_idx]
+    this_search_algo = search_algos[args.algo_idx]
+    this_scheduler_name = scheduler_names[args.algo_idx]
 
-        each_pretrained_model = pretrained_models[args.pretrained_idx][0]
-        each_model_size_type = pretrained_models[args.pretrained_idx][1]
-        clean_outdated_results(args, dataset_names, subdataset_names)
-        hpo_searchspace_mode = hpo_searchspace_modes[args.space_idx]
-        search_algo_args_mode = search_algo_args_modes[args.space_idx]
-        preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
-                                                      each_pretrained_model, each_model_size_type)
-        train_dataset, eval_dataset, test_dataset = \
-            autohf.prepare_data(**preparedata_setting)
-        autohf_settings = get_autohf_settings(args, this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode)
+    each_pretrained_model = pretrained_models[args.pretrained_idx][0]
+    each_model_size_type = pretrained_models[args.pretrained_idx][1]
+    clean_outdated_results(args, dataset_names, subdataset_names)
+    hpo_searchspace_mode = hpo_searchspace_modes[args.space_idx]
+    search_algo_args_mode = search_algo_args_modes[args.space_idx]
+    preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
+                                                  each_pretrained_model, each_model_size_type)
+    train_dataset, eval_dataset, test_dataset = \
+        autohf.prepare_data(**preparedata_setting)
+    autohf_settings = get_autohf_settings(args, this_search_algo, this_scheduler_name, hpo_searchspace_mode, search_algo_args_mode)
 
-        try:
-            validation_metric, analysis = autohf.fit(train_dataset,
-                       eval_dataset,
-                       **autohf_settings,)
-        except AssertionError:
-            write_exception(args, autohf.group_name, fout)
-            continue
+    try:
+        validation_metric, analysis = autohf.fit(train_dataset,
+                   eval_dataset,
+                   **autohf_settings,)
+    except AssertionError:
+        write_exception(args, autohf.group_name, fout)
+        return
 
-        write_regular(autohf, args, validation_metric, autohf.group_name, fout, len(analysis.trials))
-        output_predict(args, test_dataset, autohf, fout, autohf.group_name)
-        rm_home_result()
+    write_regular(autohf, args, validation_metric, autohf.group_name, fout, len(analysis.trials))
+    output_predict(args, test_dataset, autohf, fout, autohf.group_name)
+    rm_home_result()
 
     fout.close()
 
