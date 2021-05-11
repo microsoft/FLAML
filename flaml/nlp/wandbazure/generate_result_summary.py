@@ -73,6 +73,7 @@ def generate_result_csv(args, bloblist, dataset_names, subdataset_names, search_
                 fout.write(blob_client.download_blob().readall())
         except:
             break
+
         with open(blobname, "r") as fin:
             alllines = fin.readlines()
             if len(alllines) < 5: continue
@@ -86,13 +87,10 @@ def generate_result_csv(args, bloblist, dataset_names, subdataset_names, search_
             sample_num = int(alllines[5].rstrip("\n").split(",")[1])
             time = float(alllines[5].rstrip("\n").split(",")[2])
             val_acc = float(alllines[5].rstrip("\n").split(",")[3])
-            try:
-                if split_id == 0:
-                    test_acc = float(alllines[5].rstrip("\n").split(",")[4])
-                else:
-                    test_acc = 0
-            except ValueError:
-                stop = 0
+            if split_id == 1 or alllines[5].rstrip("\n").split(",")[4] == "":
+                test_acc = -1
+            else:
+                test_acc = float(alllines[5].rstrip("\n").split(",")[4])
 
             if rep_id == 0 or algo == "grid":
                 blobname2ymlfile[blobname] = yml_file

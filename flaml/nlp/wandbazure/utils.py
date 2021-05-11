@@ -66,13 +66,22 @@ def get_azurepath(args, dataset_names, subdataset_names):
     if not os.path.exists(path_for_subdataset):
         pathlib.Path(path_for_subdataset).mkdir(parents=True, exist_ok=True)
 
-    return os.path.join(path_for_subdataset,
+    if args.algo_idx != None:
+        return os.path.join(path_for_subdataset,
                  "log_" + full_dataset_name
                  + "_mod" + str(args.pretrained_idx)
                  + "_alg" + str(args.algo_idx)
                  + "_spa" + str(args.space_idx)
                  + "_spt" + str(args.resplit_idx)
                  + "_rep" + str(args.rep_id) + ".log")
+    else:
+        return os.path.join(path_for_subdataset,
+                            "log_" + full_dataset_name
+                            + "_mod" + str(args.pretrained_idx)
+                            + "_" + str(args.algo_idx)
+                            + "_" + str(args.space_idx)
+                            + "_spt" + str(args.resplit_idx)
+                            + "_rep" + str(args.rep_id) + ".log")
 
 def search_blob_to_delete(args, dataset_names, subdataset_names, mode="delete_one"):
     container_client = init_azure_clients(args.azure_key)
