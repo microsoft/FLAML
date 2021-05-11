@@ -16,6 +16,8 @@ global azure_key
 dataset_names = [["glue"], ["glue"], ["glue"], ["super_glue"], ["super_glue"], ["super_glue"]]
 subdataset_names = ["cola", "mrpc", "rte", "wic", "rte", "copa"]
 
+resplit_modes = ["resplit", "origin"]
+
 pretrained_models = [("xlnet-base-cased", "base"),
                      ("albert-large-v1", "small"),
                      ("distilbert-base-uncased", "base"),
@@ -48,11 +50,11 @@ def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pret
         "model_name": each_pretrained_model,
         "model_size_type": each_model_size_type,
         "server_name": args.server_name,
-        "split_mode": args.resplit_mode,
+        "split_mode": resplit_modes[args.resplit_idx],
         "data_root_path": args.data_root_dir,
         "max_seq_length": 128,
         }
-    if args.resplit_mode == "resplit":
+    if args.resplit_idx == 0:
         preparedata_setting["resplit_portion"] = get_resplit_portion(this_dataset_name, this_subset_name)
     if ("albert" in each_pretrained_model and this_dataset_name == "squad") or \
         ("funnel" in each_pretrained_model and isinstance(this_dataset_name, str) and this_dataset_name in {"imdb", "yelp_review_full", "yelp_polarity", "amazon_polarity", "amazon_review_multi"}):
@@ -141,7 +143,7 @@ def _test_grid(args, fout, autohf):
 
         each_pretrained_model = pretrained_models[args.pretrained_idx][0]
         each_model_size_type = pretrained_models[args.pretrained_idx][1]
-        clean_outdated_results(args, dataset_names, subdataset_names)
+        #clean_outdated_results(args, dataset_names, subdataset_names)
         preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model, each_model_size_type)
         train_dataset, eval_dataset, test_dataset = \
         autohf.prepare_data(**preparedata_setting)
@@ -166,7 +168,7 @@ def _test_hpo_hf(args, fout, autohf):
         each_model_size_type = pretrained_models[args.pretrained_idx][1]
         preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
                                                       each_pretrained_model, each_model_size_type)
-        clean_outdated_results(args, dataset_names, subdataset_names)
+        #clean_outdated_results(args, dataset_names, subdataset_names)
         train_dataset, eval_dataset, test_dataset = \
             autohf.prepare_data(**preparedata_setting)
         try:
@@ -193,7 +195,7 @@ def _test_hpo(args, fout, autohf):
 
     each_pretrained_model = pretrained_models[args.pretrained_idx][0]
     each_model_size_type = pretrained_models[args.pretrained_idx][1]
-    clean_outdated_results(args, dataset_names, subdataset_names)
+    #clean_outdated_results(args, dataset_names, subdataset_names)
     hpo_searchspace_mode = hpo_searchspace_modes[args.space_idx]
     search_algo_args_mode = search_algo_args_modes[args.space_idx]
     preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
@@ -232,7 +234,7 @@ if __name__ == "__main__":
     arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False)
     arg_parser.add_argument('--rep_id', type=int, help='rep id', required=False)
     arg_parser.add_argument('--azure_key', type=str, help='azure key', required=False)
-    arg_parser.add_argument('--resplit_mode', type=str, help='resplit mode', required=True, choices=["resplit", "origin"])
+    arg_parser.add_argument('--resplit_idx', type=int, help='resplit mode', required=True, choices=["resplit", "origin"])
     arg_parser.add_argument('--ds_config', type=str, help='deep speed config file path', required = False)
     args = arg_parser.parse_args()
 

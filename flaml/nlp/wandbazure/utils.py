@@ -22,18 +22,28 @@ def get_all_runs(args):
     task2blobs = {}
     bloblist = []
     for blob in container_client.list_blobs():
-        result = re.search(".*_model(?P<model_id>\d+)_(?P<algo_id>\d+)_(?P<space_id>\d+)_rep(?P<rep_id>\d+).log", blob.name)
+        result_grid = re.search(".*_mod(el)?(?P<model_id>\d+)_None_None(_spt(?P<split_id>\d+))?_rep(?P<rep_id>\d+).log",
+                                blob.name)
+        result = re.search(".*_mod(el)?(?P<model_id>\d+)_(alg)?(?P<algo_id>\d+)_(spa)?(?P<space_id>\d+)(_spt(?P<split_id>\d+))?_rep(?P<rep_id>\d+).log", blob.name)
+        if result_grid:
+            bloblist.append(blob.name)
+            continue
         if result:
             task_name = blob.name.split("/")[1]
             model_id = int(result.group("model_id"))
             space_id = int(result.group("space_id"))
             rep_id = int(result.group("rep_id"))
             algo_id = int(result.group("algo_id"))
-            task2blobs.setdefault(task_name, {})
-            task2blobs[task_name].setdefault(model_id, {})
-            task2blobs[task_name][model_id].setdefault(algo_id, {})
-            task2blobs[task_name][model_id][algo_id].setdefault(space_id, {})
-            task2blobs[task_name][model_id][algo_id][space_id][rep_id] = blob.name
+            try:
+                split_id = int(result.group("split_id"))
+            except:
+                split_id = 0
+            task2blobs.setdefault(split_id, {})
+            task2blobs[split_id].setdefault(task_name, {})
+            task2blobs[split_id][task_name].setdefault(model_id, {})
+            task2blobs[split_id][task_name][model_id].setdefault(algo_id, {})
+            task2blobs[split_id][task_name][model_id][algo_id].setdefault(space_id, {})
+            task2blobs[split_id][task_name][model_id][algo_id][space_id][rep_id] = blob.name
             bloblist.append(blob.name)
     return task2blobs, bloblist
 
@@ -57,17 +67,18 @@ def get_azurepath(args, dataset_names, subdataset_names):
         pathlib.Path(path_for_subdataset).mkdir(parents=True, exist_ok=True)
 
     return os.path.join(path_for_subdataset,
-                 "log_" + full_dataset_name + "_model"
-                 + str(args.pretrained_idx)
-                 + "_" + str(args.algo_idx)
-                 + "_" + str(args.space_idx)
+                 "log_" + full_dataset_name
+                 + "_mod" + str(args.pretrained_idx)
+                 + "_alg" + str(args.algo_idx)
+                 + "_spa" + str(args.space_idx)
+                 + "_spt" + str(args.resplit_idx)
                  + "_rep" + str(args.rep_id) + ".log")
 
 def search_blob_to_delete(args, dataset_names, subdataset_names, mode="delete_one"):
     container_client = init_azure_clients(args.azure_key)
     blobs_to_delete = []
     for blob in container_client.list_blobs():
-        result = re.search(".*_model(?P<model_id>\d+)_(?P<algo_id>\d+)_(?P<space_id>\d+)_rep(?P<rep_id>\d+).log", blob.name)
+        result = re.search(".*_mod(el)?(?P<model_id>\d+)_(alg)?(?P<algo_id>\d+)_(spa)?(?P<space_id>\d+)(_spt(?P<split_id>\d+))?_rep(?P<rep_id>\d+).log", blob.name)
         if result:
             task_name = blob.name.split("/")[1]
             model_id = int(result.group("model_id"))

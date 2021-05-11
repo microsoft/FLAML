@@ -26,19 +26,42 @@ def remove_by_date(tasklist, earliest_ts):
         if compare_dates(this_time, earliest_time) == -1:
             each_file.delete()
 
-def generate_result_csv(args, bloblist, dataset_names, subdataset_names, search_algos, pretrained_models, scheduler_names, hpo_searchspace_modes, search_algo_args_modes):
+def generate_result_csv(args, bloblist, dataset_names, subdataset_names, search_algos, pretrained_models, scheduler_names, hpo_searchspace_modes, search_algo_args_modes, split_modes):
 
     tab = pd.DataFrame(
-        columns=["full_dataset", "rep_id", "space", "init_config", "wandb_hash", "model", "model_size", "algorithm", "pruner", "sample_num", "time", "val_acc", "test_acc"]
+        columns=["full_dataset", "rep_id", "space", "init_config", "wandb_hash", "model", "model_size", "algorithm", "pruner", "sample_num", "time", "split_mode", "val_acc", "test_acc"]
         , index=[x for x in range(len(bloblist))])
     for blob_id in range(len(bloblist)):
         blobname = bloblist[blob_id]
-        result = re.search(".*_model(?P<model_id>\d+)_(?P<algo_id>\d+)_(?P<space_id>\d+)_rep(?P<rep_id>\d+).log",
-                           blobname)
-        model_id = int(result.group("model_id"))
-        space_id = int(result.group("space_id"))
-        rep_id = int(result.group("rep_id"))
-        algo_id = int(result.group("algo_id"))
+        result_grid = re.search(".*_mod(el)?(?P<model_id>\d+)_None_None(_spt(?P<split_id>\d+))?_rep(?P<rep_id>\d+).log", blobname)
+        if result_grid:
+            model_id = int(result_grid.group("model_id"))
+            rep_id = int(result_grid.group("rep_id"))
+            try:
+                split_id = int(result_grid.group("split_id"))
+            except:
+                split_id = 0
+            algo = "grid"
+            space = "None"
+            init_config = "None"
+            pruner = "None"
+            split_mode = split_modes[split_id]
+        else:
+            result = re.search(".*_mod(el)?(?P<model_id>\d+)_(alg)?(?P<algo_id>\d+)_(spa)?(?P<space_id>\d+)(_spt(?P<split_id>\d+))?_rep(?P<rep_id>\d+).log", blobname)
+            model_id = int(result.group("model_id"))
+
+            space_id = int(result.group("space_id"))
+            space = hpo_searchspace_modes[space_id]
+            init_config = search_algo_args_modes[space_id]
+            rep_id = int(result.group("rep_id"))
+            algo_id = int(result.group("algo_id"))
+            algo = search_algos[algo_id]
+            pruner = scheduler_names[algo_id]
+            try:
+                split_id = int(result.group("split_id"))
+            except:
+                split_id = 0
+            split_mode = split_modes[split_id]
         full_dataset = blobname.split("/")[1]
 
         try:
@@ -51,20 +74,21 @@ def generate_result_csv(args, bloblist, dataset_names, subdataset_names, search_
             break
         with open(blobname, "r") as fin:
             alllines = fin.readlines()
-
-            space = hpo_searchspace_modes[space_id]
-            init_config = search_algo_args_modes[space_id]
             if len(alllines) < 5: continue
             wandb_hash = alllines[0].rstrip("\n:").split("_")[-1]
             model = pretrained_models[model_id][0]
             model_size = pretrained_models[model_id][1]
-            algo = search_algos[algo_id]
-            pruner = scheduler_names[algo_id]
             sample_num = int(alllines[5].rstrip("\n").split(",")[1])
             time = float(alllines[5].rstrip("\n").split(",")[2])
             val_acc = float(alllines[5].rstrip("\n").split(",")[3])
-            test_acc = float(alllines[5].rstrip("\n").split(",")[4])
+            try:
+                if split_id == 0:
+                    test_acc = float(alllines[5].rstrip("\n").split(",")[4])
+                else:
+                    test_acc = 0
+            except ValueError:
+                stop = 0
 
-            tab.loc[blob_id] = [full_dataset, rep_id, space, init_config, wandb_hash, model, model_size, algo, pruner, sample_num, time, val_acc, test_acc]
+            tab.loc[blob_id] = [full_dataset, rep_id, space, init_config, wandb_hash, model, model_size, algo, pruner, sample_num, time, split_mode, val_acc, test_acc]
 
     tab.to_csv("result.csv", index = False)
