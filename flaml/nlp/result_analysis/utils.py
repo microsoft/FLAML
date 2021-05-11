@@ -27,6 +27,18 @@ def get_all_runs(args):
         result = re.search(".*_mod(el)?(?P<model_id>\d+)_(alg)?(?P<algo_id>\d+)_(spa)?(?P<space_id>\d+)(_spt(?P<split_id>\d+))?_rep(?P<rep_id>\d+).log", blob.name)
         if result_grid:
             bloblist.append(blob.name)
+            task_name = blob.name.split("/")[1]
+            model_id = int(result_grid.group("model_id"))
+            algo_id = -1
+            try:
+                split_id = int(result_grid.group("split_id"))
+            except:
+                split_id = 0
+            task2blobs.setdefault(split_id, {})
+            task2blobs[split_id].setdefault(task_name, {})
+            task2blobs[split_id][task_name].setdefault(model_id, {})
+            task2blobs[split_id][task_name][model_id].setdefault(algo_id, {})
+            task2blobs[split_id][task_name][model_id][algo_id] = blob.name
             continue
         if result:
             task_name = blob.name.split("/")[1]

@@ -58,8 +58,8 @@ if __name__ == "__main__":
     model2id = {}
     id2model = {}
 
-    resplit_id = 0
-    for run_idx in range(2, 3):
+    resplit_id = 1
+    for run_idx in range(1, 2):
         all_runs = []
         task_name = all_run_names[run_idx][0]
         eval_name = all_run_names[run_idx][1]
@@ -72,12 +72,14 @@ if __name__ == "__main__":
         print("downloading files for task " + task_name)
         fixed_var = ""
         #try:
-        for model_id in range(5, 7):
-            for algo_id in range(2, 5, 2):
-                for space_id in range(2):
-                    for rep_id in range(3):
-                        if model_id == 6 and algo_id == 2 and space_id == 1: continue
-                        this_blob_file = all_blobs[model_id][algo_id][space_id][rep_id]
+        for model_id in range(6, 7):
+            for algo_id in [-1] + [x for x in range(2, 3, 2)]:
+                for space_id in range(1, 2):
+                    for rep_id in range(1):
+                        if algo_id == -1:
+                            this_blob_file = all_blobs[model_id][algo_id]
+                        else:
+                            this_blob_file = all_blobs[model_id][algo_id][space_id][rep_id]
                         blob_client = init_blob_client(args.azure_key, this_blob_file)
                         pathlib.Path(re.search("(?P<parent_path>^.*)/[^/]+$", this_blob_file).group("parent_path")).mkdir(
                             parents=True, exist_ok=True)
@@ -177,10 +179,10 @@ if __name__ == "__main__":
                 except KeyError:
                     pass
             sorted_ys_all_methods = sorted(ys_all_methods)
-            upper = sorted_ys_all_methods[-int(0.01 * len(sorted_ys_all_methods))]
+            upper = sorted_ys_all_methods[-int(0.01 * len(sorted_ys_all_methods))] + 0.05
             lower = sorted_ys_all_methods[int(0.03 * len(sorted_ys_all_methods))]
             model2bounds[each_model] = [lower, upper]
-        for model_id in range(5, max(id2model.keys()) + 1):
+        for model_id in id2model.keys():
             first_ax_id = int((model_id - 5) / 2)
             second_ax_id = (model_id - 5) % 2
             model = id2model[model_id]
