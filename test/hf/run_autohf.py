@@ -104,7 +104,12 @@ def output_predict(args, test_dataset, autohf, fout, save_file_name):
         predictions, output_metric = autohf.predict(test_dataset)
         if output_metric:
             fout.write(str(output_metric[autohf.metric_name]) + "\n")
-            fout.write("test " + (autohf.metric_name) + ":" + json.dumps(output_metric) + "\n\n")
+            fout.write("test " + (autohf.metric_name) + ":" + json.dumps(output_metric) + "\n")
+            fout.write(args.yml_file + "\n\n")
+            flush_and_upload(fout, args, azure_log_path)
+        else:
+            fout.write("\n\n" + args.yml_file + "\n\n")
+            fout.flush()
             flush_and_upload(fout, args, azure_log_path)
         if autohf.split_mode == "origin":
             azure_save_file_name = azure_log_path.split("/")[-1][:-4]
@@ -112,7 +117,7 @@ def output_predict(args, test_dataset, autohf, fout, save_file_name):
             autohf.output_prediction(predictions,
                                      output_prediction_path= args.data_root_dir + "result/",
                                      output_dir_name=azure_save_file_name)
-            flush_and_upload_prediction(args, output_prediction_path)
+            flush_and_upload_prediction(fout, args, output_prediction_path)
 
 def rm_home_result():
     from os.path import expanduser
@@ -234,8 +239,9 @@ if __name__ == "__main__":
     arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False)
     arg_parser.add_argument('--rep_id', type=int, help='rep id', required=False)
     arg_parser.add_argument('--azure_key', type=str, help='azure key', required=False)
-    arg_parser.add_argument('--resplit_idx', type=int, help='resplit mode', required=True, choices=["resplit", "origin"])
+    arg_parser.add_argument('--resplit_idx', type=int, help='resplit mode', required=True)
     arg_parser.add_argument('--ds_config', type=str, help='deep speed config file path', required = False)
+    arg_parser.add_argument('--yml_file', type=str, help='yml file path', required=True)
     args = arg_parser.parse_args()
 
     wandb_key, args.azure_key = get_wandb_azure_key()

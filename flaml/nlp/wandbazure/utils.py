@@ -128,7 +128,8 @@ def flush_and_upload(fout, args, azure_log_path):
     with open(azure_log_path, "rb") as fin:
         blob_client.upload_blob(fin, overwrite=True)
 
-def flush_and_upload_prediction(args, result_path):
+def flush_and_upload_prediction(fout, args, result_path):
+    fout.flush()
     blob_client = init_blob_client(args.azure_key, local_file_name=result_path)
     with open(result_path, "rb") as fin:
         blob_client.upload_blob(fin, overwrite=True)

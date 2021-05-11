@@ -29,8 +29,9 @@ def remove_by_date(tasklist, earliest_ts):
 def generate_result_csv(args, bloblist, dataset_names, subdataset_names, search_algos, pretrained_models, scheduler_names, hpo_searchspace_modes, search_algo_args_modes, split_modes):
 
     tab = pd.DataFrame(
-        columns=["full_dataset", "rep_id", "space", "init_config", "wandb_hash", "model", "model_size", "algorithm", "pruner", "sample_num", "time", "split_mode", "val_acc", "test_acc"]
+        columns=["full_dataset", "rep_id", "space", "init_config", "wandb_hash", "model", "model_size", "algorithm", "pruner", "sample_num", "time", "split_mode", "yml_file", "val_acc", "test_acc"]
         , index=[x for x in range(len(bloblist))])
+    blobname2ymlfile = {}
     for blob_id in range(len(bloblist)):
         blobname = bloblist[blob_id]
         result_grid = re.search(".*_mod(el)?(?P<model_id>\d+)_None_None(_spt(?P<split_id>\d+))?_rep(?P<rep_id>\d+).log", blobname)
@@ -78,6 +79,10 @@ def generate_result_csv(args, bloblist, dataset_names, subdataset_names, search_
             wandb_hash = alllines[0].rstrip("\n:").split("_")[-1]
             model = pretrained_models[model_id][0]
             model_size = pretrained_models[model_id][1]
+            if len(alllines) > 7 and alllines[7].rstrip("\n") != "" and alllines[7].rstrip("\n").endswith("yml"):
+                yml_file = alllines[7].rstrip("\n")
+            else:
+                yml_file = None
             sample_num = int(alllines[5].rstrip("\n").split(",")[1])
             time = float(alllines[5].rstrip("\n").split(",")[2])
             val_acc = float(alllines[5].rstrip("\n").split(",")[3])
@@ -89,6 +94,20 @@ def generate_result_csv(args, bloblist, dataset_names, subdataset_names, search_
             except ValueError:
                 stop = 0
 
-            tab.loc[blob_id] = [full_dataset, rep_id, space, init_config, wandb_hash, model, model_size, algo, pruner, sample_num, time, split_mode, val_acc, test_acc]
+            if rep_id == 0 or algo == "grid":
+                blobname2ymlfile[blobname] = yml_file
+                tab.loc[blob_id] = [full_dataset, rep_id, space, init_config, wandb_hash, model, model_size, algo, pruner, sample_num, time, split_mode, str(yml_file), val_acc, test_acc]
+            else:
+                key_str = re.sub("(.*)rep(?P<rep_id>\d).log", r"\1rep0.log", blobname)
+                try:
+                    rep0ymlfile = blobname2ymlfile[key_str]
+                    if yml_file == rep0ymlfile:
+                        tab.loc[blob_id] = [full_dataset, rep_id, space, init_config, wandb_hash, model, model_size, algo,
+                                            pruner, sample_num, time, split_mode, str(yml_file), val_acc, test_acc]
+                except KeyError:
+                    pass
 
+    nan_value = float("NaN")
+    tab.replace("", nan_value, inplace=True)
+    tab.dropna(inplace=True)
     tab.to_csv("result.csv", index = False)
