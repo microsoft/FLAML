@@ -618,7 +618,7 @@ class AutoTransformers:
 
         run = self._set_wandb_per_trial()
         for each_hp in config:
-            if each_hp in hp_type_mapping.keys():
+            if each_hp in self._search_space_hpo.keys():
                 wandb.log({each_hp: config[each_hp]})
 
         trainer.train()

@@ -23,7 +23,7 @@ def plot_walltime_curve(args):
     id2model = {}
 
     resplit_id = 1
-    for run_idx in range(1, 2):
+    for run_idx in range(2, 3):
         all_runs = []
         task_name = all_run_names[run_idx][0]
         eval_name = all_run_names[run_idx][1]
@@ -36,10 +36,15 @@ def plot_walltime_curve(args):
         print("downloading files for task " + task_name)
         fixed_var = ""
         #try:
+
         for model_id in range(6, 7):
             for algo_id in [-1] + [x for x in range(2, 3, 2)]:
                 for space_id in range(1, 2):
-                    for rep_id in range(1):
+                    if algo_id == -1:
+                        total_rep = 1
+                    else:
+                        total_rep = 3
+                    for rep_id in range(total_rep):
                         if algo_id == -1:
                             this_blob_file = all_blobs[model_id][algo_id]
                         else:
@@ -55,6 +60,9 @@ def plot_walltime_curve(args):
 
         run_count = len(all_runs)
         print("there are " + str(run_count) + " runs ")
+
+        max_x = -1
+
         for idx in range(0, run_count):
             proj_name = all_runs[idx][0]
             group_name = all_runs[idx][1]
@@ -90,6 +98,7 @@ def plot_walltime_curve(args):
                 max_acc_ts = max(ts2acc[each_ts])
                 max_acc_sofar = max(max_acc_sofar, max_acc_ts)
                 xs.append(each_ts - sorted_ts[0])
+                max_x = max(max_x, each_ts - sorted_ts[0])
                 ys.append(max_acc_sofar)
 
             to_var_str = "_".join(dims_to_var)
@@ -134,9 +143,16 @@ def plot_walltime_curve(args):
                         tovar2color[tovar] = tovar2color_list[tovar_idx]
                         tovar_idx += 1
                         this_color = tovar2color[tovar]
+                    fill_lower = np.subtract(means, stds)
+                    fill_upper = np.add(means, stds)
+                    if max(sorted_ticks) < max_x:
+                        sorted_ticks.append(max_x)
+                        means.append(means[-1])
+                        fill_lower = np.append(fill_lower, 0)
+                        fill_upper = np.append(fill_upper, 0)
                     line1, = axs[first_ax_id, second_ax_id].plot(sorted_ticks, means, color=this_color,
                                                                  label=tovar)
-                    axs[first_ax_id, second_ax_id].fill_between(sorted_ticks, np.subtract(means, stds), np.add(means, stds), color= this_color, alpha=0.2)
+                    axs[first_ax_id, second_ax_id].fill_between(sorted_ticks, fill_lower, fill_upper, color= this_color, alpha=0.2)
                     axs[first_ax_id, second_ax_id].legend(loc=4)
                 except KeyError:
                     pass

@@ -23,7 +23,9 @@ pretrained_models = [("xlnet-base-cased", "base"),
                      ("microsoft/deberta-base", "base"),
                      ("funnel-transformer/small-base", "base"),
                      ("microsoft/deberta-large", "large"),
-                     ("funnel-transformer/large-base", "large")]
+                     ("funnel-transformer/large-base", "large"),
+                     ("funnel-transformer/intermediate-base", "large"),
+                     ("funnel-transformer/xlarge-base", "xlarge")]
 
 search_algos = ["BlendSearch", "BlendSearch", "Optuna", "Optuna", "CFO", "CFO"]
 scheduler_names = ["None", "ASHA", "None", "ASHA", "None", "ASHA"]
@@ -242,6 +244,9 @@ if __name__ == "__main__":
     arg_parser.add_argument('--ds_config', type=str, help='deep speed config file path', required = False)
     arg_parser.add_argument('--yml_file', type=str, help='yml file path', required=True)
     args = arg_parser.parse_args()
+
+    if os.path.exists("wandb"):
+        shutil.rmtree("wandb")
 
     wandb_key, args.azure_key = get_wandb_azure_key(os.path.abspath("../../"))
     subprocess.run(["wandb", "login", "--relogin", wandb_key])
