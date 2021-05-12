@@ -1,7 +1,7 @@
 '''Require: pip install torch transformers datasets wandb flaml[blendsearch,ray]
 '''
 #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
-import argparse,json
+import argparse,os
 
 from flaml.nlp.result_analysis.generate_result_summary import generate_result_csv
 from flaml.nlp.result_analysis.utils import get_all_runs
@@ -18,7 +18,7 @@ if __name__ == "__main__":
     arg_parser.add_argument('--mode', type=str, help='analysis mode', required=True, choices=["summary", "analysis"])
     args = arg_parser.parse_args()
 
-    wandb_key, args.azure_key = get_wandb_azure_key()
+    wandb_key, args.azure_key = get_wandb_azure_key(os.path.abspath("../../"))
     task2blobs, bloblist = get_all_runs(args)
 
     if args.mode == "analysis":

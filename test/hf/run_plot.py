@@ -1,7 +1,7 @@
 import bisect
 import argparse
 import pathlib
-import re
+import re,os
 
 import wandb
 import matplotlib.pyplot as plt
@@ -18,7 +18,7 @@ if __name__ == "__main__":
     arg_parser.add_argument('--azure_key', type=str, help='azure key', required=False)
     args = arg_parser.parse_args()
 
-    wandb_key, args.azure_key = get_wandb_azure_key()
+    wandb_key, args.azure_key = get_wandb_azure_key(os.path.abspath("../../"))
 
     task2ylim = {"glue_mrpc":
                      {

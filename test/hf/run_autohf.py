@@ -244,7 +244,7 @@ if __name__ == "__main__":
     arg_parser.add_argument('--yml_file', type=str, help='yml file path', required=True)
     args = arg_parser.parse_args()
 
-    wandb_key, args.azure_key = get_wandb_azure_key()
+    wandb_key, args.azure_key = get_wandb_azure_key(os.path.abspath("../../"))
     subprocess.run(["wandb", "login", "--relogin", wandb_key])
     os.environ["WANDB_API_KEY"] = wandb_key
 
