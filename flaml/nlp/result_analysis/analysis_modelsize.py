@@ -1,5 +1,5 @@
 import re, wandb
-
+import pandas
 from flaml.nlp.dataset.metric_auto import get_default_and_alternative_metric
 
 from flaml.nlp.result_analysis.utils import get_all_runs, init_blob_client
@@ -25,6 +25,12 @@ def get_config_to_score(dataset_name, subdataset_name, this_group_name):
             pass
     return config2score
 
+def convert_list_to_pd_frame(list1):
+    pd1 = pandas.DataFrame(index=[x for x in range(len(list1))], columns=[x for x in range(2)])
+    for x in range(len(list1)):
+        pd1.loc[x] = [list1[x][0], list1[x][1]]
+    return pd1
+
 def analysis_model_size(args, task2blobs, dataset_names, subdataset_names, search_algos, pretrained_models, scheduler_names, hpo_searchspace_modes, search_algo_args_modes, split_modes):
     """ analyze the following hypothesis: the ranking orders of hyperparameters
         are exactly the same on small/base and large models, therefore we can
@@ -43,10 +49,10 @@ def analysis_model_size(args, task2blobs, dataset_names, subdataset_names, searc
         task_name = dataset_names[run_idx][0] + "_" + subdataset_names[run_idx]
         all_blobs = task2blobs[resplit_id][task_name]
         configs = []
+        configs2scores = []
         for model_id in [small_model_id, large_model_id]:
             config2scores = {}
             for rep_id in range(3):
-                this_config2score = {}
                 this_blob_file = all_blobs[model_id][algo_id][space_id][rep_id]
                 blob_client = init_blob_client(args.azure_key, this_blob_file)
                 pathlib.Path(re.search("(?P<parent_path>^.*)/[^/]+$", this_blob_file).group("parent_path")).mkdir(
@@ -57,12 +63,18 @@ def analysis_model_size(args, task2blobs, dataset_names, subdataset_names, searc
                     this_group_name = fin.readline().rstrip(":\n")
                     for (config, score, trial_name) in get_config_to_score(dataset_names[run_idx][0], subdataset_names[run_idx], this_group_name):
                         config2scores.setdefault(config, [])
-                        config2scores[config].append((score, trial_name))
-                        this_config2score.setdefault(config, [])
-                        this_config2score[config].append((score, trial_name))
-                        if len(this_config2score[config]) > 1:
-                            stop = 0
+                        config2scores[config].append(score)
             configs.append(sorted(config2scores.keys(), key = lambda x: np.mean(config2scores[x]), reverse= True))
+            configs2scores.append(config2scores)
         intersection_config = set(configs[0]).intersection(set(configs[1]))
-        similarity = kendalltau([x for x in configs[0] if x in intersection_config],
-                                [x for x in configs[1] if x in intersection_config])
+        list1 = [(x, str(np.mean(configs2scores[0][x]))) for x in configs[0] if x in intersection_config]
+        list2 = [(x, str(np.mean(configs2scores[1][x]))) for x in configs[1] if x in intersection_config]
+
+        pd1 = convert_list_to_pd_frame(list1)
+        pd2 = convert_list_to_pd_frame(list2)
+
+        pd1.to_csv("small_model.csv")
+        pd2.to_csv("large_model.csv")
+
+        similarity = kendalltau(list1, list2)
+        stop = 0

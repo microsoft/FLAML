@@ -15,10 +15,13 @@ if __name__ == "__main__":
     arg_parser.add_argument('--server_name', type=str, help='server name', required=True,
                             choices=["tmdev", "dgx", "azureml"])
     arg_parser.add_argument('--azure_key', type=str, help='azure key', required=False)
+    arg_parser.add_argument('--mode', type=str, help='analysis mode', required=True, choices=["summary", "analysis"])
     args = arg_parser.parse_args()
 
     wandb_key, args.azure_key = get_wandb_azure_key()
     task2blobs, bloblist = get_all_runs(args)
 
-    analysis_model_size(args, task2blobs, dataset_names, subdataset_names, search_algos, pretrained_models, scheduler_names, hpo_searchspace_modes, search_algo_args_modes, resplit_modes)
-    #generate_result_csv(args, bloblist, dataset_names, subdataset_names, search_algos, pretrained_models, scheduler_names, hpo_searchspace_modes, search_algo_args_modes, resplit_modes)
+    if args.mode == "analysis":
+        analysis_model_size(args, task2blobs, dataset_names, subdataset_names, search_algos, pretrained_models, scheduler_names, hpo_searchspace_modes, search_algo_args_modes, resplit_modes)
+    elif args.mode == "summary":
+        generate_result_csv(args, bloblist, dataset_names, subdataset_names, search_algos, pretrained_models, scheduler_names, hpo_searchspace_modes, search_algo_args_modes, resplit_modes)
