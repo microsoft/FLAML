@@ -16,9 +16,10 @@ if __name__ == "__main__":
                             choices=["tmdev", "dgx", "azureml"])
     arg_parser.add_argument('--azure_key', type=str, help='azure key', required=False)
     arg_parser.add_argument('--mode', type=str, help='analysis mode', required=True, choices=["summary", "analysis", "plot"])
+    arg_parser.add_argument('--key_path', type=str, help='path for storing key.json', required=False, default = os.path.abspath("../../"))
     args = arg_parser.parse_args()
 
-    args.wandb_key, args.azure_key = get_wandb_azure_key(os.path.abspath("../../"))
+    args.wandb_key, args.azure_key = get_wandb_azure_key(args.key_path)
     task2blobs, bloblist = get_all_runs(args)
 
     if args.mode == "analysis":
