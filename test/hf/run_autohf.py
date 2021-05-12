@@ -248,7 +248,7 @@ if __name__ == "__main__":
     if os.path.exists("wandb"):
         shutil.rmtree("wandb")
 
-    wandb_key, args.azure_key = get_wandb_azure_key(os.path.abspath("../../"))
+    wandb_key, args.azure_key = get_wandb_azure_key(os.path.abspath("."))
     subprocess.run(["wandb", "login", "--relogin", wandb_key])
     os.environ["WANDB_API_KEY"] = wandb_key
 
