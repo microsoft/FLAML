@@ -22,7 +22,7 @@ if __name__ == "__main__":
     task2blobs, bloblist = get_all_runs(args)
 
     if args.mode == "analysis":
-        from flaml.nlp.result_analysis.analysis_modelsize import analysis_model_size
+        from flaml.nlp import analysis_model_size
         subprocess.run(["wandb", "login", "--relogin", wandb_key])
         analysis_model_size(args, task2blobs, dataset_names, subdataset_names, search_algos, pretrained_models, scheduler_names, hpo_searchspace_modes, search_algo_args_modes, resplit_modes)
     elif args.mode == "summary":
