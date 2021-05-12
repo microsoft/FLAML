@@ -1,15 +1,15 @@
-import re, wandb
+import re
 import pandas
 from ..dataset.metric_auto import get_default_and_alternative_metric
-
-from .utils import get_all_runs, init_blob_client
+import subprocess
+from .utils import init_blob_client
 import pathlib
 from scipy.stats import kendalltau
 import numpy as np
 
-api = wandb.Api()
-
 def get_config_to_score(dataset_name, subdataset_name, this_group_name):
+    import wandb
+    api = wandb.Api()
     runs = api.runs('liususan/' + dataset_name + "_" + subdataset_name, filters={"group": this_group_name})
     config2score = []
     for idx in range(0, len(runs)):
@@ -35,7 +35,7 @@ def analysis_model_size(args, task2blobs, dataset_names, subdataset_names, searc
     """ analyze the following hypothesis: the ranking orders of hyperparameters
         are exactly the same on small/base and large models, therefore we can
         fine tune large models by fine tuning small models and apply on large models"""
-
+    subprocess.run(["wandb", "login", "--relogin", args.wandb_key])
     small_model_id = 3
     large_model_id = 5
 
