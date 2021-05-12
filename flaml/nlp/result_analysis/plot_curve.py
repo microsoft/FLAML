@@ -3,11 +3,11 @@ import pathlib, re
 from .utils import get_all_runs, init_blob_client
 import wandb
 import numpy as np
-import bisect
-
-api = wandb.Api()
+import bisect,subprocess
 
 def plot_walltime_curve(args):
+    subprocess.run(["wandb", "login", "--relogin", args.wandb_key])
+    api = wandb.Api()
     all_run_names = [("glue_mrpc", "eval/accuracy"), ("glue_rte", "eval/accuracy"), ("glue_cola", "eval/matthews_correlation")]
     run_idx = 1
 
