@@ -248,7 +248,7 @@ if __name__ == "__main__":
     subprocess.run(["wandb", "login", "--relogin", wandb_key])
     os.environ["WANDB_API_KEY"] = wandb_key
 
-    from flaml.nlp.wandbazure.utils import get_azurepath
+    from flaml.nlp.result_analysis.utils import get_azurepath
     azure_log_path = get_azurepath(args, dataset_names, subdataset_names)
 
     fout = open(azure_log_path, "a")

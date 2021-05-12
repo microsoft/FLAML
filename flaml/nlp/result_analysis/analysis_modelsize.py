@@ -20,7 +20,7 @@ def get_config_to_score(dataset_name, subdataset_name, this_group_name):
         default_metric, _, _, _ = get_default_and_alternative_metric(dataset_name, subdataset_name)
         try:
             this_eval_acc = run.summary['eval/' + default_metric]
-            config2score.append((this_hp_config_str, this_eval_acc))
+            config2score.append((this_hp_config_str, this_eval_acc, run.name))
         except KeyError:
             pass
     return config2score
@@ -55,11 +55,11 @@ def analysis_model_size(args, task2blobs, dataset_names, subdataset_names, searc
                     fout.write(blob_client.download_blob().readall())
                 with open(this_blob_file, "r") as fin:
                     this_group_name = fin.readline().rstrip(":\n")
-                    for (config, score) in get_config_to_score(dataset_names[run_idx][0], subdataset_names[run_idx], this_group_name):
+                    for (config, score, trial_name) in get_config_to_score(dataset_names[run_idx][0], subdataset_names[run_idx], this_group_name):
                         config2scores.setdefault(config, [])
-                        config2scores[config].append(score)
+                        config2scores[config].append((score, trial_name))
                         this_config2score.setdefault(config, [])
-                        this_config2score[config].append(score)
+                        this_config2score[config].append((score, trial_name))
                         if len(this_config2score[config]) > 1:
                             stop = 0
             configs.append(sorted(config2scores.keys(), key = lambda x: np.mean(config2scores[x]), reverse= True))
