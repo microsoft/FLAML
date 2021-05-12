@@ -88,8 +88,6 @@ if __name__ == "__main__":
                         with open(this_blob_file, "r") as fin:
                             this_group_name = fin.readline().rstrip(":\n")
                             all_runs.append((task_name, this_group_name, model_id))
-        # except:
-        #     stop = 0
 
         run_count = len(all_runs)
         print("there are " + str(run_count) + " runs ")

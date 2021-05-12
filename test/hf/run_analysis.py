@@ -3,8 +3,10 @@
 #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
 import argparse,json
 
-from flaml.nlp.wandbazure.generate_result_summary import generate_result_csv
-from flaml.nlp.wandbazure.utils import get_all_runs
+from flaml.nlp.result_analysis.generate_result_summary import generate_result_csv
+from flaml.nlp.result_analysis.utils import get_all_runs
+
+from flaml.nlp.result_analysis.analysis_modelsize import analysis_model_size
 from utils import get_wandb_azure_key
 from run_autohf import dataset_names, subdataset_names, search_algos, pretrained_models, scheduler_names, hpo_searchspace_modes, search_algo_args_modes, resplit_modes
 
@@ -18,4 +20,5 @@ if __name__ == "__main__":
     wandb_key, args.azure_key = get_wandb_azure_key()
     task2blobs, bloblist = get_all_runs(args)
 
-    generate_result_csv(args, bloblist, dataset_names, subdataset_names, search_algos, pretrained_models, scheduler_names, hpo_searchspace_modes, search_algo_args_modes, resplit_modes)
+    analysis_model_size(args, task2blobs, dataset_names, subdataset_names, search_algos, pretrained_models, scheduler_names, hpo_searchspace_modes, search_algo_args_modes, resplit_modes)
+    #generate_result_csv(args, bloblist, dataset_names, subdataset_names, search_algos, pretrained_models, scheduler_names, hpo_searchspace_modes, search_algo_args_modes, resplit_modes)
