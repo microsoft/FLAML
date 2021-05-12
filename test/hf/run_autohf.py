@@ -24,7 +24,7 @@ pretrained_models = [("xlnet-base-cased", "base"),
                      ("funnel-transformer/small-base", "base"),
                      ("microsoft/deberta-large", "large"),
                      ("funnel-transformer/large-base", "large"),
-                     ("funnel-transformer/intermediate-base", "large"),
+                     ("funnel-transformer/intermediate-base", "intermediate"),
                      ("funnel-transformer/xlarge-base", "xlarge")]
 
 search_algos = ["BlendSearch", "BlendSearch", "Optuna", "Optuna", "CFO", "CFO"]
