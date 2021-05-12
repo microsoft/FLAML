@@ -3,11 +3,10 @@
 #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
 import os, argparse, subprocess
 import datetime
-import json, wandb
-import pathlib
+import json
 import shutil
-from flaml.nlp.autotransformers import AutoTransformers
-from flaml.nlp.result_analysis.utils import flush_and_upload, clean_outdated_results, flush_and_upload_prediction
+from flaml.nlp import AutoTransformers
+from flaml.nlp import flush_and_upload, flush_and_upload_prediction
 from utils import get_wandb_azure_key
 
 global azure_log_path

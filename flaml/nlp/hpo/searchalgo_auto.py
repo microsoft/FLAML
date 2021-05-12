@@ -3,9 +3,9 @@ from collections import OrderedDict
 
 import ray
 from ray.tune.suggest.optuna import OptunaSearch
+import sys, os
+from flaml import CFO, BlendSearch
 
-from flaml import CFO
-from flaml import BlendSearch
 from ray.tune.suggest.dragonfly import DragonflySearch
 from ray.tune.suggest.skopt import SkOptSearch
 from ray.tune.suggest.nevergrad import NevergradSearch

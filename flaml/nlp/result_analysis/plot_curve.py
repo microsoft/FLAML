@@ -1,49 +1,13 @@
-import bisect
-import argparse
-import pathlib
-import re,os
-
-import wandb
 import matplotlib.pyplot as plt
+import pathlib, re
+from .utils import get_all_runs, init_blob_client
+import wandb
 import numpy as np
-from flaml.nlp.result_analysis.utils import get_all_runs, init_blob_client
-from utils import get_wandb_azure_key
+import bisect
 
 api = wandb.Api()
 
-if __name__ == "__main__":
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('--server_name', type=str, help='server name', required=True,
-                            choices=["tmdev", "dgx", "azureml"])
-    arg_parser.add_argument('--azure_key', type=str, help='azure key', required=False)
-    args = arg_parser.parse_args()
-
-    wandb_key, args.azure_key = get_wandb_azure_key(os.path.abspath("../../"))
-
-    task2ylim = {"glue_mrpc":
-                     {
-                        "xlnet": [0.82, 0.86],
-                         "albert": [0.84, 0.87],
-                         "distilbert": [0.83, 0.86],
-                         "deberta": [0.85, 0.9],
-                         "funnel": [0.85, 0.9]
-                     },
-                "glue_rte": {
-                       "xlnet": [0.65, 0.75],
-                        "albert": [0.74, 0.81],
-                        "distilbert": [0.6, 0.68],
-                        "deberta": [0.6, 0.81],
-                        "funnel": [0.75, 0.81]
-                },
-                "glue_cola": {
-                   "xlnet": [0.2, 0.6],
-                    "albert": [0.45, 0.65],
-                    "distilbert": [0.45, 0.6],
-                    "deberta": [0.5, 0.75],
-                    "funnel": [0.6, 0.75]
-                }
-                }
-
+def plot_walltime_curve(args):
     all_run_names = [("glue_mrpc", "eval/accuracy"), ("glue_rte", "eval/accuracy"), ("glue_cola", "eval/matthews_correlation")]
     run_idx = 1
 

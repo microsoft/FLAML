@@ -1,10 +1,10 @@
 import pandas
 import pathlib,re
-from flaml.nlp.result_analysis.utils import get_all_runs
+from .utils import get_all_runs
 import pandas as pd
 import argparse
-from flaml.nlp.result_analysis.utils import extract_ts, compare_dates
-from flaml.nlp.result_analysis.utils import get_all_runs, init_blob_client
+from .utils import extract_ts, compare_dates
+from .utils import get_all_runs, init_blob_client
 
 algo_space_to_summarize = [(0, 1), (2, 1), (4, 1)]
 

@@ -1,8 +1,8 @@
 import re, wandb
 import pandas
-from flaml.nlp.dataset.metric_auto import get_default_and_alternative_metric
+from ..dataset.metric_auto import get_default_and_alternative_metric
 
-from flaml.nlp.result_analysis.utils import get_all_runs, init_blob_client
+from .utils import get_all_runs, init_blob_client
 import pathlib
 from scipy.stats import kendalltau
 import numpy as np

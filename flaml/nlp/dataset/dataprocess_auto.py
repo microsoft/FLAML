@@ -4,7 +4,7 @@ from collections import OrderedDict
 from functools import partial
 
 from transformers import AutoTokenizer
-from flaml.nlp.dataset.sentence_keys_auto import get_sentence_keys
+from .sentence_keys_auto import get_sentence_keys
 from bisect import bisect
 import numpy as np
 
