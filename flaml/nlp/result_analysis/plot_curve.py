@@ -55,8 +55,8 @@ def plot_walltime_curve(args):
                         with open(this_blob_file, "wb") as fout:
                             fout.write(blob_client.download_blob().readall())
                         with open(this_blob_file, "r") as fin:
-                            this_group_name = fin.readline().rstrip(":\n")
-                            all_runs.append((task_name, this_group_name, model_id))
+                            wandb_group_name = fin.readline().rstrip(":\n")
+                            all_runs.append((task_name, wandb_group_name, model_id))
 
         run_count = len(all_runs)
         print("there are " + str(run_count) + " runs ")
@@ -65,18 +65,18 @@ def plot_walltime_curve(args):
 
         for idx in range(0, run_count):
             proj_name = all_runs[idx][0]
-            group_name = all_runs[idx][1]
+            wandb_group_name = all_runs[idx][1]
             model_id = all_runs[idx][2]
 
             print("collecting data for the " + str(idx) + "th project")
-            dims_to_var = [group_name.split("_")[4], group_name.split("_")[8]]
-            model = group_name.split("_")[2]
-            #fixed_var = group_name.split("_")[8]
+            dims_to_var = [wandb_group_name.split("_")[4], wandb_group_name.split("_")[8]]
+            model = wandb_group_name.split("_")[2]
+            #fixed_var = wandb_group_name.split("_")[8]
             ts2acc = {}
             model2id[model] = model_id
             id2model[model_id] = model
 
-            runs = api.runs('liususan/' + proj_name, filters={"group": group_name})
+            runs = api.runs('liususan/' + proj_name, filters={"group": wandb_group_name})
             is_this_run_recorded = False
             for idx in range(0, len(runs)):
                 run=runs[idx]

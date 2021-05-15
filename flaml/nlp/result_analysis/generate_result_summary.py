@@ -13,19 +13,6 @@ modelid_max = 5
 
 COLUMN_OFFSET=ROW_OFFSET=1
 
-def remove_by_date(tasklist, earliest_ts):
-    earliest_time = extract_ts(earliest_ts)
-    for each_file in tasklist:
-        try:
-            each_file.download(replace=True)
-        except:
-            continue
-        with open(each_file.name, "r") as fin:
-            alllines = fin.readlines()
-            this_time = extract_ts(alllines[1])
-        if compare_dates(this_time, earliest_time) == -1:
-            each_file.delete()
-
 def generate_result_csv(args, bloblist, dataset_names, subdataset_names, search_algos, pretrained_models, scheduler_names, hpo_searchspace_modes, search_algo_args_modes, split_modes):
 
     tab = pd.DataFrame(

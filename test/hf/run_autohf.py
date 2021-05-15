@@ -5,17 +5,18 @@ import os, argparse, subprocess
 import datetime
 import json
 import shutil
+
+from flaml.nlp import get_config_to_score
+
 from flaml.nlp import AutoTransformers
-from flaml.nlp import flush_and_upload, flush_and_upload_prediction
-from utils import get_wandb_azure_key
+from flaml.nlp import AzureUtils
+from flaml.nlp import WandbUtils
 
 global azure_log_path
 global azure_key
 
 dataset_names = [["glue"], ["glue"], ["glue"], ["super_glue"], ["super_glue"], ["super_glue"]]
 subdataset_names = ["cola", "mrpc", "rte", "wic", "rte", "copa"]
-
-resplit_modes = ["resplit", "origin"]
 
 pretrained_models = [("xlnet-base-cased", "base"),
                      ("albert-large-v1", "small"),
@@ -30,8 +31,6 @@ pretrained_models = [("xlnet-base-cased", "base"),
 search_algos = ["BlendSearch", "BlendSearch", "Optuna", "Optuna", "CFO", "CFO"]
 scheduler_names = ["None", "ASHA", "None", "ASHA", "None", "ASHA"]
 
-hpo_searchspace_modes = ["hpo_space_generic", "hpo_space_gridunion_other", "hpo_space_generic", "hpo_space_gridunion_other"]
-search_algo_args_modes = ["default", "default", "experiment", "experiment"]
 num_sample_time_budget_mode = "custom"
 
 def get_resplit_portion(this_dataset_name, this_subset_name):
@@ -51,7 +50,7 @@ def get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pret
         "model_name": each_pretrained_model,
         "model_size_type": each_model_size_type,
         "server_name": args.server_name,
-        "split_mode": resplit_modes[args.resplit_idx],
+        "split_mode": args.resplit_mode,
         "data_root_path": args.data_root_dir,
         "max_seq_length": 128,
         }
@@ -100,73 +99,40 @@ def get_autohf_settings_enumeratehp():
                            }
     return autohf_settings
 
-def output_predict(args, test_dataset, autohf, fout, save_file_name):
-    if test_dataset:
-        predictions, output_metric = autohf.predict(test_dataset)
-        if output_metric:
-            fout.write(str(output_metric[autohf.metric_name]) + "\n")
-            fout.write("test " + (autohf.metric_name) + ":" + json.dumps(output_metric) + "\n")
-            fout.write(args.yml_file + "\n\n")
-            flush_and_upload(fout, args, azure_log_path)
-        else:
-            fout.write("\n\n" + args.yml_file + "\n\n")
-            fout.flush()
-            flush_and_upload(fout, args, azure_log_path)
-        if autohf.split_mode == "origin":
-            azure_save_file_name = azure_log_path.split("/")[-1][:-4]
-            output_prediction_path = os.path.join(args.data_root_dir + "result/", azure_save_file_name + ".zip")
-            autohf.output_prediction(predictions,
-                                     output_prediction_path= args.data_root_dir + "result/",
-                                     output_dir_name=azure_save_file_name)
-            flush_and_upload_prediction(fout, args, output_prediction_path)
-
 def rm_home_result():
     from os.path import expanduser
     home = expanduser("~")
     if os.path.exists(home + "/ray_results/"):
         shutil.rmtree(home + "/ray_results/")
 
-def write_exception(args, save_file_name, fout):
-    fout.write(save_file_name + ":\n")
-    fout.write("timestamp:" + str(str(datetime.datetime.now()))  + ":\n")
-    fout.write("failed, no checkpoint found\n")
-    flush_and_upload(fout, args, azure_log_path)
+def _test_grid(args, autohf):
+    azure_utils = AzureUtils(args, autohf)
+    this_dataset_name = dataset_names[args.dataset_idx]
+    this_subset_name = subdataset_names[args.dataset_idx]
 
-def write_regular(autohf, args, validation_metric, save_file_name, fout, sample_num=None):
-    fout.write(save_file_name + ":\n")
-    fout.write("timestamp:" + str(str(datetime.datetime.now())) + ":\n")
-    fout.write("validation " + (autohf.metric_name) + ":" + json.dumps(validation_metric) + "\n")
-    fout.write("duration:" + str(autohf.last_run_duration) + "\n")
-    if not sample_num:
-        sample_num = 0
-    fout.write("sample_num: " + str(sample_num) + "\n")
-    fout.write(save_file_name.split("_")[-1] + "," + str(sample_num) + "," + str(autohf.last_run_duration) + "," + str(validation_metric) + ",")
-    flush_and_upload(fout, args, azure_log_path)
+    each_pretrained_model = pretrained_models[args.pretrained_idx][0]
+    each_model_size_type = pretrained_models[args.pretrained_idx][1]
 
-def _test_grid(args, fout, autohf):
-        this_dataset_name = dataset_names[args.dataset_idx]
-        this_subset_name = subdataset_names[args.dataset_idx]
+    preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model, each_model_size_type)
+    train_dataset, eval_dataset, test_dataset = \
+    autohf.prepare_data(**preparedata_setting)
+    autohf_settings = get_autohf_settings_grid(args)
 
-        each_pretrained_model = pretrained_models[args.pretrained_idx][0]
-        each_model_size_type = pretrained_models[args.pretrained_idx][1]
-        #clean_outdated_results(args, dataset_names, subdataset_names)
-        preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name, each_pretrained_model, each_model_size_type)
-        train_dataset, eval_dataset, test_dataset = \
-        autohf.prepare_data(**preparedata_setting)
-        autohf_settings = get_autohf_settings_grid(args)
+    try:
+        validation_metric, analysis = autohf.fit(train_dataset,
+                   eval_dataset,
+                   **autohf_settings,)
+        if autohf.split_mode == "origin":
 
-        try:
-            validation_metric, analysis = autohf.fit(train_dataset,
-                       eval_dataset,
-                       **autohf_settings,)
-        except AssertionError as err:
-            raise err
+        azure_utils.write_regular(validation_metric, len(analysis.trials))
+        azure_utils.output_predict(test_dataset)
+    except AssertionError as err:
+        raise err
 
-        write_regular(autohf, args, validation_metric, autohf.group_name, fout, len(analysis.trials))
-        output_predict(args, test_dataset, autohf, fout, autohf.group_name)
-        rm_home_result()
+    rm_home_result()
 
-def _test_hpo_hf(args, fout, autohf):
+def _test_hpo_hf(args, autohf):
+    azure_utils = AzureUtils(args, autohf)
     for data_idx in range(args.dataset_idx, args.dataset_idx + 1):
         this_dataset_name = dataset_names[data_idx]
         this_subset_name = subdataset_names[data_idx]
@@ -174,7 +140,6 @@ def _test_hpo_hf(args, fout, autohf):
         each_model_size_type = pretrained_models[args.pretrained_idx][1]
         preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
                                                       each_pretrained_model, each_model_size_type)
-        #clean_outdated_results(args, dataset_names, subdataset_names)
         train_dataset, eval_dataset, test_dataset = \
             autohf.prepare_data(**preparedata_setting)
         try:
@@ -185,14 +150,14 @@ def _test_hpo_hf(args, fout, autohf):
             validation_metric = autohf.fit_hf(train_dataset,
                                                          eval_dataset,
                                                         **autohf_settings)
+            azure_utils.write_regular(validation_metric, -1)
+            azure_utils.output_predict(test_dataset)
         except AssertionError:
-            write_exception(args, autohf.group_name, fout)
-            continue
-        write_regular(autohf, args, validation_metric, autohf.group_name, fout)
-        output_predict(args, test_dataset, autohf, fout, autohf.group_name)
-        rm_home_result()
+            azure_utils.write_exception()
+    rm_home_result()
 
-def _test_hpo(args, fout, autohf):
+def _test_hpo(args, autohf):
+    azure_utils = AzureUtils(args, autohf)
     this_dataset_name = dataset_names[args.dataset_idx]
     this_subset_name = subdataset_names[args.dataset_idx]
 
@@ -201,7 +166,6 @@ def _test_hpo(args, fout, autohf):
 
     each_pretrained_model = pretrained_models[args.pretrained_idx][0]
     each_model_size_type = pretrained_models[args.pretrained_idx][1]
-    #clean_outdated_results(args, dataset_names, subdataset_names)
     hpo_searchspace_mode = hpo_searchspace_modes[args.space_idx]
     search_algo_args_mode = search_algo_args_modes[args.space_idx]
     preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
@@ -214,53 +178,62 @@ def _test_hpo(args, fout, autohf):
         validation_metric, analysis = autohf.fit(train_dataset,
                    eval_dataset,
                    **autohf_settings,)
+        azure_utils.write_regular(validation_metric, len(analysis.trials))
+        azure_utils.output_predict(test_dataset)
     except AssertionError:
-        write_exception(args, autohf.group_name, fout)
+        azure_utils.write_exception()
         return
-
-    write_regular(autohf, args, validation_metric, autohf.group_name, fout, len(analysis.trials))
-    output_predict(args, test_dataset, autohf, fout, autohf.group_name)
     rm_home_result()
 
-    fout.close()
+def _test_small_warmup(args, autohf):
+    azure_utils = AzureUtils(args, autohf)
+
+    this_dataset_name = dataset_names[args.dataset_idx]
+    this_subset_name = subdataset_names[args.dataset_idx]
+
+    warmup_search_algo = search_algos[args.algo_idx]
+    warmup_scheduler_name = scheduler_names[args.algo_idx]
+
+    this_pretrained_model = pretrained_models[args.pretrained_idx][0]
+    this_model_size_type = pretrained_models[args.pretrained_idx][1]
+
+    warmup_hpo_searchspace_mode = args.space_mode
+    warmup_search_algo_args_mode = args.space_mode
+
+    preparedata_setting = get_preparedata_setting(args, this_dataset_name, this_subset_name,
+                                                  this_pretrained_model, this_model_size_type)
+
+    config2score = get_config_to_score(this_dataset_name[0], this_subset_name, s)
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('--server_name', type=str, help='server name', required=True,
                             choices=["tmdev", "dgx", "azureml"])
     arg_parser.add_argument('--algo_mode', type=str, help='hpo or grid search', required=True,
-                            choices=["grid_search", "grid_search_bert", "hpo", "hpo_hf"])
+                            choices=["grid_search", "grid_search_bert", "hpo", "hpo_hf", "eval_config_list"])
     arg_parser.add_argument('--data_root_dir', type=str, help='data dir', required=True)
-    arg_parser.add_argument('--dataset_idx', type=int, help='data index', required=False)
+    arg_parser.add_argument('--dataset_name', type=str, help='dataset name', required=False)
+    arg_parser.add_argument('--subdataset_name', type=str, help='subdataset name', required=False)
     arg_parser.add_argument('--is_rerun', action='store_true', help='whether to rerun')
-    arg_parser.add_argument('--space_idx', type=int, help='space index', required=False)
-    arg_parser.add_argument('--algo_idx', type=int, help='algorithm index', required=False)
-    arg_parser.add_argument('--pretrained_idx', type=int, help='pretrained index', required=False)
+    arg_parser.add_argument('--space_mode', type=str, help='space mode', required=False, choices = ["hpo_space_generic", "hpo_space_gridunion_other"])
+    arg_parser.add_argument('--search_alg_args_mode', type=str, help = 'search algorithm args mode', required = False, choices = ["default", "experiment"])
+    arg_parser.add_argument('--algo', type=str, help='algorithm', required=False, choices = ["BlendSearch", "Optuna", "CFO"])
+    arg_parser.add_argument('--pruner', type=str, help='pruner', required=False, choices=["ASHA", "None"])
+    arg_parser.add_argument('--pretrained_model', type=str, help='pretrained model', required=False,
+                        choices=["xlnet-base-cased", "albert-large-v1", "distilbert-base-uncased",
+                                 ""])
     arg_parser.add_argument('--sample_num', type=int, help='sample num', required=False)
     arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False)
     arg_parser.add_argument('--rep_id', type=int, help='rep id', required=False)
     arg_parser.add_argument('--azure_key', type=str, help='azure key', required=False)
-    arg_parser.add_argument('--resplit_idx', type=int, help='resplit mode', required=True)
+    arg_parser.add_argument('--resplit_mode', type=str, help='resplit mode', required=True, choices = ["resplit", "origin"])
     arg_parser.add_argument('--ds_config', type=str, help='deep speed config file path', required = False)
     arg_parser.add_argument('--yml_file', type=str, help='yml file path', required=True)
     args = arg_parser.parse_args()
 
-    if os.path.exists("wandb"):
-        shutil.rmtree("wandb")
-
-    wandb_key, args.azure_key = get_wandb_azure_key(os.path.abspath("."))
-    subprocess.run(["wandb", "login", "--relogin", wandb_key])
-    os.environ["WANDB_API_KEY"] = wandb_key
-
-    from flaml.nlp.result_analysis.utils import get_azurepath
-    azure_log_path = get_azurepath(args, dataset_names, subdataset_names)
-
-    fout = open(azure_log_path, "a")
     if args.algo_mode.startswith("grid"):
-        _test_grid(args, fout, autohf = AutoTransformers())
+        _test_grid(args, autohf = AutoTransformers())
     elif args.algo_mode == "hpo":
-        _test_hpo(args, fout, autohf = AutoTransformers())
+        _test_hpo(args, autohf = AutoTransformers())
     else:
-        _test_hpo_hf(args, fout, autohf = AutoTransformers())
-
-    fout.close()
+        _test_hpo_hf(args, autohf = AutoTransformers())

@@ -9,7 +9,6 @@ from .dataset.dataprocess_auto import AutoToEncoded
 from .dataset.sentence_keys_auto import get_sentence_keys
 
 transformers.logging.set_verbosity_error()
-import wandb
 import numpy as np
 
 from ray.tune import CLIReporter
@@ -21,7 +20,7 @@ from datasets import load_dataset
 from transformers.trainer_utils import IntervalStrategy, HPSearchBackend
 
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoConfig, TrainingArguments
-from functools import partial
+from result_analysis.wandb_utils import WandbUtils
 
 from .dataset.metric_auto import get_default_and_alternative_metric
 from .dataset.submission_auto import auto_output_prediction
@@ -92,36 +91,6 @@ class AutoTransformers:
     #
     # # the following arguments are specific to text classification
     # _num_labels: Optional[int] = field(metadata={"help": "The number of labels of output classes"})
-
-    def _set_wandb_per_run(self):
-        self.path_utils.group_hash_id = wandb.util.generate_id()
-        # os.environ["WANDB_IGNORE_GLOBS"] = "*.json,*.csv,*.tmdev,*.pkl"
-        os.environ["WANDB_RUN_GROUP"] = self.group_name
-        os.environ["WANDB_SILENT"] = "false"
-        os.environ["WANDB_MODE"] = "online"
-        return wandb.init(project=self.full_dataset_name,
-                   group=self.group_name,
-                   settings=wandb.Settings(
-                       _disable_stats=True),
-                   reinit=False)
-
-    def _get_next_trial_ids(self):
-        hash = hashlib.sha1()
-        hash.update(str(time.time()).encode('utf-8'))
-        return "trial_" + hash.hexdigest()[:3]
-
-    def _set_wandb_per_trial(self):
-        print("before wandb.init\n\n\n")
-        os.environ["WANDB_RUN_GROUP"] = self.group_name
-        os.environ["WANDB_SILENT"] = "false"
-        os.environ["WANDB_MODE"] = "online"
-        return wandb.init(project = self.full_dataset_name,
-                   group=self.group_name,
-                   name= str(self._get_next_trial_ids()),
-                   settings=wandb.Settings(
-                   _disable_stats=True),
-                   #ignore_globs="*.json,*.csv,*.tmdev,*.pkl"),
-                   reinit=False)
 
     @staticmethod
     def _convert_json_to_search_space(config_json, mode = "grid_search"):
@@ -196,20 +165,6 @@ class AutoTransformers:
         Get the full dataset name, which is the concatenation of the dataset name and the subdataset name
         """
         return AutoTransformers.get_full_data_name(self._dataset_name[0], self._subdataset_name)
-
-    @property
-    def group_name(self):
-        group_name_str = self.full_dataset_name.lower() \
-                          + "_" + self._model_type.lower() + "_" \
-                          + self._model_size_type.lower()
-        if hasattr(self, "_search_algo_name"):
-            group_name_str += "_" + self._search_algo_name.lower()
-        if hasattr(self, "_scheduler_name"):
-            group_name_str += "_" + self._scheduler_name.lower()
-        if hasattr(self, "_hpo_searchspace_mode"):
-            group_name_str += "_" + self._hpo_searchspace_mode.lower()
-        group_name_str += "_" + self.path_utils.group_hash_id
-        return group_name_str
 
     @staticmethod
     def get_full_data_name(dataset_name, subdataset_name = None):
@@ -299,6 +254,7 @@ class AutoTransformers:
         return "train", "validation", "test"
 
     def prepare_data(self,
+                     current_path,
                      dataset_config,
                      server_name,
                      model_name,
@@ -380,6 +336,7 @@ class AutoTransformers:
                     model_size_type = model_size_type,
         )
         self.path_utils.init_and_make_dirs()
+        self.wandb_utils = WandbUtils(self, current_path)
 
         assert split_mode in ("resplit", "origin"), "split mode can only be chosen from 'resplit' and 'origin'"
         if split_mode == "resplit":
@@ -616,11 +573,8 @@ class AutoTransformers:
         trainer.logger = logger
         trainer.trial_id = reporter.trial_id
 
-        run = self._set_wandb_per_trial()
-        for each_hp in config:
-            if each_hp in self._search_space_hpo.keys():
-                wandb.log({each_hp: config[each_hp]})
-
+        run = self.wandb_utils.set_wandb_per_trial()
+        self.wandb_utils.log_wandb(config, key_list = self._search_space_hpo.keys())
         trainer.train()
         output_metrics = trainer.evaluate(self._eval_dataset)
 
@@ -669,15 +623,6 @@ class AutoTransformers:
             self._sample_num = 1
             self._time_budget = float("inf")
             logger.warning("Running grid search, setting number of trials to 1, setting time budget to infinity")
-        # elif num_sample_time_budget_mode == "times_grid_sample_num":
-        #     _, grid_config = AutoGridSearchSpace.from_model_and_dataset_name(self._model_type, self._model_size_type, self._dataset_name[0], self._subdataset_name)
-        #     grid_config_trial_number = AutoGridSearchSpace.get_trial_number_in_space(grid_config)
-        #     assert times_as_grid and (isinstance(times_as_grid, float) or isinstance(times_as_grid, int)), \
-        #         "When setting to the num_sample_time_budget_mode mode, must explicitly specify times_as_grid"
-        #     self._sample_num = int(times_as_grid * grid_config_trial_number)
-        #     self._time_budget = max_time_s
-        #     logger.warning("HPO is set to {} times grid trial number or {} trials, time budget is "
-        #                    "set to {}".format(times_as_grid, self._sample_num, self._time_budget))
         elif num_sample_time_budget_mode == "times_grid_time_budget":
             time_budget = AutoGridSearchSpace.get_grid_time_budget(logger, self._model_type, self._model_size_type, self._dataset_name[0], self._server_name, self._subdataset_name)
             assert times_as_grid and (isinstance(times_as_grid, float) or isinstance(times_as_grid, int)), \
@@ -756,12 +701,12 @@ class AutoTransformers:
         _variable_override_default_alternative(logger, self, "metric_mode_name", default_mode, all_modes, custom_metric_mode_name)
 
     def fit_hf(self,
+               parse_args,
                train_dataset,
                eval_dataset,
                resources_per_trial,
                custom_metric_name=None,
                custom_metric_mode_name=None,
-               search_algo_name=None,
                num_sample_time_budget_mode="custom",
                custom_num_samples=None,
                custom_time_budget=None,
@@ -779,6 +724,8 @@ class AutoTransformers:
             }
 
         self._set_metric(custom_metric_name, custom_metric_mode_name)
+        self.wandb_utils.set_wandb_group_name(parse_args)
+
         self._extract_model_type()
         self._set_sample_num_time_budget(custom_num_samples, custom_time_budget, num_sample_time_budget_mode,
                                          time_as_grid)
@@ -799,7 +746,7 @@ class AutoTransformers:
             compute_metrics=self._compute_metrics_by_dataset_name,
         )
         self.path_utils.set_folder_name(self)
-        run = self._set_wandb_per_run()
+        run = self.wandb_utils.set_wandb_per_run()
         self.path_utils.make_dir_per_run()
 
         start_time = time.time()
@@ -843,6 +790,7 @@ class AutoTransformers:
         return validation_metric
 
     def fit(self,
+            parse_args,
             train_dataset,
             eval_dataset,
             resources_per_trial,
@@ -923,6 +871,7 @@ class AutoTransformers:
         _variable_override_default_alternative(logger, self, "hpo_searchspace_mode", "hpo_space_generic", list(HPO_SEARCH_SPACE_MAPPING.keys()), hpo_searchspace_mode)
 
         self._set_metric(custom_metric_name, custom_metric_mode_name)
+        self.wandb_utils.set_wandb_group_name(parse_args)
 
         self._fp16 = fp16
 
@@ -937,7 +886,7 @@ class AutoTransformers:
         self._set_sample_num_time_budget(custom_num_samples, custom_time_budget, num_sample_time_budget_mode, time_as_grid)
         scheduler = AutoScheduler.from_scheduler_name(self._scheduler_name)
 
-        self._set_wandb_per_run()
+        self.wandb_utils.set_wandb_per_run()
         self.path_utils.make_dir_per_run()
 
         logger.addHandler(logging.FileHandler(os.path.join(self.path_utils.log_dir_per_run, 'tune.log')))

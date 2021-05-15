@@ -2,6 +2,13 @@ from dataclasses import dataclass, field
 import os, json
 import pathlib
 
+def get_wandb_azure_key(key_path):
+    key_json = json.load(open(os.path.join(key_path, "key.json"), "r"))
+    wandb_key = key_json["wandb_key"]
+    azure_key = key_json["azure_key"]
+    azure_container_name = key_json["container_name"]
+    return wandb_key, azure_key, azure_container_name
+
 def merge_dicts(dict1, dict2):
     for key2 in dict2.keys():
         if key2 in dict1:

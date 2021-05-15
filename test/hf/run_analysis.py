@@ -6,7 +6,7 @@ import subprocess
 
 from flaml.nlp import generate_result_csv
 from flaml.nlp import plot_walltime_curve
-from flaml.nlp import get_all_runs
+from flaml.nlp import get_all_azure_uploaded_files
 from utils import get_wandb_azure_key
 from run_autohf import dataset_names, subdataset_names, search_algos, pretrained_models, scheduler_names, hpo_searchspace_modes, search_algo_args_modes, resplit_modes
 
@@ -20,7 +20,7 @@ if __name__ == "__main__":
     args = arg_parser.parse_args()
 
     args.wandb_key, args.azure_key = get_wandb_azure_key(args.key_path)
-    task2blobs, bloblist = get_all_runs(args)
+    task2blobs, bloblist = get_all_azure_uploaded_files(args)
 
     if args.mode == "analysis":
         from flaml.nlp import analysis_model_size
