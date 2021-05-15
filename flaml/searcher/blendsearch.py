@@ -39,9 +39,8 @@ class BlendSearch(Searcher):
                  min_resource: Optional[float] = None,
                  max_resource: Optional[float] = None,
                  reduction_factor: Optional[float] = None,
-                 resources_per_trial: Optional[dict] = None,
                  global_search_alg: Optional[Searcher] = None,
-                 mem_size: Callable[[dict], float] = None,
+                 constraints: Optional[List[Tuple[Callable[[dict], float], str, float]]] = None,
                  seed: Optional[int] = 20):
         '''Constructor
 
@@ -82,14 +81,21 @@ class BlendSearch(Searcher):
                 prune_attr; only valid if prune_attr is not in space.
             reduction_factor: A float of the reduction factor used for
                 incremental pruning.
-            resources_per_trial: A dictionary of the resources permitted per
-                trial, such as 'mem'.
             global_search_alg: A Searcher instance as the global search
                 instance. If omitted, Optuna is used. The following algos have
                 known issues when used as global_search_alg:
                 - HyperOptSearch raises exception sometimes
                 - TuneBOHB has its own scheduler
-            mem_size: A function to estimate the memory size for a given config.
+            constraints: A list of constraints which need to be satisfied.
+                e.g.,
+
+                .. code-block: python
+
+                    constraints = [(mem_size, '<=', 1024**3)]
+                
+                mem_size is a function which produces a float number for the bytes
+                needed for a config.
+                It is used to skip configs which do not fit in memory.
             seed: An integer of the random seed.
         '''
         self._metric, self._mode = metric, mode
@@ -104,10 +110,7 @@ class BlendSearch(Searcher):
         self._ls = LocalSearch(
             init_config, metric, mode, cat_hp_cost, space,
             prune_attr, min_resource, max_resource, reduction_factor, seed)
-        self._resources_per_trial = resources_per_trial
-        self._mem_size = mem_size
-        self._mem_threshold = resources_per_trial.get(
-            'mem') if resources_per_trial else None
+        self._constraints = constraints
         self._init_search()
 
     def set_search_properties(self,
@@ -171,9 +174,7 @@ class BlendSearch(Searcher):
         self._points_to_evaluate = state._points_to_evaluate
         self._gs = state._gs
         self._ls = state._ls
-        self._resources_per_trial = state._resources_per_trial
-        self._mem_size = state._mem_size
-        self._mem_threshold = state._mem_threshold
+        self._constraints = state._constraints
 
     def restore_from_dir(self, checkpoint_dir: str):
         super.restore_from_dir(checkpoint_dir)
@@ -262,7 +263,7 @@ class BlendSearch(Searcher):
     def _expand_admissible_region(self):
         for key in self._ls_bound_max:
             self._ls_bound_max[key] += self._ls.STEPSIZE
-            self._ls_bound_min[key] -= self._ls.STEPSIZE        
+            self._ls_bound_min[key] -= self._ls.STEPSIZE
 
     def _inferior(self, id1: int, id2: int) -> bool:
         ''' whether thread id1 is inferior to id2
@@ -362,20 +363,26 @@ class BlendSearch(Searcher):
         return config
 
     def _should_skip(self, choice, trial_id, config) -> bool:
-        ''' if config is None or config's result is known or above mem threshold
+        ''' if config is None or config's result is known or constraints are violated
             return True; o.w. return False
         '''
         if config is None:
             return True
         config_signature = self._ls.config_signature(config)
         exists = config_signature in self._result
-        # check mem constraint
-        if not exists and self._mem_threshold and self._mem_size(
-                config) > self._mem_threshold:
-            self._result[config_signature] = {
-                self._metric: np.inf * self._ls.metric_op, 'time_total_s': 1
-            }
-            exists = True
+        # check constraints
+        if not exists and self._constraints:
+            for constraint in self._constraints:
+                func, sign, threshold = constraint
+                value = func(config)
+                if (sign == '<=' and value > threshold
+                        or sign == '>=' and value < threshold):
+                    self._result[config_signature] = {
+                        self._metric: np.inf * self._ls.metric_op,
+                        'time_total_s': 1,
+                    }
+                exists = True
+                break
         if exists:
             if not self._use_rs:
                 result = self._result.get(config_signature)
