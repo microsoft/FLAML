@@ -212,9 +212,8 @@ if __name__ == "__main__":
     arg_parser.add_argument('--algo_mode', type=str, help='hpo or grid search', required=True,
                             choices=["grid_search", "grid_search_bert", "hpo", "hpo_hf", "eval_config_list"])
     arg_parser.add_argument('--data_root_dir', type=str, help='data dir', required=True)
-    arg_parser.add_argument('--dataset_name', type=str, help='dataset name', required=False)
-    arg_parser.add_argument('--subdataset_name', type=str, help='subdataset name', required=False)
-    arg_parser.add_argument('--is_rerun', action='store_true', help='whether to rerun')
+    arg_parser.add_argument('--dataset_subdataset_name', type=str, help='dataset and subdataset name',
+                            required=False)
     arg_parser.add_argument('--space_mode', type=str, help='space mode', required=False, choices = ["hpo_space_generic", "hpo_space_gridunion_other"])
     arg_parser.add_argument('--search_alg_args_mode', type=str, help = 'search algorithm args mode', required = False, choices = ["default", "experiment"])
     arg_parser.add_argument('--algo', type=str, help='algorithm', required=False, choices = ["BlendSearch", "Optuna", "CFO"])
