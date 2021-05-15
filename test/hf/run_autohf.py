@@ -216,7 +216,7 @@ if __name__ == "__main__":
                             required=False)
     arg_parser.add_argument('--space_mode', type=str, help='space mode', required=False, choices = ["hpo_space_generic", "hpo_space_gridunion_other"])
     arg_parser.add_argument('--search_alg_args_mode', type=str, help = 'search algorithm args mode', required = False, choices = ["default", "experiment"])
-    arg_parser.add_argument('--algo', type=str, help='algorithm', required=False, choices = ["BlendSearch", "Optuna", "CFO"])
+    arg_parser.add_argument('--algo_name', type=str, help='algorithm', required=False, choices = ["BlendSearch", "Optuna", "CFO"])
     arg_parser.add_argument('--pruner', type=str, help='pruner', required=False, choices=["ASHA", "None"])
     arg_parser.add_argument('--pretrained_model', type=str, help='pretrained model', required=False,
                         choices=["xlnet-base-cased", "albert-large-v1", "distilbert-base-uncased",
