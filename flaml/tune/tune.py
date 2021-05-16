@@ -118,7 +118,10 @@ def run(training_function,
         local_dir: Optional[str] = None,
         num_samples: Optional[int] = 1,
         resources_per_trial: Optional[dict] = None,
-        constraints: Optional[List[Tuple[Callable[[dict], float], str, float]]] = None,
+        config_constraints: Optional[
+            List[Tuple[Callable[[dict], float], str, float]]] = None,
+        metric_constraints: Optional[
+            List[Tuple[str, str, float]]] = None,
         use_ray: Optional[bool] = False):
     '''The trigger for HPO.
 
@@ -211,16 +214,18 @@ def run(training_function,
         num_samples: An integer of the number of configs to try. Defaults to 1.
         resources_per_trial: A dictionary of the hardware resources to allocate
             per trial, e.g., `{'cpu': 1}`. Only valid when using ray backend.
-        constraints: A list of constraints which need to be satisfied.
+        config_constraints: A list of config constraints to be satisfied.
             e.g.,
 
             .. code-block: python
 
-                constraints = [(mem_size, '<=', 1024**3)]
+                config_constraints = [(mem_size, '<=', 1024**3)]
             
             mem_size is a function which produces a float number for the bytes
             needed for a config.
             It is used to skip configs which do not fit in memory.
+        metric_constraints: A list of metric constraints to be satisfied.
+            e.g., `['precision', '>=', 0.9]`
         use_ray: A boolean of whether to use ray as the backend
     '''
     global _use_ray
@@ -258,7 +263,8 @@ def run(training_function,
             prune_attr=prune_attr,
             min_resource=min_resource, max_resource=max_resource,
             reduction_factor=reduction_factor,
-            constraints=constraints)
+            config_constraints=config_constraints,
+            metric_constraints=metric_constraints)
     if time_budget_s:
         search_alg.set_search_properties(metric, mode, config={
             'time_budget_s': time_budget_s})

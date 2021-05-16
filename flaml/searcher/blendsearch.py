@@ -40,7 +40,10 @@ class BlendSearch(Searcher):
                  max_resource: Optional[float] = None,
                  reduction_factor: Optional[float] = None,
                  global_search_alg: Optional[Searcher] = None,
-                 constraints: Optional[List[Tuple[Callable[[dict], float], str, float]]] = None,
+                 config_constraints: Optional[
+                     List[Tuple[Callable[[dict], float], str, float]]] = None,
+                 metric_constraints: Optional[
+                     List[Tuple[str, str, float]]] = None,
                  seed: Optional[int] = 20):
         '''Constructor
 
@@ -86,16 +89,18 @@ class BlendSearch(Searcher):
                 known issues when used as global_search_alg:
                 - HyperOptSearch raises exception sometimes
                 - TuneBOHB has its own scheduler
-            constraints: A list of constraints which need to be satisfied.
+            config_constraints: A list of config constraints to be satisfied.
                 e.g.,
 
                 .. code-block: python
 
-                    constraints = [(mem_size, '<=', 1024**3)]
+                    config_constraints = [(mem_size, '<=', 1024**3)]
                 
                 mem_size is a function which produces a float number for the bytes
                 needed for a config.
                 It is used to skip configs which do not fit in memory.
+            metric_constraints: A list of metric constraints to be satisfied.
+                e.g., `['precision', '>=', 0.9]`
             seed: An integer of the random seed.
         '''
         self._metric, self._mode = metric, mode
@@ -110,7 +115,8 @@ class BlendSearch(Searcher):
         self._ls = LocalSearch(
             init_config, metric, mode, cat_hp_cost, space,
             prune_attr, min_resource, max_resource, reduction_factor, seed)
-        self._constraints = constraints
+        self._config_constraints = config_constraints
+        self._metric_constraints = metric_constraints
         self._init_search()
 
     def set_search_properties(self,
@@ -174,7 +180,8 @@ class BlendSearch(Searcher):
         self._points_to_evaluate = state._points_to_evaluate
         self._gs = state._gs
         self._ls = state._ls
-        self._constraints = state._constraints
+        self._config_constraints = state._config_constraints
+        self._metric_constraints = state._metric_constraints
 
     def restore_from_dir(self, checkpoint_dir: str):
         super.restore_from_dir(checkpoint_dir)
@@ -183,6 +190,20 @@ class BlendSearch(Searcher):
                           error: bool = False):
         ''' search thread updater and cleaner
         '''
+        if result and not error and self._metric_constraints:
+            # accout for metric constraints if any
+            objective = result[self._metric]
+            for constraint in self._metric_constraints:
+                metric_constraint, sign, threshold = constraint
+                value = result.get(metric_constraint)
+                if value:
+                    # sign is <= or >=
+                    sign_op = 1 if sign == '<=' else -1
+                    violation = (value - threshold) * sign_op
+                    if violation > 0:
+                        # add penalty term to the metric
+                        objective += 1e+10 * violation * self._ls.metric_op
+            result[self._metric] = objective
         thread_id = self._trial_proposed_by.get(trial_id)
         if thread_id in self._search_thread_pool:
             self._search_thread_pool[thread_id].on_trial_complete(
@@ -197,23 +218,24 @@ class BlendSearch(Searcher):
                 del self._result[self._ls.config_signature(config)]
             else:  # add to result cache
                 self._result[self._ls.config_signature(config)] = result
-            # update target metric if improved
-            if (result[self._metric] - self._metric_target) * self._ls.metric_op < 0:
-                self._metric_target = result[self._metric]
-            if not thread_id and self._create_condition(result):
-                # thread creator
-                self._search_thread_pool[self._thread_count] = SearchThread(
-                    self._ls.mode,
-                    self._ls.create(config, result[self._metric], cost=result[
-                        self.cost_attr])
-                )
-                thread_id = self._thread_count
-                self._thread_count += 1
-                self._update_admissible_region(
-                    config, self._ls_bound_min, self._ls_bound_max)
-            # reset admissible region to ls bounding box
-            self._gs_admissible_min.update(self._ls_bound_min)
-            self._gs_admissible_max.update(self._ls_bound_max)
+                # update target metric if improved
+                objective = result[self._metric]
+                if (objective - self._metric_target) * self._ls.metric_op < 0:
+                    self._metric_target = objective
+                if not thread_id and self._create_condition(result):
+                    # thread creator
+                    self._search_thread_pool[self._thread_count] = SearchThread(
+                        self._ls.mode,
+                        self._ls.create(
+                            config, objective, cost=result[self.cost_attr])
+                    )
+                    thread_id = self._thread_count
+                    self._thread_count += 1
+                    self._update_admissible_region(
+                        config, self._ls_bound_min, self._ls_bound_max)
+                # reset admissible region to ls bounding box
+                self._gs_admissible_min.update(self._ls_bound_min)
+                self._gs_admissible_max.update(self._ls_bound_max)
         # cleaner
         if thread_id and thread_id in self._search_thread_pool:
             # local search thread
@@ -371,8 +393,8 @@ class BlendSearch(Searcher):
         config_signature = self._ls.config_signature(config)
         exists = config_signature in self._result
         # check constraints
-        if not exists and self._constraints:
-            for constraint in self._constraints:
+        if not exists and self._config_constraints:
+            for constraint in self._config_constraints:
                 func, sign, threshold = constraint
                 value = func(config)
                 if (sign == '<=' and value > threshold

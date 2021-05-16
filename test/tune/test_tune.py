@@ -1,6 +1,5 @@
 '''Require: pip install flaml[test,ray]
 '''
-import unittest
 import time
 from sklearn.model_selection import train_test_split
 import sklearn.metrics
@@ -8,12 +7,13 @@ import sklearn.datasets
 try:
     from ray.tune.integration.xgboost import TuneReportCheckpointCallback
 except ImportError:
-    print("skip test_tune because ray tune cannot be imported.")
+    print("skip test_xgboost because ray tune cannot be imported.")
 import xgboost as xgb
 
 import logging
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.FileHandler('test/tune_xgboost.log'))
+logger.addHandler(logging.FileHandler('logs/tune_xgboost.log'))
+logger.setLevel(logging.INFO)
 
 
 def train_breast_cancer(config: dict):
@@ -60,7 +60,7 @@ def _test_xgboost(method='BlendSearch'):
         time_budget_s = 60
         for n_cpu in [8]:
             start_time = time.time()
-            ray.init(num_cpus=n_cpu, num_gpus=0)
+            ray.init(address='auto')
             if method == 'BlendSearch':
                 analysis = tune.run(
                     train_breast_cancer,
@@ -163,10 +163,12 @@ def test_nested():
     }
 
     def simple_func(config):
-        tune.report(metric=(config["cost_related"]["a"] - 4)**2
-                    * (config["b"] - 0.7)**2)
+        metric = (config["cost_related"]["a"] - 4)**2 \
+            + (config["b"] - config["cost_related"]["a"])**2
+        tune.report(metric=metric)
+        tune.report(metric=metric, ab=config["cost_related"]["a"] * config["b"])
 
-    tune.run(
+    analysis = tune.run(
         simple_func,
         config=search_space,
         low_cost_partial_config={
@@ -174,9 +176,14 @@ def test_nested():
         },
         metric="metric",
         mode="min",
+        metric_constraints=[("ab", "<=", 4)],
         local_dir='logs/',
         num_samples=-1,
         time_budget_s=1)
+
+    best_trial = analysis.get_best_trial()
+    logger.info(f"Best config: {best_trial.config}")
+    logger.info(f"Best result: {best_trial.last_result}")
 
 
 def test_xgboost_bs():
@@ -224,4 +231,4 @@ def _test_xgboost_bohb():
 
 
 if __name__ == "__main__":
-    unittest.main()
+    test_xgboost_bs()

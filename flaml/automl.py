@@ -1036,7 +1036,7 @@ class AutoML:
                         prune_attr=prune_attr,
                         min_resource=min_resource,
                         max_resource=max_resource,
-                        constraints=[(learner_class.size, '<=', self._mem_thres)]
+                        config_constraints=[(learner_class.size, '<=', self._mem_thres)]
                     )
                 else:
                     algo = SearchAlgo(
