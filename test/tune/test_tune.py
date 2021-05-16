@@ -1,6 +1,7 @@
 '''Require: pip install flaml[test,ray]
 '''
 import time
+import os
 from sklearn.model_selection import train_test_split
 import sklearn.metrics
 import sklearn.datasets
@@ -12,6 +13,7 @@ import xgboost as xgb
 
 import logging
 logger = logging.getLogger(__name__)
+os.makedirs('logs', exist_ok=True)
 logger.addHandler(logging.FileHandler('logs/tune_xgboost.log'))
 logger.setLevel(logging.INFO)
 
@@ -60,7 +62,7 @@ def _test_xgboost(method='BlendSearch'):
         time_budget_s = 60
         for n_cpu in [8]:
             start_time = time.time()
-            ray.init()
+            ray.init(num_cpus=n_cpu, num_gpus=0)
             # ray.init(address='auto')
             if method == 'BlendSearch':
                 analysis = tune.run(
