@@ -95,7 +95,7 @@ class BlendSearch(Searcher):
                 .. code-block: python
 
                     config_constraints = [(mem_size, '<=', 1024**3)]
-                
+
                 mem_size is a function which produces a float number for the bytes
                 needed for a config.
                 It is used to skip configs which do not fit in memory.

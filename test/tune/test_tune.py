@@ -60,7 +60,8 @@ def _test_xgboost(method='BlendSearch'):
         time_budget_s = 60
         for n_cpu in [8]:
             start_time = time.time()
-            ray.init(address='auto')
+            ray.init()
+            # ray.init(address='auto')
             if method == 'BlendSearch':
                 analysis = tune.run(
                     train_breast_cancer,
