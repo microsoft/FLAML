@@ -48,7 +48,7 @@ def load_openml_dataset(dataset_id, data_dir=None, random_state=0):
     print('Dataset name:', dataset.name)
     X, y, * \
         __ = dataset.get_data(
-            target=dataset.default_target_attribute, dataset_format='array')
+        target=dataset.default_target_attribute, dataset_format='array')
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, random_state=random_state)
     print(
@@ -195,23 +195,6 @@ class DataTransformer:
             cat_columns, num_columns, datetime_columns = [], [], []
             drop = False
             for column in X.columns:
-                # sklearn\utils\validation.py needs int/float values
-                if X[column].dtype.name == 'datetime64[ns]':
-                    X[f'year_{column}'] = X[column].dt.year
-                    X[f'month_{column}'] = X[column].dt.month
-                    X[f'day_{column}'] = X[column].dt.day
-                    X[f'hour_{column}'] = X[column].dt.hour
-                    X[f'minute_{column}'] = X[column].dt.minute
-                    X[f'second_{column}'] = X[column].dt.second
-                    X[f'dayofweek_{column}'] = X[column].dt.dayofweek
-                    X[f'dayofyear_{column}'] = X[column].dt.dayofyear
-                    X[f'quarter_{column}'] = X[column].dt.quarter
-                    X[column] = X[column].map(datetime.toordinal)
-                    datetime_columns.append(column)
-                    new_columns = [f'year_{column}', f'month_{column}', f'day_{column}',
-                                   f'hour_{column}', f'minute_{column}', f'second_{column}', f'dayofweek_{column}',
-                                   f'dayofyear_{column}', f'quarter_{column}']
-                    num_columns.extend(new_columns)
                 if X[column].dtype.name in ('object', 'category'):
                     if X[column].nunique() == 1 or X[column].nunique(
                             dropna=True) == n - X[column].isnull().sum():
@@ -232,8 +215,24 @@ class DataTransformer:
                         X.drop(columns=column, inplace=True)
                         drop = True
                     else:
-                        X[column] = X[column].fillna(np.nan)
-                        num_columns.append(column)
+                        if X[column].dtype.name == 'datetime64[ns]':
+                            tmp_dt = X[column].dt
+                            new_columns_dict = {f'year_{column}':      tmp_dt.year, f'month_{column}': tmp_dt.month,
+                                                f'day_{column}':       tmp_dt.day, f'hour_{column}': tmp_dt.hour,
+                                                f'minute_{column}':    tmp_dt.minute, f'second_{column}': tmp_dt.second,
+                                                f'dayofweek_{column}': tmp_dt.dayofweek,
+                                                f'dayofyear_{column}': tmp_dt.dayofyear,
+                                                f'quarter_{column}':   tmp_dt.quarter}
+                            for new_col_name in new_columns_dict.keys():
+                                if new_col_name not in X.columns:
+                                    X[new_col_name] = new_columns_dict.get(new_col_name)
+                                    num_columns.append(new_col_name)
+                            X[column] = X[column].map(datetime.toordinal)
+                            datetime_columns.append(column)
+                            del tmp_dt
+                        else:
+                            X[column] = X[column].fillna(np.nan)
+                            num_columns.append(column)
             X = X[cat_columns + num_columns]
             if cat_columns:
                 X[cat_columns] = X[cat_columns].astype('category')
@@ -269,16 +268,18 @@ class DataTransformer:
                                                          self._num_columns, self._datetime_columns
             if datetime_columns:
                 for column in datetime_columns:
-                    X[f'year_{column}'] = X[column].dt.year
-                    X[f'month_{column}'] = X[column].dt.month
-                    X[f'day_{column}'] = X[column].dt.day
-                    X[f'hour_{column}'] = X[column].dt.hour
-                    X[f'minute_{column}'] = X[column].dt.minute
-                    X[f'second_{column}'] = X[column].dt.second
-                    X[f'dayofweek_{column}'] = X[column].dt.dayofweek
-                    X[f'dayofyear_{column}'] = X[column].dt.dayofyear
-                    X[f'quarter_{column}'] = X[column].dt.quarter
+                    tmp_dt = X[column].dt
+                    new_columns_dict = {f'year_{column}':      tmp_dt.year, f'month_{column}': tmp_dt.month,
+                                        f'day_{column}':       tmp_dt.day, f'hour_{column}': tmp_dt.hour,
+                                        f'minute_{column}':    tmp_dt.minute, f'second_{column}': tmp_dt.second,
+                                        f'dayofweek_{column}': tmp_dt.dayofweek,
+                                        f'dayofyear_{column}': tmp_dt.dayofyear,
+                                        f'quarter_{column}':   tmp_dt.quarter}
+                    for new_col_name in new_columns_dict.keys():
+                        if new_col_name not in X.columns:
+                            X[new_col_name] = new_columns_dict.get(new_col_name)
                     X[column] = X[column].map(datetime.toordinal)
+                    del tmp_dt
             X = X[cat_columns + num_columns].copy()
             for column in cat_columns:
                 if X[column].dtype.name == 'object':
