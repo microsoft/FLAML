@@ -403,8 +403,8 @@ class BlendSearch(Searcher):
                         self._metric: np.inf * self._ls.metric_op,
                         'time_total_s': 1,
                     }
-                exists = True
-                break
+                    exists = True
+                    break
         if exists:
             if not self._use_rs:
                 result = self._result.get(config_signature)
