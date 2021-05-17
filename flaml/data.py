@@ -156,11 +156,11 @@ def get_output_from_log(filename, time_budget):
                 best_error_list.append(best_val_loss)
                 logged_metric_list.append(train_loss)
                 error_list.append(val_loss)
-                config_list.append({"Current Learner": learner,
-                                    "Current Sample": sample_size,
+                config_list.append({"Current Learner":          learner,
+                                    "Current Sample":           sample_size,
                                     "Current Hyper-parameters": record.config,
-                                    "Best Learner": best_learner,
-                                    "Best Hyper-parameters": best_config})
+                                    "Best Learner":             best_learner,
+                                    "Best Hyper-parameters":    best_config})
 
     return (training_time_list, best_error_list, error_list, config_list,
             logged_metric_list)
@@ -197,8 +197,21 @@ class DataTransformer:
             for column in X.columns:
                 # sklearn\utils\validation.py needs int/float values
                 if X[column].dtype.name == 'datetime64[ns]':
+                    X[f'year_{column}'] = X[column].dt.year
+                    X[f'month_{column}'] = X[column].dt.month
+                    X[f'day_{column}'] = X[column].dt.day
+                    X[f'hour_{column}'] = X[column].dt.hour
+                    X[f'minute_{column}'] = X[column].dt.minute
+                    X[f'second_{column}'] = X[column].dt.second
+                    X[f'dayofweek_{column}'] = X[column].dt.dayofweek
+                    X[f'dayofyear_{column}'] = X[column].dt.dayofyear
+                    X[f'quarter_{column}'] = X[column].dt.quarter
                     X[column] = X[column].map(datetime.toordinal)
                     datetime_columns.append(column)
+                    new_columns = [f'year_{column}', f'month_{column}', f'day_{column}',
+                                   f'hour_{column}', f'minute_{column}', f'second_{column}', f'dayofweek_{column}',
+                                   f'dayofyear_{column}', f'quarter_{column}']
+                    num_columns.extend(new_columns)
                 if X[column].dtype.name in ('object', 'category'):
                     if X[column].nunique() == 1 or X[column].nunique(
                             dropna=True) == n - X[column].isnull().sum():
@@ -253,13 +266,21 @@ class DataTransformer:
         X = X.copy()
         if isinstance(X, pd.DataFrame):
             cat_columns, num_columns, datetime_columns = self._cat_columns, \
-                self._num_columns, self._datetime_columns
-            X = X[cat_columns + num_columns].copy()
+                                                         self._num_columns, self._datetime_columns
             if datetime_columns:
-                for dt_column in datetime_columns:
-                    X[dt_column] = X[dt_column].map(datetime.toordinal)
+                for column in datetime_columns:
+                    X[f'year_{column}'] = X[column].dt.year
+                    X[f'month_{column}'] = X[column].dt.month
+                    X[f'day_{column}'] = X[column].dt.day
+                    X[f'hour_{column}'] = X[column].dt.hour
+                    X[f'minute_{column}'] = X[column].dt.minute
+                    X[f'second_{column}'] = X[column].dt.second
+                    X[f'dayofweek_{column}'] = X[column].dt.dayofweek
+                    X[f'dayofyear_{column}'] = X[column].dt.dayofyear
+                    X[f'quarter_{column}'] = X[column].dt.quarter
+                    X[column] = X[column].map(datetime.toordinal)
+            X = X[cat_columns + num_columns].copy()
             for column in cat_columns:
-                # print(column, X[column].dtype.name)
                 if X[column].dtype.name == 'object':
                     X[column] = X[column].fillna('__NAN__')
                 elif X[column].dtype.name == 'category':
@@ -275,4 +296,3 @@ class DataTransformer:
                     X_num.columns = range(X_num.shape[1])
                 X[num_columns] = self.transformer.transform(X_num)
         return X
-

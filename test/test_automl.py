@@ -235,11 +235,13 @@ class TestAutoML(unittest.TestCase):
             "model_history":       True
         }
 
-        fake_df = pd.DataFrame({'A': [datetime(1900, 2, 3), datetime(1900, 3, 4)]})
-        y = np.array([0, 1])
-        automl_experiment.fit(X_train=fake_df, X_val=fake_df, y_train=y, y_val=y, **automl_settings)
+        fake_df = pd.DataFrame({'A': [datetime(1900, 2, 3), datetime(1900, 3, 4),
+                                      datetime(1900, 3, 4), datetime(1900, 3, 4),
+                                      datetime(1900, 7, 2), datetime(1900, 8, 9)]})
+        y = np.array([0, 1, 0, 1, 0, 0])
+        automl_experiment.fit(X_train=fake_df, y_train=y, **automl_settings)
 
-        y_pred = automl_experiment.predict(fake_df)
+        _ = automl_experiment.predict(fake_df)
 
     def test_micro_macro_f1(self):
         automl_experiment = AutoML()
