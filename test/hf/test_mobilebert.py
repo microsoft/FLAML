@@ -12,7 +12,7 @@ def test_electra(method='BlendSearch'):
         autohf = AutoTransformers()
 
         preparedata_setting = {
-            "dataset_config": {"task": "text-classification",
+            "dataset_config": {"task": "seq-classification",
                                "dataset_name": ["glue"],
                                "subdataset_name": "rte"},
             "model_name": "google/mobilebert-uncased",

@@ -135,9 +135,9 @@ def get_funnel_space(model_size_type = None,
             "num_train_epochs": [5]
         }
     }
-    from ..autotransformers import AutoTransformers
+    from ..result_analysis.azure_utils import JobID
     return get_space_union_and_unique(search_space_common, search_space_unique,
-            [AutoTransformers.get_full_data_name(dataset_name, subdataset_name)])
+            [JobID.get_full_data_name(dataset_name, subdataset_name)])
 
 def get_bert_space(model_size_type = None,
                    dataset_name = None,
@@ -153,7 +153,7 @@ def get_bert_space(model_size_type = None,
         "glue": {
             "learning_rate": [5e-5, 4e-5, 3e-5, 2e-5],
             "per_device_train_batch_size": [32],
-            "num_train_epochs": [0.5],
+            "num_train_epochs": [3],
         },
         # Section 4.2: We fine-tune for 3 epochs with a learning rate of 5e-5 and a batch size of 32
         "squad": {
@@ -230,6 +230,7 @@ def get_electra_space(model_size_type = None,
     """
     assert model_size_type in ("small", "base", "large", "intermediate", "xlarge"), "Electra paper has only provided hyperparameter for the small and base huggingface"
     search_space_common = {
+        "learning_rate": [3e-5, 5e-5, 1e-4, 1.5e-4, 2e-4, 3e-4, 5e-3],
         "weight_decay": [0.0],
         "adam_epsilon": [1e-6],
         "warmup_ratio": [0.1],
@@ -239,24 +240,6 @@ def get_electra_space(model_size_type = None,
     }
     search_space_unique = {
         # Appendix B: For Basesized models we searched for a learning
-        # rate out of [3e-5, 5e-5, 1e-4, 1.5e-4]
-        "xlarge": {
-            "learning_rate": [3e-5, 5e-5, 1e-4, 1.5e-4],
-        },
-        "large": {
-            "learning_rate": [3e-5, 5e-5, 1e-4, 1.5e-4],
-        },
-        "intermediate": {
-            "learning_rate": [3e-5, 5e-5, 1e-4, 1.5e-4],
-        },
-        "base": {
-            "learning_rate": [3e-5, 5e-5, 1e-4, 1.5e-4],
-        },
-        # Appendix B: We found the small models benefit from a larger learning rate and searched for the best one
-        # out of [1e-4, 2e-4, 3e-4, 5e-3]
-        "small": {
-            "learning_rate": [1e-4, 2e-4, 3e-4, 5e-3],
-        },
         "squad": {
             "num_train_epochs": [2]
         },
@@ -291,9 +274,9 @@ def get_electra_space(model_size_type = None,
             "num_train_epochs": [3],
         }
     }
-    from ..autotransformers import AutoTransformers
+    from ..result_analysis.azure_utils import JobID
     return get_space_union_and_unique(search_space_common, search_space_unique,
-        [AutoTransformers.get_full_data_name(dataset_name, subdataset_name), model_size_type])
+        [JobID.get_full_data_name(dataset_name, subdataset_name), model_size_type])
 
 def get_mobilebert_space(model_size_type = None,
                          dataset_name = None,
@@ -438,6 +421,6 @@ def get_albert_space(model_size_type = None,
     # To finetune the pre-trained models, we search the optimization hyperparameters
     # in a search space including different batch sizes (16/32/48), learning
     # rates ((1-10) * e-5), and the number of epochs (2-10)
-    from ..autotransformers import AutoTransformers
+    from ..result_analysis.azure_utils import JobID
     return get_space_union_and_unique(search_space_common, search_space_unique,
-        [AutoTransformers.get_full_data_name(dataset_name, subdataset_name)])
+        [JobID.get_full_data_name(dataset_name, subdataset_name)])

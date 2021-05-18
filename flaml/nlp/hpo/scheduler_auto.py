@@ -4,9 +4,8 @@ from ray.tune.schedulers import ASHAScheduler, HyperBandScheduler, MedianStoppin
 SCHEDULER_MAPPING = OrderedDict(
     [
         ("None", None),
-        ("ASHA", ASHAScheduler),
-        ("HyperBand", HyperBandScheduler),
-        ("MedianStoppingRule", MedianStoppingRule),
+        ("asha", ASHAScheduler),
+        ("hb", HyperBandScheduler),
     ]
 )
 

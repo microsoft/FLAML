@@ -1,6 +1,33 @@
 from dataclasses import dataclass, field
 import os, json
-import pathlib
+import pathlib,argparse
+
+def load_console_args():
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument('--server_name', type=str, help='server name', required=True,
+                            choices=["tmdev", "dgx", "azureml"], default = None)
+    arg_parser.add_argument('--algo_mode', type=str, help='hpo or grid search', required=True,
+                            choices=["grid", "gridbert", "hpo", "hfhpo", "list"], default = None)
+    arg_parser.add_argument('--data_root_dir', type=str, help='data dir', required=True)
+    arg_parser.add_argument('--dataset_subdataset_name', type=str, help='dataset and subdataset name',
+                            required=False, default = None)
+    arg_parser.add_argument('--space_mode', type=str, help='space mode', required=False, choices = ["gnr", "uni"], default = None)
+    arg_parser.add_argument('--search_alg_args_mode', type=str, help = 'search algorithm args mode', required = False, choices = ["dft", "exp", "cus"])
+    arg_parser.add_argument('--algo_name', type=str, help='algorithm', required=False, choices = ["bs", "optuna", "cfo"], default = None)
+    arg_parser.add_argument('--pruner', type=str, help='pruner', required=False, choices=["asha", "None"], default = None)
+    arg_parser.add_argument('--pretrained_model_size', type=str, help='pretrained model', required=False,
+                        choices=["xlnet-base-cased;base", "albert-large-v1;small", "distilbert-base-uncased;base",
+                                 "microsoft/deberta-base;base","funnel-transformer/small-base;base", "microsoft/deberta-large;large",
+                                 "funnel-transformer/large-base;large", "funnel-transformer/intermediate-base;intermediate", "funnel-transformer/xlarge-base;xlarge"], default = None)
+    arg_parser.add_argument('--sample_num', type=int, help='sample num', required=False, default = None)
+    arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False, default = None)
+    arg_parser.add_argument('--rep_id', type=int, help='rep id', required=False, default = None)
+    arg_parser.add_argument('--azure_key', type=str, help='azure key', required=False, default = None)
+    arg_parser.add_argument('--resplit_mode', type=str, help='resplit mode', required=True, choices = ["rspt", "ori"], default = None)
+    arg_parser.add_argument('--ds_config', type=str, help='deep speed config file path', required = False, default = None)
+    arg_parser.add_argument('--yml_file', type=str, help='yml file path', required=True, default = None)
+    arg_parser.add_argument('--key_path', type=str, help='path for key.json', required=True, default=None)
+    return arg_parser.parse_args()
 
 def get_wandb_azure_key(key_path):
     key_json = json.load(open(os.path.join(key_path, "key.json"), "r"))
@@ -51,8 +78,6 @@ class PathUtils:
             If the dataset contains a second component, the list should contain a second element, e.g., ["openbookqa", "main"]
         subdataset_name:
             The sub dataset name, e.g., "qnli", not required
-        group_hash_id:
-            The group name in wandb
         model_name:
             The huggingface name for loading the huggingface from huggingface.co/models, e.g., "google/electra-base-discriminator"
     """
@@ -61,104 +86,20 @@ class PathUtils:
     hpo_log_path: str = field(metadata={"help": "the directory for log"})
     hpo_config_path: str = field(metadata={"help": "the directory for log"})
 
-    dataset_name: str = field(metadata={"help": "dataset name"})
-    subdataset_name: str = field(metadata={"help": "sub dataset name"})
-    _search_algo_name: str = field(metadata={"help": "The hpo method."})
-
-    _group_hash_id: str = field(metadata={"help": "hash code for the hpo run"})
-
-    model_name: str = field(metadata={"help": "huggingface name."})
-    model_size_type: str = field(metadata={"help": "model size type."})
-    _folder_name: str = field(metadata={"help": "folder name."})
-
-    _log_dir_per_run: str = field(metadata={"help": "log directory for each run."})
-    _result_dir_per_run: str = field(metadata={"help": "result directory for each run."})
-    _ckpt_dir_per_run: str = field(metadata={"help": "checkpoint directory for each run."})
-    _ckpt_dir_per_trial: str = field(metadata={"help": "checkpoint directory for each trial."})
+    log_dir_per_run: str = field(metadata={"help": "log directory for each run."})
+    result_dir_per_run: str = field(metadata={"help": "result directory for each run."})
+    ckpt_dir_per_run: str = field(metadata={"help": "checkpoint directory for each run."})
+    ckpt_dir_per_trial: str = field(metadata={"help": "checkpoint directory for each trial."})
 
     def __init__(self,
+                 jobid_config,
                  hpo_data_root_path,
-                 dataset_name,
-                 subdataset_name,
-                 model_name,
-                 model_size_type,
                  ):
+        self.jobid_config = jobid_config
         self.hpo_data_root_path = hpo_data_root_path
         self.hpo_ckpt_path = os.path.join(hpo_data_root_path, "checkpoint")
         self.hpo_result_path = os.path.join(hpo_data_root_path, "result")
         self.hpo_log_path = self.hpo_result_path
-        self.dataset_name = dataset_name
-        self.subdataset_name = subdataset_name
-        self.model_name = model_name
-        self.model_size_type = model_size_type
-
-    def set_folder_name(self, autohf_ref):
-        self._folder_name = autohf_ref.model_type.lower() + "_" + autohf_ref.split_mode.lower()
-        if hasattr(autohf_ref, "search_algo_name"):
-            self._folder_name = autohf_ref.search_algo_name.lower() + "_" + self._folder_name
-        if hasattr(autohf_ref, "scheduler_name"):
-            self._folder_name =  autohf_ref.scheduler_name.lower() + "_" + self._folder_name
-
-    @property
-    def folder_name(self):
-        return self._folder_name
-
-    @property
-    def group_hash_id(self):
-        return self._group_hash_id
-
-    @property
-    def model_checkpoint(self):
-        return self.model_name # os.path.join(self.hpo_output_dir, "huggingface", self.model_name)
-
-    @property
-    def dataset_dir_name(self):
-        assert self.dataset_name, "dataset name is required"
-        data_dir_name = "_".join(self.dataset_name)
-        if self.subdataset_name:
-            data_dir_name = data_dir_name + "/" + self.subdataset_name
-        return data_dir_name
-
-    @property
-    def _ckpt_root_dir_abs(self):
-        assert self.hpo_ckpt_path, "output directory is required"
-        checkpoint_root_dir_abs = os.path.join(self.hpo_ckpt_path + "/" + self.dataset_dir_name + "/")
-        return checkpoint_root_dir_abs
-
-    @property
-    def _result_root_dir_abs(self):
-        assert self.hpo_result_path, "output directory is required"
-        results_root_dir_abs = os.path.join(self.hpo_result_path + "/" + self.dataset_dir_name + "/")
-        return results_root_dir_abs
-
-    @property
-    def _log_root_dir_abs(self):
-        assert self.hpo_log_path, "output directory is required"
-        log_root_dir_abs = os.path.join(self.hpo_log_path + "/" + self.dataset_dir_name + "/")
-        return log_root_dir_abs
-
-    @property
-    def log_dir_per_run(self):
-        return self._log_dir_per_run
-
-    @property
-    def result_dir_per_run(self):
-        return self._result_dir_per_run
-
-    @property
-    def ckpt_dir_per_run(self):
-        return self._ckpt_dir_per_run
-
-    @property
-    def ckpt_dir_per_trial(self):
-        return self._ckpt_dir_per_trial
-
-    @property
-    def search_algo_name(self):
-        """
-        Get the search algorithm name
-        """
-        return self._search_algo_name
 
     @staticmethod
     def init_and_make_one_dir(dir_path):
@@ -166,32 +107,20 @@ class PathUtils:
         if not os.path.exists(dir_path):
             pathlib.Path(dir_path).mkdir(parents=True, exist_ok=True)
 
-    def init_and_make_dirs(self):
-        PathUtils.init_and_make_one_dir(self._ckpt_root_dir_abs)
-        PathUtils.init_and_make_one_dir(self._result_root_dir_abs)
-        PathUtils.init_and_make_one_dir(self._log_root_dir_abs)
-
     def make_dir_per_run(self):
-        assert self._folder_name and self._group_hash_id
-        self._ckpt_dir_per_run = os.path.join(self._ckpt_root_dir_abs, self._folder_name, self._group_hash_id)
-        PathUtils.init_and_make_one_dir(self._ckpt_dir_per_run)
+        jobid_str = self.jobid_config.to_jobid_string()
+        self.ckpt_dir_per_run = os.path.join(self.hpo_ckpt_path, jobid_str)
+        PathUtils.init_and_make_one_dir(self.ckpt_dir_per_run)
 
-        self._result_dir_per_run = os.path.join(self._result_root_dir_abs, self._folder_name, self._group_hash_id)
-        PathUtils.init_and_make_one_dir(self._result_dir_per_run)
+        self.result_dir_per_run = os.path.join(self.hpo_result_path, jobid_str)
+        PathUtils.init_and_make_one_dir(self.result_dir_per_run)
 
-        self._log_dir_per_run = os.path.join(self._log_root_dir_abs, self._folder_name, self._group_hash_id)
-        PathUtils.init_and_make_one_dir(self._log_dir_per_run)
+        self.log_dir_per_run = os.path.join(self.hpo_log_path, jobid_str)
+        PathUtils.init_and_make_one_dir(self.log_dir_per_run)
 
     def make_dir_per_trial(self, trial_id):
-        assert self._folder_name and self._group_hash_id
-        self._ckpt_dir_per_trial = os.path.join(self._ckpt_root_dir_abs, self._folder_name, self._group_hash_id,
-                                                trial_id)
-        PathUtils.init_and_make_one_dir(self._ckpt_dir_per_trial)
+        jobid_str = self.jobid_config.to_jobid_string()
+        ckpt_dir_per_run = os.path.join(self.hpo_ckpt_path, jobid_str)
+        self.ckpt_dir_per_trial = os.path.join(ckpt_dir_per_run, jobid_str, trial_id)
+        PathUtils.init_and_make_one_dir(self.ckpt_dir_per_trial)
 
-    @search_algo_name.setter
-    def search_algo_name(self, value):
-        self._search_algo_name = value
-
-    @group_hash_id.setter
-    def group_hash_id(self, value):
-        self._group_hash_id = value

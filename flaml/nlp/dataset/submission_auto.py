@@ -87,6 +87,7 @@ def output_prediction_glue(output_path, output_dir_name, predictions, train_data
                         writer.write(f"{index}\t{default_prediction}\n")
 
     shutil.make_archive(os.path.join(output_path, output_dir_name), 'zip', output_dir)
+    return os.path.join(output_path, output_dir_name, output_dir + ".zip")
 
 OUTPUT_PREDICTION_MAPPING = OrderedDict(
     [

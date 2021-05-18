@@ -1,6 +1,6 @@
 import copy
 import json
-import os, wandb
+import os
 
 import transformers
 transformers.logging.set_verbosity_error()
@@ -44,8 +44,6 @@ class TrainerForAutoTransformers(transformers.Trainer):
         for key in output.metrics.keys():
             if key.startswith("eval_"):
                 output_metrics[key[5:]] = output_metrics[key]
-                wandb.log({"final_" + key: output_metrics[key]})
-
         tune.report(**output_metrics)
 
         return output_metrics

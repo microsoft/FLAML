@@ -162,13 +162,8 @@ def hpo_space_small(logger, model_type, model_size_type, dataset_name, subdatase
 
 HPO_SEARCH_SPACE_MAPPING = OrderedDict(
     [
-        ("hpo_space_gridunion_other_large", hpo_space_gridunion_other_large),
-        ("hpo_space_gridunion_other", hpo_space_gridunion_other),
-        ("hpo_space_gridunion", hpo_space_gridunion),
-        ("hpo_space_generic", hpo_space_generic),
-        ("hpo_space_small", hpo_space_small),
-        ("hpo_space_gridunion_continuous", hpo_space_gridunion_continuous),
-        ("enumerate_onehp", enumerate_onehp)
+        ("uni", hpo_space_gridunion_other),
+        ("gnr", hpo_space_generic),
     ]
 )
 

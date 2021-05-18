@@ -13,17 +13,12 @@ from ray.tune.suggest.hyperopt import HyperOptSearch
 
 SEARCH_ALGO_MAPPING = OrderedDict(
     [
-        ("Optuna", OptunaSearch),
-        ("CFO", CFO),
-        ("BlendSearch", BlendSearch),
-        ("Dragonfly", DragonflySearch),
-        ("SkOpt", SkOptSearch),
-        ("Nevergrad", NevergradSearch),
-        ("HyperOpt", HyperOptSearch),
-        ("grid_search", None),
-        ("grid_search_enumerate", None),
-        ("grid_search_bert", None),
-        ("RandomSearch", None)
+        ("optuna", OptunaSearch),
+        ("cfo", CFO),
+        ("bs", BlendSearch),
+        ("grid", None),
+        ("gridbert", None),
+        ("rs", None)
     ]
 )
 
@@ -45,18 +40,13 @@ class AutoSearchAlgorithm:
         )
 
     @classmethod
-    def from_method_name(cls, search_algo_name, search_algo_args_mode, grid_search_space, hpo_search_space, **custom_hpo_args):
-        assert search_algo_args_mode in {"default", "grid", "custom", "experiment"}
+    def from_method_name(cls, search_algo_name, search_algo_args_mode, hpo_search_space, **custom_hpo_args):
+        assert search_algo_args_mode in {"dft", "cus"}
         if search_algo_name in SEARCH_ALGO_MAPPING.keys():
             try:
                 default_search_algo_kwargs = DEFAULT_SEARCH_ALGO_ARGS_MAPPING[search_algo_name](hpo_search_space = hpo_search_space)
-                experiment_search_algo_kwargs = EXPERIMENT_SEARCH_ALGO_ARGS_MAPPING[search_algo_name](hpo_search_space = hpo_search_space)
-                if search_algo_args_mode == "default":
+                if search_algo_args_mode == "dft":
                     search_algo_args = default_search_algo_kwargs
-                elif search_algo_args_mode == "grid":
-                    search_algo_args = {"points_to_evaluate": AutoSearchAlgorithm.grid2list(grid_search_space)}
-                elif search_algo_args_mode == "experiment":
-                    search_algo_args = experiment_search_algo_kwargs
                 else:
                     search_algo_args = custom_hpo_args
 
@@ -131,20 +121,16 @@ def default_search_algo_args_random_search(hpo_search_space = None):
 
 DEFAULT_SEARCH_ALGO_ARGS_MAPPING = OrderedDict(
         [
-            ("Optuna", get_search_algo_args_optuna),
-            ("CFO", default_search_algo_args_bs),
-            ("BlendSearch", default_search_algo_args_bs),
-            ("Dragonfly", default_search_algo_args_dragonfly),
-            ("SkOpt", default_search_algo_args_skopt),
-            ("Nevergrad", default_search_algo_args_nevergrad),
-            ("HyperOpt", default_search_algo_args_hyperopt),
-            ("grid_search", default_search_algo_args_grid_search),
-            ("RandomSearch", default_search_algo_args_random_search)
+            ("optuna", get_search_algo_args_optuna),
+            ("cfo", default_search_algo_args_bs),
+            ("bs", default_search_algo_args_bs),
+            ("grid", default_search_algo_args_grid_search),
+            ("gridbert", default_search_algo_args_random_search)
         ]
     )
 
 EXPERIMENT_SEARCH_ALGO_ARGS_MAPPING = OrderedDict(
         [
-            ("CFO", experiment_search_algo_args_bs),
+            ("cfo", experiment_search_algo_args_bs),
         ]
     )
