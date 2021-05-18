@@ -166,10 +166,10 @@ def test_nested():
     }
 
     def simple_func(config):
-        metric = (config["cost_related"]["a"] - 4)**2 \
+        obj = (config["cost_related"]["a"] - 4)**2 \
             + (config["b"] - config["cost_related"]["a"])**2
-        tune.report(metric=metric)
-        tune.report(metric=metric, ab=config["cost_related"]["a"] * config["b"])
+        tune.report(obj=obj)
+        tune.report(obj=obj, ab=config["cost_related"]["a"] * config["b"])
 
     analysis = tune.run(
         simple_func,
@@ -177,7 +177,7 @@ def test_nested():
         low_cost_partial_config={
             "cost_related": {"a": 1}
         },
-        metric="metric",
+        metric="obj",
         mode="min",
         metric_constraints=[("ab", "<=", 4)],
         local_dir='logs/',
