@@ -13,6 +13,8 @@
   
   <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
 
   
   
@@ -29,6 +31,7 @@
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
         <script src="../../../_static/jquery.js"></script>
         <script src="../../../_static/underscore.js"></script>
         <script src="../../../_static/doctools.js"></script>
@@ -694,7 +697,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_configs</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_num_proposedby_incumbent</span> <span class="o">+=</span> <span class="mi">1</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_phrase</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_direction_tried</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>            
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_direction_tried</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_same</span><span class="p">:</span>
                     <span class="c1"># check if the new config is different from self.best_config</span>
                     <span class="n">same</span> <span class="o">=</span> <span class="kc">True</span>
@@ -716,17 +719,17 @@
                         <span class="k">break</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_same</span> <span class="o">=</span> <span class="n">same</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_proposedby_incumbent</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">dir</span> <span class="ow">and</span> <span class="p">(</span>
-            <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_resource</span><span class="p">):</span>
-                <span class="c1"># check stuck condition if using max resource</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_num_proposedby_incumbent</span> <span class="o">-=</span> <span class="mi">2</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_init_phrase</span> <span class="o">=</span> <span class="kc">False</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_lower_bound</span><span class="p">:</span>
-                    <span class="c1"># decrease step size</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_oldK</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_K</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_K</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_iter_best_config</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_K</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trial_count_proposed</span> <span class="o">+</span> <span class="mi">1</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">*=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_oldK</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_K</span><span class="p">)</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="k">return</span> <span class="kc">None</span>
+                <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_resource</span><span class="p">):</span>
+            <span class="c1"># check stuck condition if using max resource</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_num_proposedby_incumbent</span> <span class="o">-=</span> <span class="mi">2</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_init_phrase</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_lower_bound</span><span class="p">:</span>
+                <span class="c1"># decrease step size</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_oldK</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_K</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_K</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_iter_best_config</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_K</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trial_count_proposed</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">*=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_oldK</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_K</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="n">unflatten_dict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">_project</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>

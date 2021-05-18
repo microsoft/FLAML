@@ -13,6 +13,8 @@
   
   <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
 
   
   
@@ -29,6 +31,7 @@
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
         <script src="../../../_static/jquery.js"></script>
         <script src="../../../_static/underscore.js"></script>
         <script src="../../../_static/doctools.js"></script>
@@ -189,9 +192,11 @@
                  <span class="n">min_resource</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                  <span class="n">max_resource</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                  <span class="n">reduction_factor</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-                 <span class="n">resources_per_trial</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                  <span class="n">global_search_alg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Searcher</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-                 <span class="n">mem_size</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">dict</span><span class="p">],</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">config_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+                     <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">dict</span><span class="p">],</span> <span class="nb">float</span><span class="p">],</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">metric_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+                     <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                  <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">20</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;Constructor</span>
 
@@ -232,14 +237,23 @@
 <span class="sd">                prune_attr; only valid if prune_attr is not in space.</span>
 <span class="sd">            reduction_factor: A float of the reduction factor used for</span>
 <span class="sd">                incremental pruning.</span>
-<span class="sd">            resources_per_trial: A dictionary of the resources permitted per</span>
-<span class="sd">                trial, such as &#39;mem&#39;.</span>
 <span class="sd">            global_search_alg: A Searcher instance as the global search</span>
 <span class="sd">                instance. If omitted, Optuna is used. The following algos have</span>
 <span class="sd">                known issues when used as global_search_alg:</span>
 <span class="sd">                - HyperOptSearch raises exception sometimes</span>
 <span class="sd">                - TuneBOHB has its own scheduler</span>
-<span class="sd">            mem_size: A function to estimate the memory size for a given config.</span>
+<span class="sd">            config_constraints: A list of config constraints to be satisfied.</span>
+<span class="sd">                e.g.,</span>
+
+<span class="sd">                .. code-block: python</span>
+
+<span class="sd">                    config_constraints = [(mem_size, &#39;&lt;=&#39;, 1024**3)]</span>
+
+<span class="sd">                mem_size is a function which produces a float number for the bytes</span>
+<span class="sd">                needed for a config.</span>
+<span class="sd">                It is used to skip configs which do not fit in memory.</span>
+<span class="sd">            metric_constraints: A list of metric constraints to be satisfied.</span>
+<span class="sd">                e.g., `[&#39;precision&#39;, &#39;&gt;=&#39;, 0.9]`</span>
 <span class="sd">            seed: An integer of the random seed.</span>
 <span class="sd">        &#39;&#39;&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">=</span> <span class="n">metric</span><span class="p">,</span> <span class="n">mode</span>
@@ -254,10 +268,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span> <span class="o">=</span> <span class="n">LocalSearch</span><span class="p">(</span>
             <span class="n">init_config</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">cat_hp_cost</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span>
             <span class="n">prune_attr</span><span class="p">,</span> <span class="n">min_resource</span><span class="p">,</span> <span class="n">max_resource</span><span class="p">,</span> <span class="n">reduction_factor</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_resources_per_trial</span> <span class="o">=</span> <span class="n">resources_per_trial</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_mem_size</span> <span class="o">=</span> <span class="n">mem_size</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_mem_threshold</span> <span class="o">=</span> <span class="n">resources_per_trial</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-            <span class="s1">&#39;mem&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">resources_per_trial</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_config_constraints</span> <span class="o">=</span> <span class="n">config_constraints</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span> <span class="o">=</span> <span class="n">metric_constraints</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_init_search</span><span class="p">()</span>
 
 <div class="viewcode-block" id="BlendSearch.set_search_properties"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.set_search_properties">[docs]</a>    <span class="k">def</span> <span class="nf">set_search_properties</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
@@ -321,9 +333,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_points_to_evaluate</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">_points_to_evaluate</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">_gs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">_ls</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_resources_per_trial</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">_resources_per_trial</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_mem_size</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">_mem_size</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_mem_threshold</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">_mem_threshold</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_config_constraints</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">_config_constraints</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">_metric_constraints</span></div>
 
 <div class="viewcode-block" id="BlendSearch.restore_from_dir"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.restore_from_dir">[docs]</a>    <span class="k">def</span> <span class="nf">restore_from_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">checkpoint_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
         <span class="nb">super</span><span class="o">.</span><span class="n">restore_from_dir</span><span class="p">(</span><span class="n">checkpoint_dir</span><span class="p">)</span></div>
@@ -332,6 +343,20 @@
                           <span class="n">error</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39; search thread updater and cleaner</span>
 <span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="n">result</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">error</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span><span class="p">:</span>
+            <span class="c1"># accout for metric constraints if any</span>
+            <span class="n">objective</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span><span class="p">:</span>
+                <span class="n">metric_constraint</span><span class="p">,</span> <span class="n">sign</span><span class="p">,</span> <span class="n">threshold</span> <span class="o">=</span> <span class="n">constraint</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">metric_constraint</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">value</span><span class="p">:</span>
+                    <span class="c1"># sign is &lt;= or &gt;=</span>
+                    <span class="n">sign_op</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">sign</span> <span class="o">==</span> <span class="s1">&#39;&lt;=&#39;</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span>
+                    <span class="n">violation</span> <span class="o">=</span> <span class="p">(</span><span class="n">value</span> <span class="o">-</span> <span class="n">threshold</span><span class="p">)</span> <span class="o">*</span> <span class="n">sign_op</span>
+                    <span class="k">if</span> <span class="n">violation</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="c1"># add penalty term to the metric</span>
+                        <span class="n">objective</span> <span class="o">+=</span> <span class="mf">1e+10</span> <span class="o">*</span> <span class="n">violation</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">metric_op</span>
+            <span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">]</span> <span class="o">=</span> <span class="n">objective</span>
         <span class="n">thread_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">trial_id</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">thread_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="n">thread_id</span><span class="p">]</span><span class="o">.</span><span class="n">on_trial_complete</span><span class="p">(</span>
@@ -346,23 +371,24 @@
                 <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">config_signature</span><span class="p">(</span><span class="n">config</span><span class="p">)]</span>
             <span class="k">else</span><span class="p">:</span>  <span class="c1"># add to result cache</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">config_signature</span><span class="p">(</span><span class="n">config</span><span class="p">)]</span> <span class="o">=</span> <span class="n">result</span>
-            <span class="c1"># update target metric if improved</span>
-            <span class="k">if</span> <span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_target</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">metric_op</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_metric_target</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">]</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">thread_id</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_condition</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
-                <span class="c1"># thread creator</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_thread_count</span><span class="p">]</span> <span class="o">=</span> <span class="n">SearchThread</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">],</span> <span class="n">cost</span><span class="o">=</span><span class="n">result</span><span class="p">[</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">cost_attr</span><span class="p">])</span>
-                <span class="p">)</span>
-                <span class="n">thread_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_thread_count</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_thread_count</span> <span class="o">+=</span> <span class="mi">1</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_update_admissible_region</span><span class="p">(</span>
-                    <span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">)</span>
-            <span class="c1"># reset admissible region to ls bounding box</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_min</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_max</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">)</span>
+                <span class="c1"># update target metric if improved</span>
+                <span class="n">objective</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">]</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">objective</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_target</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">metric_op</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_metric_target</span> <span class="o">=</span> <span class="n">objective</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">thread_id</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_condition</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
+                    <span class="c1"># thread creator</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_thread_count</span><span class="p">]</span> <span class="o">=</span> <span class="n">SearchThread</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+                            <span class="n">config</span><span class="p">,</span> <span class="n">objective</span><span class="p">,</span> <span class="n">cost</span><span class="o">=</span><span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cost_attr</span><span class="p">])</span>
+                    <span class="p">)</span>
+                    <span class="n">thread_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_thread_count</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_thread_count</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_update_admissible_region</span><span class="p">(</span>
+                        <span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">)</span>
+                <span class="c1"># reset admissible region to ls bounding box</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_min</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_max</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">)</span>
         <span class="c1"># cleaner</span>
         <span class="k">if</span> <span class="n">thread_id</span> <span class="ow">and</span> <span class="n">thread_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">:</span>
             <span class="c1"># local search thread</span>
@@ -412,7 +438,7 @@
     <span class="k">def</span> <span class="nf">_expand_admissible_region</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">STEPSIZE</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">-=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">STEPSIZE</span>        
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">-=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">STEPSIZE</span>
 
     <span class="k">def</span> <span class="nf">_inferior</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">id1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">id2</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="sd">&#39;&#39;&#39; whether thread id1 is inferior to id2</span>
@@ -512,20 +538,26 @@
         <span class="k">return</span> <span class="n">config</span></div>
 
     <span class="k">def</span> <span class="nf">_should_skip</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">choice</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="sd">&#39;&#39;&#39; if config is None or config&#39;s result is known or above mem threshold</span>
+        <span class="sd">&#39;&#39;&#39; if config is None or config&#39;s result is known or constraints are violated</span>
 <span class="sd">            return True; o.w. return False</span>
 <span class="sd">        &#39;&#39;&#39;</span>
         <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">True</span>
         <span class="n">config_signature</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">config_signature</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
         <span class="n">exists</span> <span class="o">=</span> <span class="n">config_signature</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_result</span>
-        <span class="c1"># check mem constraint</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">exists</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mem_threshold</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mem_size</span><span class="p">(</span>
-                <span class="n">config</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mem_threshold</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_result</span><span class="p">[</span><span class="n">config_signature</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">metric_op</span><span class="p">,</span> <span class="s1">&#39;time_total_s&#39;</span><span class="p">:</span> <span class="mi">1</span>
-            <span class="p">}</span>
-            <span class="n">exists</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="c1"># check constraints</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">exists</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config_constraints</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config_constraints</span><span class="p">:</span>
+                <span class="n">func</span><span class="p">,</span> <span class="n">sign</span><span class="p">,</span> <span class="n">threshold</span> <span class="o">=</span> <span class="n">constraint</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">sign</span> <span class="o">==</span> <span class="s1">&#39;&lt;=&#39;</span> <span class="ow">and</span> <span class="n">value</span> <span class="o">&gt;</span> <span class="n">threshold</span>
+                        <span class="ow">or</span> <span class="n">sign</span> <span class="o">==</span> <span class="s1">&#39;&gt;=&#39;</span> <span class="ow">and</span> <span class="n">value</span> <span class="o">&lt;</span> <span class="n">threshold</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_result</span><span class="p">[</span><span class="n">config_signature</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">metric_op</span><span class="p">,</span>
+                        <span class="s1">&#39;time_total_s&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                    <span class="p">}</span>
+                    <span class="n">exists</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">break</span>
         <span class="k">if</span> <span class="n">exists</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_use_rs</span><span class="p">:</span>
                 <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">config_signature</span><span class="p">)</span>

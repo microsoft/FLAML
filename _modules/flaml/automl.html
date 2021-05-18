@@ -13,6 +13,8 @@
   
   <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
   <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
 
   
   
@@ -29,6 +31,7 @@
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
         <script src="../../_static/jquery.js"></script>
         <script src="../../_static/underscore.js"></script>
         <script src="../../_static/doctools.js"></script>
@@ -1186,9 +1189,8 @@
                         <span class="n">prune_attr</span><span class="o">=</span><span class="n">prune_attr</span><span class="p">,</span>
                         <span class="n">min_resource</span><span class="o">=</span><span class="n">min_resource</span><span class="p">,</span>
                         <span class="n">max_resource</span><span class="o">=</span><span class="n">max_resource</span><span class="p">,</span>
-                        <span class="n">resources_per_trial</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;cpu&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">n_jobs</span><span class="p">,</span>
-                                             <span class="s2">&quot;mem&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mem_thres</span><span class="p">},</span>
-                        <span class="n">mem_size</span><span class="o">=</span><span class="n">learner_class</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+                        <span class="n">config_constraints</span><span class="o">=</span><span class="p">[(</span><span class="n">learner_class</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="s1">&#39;&lt;=&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mem_thres</span><span class="p">)]</span>
+                    <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">algo</span> <span class="o">=</span> <span class="n">SearchAlgo</span><span class="p">(</span>
                         <span class="n">metric</span><span class="o">=</span><span class="s1">&#39;val_loss&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;min&#39;</span><span class="p">,</span> <span class="n">space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
