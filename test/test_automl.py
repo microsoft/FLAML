@@ -235,9 +235,12 @@ class TestAutoML(unittest.TestCase):
         fake_df = pd.DataFrame({'A':      [datetime(1900, 2, 3), datetime(1900, 3, 4),
                                            datetime(1900, 3, 4), datetime(1900, 3, 4),
                                            datetime(1900, 7, 2), datetime(1900, 8, 9)],
-                                'year_A': [datetime(1900, 1, 1), datetime(1900, 1, 1),
+                                'B':      [datetime(1900, 1, 1), datetime(1900, 1, 1),
                                            datetime(1900, 1, 1), datetime(1900, 1, 1),
-                                           datetime(1900, 1, 1), datetime(1900, 1, 1)]})
+                                           datetime(1900, 1, 1), datetime(1900, 1, 1)],
+                                'year_A': [datetime(1900, 1, 2), datetime(1900, 8, 1),
+                                           datetime(1900, 1, 4), datetime(1900, 6, 1),
+                                           datetime(1900, 1, 5), datetime(1900, 4, 1)]})
         y = np.array([0, 1, 0, 1, 0, 0])
         automl_experiment.fit(X_train=fake_df, y_train=y, **automl_settings)
 
