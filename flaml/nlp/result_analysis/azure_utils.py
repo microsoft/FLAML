@@ -111,16 +111,16 @@ class JobID:
         return model_type
 
     def load_console_args(self, console_args):
-        self.dat = console_args.dataset_subdataset_name.split(";")[0].split(",")
-        self.subdat = console_args.dataset_subdataset_name.split(";")[1]
+        self.dat = console_args.dataset_subdataset_name.split(":")[0].split(",")
+        self.subdat = console_args.dataset_subdataset_name.split(":")[1]
         self.mod = console_args.algo_mode
         self.spa = console_args.space_mode
         self.arg = console_args.search_alg_args_mode
         self.alg = console_args.algo_name
         self.pru = console_args.pruner
-        self.pre_full = console_args.pretrained_model_size.split(";")[0]
+        self.pre_full = console_args.pretrained_model_size.split(":")[0]
         self.pre = JobID.extract_model_type(self.pre_full)
-        self.presz = console_args.pretrained_model_size.split(";")[1]
+        self.presz = console_args.pretrained_model_size.split(":")[1]
         self.spt = console_args.resplit_mode
         self.rep = console_args.rep_id
 
