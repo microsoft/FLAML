@@ -254,8 +254,7 @@ class AzureUtils:
             fout.write(blob_client.download_blob().readall())
 
     def write_exception(self):
-        wandb_group_name = self.autohf.wandb_utils.wandb_group_name()
-        result_json = {"wandb_group_name": wandb_group_name,
+        result_json = {
                        "timestamp": datetime.now(),
                        }
         local_file_path = self.generate_local_json_path()
