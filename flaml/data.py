@@ -277,7 +277,7 @@ class DataTransformer:
                                         f'dayofyear_{column}': tmp_dt.dayofyear,
                                         f'quarter_{column}':   tmp_dt.quarter}
                     for new_col_name in new_columns_dict.keys():
-                        if new_col_name in num_columns:
+                        if new_col_name in num_columns and new_col_name not in X.columns:
                             X[new_col_name] = new_columns_dict.get(new_col_name)
                     X[column] = X[column].map(datetime.toordinal)
                     del tmp_dt
