@@ -70,6 +70,17 @@ def hpo_space_gridunion_other(logger, model_type, model_size_type, dataset_name,
 
     return output_config
 
+def hpo_space_gridunion_smoke_test(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
+    return {'learning_rate':
+                [1e-5],
+            'weight_decay': [0.0],
+            'adam_epsilon': [1e-08],
+            'warmup_ratio': [0.1],
+            'per_device_train_batch_size': [32],
+            'hidden_dropout_prob': [0.1],
+            'attention_probs_dropout_prob': [0.1],
+            'num_train_epochs': [0.5]}
+
 def hpo_space_gridunion(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
     output_config = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name)
     for each_hp in hp_type_mapping.keys():
@@ -164,6 +175,7 @@ HPO_SEARCH_SPACE_MAPPING = OrderedDict(
     [
         ("uni", hpo_space_gridunion_other),
         ("gnr", hpo_space_generic),
+        ("uni_test", hpo_space_gridunion_smoke_test)
     ]
 )
 
