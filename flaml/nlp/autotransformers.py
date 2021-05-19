@@ -637,15 +637,6 @@ class AutoTransformers:
         self.set_task()
         self._fp16 = fp16
         ray.init()
-        import wandb
-        wandb_group_name = self.jobid_config.to_wandb_string() + wandb.util.generate_id()
-        os.environ["WANDB_RUN_GROUP"] = wandb_group_name
-        os.environ["WANDB_SILENT"] = "false"
-        os.environ["WANDB_MODE"] = "online"
-        wandb.init(project=JobID.get_full_data_name(self.jobid_config.dat[0], self.jobid_config.subdat),
-                   group=wandb_group_name,
-                   settings=wandb.Settings(_disable_stats=True),
-                   reinit=False)
 
         self._set_search_space(**custom_hpo_args)
         search_algo = self._get_search_algo(self.jobid_config.alg, self.jobid_config.arg, **custom_hpo_args)
