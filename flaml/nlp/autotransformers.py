@@ -166,6 +166,7 @@ class AutoTransformers:
                      server_name,
                      data_root_path,
                      jobid_config,
+                     wandb_utils,
                      max_seq_length = 128,
                      fold_name = None,
                      resplit_portion=None):
@@ -205,6 +206,7 @@ class AutoTransformers:
         self._max_seq_length = max_seq_length
         self._server_name = server_name
         self.jobid_config = jobid_config
+        self.wandb_utils = wandb_utils
 
         self.path_utils = PathUtils(jobid_config, hpo_data_root_path = data_root_path)
 
@@ -408,8 +410,10 @@ class AutoTransformers:
         trainer.logger = logger
         trainer.trial_id = reporter.trial_id
 
+        run = self.wandb_utils.set_wandb_per_trial()
         trainer.train()
         output_metrics = trainer.evaluate(self.eval_dataset)
+        run.finish()
 
     def _verify_init_config(self,
                             **custom_hpo_args):

@@ -6,6 +6,7 @@ import shutil
 
 from flaml.nlp import AutoTransformers
 from flaml.nlp import AzureUtils, JobID
+from flaml.nlp.result_analysis.wandb_utils import WandbUtils
 from flaml.nlp.utils import load_console_args
 
 global azure_log_path
@@ -19,12 +20,13 @@ def get_resplit_portion(jobid_config):
     else:
         return {"source": ["train", "validation"], "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
 
-def get_preparedata_setting(args, jobid_config):
+def get_preparedata_setting(args, jobid_config, wandb_utils):
     preparedata_setting = {
         "server_name": args.server_name,
         "data_root_path": args.data_root_dir,
         "max_seq_length": 128,
-        "jobid_config": jobid_config
+        "jobid_config": jobid_config,
+        "wandb_utils": wandb_utils
         }
     if jobid_config.spt == 'rspt':
         preparedata_setting["resplit_portion"] = get_resplit_portion(jobid_config)
@@ -56,22 +58,22 @@ def rm_home_result():
     if os.path.exists(home + "/ray_results/"):
         shutil.rmtree(home + "/ray_results/")
 
-def _test_base_and_large(args, jobid_config, autohf):
+def _test_base_and_large(args, jobid_config, autohf, wandb_utils):
     import copy, re
     args_small = copy.deepcopy(args)
-    args_small.sample_num = 2 #10000
+    args_small.sample_num = 10000
     args_small.time_budget = 3600
     jobid_config_small = JobID(args_small)
     jobid_config_small.presz = "small"
     jobid_config_small.pre_full = re.sub("(xlarge|large|intermediate)", "small", jobid_config_small.pre_full)
     azure_utils_small = AzureUtils(args_small, jobid_config_small, autohf)
-    _test_hpo(args_small, jobid_config_small, autohf, azure_utils_small)
+    _test_hpo(args_small, jobid_config_small, autohf, wandb_utils, azure_utils_small)
 
     ranked_all_small_configs = azure_utils_small.get_ranked_configs_from_azure_file(autohf.metric_mode_name)
 
     args_large = copy.deepcopy(args)
     args_large.time_budget = 100000
-    args_large.sample_num = int(len(ranked_all_small_configs))
+    args_large.sample_num = int(len(ranked_all_small_configs) / 2)
     args_large.search_alg_args_mode = "cus"
     jobid_config_large = JobID(args_large)
     jobid_config_large.presz = jobid_config.presz
@@ -80,17 +82,19 @@ def _test_base_and_large(args, jobid_config, autohf):
     _test_hpo(args_large,
               jobid_config_large,
               autohf,
+              wandb_utils,
               azure_utils_large,
               autohf_settings= get_autohf_settings(args_large, points_to_evaluate=ranked_all_small_configs))
 
 def _test_hpo(args,
               jobid_config,
               autohf,
+              wandb_utils,
               azure_utils = None,
               autohf_settings = None,
               ):
     try:
-        preparedata_setting = get_preparedata_setting(args, jobid_config)
+        preparedata_setting = get_preparedata_setting(args, jobid_config, wandb_utils)
         autohf.prepare_data(**preparedata_setting)
 
         analysis = validation_metric = test_metric = None
@@ -127,8 +131,10 @@ if __name__ == "__main__":
 
     jobid_config = JobID(args)
     autohf = AutoTransformers()
+    wandb_utils = WandbUtils(args, jobid_config)
+    wandb_utils.set_wandb_per_run()
 
     if args.algo_mode != "list":
-        _test_hpo(args, jobid_config, autohf)
+        _test_hpo(args, jobid_config, autohf, wandb_utils)
     else:
-        _test_base_and_large(args, jobid_config, autohf)
+        _test_base_and_large(args, jobid_config, autohf, wandb_utils)

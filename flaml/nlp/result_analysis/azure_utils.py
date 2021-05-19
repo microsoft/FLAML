@@ -275,11 +275,12 @@ class AzureUtils:
             trial_id = each_trial.trial_id
             last_update_time = each_trial.last_update_time
             config = each_trial.config
-            print("analysis.default_metric.keys():")
-            print(each_trial.metric_analysis.keys())
-            metric_score = each_trial.metric_analysis["eval_" + analysis.default_metric]
-            time_stamp = each_trial.metric_analysis['timestamp']
-            json_log.append({"trial_id": trial_id, "last_update_time": last_update_time, "config": config, "metric_score": metric_score, "time_stamp": time_stamp})
+            try:
+                metric_score = each_trial.metric_analysis["eval_" + analysis.default_metric]
+                time_stamp = each_trial.metric_analysis['timestamp']
+                json_log.append({"trial_id": trial_id, "last_update_time": last_update_time, "config": config, "metric_score": metric_score, "time_stamp": time_stamp})
+            except KeyError:
+                pass
         return json_log
 
     def write_autohf_output(self,
