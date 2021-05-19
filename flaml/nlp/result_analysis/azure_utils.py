@@ -267,7 +267,7 @@ class AzureUtils:
             trial_id = each_trial.trial_id
             last_update_time = each_trial.last_update_time
             config = each_trial.config
-            metric_score = each_trial.metric_analysis[analysis.default_metric]
+            metric_score = each_trial.metric_analysis["eval_" + analysis.default_metric]
             time_stamp = each_trial.metric_analysis['timestamp']
             json_log.append({"trial_id": trial_id, "last_update_time": last_update_time, "config": config, "metric_score": metric_score, "time_stamp": time_stamp})
         return json_log

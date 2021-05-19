@@ -59,8 +59,8 @@ def rm_home_result():
 def _test_base_and_large(args, jobid_config, autohf):
     import copy, re
     args_small = copy.deepcopy(args)
-    args_small.sample_num = 10000
-    args_small.time_budget = 3600
+    args_small.sample_num = 2 #0000
+    args_small.time_budget = 1000 #3600
     jobid_config_small = JobID(args_small)
     jobid_config_small.presz = "small"
     jobid_config_small.pre_full = re.sub("(xlarge|large|intermediate)", "small", jobid_config_small.pre_full)
@@ -71,7 +71,7 @@ def _test_base_and_large(args, jobid_config, autohf):
 
     args_large = copy.deepcopy(args)
     args_large.time_budget = 100000
-    args_large.sample_num = len(ranked_all_small_configs) / 2
+    args_large.sample_num = len(ranked_all_small_configs) # / 2
     args_large.search_alg_args_mode = "cus"
     jobid_config_large = JobID(args_large)
     jobid_config_large.presz = jobid_config.presz
