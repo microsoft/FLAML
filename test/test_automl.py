@@ -223,14 +223,15 @@ class TestAutoML(unittest.TestCase):
     def test_datetime_columns(self):
         automl_experiment = AutoML()
         automl_settings = {
-            "time_budget":         2,
-            "metric":              'mse',
-            "task":                'regression',
-            "log_file_name":       "test/datetime_columns.log",
+            "time_budget": 2,
+            "metric": 'mse',
+            "task": 'regression',
+            "log_file_name": "test/datetime_columns.log",
             "log_training_metric": True,
-            "n_jobs":              1,
-            "model_history":       True
+            "n_jobs": 1,
+            "model_history": True
         }
+
 
         fake_df = pd.DataFrame({'A':      [datetime(1900, 2, 3), datetime(1900, 3, 4),
                                            datetime(1900, 3, 4), datetime(1900, 3, 4),
@@ -246,17 +247,18 @@ class TestAutoML(unittest.TestCase):
 
         _ = automl_experiment.predict(fake_df)
 
+
     def test_micro_macro_f1(self):
         automl_experiment = AutoML()
         automl_experiment_macro = AutoML()
 
         automl_settings = {
-            "time_budget":         2,
-            "task":                'classification',
-            "log_file_name":       "test/micro_macro_f1.log",
+            "time_budget": 2,
+            "task": 'classification',
+            "log_file_name": "test/micro_macro_f1.log",
             "log_training_metric": True,
-            "n_jobs":              1,
-            "model_history":       True
+            "n_jobs": 1,
+            "model_history": True
         }
 
         X_train, y_train = load_iris(return_X_y=True)
