@@ -11,8 +11,6 @@ from flaml.nlp.utils import load_console_args
 global azure_log_path
 global azure_key
 
-num_sample_time_budget_mode = "custom"
-
 def get_resplit_portion(jobid_config):
     if jobid_config.dat == ["glue"] and jobid_config.subdat in {"mnli", "qqp"}:
         return {"source": ["train", "validation"], "train": [0, 0.25], "validation": [0.25, 0.275], "test": [0.275, 0.3]}
@@ -129,5 +127,8 @@ if __name__ == "__main__":
 
     jobid_config = JobID(args)
     autohf = AutoTransformers()
-    #azure_utils = AzureUtils(args, jobid_config, autohf)
-    _test_base_and_large(args, jobid_config, autohf)
+
+    if args.algo_mode != "list":
+        _test_hpo(args, jobid_config, autohf)
+    else:
+        _test_base_and_large(args, jobid_config, autohf)
