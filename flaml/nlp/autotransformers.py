@@ -638,7 +638,7 @@ class AutoTransformers:
         self._fp16 = fp16
         ray.init()
         import wandb
-        wandb_group_name = self.jobid_config.to_jobid_string() + wandb.util.generate_id()
+        wandb_group_name = self.jobid_config.to_wandb_string() + wandb.util.generate_id()
         os.environ["WANDB_RUN_GROUP"] = wandb_group_name
         os.environ["WANDB_SILENT"] = "false"
         os.environ["WANDB_MODE"] = "online"

@@ -27,6 +27,14 @@ class JobID:
                  console_args):
         self.load_console_args(console_args)
 
+    def to_wandb_string(self):
+        field_dict = self.__dict__
+        keytoval_str = "_".join([str(field_dict[key][0])
+                                 if type(field_dict[key]) == list
+                                 else str(field_dict[key])
+                                 for key in field_dict.keys() if not key.endswith("_full")])
+        return keytoval_str
+
     def to_jobid_string(self):
         field_dict = self.__dict__
         keytoval_str = "_".join([key + "=" + str(field_dict[key][0])
