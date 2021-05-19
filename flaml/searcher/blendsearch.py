@@ -183,6 +183,10 @@ class BlendSearch(Searcher):
         self._config_constraints = state._config_constraints
         self._metric_constraints = state._metric_constraints
 
+    @property
+    def get_metric_target(self):
+        return self._metric_target
+
     def restore_from_dir(self, checkpoint_dir: str):
         super.restore_from_dir(checkpoint_dir)
 

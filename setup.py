@@ -18,7 +18,6 @@ install_requires = [
     "lightgbm>=2.3.1",
     "xgboost>=0.90",
     "scipy>=1.4.1",
-    "catboost>=0.23",
     "scikit-learn>=0.23.2",
 ],
 
@@ -48,6 +47,7 @@ setuptools.setup(
             "xgboost<1.3",
             "rgf-python",
             "optuna==2.3.0",
+            "ray[tune]",
         ],
         "blendsearch": [
             "optuna==2.3.0"
@@ -62,6 +62,11 @@ setuptools.setup(
         "nni": [
             "nni",
         ],
+        "catboost": ["catboost>=0.23"],
+        "vw": [
+            "vowpalwabbit",
+            "ray[tune]==1.2.0",
+        ]
     },
     classifiers=[
         "Programming Language :: Python :: 3",
