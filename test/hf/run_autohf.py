@@ -94,6 +94,8 @@ def _test_hpo(args,
               autohf_settings = None,
               ):
     try:
+        if not azure_utils:
+            azure_utils = AzureUtils(args, jobid_config, autohf)
         preparedata_setting = get_preparedata_setting(args, jobid_config, wandb_utils)
         autohf.prepare_data(**preparedata_setting)
 
