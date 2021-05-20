@@ -218,12 +218,12 @@ class DataTransformer:
                     else:
                         if X[column].dtype.name == 'datetime64[ns]':
                             tmp_dt = X[column].dt
-                            new_columns_dict = {f'year_{column}':      tmp_dt.year, f'month_{column}': tmp_dt.month,
-                                                f'day_{column}':       tmp_dt.day, f'hour_{column}': tmp_dt.hour,
-                                                f'minute_{column}':    tmp_dt.minute, f'second_{column}': tmp_dt.second,
+                            new_columns_dict = {f'year_{column}': tmp_dt.year, f'month_{column}': tmp_dt.month,
+                                                f'day_{column}': tmp_dt.day, f'hour_{column}': tmp_dt.hour,
+                                                f'minute_{column}': tmp_dt.minute, f'second_{column}': tmp_dt.second,
                                                 f'dayofweek_{column}': tmp_dt.dayofweek,
                                                 f'dayofyear_{column}': tmp_dt.dayofyear,
-                                                f'quarter_{column}':   tmp_dt.quarter}
+                                                f'quarter_{column}': tmp_dt.quarter}
                             for new_col_name in new_columns_dict.keys():
                                 if new_col_name not in X.columns and \
                                         new_columns_dict.get(new_col_name).nunique(dropna=False) > 2:
@@ -271,12 +271,12 @@ class DataTransformer:
             if datetime_columns:
                 for column in datetime_columns:
                     tmp_dt = X[column].dt
-                    new_columns_dict = {f'year_{column}':      tmp_dt.year, f'month_{column}': tmp_dt.month,
-                                        f'day_{column}':       tmp_dt.day, f'hour_{column}': tmp_dt.hour,
-                                        f'minute_{column}':    tmp_dt.minute, f'second_{column}': tmp_dt.second,
+                    new_columns_dict = {f'year_{column}': tmp_dt.year, f'month_{column}': tmp_dt.month,
+                                        f'day_{column}':  tmp_dt.day, f'hour_{column}': tmp_dt.hour,
+                                        f'minute_{column}': tmp_dt.minute, f'second_{column}': tmp_dt.second,
                                         f'dayofweek_{column}': tmp_dt.dayofweek,
                                         f'dayofyear_{column}': tmp_dt.dayofyear,
-                                        f'quarter_{column}':   tmp_dt.quarter}
+                                        f'quarter_{column}': tmp_dt.quarter}
                     for new_col_name in new_columns_dict.keys():
                         if new_col_name in num_columns and new_col_name not in X.columns:
                             X[new_col_name] = new_columns_dict.get(new_col_name)
@@ -284,7 +284,6 @@ class DataTransformer:
                     del tmp_dt
             X = X[cat_columns + num_columns].copy()
             for column in cat_columns:
-                # print(column, X[column].dtype.name
                 if X[column].dtype.name == 'object':
                     X[column] = X[column].fillna('__NAN__')
                 elif X[column].dtype.name == 'category':
