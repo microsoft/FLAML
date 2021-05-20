@@ -61,13 +61,17 @@ def rm_home_result():
 def search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils):
     import copy, re
     args_small = copy.deepcopy(args)
+    args_small.algo_mode = "list"
     args_small.sample_num = 10000
     args_small.time_budget = 3600
     jobid_config_small = JobID(args_small)
     jobid_config_small.presz = "small"
     jobid_config_small.pre_full = re.sub("(xlarge|large|intermediate)", "small", jobid_config_small.pre_full)
     azure_utils_small = AzureUtils(args_small, jobid_config_small, autohf)
-    _test_hpo(args_small, jobid_config_small, autohf, wandb_utils, azure_utils_small)
+    preparedata_setting = get_preparedata_setting(args, jobid_config, wandb_utils)
+    autohf.prepare_data(**preparedata_setting)
+    autohf.set_metric()
+    #_test_hpo(args_small, jobid_config_small, autohf, wandb_utils, azure_utils_small)
 
     best_config = azure_utils_small.get_ranked_configs_from_azure_file(autohf.metric_mode_name)[0]
 
