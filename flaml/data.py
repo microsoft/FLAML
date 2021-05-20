@@ -48,7 +48,7 @@ def load_openml_dataset(dataset_id, data_dir=None, random_state=0):
     print('Dataset name:', dataset.name)
     X, y, * \
         __ = dataset.get_data(
-        target=dataset.default_target_attribute, dataset_format='array')
+           target=dataset.default_target_attribute, dataset_format='array')
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, random_state=random_state)
     print(
@@ -156,11 +156,11 @@ def get_output_from_log(filename, time_budget):
                 best_error_list.append(best_val_loss)
                 logged_metric_list.append(train_loss)
                 error_list.append(val_loss)
-                config_list.append({"Current Learner":          learner,
-                                    "Current Sample":           sample_size,
+                config_list.append({"Current Learner": learner,
+                                    "Current Sample": sample_size,
                                     "Current Hyper-parameters": record.config,
-                                    "Best Learner":             best_learner,
-                                    "Best Hyper-parameters":    best_config})
+                                    "Best Learner": best_learner,
+                                    "Best Hyper-parameters": best_config})
 
     return (training_time_list, best_error_list, error_list, config_list,
             logged_metric_list)
@@ -195,6 +195,7 @@ class DataTransformer:
             cat_columns, num_columns, datetime_columns = [], [], []
             drop = False
             for column in X.columns:
+                # sklearn\utils\validation.py needs int/float values
                 if X[column].dtype.name in ('object', 'category'):
                     if X[column].nunique() == 1 or X[column].nunique(
                             dropna=True) == n - X[column].isnull().sum():
@@ -283,6 +284,7 @@ class DataTransformer:
                     del tmp_dt
             X = X[cat_columns + num_columns].copy()
             for column in cat_columns:
+                # print(column, X[column].dtype.name
                 if X[column].dtype.name == 'object':
                     X[column] = X[column].fillna('__NAN__')
                 elif X[column].dtype.name == 'category':

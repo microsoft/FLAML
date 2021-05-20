@@ -30,29 +30,29 @@ class MyRegularizedGreedyForest(SKLearnEstimator):
 
         # round integer hyperparameters
         self.params = {
-            "n_jobs":           n_jobs,
-            'max_leaf':         int(round(max_leaf)),
-            'n_iter':           int(round(n_iter)),
-            'n_tree_search':    int(round(n_tree_search)),
-            'opt_interval':     int(round(opt_interval)),
-            'learning_rate':    learning_rate,
+            "n_jobs": n_jobs,
+            'max_leaf': int(round(max_leaf)),
+            'n_iter': int(round(n_iter)),
+            'n_tree_search': int(round(n_tree_search)),
+            'opt_interval': int(round(opt_interval)),
+            'learning_rate': learning_rate,
             'min_samples_leaf': int(round(min_samples_leaf))
         }
 
     @classmethod
     def search_space(cls, data_size, task):
         space = {
-            'max_leaf':         {'domain':                    tune.qloguniform(
+            'max_leaf': {'domain': tune.qloguniform(
                 lower=4, upper=data_size, q=1), 'init_value': 4},
-            'n_iter':           {'domain':                    tune.qloguniform(
+            'n_iter': {'domain': tune.qloguniform(
                 lower=1, upper=data_size, q=1), 'init_value': 1},
-            'n_tree_search':    {'domain':                tune.qloguniform(
+            'n_tree_search': {'domain': tune.qloguniform(
                 lower=1, upper=32768, q=1), 'init_value': 1},
-            'opt_interval':     {'domain':                tune.qloguniform(
+            'opt_interval': {'domain': tune.qloguniform(
                 lower=1, upper=10000, q=1), 'init_value': 100},
-            'learning_rate':    {'domain': tune.loguniform(
+            'learning_rate': {'domain': tune.loguniform(
                 lower=0.01, upper=20.0)},
-            'min_samples_leaf': {'domain':             tune.qloguniform(
+            'min_samples_leaf': {'domain': tune.qloguniform(
                 lower=1, upper=20, q=1), 'init_value': 20},
         }
         return space
@@ -113,13 +113,13 @@ class TestAutoML(unittest.TestCase):
                            learner_class=MyRegularizedGreedyForest)
         X_train, y_train = load_wine(return_X_y=True)
         settings = {
-            "time_budget":         10,  # total running time in seconds
-            "estimator_list":      ['RGF', 'lgbm', 'rf', 'xgboost'],
-            "task":                'classification',  # task type
-            "sample":              True,  # whether to subsample training data
-            "log_file_name":       "test/wine.log",
+            "time_budget": 10,  # total running time in seconds
+            "estimator_list": ['RGF', 'lgbm', 'rf', 'xgboost'],
+            "task": 'classification',  # task type
+            "sample": True,  # whether to subsample training data
+            "log_file_name": "test/wine.log",
             "log_training_metric": True,  # whether to log training metric
-            "n_jobs":              1,
+            "n_jobs": 1,
         }
 
         '''The main flaml automl API'''
@@ -133,14 +133,14 @@ class TestAutoML(unittest.TestCase):
                            learner_class=MyRegularizedGreedyForest)
         X_train, y_train = load_wine(return_X_y=True)
         settings = {
-            "time_budget":         10,  # total running time in seconds
-            "estimator_list":      ['RGF', 'lgbm', 'rf', 'xgboost'],
-            "task":                'classification',  # task type
-            "sample":              True,  # whether to subsample training data
-            "log_file_name":       "test/wine.log",
+            "time_budget": 10,  # total running time in seconds
+            "estimator_list": ['RGF', 'lgbm', 'rf', 'xgboost'],
+            "task": 'classification',  # task type
+            "sample": True,  # whether to subsample training data
+            "log_file_name": "test/wine.log",
             "log_training_metric": True,  # whether to log training metric
-            "ensemble":            True,
-            "n_jobs":              1,
+            "ensemble": True,
+            "n_jobs": 1,
         }
 
         '''The main flaml automl API'''
@@ -153,16 +153,16 @@ class TestAutoML(unittest.TestCase):
         X_train, y_train = load_iris(return_X_y=True)
         automl_experiment = AutoML()
         automl_settings = {
-            "time_budget":         10,
-            'eval_method':         'holdout',
-            "metric":              custom_metric,
-            "task":                'classification',
-            "log_file_name":       "test/iris_custom.log",
+            "time_budget": 10,
+            'eval_method': 'holdout',
+            "metric": custom_metric,
+            "task": 'classification',
+            "log_file_name": "test/iris_custom.log",
             "log_training_metric": True,
-            'log_type':            'all',
-            "n_jobs":              1,
-            "model_history":       True,
-            "sample_weight":       np.ones(len(y_train)),
+            'log_type': 'all',
+            "n_jobs": 1,
+            "model_history": True,
+            "sample_weight": np.ones(len(y_train)),
         }
         automl_experiment.fit(X_train=X_train, y_train=y_train,
                               **automl_settings)
