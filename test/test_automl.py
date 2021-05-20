@@ -186,13 +186,13 @@ class TestAutoML(unittest.TestCase):
     def test_classification(self, as_frame=False):
         automl_experiment = AutoML()
         automl_settings = {
-            "time_budget":         4,
-            "metric":              'accuracy',
-            "task":                'classification',
-            "log_file_name":       "test/iris.log",
+            "time_budget": 4,
+            "metric": 'accuracy',
+            "task": 'classification',
+            "log_file_name": "test/iris.log",
             "log_training_metric": True,
-            "n_jobs":              1,
-            "model_history":       True
+            "n_jobs": 1,
+            "model_history": True
         }
         X_train, y_train = load_iris(return_X_y=True, as_frame=as_frame)
         if as_frame:
@@ -233,12 +233,12 @@ class TestAutoML(unittest.TestCase):
         }
 
 
-        fake_df = pd.DataFrame({'A':      [datetime(1900, 2, 3), datetime(1900, 3, 4),
-                                           datetime(1900, 3, 4), datetime(1900, 3, 4),
-                                           datetime(1900, 7, 2), datetime(1900, 8, 9)],
-                                'B':      [datetime(1900, 1, 1), datetime(1900, 1, 1),
-                                           datetime(1900, 1, 1), datetime(1900, 1, 1),
-                                           datetime(1900, 1, 1), datetime(1900, 1, 1)],
+        fake_df = pd.DataFrame({'A': [datetime(1900, 2, 3), datetime(1900, 3, 4),
+                                      datetime(1900, 3, 4), datetime(1900, 3, 4),
+                                      datetime(1900, 7, 2), datetime(1900, 8, 9)],
+                                'B': [datetime(1900, 1, 1), datetime(1900, 1, 1),
+                                      datetime(1900, 1, 1), datetime(1900, 1, 1),
+                                      datetime(1900, 1, 1), datetime(1900, 1, 1)],
                                 'year_A': [datetime(1900, 1, 2), datetime(1900, 8, 1),
                                            datetime(1900, 1, 4), datetime(1900, 6, 1),
                                            datetime(1900, 1, 5), datetime(1900, 4, 1)]})
@@ -270,13 +270,13 @@ class TestAutoML(unittest.TestCase):
     def test_regression(self):
         automl_experiment = AutoML()
         automl_settings = {
-            "time_budget":         2,
-            "metric":              'mse',
-            "task":                'regression',
-            "log_file_name":       "test/boston.log",
+            "time_budget": 2,
+            "metric": 'mse',
+            "task": 'regression',
+            "log_file_name": "test/boston.log",
             "log_training_metric": True,
-            "n_jobs":              1,
-            "model_history":       True
+            "n_jobs": 1,
+            "model_history": True
         }
         X_train, y_train = load_boston(return_X_y=True)
         n = int(len(y_train) * 9 // 10)
@@ -295,12 +295,12 @@ class TestAutoML(unittest.TestCase):
     def test_sparse_matrix_classification(self):
         automl_experiment = AutoML()
         automl_settings = {
-            "time_budget":   2,
-            "metric":        'auto',
-            "task":          'classification',
+            "time_budget": 2,
+            "metric": 'auto',
+            "task": 'classification',
             "log_file_name": "test/sparse_classification.log",
-            "split_type":    "uniform",
-            "n_jobs":        1,
+            "split_type": "uniform",
+            "n_jobs": 1,
             "model_history": True
         }
         X_train = scipy.sparse.random(1554, 21, dtype=int)
@@ -322,13 +322,13 @@ class TestAutoML(unittest.TestCase):
         y_val = np.random.uniform(size=100)
         automl_experiment = AutoML()
         automl_settings = {
-            "time_budget":   2,
-            "metric":        'mae',
-            "task":          'regression',
+            "time_budget": 2,
+            "metric": 'mae',
+            "task": 'regression',
             "log_file_name": "test/sparse_regression.log",
-            "n_jobs":        1,
+            "n_jobs": 1,
             "model_history": True,
-            "verbose":       0,
+            "verbose": 0,
         }
         automl_experiment.fit(X_train=X_train, y_train=y_train,
                               X_val=X_val, y_val=y_val,
@@ -347,13 +347,13 @@ class TestAutoML(unittest.TestCase):
     def test_sparse_matrix_xgboost(self):
         automl_experiment = AutoML()
         automl_settings = {
-            "time_budget":    3,
-            "metric":         'ap',
-            "task":           'classification',
-            "log_file_name":  "test/sparse_classification.log",
+            "time_budget": 3,
+            "metric": 'ap',
+            "task": 'classification',
+            "log_file_name": "test/sparse_classification.log",
             "estimator_list": ["xgboost"],
-            "log_type":       "all",
-            "n_jobs":         1,
+            "log_type": "all",
+            "n_jobs": 1,
         }
         X_train = scipy.sparse.eye(900000)
         y_train = np.random.randint(2, size=900000)
@@ -369,13 +369,13 @@ class TestAutoML(unittest.TestCase):
     def test_sparse_matrix_lr(self):
         automl_experiment = AutoML()
         automl_settings = {
-            "time_budget":    2,
-            "metric":         'f1',
-            "task":           'classification',
-            "log_file_name":  "test/sparse_classification.log",
+            "time_budget": 2,
+            "metric": 'f1',
+            "task": 'classification',
+            "log_file_name": "test/sparse_classification.log",
             "estimator_list": ["lrl1", "lrl2"],
-            "log_type":       "all",
-            "n_jobs":         1,
+            "log_type": "all",
+            "n_jobs": 1,
         }
         X_train = scipy.sparse.random(3000, 900, density=0.1)
         y_train = np.random.randint(2, size=3000)
@@ -393,13 +393,13 @@ class TestAutoML(unittest.TestCase):
         y_train = np.random.uniform(size=8)
         automl_experiment = AutoML()
         automl_settings = {
-            "time_budget":   2,
-            'eval_method':   'cv',
-            "task":          'regression',
+            "time_budget": 2,
+            'eval_method': 'cv',
+            "task": 'regression',
             "log_file_name": "test/sparse_regression.log",
-            "n_jobs":        1,
+            "n_jobs": 1,
             "model_history": True,
-            "metric":        "mse",
+            "metric": "mse",
             "sample_weight": np.ones(len(y_train)),
         }
         automl_experiment.fit(X_train=X_train, y_train=y_train,
@@ -420,12 +420,12 @@ class TestAutoML(unittest.TestCase):
         automl_experiment.add_learner(learner_name='my_xgb1', learner_class=MyXGB1)
         automl_experiment.add_learner(learner_name='my_xgb2', learner_class=MyXGB2)
         automl_settings = {
-            "time_budget":    2,
+            "time_budget": 2,
             "estimator_list": ['my_xgb1', 'my_xgb2'],
-            "task":           'regression',
-            "log_file_name":  'test/regression_xgboost.log',
-            "n_jobs":         1,
-            "model_history":  True,
+            "task": 'regression',
+            "log_file_name": 'test/regression_xgboost.log',
+            "n_jobs": 1,
+            "model_history": True,
         }
         automl_experiment.fit(X_train=X_train, y_train=y_train,
                               X_val=X_val, y_val=y_val,
