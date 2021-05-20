@@ -46,6 +46,10 @@ def hpo_space_gridunion_other_large(logger, model_type, model_size_type, dataset
 
     return output_config
 
+def hpo_space_custom(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
+    assert "hpo_space" in custom_hpo_args
+    return custom_hpo_args["hpo_space"]
+
 def hpo_space_gridunion_other(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
     output_config = {}
     for each_model_type in {"electra", "roberta", "bert"}:
@@ -175,7 +179,8 @@ HPO_SEARCH_SPACE_MAPPING = OrderedDict(
     [
         ("uni", hpo_space_gridunion_other),
         ("gnr", hpo_space_generic),
-        ("uni_test", hpo_space_gridunion_smoke_test)
+        ("uni_test", hpo_space_gridunion_smoke_test),
+        ("cus", hpo_space_custom),
     ]
 )
 

@@ -96,3 +96,6 @@
 #     tab.replace("", nan_value, inplace=True)
 #     tab.dropna(inplace=True)
 #     tab.to_csv("result.csv", index = False)
+
+def summarize_():
+    return True

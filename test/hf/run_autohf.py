@@ -37,7 +37,7 @@ def get_preparedata_setting(args, jobid_config, wandb_utils):
         preparedata_setting["fold_name"] = ['train', 'validation_matched', 'test_matched']
     return preparedata_setting
 
-def get_autohf_settings(args, points_to_evaluate = None):
+def get_autohf_settings(args, **custom_args):
     autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
                        "num_samples": args.sample_num,
                        "time_budget": args.time_budget,
@@ -48,8 +48,8 @@ def get_autohf_settings(args, points_to_evaluate = None):
             autohf_settings[other_attr] = getattr(args, other_attr)
         else:
             autohf_settings[other_attr] = None
-    if args.search_alg_args_mode == "cus" and points_to_evaluate:
-        autohf_settings["points_to_evaluate"] = points_to_evaluate
+    if len(custom_args) > 0:
+        autohf_settings.update(custom_args)
     return autohf_settings
 
 def rm_home_result():
@@ -58,7 +58,49 @@ def rm_home_result():
     if os.path.exists(home + "/ray_results/"):
         shutil.rmtree(home + "/ray_results/")
 
-def _test_base_and_large(args, jobid_config, autohf, wandb_utils):
+def search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils):
+    import copy, re
+    args_small = copy.deepcopy(args)
+    args_small.sample_num = 10000
+    args_small.time_budget = 3600
+    jobid_config_small = JobID(args_small)
+    jobid_config_small.presz = "small"
+    jobid_config_small.pre_full = re.sub("(xlarge|large|intermediate)", "small", jobid_config_small.pre_full)
+    azure_utils_small = AzureUtils(args_small, jobid_config_small, autohf)
+    _test_hpo(args_small, jobid_config_small, autohf, wandb_utils, azure_utils_small)
+
+    best_config = azure_utils_small.get_ranked_configs_from_azure_file(autohf.metric_mode_name)[0]
+
+    args_large = copy.deepcopy(args)
+    args_large.time_budget = args.time_budget - 3600
+    args_large.sample_num = 100000
+    args_large.algo_name = "cfo"
+    args_large.search_alg_args_mode = "dft"
+    args_large.space_mode = "cus"
+    jobid_config_large = JobID(args_large)
+    jobid_config_large.presz = jobid_config.presz
+    jobid_config_large.pre_full = jobid_config.pre_full
+    azure_utils_large = AzureUtils(args_large, jobid_config_large, autohf)
+    best_config_neighbor = {key: [best_config[key]] for key in best_config.keys()}
+    best_config_neighbor["learning_rate"] = {
+        "l": best_config_neighbor["learning_rate"][0] / 500,
+        "u": best_config_neighbor["learning_rate"][0],
+        "space": "log"}
+    best_config_neighbor["num_train_epochs"] = {
+        "l": 3,
+        "u": 10,
+        "space": "linear"
+    }
+    _test_hpo(args_large,
+              jobid_config_large,
+              autohf,
+              wandb_utils,
+              azure_utils_large,
+              autohf_settings=
+        get_autohf_settings(args_large,
+                **{"hpo_space": best_config_neighbor}))
+
+def search_base_and_evaluate_large(args, jobid_config, autohf, wandb_utils):
     import copy, re
     args_small = copy.deepcopy(args)
     args_small.sample_num = 10000
@@ -84,7 +126,9 @@ def _test_base_and_large(args, jobid_config, autohf, wandb_utils):
               autohf,
               wandb_utils,
               azure_utils_large,
-              autohf_settings= get_autohf_settings(args_large, points_to_evaluate=ranked_all_small_configs))
+              autohf_settings=
+              get_autohf_settings(args_large,
+                **{"points_to_evaluate": ranked_all_small_configs}))
 
 def _test_hpo(args,
               jobid_config,
@@ -102,9 +146,9 @@ def _test_hpo(args,
         analysis = validation_metric = test_metric = None
         if not autohf_settings:
             autohf_settings = get_autohf_settings(args)
-        if args.algo_mode in ["grid", "gridbert", "hpo", "list"]:
+        if args.algo_mode != "hfhpo":
             validation_metric, analysis = autohf.fit(**autohf_settings,)
-        elif args.algo_mode == "hfhpo":
+        else:
             autohf.fit_hf(**autohf_settings)
 
         if jobid_config.spt == "ori":
@@ -136,7 +180,9 @@ if __name__ == "__main__":
     wandb_utils = WandbUtils(args, jobid_config)
     wandb_utils.set_wandb_per_run()
 
-    if args.algo_mode != "list":
+    if args.algo_mode in ("hpo", "hfhpo", "grid", "gridbert"):
         _test_hpo(args, jobid_config, autohf, wandb_utils)
+    elif args.algo_mode == "bestnn":
+        search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils)
     else:
-        _test_base_and_large(args, jobid_config, autohf, wandb_utils)
+        search_base_and_evaluate_large(args, jobid_config, autohf, wandb_utils)
