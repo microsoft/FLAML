@@ -28,6 +28,7 @@ class BlendSearch(Searcher):
 
     cost_attr = "time_total_s"  # cost attribute in result
     lagrange = '_lagrange'      # suffix for lagrange-modified metric
+    penalty = 1e+10             # penalty term for constraints
 
     def __init__(self,
                  metric: Optional[str] = None,
@@ -162,8 +163,11 @@ class BlendSearch(Searcher):
         self._deadline = np.inf
         if self._metric_constraints:
             self._metric_constraint_satisfied = False
+            self._metric_constraint_penalty = [
+                self.penalty for _ in self._metric_constraints]
         else:
             self._metric_constraint_satisfied = True
+            self._metric_constraint_penalty = None
 
     def save(self, checkpoint_path: str):
         save_object = self
@@ -191,6 +195,7 @@ class BlendSearch(Searcher):
         self._config_constraints = state._config_constraints
         self._metric_constraints = state._metric_constraints
         self._metric_constraint_satisfied = state._metric_constraint_satisfied
+        self._metric_constraint_penalty = state._metric_constraint_penalty
 
     def restore_from_dir(self, checkpoint_dir: str):
         super.restore_from_dir(checkpoint_dir)
@@ -203,7 +208,7 @@ class BlendSearch(Searcher):
         if result and not error and self._metric_constraints:
             # account for metric constraints if any
             objective = result[self._metric]
-            for constraint in self._metric_constraints:
+            for i, constraint in enumerate(self._metric_constraints):
                 metric_constraint, sign, threshold = constraint
                 value = result.get(metric_constraint)
                 if value:
@@ -212,9 +217,15 @@ class BlendSearch(Searcher):
                     violation = (value - threshold) * sign_op
                     if violation > 0:
                         # add penalty term to the metric
-                        objective += 1e+10 * violation * self._ls.metric_op
+                        objective += self._metric_constraint_penalty[
+                            i] * violation * self._ls.metric_op
                         metric_constraint_satisfied = False
+                        if self._metric_constraint_penalty[i] < self.penalty:
+                            self._metric_constraint_penalty[i] += 1     # or *2?
             result[self._metric + self.lagrange] = objective
+            if metric_constraint_satisfied and not self._metric_constraint_satisfied:
+                # found a feasible point
+                self._metric_constraint_penalty = [1 for _ in self._metric_constraints]
             self._metric_constraint_satisfied |= metric_constraint_satisfied
         thread_id = self._trial_proposed_by.get(trial_id)
         if thread_id in self._search_thread_pool:
