@@ -179,8 +179,8 @@ class TestAutoML(unittest.TestCase):
             task='multi')
         print(estimator)
         time_history, best_valid_loss_history, valid_loss_history, \
-        config_history, train_loss_history = get_output_from_log(
-            filename=automl_settings['log_file_name'], time_budget=6)
+            config_history, train_loss_history = get_output_from_log(
+                filename=automl_settings['log_file_name'], time_budget=6)
         print(train_loss_history)
 
     def test_classification(self, as_frame=False):
@@ -231,8 +231,6 @@ class TestAutoML(unittest.TestCase):
             "n_jobs": 1,
             "model_history": True
         }
-
-
         fake_df = pd.DataFrame({'A': [datetime(1900, 2, 3), datetime(1900, 3, 4),
                                       datetime(1900, 3, 4), datetime(1900, 3, 4),
                                       datetime(1900, 7, 2), datetime(1900, 8, 9)],
@@ -244,14 +242,12 @@ class TestAutoML(unittest.TestCase):
                                            datetime(1900, 1, 5), datetime(1900, 4, 1)]})
         y = np.array([0, 1, 0, 1, 0, 0])
         automl_experiment.fit(X_train=fake_df, y_train=y, **automl_settings)
-
         _ = automl_experiment.predict(fake_df)
 
 
     def test_micro_macro_f1(self):
-        automl_experiment = AutoML()
+        automl_experiment_micro = AutoML()
         automl_experiment_macro = AutoML()
-
         automl_settings = {
             "time_budget": 2,
             "task": 'classification',
@@ -260,9 +256,8 @@ class TestAutoML(unittest.TestCase):
             "n_jobs": 1,
             "model_history": True
         }
-
         X_train, y_train = load_iris(return_X_y=True)
-        automl_experiment.fit(
+        automl_experiment_micro.fit(
             X_train=X_train, y_train=y_train, metric='micro_f1', **automl_settings)
         automl_experiment_macro.fit(
             X_train=X_train, y_train=y_train, metric='macro_f1', **automl_settings)

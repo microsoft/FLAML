@@ -226,7 +226,7 @@ class DataTransformer:
                                                 f'quarter_{column}': tmp_dt.quarter}
                             for new_col_name in new_columns_dict.keys():
                                 if new_col_name not in X.columns and \
-                                        new_columns_dict.get(new_col_name).nunique(dropna=False) > 2:
+                                        new_columns_dict.get(new_col_name).nunique(dropna=False) >= 2:
                                     X[new_col_name] = new_columns_dict.get(new_col_name)
                                     num_columns.append(new_col_name)
                             X[column] = X[column].map(datetime.toordinal)
@@ -267,7 +267,7 @@ class DataTransformer:
         X = X.copy()
         if isinstance(X, pd.DataFrame):
             cat_columns, num_columns, datetime_columns = self._cat_columns, \
-                                                         self._num_columns, self._datetime_columns
+                                    self._num_columns, self._datetime_columns
             if datetime_columns:
                 for column in datetime_columns:
                     tmp_dt = X[column].dt
@@ -278,7 +278,8 @@ class DataTransformer:
                                         f'dayofyear_{column}': tmp_dt.dayofyear,
                                         f'quarter_{column}': tmp_dt.quarter}
                     for new_col_name in new_columns_dict.keys():
-                        if new_col_name in num_columns and new_col_name not in X.columns:
+                        if new_col_name not in X.columns and \
+                                new_columns_dict.get(new_col_name).nunique(dropna=False) >= 2:
                             X[new_col_name] = new_columns_dict.get(new_col_name)
                     X[column] = X[column].map(datetime.toordinal)
                     del tmp_dt
