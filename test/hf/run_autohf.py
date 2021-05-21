@@ -71,7 +71,6 @@ def search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils):
     preparedata_setting = get_preparedata_setting(args, jobid_config, wandb_utils)
     autohf.prepare_data(**preparedata_setting)
     autohf.set_metric()
-    #_test_hpo(args_small, jobid_config_small, autohf, wandb_utils, azure_utils_small)
 
     best_config = azure_utils_small.get_ranked_configs_from_azure_file(autohf.metric_mode_name)[0]
 
@@ -79,7 +78,7 @@ def search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils):
     args_large.time_budget = args.time_budget - 3600
     args_large.sample_num = 100000
     args_large.algo_name = "cfo"
-    args_large.search_alg_args_mode = "dft"
+    args_large.search_alg_args_mode = "cus"
     args_large.space_mode = "cus"
     jobid_config_large = JobID(args_large)
     jobid_config_large.presz = jobid_config.presz
@@ -102,7 +101,8 @@ def search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils):
               azure_utils_large,
               autohf_settings=
         get_autohf_settings(args_large,
-                **{"hpo_space": best_config_neighbor}))
+                **{"hpo_space": best_config_neighbor,
+                   "points_to_evaluate": [best_config]}))
 
 def search_base_and_evaluate_large(args, jobid_config, autohf, wandb_utils):
     import copy, re

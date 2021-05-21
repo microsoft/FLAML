@@ -11,7 +11,7 @@ import json
 @dataclass
 class JobID:
     dat: list = field(default = None)
-    subdat: str = field(default=None)
+    subdat: str = field(default= None)
     mod: str = field(default = None)
     spa: str = field(default = None)
     arg: str = field(default = None)
@@ -24,8 +24,16 @@ class JobID:
     rep: int = field(default = 0)
 
     def __init__(self,
-                 console_args):
-        self.load_console_args(console_args)
+                 console_args = None):
+        if console_args:
+            self.load_console_args(console_args)
+
+    def is_partial_match(self, partial_config):
+        is_not_match = False
+        for key, val in partial_config.__dict__.items():
+            if getattr(self, key) != val:
+                is_not_match = True
+        return not is_not_match
 
     def to_wandb_string(self):
         field_dict = self.__dict__
@@ -36,58 +44,46 @@ class JobID:
         return keytoval_str
 
     def to_jobid_string(self):
+        list_keys = list(self.__dataclass_fields__.keys())
         field_dict = self.__dict__
         keytoval_str = "_".join([key + "=" + str(field_dict[key][0])
                                  if type(field_dict[key]) == list
                                  else key + "=" + str(field_dict[key])
-                                 for key in field_dict.keys() if not key.endswith("_full")])
+                                 for key in list_keys if not key.endswith("_full")])
         return keytoval_str
 
-    @staticmethod
-    def blobname_to_jobid(keytoval_str):
-        result = re.search(".*_dat=(?P<dat>.*)_subdat=(?P<subdat>.*)_mod=(?P<mod>.*)_spa=(?P<spa>.*)_arg=(?P<arg>.*)"
-                           "_alg=(?P<alg>.*)_pru=(?P<pru>.*)_pre=(?P<pre>.*)_presz=(?P<presz>.*)_spt=(?P<spt>.*)_rep=(?P<rep>\d+).*", keytoval_str)
-        dat = [result.group("dat")]
-        subdat = result.group("subdat")
-        mod = result.group("mod")
-        spa = result.group("spa")
-        arg = result.group("arg")
-        alg = result.group("alg")
-        pru = result.group("pru")
-        pre = result.group("pre")
-        presz = result.group("presz")
-        spt = result.group("spt")
-        rep = int(result.group("rep"))
-        return dat, subdat, mod, spa, arg, alg, pru, pre, presz, spt, rep
+    def blobname_to_jobid(self, keytoval_str):
+        field_keys = [key for key in list(self.__dataclass_fields__.keys()) if not key.endswith("_full")]
+        regex_expression = ".*" + "_".join([key + "=(?P<" + key + ">.*)" for key in field_keys]) + ".json"
+        result = re.search(regex_expression, keytoval_str)
+        if result:
+            result_dict = {}
+            for key in field_keys:
+                if key == "dat":
+                    result_dict[key] = [result.group(key)]
+                elif key == "rep":
+                    result_dict[key] = int(result.group(key))
+                else:
+                    result_dict[key] = result.group(key)
+            return result_dict
+        else:
+            return None
 
     def set_jobid(self,
-                  dat=None,
-                  subdat=None,
-                  mod=None,
-                  spa=None,
-                  arg=None,
-                  alg=None,
-                  pru=None,
-                  pre=None,
-                  presz=None,
-                  spt=None,
-                  rep=None
+                  **kwargs
                   ):
-        self.dat = dat
-        self.subdat = subdat
-        self.mod = mod
-        self.spa = spa
-        self.arg = arg
-        self.alg = alg
-        self.pru = pru
-        self.pre = pre
-        self.presz = presz
-        self.spt = spt
-        self.rep = rep
+        for key in kwargs.keys():
+            assert key in self.__dataclass_fields__.keys()
+            setattr(self, key, kwargs[key])
 
     def from_blobname(self, blobname):
-        dat, subdat, mod, spa, arg, alg, pru, pre, presz, spt, rep = JobID.blobname_to_jobid(blobname)
-        self.set_jobid(dat, subdat, mod, spa, arg, alg, pru, pre, presz, spt, rep)
+        jobconfig_kwargs = self.blobname_to_jobid(blobname)
+        if jobconfig_kwargs:
+            jobconfig = JobID()
+            jobconfig.set_jobid(**jobconfig_kwargs)
+            return jobconfig
+        else:
+            return None
 
     @staticmethod
     def get_full_data_name(dataset_name, subdataset_name=None):
@@ -212,16 +208,18 @@ class JobID:
         return None
 
 class AzureUtils:
+
     def __init__(self,
-                 console_args,
-                 jobid,
-                 autohf):
+                 console_args = None,
+                 jobid = None,
+                 autohf = None):
         self.jobid = jobid
         self.console_args = console_args
         self.autohf = autohf
-        wandb_key, azure_key, container_name = get_wandb_azure_key(console_args.key_path)
-        self._container_name = container_name
-        self._azure_key = azure_key
+        if console_args:
+            wandb_key, azure_key, container_name = get_wandb_azure_key(console_args.key_path)
+            self._container_name = container_name
+            self._azure_key = azure_key
 
     def _get_complete_connection_string(self):
         return "DefaultEndpointsProtocol=https;AccountName=docws5141197765;AccountKey=" \
@@ -239,15 +237,6 @@ class AzureUtils:
         blob_service_client = BlobServiceClient.from_connection_string(connection_string)
         blob_client = blob_service_client.get_blob_client(container= self._container_name, blob= local_file_path)
         return blob_client
-
-    def store_azure_uploaded_files_in_db(self):
-        import pandas
-        container_client = self._init_azure_clients()
-        self.all_azure_files = pandas.DataFrame(columns = ["dat", "subdat", "mod", "spa", "arg", "alg", "pru", "pre", "presz", "spt", "rep", "blob_name"])
-        for blob in container_client.list_blobs():
-            dat, subdat, mod, spa, arg, alg, pru, pre, presz, spt, rep = self.jobid.blobname_to_jobid(blob.name)
-            existing_row_count = len(self.all_azure_files)
-            self.all_azure_files.loc[existing_row_count] = [dat, subdat, mod, spa, arg, alg, pru, pre, presz, spt, rep, blob.name]
 
     def upload_local_file_to_azure(self, local_file_path):
         blob_client = self._init_blob_client(local_file_path)
@@ -372,3 +361,45 @@ class AzureUtils:
 
         sorted_trialid_to_score = sorted(trialid_to_score.items(), key = lambda x:x[1], reverse=True)
         return [trialid_to_config[entry[0]] for entry in sorted_trialid_to_score]
+
+    def get_blob_list_matching_partial_jobid(self, partial_config):
+        blob_list = []
+        container_client = self._init_azure_clients()
+        jobid_config = JobID()
+        for each_blob in container_client.list_blobs():
+            each_jobconfig = jobid_config.from_blobname(each_blob.name)
+            if each_jobconfig:
+                if each_jobconfig.is_partial_match(partial_config):
+                    blob_list.append((each_jobconfig, each_blob))
+        return blob_list
+
+    def extract_config_and_score(self, blobname):
+        if "mrpc" in blobname and "mod=list" in blobname:
+            stop = 0
+        data_json = json.load(open(blobname, "r"))
+        return [(x['config'], x['metric_score']["max"]) for x in data_json['val_log']]
+        # return sorted(
+        #     [(x['config'], x['metric_score']["max"]) for x in data_json['val_log']],
+        #     key = lambda y:y[1])
+
+    def get_config_and_score_from_partial_config(self, partial_config, group_attrs, method):
+        matched_blob_list = self.get_blob_list_matching_partial_jobid(partial_config)
+        group_dict = {}
+        for (each_jobconfig, each_blob) in matched_blob_list:
+            self.download_azure_blob(each_blob.name)
+            config_and_score = self.extract_config_and_score(each_blob.name)
+            if method == "list":
+                sorted_config_and_score = config_and_score
+            else:
+                sorted_config_and_score = sorted(config_and_score, key = lambda x:x[1], reverse=True)
+            group_attr_list = []
+            for each_attr in group_attrs:
+                group_val = getattr(each_jobconfig, each_attr)
+                if isinstance(group_val, list):
+                    group_attr_list.append(group_val[0])
+                else:
+                    group_attr_list.append(group_val)
+            group_attr_tuple = tuple(group_attr_list)
+            group_dict.setdefault(group_attr_tuple, [])
+            group_dict[group_attr_tuple].append(sorted_config_and_score)
+        return group_dict

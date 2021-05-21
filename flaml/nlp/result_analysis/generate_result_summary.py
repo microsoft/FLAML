@@ -97,5 +97,17 @@
 #     tab.dropna(inplace=True)
 #     tab.to_csv("result.csv", index = False)
 
-def summarize_():
-    return True
+def extract_ranked_config_score(console_args, partial_config_dict):
+    from .azure_utils import AzureUtils
+    import numpy as np
+    azure_utils = AzureUtils(console_args)
+
+    for method, each_partial_config in partial_config_dict.items():
+        dataset2configscorelist = azure_utils.get_config_and_score_from_partial_config(each_partial_config, ["dat", "subdat"], method)
+        for each_dataset, configscorelist in dataset2configscorelist.items():
+            for config_idx in range(len(configscorelist)):
+                avg_scores = configscorelist[config_idx][0][1]
+                top_config = configscorelist[config_idx][0][0]
+                print(method + "," + str(each_dataset) + ",rep=" + str(config_idx))
+                print("avg score :" + str(avg_scores))
+                print(''.join(['{0}={1}\n'.format(key, top_config[key]) for key in sorted(top_config.keys())]))
