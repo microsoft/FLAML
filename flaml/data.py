@@ -48,7 +48,7 @@ def load_openml_dataset(dataset_id, data_dir=None, random_state=0):
     print('Dataset name:', dataset.name)
     X, y, * \
         __ = dataset.get_data(
-           target=dataset.default_target_attribute, dataset_format='array')
+            target=dataset.default_target_attribute, dataset_format='array')
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, random_state=random_state)
     print(
