@@ -221,7 +221,7 @@ class BlendSearch(Searcher):
                             i] * violation * self._ls.metric_op
                         metric_constraint_satisfied = False
                         if self._metric_constraint_penalty[i] < self.penalty:
-                            self._metric_constraint_penalty[i] += 1     # or *2?
+                            self._metric_constraint_penalty[i] += violation
             result[self._metric + self.lagrange] = objective
             if metric_constraint_satisfied and not self._metric_constraint_satisfied:
                 # found a feasible point
