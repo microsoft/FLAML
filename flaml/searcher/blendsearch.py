@@ -136,6 +136,11 @@ class BlendSearch(Searcher):
         else:
             if metric:
                 self._metric = metric
+                if self._metric_constraints:
+                    # metric modified by lagrange
+                    metric += self.lagrange
+                    # TODO: don't change metric for global search methods that
+                    # can handle constraints already
             if mode:
                 self._mode = mode
             self._ls.set_search_properties(metric, mode, config)
