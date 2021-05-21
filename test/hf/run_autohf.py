@@ -223,4 +223,6 @@ if __name__ == "__main__":
     elif args.algo_mode == "bestnn":
         search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils)
     elif args.algo_mode == "list":
+        evaluate_small_best_configs_on_large(args, autohf)
+    elif args.algo_mode == "list_s":
         evaluate_large_best_configs_on_small(args, autohf)

@@ -7,7 +7,7 @@ def load_console_args():
     arg_parser.add_argument('--server_name', type=str, help='server name', required=True,
                             choices=["tmdev", "dgx", "azureml"], default = None)
     arg_parser.add_argument('--algo_mode', type=str, help='hpo or grid search', required=True,
-                            choices=["grid", "gridbert", "hpo", "hfhpo", "list", "bestnn"], default = None)
+                            choices=["grid", "gridbert", "hpo", "hfhpo", "list_s", "list", "bestnn"], default = None)
     arg_parser.add_argument('--data_root_dir', type=str, help='data dir', required=True)
     arg_parser.add_argument('--dataset_subdataset_name', type=str, help='dataset and subdataset name',
                             required=False, default = None)
