@@ -9,6 +9,7 @@ def create_partial_config_bestnn():
     jobid_config = JobID()
     jobid_config.mod = "bestnn"
     jobid_config.spa = "cus"
+    jobid_config.arg = "cus"
     return jobid_config
 
 def create_partial_config_list():
@@ -34,5 +35,5 @@ if __name__ == "__main__":
         partial_config_list = {"hpo":  create_partial_config_hpo(),
                                "list": create_partial_config_list(),
                                "bestnn": create_partial_config_bestnn()}
-        from flaml.nlp.result_analysis.generate_result_summary import extract_ranked_config_score
-        extract_ranked_config_score(args, partial_config_list)
+        from flaml.nlp.result_analysis.generate_result_summary import compare_small_vs_large
+        compare_small_vs_large(args)

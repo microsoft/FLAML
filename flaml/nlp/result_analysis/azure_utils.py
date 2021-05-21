@@ -378,9 +378,6 @@ class AzureUtils:
             stop = 0
         data_json = json.load(open(blobname, "r"))
         return [(x['config'], x['metric_score']["max"]) for x in data_json['val_log']]
-        # return sorted(
-        #     [(x['config'], x['metric_score']["max"]) for x in data_json['val_log']],
-        #     key = lambda y:y[1])
 
     def get_config_and_score_from_partial_config(self, partial_config, group_attrs, method):
         matched_blob_list = self.get_blob_list_matching_partial_jobid(partial_config)

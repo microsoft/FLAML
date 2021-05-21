@@ -104,35 +104,69 @@ def search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils):
                 **{"hpo_space": best_config_neighbor,
                    "points_to_evaluate": [best_config]}))
 
-def search_base_and_evaluate_large(args, jobid_config, autohf, wandb_utils):
-    import copy, re
-    args_small = copy.deepcopy(args)
-    args_small.sample_num = 10000
-    args_small.time_budget = 3600
-    jobid_config_small = JobID(args_small)
-    jobid_config_small.presz = "small"
-    jobid_config_small.pre_full = re.sub("(xlarge|large|intermediate)", "small", jobid_config_small.pre_full)
-    azure_utils_small = AzureUtils(args_small, jobid_config_small, autohf)
-    _test_hpo(args_small, jobid_config_small, autohf, wandb_utils, azure_utils_small)
-
-    ranked_all_small_configs = azure_utils_small.get_ranked_configs_from_azure_file(autohf.metric_mode_name)
-
-    args_large = copy.deepcopy(args)
-    args_large.time_budget = 100000
-    args_large.sample_num = int(len(ranked_all_small_configs) / 2)
-    args_large.search_alg_args_mode = "cus"
-    jobid_config_large = JobID(args_large)
-    jobid_config_large.presz = jobid_config.presz
-    jobid_config_large.pre_full = jobid_config.pre_full
-    azure_utils_large = AzureUtils(args_large, jobid_config_large, autohf)
-    _test_hpo(args_large,
-              jobid_config_large,
+def evaluate_configs(autohf, args, ranked_all_configs):
+    import copy
+    this_args = copy.deepcopy(args)
+    this_args.time_budget = 100000
+    this_args.sample_num = int(len(ranked_all_configs))
+    this_args.search_alg_args_mode = "cus"
+    jobid_config = JobID(this_args)
+    azure_utils_large = AzureUtils(this_args, jobid_config, autohf)
+    _test_hpo(this_args,
+              jobid_config,
               autohf,
               wandb_utils,
               azure_utils_large,
               autohf_settings=
-              get_autohf_settings(args_large,
-                **{"points_to_evaluate": ranked_all_small_configs}))
+              get_autohf_settings(this_args, **{"points_to_evaluate": ranked_all_configs}))
+
+def convert_config_to_different_size(origin_config, mode):
+    import re, copy
+    if mode == "small":
+        new_config = copy.deepcopy(origin_config)
+        new_config.mod = "list"
+        new_config.presz = "small"
+        new_config.pre_full = re.sub("(xlarge|large|intermediate)", "small", origin_config.pre_full)
+    elif mode == "large":
+        new_config = copy.deepcopy(origin_config)
+        new_config.mod = "hpo"
+        new_config.presz = "xlarge"
+        new_config.pre_full = re.sub("(small)", "xlarge", origin_config.pre_full)
+    return new_config
+
+def evaluate_small_best_configs_on_large(large_args, autohf):
+    jobid_config_small = convert_config_to_different_size(JobID(large_args), mode="small")
+    jobid_config_small.rep = 0
+    azure_utils_small = AzureUtils(console_args = None, jobid = jobid_config_small, autohf = autohf)
+    ranked_all_small_configs = azure_utils_small.get_ranked_configs_from_azure_file(autohf.metric_mode_name)
+    evaluate_configs(large_args, ranked_all_small_configs[:int(len(ranked_all_small_configs) / 2)])
+
+def add_dict_item_to_list(this_list, this_dict):
+    is_exist = len([x for x in this_list if x == this_dict]) > 0
+    if not is_exist:
+        this_list.append(this_dict)
+    return this_list
+
+def evaluate_large_best_configs_on_small(small_args, autohf):
+    jobid_config_large = convert_config_to_different_size(JobID(small_args), mode="large")
+    autohf.jobid_config = jobid_config_large
+    autohf.set_metric()
+    all_configs_from_large = []
+    for rep_id in range(3):
+        jobid_config_large.rep = rep_id
+        azure_utils_large = AzureUtils(console_args=small_args, jobid=jobid_config_large, autohf=autohf)
+        ranked_all_large_configs = azure_utils_large.get_ranked_configs_from_azure_file(autohf.metric_mode_name)
+        for each_config in ranked_all_large_configs:
+            all_configs_from_large = add_dict_item_to_list(all_configs_from_large, each_config)
+    jobid_config_small = convert_config_to_different_size(JobID(small_args), mode="small")
+    jobid_config_small.rep = 0
+    azure_utils_small = AzureUtils(console_args=small_args, jobid=jobid_config_small, autohf=autohf)
+    ranked_all_small_configs = azure_utils_small.get_ranked_configs_from_azure_file(autohf.metric_mode_name)
+    for each_config in ranked_all_small_configs:
+        all_configs_from_large = add_dict_item_to_list(all_configs_from_large, each_config)
+
+    evaluate_configs(autohf, small_args, list(all_configs_from_large))
+
 
 def _test_hpo(args,
               jobid_config,
@@ -188,5 +222,5 @@ if __name__ == "__main__":
         _test_hpo(args, jobid_config, autohf, wandb_utils)
     elif args.algo_mode == "bestnn":
         search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils)
-    else:
-        search_base_and_evaluate_large(args, jobid_config, autohf, wandb_utils)
+    elif args.algo_mode == "list":
+        evaluate_large_best_configs_on_small(args, autohf)
