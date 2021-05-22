@@ -180,6 +180,8 @@
 <span class="sd">    &#39;&#39;&#39;</span>
 
     <span class="n">cost_attr</span> <span class="o">=</span> <span class="s2">&quot;time_total_s&quot;</span>  <span class="c1"># cost attribute in result</span>
+    <span class="n">lagrange</span> <span class="o">=</span> <span class="s1">&#39;_lagrange&#39;</span>      <span class="c1"># suffix for lagrange-modified metric</span>
+    <span class="n">penalty</span> <span class="o">=</span> <span class="mf">1e+10</span>             <span class="c1"># penalty term for constraints</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
                  <span class="n">metric</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -259,6 +261,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">=</span> <span class="n">metric</span><span class="p">,</span> <span class="n">mode</span>
         <span class="n">init_config</span> <span class="o">=</span> <span class="n">low_cost_partial_config</span> <span class="ow">or</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_points_to_evaluate</span> <span class="o">=</span> <span class="n">points_to_evaluate</span> <span class="ow">or</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_config_constraints</span> <span class="o">=</span> <span class="n">config_constraints</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span> <span class="o">=</span> <span class="n">metric_constraints</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span><span class="p">:</span>
+            <span class="c1"># metric modified by lagrange</span>
+            <span class="n">metric</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lagrange</span>
         <span class="k">if</span> <span class="n">global_search_alg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span> <span class="o">=</span> <span class="n">global_search_alg</span>
         <span class="k">elif</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;__name__&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="o">!=</span> <span class="s1">&#39;CFO&#39;</span><span class="p">:</span>
@@ -268,8 +275,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span> <span class="o">=</span> <span class="n">LocalSearch</span><span class="p">(</span>
             <span class="n">init_config</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">cat_hp_cost</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span>
             <span class="n">prune_attr</span><span class="p">,</span> <span class="n">min_resource</span><span class="p">,</span> <span class="n">max_resource</span><span class="p">,</span> <span class="n">reduction_factor</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_config_constraints</span> <span class="o">=</span> <span class="n">config_constraints</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span> <span class="o">=</span> <span class="n">metric_constraints</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_init_search</span><span class="p">()</span>
 
 <div class="viewcode-block" id="BlendSearch.set_search_properties"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.set_search_properties">[docs]</a>    <span class="k">def</span> <span class="nf">set_search_properties</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
@@ -284,6 +289,11 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">metric</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_metric</span> <span class="o">=</span> <span class="n">metric</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span><span class="p">:</span>
+                    <span class="c1"># metric modified by lagrange</span>
+                    <span class="n">metric</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lagrange</span>
+                    <span class="c1"># TODO: don&#39;t change metric for global search methods that</span>
+                    <span class="c1"># can handle constraints already</span>
             <span class="k">if</span> <span class="n">mode</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">=</span> <span class="n">mode</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">set_search_properties</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
@@ -309,6 +319,13 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_result</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># config_signature: tuple -&gt; result: Dict</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_deadline</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraint_satisfied</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraint_penalty</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">penalty</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraint_satisfied</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraint_penalty</span> <span class="o">=</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="BlendSearch.save"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.save">[docs]</a>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">checkpoint_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
         <span class="n">save_object</span> <span class="o">=</span> <span class="bp">self</span>
@@ -334,7 +351,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">_gs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">_ls</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_config_constraints</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">_config_constraints</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">_metric_constraints</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">_metric_constraints</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraint_satisfied</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">_metric_constraint_satisfied</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraint_penalty</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">_metric_constraint_penalty</span></div>
 
 <div class="viewcode-block" id="BlendSearch.restore_from_dir"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.restore_from_dir">[docs]</a>    <span class="k">def</span> <span class="nf">restore_from_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">checkpoint_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
         <span class="nb">super</span><span class="o">.</span><span class="n">restore_from_dir</span><span class="p">(</span><span class="n">checkpoint_dir</span><span class="p">)</span></div>
@@ -343,10 +362,11 @@
                           <span class="n">error</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39; search thread updater and cleaner</span>
 <span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">metric_constraint_satisfied</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">if</span> <span class="n">result</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">error</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span><span class="p">:</span>
-            <span class="c1"># accout for metric constraints if any</span>
+            <span class="c1"># account for metric constraints if any</span>
             <span class="n">objective</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">]</span>
-            <span class="k">for</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span><span class="p">):</span>
                 <span class="n">metric_constraint</span><span class="p">,</span> <span class="n">sign</span><span class="p">,</span> <span class="n">threshold</span> <span class="o">=</span> <span class="n">constraint</span>
                 <span class="n">value</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">metric_constraint</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">value</span><span class="p">:</span>
@@ -355,8 +375,16 @@
                     <span class="n">violation</span> <span class="o">=</span> <span class="p">(</span><span class="n">value</span> <span class="o">-</span> <span class="n">threshold</span><span class="p">)</span> <span class="o">*</span> <span class="n">sign_op</span>
                     <span class="k">if</span> <span class="n">violation</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                         <span class="c1"># add penalty term to the metric</span>
-                        <span class="n">objective</span> <span class="o">+=</span> <span class="mf">1e+10</span> <span class="o">*</span> <span class="n">violation</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">metric_op</span>
-            <span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">]</span> <span class="o">=</span> <span class="n">objective</span>
+                        <span class="n">objective</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraint_penalty</span><span class="p">[</span>
+                            <span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">violation</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">metric_op</span>
+                        <span class="n">metric_constraint_satisfied</span> <span class="o">=</span> <span class="kc">False</span>
+                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraint_penalty</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">penalty</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraint_penalty</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">violation</span>
+            <span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">lagrange</span><span class="p">]</span> <span class="o">=</span> <span class="n">objective</span>
+            <span class="k">if</span> <span class="n">metric_constraint_satisfied</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraint_satisfied</span><span class="p">:</span>
+                <span class="c1"># found a feasible point</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraint_penalty</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraint_satisfied</span> <span class="o">|=</span> <span class="n">metric_constraint_satisfied</span>
         <span class="n">thread_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">trial_id</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">thread_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="n">thread_id</span><span class="p">]</span><span class="o">.</span><span class="n">on_trial_complete</span><span class="p">(</span>
@@ -372,10 +400,13 @@
             <span class="k">else</span><span class="p">:</span>  <span class="c1"># add to result cache</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">config_signature</span><span class="p">(</span><span class="n">config</span><span class="p">)]</span> <span class="o">=</span> <span class="n">result</span>
                 <span class="c1"># update target metric if improved</span>
-                <span class="n">objective</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">]</span>
+                <span class="n">objective</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_metric</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">lagrange</span><span class="p">]</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span> \
+                    <span class="k">else</span> <span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">]</span>
                 <span class="k">if</span> <span class="p">(</span><span class="n">objective</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_target</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">metric_op</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_metric_target</span> <span class="o">=</span> <span class="n">objective</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">thread_id</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_condition</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">thread_id</span> <span class="ow">and</span> <span class="n">metric_constraint_satisfied</span> \
+                        <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_condition</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
                     <span class="c1"># thread creator</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_thread_count</span><span class="p">]</span> <span class="o">=</span> <span class="n">SearchThread</span><span class="p">(</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
@@ -386,6 +417,9 @@
                     <span class="bp">self</span><span class="o">.</span><span class="n">_thread_count</span> <span class="o">+=</span> <span class="mi">1</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_update_admissible_region</span><span class="p">(</span>
                         <span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">thread_id</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraint_satisfied</span><span class="p">:</span>
+                    <span class="c1"># no point has been found to satisfy metric constraint</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_expand_admissible_region</span><span class="p">()</span>
                 <span class="c1"># reset admissible region to ls bounding box</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_min</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_max</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">)</span>
@@ -459,6 +493,8 @@
         <span class="n">thread_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">thread_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">:</span>
             <span class="k">return</span>
+        <span class="k">if</span> <span class="n">result</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span><span class="p">:</span>
+            <span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">lagrange</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="n">thread_id</span><span class="p">]</span><span class="o">.</span><span class="n">on_trial_result</span><span class="p">(</span><span class="n">trial_id</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="BlendSearch.suggest"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.suggest">[docs]</a>    <span class="k">def</span> <span class="nf">suggest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]:</span>
