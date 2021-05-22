@@ -124,14 +124,25 @@ def convert_config_to_different_size(origin_config, mode):
     import re, copy
     if mode == "small":
         new_config = copy.deepcopy(origin_config)
-        new_config.mod = "list"
-        new_config.presz = "small"
-        new_config.pre_full = re.sub("(xlarge|large|intermediate)", "small", origin_config.pre_full)
+        if new_config.pre == "funnel":
+            new_config.mod = "list"
+        else:
+            new_config.mod = "hpo"
+        if new_config.pre == "funnel":
+            new_config.presz = "small"
+        else:
+            new_config.presz = "base"
+        new_config.pre_full = re.sub("(xlarge|large|intermediate)", new_config.presz, origin_config.pre_full)
     elif mode == "large":
         new_config = copy.deepcopy(origin_config)
         new_config.mod = "hpo"
-        new_config.presz = "xlarge"
-        new_config.pre_full = re.sub("(small)", "xlarge", origin_config.pre_full)
+        if new_config.pre == "funnel":
+            new_config.presz = "xlarge"
+            new_config.pre_full = re.sub("(small)", "xlarge", origin_config.pre_full)
+        else:
+            new_config.presz = "large"
+            new_config.pre_full = re.sub("(small)", "large", origin_config.pre_full)
+
     return new_config
 
 def evaluate_small_best_configs_on_large(large_args, autohf):
