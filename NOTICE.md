@@ -4,13 +4,14 @@ This repository incorporates material as listed below or described in the code.
 
 #
 ## Component. Ray.
-## Open Source License/Copyright Notice. 
 
--------------
 Code in tune/[analysis.py, sample.py, trial.py] and 
 searcher/[suggestion.py, variant_generator.py] is adapted from
 https://github.com/ray-project/ray/blob/master/python/ray/tune/
 
+
+
+## Open Source License/Copyright Notice. 
 
  Apache License
                            Version 2.0, January 2004
