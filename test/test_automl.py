@@ -244,7 +244,6 @@ class TestAutoML(unittest.TestCase):
         automl_experiment.fit(X_train=fake_df, y_train=y, **automl_settings)
         _ = automl_experiment.predict(fake_df)
 
-
     def test_micro_macro_f1(self):
         automl_experiment_micro = AutoML()
         automl_experiment_macro = AutoML()
