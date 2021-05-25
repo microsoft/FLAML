@@ -61,12 +61,19 @@ def rm_home_result():
 def search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils):
     import copy, re
     args_small = copy.deepcopy(args)
-    args_small.algo_mode = "list"
+    if "funnel" not in args_small.pretrained_model_size:
+        args_small.algo_mode = "hpo"
+    else:
+        args_small.algo_mode = "list"
     args_small.sample_num = 10000
     args_small.time_budget = 3600
+    args_small.rep_id = 0
     jobid_config_small = JobID(args_small)
-    jobid_config_small.presz = "small"
-    jobid_config_small.pre_full = re.sub("(xlarge|large|intermediate)", "small", jobid_config_small.pre_full)
+    if jobid_config_small.pre == "deberta":
+        jobid_config_small.presz = "base"
+    else:
+        jobid_config_small.presz = "small"
+    jobid_config_small.pre_full = re.sub("(xlarge|large|intermediate)", jobid_config_small.presz, jobid_config_small.pre_full)
     azure_utils_small = AzureUtils(args_small, jobid_config_small, autohf)
     preparedata_setting = get_preparedata_setting(args, jobid_config, wandb_utils)
     autohf.prepare_data(**preparedata_setting)
