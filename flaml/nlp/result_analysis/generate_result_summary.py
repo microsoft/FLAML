@@ -54,6 +54,31 @@ def merge_configscore_list(small_dataset2configscorelist):
         dataset2merged_configscorelist[dataset] = merged_configscore_list
     return dataset2merged_configscorelist
 
+def get_result(console_args, partial_jobid_config):
+    from .azure_utils import AzureUtils, JobID
+    azure_utils = AzureUtils(console_args)
+    dataset2configscorelist = azure_utils.get_config_and_score_from_partial_config(partial_jobid_config, ["dat", "subdat"], "hpo")
+    for dataset, configscore_list in dataset2configscorelist.items():
+        for rep_id in range(len(configscore_list)):
+            config_dict = configscore_list[rep_id][0][0]
+            score = configscore_list[rep_id][0][1]
+            print(dataset, rep_id)
+            print_config(config_dict)
+            print(score)
+            print()
+    stop = 0
+
+def print_config(config_dict):
+    for key in sorted(config_dict.keys()):
+        if key in ("attention_probs_dropout_prob", "hidden_dropout_prob", "seed"): continue
+        if key == "per_device_train_batch_size":
+            short_key = "batch_size"
+        elif key == "num_train_epochs":
+            short_key = "epochs"
+        else:
+            short_key = key
+        print(short_key, config_dict[key])
+
 def compare_small_vs_large(console_args):
     from .azure_utils import AzureUtils, JobID
     azure_utils = AzureUtils(console_args)

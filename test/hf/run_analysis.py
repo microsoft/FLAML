@@ -7,9 +7,37 @@ from flaml.nlp.result_analysis.azure_utils import JobID
 
 def create_partial_config_bestnn():
     jobid_config = JobID()
-    jobid_config.mod = "bestnn"
-    jobid_config.spa = "cus"
-    jobid_config.arg = "cus"
+    # funnel xlarge
+    # jobid_config.mod = "bestnn"
+    # jobid_config.spa = "uni"
+    # jobid_config.arg = "cus"
+    # jobid_config.alg = "cfo"
+    # jobid_config.pre = "funnel"
+    # funnel small
+    # jobid_config.mod = "list"
+    # jobid_config.pre = "funnel"
+    # jobid_config.presz = "small"
+    # jobid_config.rep = 0
+
+    # # deberta large
+    # jobid_config.mod = "bestnn"
+    # jobid_config.spa = "uni"
+    # jobid_config.arg = "cus"
+    # jobid_config.alg = "cfo"
+    # jobid_config.pre = "deberta"
+    # jobid_config.presz = "large"
+
+    # # deberta base
+    # jobid_config.mod = "hpo"
+    # jobid_config.pre = "deberta"
+    # jobid_config.presz = "base"
+    # jobid_config.rep = 0
+
+    # deberta large
+    jobid_config.mod = "hpo"
+    jobid_config.pre = "deberta"
+    jobid_config.presz = "large"
+
     return jobid_config
 
 def create_partial_config_list():
@@ -32,8 +60,7 @@ if __name__ == "__main__":
     args = arg_parser.parse_args()
 
     if args.mode == "extract":
-        partial_config_list = {"hpo":  create_partial_config_hpo(),
-                               "list": create_partial_config_list(),
-                               "bestnn": create_partial_config_bestnn()}
-        from flaml.nlp.result_analysis.generate_result_summary import compare_small_vs_large
-        compare_small_vs_large(args)
+        partial_config_large = create_partial_config_bestnn()
+        from flaml.nlp.result_analysis.generate_result_summary import compare_small_vs_large, get_result
+
+        get_result(args, partial_config_large)
