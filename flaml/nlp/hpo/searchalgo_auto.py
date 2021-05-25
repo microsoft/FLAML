@@ -44,18 +44,21 @@ class AutoSearchAlgorithm:
         assert search_algo_args_mode in {"dft", "cus"}
         if search_algo_name in SEARCH_ALGO_MAPPING.keys():
             try:
-                default_search_algo_kwargs = DEFAULT_SEARCH_ALGO_ARGS_MAPPING[search_algo_name](hpo_search_space = hpo_search_space)
-                if search_algo_args_mode == "dft":
-                    search_algo_args = default_search_algo_kwargs
-                else:
-                    search_algo_args = custom_hpo_args
-
                 algo = SEARCH_ALGO_MAPPING[search_algo_name]()
+                this_search_algo_kwargs = allowed_custom_args = None
                 if algo:
                     allowed_arguments = algo.__init__.__code__.co_varnames
-                    search_algo_args = {key: search_algo_args[key] for key in search_algo_args.keys() if key in allowed_arguments}
+                    allowed_custom_args = {key: custom_hpo_args[key] for key in custom_hpo_args.keys() if
+                                        key in allowed_arguments}
 
-                return SEARCH_ALGO_MAPPING[search_algo_name](**search_algo_args)
+                if search_algo_args_mode == "dft":
+                    this_search_algo_kwargs = DEFAULT_SEARCH_ALGO_ARGS_MAPPING[search_algo_name](
+                        "dft", hpo_search_space = hpo_search_space, **allowed_custom_args)
+                elif search_algo_args_mode == "cus":
+                    this_search_algo_kwargs = DEFAULT_SEARCH_ALGO_ARGS_MAPPING[search_algo_name](
+                        "cus", hpo_search_space=hpo_search_space, **allowed_custom_args)
+
+                return SEARCH_ALGO_MAPPING[search_algo_name](**this_search_algo_kwargs)
             except:
                 return None
         raise ValueError(
@@ -71,10 +74,10 @@ class AutoSearchAlgorithm:
         config_list = [dict(x) for x in itertools.product(*key_val_list)]
         return config_list
 
-def get_search_algo_args_optuna(hpo_search_space = None):
+def get_search_algo_args_optuna(search_args_mode, hpo_search_space = None, **custom_hpo_args):
     return {}
 
-def default_search_algo_args_bs(hpo_search_space = None):
+def default_search_algo_args_bs(search_args_mode, hpo_search_space = None, **custom_hpo_args):
     if isinstance(hpo_search_space["num_train_epochs"], ray.tune.sample.Categorical):
         min_epoch = min(hpo_search_space["num_train_epochs"].categories)
     else:
@@ -86,6 +89,8 @@ def default_search_algo_args_bs(hpo_search_space = None):
             "per_device_train_batch_size": max(hpo_search_space["per_device_train_batch_size"].categories),
         },
     }
+    if search_args_mode == "cus":
+        default_search_algo_args.update(custom_hpo_args)
     return default_search_algo_args
 
 def experiment_search_algo_args_bs(hpo_search_space = None):
@@ -113,10 +118,10 @@ def default_search_algo_args_nevergrad(hpo_search_space = None):
 def default_search_algo_args_hyperopt(hpo_search_space = None):
     return {}
 
-def default_search_algo_args_grid_search(hpo_search_space = None):
+def default_search_algo_args_grid_search(search_args_mode, hpo_search_space = None, **custom_hpo_args):
     return {}
 
-def default_search_algo_args_random_search(hpo_search_space = None):
+def default_search_algo_args_random_search(search_args_mode, hpo_search_space = None, **custom_hpo_args):
     return {}
 
 DEFAULT_SEARCH_ALGO_ARGS_MAPPING = OrderedDict(

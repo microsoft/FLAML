@@ -79,21 +79,12 @@ def search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils):
     args_large.sample_num = 100000
     args_large.algo_name = "cfo"
     args_large.search_alg_args_mode = "cus"
-    args_large.space_mode = "cus"
+    args_large.space_mode = "uni"
     jobid_config_large = JobID(args_large)
     jobid_config_large.presz = jobid_config.presz
     jobid_config_large.pre_full = jobid_config.pre_full
     azure_utils_large = AzureUtils(args_large, jobid_config_large, autohf)
-    best_config_neighbor = {key: [best_config[key]] for key in best_config.keys()}
-    best_config_neighbor["learning_rate"] = {
-        "l": best_config_neighbor["learning_rate"][0] / 500,
-        "u": best_config_neighbor["learning_rate"][0],
-        "space": "log"}
-    best_config_neighbor["num_train_epochs"] = {
-        "l": 3,
-        "u": 10,
-        "space": "linear"
-    }
+
     _test_hpo(args_large,
               jobid_config_large,
               autohf,
@@ -101,8 +92,7 @@ def search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils):
               azure_utils_large,
               autohf_settings=
         get_autohf_settings(args_large,
-                **{"hpo_space": best_config_neighbor,
-                   "points_to_evaluate": [best_config]}))
+                **{"points_to_evaluate": [best_config]}))
 
 def evaluate_configs(autohf, args, ranked_all_configs):
     import copy

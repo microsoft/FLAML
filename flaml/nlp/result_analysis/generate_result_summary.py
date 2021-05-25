@@ -32,29 +32,88 @@ def extract_sorted_config_list(dataset2configscorelist, topk):
         dataset2topkconfigs[dataset] = topk_configs
     return dataset2topkconfigs
 
+def dict2tuple(this_dict):
+    tuple_list = []
+    for key in sorted(this_dict.keys()):
+        tuple_list.append(this_dict[key])
+    return tuple(tuple_list)
+
+def merge_configscore_list(small_dataset2configscorelist):
+    dataset2merged_configscorelist = {}
+    for (dataset, each_configscore_list) in small_dataset2configscorelist.items():
+        merged_configscore_list = {}
+        for rep_id in range(len(each_configscore_list)):
+            for each_configscore_entry in each_configscore_list[rep_id]:
+                is_exist = False
+                for configscore in merged_configscore_list.keys():
+                    if configscore[0] == each_configscore_entry[0]:
+                        is_exist = True
+                        break
+                if is_exist is False:
+                    merged_configscore_list[dict2tuple(each_configscore_entry[0])] = each_configscore_entry[1]
+        dataset2merged_configscorelist[dataset] = merged_configscore_list
+    return dataset2merged_configscorelist
+
 def compare_small_vs_large(console_args):
     from .azure_utils import AzureUtils, JobID
     azure_utils = AzureUtils(console_args)
 
+    # partial_jobid_config = JobID()
+    # partial_jobid_config.pre = "funnel"
+    # partial_jobid_config.mod = "list"
+    # partial_jobid_config.spa = "uni"
+    # partial_jobid_config.presz = "xlarge"
+    #
+    # small_large_dataset2configscorelist = azure_utils.get_config_and_score_from_partial_config(partial_jobid_config,
+    #                                                                                           ["dat", "subdat"], "list")
+    # small_large_merged_configscorelist = merge_configscore_list(small_large_dataset2configscorelist)
+    #
+    # partial_jobid_config = JobID()
+    # partial_jobid_config.pre = "funnel"
+    # partial_jobid_config.mod = "list"
+    # partial_jobid_config.spa = "uni"
+    # partial_jobid_config.presz = "small"
+    #
+    # only_small_dataset2configscorelist = azure_utils.get_config_and_score_from_partial_config(partial_jobid_config,
+    #                                                                                      ["dat", "subdat"], "list")
+    #
+    # only_small_merged_configscorelist = merge_configscore_list(only_small_dataset2configscorelist)
+
     partial_jobid_config = JobID()
-    partial_jobid_config.mod = "list"
+    partial_jobid_config.pre = "deberta"
+    partial_jobid_config.mod = "hpo"
     partial_jobid_config.spa = "uni"
-    partial_jobid_config.presz = "small"
+    partial_jobid_config.presz = "base"
 
     small_dataset2configscorelist = azure_utils.get_config_and_score_from_partial_config(partial_jobid_config,
                                                                                    ["dat", "subdat"], "list")
-    small_dataset2topkconfig = extract_sorted_config_list(small_dataset2configscorelist, 10)
+
+    small_mergedconfiglist = merge_configscore_list(small_dataset2configscorelist)
 
     partial_jobid_config = JobID()
+    partial_jobid_config.pre = "deberta"
     partial_jobid_config.mod = "hpo"
     partial_jobid_config.spa = "uni"
+    partial_jobid_config.presz = "large"
 
     large_dataset2configscorelist = azure_utils.get_config_and_score_from_partial_config(partial_jobid_config,
                                                                                          ["dat", "subdat"], "hpo")
 
-    large_dataset2topkconfig = extract_sorted_config_list(large_dataset2configscorelist, 10)
+    large_mergedconfiglist = merge_configscore_list(large_dataset2configscorelist)
 
-    for each_dataset in small_dataset2topkconfig.keys():
+    for (each_dataset, merged_small_configlist) in small_mergedconfiglist.items():
+        merged_large_configlist = large_mergedconfiglist[each_dataset]
         print(each_dataset)
-        print(small_dataset2topkconfig[each_dataset])
-        print(large_dataset2topkconfig[each_dataset])
+        print()
+        for (each_tuple, large_score) in sorted(merged_large_configlist.items(), key = lambda x:x[1], reverse=True):
+            #small_score = merged_small_configlist[each_tuple]
+            is_in_onlysmall = each_tuple in small_mergedconfiglist[each_dataset]
+            for each_val in each_tuple:
+                print(each_val, end=", ")
+            print(large_score, is_in_onlysmall, sep=",")
+        print()
+        for (each_tuple, small_score) in sorted(small_mergedconfiglist[each_dataset].items(), key = lambda x:x[1], reverse=True):
+            is_in_large = each_tuple in large_mergedconfiglist[each_dataset]
+            for each_val in each_tuple:
+                print(each_val, end=", ")
+            print(small_score, is_in_large, sep=",")
