@@ -267,7 +267,7 @@ class DataTransformer:
         X = X.copy()
         if isinstance(X, pd.DataFrame):
             cat_columns, num_columns, datetime_columns = self._cat_columns, \
-                    self._num_columns, self._datetime_columns
+                self._num_columns, self._datetime_columns
             if datetime_columns:
                 for column in datetime_columns:
                     tmp_dt = X[column].dt
