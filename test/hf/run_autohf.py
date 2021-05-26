@@ -98,6 +98,7 @@ def search_base_and_search_lower_lr(args, jobid_config, autohf, wandb_utils):
     args_large.algo_name = args.algo_name
     args_large.search_alg_args_mode = "cus"
     args_large.space_mode = "buni"
+    args_large.pruner = "None"
     jobid_config_large = JobID(args_large)
     jobid_config_large.presz = jobid_config.presz
     jobid_config_large.pre_full = jobid_config.pre_full
