@@ -142,3 +142,55 @@ def compare_small_vs_large(console_args):
             for each_val in each_tuple:
                 print(each_val, end=", ")
             print(small_score, is_in_large, sep=",")
+
+def check_conflict(console_args, partial_jobid_config_list):
+    from .azure_utils import AzureUtils, JobID
+    azure_utils = AzureUtils(console_args)
+    for each_partial_config in partial_jobid_config_list:
+        dataset2configscorelist = \
+            azure_utils.get_config_and_score_from_partial_config(
+                each_partial_config,
+                ["dat", "subdat"],
+                "unsorted")
+        for (dataset, configscorelists) in dataset2configscorelist.items():
+            config2score = {}
+            for each_configscorelist in configscorelists:
+                for (config, score, blobname) in each_configscorelist:
+                    config_dict = dict2tuple(config)
+                    try:
+                        config2score[config_dict].append((score, blobname))
+                    except KeyError:
+                        config2score.setdefault(config_dict, [])
+                        config2score[config_dict].append((score, blobname))
+            dup_keys = [config for config in config2score.keys() if len(config2score[config]) > 1]
+            dupkey_count = [len(set([y[0] for y in config2score[x]])) for x in dup_keys]
+            print(dataset)
+            print(len(config2score))
+            print(len(dupkey_count))
+            print(dupkey_count)
+
+def print_cfo(console_args):
+    from .azure_utils import JobID, AzureUtils
+    jobid_config = JobID()
+    jobid_config.spa = "uni"
+    jobid_config.alg = "cfo"
+    jobid_config.pre = "funnel"
+    jobid_config.presz = "xlarge"
+    azure_utils = AzureUtils(console_args, jobid = jobid_config)
+
+    dataset2configscorelist = \
+        azure_utils.get_config_and_score_from_partial_config(
+            jobid_config,
+            ["dat", "subdat"],
+            "sort_time")
+    dataset = ('glue', 'cola')
+    configscorelist = dataset2configscorelist[dataset]
+    count = 0
+    print(dataset)
+    for (config, score, blobname) in configscorelist[0]:
+        print(count)
+        print_config(config)
+        print(score)
+        print()
+        count += 1
+    stop = 0

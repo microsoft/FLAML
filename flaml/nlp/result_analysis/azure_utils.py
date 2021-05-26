@@ -262,12 +262,18 @@ class AzureUtils:
         json_log = []
         for each_trial in analysis.trials:
             trial_id = each_trial.trial_id
+            start_time = each_trial.start_time
             last_update_time = each_trial.last_update_time
             config = each_trial.config
             try:
                 metric_score = each_trial.metric_analysis["eval_" + analysis.default_metric]
                 time_stamp = each_trial.metric_analysis['timestamp']
-                json_log.append({"trial_id": trial_id, "last_update_time": last_update_time, "config": config, "metric_score": metric_score, "time_stamp": time_stamp})
+                json_log.append({"trial_id": trial_id,
+                                 "start_time": start_time,
+                                 "last_update_time": last_update_time,
+                                 "config": config,
+                                 "metric_score": metric_score,
+                                 "time_stamp": time_stamp})
             except KeyError:
                 pass
         return json_log
@@ -362,14 +368,26 @@ class AzureUtils:
         sorted_trialid_to_score = sorted(trialid_to_score.items(), key = lambda x:x[1], reverse=True)
         return [trialid_to_config[entry[0]] for entry in sorted_trialid_to_score]
 
-    def get_blob_list_matching_partial_jobid(self, partial_config):
+    def is_after_earliest_time(self, this_blob, earliest_time):
+        import pytz
+        utc = pytz.UTC
+        if this_blob.last_modified >= utc.localize(datetime(earliest_time[0], earliest_time[1], earliest_time[2])):
+            return True
+        return False
+
+    def get_blob_list_matching_partial_jobid(self, partial_config, earliest_time = None):
         blob_list = []
         container_client = self._init_azure_clients()
         jobid_config = JobID()
         for each_blob in container_client.list_blobs():
             each_jobconfig = jobid_config.from_blobname(each_blob.name)
+            is_append = False
             if each_jobconfig:
                 if each_jobconfig.is_partial_match(partial_config):
+                    is_append = True
+                if earliest_time and not self.is_after_earliest_time(each_blob, earliest_time):
+                    is_append = False
+                if is_append:
                     blob_list.append((each_jobconfig, each_blob))
         return blob_list
 
@@ -377,16 +395,18 @@ class AzureUtils:
         if "mrpc" in blobname and "mod=list" in blobname:
             stop = 0
         data_json = json.load(open(blobname, "r"))
-        return [(x['config'], x['metric_score']["max"]) for x in data_json['val_log']]
+        return [(x['config'], x['metric_score']["max"], x['time_stamp']["max"]) for x in data_json['val_log']]
 
-    def get_config_and_score_from_partial_config(self, partial_config, group_attrs, method):
-        matched_blob_list = self.get_blob_list_matching_partial_jobid(partial_config)
+    def get_config_and_score_from_partial_config(self, partial_config, group_attrs, method, earliest_time = None):
+        matched_blob_list = self.get_blob_list_matching_partial_jobid(partial_config, earliest_time=earliest_time)
         group_dict = {}
         for (each_jobconfig, each_blob) in matched_blob_list:
             self.download_azure_blob(each_blob.name)
             config_and_score = self.extract_config_and_score(each_blob.name)
-            if method == "list":
+            if method == "unsorted":
                 sorted_config_and_score = config_and_score
+            elif method == "sort_time":
+                sorted_config_and_score = sorted(config_and_score, key=lambda x: x[2], reverse=False)
             else:
                 sorted_config_and_score = sorted(config_and_score, key = lambda x:x[1], reverse=True)
             group_attr_list = []
@@ -398,5 +418,6 @@ class AzureUtils:
                     group_attr_list.append(group_val)
             group_attr_tuple = tuple(group_attr_list)
             group_dict.setdefault(group_attr_tuple, [])
-            group_dict[group_attr_tuple].append(sorted_config_and_score)
+            group_dict[group_attr_tuple].append([(config, score, each_blob.name)
+                            for (config, score) in sorted_config_and_score])
         return group_dict

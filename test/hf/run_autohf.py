@@ -58,7 +58,7 @@ def rm_home_result():
     if os.path.exists(home + "/ray_results/"):
         shutil.rmtree(home + "/ray_results/")
 
-def search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils):
+def get_best_base_config(args, jobid_config, autohf, wandb_utils):
     import copy, re
     args_small = copy.deepcopy(args)
     if "funnel" not in args_small.pretrained_model_size:
@@ -80,7 +80,38 @@ def search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils):
     autohf.set_metric()
 
     best_config = azure_utils_small.get_ranked_configs_from_azure_file(autohf.metric_mode_name)[0]
+    return best_config
 
+def search_base_and_search_lower_lr(args, jobid_config, autohf, wandb_utils):
+    best_config = get_best_base_config(args, jobid_config, autohf, wandb_utils)
+
+    import copy
+    args_large = copy.deepcopy(args)
+    args_large.time_budget = args.time_budget - 3600
+    args_large.sample_num = 100000
+    args_large.algo_name = "cfo"
+    args_large.search_alg_args_mode = "cus"
+    args_large.space_mode = "buni"
+    jobid_config_large = JobID(args_large)
+    jobid_config_large.presz = jobid_config.presz
+    jobid_config_large.pre_full = jobid_config.pre_full
+    azure_utils_large = AzureUtils(args_large, jobid_config_large, autohf)
+
+    _test_hpo(args_large,
+              jobid_config_large,
+              autohf,
+              wandb_utils,
+              azure_utils_large,
+              autohf_settings=
+              get_autohf_settings(args_large,
+                                  **{"points_to_evaluate": [best_config],
+                                     "bound": {"learning_rate":
+                                    {"u": best_config["learning_rate"]}}}))
+
+def search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils):
+    best_config = get_best_base_config(args, jobid_config, autohf, wandb_utils)
+
+    import copy
     args_large = copy.deepcopy(args)
     args_large.time_budget = args.time_budget - 3600
     args_large.sample_num = 100000
@@ -229,7 +260,7 @@ if __name__ == "__main__":
     if args.algo_mode in ("hpo", "hfhpo", "grid", "gridbert"):
         _test_hpo(args, jobid_config, autohf, wandb_utils)
     elif args.algo_mode == "bestnn":
-        search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils)
+        search_base_and_search_lower_lr(args, jobid_config, autohf, wandb_utils)
     elif args.algo_mode == "list":
         evaluate_small_best_configs_on_large(args, autohf)
     elif args.algo_mode == "list_s":

@@ -11,7 +11,7 @@ def load_console_args():
     arg_parser.add_argument('--data_root_dir', type=str, help='data dir', required=True)
     arg_parser.add_argument('--dataset_subdataset_name', type=str, help='dataset and subdataset name',
                             required=False, default = None)
-    arg_parser.add_argument('--space_mode', type=str, help='space mode', required=False, choices = ["gnr", "uni", "uni_test", "cus"], default = None)
+    arg_parser.add_argument('--space_mode', type=str, help='space mode', required=False, choices = ["gnr", "uni", "uni_test", "cus", "buni"], default = None)
     arg_parser.add_argument('--search_alg_args_mode', type=str, help = 'search algorithm args mode', required = False, choices = ["dft", "exp", "cus"])
     arg_parser.add_argument('--algo_name', type=str, help='algorithm', required=False, choices = ["bs", "optuna", "cfo"], default = None)
     arg_parser.add_argument('--pruner', type=str, help='pruner', required=False, choices=["asha", "None"], default = None)

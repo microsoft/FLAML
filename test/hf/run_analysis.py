@@ -9,10 +9,11 @@ def create_partial_config_bestnn():
     jobid_config = JobID()
     # funnel xlarge
     # jobid_config.mod = "bestnn"
-    # jobid_config.spa = "uni"
+    jobid_config.spa = "uni"
     # jobid_config.arg = "cus"
     # jobid_config.alg = "cfo"
-    # jobid_config.pre = "funnel"
+    jobid_config.pre = "funnel"
+    jobid_config.presz = "xlarge"
     # funnel small
     # jobid_config.mod = "list"
     # jobid_config.pre = "funnel"
@@ -33,10 +34,10 @@ def create_partial_config_bestnn():
     # jobid_config.presz = "base"
     # jobid_config.rep = 0
 
-    # deberta large
-    jobid_config.mod = "hpo"
-    jobid_config.pre = "deberta"
-    jobid_config.presz = "large"
+    # # deberta large
+    # jobid_config.mod = "hpo"
+    # jobid_config.pre = "deberta"
+    # jobid_config.presz = "large"
 
     return jobid_config
 
@@ -59,8 +60,10 @@ if __name__ == "__main__":
     arg_parser.add_argument('--key_path', type=str, help='key path', required=False, default = "../../")
     args = arg_parser.parse_args()
 
-    if args.mode == "extract":
-        partial_config_large = create_partial_config_bestnn()
-        from flaml.nlp.result_analysis.generate_result_summary import compare_small_vs_large, get_result
+    partial_config_large = create_partial_config_bestnn()
+    from flaml.nlp.result_analysis.generate_result_summary import compare_small_vs_large, get_result, check_conflict, \
+    print_cfo
 
-        get_result(args, partial_config_large)
+    #get_result(args, partial_config_large)
+    #check_conflict(args, [partial_config_large])
+    print_cfo(args)

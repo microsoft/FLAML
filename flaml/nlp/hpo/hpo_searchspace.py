@@ -48,7 +48,34 @@ def hpo_space_gridunion_other_large(logger, model_type, model_size_type, dataset
 
 def hpo_space_custom(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
     assert "hpo_space" in custom_hpo_args
-    return custom_hpo_args["hpo_space"]
+    custom_search_space = custom_hpo_args["hpo_space"]
+    return custom_search_space
+
+def bounded_gridunion(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
+    assert "bound" in custom_hpo_args
+    gridunion_space = HPO_SEARCH_SPACE_MAPPING["uni"](logger, model_type, model_size_type, dataset_name, subdataset_name, **custom_hpo_args)
+    for each_key in custom_hpo_args["bound"].keys():
+        if "u" in custom_hpo_args["bound"][each_key]:
+            upper = custom_hpo_args["bound"][each_key]["u"]
+        else:
+            upper = 100000
+        if "l" in custom_hpo_args["bound"][each_key]:
+            lower = custom_hpo_args["bound"][each_key]["l"]
+        else:
+            lower = -100000
+        original_space = sorted(gridunion_space[each_key])
+        upper_indices = [x for x in range(len(original_space)) if original_space[x] > upper]
+        if len(upper_indices) > 0:
+            upper_id = min(upper_indices[0] + 1, len(original_space))
+        else:
+            upper_id = len(original_space)
+        lower_indices = [x for x in range(len(original_space) - 1, -1, -1) if original_space[x] < lower]
+        if len(lower_indices) > 0:
+            lower_id = max(lower_indices[-1] - 1, 0)
+        else:
+            lower_id = 0
+        gridunion_space[each_key] = original_space[lower_id:upper_id]
+    return gridunion_space
 
 def hpo_space_gridunion_other(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
     output_config = {}
@@ -181,6 +208,7 @@ HPO_SEARCH_SPACE_MAPPING = OrderedDict(
         ("gnr", hpo_space_generic),
         ("uni_test", hpo_space_gridunion_smoke_test),
         ("cus", hpo_space_custom),
+        ("buni", bounded_gridunion)
     ]
 )
 
