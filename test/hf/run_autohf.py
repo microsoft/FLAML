@@ -89,7 +89,7 @@ def search_base_and_search_lower_lr(args, jobid_config, autohf, wandb_utils):
     args_large = copy.deepcopy(args)
     args_large.time_budget = args.time_budget - 3600
     args_large.sample_num = 100000
-    args_large.algo_name = "cfo"
+    args_large.algo_name = args.algo_name
     args_large.search_alg_args_mode = "cus"
     args_large.space_mode = "buni"
     jobid_config_large = JobID(args_large)
