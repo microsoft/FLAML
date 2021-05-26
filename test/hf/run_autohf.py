@@ -61,6 +61,12 @@ def rm_home_result():
 def get_best_base_config(args, jobid_config, autohf, wandb_utils):
     import copy, re
     args_small = copy.deepcopy(args)
+    args_small.algo_name = "optuna"
+    args_small.search_alg_args_mode = "dft"
+    args_small.algo_mode = "hpo"
+    args_small.space_mode = "uni"
+    args_small.pruner = "None"
+
     if "funnel" not in args_small.pretrained_model_size:
         args_small.algo_mode = "hpo"
     else:
@@ -109,6 +115,10 @@ def search_base_and_search_lower_lr(args, jobid_config, autohf, wandb_utils):
                                     {"u": best_config["learning_rate"]}}}))
 
 def search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils):
+    args.algo_name = "bs"
+    args.search_alg_args_mode = "dft"
+    args.spa = "uni"
+    args.pru = "None"
     best_config = get_best_base_config(args, jobid_config, autohf, wandb_utils)
 
     import copy
