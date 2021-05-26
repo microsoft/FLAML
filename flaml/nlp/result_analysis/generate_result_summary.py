@@ -172,10 +172,11 @@ def check_conflict(console_args, partial_jobid_config_list):
 def print_cfo(console_args):
     from .azure_utils import JobID, AzureUtils
     jobid_config = JobID()
-    jobid_config.spa = "uni"
+    jobid_config.spa = "buni"
     jobid_config.alg = "cfo"
-    jobid_config.pre = "funnel"
-    jobid_config.presz = "xlarge"
+    jobid_config.pre = "deberta"
+    jobid_config.presz = "large"
+    jobid_config.rep = 1
     azure_utils = AzureUtils(console_args, jobid = jobid_config)
 
     dataset2configscorelist = \
@@ -183,11 +184,11 @@ def print_cfo(console_args):
             jobid_config,
             ["dat", "subdat"],
             "sort_time")
-    dataset = ('glue', 'cola')
+    dataset = ('glue', 'rte')
     configscorelist = dataset2configscorelist[dataset]
     count = 0
     print(dataset)
-    for (config, score, blobname) in configscorelist[0]:
+    for (config, score, blobname) in configscorelist[0]: #sorted(configscorelist[0], key = lambda x:x[1], reverse=True)[0:1]:
         print(count)
         print_config(config)
         print(score)

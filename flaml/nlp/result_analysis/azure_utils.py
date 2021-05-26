@@ -395,7 +395,7 @@ class AzureUtils:
         if "mrpc" in blobname and "mod=list" in blobname:
             stop = 0
         data_json = json.load(open(blobname, "r"))
-        return [(x['config'], x['metric_score']["max"], x['time_stamp']["max"]) for x in data_json['val_log']]
+        return [(x['config'], x['metric_score']["max"], x['start_time']) for x in data_json['val_log']]
 
     def get_config_and_score_from_partial_config(self, partial_config, group_attrs, method, earliest_time = None):
         matched_blob_list = self.get_blob_list_matching_partial_jobid(partial_config, earliest_time=earliest_time)
@@ -419,5 +419,5 @@ class AzureUtils:
             group_attr_tuple = tuple(group_attr_list)
             group_dict.setdefault(group_attr_tuple, [])
             group_dict[group_attr_tuple].append([(config, score, each_blob.name)
-                            for (config, score) in sorted_config_and_score])
+                            for (config, score, ts) in sorted_config_and_score])
         return group_dict
