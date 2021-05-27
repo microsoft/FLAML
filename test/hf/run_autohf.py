@@ -245,15 +245,15 @@ def _test_hpo(args,
                 test_metric.update({"validation": validation_metric})
         else:
             predictions = None
-            if validation_metric:
-                test_metric = {"validation": validation_metric}
+            if test_metric:
+                validation_metric.update({"test": test_metric})
 
         if analysis is not None:
             json_log = azure_utils.extract_log_from_analysis(analysis)
         else:
             json_log = None
         azure_utils.write_autohf_output(json_log = json_log,
-                                        test_metric= test_metric,
+                                        valid_metric = validation_metric,
                                         predictions = predictions)
 
     except AssertionError as err:
