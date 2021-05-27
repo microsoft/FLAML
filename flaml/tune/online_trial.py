@@ -132,7 +132,7 @@ class BaseOnlineTrial(Trial):
         # self.resources = Resources(cpu=1, gpu=0)
 
         # #==resource budget related variable
-        self._min_resource_lease = min_resource_lease if min_resource_lease else 100.0
+        self._min_resource_lease = min_resource_lease
         self._resource_lease = copy.copy(self._min_resource_lease)
         # #======== champion related variables
         self._is_champion = is_champion
@@ -226,13 +226,13 @@ class VWOnlineTrial(BaseOnlineTrial):
             }
         [the other instance variables should be self-explainable]
     """
-    model_class = pyvw.vw
+    MODEL_CLASS = pyvw.vw
     cost_unit = 1.0
     interactions_config_key = 'interactions'
+    MIN_RES_CONST = 5
 
     def __init__(self,
                  config: dict,
-                 trainable_func,
                  metric: str = 'mae',
                  min_resource_lease: float = None,
                  is_champion: bool = False,
@@ -254,7 +254,7 @@ class VWOnlineTrial(BaseOnlineTrial):
         # application dependent info
         self._dim = None
         self._namespace_set = None
-        self.trainable_func = trainable_func
+        self.trainable_func = self.MODEL_CLASS
         self.cb_coef = cb_coef
 
     @staticmethod
@@ -298,6 +298,10 @@ class VWOnlineTrial(BaseOnlineTrial):
     def train_eval_model_online(self, data_sample, y_pred):
         """Train and eval model online
         """
+        # extract info needed the first time we see the data
+        if self._resource_lease == 'auto' or self._resource_lease is None:
+            assert self._dim is not None
+            self._resource_lease = self._dim * self.MIN_RES_CONST
         y = self._get_y_from_vw_example(data_sample)
         self._update_y_range(y)
         if self.model is None:
