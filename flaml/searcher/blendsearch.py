@@ -51,8 +51,8 @@ class BlendSearch(Searcher):
 
         Args:
             metric: A string of the metric name to optimize for.
-                minimization or maximization.
             mode: A string in ['min', 'max'] to specify the objective as
+                minimization or maximization.
             space: A dictionary to specify the search space.
             points_to_evaluate: Initial parameter suggestions to be run first.
             low_cost_partial_config: A dictionary from a subset of

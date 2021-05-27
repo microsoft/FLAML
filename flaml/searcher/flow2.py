@@ -47,8 +47,8 @@ class FLOW2(Searcher):
                 to the initial low-cost values.
                 e.g. {'epochs': 1}
             metric: A string of the metric name to optimize for.
-                minimization or maximization.
             mode: A string in ['min', 'max'] to specify the objective as
+                minimization or maximization.
             cat_hp_cost: A dictionary from a subset of categorical dimensions
                 to the relative cost of each choice.
                 e.g.,

@@ -47,6 +47,8 @@ class AutoVW:
             metric: A string to specify the name of the loss function used for calculating
                 the progressive validation loss
             config_oracle_random_seed (int): An integer of the random seed used in ConfigOracle
+            model_selection_mode: A string in ['min', 'max'] to specify the objective as
+                minimization or maximization.
             cb_coef (float): A float coefficient (optional) used in the sample complexity bound.
         '''
         self._max_live_model_num = max_live_model_num
