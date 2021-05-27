@@ -18,6 +18,7 @@ install_requires = [
     "lightgbm>=2.3.1",
     "xgboost>=0.90",
     "scipy>=1.4.1",
+    "catboost>=0.23",
     "scikit-learn>=0.23.2",
 ],
 
@@ -62,7 +63,6 @@ setuptools.setup(
         "nni": [
             "nni",
         ],
-        "catboost": ["catboost>=0.23"],
         "vw": [
             "vowpalwabbit",
             "ray[tune]==1.2.0",
