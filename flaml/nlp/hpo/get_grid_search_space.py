@@ -265,7 +265,7 @@ def get_electra_space(model_size_type = None,
             "num_train_epochs": [3],
         },
         "glue_cola": {
-            "num_train_epochs": [3.05],
+            "num_train_epochs": [3],
         },
         "glue_sst2": {
             "num_train_epochs": [3],

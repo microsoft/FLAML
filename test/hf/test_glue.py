@@ -71,48 +71,28 @@ def get_autohf_settings(jobid_config):
     return autohf_settings
 
 def get_search_space(algo_mode, subdataset, model_name):
-    if algo_mode == "grid":
-        if model_name == "electra":
-            return {
-                "learning_rate": [3e-5, 5e-5, 1e-4, 1.5e-4],
-                "warmup_ratio": [0.1],
-                "attention_dropout": [0.1],
-                "hidden_dropout": [0.1],
-                "weight_decay": [0],
-                "per_device_train_batch_size": [32],
-                "num_train_epochs": [10] if subdataset == "rte" else [3],
-            }
-        else:
-            return {
-                "learning_rate": [1e-5, 2e-5, 3e-5],
-                "warmup_ratio": [0.06],
-                "attention_dropout": [0.1],
-                "hidden_dropout": [0.1],
-                "weight_decay": [0.1],
-                "per_device_train_batch_size": [16, 32],
-                "num_train_epochs": [10],
-            }
-    else:
-        if model_name == "electra":
-            return {
-                "learning_rate": {"l": 2.99e-5, "u": 1.51e-4, "space": "log"},
-                "warmup_ratio": {"l": 0, "u": 0.2, "space": "linear"},
-                "attention_dropout": {"l": 0, "u": 0.2, "space": "linear"},
-                "hidden_dropout": {"l": 0, "u": 0.2, "space": "linear"},
-                "weight_decay": {"l": 0, "u": 0.3, "space": "linear"},
-                "per_device_train_batch_size": [16, 32, 64],
-                "num_train_epochs": [10] if subdataset == "rte" else [3],
-            }
-        else:
-            return {
-                "learning_rate": {"l": 0.99e-5, "u": 3.01e-5, "space": "linear"},
-                "warmup_ratio": {"l": 0, "u": 0.12, "space": "linear"},
-                "attention_dropout": {"l": 0, "u": 0.2, "space": "linear"},
-                "hidden_dropout": {"l": 0, "u": 0.2, "space": "linear"},
-                "weight_decay": {"l": 0, "u": 0.3, "space": "linear"},
-                "per_device_train_batch_size": [16, 32, 64],
-                "num_train_epochs": [10],
-            }
+    if model_name == "electra":
+        return {
+            "learning_rate": {"l": 2.99e-5, "u": 1.51e-4, "space": "log"},
+            "warmup_ratio": {"l": 0, "u": 0.2, "space": "linear"},
+            "attention_dropout": {"l": 0, "u": 0.2, "space": "linear"},
+            "hidden_dropout": {"l": 0, "u": 0.2, "space": "linear"},
+            "weight_decay": {"l": 0, "u": 0.3, "space": "linear"},
+            "per_device_train_batch_size": [16, 32, 64],
+            "num_train_epochs": [10] if subdataset == "rte" else [3],
+            "adam_epsilon": [1e-6]
+        }
+    elif model_name == "roberta":
+        return {
+            "learning_rate": {"l": 0.99e-5, "u": 3.01e-5, "space": "linear"},
+            "warmup_ratio": {"l": 0, "u": 0.12, "space": "linear"},
+            "attention_dropout": {"l": 0, "u": 0.2, "space": "linear"},
+            "hidden_dropout": {"l": 0, "u": 0.2, "space": "linear"},
+            "weight_decay": {"l": 0, "u": 0.3, "space": "linear"},
+            "per_device_train_batch_size": [16, 32, 64],
+            "num_train_epochs": [10],
+            "adam_epsilon": [1e-6]
+        }
 
 def rm_home_result():
     from os.path import expanduser
