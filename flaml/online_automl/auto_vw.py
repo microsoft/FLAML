@@ -9,30 +9,14 @@ logger = logging.getLogger(__name__)
 
 
 class AutoVW:
-    """Implemention of AutoVW
+    """The AutoML class
 
-    Args:
-        ************Args about the task***************
-        problem: problem, which is instance of VWNameSpaceInteraction. It provides task related info: 
-                 init_config, search_space, and trainable_func, for example an VW instance.
-                 (Side note about the problem: the dataset is also part of problem, so the problem
-                 also knows dataset related info, e.g. dim of feature)
-        concurrent_running_budget (int): the max number of live models allowed. Default = 5
-        ************Args about ChaCha***************
-        max_live_model_num (int): the maximum number of models allowed
-        min_resource_lease (float or str): if set as 'auto', it will be calculated automatically
-        automl_runner_args (dict): configuration for the OnlineTrialRunner
-        scheduler_args (dict): configuration for the scheduler
-        model_select_policy (str): how to select one model to do prediction from the live model pool
-        metric (str): loss function used for calculating the progressive validation loss
-        config_oracle_random_seed (int): random seed for the ConfigOracle
-        cb_coef (float): an optional coefficient in the sample complexity bound
     """
-    MIN_RES_CONST = 5
     WARMSTART_NUM = 100
 
     def __init__(self,
-                 problem,
+                 init_config: dict,
+                 search_space: dict,
                  max_live_model_num: int,
                  min_resource_lease='auto',
                  automl_runner_args: dict = {},
@@ -43,25 +27,42 @@ class AutoVW:
                  model_selection_mode='min',
                  cb_coef: Optional[float] = None,
                  ):
+        '''Constructor
+
+        Args:
+            init_config: A dictionary of a partial or full initial config,
+                e.g. {'interactions': set(), 'learning_rate': 0.5}
+            search_space: A dictionary of the search space. This search space includes both
+                hyperparameters we want to tune and fixed hyperparameters. In the latter case,
+                the value is a fixed value.
+            max_live_model_num: The maximum number of 'live' models, which, in other words, is the 
+                maximum number of models allowed to update in each learning iteraction.
+            min_resource_lease: The minimum resource lease assigned to a particular model/trial. 
+                If set as 'auto', it will be calculated automatically.
+            automl_runner_args: A dictionary of configuration for the OnlineTrialRunner.
+                If set {}, default values will be used.
+            scheduler_args: A dictionary of configuration for the scheduler.
+                If set {}, default values will be used.
+            model_select_policy: A string to specify how to select one model to do prediction from the live model pool
+            metric: A string to specify the name of the loss function used for calculating
+                the progressive validation loss
+            config_oracle_random_seed (int): An integer of the random seed used in ConfigOracle
+            cb_coef (float): A float coefficient (optional) used in the sample complexity bound.
+        '''
         self._max_live_model_num = max_live_model_num
         self._model_select_policy = model_select_policy
         self._model_selection_mode = model_selection_mode
-
-        # setup arguments for online_trial
-        if min_resource_lease == 'auto':
-            min_resource_lease = float(problem.feature_dim * AutoVW.MIN_RES_CONST)
         online_trial_args = {"metric": metric,
-                             "trainable_func": problem.trainable_func,
                              "min_resource_lease": min_resource_lease,
                              "cb_coef": cb_coef,
                              }
         # setup the arguments for searcher, which contains the ConfigOracle
-        searcher_args = {"init_config": problem.init_config,
+        searcher_args = {"init_config": init_config,
                          "config_oracle_random_seed": config_oracle_random_seed,
                          'online_trial_args': online_trial_args,
-                         'space': problem.search_space,
+                         'space': search_space,
                          }
-        logger.info("problem.search_space %s", problem.search_space)
+        logger.info("search_space %s", search_space)
         searcher = ChampionFrontierSearcher(**searcher_args)
         scheduler = ChaChaScheduler(**scheduler_args)
         logger.info('scheduler_args %s', scheduler_args)
