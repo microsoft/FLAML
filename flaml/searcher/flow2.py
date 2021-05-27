@@ -641,17 +641,3 @@ class FLOW2(Searcher):
         delta = np.array(
             [incumbent1[key] - incumbent2[key] for key in self._tunable_keys])
         return np.linalg.norm(delta) <= self.step
-
-    def on_trial_result_better(self, trial_id: str, config):
-        ''' early update of incumbent
-        '''
-        if self.best_config is None or self.best_config != config:
-            self.best_config = config
-            if self._resource:
-                self._resource = config[self.prune_attr]
-            self.incumbent = self.normalize(self.best_config)
-            self._cost_complete4incumbent = 0
-            self._num_complete4incumbent = 0
-            self._num_allowed4incumbent = 2 * self.dim
-            self._proposed_by.clear()
-            self._iter_best_config = self.trial_count
