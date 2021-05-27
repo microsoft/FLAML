@@ -122,14 +122,14 @@ class AutoTransformers:
                           **custom_hpo_args):
         search_space_dict_hpo = search_space_dict_grid = None
         if self.jobid_config.mod == "grid":
-            search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self.jobid_config.pre, self.jobid_config.presz, self.jobid_config.dat[0], self.jobid_config.subdat)
+            search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self.jobid_config.pre, self.jobid_config.presz, self.jobid_config.dat[0], self.jobid_config.subdat, "grid")
             search_space_dict_grid = AutoTransformers._convert_dict_to_ray_tune_space(search_space_grid_json, mode="grid")
             search_space_dict_hpo = search_space_dict_grid
         if self.jobid_config.mod != "grid" and self.jobid_config.mod != "gridbert":
             search_space_hpo_json = AutoHPOSearchSpace.from_model_and_dataset_name(logger, self.jobid_config.spa, self.jobid_config.pre, self.jobid_config.presz, self.jobid_config.dat[0], self.jobid_config.subdat, **custom_hpo_args)
             search_space_dict_hpo = AutoTransformers._convert_dict_to_ray_tune_space(search_space_hpo_json, mode="hpo")
         elif self.jobid_config.mod == "gridbert":
-            search_space_hpo_json = AutoGridSearchSpace.from_model_and_dataset_name("bert", "base", self.jobid_config.dat[0], self.jobid_config.subdat)
+            search_space_hpo_json = AutoGridSearchSpace.from_model_and_dataset_name("bert", "base", self.jobid_config.dat[0], self.jobid_config.subdat, "grid")
             search_space_dict_hpo = AutoTransformers._convert_dict_to_ray_tune_space(search_space_hpo_json, mode="grid")
 
         search_space_dict_hpo = TrainerForAutoTransformers.resolve_hp_conflict(search_space_dict_hpo)
@@ -475,7 +475,7 @@ class AutoTransformers:
                         ckpt_dir = None,
                         **kwargs):
         if not ckpt_dir:
-            ckpt_dir = os.path.join(self.path_utils.result_dir_per_run, "save_ckpt_" + self.jobid_config.jobid_to_string() + ".json")
+            ckpt_dir = os.path.join(self.path_utils.result_dir_per_run, "save_ckpt_" + self.jobid_config.to_jobid_string() + ".json")
         try:
             ckpt_json = json.load(open(ckpt_dir))
             return ckpt_json["best_ckpt"]

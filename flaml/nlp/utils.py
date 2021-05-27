@@ -18,7 +18,8 @@ def load_console_args():
     arg_parser.add_argument('--pretrained_model_size', type=str, help='pretrained model', required=False,
                         choices=["xlnet-base-cased:base", "albert-large-v1:small", "distilbert-base-uncased:base",
                                  "microsoft/deberta-base:base","funnel-transformer/small-base:small", "microsoft/deberta-large:large",
-                                 "funnel-transformer/large-base:large", "funnel-transformer/intermediate-base:intermediate", "funnel-transformer/xlarge-base:xlarge"], default = None)
+                                 "funnel-transformer/large-base:large", "funnel-transformer/intermediate-base:intermediate",
+                                 "funnel-transformer/xlarge-base:xlarge", "google/electra-base-discriminator:base"], default = None)
     arg_parser.add_argument('--sample_num', type=int, help='sample num', required=False, default = None)
     arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False, default = None)
     arg_parser.add_argument('--rep_id', type=int, help='rep id', required=False, default = None)

@@ -25,7 +25,8 @@ def get_space_union_and_unique(search_space_common, search_space_unique, this_ca
 
 def get_deberta_space(model_size_type = None,
                    dataset_name = None,
-                   subdataset_name = None):
+                   subdataset_name = None,
+                    algo_mode = None):
     """
         DEBERTA: DECODING-ENHANCED BERT WITH DISENTANGLED ATTENTION: Table 9
         https://arxiv.org/abs/2006.03654
@@ -50,7 +51,8 @@ def get_deberta_space(model_size_type = None,
 
 def get_longformer_space(model_size_type = None,
                    dataset_name = None,
-                   subdataset_name = None):
+                   subdataset_name = None,
+                         algo_mode = None):
     """
         Longformer: The Long-Document Transformer
     """
@@ -60,7 +62,8 @@ def get_longformer_space(model_size_type = None,
 
 def get_funnel_space(model_size_type = None,
                    dataset_name = None,
-                   subdataset_name = None):
+                   subdataset_name = None,
+                     algo_mode = None):
     """
     Funnel-Transformer: Filtering out Sequential Redundancy for Efficient Language Processing
     https://arxiv.org/abs/2006.03236
@@ -141,7 +144,8 @@ def get_funnel_space(model_size_type = None,
 
 def get_bert_space(model_size_type = None,
                    dataset_name = None,
-                   subdataset_name = None):
+                   subdataset_name = None,
+                   algo_mode = None):
     """
         BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding
         https://arxiv.org/pdf/1810.04805.pdf
@@ -187,7 +191,8 @@ def get_bert_space(model_size_type = None,
 
 def get_roberta_space(model_size_type = None,
                       dataset_name = None,
-                      subdataset_name = None):
+                      subdataset_name = None,
+                      algo_mode = None):
     # RoBERTa: A Robustly Optimized BERT Pretraining Approach
     # https://arxiv.org/pdf/1907.11692.pdf
     search_space_common = {
@@ -223,14 +228,15 @@ def get_roberta_space(model_size_type = None,
 
 def get_electra_space(model_size_type = None,
                       dataset_name = None,
-                      subdataset_name = None):
+                      subdataset_name = None,
+                      algo_mode = None):
     """
         ELECTRA: PRE-TRAINING TEXT ENCODERS AS DISCRIMINATORS RATHER THAN GENERATORS
         https://arxiv.org/pdf/2003.10555.pdf
     """
     assert model_size_type in ("small", "base", "large", "intermediate", "xlarge"), "Electra paper has only provided hyperparameter for the small and base huggingface"
     search_space_common = {
-        "learning_rate": [3e-5, 5e-5, 1e-4, 1.5e-4, 2e-4, 3e-4, 5e-3],
+        "learning_rate": [3e-5, 5e-5, 1e-4, 1.5e-4] if algo_mode == "grid" else [3e-5, 5e-5, 1e-4, 1.5e-4, 2e-4, 3e-4, 5e-3],
         "weight_decay": [0.0],
         "adam_epsilon": [1e-6],
         "warmup_ratio": [0.1],
@@ -259,7 +265,7 @@ def get_electra_space(model_size_type = None,
             "num_train_epochs": [3],
         },
         "glue_cola": {
-            "num_train_epochs": [3],
+            "num_train_epochs": [3.05],
         },
         "glue_sst2": {
             "num_train_epochs": [3],
@@ -280,7 +286,8 @@ def get_electra_space(model_size_type = None,
 
 def get_mobilebert_space(model_size_type = None,
                          dataset_name = None,
-                         subdataset_name = None):
+                         subdataset_name = None,
+                         algo_mode = None):
     """
         MobileBERT: a Compact Task-Agnostic BERT for Resource-Limited Devices
         https://arxiv.org/pdf/2004.02984.pdf
@@ -298,7 +305,8 @@ def get_mobilebert_space(model_size_type = None,
 
 def get_albert_space(model_size_type = None,
                      dataset_name = None,
-                     subdataset_name = None):
+                     subdataset_name = None,
+                     algo_mode = None):
     """
         Hyperparameters for downstream tasks are shown in Table 14. We adapt these hyperparameters
         from Liu et al. (2019), Devlin et al. (2019), and Yang et al. (2019).

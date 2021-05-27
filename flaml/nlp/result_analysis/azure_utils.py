@@ -62,7 +62,10 @@ class JobID:
                 if key == "dat":
                     result_dict[key] = [result.group(key)]
                 elif key == "rep":
-                    result_dict[key] = int(result.group(key))
+                    try:
+                        result_dict[key] = int(result.group(key))
+                    except:
+                        result_dict[key] = -1
                 else:
                     result_dict[key] = result.group(key)
             return result_dict
@@ -280,17 +283,17 @@ class AzureUtils:
 
     def write_autohf_output(self,
                       json_log = None,
-                      test_metric = None,
+                      valid_metric = None,
                       predictions = None):
         local_file_path = self.generate_local_json_path()
         output_json = {}
         if json_log:
             output_json["val_log"] = json_log
-        if test_metric:
-            output_json["test_metric"] = test_metric
+        if valid_metric:
+            output_json["valid_metric"] = valid_metric
         if len(output_json) > 0:
             self.create_local_json_and_upload(output_json, local_file_path)
-        if predictions:
+        if predictions is not None:
             self.create_local_prediction_and_upload(local_file_path, predictions)
 
     def generate_local_json_path(self):
@@ -342,7 +345,7 @@ class AzureUtils:
     def create_local_prediction_and_upload(self,
                          local_json_file,
                          predictions):
-        azure_save_file_name = local_json_file.split("/")[-1][:-4]
+        azure_save_file_name = local_json_file.split("/")[-1][:-5]
         local_archive_path = self.autohf.output_prediction(predictions,
                                       output_prediction_path= self.console_args.data_root_dir + "result/",
                                       output_dir_name=azure_save_file_name)

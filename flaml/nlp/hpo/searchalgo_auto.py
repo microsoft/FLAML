@@ -42,6 +42,8 @@ class AutoSearchAlgorithm:
     @classmethod
     def from_method_name(cls, search_algo_name, search_algo_args_mode, hpo_search_space, **custom_hpo_args):
         assert search_algo_args_mode in {"dft", "cus"}
+        if not search_algo_name:
+            search_algo_name = "grid"
         if search_algo_name in SEARCH_ALGO_MAPPING.keys():
             try:
                 algo = SEARCH_ALGO_MAPPING[search_algo_name]()

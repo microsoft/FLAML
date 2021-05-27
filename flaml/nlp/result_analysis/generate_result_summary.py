@@ -172,26 +172,28 @@ def check_conflict(console_args, partial_jobid_config_list):
 def print_cfo(console_args):
     from .azure_utils import JobID, AzureUtils
     jobid_config = JobID()
+    jobid_config.mod = "bestnn"
     jobid_config.spa = "buni"
-    jobid_config.alg = "cfo"
-    jobid_config.pre = "deberta"
-    jobid_config.presz = "large"
-    jobid_config.rep = 1
-    azure_utils = AzureUtils(console_args, jobid = jobid_config)
+    jobid_config.alg = "bs"
+    jobid_config.pre = "funnel"
+    jobid_config.presz = "xlarge"
 
-    dataset2configscorelist = \
-        azure_utils.get_config_and_score_from_partial_config(
-            jobid_config,
-            ["dat", "subdat"],
-            "sort_time")
-    dataset = ('glue', 'rte')
-    configscorelist = dataset2configscorelist[dataset]
-    count = 0
-    print(dataset)
-    for (config, score, blobname) in configscorelist[0]: #sorted(configscorelist[0], key = lambda x:x[1], reverse=True)[0:1]:
-        print(count)
-        print_config(config)
-        print(score)
-        print()
-        count += 1
-    stop = 0
+    for each_rep in range(3):
+        jobid_config.rep = each_rep
+        azure_utils = AzureUtils(console_args, jobid = jobid_config)
+
+        dataset2configscorelist = \
+            azure_utils.get_config_and_score_from_partial_config(
+                jobid_config,
+                ["dat", "subdat"],
+                "sort_time")
+        dataset = ('glue', 'cola')
+        configscorelist = dataset2configscorelist[dataset]
+        count = 0
+        print(dataset)
+        for (config, score, blobname) in sorted(configscorelist[0], key = lambda x:x[1], reverse=True)[0:1]:
+            print(count)
+            print(score)
+            print_config(config)
+            print()
+            count += 1
