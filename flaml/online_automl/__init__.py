@@ -1,1 +1,0 @@
-from .auto_vw import AutoVW
