@@ -12,9 +12,9 @@ def load_console_args():
     arg_parser.add_argument('--dataset_subdataset_name', type=str, help='dataset and subdataset name',
                             required=False, default = None)
     arg_parser.add_argument('--space_mode', type=str, help='space mode', required=False, choices = ["gnr", "uni", "uni_test", "cus", "buni"], default = None)
-    arg_parser.add_argument('--search_alg_args_mode', type=str, help = 'search algorithm args mode', required = True, choices = ["dft", "exp", "cus"])
+    arg_parser.add_argument('--search_alg_args_mode', type=str, help = 'search algorithm args mode', required = False, choices = ["dft", "exp", "cus"])
     arg_parser.add_argument('--algo_name', type=str, help='algorithm', required=False, choices = ["bs", "optuna", "cfo"], default = None)
-    arg_parser.add_argument('--pruner', type=str, help='pruner', required=True, choices=["asha", "None"], default = None)
+    arg_parser.add_argument('--pruner', type=str, help='pruner', required=False, choices=["asha", "None"], default = None)
     arg_parser.add_argument('--pretrained_model_size', type=str, help='pretrained model', required=False,
                         choices=["xlnet-base-cased:base", "albert-large-v1:small", "distilbert-base-uncased:base",
                                  "microsoft/deberta-base:base","funnel-transformer/small-base:small", "microsoft/deberta-large:large",
