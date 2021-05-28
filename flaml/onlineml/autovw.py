@@ -86,7 +86,7 @@ class AutoVW:
     def predict(self, data_sample):
         """ Predict on the input example (e.g., vw example)
         """
-        self._best_trial = self._best_trial_selection()
+        self._best_trial = self._select_best_trial()
         self._y_predict = self._best_trial.predict(data_sample)
         # code for bebugging purpose
         if self._prediction_trial_id is None or \
