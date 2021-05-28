@@ -187,7 +187,7 @@ def print_cfo(console_args):
                 jobid_config,
                 ["dat", "subdat"],
                 "sort_time")
-        dataset = ('glue', 'cola')
+        dataset = ('glue', 'mrpc')
         configscorelist = dataset2configscorelist[dataset]
         count = 0
         print(dataset)

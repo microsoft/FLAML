@@ -131,9 +131,10 @@ def _test_hpo(args,
 if __name__ == "__main__":
     args = load_console_args()
 
-    jobid_config = JobID(args)
-    autohf = AutoTransformers()
-    wandb_utils = WandbUtils(args, jobid_config)
-    wandb_utils.set_wandb_per_run()
-
-    _test_hpo(args, jobid_config, autohf, wandb_utils)
+    for subdat in ("mrpc", "cola", "rte"):
+        args.dataset_subdataset_name = "glue:" + subdat
+        jobid_config = JobID(args)
+        autohf = AutoTransformers()
+        wandb_utils = WandbUtils(args, jobid_config)
+        wandb_utils.set_wandb_per_run()
+        _test_hpo(args, jobid_config, autohf, wandb_utils)

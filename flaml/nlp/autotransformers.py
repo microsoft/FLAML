@@ -259,6 +259,18 @@ class AutoTransformers:
             self.train_dataset, self.eval_dataset, self.test_dataset = data_encoded[self._train_name], data_encoded[self._dev_name], data_encoded[
                 self._test_name]
 
+    def _set_model_config(self, checkpoint_path, per_model_config, model_config_num_labels):
+        if per_model_config and len(per_model_config) > 0:
+            model_config = AutoConfig.from_pretrained(
+                checkpoint_path,
+                num_labels=model_config_num_labels,
+                **per_model_config)
+        else:
+            model_config = AutoConfig.from_pretrained(
+                checkpoint_path,
+                num_labels=model_config_num_labels)
+        return model_config
+
     def  _load_model(self,
                     checkpoint_path = None,
                     per_model_config=None):
@@ -276,16 +288,7 @@ class AutoTransformers:
                 model_config_num_labels = num_labels_old
             else:
                 model_config_num_labels = self._num_labels
-
-            if per_model_config and len(per_model_config) > 0:
-                model_config = AutoConfig.from_pretrained(
-                    checkpoint_path,
-                    num_labels = model_config_num_labels,
-                    **per_model_config)
-            else:
-                model_config = AutoConfig.from_pretrained(
-                    checkpoint_path,
-                    num_labels = model_config_num_labels)
+            model_config = self._set_model_config(checkpoint_path, per_model_config, model_config_num_labels)
 
             if self.jobid_config.pre in MODEL_CLASSIFICATION_HEAD_MAPPING.keys():
                 num_labels_old = AutoConfig.from_pretrained(checkpoint_path).num_labels
@@ -311,6 +314,10 @@ class AutoTransformers:
                 this_model = AutoModelForSequenceClassification.from_pretrained(checkpoint_path, config=model_config)
 
             this_model.resize_token_embeddings(len(self._tokenizer))
+            return this_model
+        else:
+            model_config = self._set_model_config(checkpoint_path, per_model_config, 1)
+            this_model = AutoModelForSequenceClassification.from_pretrained(checkpoint_path, config=model_config)
             return this_model
 
     def _get_metric_func(self):
