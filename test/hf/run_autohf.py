@@ -217,7 +217,6 @@ def evaluate_large_best_configs_on_small(small_args, autohf):
 
     evaluate_configs(autohf, small_args, list(all_configs_from_large))
 
-
 def _test_hpo(args,
               jobid_config,
               autohf,
@@ -254,7 +253,8 @@ def _test_hpo(args,
             json_log = None
         azure_utils.write_autohf_output(json_log = json_log,
                                         valid_metric = validation_metric,
-                                        predictions = predictions)
+                                        predictions = predictions,
+                                        duration=autohf.last_run_duration)
 
     except AssertionError as err:
         azure_utils.write_exception()
@@ -265,7 +265,7 @@ if __name__ == "__main__":
 
     jobid_config = JobID(args)
     autohf = AutoTransformers()
-    wandb_utils = WandbUtils(args, jobid_config)
+    wandb_utils = WandbUtils(is_wandb_on= True, console_args=args, jobid_config=jobid_config)
     wandb_utils.set_wandb_per_run()
 
     if args.algo_mode in ("hpo", "hfhpo", "grid", "gridbert"):

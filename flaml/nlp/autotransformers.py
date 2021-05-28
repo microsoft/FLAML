@@ -423,7 +423,8 @@ class AutoTransformers:
         run = self.wandb_utils.set_wandb_per_trial()
         trainer.train()
         output_metrics = trainer.evaluate(self.eval_dataset)
-        run.finish()
+        if run:
+            run.finish()
 
     def _verify_init_config(self,
                             **custom_hpo_args):
@@ -501,6 +502,8 @@ class AutoTransformers:
                             custom_metric_mode_name= custom_metric_mode_name)
         _variable_override_default_alternative(logger, self, "metric_name", default_metric, all_metrics, custom_metric_name)
         _variable_override_default_alternative(logger, self, "metric_mode_name", default_mode, all_modes, custom_metric_mode_name)
+        self._all_metrics = all_metrics
+        self._all_modes = all_modes
 
     def set_task(self):
         self.task_name = get_default_task(self.jobid_config.dat[0], self.jobid_config.subdat)
@@ -554,7 +557,7 @@ class AutoTransformers:
             backend=HPSearchBackend.RAY,
             resources_per_trial = resources_per_trial)
         duration = time.time() - start_time
-        self._last_run_duration = duration
+        self.last_run_duration = duration
 
         hp_dict = best_run.hyperparameters
         hp_dict["seed"] = int(hp_dict["seed"])
@@ -702,13 +705,17 @@ class AutoTransformers:
             search_alg= search_algo,
         )
         duration = time.time() - start_time
-        self._last_run_duration = duration
+        self.last_run_duration = duration
         logger.info("Total running time: {} seconds".format(duration))
 
         ray.shutdown()
 
         best_trial = analysis.get_best_trial(scope="all", metric= self.metric_name, mode= self.metric_mode_name)
-        validation_metric = best_trial.metric_analysis[self.metric_name][self.metric_mode_name]
+        validation_metric = {"eval_" + self.metric_name:
+                    best_trial.metric_analysis[self.metric_name][self.metric_mode_name]}
+        for x in range(len(self._all_metrics)):
+            validation_metric["eval_" + self._all_metrics[x]] \
+                = best_trial.metric_analysis[self._all_metrics[x]][self._all_modes[x]]
 
         get_best_ckpt = analysis.get_best_checkpoint(best_trial, metric= self.metric_name, mode= self.metric_mode_name)
         best_ckpt = AutoTransformers._recover_checkpoint(get_best_ckpt)

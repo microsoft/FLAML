@@ -213,9 +213,14 @@ class JobID:
 class AzureUtils:
 
     def __init__(self,
+                 root_log_path = None,
                  console_args = None,
                  jobid = None,
                  autohf = None):
+        if root_log_path:
+            self.root_log_path = root_log_path
+        else:
+            self.root_log_path = "logs_azure"
         self.jobid = jobid
         self.console_args = console_args
         self.autohf = autohf
@@ -284,13 +289,16 @@ class AzureUtils:
     def write_autohf_output(self,
                       json_log = None,
                       valid_metric = None,
-                      predictions = None):
+                      predictions = None,
+                      duration = None):
         local_file_path = self.generate_local_json_path()
         output_json = {}
         if json_log:
             output_json["val_log"] = json_log
         if valid_metric:
             output_json["valid_metric"] = valid_metric
+        if duration:
+            output_json["duration"] = duration
         if len(output_json) > 0:
             self.create_local_json_and_upload(output_json, local_file_path)
         if predictions is not None:
@@ -299,8 +307,8 @@ class AzureUtils:
     def generate_local_json_path(self):
         full_dataset_name = self.jobid.get_jobid_full_data_name()
         jobid_str = self.jobid.to_jobid_string()
-        local_file_path = os.path.join("logs_azure/", full_dataset_name, jobid_str + ".json")
-        pathlib.Path(os.path.join("logs_azure/", full_dataset_name)).mkdir(parents=True, exist_ok=True)
+        local_file_path = os.path.join(self.root_log_path, full_dataset_name, jobid_str + ".json")
+        pathlib.Path(os.path.join(self.root_log_path, full_dataset_name)).mkdir(parents=True, exist_ok=True)
         return local_file_path
 
     def create_local_json_and_upload(self, result_json, local_file_path):
