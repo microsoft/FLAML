@@ -11,11 +11,20 @@ logger = logging.getLogger(__name__)
 class OnlineScheduler(FIFOScheduler):
     """Implementation of the OnlineFIFOSchedulers.
 
-    Args:
-        max_lease: float = np.inf
+    Methods
+    -------
+    on_trial_result(trial_runner, trial, result)
+        Report result and return a decision on the trial's status
+    choose_trial_to_run(trial_runner)
+        Decide which trial to run next
     """
 
     def __init__(self, max_lease: float = np.inf):
+        '''
+        Args:
+        --------
+        max_lease: float = np.inf
+        '''
         self._max_lease = max_lease
 
     def on_trial_result(self, trial_runner, trial: Trial, result: Dict):
@@ -54,14 +63,24 @@ class OnlineScheduler(FIFOScheduler):
 class OnlineSuccessiveDoublingScheduler(OnlineScheduler):
     """Implementation of the OnlineSuccessiveDoublingScheduler.
 
-    Args:
-        max_lease: float = np.inf
-        increase_factor: float = 2
+    Methods
+    -------
+    on_trial_result(trial_runner, trial, result)
+        Report result and return a decision on the trial's status
+    choose_trial_to_run(trial_runner)
+        Decide which trial to run next
+
     """
     def __init__(self,
                  max_lease: float = np.inf,
                  increase_factor: float = 2,
                  ):
+        '''
+        Args:
+        -------
+            max_lease: float = np.inf
+            increase_factor: float = 2
+        '''
         super().__init__(max_lease)
         self._increase_factor = increase_factor
 
@@ -87,12 +106,25 @@ class OnlineSuccessiveDoublingScheduler(OnlineScheduler):
 
 class ChaChaScheduler(OnlineSuccessiveDoublingScheduler):
     """  Keep the top performed learners running
+
+    Methods
+    -------
+    on_trial_result(trial_runner, trial, result)
+        Report result and return a decision on the trial's status
+    choose_trial_to_run(trial_runner)
+        Decide which trial to run next
     """
     def __init__(self,
                  max_lease: float = np.inf,
                  increase_factor: float = 2,
                  **kwargs
                  ):
+        '''
+        Args:
+        -------
+            max_lease: float = np.inf
+            increase_factor: float = 2
+        '''
         super().__init__(max_lease, increase_factor)
         self._keep_champion = kwargs.get('keep_champion', True)
         self._keep_challenger_metric = kwargs.get('keep_challenger_metric', 'ucb')
@@ -104,7 +136,7 @@ class ChaChaScheduler(OnlineSuccessiveDoublingScheduler):
 
     def on_trial_result(self, trial_runner, trial: Trial, result: Dict):
         """Report result and return a decision on the trial's status
-        
+
         Make a decision according to: SuccessiveDoubling + champion check + performance check
         """
         # Doubling scheduler makes a decision

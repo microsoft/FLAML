@@ -15,6 +15,12 @@ logger = logging.getLogger(__name__)
 class BaseSearcher:
     """Implementation of the BaseSearcher
 
+    Methods
+    -------
+    set_search_properties(metric, mode, config)
+    next_trial()
+    on_trial_result(trial_id, result)
+    on_trial_complete()
     """
 
     def __init__(self,
@@ -42,9 +48,18 @@ class BaseSearcher:
 
 
 class ChampionFrontierSearcher(BaseSearcher):
-    """This class serves the role of ConfigOralce.
-    
-    NOTE about searcher_trial_id and trial_id:
+    """The ChampionFrontierSearcher class
+
+    Methods
+    -------
+    set_search_properties(metric, mode, config)
+    next_trial()
+    on_trial_result(trial_id, result)
+    on_trial_complete()
+
+    NOTE
+    -------
+    This class serves the role of ConfigOralce.
     Every time we create a VW trial, we generate a searcher_trial_id.
     At the same time, we also record the trial_id of the VW trial. 
     Note that the trial_id is a unique signature of the configuraiton. 
@@ -71,6 +86,19 @@ class ChampionFrontierSearcher(BaseSearcher):
                  online_trial_args={},
                  nonpoly_searcher_name='CFO' # or 'Niave'
                  ):
+        '''Constructor
+
+        Args:
+        --------
+            init_config: dict
+            metric: str
+            mode: str
+            config_oracle_random_seed: int
+            space: dict
+            online_trial_args: dict
+            nonpoly_searcher_name: A string to specify the search algorithm 
+                for nonpoly hyperparameters
+        '''
         self._init_config = init_config
         self._seed = config_oracle_random_seed
         self._space = space
