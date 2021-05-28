@@ -1,29 +1,29 @@
 import time
 import numpy as np
 import math
-import logging
 from .trial import Trial
 from ray.tune.schedulers.trial_scheduler import TrialScheduler
 
-# from config_aml import WARMSTART_NUM
+import logging
 logger = logging.getLogger(__name__)
-RANDOM_SEED = 123456
-WARMSTART_NUM = 100
 
 
 class OnlineTrialRunner:
-    """Implement a base online trial runner
+    """The OnlineTrialRunner class
 
-    Args:
-        searcher 
-        scheduler
-        test_policy: str 
+    Methods
+    -------
+    step(max_live_model_num, data_sample, prediction_trial_tuple)
+    get_running_trials()
+
+    #TODO: clean the NOTEs
+
     NOTE:
     --------------------------------
     APIs needed from the schedulers (schedulers that can be used for now: 
     FIFOScheduler, HyberbandScheduler, and OnlineDoublingScheduler). 
     1. on_trial_add(self, trial_runner: "trial_runner.TrialRunner", trial: Trial)
-        It add candidate trials to the scheduler. It is called inside of the add_trial 
+        It add candidate trials to the scheduler. It is called inside of the add_trial
         function in the TrialRunner. 
     2. on_trial_remove(self, trial_runner: "trial_runner.TrialRunner", trial: Trial)
         Remove terminated trials from the scheduler.
@@ -49,30 +49,18 @@ class OnlineTrialRunner:
         (The status of a PAUSED trial will be set to RUNNING the next time it selected to run? 
         The priority of the PAUSED trials is lower than the PENDING ones. )
     TERMINATED: set the status of a trial to TERMINATED when you never want to select it. 
-        Trial.PENDING <=> resource_used == 0
-        Trial.RUNNING  <=>  resource_used !=0 and the trial is running
-        Trial.PAUSED  <=>  resource_used !=0 and the trial is not running
-        Trial.TERMINATED  <=>  resource_used !=0 and the trial is not running and the trial has been pruned
-
-    NOTE: in order to better keep track of the status of a trial, should only change the trial status in trial_runner 
 
     -----------------------------
     NOTE: About searcher and scheduler.
     1. The relationship between a trial_runner, which is an instance of the OnlineTrialRunner
     and searcher and scheduler.
-    - trial_runner: with the help of searcher and the scheduler, it outputs a number of trials 
+    - trial_runner: with the help of searcher and the scheduler, it outputs a number of trials
     to run when the caller calls the schedule_trials_to_run()
     - searcher: it is responsible to add new trials into trial_runner._trials.
-    - scheduler: it is responsible to schedule the trials that exist in in trial_runner._trials. 
-
-    Extreme case 1: all possible trials are added up front when the trail_runner is instanciated. 
-    Then the trial_runner is just using the scheduler to schedule trials to run.
-
-    Extreme case 2: everytime the trial_runner needs schedule a trial to run, it calls the searcher 
-    to generate a new trial. Then the scheduler is not used. Examples: in the batch setting where the 
-    evaluation of a trial is the training and validation on a fixed dataset, each config only needs to 
-    be scheduled for batch evaluation for once.
+    - scheduler: it is responsible to schedule the trials that exist in in trial_runner._trials.
     """
+    RANDOM_SEED = 123456
+    WARMSTART_NUM = 100
 
     def __init__(self,
                  max_live_model_num: int,
@@ -81,6 +69,17 @@ class OnlineTrialRunner:
                  champion_test_policy='loss_ucb',
                  **kwargs
                  ):
+        '''Constructor
+
+        Args:
+        ----------
+            max_live_model_num: The maximum number of 'live'/running models allowed.
+            searcher: A class for generating Trial objects progressively. The ConfigOracle
+                is implemented in the searcher.
+            scheduler: A class for managing the 'live' trials and allocating the resources for the trials.
+            champion_test_policy: A string to specify what test policy to test for champion.
+                Currently can choose from ['loss_ucb', 'loss_avg', 'loss_lcb', None].
+        '''
         # OnlineTrialRunner setting
         self._searcher = searcher
         self._scheduler = scheduler
@@ -96,7 +95,7 @@ class OnlineTrialRunner:
         self._champion_trial = None
         self._best_challenger_trial = None
         self._first_challenger_pool_size = None
-        self._random_state = np.random.RandomState(RANDOM_SEED)
+        self._random_state = np.random.RandomState(self.RANDOM_SEED)
         self._running_trials = set()
 
         # initially schedule up to max_live_model_num of live models and
@@ -126,12 +125,17 @@ class OnlineTrialRunner:
         """Schedule up to max_live_model_num trials to run
 
         It consists of the following several parts:
-        1. Update running trials using 
+        Update model:
+        0. Update running trials using observations received.
+        Tests for Champion
         1. Test for champion (BetterThan test, and WorseThan test)
             1.1 BetterThan test
             1.2 WorseThan test: a trial may be removed if WroseThan test is triggered
-        2. Add trial into the OnlineTrialRunner if there are opening slots
-        3. 
+        Online Scheduling:
+        2. Report results to the searcher and scheduler (the scheduler will return a decision about
+            the status of the running trials).
+        3. Pause or stop a trial according to the scheduler's decision. 
+           Add trial into the OnlineTrialRunner if there are opening slots.
         """
         # ***********Update running trials with observation***************************
         if data_sample is not None:
@@ -267,7 +271,7 @@ class OnlineTrialRunner:
             for trial_to_test in self._trials:
                 if trial_to_test.status != Trial.TERMINATED:
                     worse_than_champion = self._worse_than_champion_test(
-                        self._champion_trial, trial_to_test)
+                        self._champion_trial, trial_to_test, self.WARMSTART_NUM)
                     if worse_than_champion:
                         to_stop.append(trial_to_test)
             # for trial in to_stop:
@@ -279,7 +283,6 @@ class OnlineTrialRunner:
     def _get_best_challenger(self):
         """Get the 'best' (in terms of the champion_test_policy) challenger under consideration.
         """
-        # TODO: add a test metric in result
         if self._champion_test_policy is None:
             return
         if 'ucb' in self._champion_test_policy:
@@ -288,7 +291,6 @@ class OnlineTrialRunner:
             test_attribute = 'loss_avg'
         else:
             raise NotImplementedError
-        #TODO: improve efficiency
         active_trials = [trial for trial in self._trials if
                          (trial.status != Trial.TERMINATED
                              and trial.trial_id != self._champion_trial.trial_id
@@ -413,9 +415,9 @@ class OnlineTrialRunner:
         """
         if trial_to_test.result is not None and self._champion_trial.result is not None:
             if 'ucb' in self._champion_test_policy:
-                return self._test_lcb_ucb(self._champion_trial, trial_to_test)
+                return self._test_lcb_ucb(self._champion_trial, trial_to_test, self.WARMSTART_NUM)
             elif 'avg' in self._champion_test_policy:
-                return self._test_avg_loss(self._champion_trial, trial_to_test)
+                return self._test_avg_loss(self._champion_trial, trial_to_test, self.WARMSTART_NUM)
             elif 'martingale' in self._champion_test_policy:
                 return self._test_martingale(self._champion_trial, trial_to_test)
             elif 'notest' in self._champion_test_policy:
@@ -424,10 +426,10 @@ class OnlineTrialRunner:
         return False
 
     @staticmethod
-    def _worse_than_champion_test(champion_trial, trial) -> bool:
+    def _worse_than_champion_test(champion_trial, trial, warmstart_num=1) -> bool:
         """Only considering one way of worse-than test
         """
-        if trial.result is not None and trial.result.resource_used >= WARMSTART_NUM:
+        if trial.result is not None and trial.result.resource_used >= warmstart_num:
             if trial.result.loss_lcb - trial.result.loss_cb > champion_trial.result.loss_ucb:
                 logger.info('=========trial %s is worse than champion %s=====',
                             trial.trial_id, champion_trial.trial_id)
@@ -441,12 +443,12 @@ class OnlineTrialRunner:
         return False
 
     @staticmethod
-    def _test_lcb_ucb(champion_trial, trial) -> bool:
+    def _test_lcb_ucb(champion_trial, trial, warmstart_num=1) -> bool:
         """Comare the challenger(i.e., trial)'s loss upper bound with 
         champion_trial's loss lower bound - cb
         """
         assert trial.trial_id != champion_trial.trial_id
-        if trial.result.resource_used >= WARMSTART_NUM:
+        if trial.result.resource_used >= warmstart_num:
             if trial.result.loss_ucb < champion_trial.result.loss_lcb - champion_trial.result.loss_cb:
                 logger.info('=========new champion condition satisfied: using lcb vs ucb===========')
                 logger.info('new champion trial %s %s %s',
@@ -463,12 +465,12 @@ class OnlineTrialRunner:
         return False
 
     @staticmethod
-    def _test_avg_loss(champion_trial, trial) -> bool:
+    def _test_avg_loss(champion_trial, trial, warmstart_num=1) -> bool:
         """Comare the challenger(i.e., trial)'s average loss with the
         champion_trial's average loss
         """
         assert trial.trial_id != champion_trial.trial_id
-        if trial.result.resource_used >= WARMSTART_NUM:
+        if trial.result.resource_used >= warmstart_num:
             if trial.result.loss_avg < champion_trial.result.loss_avg:
                 logger.info('=========new champion condition satisfied using avg loss===========')
                 logger.info('trial %s', trial.config)
