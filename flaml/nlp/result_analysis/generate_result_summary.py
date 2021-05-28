@@ -2,7 +2,7 @@
 def extract_ranked_config_score(console_args, partial_config_dict):
     from .azure_utils import AzureUtils
     import numpy as np
-    azure_utils = AzureUtils(console_args)
+    azure_utils = AzureUtils(console_args=console_args)
 
     for method, each_partial_config in partial_config_dict.items():
         dataset2configscorelist = azure_utils.get_config_and_score_from_partial_config(each_partial_config, ["dat", "subdat"], method)
@@ -56,7 +56,7 @@ def merge_configscore_list(small_dataset2configscorelist):
 
 def get_result(console_args, partial_jobid_config):
     from .azure_utils import AzureUtils, JobID
-    azure_utils = AzureUtils(console_args)
+    azure_utils = AzureUtils(console_args=console_args)
     dataset2configscorelist = azure_utils.get_config_and_score_from_partial_config(partial_jobid_config, ["dat", "subdat"], "hpo")
     for dataset, configscore_list in dataset2configscorelist.items():
         for rep_id in range(len(configscore_list)):
@@ -81,7 +81,7 @@ def print_config(config_dict):
 
 def compare_small_vs_large(console_args):
     from .azure_utils import AzureUtils, JobID
-    azure_utils = AzureUtils(console_args)
+    azure_utils = AzureUtils(console_args=console_args)
 
     # partial_jobid_config = JobID()
     # partial_jobid_config.pre = "funnel"
@@ -145,7 +145,7 @@ def compare_small_vs_large(console_args):
 
 def check_conflict(console_args, partial_jobid_config_list):
     from .azure_utils import AzureUtils, JobID
-    azure_utils = AzureUtils(console_args)
+    azure_utils = AzureUtils(console_args=console_args)
     for each_partial_config in partial_jobid_config_list:
         dataset2configscorelist = \
             azure_utils.get_config_and_score_from_partial_config(
@@ -180,7 +180,7 @@ def print_cfo(console_args):
 
     for each_rep in range(3):
         jobid_config.rep = each_rep
-        azure_utils = AzureUtils(console_args, jobid = jobid_config)
+        azure_utils = AzureUtils(console_args=console_args, jobid = jobid_config)
 
         dataset2configscorelist = \
             azure_utils.get_config_and_score_from_partial_config(

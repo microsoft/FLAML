@@ -80,7 +80,10 @@ def get_best_base_config(args, jobid_config, autohf, wandb_utils):
     else:
         jobid_config_small.presz = "small"
     jobid_config_small.pre_full = re.sub("(xlarge|large|intermediate)", jobid_config_small.presz, jobid_config_small.pre_full)
-    azure_utils_small = AzureUtils(args_small, jobid_config_small, autohf)
+    azure_utils_small = AzureUtils(
+                            console_args= args_small,
+                            jobid=jobid_config_small,
+                            autohf=autohf)
     preparedata_setting = get_preparedata_setting(args, jobid_config, wandb_utils)
     autohf.prepare_data(**preparedata_setting)
     autohf.set_metric()
@@ -102,7 +105,7 @@ def search_base_and_search_lower_lr(args, jobid_config, autohf, wandb_utils):
     jobid_config_large = JobID(args_large)
     jobid_config_large.presz = jobid_config.presz
     jobid_config_large.pre_full = jobid_config.pre_full
-    azure_utils_large = AzureUtils(args_large, jobid_config_large, autohf)
+    azure_utils_large = AzureUtils(console_args=args_large, jobid= jobid_config_large,autohf= autohf)
 
     _test_hpo(args_large,
               jobid_config_large,
@@ -132,7 +135,7 @@ def search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils):
     jobid_config_large = JobID(args_large)
     jobid_config_large.presz = jobid_config.presz
     jobid_config_large.pre_full = jobid_config.pre_full
-    azure_utils_large = AzureUtils(args_large, jobid_config_large, autohf)
+    azure_utils_large = AzureUtils(console_args=args_large, jobid=jobid_config_large, autohf=autohf)
 
     _test_hpo(args_large,
               jobid_config_large,
@@ -150,7 +153,7 @@ def evaluate_configs(autohf, args, ranked_all_configs):
     this_args.sample_num = int(len(ranked_all_configs))
     this_args.search_alg_args_mode = "cus"
     jobid_config = JobID(this_args)
-    azure_utils_large = AzureUtils(this_args, jobid_config, autohf)
+    azure_utils_large = AzureUtils(console_args=this_args, jobid=jobid_config, autohf=autohf)
     _test_hpo(this_args,
               jobid_config,
               autohf,
@@ -226,7 +229,7 @@ def _test_hpo(args,
               ):
     try:
         if not azure_utils:
-            azure_utils = AzureUtils(args, jobid_config, autohf)
+            azure_utils = AzureUtils(console_args=args, jobid= jobid_config, autohf=autohf)
         preparedata_setting = get_preparedata_setting(args, jobid_config, wandb_utils)
         autohf.prepare_data(**preparedata_setting)
 

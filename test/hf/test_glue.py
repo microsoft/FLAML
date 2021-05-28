@@ -108,7 +108,10 @@ def _test_hpo(args,
               ):
     try:
         if not azure_utils:
-            azure_utils = AzureUtils("logs_acl", args, jobid_config, autohf)
+            azure_utils = AzureUtils(root_log_path="logs_acl",
+                                     console_args= args,
+                                     jobid=jobid_config,
+                                     autohf=autohf)
         preparedata_setting = get_preparedata_setting(args, jobid_config, wandb_utils)
         autohf.prepare_data(**preparedata_setting)
 
