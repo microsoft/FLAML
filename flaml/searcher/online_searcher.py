@@ -13,12 +13,11 @@ logger = logging.getLogger(__name__)
 class BaseSearcher:
     """Implementation of the BaseSearcher
 
-    Methods
-    -------
-    set_search_properties(metric, mode, config)
-    next_trial()
-    on_trial_result(trial_id, result)
-    on_trial_complete()
+    Methods:
+        set_search_properties(metric, mode, config)
+        next_trial()
+        on_trial_result(trial_id, result)
+        on_trial_complete()
     """
 
     def __init__(self,
@@ -48,26 +47,24 @@ class BaseSearcher:
 class ChampionFrontierSearcher(BaseSearcher):
     """The ChampionFrontierSearcher class
 
-    Methods
-    -------
-    set_search_properties(metric, mode, config)
-        Generate a list of new challengers, and add them to the _challenger_list
-    next_trial()
-        Pop a trial from the _challenger_list
-    on_trial_result(trial_id, result)
-        Doing nothing
-    on_trial_complete()
-        Doing nothing
+    Methods:
+        set_search_properties(metric, mode, config)
+            Generate a list of new challengers, and add them to the _challenger_list
+        next_trial()
+            Pop a trial from the _challenger_list
+        on_trial_result(trial_id, result)
+            Doing nothing
+        on_trial_complete()
+            Doing nothing
 
-    NOTE
-    -------
-    This class serves the role of ConfigOralce.
-    Every time we create a VW trial, we generate a searcher_trial_id.
-    At the same time, we also record the trial_id of the VW trial. 
-    Note that the trial_id is a unique signature of the configuraiton. 
-    So if two VWTrials are associated with the same config, they will have the same trial_id
-    (although not the same searcher_trial_id).
-    searcher_trial_id will be used in suggest()
+    NOTE:
+        This class serves the role of ConfigOralce.
+        Every time we create a VW trial, we generate a searcher_trial_id.
+        At the same time, we also record the trial_id of the VW trial. 
+        Note that the trial_id is a unique signature of the configuraiton. 
+        So if two VWTrials are associated with the same config, they will have the same trial_id
+        (although not the same searcher_trial_id).
+        searcher_trial_id will be used in suggest()
     """
     POLY_EXPANSION_ADDITION_NUM = 1
     POLY_EXPANSION_ORDER = 2
@@ -91,14 +88,13 @@ class ChampionFrontierSearcher(BaseSearcher):
         '''Constructor
 
         Args:
-        --------
             init_config: dict
             metric: str
             mode: str
             config_oracle_random_seed: int
             space: dict
             online_trial_args: dict
-            nonpoly_searcher_name: A string to specify the search algorithm 
+            nonpoly_searcher_name: A string to specify the search algorithm
                 for nonpoly hyperparameters
         '''
         self._init_config = init_config
@@ -120,7 +116,7 @@ class ChampionFrontierSearcher(BaseSearcher):
 
     def set_search_properties(self, metric: Optional[str], mode: Optional[str],
                               config: dict, init_call=False):
-        """ construct search space with given config, and setup the search
+        """Construct search space with given config, and setup the search
         """
         super().set_search_properties(metric, mode, config)
         # *********Use ConfigOralce (i.e, self._generate_new_space to generate list of new challengers)
@@ -162,7 +158,7 @@ class ChampionFrontierSearcher(BaseSearcher):
 
     def _query_config_oracle(self, seed_config, seed_config_trial_id,
                              seed_config_searcher_trial_id=None) -> List[Trial]:
-        """Give the seed config, generate a list of new configs (which are supposed to include 
+        """Give the seed config, generate a list of new configs (which are supposed to include
         at least one config that has better performance than the input seed_config)
         """
         # group the hyperparameters according to whether the configs of them are independent with

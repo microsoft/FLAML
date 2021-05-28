@@ -12,14 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 class OnlineResult:
-    """ Class for managing the result statistics of a trial
+    """Class for managing the result statistics of a trial
 
-    Methods
-    -------
-    update_result(new_loss, new_resource_used, data_dimension)
-        Update result
-    get_score(score_name)
-        Get the score according to the input score_name
+    Methods:
+        update_result(new_loss, new_resource_used, data_dimension)
+            Update result
+        get_score(score_name)
+            Get the score according to the input score_name
     """
     prob_delta = 0.1
     LOSS_MIN = 0.0
@@ -29,12 +28,10 @@ class OnlineResult:
     def __init__(self, result_trial_id, result_type_name, cb_coef=None, init_loss=0.0,
                  init_cb=100.0, mode='min', sliding_window_size=100):
         """
-
-        Args
-        -------
-        result_trial_id: str
-        result_type_name: str
-            The name of the result type
+        Args:
+            result_trial_id: str
+            result_type_name: str
+                The name of the result type
         """
         self._result_trial_id = result_trial_id
         self._result_type_name = result_type_name  # for example 'mse' or 'mae'
@@ -115,13 +112,12 @@ class OnlineResult:
 
 
 class BaseOnlineTrial(Trial):
-    """A class for online trial.
+    """Class for online trial.
 
-    Methods
-    -------
-    set_resource_lease(resource)
-    set_status(status)
-    set_checked_under_current_champion(checked_under_current_champion)
+    Methods:
+        set_resource_lease(resource)
+        set_status(status)
+        set_checked_under_current_champion(checked_under_current_champion)
     """
 
     model_class = None
@@ -135,8 +131,7 @@ class BaseOnlineTrial(Trial):
                  trial_id: Optional[str] = None,
                  ):
         """
-        Args
-        -----
+        Args:
             config: the config dict
             min_resource_lease: the minimum resource realse
             is_champion: a bool variable
@@ -199,25 +194,23 @@ class BaseOnlineTrial(Trial):
 
 
 class VWOnlineTrial(BaseOnlineTrial):
-    """ Implement BaseOnlineTrial for VW
+    """Implement BaseOnlineTrial for VW
 
-    Methods
-    -------
-    set_resource_lease(resource)
-    set_status(status)
-    set_checked_under_current_champion(checked_under_current_champion)
+    Methods:
+        set_resource_lease(resource)
+        set_status(status)
+        set_checked_under_current_champion(checked_under_current_champion)
 
-    NOTE
-    -------
-    About result: 
-    1. training related results (need to be updated in the trainable class)
-    2. result about resources lease (need to be updated externally)
+    NOTE:
+        About result:
+        1. training related results (need to be updated in the trainable class)
+        2. result about resources lease (need to be updated externally)
 
-    About namespaces in vw:
-    - Wiki in vw: 
-    https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Namespaces
-    - Namespace vs features: 
-    https://stackoverflow.com/questions/28586225/in-vowpal-wabbit-what-is-the-difference-between-a-namespace-and-feature
+        About namespaces in vw:
+        - Wiki in vw: 
+        https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Namespaces
+        - Namespace vs features: 
+        https://stackoverflow.com/questions/28586225/in-vowpal-wabbit-what-is-the-difference-between-a-namespace-and-feature
     """
     MODEL_CLASS = pyvw.vw
     cost_unit = 1.0
@@ -237,13 +230,12 @@ class VWOnlineTrial(BaseOnlineTrial):
         """Constructor
 
         Args:
-        -----
-        config (dict): the config of the trial (note that the config is a set because the hyperparameters are )
-        min_resource_lease (float): the minimum resource lease
-        metric (str): the loss metric
-        is_champion (bool): indicates whether the trial is the current champion or not
-        is_checked_under_current_champion (bool): indicates whether this trials has been paused under the current champion
-        trial_id (str): id of the trial (if None, it will be generated in the constructor)
+            config (dict): the config of the trial (note that the config is a set because the hyperparameters are )
+            min_resource_lease (float): the minimum resource lease
+            metric (str): the loss metric
+            is_champion (bool): indicates whether the trial is the current champion or not
+            is_checked_under_current_champion (bool): indicates whether this trials has been paused under the current champion
+            trial_id (str): id of the trial (if None, it will be generated in the constructor)
 
         """
         self.trial_id = self._config_to_id(config) if trial_id is None else trial_id
@@ -390,20 +382,19 @@ class VWOnlineTrial(BaseOnlineTrial):
     def get_ns_feature_dim_from_vw_example(vw_example) -> dict:
         """Get a dictionary of feature dimensionality for each namespace
 
-        NOTE
-        ------
-        Assumption: assume the vw_example takes one of the following format
-        depending on whether the example includes the feature names
- 
-        format 1: 'y | ns1 feature1:feature_value1 feature2:feature_value2 | 
-                   ns2 feature3:feature_value3 feature4:feature_value4'
-        format 2: 'y | ns1 feature_value1 feature_value2 |
-                   ns2 feature_value3 feature_value4'
+        NOTE:
+            Assumption: assume the vw_example takes one of the following format
+            depending on whether the example includes the feature names
+    
+            format 1: 'y | ns1 feature1:feature_value1 feature2:feature_value2 | 
+                    ns2 feature3:feature_value3 feature4:feature_value4'
+            format 2: 'y | ns1 feature_value1 feature_value2 |
+                    ns2 feature_value3 feature_value4'
 
-        The output of both cases are {'ns1': 2, 'ns2': 2}
+            The output of both cases are {'ns1': 2, 'ns2': 2}
 
-        For more information about the input formate of vw example, please refer to 
-        https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format
+            For more information about the input formate of vw example, please refer to 
+            https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format
         """
         ns_feature_dim = {}
         data = vw_example.split('|')

@@ -10,19 +10,17 @@ logger = logging.getLogger(__name__)
 class OnlineScheduler(FIFOScheduler):
     """Implementation of the OnlineFIFOSchedulers.
 
-    Methods
-    -------
-    on_trial_result(trial_runner, trial, result)
-        Report result and return a decision on the trial's status
-    choose_trial_to_run(trial_runner)
-        Decide which trial to run next
+    Methods:
+        on_trial_result(trial_runner, trial, result)
+            Report result and return a decision on the trial's status
+        choose_trial_to_run(trial_runner)
+            Decide which trial to run next
     """
 
     def __init__(self, max_lease: Optional[float] = np.inf):
         '''
         Args:
-        --------
-        max_lease: float = np.inf
+            max_lease: float = np.inf
         '''
         self._max_lease = max_lease
 
@@ -62,13 +60,11 @@ class OnlineScheduler(FIFOScheduler):
 class OnlineSuccessiveDoublingScheduler(OnlineScheduler):
     """Implementation of the OnlineSuccessiveDoublingScheduler.
 
-    Methods
-    -------
-    on_trial_result(trial_runner, trial, result)
-        Report result and return a decision on the trial's status
-    choose_trial_to_run(trial_runner)
-        Decide which trial to run next
-
+    Methods:
+        on_trial_result(trial_runner, trial, result)
+            Report result and return a decision on the trial's status
+        choose_trial_to_run(trial_runner)
+            Decide which trial to run next
     """
     def __init__(self,
                  max_lease: Optional[float] = np.inf,
@@ -76,7 +72,6 @@ class OnlineSuccessiveDoublingScheduler(OnlineScheduler):
                  ):
         '''
         Args:
-        -------
             max_lease: float = np.inf
             increase_factor: float = 2
         '''
@@ -106,12 +101,11 @@ class OnlineSuccessiveDoublingScheduler(OnlineScheduler):
 class ChaChaScheduler(OnlineSuccessiveDoublingScheduler):
     """  Keep the top performed learners running
 
-    Methods
-    -------
-    on_trial_result(trial_runner, trial, result)
-        Report result and return a decision on the trial's status
-    choose_trial_to_run(trial_runner)
-        Decide which trial to run next
+    Methods:
+        on_trial_result(trial_runner, trial, result)
+            Report result and return a decision on the trial's status
+        choose_trial_to_run(trial_runner)
+            Decide which trial to run next
     """
     def __init__(self,
                  max_lease: Optional[float] = np.inf,
@@ -120,7 +114,6 @@ class ChaChaScheduler(OnlineSuccessiveDoublingScheduler):
                  ):
         '''
         Args:
-        -------
             max_lease: float = np.inf
             increase_factor: float = 2
         '''

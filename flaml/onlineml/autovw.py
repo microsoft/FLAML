@@ -11,10 +11,9 @@ logger = logging.getLogger(__name__)
 class AutoVW:
     """The AutoML class
 
-    Methods
-    -------
-    predict(data_sample)
-    learn(data_sample)
+    Methods:
+        predict(data_sample)
+        learn(data_sample)
     """
     WARMSTART_NUM = 100
 
@@ -31,10 +30,9 @@ class AutoVW:
                  model_selection_mode: Optional[str] = 'min',
                  cb_coef: Optional[float] = None,
                  ):
-        '''Constructor
+        """Constructor
 
         Args:
-        -------
             init_config: A dictionary of a partial or full initial config,
                 e.g. {'interactions': set(), 'learning_rate': 0.5}
             search_space: A dictionary of the search space. This search space includes both
@@ -55,7 +53,7 @@ class AutoVW:
             model_selection_mode: A string in ['min', 'max'] to specify the objective as
                 minimization or maximization.
             cb_coef (float): A float coefficient (optional) used in the sample complexity bound.
-        '''
+        """
         self._model_select_policy = model_select_policy
         self._model_selection_mode = model_selection_mode
         online_trial_args = {"metric": metric,
@@ -84,7 +82,7 @@ class AutoVW:
         self._iter = 0
 
     def predict(self, data_sample):
-        """ Predict on the input example (e.g., vw example)
+        """Predict on the input example (e.g., vw example)
         """
         self._best_trial = self._select_best_trial()
         self._y_predict = self._best_trial.predict(data_sample)
@@ -106,6 +104,8 @@ class AutoVW:
         self._trial_runner.step(data_sample, (self._y_predict, self._best_trial))
 
     def _select_best_trial(self):
+        """Select a best trial from the running trials accoring to the _model_select_policy
+        """
         best_score = float('+inf') if self._model_selection_mode == 'min' else float('-inf')
         new_best_trial = None
         for trial in self._trial_runner.get_running_trials:
