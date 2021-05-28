@@ -358,6 +358,8 @@ class AutoTransformers:
         return training_args_config, per_model_config
 
     def _objective(self, config, reporter, checkpoint_dir=None):
+        def model_init():
+            return self._load_model()
         from transformers.trainer_utils import set_seed
         set_seed(config["seed"])
         np.random.seed(config["seed"])
@@ -402,6 +404,7 @@ class AutoTransformers:
         trainer = TrainerForAutoTransformers(
             this_model,
             training_args,
+            model_init=model_init,
             train_dataset=self.train_dataset,
             eval_dataset=self.eval_dataset,
             tokenizer=self._tokenizer,
