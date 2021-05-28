@@ -28,6 +28,7 @@ def load_console_args():
     arg_parser.add_argument('--ds_config', type=str, help='deep speed config file path', required = False, default = None)
     arg_parser.add_argument('--yml_file', type=str, help='yml file path', required=True, default = None)
     arg_parser.add_argument('--key_path', type=str, help='path for key.json', required=True, default=None)
+    arg_parser.add_argument('--root_log_path', type=str, help='root path for log', required=False, default="logs_azure")
     return arg_parser.parse_args()
 
 def get_wandb_azure_key(key_path):

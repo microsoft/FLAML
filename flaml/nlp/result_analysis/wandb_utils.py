@@ -15,7 +15,7 @@ class WandbUtils:
             os.environ["WANDB_API_KEY"] = wandb_key
             os.environ["WANDB_MODE"] = "online"
         else:
-            os.environ["WANDB_MODE"] = "offline"
+            os.environ["WANDB_MODE"] = "disabled"
         self.jobid_config = jobid_config
 
     def set_wandb_per_trial(self):

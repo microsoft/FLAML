@@ -108,7 +108,7 @@ def _test_hpo(args,
               ):
     try:
         if not azure_utils:
-            azure_utils = AzureUtils(root_log_path="logs_acl",
+            azure_utils = AzureUtils(root_log_path= args.root_log_path,
                                      console_args= args,
                                      jobid=jobid_config,
                                      autohf=autohf)
