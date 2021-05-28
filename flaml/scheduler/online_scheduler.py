@@ -1,8 +1,7 @@
 import numpy as np
 import logging
-from typing import Dict
-from ray.tune.schedulers.trial_scheduler import FIFOScheduler
-from ray.tune.schedulers.trial_scheduler import TrialScheduler
+from typing import Optional, Dict
+from ray.tune.schedulers.trial_scheduler import FIFOScheduler, TrialScheduler
 from ..tune.trial import Trial
 
 logger = logging.getLogger(__name__)
@@ -19,7 +18,7 @@ class OnlineScheduler(FIFOScheduler):
         Decide which trial to run next
     """
 
-    def __init__(self, max_lease: float = np.inf):
+    def __init__(self, max_lease: Optional[float] = np.inf):
         '''
         Args:
         --------
@@ -33,7 +32,7 @@ class OnlineScheduler(FIFOScheduler):
         Always keep a trial running (return status TrialScheduler.CONTINUE) until
         a max resource is reached (return status TrialScheduler.STOP)
         """
-        if trial.result and trial.result.resource_used >= self._max_lease:
+        if trial.result is not None and trial.result.resource_used >= self._max_lease:
             return TrialScheduler.STOP
         else:
             return TrialScheduler.CONTINUE
@@ -44,7 +43,7 @@ class OnlineScheduler(FIFOScheduler):
         Trial prioritrization according to the status:
         PENDING (trials that have not been tried) > PAUSED (trials that have been ran)
 
-        For trials with the same status, it choose the ones with smaller resource lease
+        For trials with the same status, it chooses the ones with smaller resource lease
         """
         for trial in trial_runner.get_trials():
             if trial.status == Trial.PENDING:
@@ -72,8 +71,8 @@ class OnlineSuccessiveDoublingScheduler(OnlineScheduler):
 
     """
     def __init__(self,
-                 max_lease: float = np.inf,
-                 increase_factor: float = 2,
+                 max_lease: Optional[float] = np.inf,
+                 increase_factor: Optional[float] = 2,
                  ):
         '''
         Args:
@@ -115,8 +114,8 @@ class ChaChaScheduler(OnlineSuccessiveDoublingScheduler):
         Decide which trial to run next
     """
     def __init__(self,
-                 max_lease: float = np.inf,
-                 increase_factor: float = 2,
+                 max_lease: Optional[float] = np.inf,
+                 increase_factor: Optional[float] = 2,
                  **kwargs
                  ):
         '''
@@ -130,8 +129,6 @@ class ChaChaScheduler(OnlineSuccessiveDoublingScheduler):
         self._keep_challenger_metric = kwargs.get('keep_challenger_metric', 'ucb')
         self._keep_challenger_ratio = kwargs.get('keep_challenger_ratio', 'tophalf')
         self._pause_old_froniter = kwargs.get('pause_old_froniter', False)
-        self._reset_resource_for_paused_old_froniter = kwargs.get('reset_resource_for_paused_old_froniter',
-                                                                  False)
         logger.info('Using chacha scheduler with config %s', kwargs)
 
     def on_trial_result(self, trial_runner, trial: Trial, result: Dict):
@@ -148,12 +145,10 @@ class ChaChaScheduler(OnlineSuccessiveDoublingScheduler):
         # NOTE: this part may need to be changed. We need to do this because we only add trials
         # into the OnlineTrialRunner when there are avaialbe slots. Maybe we need to consider
         # adding max_running_trial number of trials once a new champion is promoted.
-        is_trial_checked_old = False
         if self._pause_old_froniter and not trial.is_checked_under_current_champion:
             if decision != TrialScheduler.STOP:
                 decision = TrialScheduler.PAUSE
                 trial.set_checked_under_current_champion(True)
-                is_trial_checked_old = True
                 logger.info('Tentitively set trial as paused')
 
         # ****************Keep the champion always running******************
@@ -172,13 +167,4 @@ class ChaChaScheduler(OnlineSuccessiveDoublingScheduler):
                     logger.debug('top runner %s: set from PAUSE to CONTINUE', trial.trial_id)
                     return TrialScheduler.CONTINUE
 
-        # ****************Reset old (and bad) trial resource****************
-        # for an old trial, we reset its resource if its performance is bad and is not champion
-        if self._reset_resource_for_paused_old_froniter and is_trial_checked_old and \
-           decision == TrialScheduler.PAUSE:
-            logger.info('Resetting resource %s %s %s %s', trial.trial_id,
-                        trial.result.resource_used,
-                        trial.resource_lease)
-            trial.reset_resource_lease()
-            logger.info('Resetting resource to %s %s %s %s', trial.resource_lease)
         return decision

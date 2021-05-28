@@ -13,6 +13,13 @@ logger = logging.getLogger(__name__)
 
 class OnlineResult:
     """ Class for managing the result statistics of a trial
+
+    Methods
+    -------
+    update_result(new_loss, new_resource_used, data_dimension)
+        Update result
+    get_score(score_name)
+        Get the score according to the input score_name
     """
     prob_delta = 0.1
     LOSS_MIN = 0.0
@@ -21,6 +28,14 @@ class OnlineResult:
 
     def __init__(self, result_trial_id, result_type_name, cb_coef=None, init_loss=0.0,
                  init_cb=100.0, mode='min', sliding_window_size=100):
+        """
+
+        Args
+        -------
+        result_trial_id: str
+        result_type_name: str
+            The name of the result type
+        """
         self._result_trial_id = result_trial_id
         self._result_type_name = result_type_name  # for example 'mse' or 'mae'
         self._mode = mode
@@ -29,7 +44,7 @@ class OnlineResult:
         self.loss_sum = 0.0
         self.observation_count = 0
         self.resource_used = 0.0
-        self.loss_cb = init_cb  # a large number #TODO: this can be changed
+        self.loss_cb = init_cb  # a large number (TODO: this can be changed)
         self._cb_coef = cb_coef if cb_coef is not None else self.CB_COEF
         # optional statistics
         self._sliding_window_size = sliding_window_size
@@ -37,6 +52,8 @@ class OnlineResult:
 
     def update_result(self, new_loss, new_resource_used, data_dimension,
                       bound_of_range=1.0, new_observation_count=1):
+        """Update result statistics
+        """
         self.observation_count += new_observation_count
         self.resource_used += new_resource_used
         self.loss_sum += new_loss
@@ -98,43 +115,46 @@ class OnlineResult:
 
 
 class BaseOnlineTrial(Trial):
-    """A class for online trial. Important information in this Trial class:
-    id of a trial: config
+    """A class for online trial.
 
-    Other information to keep track of:
-    1. model  (and information needed to construct this model)
-        Info needed:
-        1.1 fixed_config
-        
-    2. result (not just a single value, but a collection of statistics. 
-    Realized by the OnlineResult class)
-        Info needed:
-            1.2 namespace dimension dictionary. It is used to calculate the dimension
+    Methods
+    -------
+    set_resource_lease(resource)
+    set_status(status)
+    set_checked_under_current_champion(checked_under_current_champion)
     """
 
     model_class = None
 
     def __init__(self,
-                 config: dict = None,
-                 min_resource_lease: float = None,
-                 is_champion: bool = False,
-                 is_checked_under_current_champion: bool = True,  # assuming the trial created is champion frontier by default
-                 custom_trial_name='mae',
+                 config: dict,
+                 min_resource_lease: float,
+                 is_champion: Optional[bool] = False,
+                 is_checked_under_current_champion: Optional[bool] = True,
+                 custom_trial_name: Optional[str] = 'mae',
                  trial_id: Optional[str] = None,
                  ):
-        # #======== basic variables
+        """
+        Args
+        -----
+            config: the config dict
+            min_resource_lease: the minimum resource realse
+            is_champion: a bool variable
+            is_checked_under_current_champion: a bool variable
+            custom_trial_name: custom trial name,
+            trial_id: the trial id
+        """
+        # ****basic variables
         self.config = config
-        # self.trial_id = Trial.generate_id() if trial_id is None else trial_id
         self.trial_id = trial_id
         self.status = Trial.PENDING
         self.start_time = time.time()
         self.custom_trial_name = custom_trial_name
-        # self.resources = Resources(cpu=1, gpu=0)
 
-        # #==resource budget related variable
+        # ***resource budget related variable
         self._min_resource_lease = min_resource_lease
         self._resource_lease = copy.copy(self._min_resource_lease)
-        # #======== champion related variables
+        # ***champion related variables
         self._is_champion = is_champion
         # self._is_checked_under_current_champion_ is supposed to be always 1 when the trial is first created
         self._is_checked_under_current_champion = is_checked_under_current_champion
@@ -151,9 +171,6 @@ class BaseOnlineTrial(Trial):
     def resource_lease(self):
         return self._resource_lease
 
-    def set_champion_status(self, is_champion: bool):
-        self._is_champion = is_champion
-
     def set_checked_under_current_champion(self, checked_under_current_champion: bool):
         """TODO: add documentation why this is needed. Brifly speacking, it is needed because we want to 
         know whether a trial has been paused since a new champion is promoted.
@@ -161,7 +178,7 @@ class BaseOnlineTrial(Trial):
         check point according to resource used and resource lease), because a better trial is likely to be 
         in the new challengers generated by the new champion, so we want to try them as soon as possible.
         If we wait until we reach the next scheduling point, we may waste a lot of resource (depending
-        on what is the current resource lease) on the old trials (note that new trials is not possible to be scheduled 
+        on what is the current resource lease) on the old trials (note that new trials is not possible to be scheduled
         to run until there is a slot openning). 
 
         Intuitively speaking, we want to squize an opening slot as soon as possible once a new champion is promoted,
@@ -171,9 +188,6 @@ class BaseOnlineTrial(Trial):
 
     def set_resource_lease(self, resource: float):
         self._resource_lease = resource
-
-    def reset_resource_lease(self):
-        self._resource_lease = self._min_resource_lease
 
     def set_status(self, status):
         """Sets the status of the trial and record the start time
@@ -186,45 +200,24 @@ class BaseOnlineTrial(Trial):
 
 class VWOnlineTrial(BaseOnlineTrial):
     """ Implement BaseOnlineTrial for VW
-    Args:
-        config (set): the config of the trial (note that the config is a set because the hyperparameters are )
-        trial_id (str): id of the trial (if None, it will be generated in the constructor)
-        is_champion (bool): indicates whether the trial is the current champion or not
-        is_champion_frontier (bool): indicates whether the trial is the current champion frontier or not
-    
-    #NOTE about result: 
-        1. training related results (need to be updated in the trainable class)
-        2. result about resources lease (need to be updated externally)
 
-    #NOTE about namespaces in vw:
-        - Wiki in vw: 
-        https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Namespaces
-        - Namespace vs features: 
-        https://stackoverflow.com/questions/28586225/in-vowpal-wabbit-what-is-the-difference-between-a-namespace-and-feature
-        - Command-line options related to name-spaces:
-            Option	Meaning
-            --keep c	Keep a name-space staring with the character c
-            --ignore c	Ignore a name-space starting with the character c
-            --redefine a:=b	redefine namespace starting with b as starting with a
-            --quadratic ab	Cross namespaces starting with a & b on the fly to 
-                generate 2-way interacting features
-            --cubic abc	Cross namespaces starting with a, b, & c on the fly to 
-                generate 3-way interacting features
-            --interactions {ab, cd, cde} Specify a set of namepace interactions
-            
-    Instance variables:
-        config: set
-        result: dict =
-            {
-            'resource_used': float,
-            'data_sample_count': int,
-            'loss_sum': float,
-            'loss_avg': float, 
-            'cb': float,
-            'loss_ucb': float, 
-            'loss_lcb': float,
-            }
-        [the other instance variables should be self-explainable]
+    Methods
+    -------
+    set_resource_lease(resource)
+    set_status(status)
+    set_checked_under_current_champion(checked_under_current_champion)
+
+    NOTE
+    -------
+    About result: 
+    1. training related results (need to be updated in the trainable class)
+    2. result about resources lease (need to be updated externally)
+
+    About namespaces in vw:
+    - Wiki in vw: 
+    https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Namespaces
+    - Namespace vs features: 
+    https://stackoverflow.com/questions/28586225/in-vowpal-wabbit-what-is-the-difference-between-a-namespace-and-feature
     """
     MODEL_CLASS = pyvw.vw
     cost_unit = 1.0
@@ -233,24 +226,36 @@ class VWOnlineTrial(BaseOnlineTrial):
 
     def __init__(self,
                  config: dict,
+                 min_resource_lease: float,
                  metric: str = 'mae',
-                 min_resource_lease: float = None,
-                 is_champion: bool = False,
-                 is_champion_frontier: bool = True,  # assuming the trial created is champion frontier by default
-                 custom_trial_name: str = 'vw_mae_clipped',
+                 is_champion: Optional[bool] = False,
+                 is_checked_under_current_champion: Optional[bool] = True,
+                 custom_trial_name: Optional[str] = 'vw_mae_clipped',
                  trial_id: Optional[str] = None,
                  cb_coef: Optional[float] = None,
                  ):
+        """Constructor
+
+        Args:
+        -----
+        config (dict): the config of the trial (note that the config is a set because the hyperparameters are )
+        min_resource_lease (float): the minimum resource lease
+        metric (str): the loss metric
+        is_champion (bool): indicates whether the trial is the current champion or not
+        is_checked_under_current_champion (bool): indicates whether this trials has been paused under the current champion
+        trial_id (str): id of the trial (if None, it will be generated in the constructor)
+
+        """
         self.trial_id = self._config_to_id(config) if trial_id is None else trial_id
         logger.info('Create trial with trial_id: %s', self.trial_id)
-        super().__init__(config, min_resource_lease, is_champion, is_champion_frontier,
+        super().__init__(config, min_resource_lease, is_champion, is_checked_under_current_champion,
                          custom_trial_name, self.trial_id)
         # variables that are needed during online training
         self._metric = metric
         self._y_min_observed = None
         self._y_max_observed = None
         self.model = None   # model is None until the config is scheduled to run
-        self.result = None  # OnlineResult(self.trial_id, 'mae') #FIXME: need 'mae' info
+        self.result = None
         # application dependent info
         self._dim = None
         self._namespace_set = None
@@ -371,35 +376,13 @@ class VWOnlineTrial(BaseOnlineTrial):
         total_dim += sum(namespace_feature_dim.values())
         return total_dim
 
-    def _config2vwconfig(self, config: dict):
-        """Convert the config into vw config format
-
-        The 'interaction' hyperparamter in vw only takes namespace interaction, so we 
-        need to strip the single namespace from the config, which includes both single and
-        namespace interactions.
-        #FIXME: maybe we should consider removing the single namespace from the config, which 
-        requires revision of the ConfigOracle. Then this function is no longer needed.
-        """
-        assert isinstance(config, dict) or isinstance(config, set)
-        if isinstance(config, dict):
-            assert VWOnlineTrial.interactions_config_key in config.keys()
-            namespace_set = config[VWOnlineTrial.interactions_config_key]
-            vw_config = config.copy()
-        else:
-            namespace_set = config
-            vw_config = {}
-        namespace_interaction_config = [c for c in namespace_set if len(c) != 1]
-        vw_config[VWOnlineTrial.interactions_config_key] = namespace_interaction_config
-        print('namespace_set', config, namespace_set)
-        return vw_config, namespace_set
-
     def clean_up_model(self):
         self.model = None
         self.result = None
 
     @staticmethod
     def _get_y_from_vw_example(vw_example):
-        """ get y from a vw_example. this works for regression datasets.
+        """Get y from a vw_example. this works for regression datasets.
         """
         return float(vw_example.split('|')[0])
 
@@ -407,6 +390,8 @@ class VWOnlineTrial(BaseOnlineTrial):
     def get_ns_feature_dim_from_vw_example(vw_example) -> dict:
         """Get a dictionary of feature dimensionality for each namespace
 
+        NOTE
+        ------
         Assumption: assume the vw_example takes one of the following format
         depending on whether the example includes the feature names
  

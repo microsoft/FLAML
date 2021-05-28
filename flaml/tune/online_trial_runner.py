@@ -16,10 +16,9 @@ class OnlineTrialRunner:
     step(max_live_model_num, data_sample, prediction_trial_tuple)
     get_running_trials()
 
-    #TODO: clean the NOTEs
-
     NOTE:
-    --------------------------------
+    ----------
+    #TODO: clean the NOTEs
     APIs needed from the schedulers (schedulers that can be used for now: 
     FIFOScheduler, HyberbandScheduler, and OnlineDoublingScheduler). 
     1. on_trial_add(self, trial_runner: "trial_runner.TrialRunner", trial: Trial)
@@ -31,7 +30,7 @@ class OnlineTrialRunner:
         Reprot results to the scheduler.
 
     4. choose_trial_to_run(self, trial_runner: "trial_runner.TrialRunner") -> Optional[Trial]
-    The last one, i.e., choose_trial_to_run is the most important function 
+    The last one, i.e., choose_trial_to_run is the most important function
     ---------------------------------
     APIs needed from the searcher
     next_trial()
@@ -39,8 +38,8 @@ class OnlineTrialRunner:
     on_trial_result(self, trial_id: str, result: Dict)
         Reprot results to the scheduler.
     ---------------------------
-    NOTE: About the status of a trial:
-    PENDING: it indicates the trial is a candidate trial 
+    About the status of a trial:
+    PENDING: it indicates the trial is a candidate trial
         when the scheduler choose the next trial to run. 
         All trials are set to be pending when frist added.
     RUNNING: it indicates that this trial is one of the concurrently running trials.
@@ -49,9 +48,8 @@ class OnlineTrialRunner:
         (The status of a PAUSED trial will be set to RUNNING the next time it selected to run? 
         The priority of the PAUSED trials is lower than the PENDING ones. )
     TERMINATED: set the status of a trial to TERMINATED when you never want to select it. 
-
     -----------------------------
-    NOTE: About searcher and scheduler.
+    About searcher and scheduler.
     1. The relationship between a trial_runner, which is an instance of the OnlineTrialRunner
     and searcher and scheduler.
     - trial_runner: with the help of searcher and the scheduler, it outputs a number of trials
@@ -102,7 +100,7 @@ class OnlineTrialRunner:
         # set the first trial as the champion (which is done inside self.step())
         self._total_steps = 0
         logger.info('init step %s', self._max_live_model_num)
-        self.step(self._max_live_model_num)
+        self.step()
         assert self._champion_trial is not None
 
     @property
@@ -121,7 +119,7 @@ class OnlineTrialRunner:
     def get_running_trials(self):
         return self._running_trials
 
-    def step(self, max_live_model_num, data_sample=None, prediction_trial_tuple=None):
+    def step(self, data_sample=None, prediction_trial_tuple=None):
         """Schedule up to max_live_model_num trials to run
 
         It consists of the following several parts:
@@ -168,18 +166,18 @@ class OnlineTrialRunner:
                 else:
                     self.run_trial(trial)
             # ***********Statistical test of champion*************************************
-            self._champion_test(max_live_model_num)
+            self._champion_test()
             # Pause the trial after the tests because the tests involves the reset of the trial's result
             for trial in trials_to_pause:
                 self.pause_trial(trial)
         # ***********Add and schedule new trials to run if there are opening slots****
         # Add trial if needed: add challengers into consideration through _add_trial_from_searcher()
         # if there are available slots
-        for _ in range(max_live_model_num - len(self._running_trials)):
+        for _ in range(self._max_live_model_num - len(self._running_trials)):
             self._add_trial_from_searcher()
         # Scheduling: schedule up to max_live_model_num number of trials to run (set the status as Trial.RUNNING)
         # while max_live_model_num > len([trial for trial in self._trials.values() if trial.status == Trial.RUNNING]):
-        while max_live_model_num > len(self._running_trials):
+        while self._max_live_model_num > len(self._running_trials):
             trial_to_run = self._scheduler.choose_trial_to_run(self)
             if trial_to_run is not None:
                 self.run_trial(trial_to_run)
@@ -254,7 +252,7 @@ class OnlineTrialRunner:
             if self._first_challenger_pool_size is None:
                 self._first_challenger_pool_size = len(self._trials)
 
-    def _champion_test(self, max_live_model_num):
+    def _champion_test(self):
         # for BetterThan test, we only need to compare the best challenger with the champion
         self._get_best_challenger()
         if self._best_challenger_trial is not None:
@@ -274,10 +272,8 @@ class OnlineTrialRunner:
                         self._champion_trial, trial_to_test, self.WARMSTART_NUM)
                     if worse_than_champion:
                         to_stop.append(trial_to_test)
-            # for trial in to_stop:
-            #     self.stop_trial(trial)
-            # TODO: we want to ensure there are at least #max_live_model_num of challengers remaining
-            for i in range(min(len(active_trials) - max_live_model_num, len(to_stop))):
+            # we want to ensure there are at least #max_live_model_num of challengers remaining
+            for i in range(min(len(active_trials) - self._max_live_model_num, len(to_stop))):
                 self.stop_trial(to_stop[i])
 
     def _get_best_challenger(self):
@@ -351,10 +347,10 @@ class OnlineTrialRunner:
         for trial in self._trials:
             if trial.trial_id == new_trial.trial_id:
                 trial.set_checked_under_current_champion(True)
-                return 
-        logger.info('adding trial at iter %s, %s %s', self._total_steps, new_trial.trial_id, len(self._trials))
-        self._trials.append(new_trial)  # do we need to check whether the trial exist
-        # self._trials[new_trial.trial_id] = new_trial  # do we need to check whether the trial exist
+                return
+        logger.info('adding trial at iter %s, %s %s', self._total_steps, new_trial.trial_id,
+                    len(self._trials))
+        self._trials.append(new_trial)
         self._scheduler.on_trial_add(self, new_trial)
 
     def stop_trial(self, trial):
@@ -384,10 +380,8 @@ class OnlineTrialRunner:
         else:
             logger.info('Pausing trial %s, with trial result %s %s %s %s',
                         trial.trial_id, trial.result.loss_avg,
-                        trial.result.loss_cb, trial.result.loss_avg + trial.result.loss_cb, trial.resource_lease)
-            logger.info('Current champion trial %s, with trial result %s %s %s %s',
-                        self._champion_trial.trial_id, self._champion_trial.result.loss_avg,
-                        self._champion_trial.result.loss_cb, self._champion_trial.result.loss_avg + self._champion_trial.result.loss_cb, + self._champion_trial.resource_lease)
+                        trial.result.loss_cb, trial.result.loss_avg + trial.result.loss_cb,
+                        trial.resource_lease)
             trial.set_status(Trial.PAUSED)
             # clean up model and result if no model persistence
             if self._no_model_persistence:
@@ -402,15 +396,15 @@ class OnlineTrialRunner:
             self._running_trials.add(trial)
 
     def _better_than_champion_test(self, trial_to_test):
-        """ test whether there is a config in the existing trials that is better than the 
+        """ test whether there is a config in the existing trials that is better than the
         current champion config
 
         Returns: 
-            new_champion_found: bool, which indicates whether a new champion is found 
-            new_champion_trial:  which is the new champion found (it is None if 
+            new_champion_found: bool, which indicates whether a new champion is found
+            new_champion_trial:  which is the new champion found (it is None if
                 a new champion is not found)
         # when the result is None, it is not a live model, which means that we shoud not try to use it.
-        # a non-live trial will only be scheduled to run in the scheduler, which does not need the 
+        # a non-live trial will only be scheduled to run in the scheduler, which does not need the
         # result
         """
         if trial_to_test.result is not None and self._champion_trial.result is not None:
@@ -434,17 +428,21 @@ class OnlineTrialRunner:
                 logger.info('=========trial %s is worse than champion %s=====',
                             trial.trial_id, champion_trial.trial_id)
                 logger.info('trial %s %s %s', trial.config, trial.result, trial.resource_lease)
-                logger.info('trial loss_avg:%s, trial loss_cb %s', trial.result.loss_avg, trial.result.loss_cb)
-                logger.info('champion loss_avg:%s, champion loss_cb %s', champion_trial.result.loss_avg, champion_trial.result.loss_cb )
+                logger.info('trial loss_avg:%s, trial loss_cb %s', trial.result.loss_avg,
+                            trial.result.loss_cb)
+                logger.info('champion loss_avg:%s, champion loss_cb %s', champion_trial.result.loss_avg,
+                            champion_trial.result.loss_cb)
                 logger.info('champion %s', champion_trial.config)
-                logger.info('trial loss_avg_recent:%s, trial loss_cb %s', trial.result.loss_avg_recent, trial.result.loss_cb)
-                logger.info('champion loss_avg_recent:%s, champion loss_cb %s', champion_trial.result.loss_avg_recent, champion_trial.result.loss_cb )
+                logger.info('trial loss_avg_recent:%s, trial loss_cb %s', trial.result.loss_avg_recent,
+                            trial.result.loss_cb)
+                logger.info('champion loss_avg_recent:%s, champion loss_cb %s',
+                            champion_trial.result.loss_avg_recent, champion_trial.result.loss_cb)
                 return True
         return False
 
     @staticmethod
     def _test_lcb_ucb(champion_trial, trial, warmstart_num=1) -> bool:
-        """Comare the challenger(i.e., trial)'s loss upper bound with 
+        """Comare the challenger(i.e., trial)'s loss upper bound with
         champion_trial's loss lower bound - cb
         """
         assert trial.trial_id != champion_trial.trial_id

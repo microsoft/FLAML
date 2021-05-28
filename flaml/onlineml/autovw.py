@@ -11,6 +11,10 @@ logger = logging.getLogger(__name__)
 class AutoVW:
     """The AutoML class
 
+    Methods
+    -------
+    predict(data_sample)
+    learn(data_sample)
     """
     WARMSTART_NUM = 100
 
@@ -18,18 +22,19 @@ class AutoVW:
                  init_config: dict,
                  search_space: dict,
                  max_live_model_num: int,
-                 min_resource_lease='auto',
-                 automl_runner_args: dict = {},
-                 scheduler_args: dict = {},
-                 model_select_policy: str = 'threshold_loss_ucb',
-                 metric='mae_clipped',
+                 min_resource_lease: Optional[str] = 'auto',
+                 automl_runner_args: Optional[dict] = {},
+                 scheduler_args: Optional[dict] = {},
+                 model_select_policy: Optional[str] = 'threshold_loss_ucb',
+                 metric: Optional[str] = 'mae_clipped',
                  config_oracle_random_seed: Optional[int] = None,
-                 model_selection_mode='min',
+                 model_selection_mode: Optional[str] = 'min',
                  cb_coef: Optional[float] = None,
                  ):
         '''Constructor
 
         Args:
+        -------
             init_config: A dictionary of a partial or full initial config,
                 e.g. {'interactions': set(), 'learning_rate': 0.5}
             search_space: A dictionary of the search space. This search space includes both
@@ -51,7 +56,6 @@ class AutoVW:
                 minimization or maximization.
             cb_coef (float): A float coefficient (optional) used in the sample complexity bound.
         '''
-        self._max_live_model_num = max_live_model_num
         self._model_select_policy = model_select_policy
         self._model_selection_mode = model_selection_mode
         online_trial_args = {"metric": metric,
@@ -70,7 +74,7 @@ class AutoVW:
         logger.info('scheduler_args %s', scheduler_args)
         logger.info('searcher_args %s', searcher_args)
         logger.info('automl_runner_args %s', automl_runner_args)
-        self._trial_runner = OnlineTrialRunner(max_live_model_num=self._max_live_model_num,
+        self._trial_runner = OnlineTrialRunner(max_live_model_num=max_live_model_num,
                                                searcher=searcher,
                                                scheduler=scheduler,
                                                **automl_runner_args)
@@ -99,17 +103,15 @@ class AutoVW:
             data_sample (vw_example/str/list): one data sample on which the model gets updated
         """
         self._iter += 1
-        self._trial_runner.step(self._max_live_model_num, data_sample, (self._y_predict, self._best_trial))
+        self._trial_runner.step(data_sample, (self._y_predict, self._best_trial))
 
-    def _best_trial_selection(self):
+    def _select_best_trial(self):
         best_score = float('+inf') if self._model_selection_mode == 'min' else float('-inf')
         new_best_trial = None
-        running_trials = list(self._trial_runner.get_running_trials).copy()
-        for trial in running_trials:
-            if trial.result is not None and ('threshold' not in self._model_select_policy or \
-               trial.result.resource_used >= AutoVW.WARMSTART_NUM):
+        for trial in self._trial_runner.get_running_trials:
+            if trial.result is not None and ('threshold' not in self._model_select_policy
+                                             or trial.result.resource_used >= self.WARMSTART_NUM):
                 score = trial.result.get_score(self._model_select_policy)
-                # logger.info('%s trial score %s', trial.trial_id, score)
                 if ('min' == self._model_selection_mode and score < best_score) or \
                    ('max' == self._model_selection_mode and score > best_score):
                     best_score = score
@@ -119,10 +121,16 @@ class AutoVW:
                          new_best_trial.result.resource_used)
             return new_best_trial
         else:
+            # This branch will be triggered when the resource consumption all trials are smaller
+            # than the WARMSTART_NUM threshold. In this case, we will select the _best_trial
+            # selected in the previous iteration.
             if self._best_trial is not None and self._best_trial.status == Trial.RUNNING:
-                logger.debug('old best trial%s ', self._best_trial.trial_id)
+                logger.debug('old best trial %s', self._best_trial.trial_id)
                 return self._best_trial
             else:
+                # this will be triggered in the first iteration or in the iteration where we want
+                # to select the trial from the previous iteration but that trial has been paused
+                # (i.e., self._best_trial.status != Trial.RUNNING) by the scheduler.
                 logger.debug('using champion trial: %s',
                              self._trial_runner.champion_trial.trial_id)
                 return self._trial_runner.champion_trial

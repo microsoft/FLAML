@@ -1,10 +1,8 @@
 import numpy as np
 import logging
 import itertools
-from typing import Dict, Optional, List, Tuple
-# from flaml.tune.sample import Float
-from flaml.tune.sample import Categorical
-from flaml.tune.sample import PolynomialExpansionSet, Float
+from typing import Dict, Optional, List
+from flaml.tune.sample import Categorical, Float, PolynomialExpansionSet
 from flaml.searcher import CFO
 from ..tune.trial import Trial
 from ..tune.online_trial import VWOnlineTrial
@@ -53,9 +51,13 @@ class ChampionFrontierSearcher(BaseSearcher):
     Methods
     -------
     set_search_properties(metric, mode, config)
+        Generate a list of new challengers, and add them to the _challenger_list
     next_trial()
+        Pop a trial from the _challenger_list
     on_trial_result(trial_id, result)
+        Doing nothing
     on_trial_complete()
+        Doing nothing
 
     NOTE
     -------
@@ -63,7 +65,7 @@ class ChampionFrontierSearcher(BaseSearcher):
     Every time we create a VW trial, we generate a searcher_trial_id.
     At the same time, we also record the trial_id of the VW trial. 
     Note that the trial_id is a unique signature of the configuraiton. 
-    So if two VWTrial is associated with the same config, they will have the same trial_id
+    So if two VWTrials are associated with the same config, they will have the same trial_id
     (although not the same searcher_trial_id).
     searcher_trial_id will be used in suggest()
     """
@@ -83,8 +85,8 @@ class ChampionFrontierSearcher(BaseSearcher):
                  mode: Optional[str] = None,
                  config_oracle_random_seed: Optional[int] = 2345,
                  space: Optional[dict] = None,
-                 online_trial_args={},
-                 nonpoly_searcher_name='CFO' # or 'Niave'
+                 online_trial_args: Optional[dict] = {},
+                 nonpoly_searcher_name: Optional[str] = 'CFO'
                  ):
         '''Constructor
 
@@ -111,44 +113,41 @@ class ChampionFrontierSearcher(BaseSearcher):
         # dicts to remember the mapping between searcher_trial_id and trial_id
         self._searcher_trialid_to_trialid = {}  # key: searcher_trial_id, value: trial_id
         self._trialid_to_searcher_trial_id = {}  # value: trial_id, key: searcher_trial_id 
-        self._new_challenger_list = []
+        self._challenger_list = []
         # initialize the search in set_search_properties
         self.set_search_properties(metric, mode, {self.CHAMPION_TRIAL_NAME: None}, init_call=True)
         logger.debug('using random seed %s in config oracle', self._seed)
 
     def set_search_properties(self, metric: Optional[str], mode: Optional[str],
-                              config: dict, init_call=False) -> bool:
+                              config: dict, init_call=False):
         """ construct search space with given config, and setup the search
         """
         super().set_search_properties(metric, mode, config)
-        ## Now we are using self._new_challenger_list.pop() to do the sampling
         # *********Use ConfigOralce (i.e, self._generate_new_space to generate list of new challengers)
-        # assert 'champion_trial' in config.keys()
         logger.info('champion trial %s', config)
         champion_trial = config.get(self.CHAMPION_TRIAL_NAME, None)
         if champion_trial is None:
             champion_trial = self._create_trial_from_config(self._init_config)
-        # create a list of challenger trials
-        print('champion_trial.config', champion_trial.trial_id, champion_trial.config)
+        # generate a new list of challenger trials
         new_challenger_list = self._query_config_oracle(champion_trial.config,
                                                         champion_trial.trial_id,
                                                         self._trialid_to_searcher_trial_id[champion_trial.trial_id])
-        # add the champion as part of the new_challenger_list
-        # we check dup when calling next_trial()
-        self._new_challenger_list = self._new_challenger_list + new_challenger_list
+        # add the newly generated challengers to existing challengers
+        # there can be duplicates and we check duplicates when calling next_trial()
+        self._challenger_list = self._challenger_list + new_challenger_list
+        # add the champion as part of the new_challenger_list when called initially
         if init_call:
-            self._new_challenger_list.append(champion_trial)
-        ### add the champion as part of the new_challenger_list when called initially
+            self._challenger_list.append(champion_trial)
         logger.critical('Created challengers from champion %s', champion_trial.trial_id)
-        logger.critical('New challenger size %s, %s', len(self._new_challenger_list),
-                        [t.trial_id for t in self._new_challenger_list])
+        logger.critical('New challenger size %s, %s', len(self._challenger_list),
+                        [t.trial_id for t in self._challenger_list])
 
     def next_trial(self):
-        """Return a trial from the _new_challenger_list
+        """Return a trial from the _challenger_list
         """
         next_trial = None
-        if self._new_challenger_list:
-            next_trial = self._new_challenger_list.pop()
+        if self._challenger_list:
+            next_trial = self._challenger_list.pop()
         return next_trial
 
     def _create_trial_from_config(self, config, searcher_trial_id=None):
@@ -212,7 +211,6 @@ class ChampionFrontierSearcher(BaseSearcher):
                 self._searcher_for_nonpoly_hp[seed_config_trial_id].on_trial_complete(seed_config_searcher_trial_id,
                                                                                       result=pseudo_result_to_report)
                 partial_new_numerical_configs = []
-                # for i in range(self.NUMERICAL_NUM):
                 while len(partial_new_numerical_configs) < self.NUMERICAL_NUM:
                     # suggest multiple times
                     new_searcher_trial_id = Trial.generate_id()
@@ -256,9 +254,9 @@ class ChampionFrontierSearcher(BaseSearcher):
             monomials = list(current_config_value) + list(config_domain.init_monomials)
             logger.info('current_config_value %s %s', current_config_value, monomials)
             configs = self._generate_poly_expansion_sets(monomials,
-                        self.POLY_EXPANSION_ADDITION_NUM,
-                        self.POLY_EXPANSION_ORDER
-                        )
+                                                         self.POLY_EXPANSION_ADDITION_NUM,
+                                                         self.POLY_EXPANSION_ORDER
+                                                         )
         else:
             configs = [current_config_value]
             raise NotImplementedError
@@ -278,7 +276,6 @@ class ChampionFrontierSearcher(BaseSearcher):
             new_c = set([e for e in c if len(e) > 1])
             final_candidate_configs.append(new_c)
         return final_candidate_configs
-        # return candidate_configs
 
     def _generate_num_candidates(self, config, num):
         """Use local search to generate new candidate
@@ -351,14 +348,14 @@ class ChampionFrontierSearcher(BaseSearcher):
             new_list = []
             for i in list1:
                 for j in list2:
-                    if len(i) < len(j): 
+                    if len(i) < len(j):
                         shorter = i
-                        longer = j 
+                        longer = j
                     else:
                         shorter = j
                         longer = i
                     if no_dup and i != j and shorter not in longer:
-                        new_tuple = sorted(''.join(i) + ''.join(j))  # tuple(sorted([i,j]))
+                        new_tuple = sorted(''.join(i) + ''.join(j))
                         new_tuple = ''.join(new_tuple)
                         if new_tuple not in new_list:
                             new_list.append(new_tuple)
