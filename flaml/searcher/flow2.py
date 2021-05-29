@@ -508,6 +508,7 @@ class FLOW2(Searcher):
         1. same incumbent, increase resource
         2. same resource, move from the incumbent to a random direction
         3. same resource, move from the incumbent to the opposite direction
+        #TODO: better decouple FLOW2 config suggestion and stepsize update
         '''
         self.trial_count_proposed += 1
         if self._num_complete4incumbent > 0 and self.cost_incumbent and \
