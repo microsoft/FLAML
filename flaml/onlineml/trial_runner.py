@@ -1,8 +1,8 @@
 import time
 import numpy as np
 import math
-from .trial import Trial
-from ray.tune.schedulers.trial_scheduler import TrialScheduler
+from flaml.tune.trial import Trial
+from flaml.tune.schedulers.trial_scheduler import TrialScheduler
 
 import logging
 logger = logging.getLogger(__name__)
@@ -114,7 +114,7 @@ class OnlineTrialRunner:
         return self._champion_trial
 
     @property
-    def get_running_trials(self):
+    def running_trials(self):
         """The running/'live' trials
         """
         return self._running_trials
@@ -148,8 +148,6 @@ class OnlineTrialRunner:
             self._total_steps += 1
             prediction_made = prediction_trial_tuple[0]
             prediction_trial = prediction_trial_tuple[1]
-            if prediction_trial.status != Trial.RUNNING:
-                print(prediction_trial.trial_id, self._champion_trial.trial_id)
             # assert prediction_trial.status == Trial.RUNNING
             trials_to_pause = []
             for trial in list(self._running_trials):
@@ -158,8 +156,9 @@ class OnlineTrialRunner:
                 else:
                     y_predicted = prediction_made
                 trial.train_eval_model_online(data_sample, y_predicted)
-                logger.debug('running trial at iter %s %s %s %s %s %s', self._total_steps, trial.trial_id,
-                             trial.result.loss_avg, trial.result.loss_cb, trial.result.resource_used, trial.resource_lease)  
+                logger.debug('running trial at iter %s %s %s %s %s %s', self._total_steps,
+                             trial.trial_id, trial.result.loss_avg, trial.result.loss_cb,
+                             trial.result.resource_used, trial.resource_lease)  
                 # report result to the searcher
                 self._searcher.on_trial_result(trial.trial_id, trial.result)
                 # report result the scheduler and the scheduler makes a decision about

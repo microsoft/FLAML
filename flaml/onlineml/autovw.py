@@ -114,7 +114,7 @@ class AutoVW:
         """
         best_score = float('+inf') if self._model_selection_mode == 'min' else float('-inf')
         new_best_trial = None
-        for trial in self._trial_runner.get_running_trials:
+        for trial in self._trial_runner.running_trials:
             if trial.result is not None and ('threshold' not in self._model_select_policy
                                              or trial.result.resource_used >= self.WARMSTART_NUM):
                 score = trial.result.get_score(self._model_select_policy)

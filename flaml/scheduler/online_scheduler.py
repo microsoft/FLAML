@@ -1,8 +1,8 @@
 import numpy as np
 import logging
 from typing import Optional, Dict
-from ..tune.schedulers.trial_scheduler import FIFOScheduler, TrialScheduler
-from ..tune.trial import Trial
+from flaml.tune.schedulers.trial_scheduler import FIFOScheduler, TrialScheduler
+from flaml.tune.trial import Trial
 logger = logging.getLogger(__name__)
 
 

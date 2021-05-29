@@ -65,7 +65,6 @@ setuptools.setup(
         ],
         "vw": [
             "vowpalwabbit",
-            "ray[tune]==1.2.0",
         ]
     },
     classifiers=[
