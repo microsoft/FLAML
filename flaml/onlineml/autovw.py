@@ -21,7 +21,7 @@ class AutoVW:
                  init_config: dict,
                  search_space: dict,
                  max_live_model_num: int,
-                 min_resource_lease: Optional[str] = 'auto',
+                 min_resource_lease: Optional[float, str] = 'auto',
                  automl_runner_args: Optional[dict] = {},
                  scheduler_args: Optional[dict] = {},
                  model_select_policy: Optional[str] = 'threshold_loss_ucb',
@@ -96,7 +96,8 @@ class AutoVW:
            self._prediction_trial_id != self._best_trial.trial_id:
             self._prediction_trial_id = self._best_trial.trial_id
             logger.info('prediction trial id changed to %s at iter %s, resource used: %s',
-                        self._prediction_trial_id, self._iter, self._best_trial.result.resource_used)
+                        self._prediction_trial_id, self._iter,
+                        self._best_trial.result.resource_used)
         return self._y_predict
 
     def learn(self, data_sample):
