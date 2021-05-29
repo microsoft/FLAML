@@ -1,9 +1,8 @@
 import numpy as np
 import logging
 from typing import Optional, Dict
-from ray.tune.schedulers.trial_scheduler import FIFOScheduler, TrialScheduler
+from ..tune.schedulers.trial_scheduler import FIFOScheduler, TrialScheduler
 from ..tune.trial import Trial
-
 logger = logging.getLogger(__name__)
 
 
@@ -16,24 +15,12 @@ class OnlineScheduler(FIFOScheduler):
         choose_trial_to_run(trial_runner)
             Decide which trial to run next
     """
-
-    def __init__(self, max_lease: Optional[float] = np.inf):
-        '''
-        Args:
-            max_lease: float = np.inf
-        '''
-        self._max_lease = max_lease
-
     def on_trial_result(self, trial_runner, trial: Trial, result: Dict):
         """Report result and return a decision on the trial's status
 
-        Always keep a trial running (return status TrialScheduler.CONTINUE) until
-        a max resource is reached (return status TrialScheduler.STOP)
+        Always keep a trial running (return status TrialScheduler.CONTINUE)
         """
-        if trial.result is not None and trial.result.resource_used >= self._max_lease:
-            return TrialScheduler.STOP
-        else:
-            return TrialScheduler.CONTINUE
+        return TrialScheduler.CONTINUE
 
     def choose_trial_to_run(self, trial_runner) -> Trial:
         """Decide which trial to run next
@@ -66,31 +53,24 @@ class OnlineSuccessiveDoublingScheduler(OnlineScheduler):
         choose_trial_to_run(trial_runner)
             Decide which trial to run next
     """
-    def __init__(self,
-                 max_lease: Optional[float] = np.inf,
-                 increase_factor: Optional[float] = 2,
-                 ):
+    def __init__(self, increase_factor: float = 2.0):
         '''
         Args:
-            max_lease: float = np.inf
-            increase_factor: float = 2
+            increase_factor (float): a multiplicative factor used to increase resource lease.
+                The default value is 2.0
         '''
-        super().__init__(max_lease)
+        super().__init__()
         self._increase_factor = increase_factor
 
     def on_trial_result(self, trial_runner, trial: Trial, result: Dict):
         """Report result and return a decision on the trial's status
 
            1. Returns TrialScheduler.CONTINUE (i.e., keep the trial running),
-           if the resource consumed has not reached the current resource_lease.
-           2. otherwise if the reource consumed has exceeded the max possible
-           resource lease allowed, returns TrialScheduler.STOP
-           3. otherwise double the current resource lease and return TrialScheduler.PAUSE
+           if the resource consumed has not reached the current resource_lease.s
+           2. otherwise double the current resource lease and return TrialScheduler.PAUSE
         """
         if trial.result is None or trial.result.resource_used < trial.resource_lease:
             return TrialScheduler.CONTINUE
-        elif trial.result.resource_used >= self._max_lease:
-            return TrialScheduler.STOP
         else:
             trial.set_resource_lease(trial.resource_lease * self._increase_factor)   
             logger.info('Doubled resource for trial %s, used: %s, current budget %s',
@@ -107,17 +87,13 @@ class ChaChaScheduler(OnlineSuccessiveDoublingScheduler):
         choose_trial_to_run(trial_runner)
             Decide which trial to run next
     """
-    def __init__(self,
-                 max_lease: Optional[float] = np.inf,
-                 increase_factor: Optional[float] = 2,
-                 **kwargs
-                 ):
+    def __init__(self, increase_factor: float = 2.0, **kwargs):
         '''
         Args:
-            max_lease: float = np.inf
-            increase_factor: float = 2
+            increase_factor: a multiplicative factor used to increase resource lease.
+                The default value is 2.0
         '''
-        super().__init__(max_lease, increase_factor)
+        super().__init__(increase_factor)
         self._keep_champion = kwargs.get('keep_champion', True)
         self._keep_challenger_metric = kwargs.get('keep_challenger_metric', 'ucb')
         self._keep_challenger_ratio = kwargs.get('keep_challenger_ratio', 'tophalf')
@@ -140,7 +116,7 @@ class ChaChaScheduler(OnlineSuccessiveDoublingScheduler):
         # into the OnlineTrialRunner when there are avaialbe slots. Maybe we need to consider
         # adding max_running_trial number of trials once a new champion is promoted.
         if self._pause_old_froniter and not trial.is_checked_under_current_champion:
-            if decision != TrialScheduler.STOP:
+            if decision == TrialScheduler.CONTINUE:
                 decision = TrialScheduler.PAUSE
                 trial.set_checked_under_current_champion(True)
                 logger.info('Tentitively set trial as paused')
