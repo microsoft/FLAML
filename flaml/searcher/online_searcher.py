@@ -72,7 +72,7 @@ class ChampionFrontierSearcher(BaseSearcher):
     # (i.e. how many interaction items to add at each time)
     POLY_EXPANSION_ADDITION_NUM = 1
     # the order of polynomial expansions to add based on the current one
-    POLY_EXPANSION_ORDER = 2  
+    POLY_EXPANSION_ORDER = 2
     # the number of new challengers with new numerical hyperparamter configs
     NUMERICAL_NUM = 2
 
@@ -86,7 +86,7 @@ class ChampionFrontierSearcher(BaseSearcher):
     # _query_config_oracle) is only triggered when a better champion is found.
     CFO_SEARCHER_METRIC_NAME = 'pseudo_loss'
     CFO_SEARCHER_LARGE_LOSS = 1e6
-    
+
     # the random seed used in generating numerical hyperparamter configs (when CFO is not used)
     NUM_RANDOM_SEED = 111
 
@@ -94,10 +94,10 @@ class ChampionFrontierSearcher(BaseSearcher):
 
     def __init__(self,
                  init_config: dict,
+                 space: Optional[dict] = None,
                  metric: Optional[str] = None,
                  mode: Optional[str] = None,
                  random_seed: Optional[int] = 2345,
-                 space: Optional[dict] = None,
                  online_trial_args: Optional[dict] = {},
                  nonpoly_searcher_name: Optional[str] = 'CFO'
                  ):
@@ -105,17 +105,17 @@ class ChampionFrontierSearcher(BaseSearcher):
 
         Args:
             init_config: dict
+            space: dict
             metric: str
             mode: str
             random_seed: int
-            space: dict
             online_trial_args: dict
             nonpoly_searcher_name: A string to specify the search algorithm
                 for nonpoly hyperparameters
         '''
         self._init_config = init_config
-        self._seed = random_seed
         self._space = space
+        self._seed = random_seed
         self._online_trial_args = online_trial_args
         self._nonpoly_searcher_name = nonpoly_searcher_name
 

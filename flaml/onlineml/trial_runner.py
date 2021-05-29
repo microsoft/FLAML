@@ -182,8 +182,8 @@ class OnlineTrialRunner:
         # if there are available slots
         for _ in range(self._max_live_model_num - len(self._running_trials)):
             self._add_trial_from_searcher()
-        # Scheduling: schedule up to max_live_model_num number of trials to run (set the status as Trial.RUNNING)
-        # while max_live_model_num > len([trial for trial in self._trials.values() if trial.status == Trial.RUNNING]):
+        # Scheduling: schedule up to max_live_model_num number of trials to run
+        # (set the status as Trial.RUNNING)
         while self._max_live_model_num > len(self._running_trials):
             trial_to_run = self._scheduler.choose_trial_to_run(self)
             if trial_to_run is not None:
@@ -229,9 +229,8 @@ class OnlineTrialRunner:
         """Add a new trial to this TrialRunner.
 
         NOTE:
-        ----------
-        The new trial is acquired from the input search algorithm, i.e. self._searcher
-        A 'new' trial means the trial is not in self._trial
+            The new trial is acquired from the input search algorithm, i.e. self._searcher
+            A 'new' trial means the trial is not in self._trial
         """
         # (optionally) upper bound the number of trials in the OnlineTrialRunner
         if self._bound_trial_num and self._first_challenger_pool_size is not None:
@@ -327,9 +326,12 @@ class OnlineTrialRunner:
         logger.info('Set the champion  as %s', self._champion_trial.trial_id)
         if not is_init_update:
             self._champion_update_times += 1
-            # calling set_search_properties of searcher will trigger new challenger generation
-            # we do not do this for init champion this step is already done when first constructing the searcher
-            self._searcher.set_search_properties(None, None, {self._searcher.CHAMPION_TRIAL_NAME: self._champion_trial})
+            # calling set_search_properties of searcher will trigger
+            # new challenger generation. we do not do this for init champion
+            # as this step is already done when first constructing the searcher
+            self._searcher.set_search_properties(None, None,
+                                                 {self._searcher.CHAMPION_TRIAL_NAME: self._champion_trial}
+                                                 )
         else:
             self._champion_update_times = 0
 
@@ -347,13 +349,12 @@ class OnlineTrialRunner:
             trial (Trial): Trial to queue.
 
         NOTE:
-        -------
-        Even if the new trial already exisits, we still want to add a new trial because we want to reset 
-        the status of the resouce consumption, such that we can replace bad ones in time. Otherwise, it is
-        likely to get stuck on.
+            Even if the new trial already exisits, we still want to add a new trial because
+            we want to reset the status of the resouce consumption, such that we can replace
+            bad ones in time. Otherwise, it is likely to get stuck on.
 
-        Only add the new trial when it does not exist (according to the trial_id, which is the signature of
-        the trail) in self._trials.
+            Only add the new trial when it does not exist (according to the trial_id, which is
+            the signature of the trail) in self._trials.
         """
         # Do not a trial with the same trial_id already exist, we do not add it directly.
         for trial in self._trials:
@@ -366,14 +367,15 @@ class OnlineTrialRunner:
         self._scheduler.on_trial_add(self, new_trial)
 
     def stop_trial(self, trial):
-        """Stop a trial: set the status of a trial to be Trial.TERMINATED and perform other subsequent operations
+        """Stop a trial: set the status of a trial to be Trial.TERMINATED and perform
+        other subsequent operations.
+
         NOTE:
-        -------
-        Trials may be stopped at any time. If trial is in state PENDING
-        or PAUSED, calls `on_trial_remove`  for scheduler and
-        `on_trial_complete() for searcher.    
-        Otherwise waits for result for the trial and calls
-        `on_trial_complete` for scheduler and searcher if RUNNING.
+            Trials may be stopped at any time. If trial is in state PENDING
+            or PAUSED, calls `on_trial_remove`  for scheduler and
+            `on_trial_complete() for searcher.
+            Otherwise waits for result for the trial and calls
+            `on_trial_complete` for scheduler and searcher if RUNNING.
         """
         if trial.status in [Trial.ERROR, Trial.TERMINATED]:
             return
@@ -388,7 +390,8 @@ class OnlineTrialRunner:
             self._running_trials.remove(trial)
 
     def pause_trial(self, trial):
-        """Pause a trial: set the status of a trial to be Trial.PAUSED and perform other subsequent operations
+        """Pause a trial: set the status of a trial to be Trial.PAUSED and perform other
+        subsequent operations
         """
         if trial.status in [Trial.ERROR, Trial.TERMINATED]:
             return
@@ -404,7 +407,8 @@ class OnlineTrialRunner:
             self._running_trials.remove(trial)
 
     def run_trial(self, trial):
-        """Run a trial: set the status of a trial to be Trial.RUNNING and perform other subsequent operations
+        """Run a trial: set the status of a trial to be Trial.RUNNING and perform other
+        subsequent operations
         """
         if trial.status in [Trial.ERROR, Trial.TERMINATED]:
             return
@@ -413,19 +417,17 @@ class OnlineTrialRunner:
             self._running_trials.add(trial)
 
     def _better_than_champion_test(self, trial_to_test):
-        """Test whether there is a config in the existing trials that is better than the
-        current champion config
+        """Test whether there is a config in the existing trials that is better than
+        the current champion config
 
         Returns:
-        --------
             new_champion_found: bool, which indicates whether a new champion is found
             new_champion_trial:  which is the new champion found (it is None if
                 a new champion is not found)
         NOTE:
-        -------
-        when the result is None, it is not a live model, which means that we shoud not try to use it.
-        a non-live trial will only be scheduled to run in the scheduler, which does not need the
-        result
+            when the result is None, it is not a live model, which means that we shoud
+            not try to use it. A non-live trial will only be scheduled to run in the
+            scheduler, which does not need the result.
         """
         if trial_to_test.result is not None and self._champion_trial.result is not None:
             if 'ucb' in self._champion_test_policy:
@@ -468,7 +470,7 @@ class OnlineTrialRunner:
         assert trial.trial_id != champion_trial.trial_id
         if trial.result.resource_used >= warmstart_num:
             if trial.result.loss_ucb < champion_trial.result.loss_lcb - champion_trial.result.loss_cb:
-                logger.info('=========new champion condition satisfied: using lcb vs ucb===========')
+                logger.info('======new champion condition satisfied: using lcb vs ucb=====')
                 logger.info('new champion trial %s %s %s',
                             trial.trial_id, trial.result.resource_used, trial.resource_lease)
                 logger.info('new champion trial loss_avg:%s, trial loss_cb %s',
@@ -490,11 +492,12 @@ class OnlineTrialRunner:
         assert trial.trial_id != champion_trial.trial_id
         if trial.result.resource_used >= warmstart_num:
             if trial.result.loss_avg < champion_trial.result.loss_avg:
-                logger.info('=========new champion condition satisfied using avg loss===========')
+                logger.info('=====new champion condition satisfied using avg loss=====')
                 logger.info('trial %s', trial.config)
-                logger.info('trial loss_avg:%s, trial loss_cb %s', trial.result.loss_avg, trial.result.loss_cb)
-                logger.info('champion loss_avg:%s, champion loss_cb %s', champion_trial.result.loss_avg,
-                            champion_trial.result.loss_cb)
+                logger.info('trial loss_avg:%s, trial loss_cb %s',
+                            trial.result.loss_avg, trial.result.loss_cb)
+                logger.info('champion loss_avg:%s, champion loss_cb %s',
+                            champion_trial.result.loss_avg, champion_trial.result.loss_cb)
                 logger.info('champion %s', champion_trial.config)
                 return True
         return False
