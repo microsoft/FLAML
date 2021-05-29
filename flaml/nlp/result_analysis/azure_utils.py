@@ -52,9 +52,18 @@ class JobID:
                                  for key in list_keys if not key.endswith("_full")])
         return keytoval_str
 
+    def to_partial_jobid_string(self):
+        list_keys = list(self.__dataclass_fields__.keys())
+        field_dict = self.__dict__
+        keytoval_str = "_".join([key + "=" + str(field_dict[key][0])
+                                 if type(field_dict[key]) == list
+                                 else key + "=" + str(field_dict[key])
+                                 for key in list_keys if key in field_dict.keys()])
+        return keytoval_str
+
     def blobname_to_jobid(self, keytoval_str):
         field_keys = [key for key in list(self.__dataclass_fields__.keys()) if not key.endswith("_full")]
-        regex_expression = ".*" + "_".join([key + "=(?P<" + key + ">.*)" for key in field_keys]) + ".json"
+        regex_expression = ".*" + "_".join([key + "=(?P<" + key + ">.*)" for key in field_keys]) + ".(json|zip)"
         result = re.search(regex_expression, keytoval_str)
         if result:
             result_dict = {}
@@ -386,30 +395,29 @@ class AzureUtils:
             return True
         return False
 
-    def get_blob_list_matching_partial_jobid(self, partial_config, earliest_time = None):
+    def get_blob_list_matching_partial_jobid(self, root_log_path, partial_config, earliest_time = None):
         blob_list = []
         container_client = self._init_azure_clients()
         jobid_config = JobID()
         for each_blob in container_client.list_blobs():
-            each_jobconfig = jobid_config.from_blobname(each_blob.name)
-            is_append = False
-            if each_jobconfig:
-                if each_jobconfig.is_partial_match(partial_config):
-                    is_append = True
-                if earliest_time and not self.is_after_earliest_time(each_blob, earliest_time):
-                    is_append = False
-                if is_append:
-                    blob_list.append((each_jobconfig, each_blob))
+            if each_blob.name.startswith(root_log_path):
+                each_jobconfig = jobid_config.from_blobname(each_blob.name)
+                is_append = False
+                if each_jobconfig:
+                    if each_jobconfig.is_partial_match(partial_config):
+                        is_append = True
+                    if earliest_time and not self.is_after_earliest_time(each_blob, earliest_time):
+                        is_append = False
+                    if is_append:
+                        blob_list.append((each_jobconfig, each_blob))
         return blob_list
 
     def extract_config_and_score(self, blobname):
-        if "mrpc" in blobname and "mod=list" in blobname:
-            stop = 0
         data_json = json.load(open(blobname, "r"))
         return [(x['config'], x['metric_score']["max"], x['start_time']) for x in data_json['val_log']]
 
-    def get_config_and_score_from_partial_config(self, partial_config, group_attrs, method, earliest_time = None):
-        matched_blob_list = self.get_blob_list_matching_partial_jobid(partial_config, earliest_time=earliest_time)
+    def get_config_and_score_from_partial_config(self, root_log_path, partial_config, group_attrs, method, earliest_time = None):
+        matched_blob_list = self.get_blob_list_matching_partial_jobid(root_log_path, partial_config, earliest_time=earliest_time)
         group_dict = {}
         for (each_jobconfig, each_blob) in matched_blob_list:
             self.download_azure_blob(each_blob.name)
@@ -432,3 +440,62 @@ class AzureUtils:
             group_dict[group_attr_tuple].append([(config, score, each_blob.name)
                             for (config, score, ts) in sorted_config_and_score])
         return group_dict
+
+    def get_validation_perf(self, jobid_config):
+        if jobid_config.pre == "electra":
+            dataset_namelist = ["wnli", "rte", "mrpc", "cola", "stsb", "sst2", "qnli", "mnli"]
+        else:
+            dataset_namelist = ["wnli", "rte", "mrpc", "cola", "stsb", "sst2"]
+        dataset_vallist = [0] * len(dataset_namelist)
+
+        matched_blob_list = self.get_blob_list_matching_partial_jobid("logs_acl/", jobid_config)
+        for (each_jobconfig, each_blob) in matched_blob_list:
+            subdat_name = each_jobconfig.subdat
+            self.download_azure_blob(each_blob.name)
+            data_json = json.load(open(each_blob.name, "r"))
+            validation_metric = data_json['valid_metric']
+            try:
+                dataset_idx = dataset_namelist.index(subdat_name)
+                dataset_vallist[dataset_idx] = self.get_validation_metricstr(validation_metric)
+            except ValueError:
+                pass
+        print(" & ".join(dataset_vallist))
+
+    def get_validation_metricstr(self, validation_metric):
+        validation_str = ""
+        is_first = True
+        for key in ["f1", "accuracy", "pearson", "spearmanr", "matthews_correlation"]:
+            if "eval_" + key in validation_metric.keys():
+                if is_first:
+                    validation_str += str("%.1f" % (validation_metric["eval_" + key] * 100))
+                    is_first = False
+                else:
+                    validation_str += "/" + str("%.1f" % (validation_metric["eval_" + key] * 100))
+        return validation_str
+
+    def get_test_perf(self, jobid_config, result_root_dir):
+        import shutil
+        from flaml.nlp.dataset.submission_auto import file_name_mapping_glue, output_blank_tsv
+        matched_blob_list = self.get_blob_list_matching_partial_jobid("data/", jobid_config)
+        partial_config_str = jobid_config.to_partial_jobid_string()
+        output_dir = os.path.join(result_root_dir, partial_config_str)
+        if os.path.exists(output_dir):
+            assert os.path.isdir(output_dir)
+        else:
+            os.mkdir(output_dir)
+        output_blank_tsv(output_dir)
+
+        for (each_jobconfig, each_blob) in matched_blob_list:
+            subdat_name = each_jobconfig.subdat
+            self.download_azure_blob(each_blob.name)
+            import zipfile
+            if os.path.exists(each_blob.name[:-4]):
+                assert os.path.isdir(each_blob.name[:-4])
+            else:
+                os.mkdir(each_blob.name[:-4])
+            with zipfile.ZipFile(each_blob.name, 'r') as zip_ref:
+                zip_ref.extractall(each_blob.name[:-4])
+            src = os.path.join(each_blob.name[:-4], file_name_mapping_glue[subdat_name][0])
+            dst = os.path.join(output_dir, file_name_mapping_glue[subdat_name][0])
+            shutil.copy(src, dst)
+        shutil.make_archive(os.path.join(output_dir), 'zip', output_dir)

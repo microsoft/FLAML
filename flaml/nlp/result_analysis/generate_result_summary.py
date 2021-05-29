@@ -1,3 +1,5 @@
+import json
+
 
 def extract_ranked_config_score(console_args, partial_config_dict):
     from .azure_utils import AzureUtils
@@ -149,6 +151,7 @@ def check_conflict(console_args, partial_jobid_config_list):
     for each_partial_config in partial_jobid_config_list:
         dataset2configscorelist = \
             azure_utils.get_config_and_score_from_partial_config(
+                "logs_azure/",
                 each_partial_config,
                 ["dat", "subdat"],
                 "unsorted")
@@ -184,6 +187,7 @@ def print_cfo(console_args):
 
         dataset2configscorelist = \
             azure_utils.get_config_and_score_from_partial_config(
+                "logs_azure/",
                 jobid_config,
                 ["dat", "subdat"],
                 "sort_time")
@@ -197,3 +201,15 @@ def print_cfo(console_args):
             print_config(config)
             print()
             count += 1
+
+def download_validation(console_args, result_root_dir):
+    from .azure_utils import JobID, AzureUtils
+    jobid_config = JobID()
+    jobid_config.mod = "grid"
+    jobid_config.pre = "roberta"
+    jobid_config.presz = "base"
+    jobid_config.rep = 0
+
+    azure_utils = AzureUtils(console_args=console_args, jobid=jobid_config)
+    azure_utils.get_validation_perf(jobid_config=jobid_config)
+    azure_utils.get_test_perf(jobid_config, result_root_dir)

@@ -50,11 +50,10 @@ def output_prediction_glue(output_path, output_dir_name, predictions, train_data
     if subdataset_name != "stsb":
         label_list = train_data.features["label"].names
 
+    output_blank_tsv(output_dir)
     for each_subdataset_name in file_name_mapping_glue.keys():
         for idx in range(len(file_name_mapping_glue[each_subdataset_name])):
             each_file = file_name_mapping_glue[each_subdataset_name][idx]
-            default_prediction = default_prediction_glue[each_subdataset_name][idx]
-            test_size = test_size_glue[each_subdataset_name][idx]
             if subdataset_name != "mnli":
                 is_match = subdataset_name == each_subdataset_name
             else:
@@ -80,11 +79,6 @@ def output_prediction_glue(output_path, output_dir_name, predictions, train_data
                                     writer.write(f"{index}\t{item}\n")
                                 else:
                                     writer.write(f"{index}\t{item:3.3f}\n")
-            else:
-                with open(os.path.join(output_dir, each_file), "w") as writer:
-                    writer.write("index\tprediction\n")
-                    for index in range(test_size):
-                        writer.write(f"{index}\t{default_prediction}\n")
 
     shutil.make_archive(os.path.join(output_path, output_dir_name), 'zip', output_dir)
     return os.path.join(output_path, output_dir_name + ".zip")
@@ -104,3 +98,14 @@ def auto_output_prediction(dataset_name, output_path, output_dir_name, predictio
             "Should be one of {}.".format(dataset_name, ", ".join(c.__name__ for c in OUTPUT_PREDICTION_MAPPING.keys())
             )
         )
+
+def output_blank_tsv(output_dir):
+    for each_subdataset_name in file_name_mapping_glue.keys():
+        for idx in range(len(file_name_mapping_glue[each_subdataset_name])):
+            each_file = file_name_mapping_glue[each_subdataset_name][idx]
+            default_prediction = default_prediction_glue[each_subdataset_name][idx]
+            test_size = test_size_glue[each_subdataset_name][idx]
+            with open(os.path.join(output_dir, each_file), "w") as writer:
+                writer.write("index\tprediction\n")
+                for index in range(test_size):
+                    writer.write(f"{index}\t{default_prediction}\n")
