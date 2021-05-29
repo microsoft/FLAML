@@ -80,7 +80,7 @@ class ChampionFrontierSearcher(BaseSearcher):
                  init_config: dict,
                  metric: Optional[str] = None,
                  mode: Optional[str] = None,
-                 config_oracle_random_seed: Optional[int] = 2345,
+                 random_seed: Optional[int] = 2345,
                  space: Optional[dict] = None,
                  online_trial_args: Optional[dict] = {},
                  nonpoly_searcher_name: Optional[str] = 'CFO'
@@ -91,14 +91,14 @@ class ChampionFrontierSearcher(BaseSearcher):
             init_config: dict
             metric: str
             mode: str
-            config_oracle_random_seed: int
+            random_seed: int
             space: dict
             online_trial_args: dict
             nonpoly_searcher_name: A string to specify the search algorithm
                 for nonpoly hyperparameters
         '''
         self._init_config = init_config
-        self._seed = config_oracle_random_seed
+        self._seed = random_seed
         self._space = space
         self._online_trial_args = online_trial_args
         self._nonpoly_searcher_name = nonpoly_searcher_name
@@ -197,8 +197,8 @@ class ChampionFrontierSearcher(BaseSearcher):
                     # to be tried
                     self._searcher_for_nonpoly_hp[seed_config_trial_id].suggest(seed_config_searcher_trial_id)
                 # assuming minimization
-                pseudo_loss = self.CFO_SEARCHER_LARGE_LOSS if self._searcher_for_nonpoly_hp[seed_config_trial_id].get_metric_target is None \
-                                                            else self._searcher_for_nonpoly_hp[seed_config_trial_id].get_metric_target * 0.95
+                pseudo_loss = self.CFO_SEARCHER_LARGE_LOSS if self._searcher_for_nonpoly_hp[seed_config_trial_id].metric_target is None \
+                                                            else self._searcher_for_nonpoly_hp[seed_config_trial_id].metric_target * 0.95
                 pseudo_result_to_report = {}
                 for k, v in nonpoly_config.items():
                     pseudo_result_to_report['config/' + str(k)] = v

@@ -203,7 +203,7 @@ class BlendSearch(Searcher):
         self._metric_constraint_penalty = state._metric_constraint_penalty
 
     @property
-    def get_metric_target(self):
+    def metric_target(self):
         return self._metric_target
 
     def restore_from_dir(self, checkpoint_dir: str):

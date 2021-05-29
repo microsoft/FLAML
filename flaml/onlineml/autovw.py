@@ -26,7 +26,7 @@ class AutoVW:
                  scheduler_args: Optional[dict] = {},
                  model_select_policy: Optional[str] = 'threshold_loss_ucb',
                  metric: Optional[str] = 'mae_clipped',
-                 config_oracle_random_seed: Optional[int] = None,
+                 random_seed: Optional[int] = None,
                  model_selection_mode: Optional[str] = 'min',
                  cb_coef: Optional[float] = None,
                  ):
@@ -38,18 +38,20 @@ class AutoVW:
             search_space: A dictionary of the search space. This search space includes both
                 hyperparameters we want to tune and fixed hyperparameters. In the latter case,
                 the value is a fixed value.
-            max_live_model_num: The maximum number of 'live' models, which, in other words, is the 
-                maximum number of models allowed to update in each learning iteraction.
+            max_live_model_num: The maximum number of 'live' models, which, in other words,
+                is the maximum number of models allowed to update in each learning iteraction.
             min_resource_lease: The minimum resource lease assigned to a particular model/trial. 
                 If set as 'auto', it will be calculated automatically.
             automl_runner_args: A dictionary of configuration for the OnlineTrialRunner.
                 If set {}, default values will be used.
             scheduler_args: A dictionary of configuration for the scheduler.
                 If set {}, default values will be used.
-            model_select_policy: A string to specify how to select one model to do prediction from the live model pool
+            model_select_policy: A string to specify how to select one model to do prediction
+                from the live model pool
             metric: A string to specify the name of the loss function used for calculating
                 the progressive validation loss
-            config_oracle_random_seed (int): An integer of the random seed used in ConfigOracle
+            random_seed (int): An integer of the random seed used in the searcher
+                (more specifically this the random seed for ConfigOracle) 
             model_selection_mode: A string in ['min', 'max'] to specify the objective as
                 minimization or maximization.
             cb_coef (float): A float coefficient (optional) used in the sample complexity bound.
@@ -62,7 +64,7 @@ class AutoVW:
                              }
         # setup the arguments for searcher, which contains the ConfigOracle
         searcher_args = {"init_config": init_config,
-                         "config_oracle_random_seed": config_oracle_random_seed,
+                         "random_seed": random_seed,
                          'online_trial_args': online_trial_args,
                          'space': search_space,
                          }
@@ -77,28 +79,31 @@ class AutoVW:
                                                scheduler=scheduler,
                                                **automl_runner_args)
         self._best_trial = None
-        # code for bebugging purpose
+        # code for debugging purpose
         self._prediction_trial_id = None
         self._iter = 0
 
     def predict(self, data_sample):
         """Predict on the input example (e.g., vw example)
+
+        Args:
+            data_sample (vw_example)
         """
         self._best_trial = self._select_best_trial()
         self._y_predict = self._best_trial.predict(data_sample)
-        # code for bebugging purpose
+        # code for debugging purpose
         if self._prediction_trial_id is None or \
            self._prediction_trial_id != self._best_trial.trial_id:
             self._prediction_trial_id = self._best_trial.trial_id
-            logger.info('prediction trial id changed to %s at iter %s %s',
+            logger.info('prediction trial id changed to %s at iter %s, resource used: %s',
                         self._prediction_trial_id, self._iter, self._best_trial.result.resource_used)
         return self._y_predict
 
     def learn(self, data_sample):
-        """Perform one online learning with the given data sample
+        """Perform one online learning step with the given data sample
 
         Args:
-            data_sample (vw_example/str/list): one data sample on which the model gets updated
+            data_sample (vw_example): one data sample on which the model gets updated
         """
         self._iter += 1
         self._trial_runner.step(data_sample, (self._y_predict, self._best_trial))
@@ -117,7 +122,7 @@ class AutoVW:
                     best_score = score
                     new_best_trial = trial
         if new_best_trial is not None:
-            logger.debug('best_trial._data_sample_size %s %s', new_best_trial._data_sample_size,
+            logger.debug('best_trial._data_sample_size: %s, resource used: %s', new_best_trial._data_sample_size,
                          new_best_trial.result.resource_used)
             return new_best_trial
         else:

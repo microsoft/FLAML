@@ -82,8 +82,8 @@ class OnlineSuccessiveDoublingScheduler(OnlineScheduler):
         """Report result and return a decision on the trial's status
 
            1. Returns TrialScheduler.CONTINUE (i.e., keep the trial running),
-           if the resource consumed has not reach the current resource_lease.
-           2. otherwise if the reource consumed has exceed the max possible
+           if the resource consumed has not reached the current resource_lease.
+           2. otherwise if the reource consumed has exceeded the max possible
            resource lease allowed, returns TrialScheduler.STOP
            3. otherwise double the current resource lease and return TrialScheduler.PAUSE
         """
@@ -99,7 +99,7 @@ class OnlineSuccessiveDoublingScheduler(OnlineScheduler):
 
 
 class ChaChaScheduler(OnlineSuccessiveDoublingScheduler):
-    """  Keep the top performed learners running
+    """  Keep the top performing learners running
 
     Methods:
         on_trial_result(trial_runner, trial, result)
@@ -132,10 +132,11 @@ class ChaChaScheduler(OnlineSuccessiveDoublingScheduler):
         # Doubling scheduler makes a decision
         decision = super().on_trial_result(trial_runner, trial, result)
         # ***********Check whether the trial has been paused since a new champion is promoted**
-        ## check champion froniter if the trial is not champion froniter, it means it
+        # NOTE: This check is not enabled by default. Just keeping it for experimentation purpose.
+        ## trial.is_checked_under_current_champion being False means the trial
         # has not been paused since the new champion is promoted. If so, we need to
-        # tentative pause it such that new trials can possiblly be taken into consideration
-        # NOTE: this part may need to be changed. We need to do this because we only add trials
+        # tentatively pause it such that new trials can possiblly be taken into consideration
+        # NOTE: This may need to be changed. We need to do this because we only add trials.
         # into the OnlineTrialRunner when there are avaialbe slots. Maybe we need to consider
         # adding max_running_trial number of trials once a new champion is promoted.
         if self._pause_old_froniter and not trial.is_checked_under_current_champion:
@@ -153,11 +154,11 @@ class ChaChaScheduler(OnlineSuccessiveDoublingScheduler):
         if self._keep_challenger_ratio is not None:
             if decision == TrialScheduler.PAUSE:
                 logger.debug('champion, %s', trial_runner.champion_trial.trial_id)
+                # this can be inefficient when the # trials is large. TODO: need to improve efficiency.
                 top_trials = trial_runner.get_top_running_trials(self._keep_challenger_ratio,
                                                                  self._keep_challenger_metric)
                 logger.debug('top_learners: %s', top_trials)
                 if trial in top_trials:
                     logger.debug('top runner %s: set from PAUSE to CONTINUE', trial.trial_id)
                     return TrialScheduler.CONTINUE
-
         return decision
