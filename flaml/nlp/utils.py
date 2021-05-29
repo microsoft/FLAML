@@ -19,7 +19,7 @@ def load_console_args():
                         choices=["xlnet-base-cased:base", "albert-large-v1:small", "distilbert-base-uncased:base",
                                  "microsoft/deberta-base:base","funnel-transformer/small-base:small", "microsoft/deberta-large:large",
                                  "funnel-transformer/large-base:large", "funnel-transformer/intermediate-base:intermediate",
-                                 "funnel-transformer/xlarge-base:xlarge", "google/electra-base-discriminator:base"], default = None)
+                                 "funnel-transformer/xlarge-base:xlarge", "google/electra-base-discriminator:base", "roberta-base:base"], default = None)
     arg_parser.add_argument('--sample_num', type=int, help='sample num', required=False, default = None)
     arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False, default = None)
     arg_parser.add_argument('--time_as_grid', type=int, help='time as grid search', required=False, default=None)
