@@ -3,9 +3,9 @@ import logging
 import itertools
 from typing import Dict, Optional, List
 from flaml.tune.sample import Categorical, Float, PolynomialExpansionSet
+from flaml.tune.trial import Trial
+from flaml.onlineml.trial import VWOnlineTrial
 from flaml.searcher import CFO
-from ..tune.trial import Trial
-from ..tune.online_trial import VWOnlineTrial
 
 logger = logging.getLogger(__name__)
 
@@ -59,19 +59,35 @@ class ChampionFrontierSearcher(BaseSearcher):
 
     NOTE:
         This class serves the role of ConfigOralce.
-        Every time we create a VW trial, we generate a searcher_trial_id.
+        Every time we create an online trial, we generate a searcher_trial_id.
         At the same time, we also record the trial_id of the VW trial. 
         Note that the trial_id is a unique signature of the configuraiton. 
         So if two VWTrials are associated with the same config, they will have the same trial_id
         (although not the same searcher_trial_id).
         searcher_trial_id will be used in suggest()
     """
+    # ****the following constants are used when generating new challengers in
+    # the _query_config_oracle function
+    # how many item to add when doing the expansion
+    # (i.e. how many interaction items to add at each time)
     POLY_EXPANSION_ADDITION_NUM = 1
-    POLY_EXPANSION_ORDER = 2
+    # the order of polynomial expansions to add based on the current one
+    POLY_EXPANSION_ORDER = 2  
+    # the number of new challengers with new numerical hyperparamter configs
     NUMERICAL_NUM = 2
 
+    # In order to use CFO, a loss name and loss values of configs are need
+    # since CFO in fact only requires relative loss order of two configs to perform
+    # the update, a pseudo loss can be used as long as the relative performance orders
+    # of different configs are perserved. We set the loss of the init config to be
+    # a large value (CFO_SEARCHER_LARGE_LOSS), and set the loss of the better config as
+    # 0.95 of the previous best config's loss.
+    # NOTE: this setting depends on the assumption that set_search_properties (and thus
+    # _query_config_oracle) is only triggered when a better champion is found.
     CFO_SEARCHER_METRIC_NAME = 'pseudo_loss'
-    CFO_SEARCHER_LARGE_LOSS = 100
+    CFO_SEARCHER_LARGE_LOSS = 1e6
+    
+    # the random seed used in generating numerical hyperparamter configs (when CFO is not used)
     NUM_RANDOM_SEED = 111
 
     CHAMPION_TRIAL_NAME = 'champion_trial'
@@ -108,7 +124,7 @@ class ChampionFrontierSearcher(BaseSearcher):
         self._space_of_nonpoly_hp = {}
         # dicts to remember the mapping between searcher_trial_id and trial_id
         self._searcher_trialid_to_trialid = {}  # key: searcher_trial_id, value: trial_id
-        self._trialid_to_searcher_trial_id = {}  # value: trial_id, key: searcher_trial_id 
+        self._trialid_to_searcher_trial_id = {}  # value: trial_id, key: searcher_trial_id
         self._challenger_list = []
         # initialize the search in set_search_properties
         self.set_search_properties(metric, mode, {self.CHAMPION_TRIAL_NAME: None}, init_call=True)
@@ -161,7 +177,7 @@ class ChampionFrontierSearcher(BaseSearcher):
         """Give the seed config, generate a list of new configs (which are supposed to include
         at least one config that has better performance than the input seed_config)
         """
-        # group the hyperparameters according to whether the configs of them are independent with
+        # group the hyperparameters according to whether the configs of them are independent
         # with the other hyperparameters
         hyperparameter_config_groups = []
         searcher_trial_ids_groups = []
@@ -170,9 +186,10 @@ class ChampionFrontierSearcher(BaseSearcher):
             config_domain = self._space[k]
             if isinstance(config_domain, PolynomialExpansionSet):
                 # get candidate configs for hyperparameters which are independent with other hyperparamters
+                # TODO: explain the meaning of independent
                 partial_new_configs = self._generate_independent_hp_configs(k, v, config_domain)
                 if partial_new_configs:
-                    hyperparameter_config_groups.append(partial_new_configs) 
+                    hyperparameter_config_groups.append(partial_new_configs)
                     # does not have searcher_trial_ids
                     searcher_trial_ids_groups.append([])
             else:
@@ -184,6 +201,7 @@ class ChampionFrontierSearcher(BaseSearcher):
         # -----------generate partial new configs for non-PolynomialExpansionSet hyperparameters
         if nonpoly_config:
             new_searcher_trial_ids = []
+            partial_new_nonpoly_configs = []
             if 'CFO' in self._nonpoly_searcher_name:
                 if seed_config_trial_id not in self._searcher_for_nonpoly_hp:
                     self._searcher_for_nonpoly_hp[seed_config_trial_id] = CFO(space=self._space_of_nonpoly_hp,
@@ -197,8 +215,10 @@ class ChampionFrontierSearcher(BaseSearcher):
                     # to be tried
                     self._searcher_for_nonpoly_hp[seed_config_trial_id].suggest(seed_config_searcher_trial_id)
                 # assuming minimization
-                pseudo_loss = self.CFO_SEARCHER_LARGE_LOSS if self._searcher_for_nonpoly_hp[seed_config_trial_id].metric_target is None \
-                                                            else self._searcher_for_nonpoly_hp[seed_config_trial_id].metric_target * 0.95
+                if self._searcher_for_nonpoly_hp[seed_config_trial_id].metric_target is None:
+                    pseudo_loss = self.CFO_SEARCHER_LARGE_LOSS
+                else:
+                    pseudo_loss = self._searcher_for_nonpoly_hp[seed_config_trial_id].metric_target * 0.95
                 pseudo_result_to_report = {}
                 for k, v in nonpoly_config.items():
                     pseudo_result_to_report['config/' + str(k)] = v
@@ -206,41 +226,40 @@ class ChampionFrontierSearcher(BaseSearcher):
                 pseudo_result_to_report['time_total_s'] = 1
                 self._searcher_for_nonpoly_hp[seed_config_trial_id].on_trial_complete(seed_config_searcher_trial_id,
                                                                                       result=pseudo_result_to_report)
-                partial_new_numerical_configs = []
-                while len(partial_new_numerical_configs) < self.NUMERICAL_NUM:
+                while len(partial_new_nonpoly_configs) < self.NUMERICAL_NUM:
                     # suggest multiple times
                     new_searcher_trial_id = Trial.generate_id()
                     new_searcher_trial_ids.append(new_searcher_trial_id)
                     suggestion = self._searcher_for_nonpoly_hp[seed_config_trial_id].suggest(new_searcher_trial_id)
                     if suggestion is not None:
-                        partial_new_numerical_configs.append(suggestion)
-                logger.info('partial_new_numerical_configs %s', partial_new_numerical_configs)
+                        partial_new_nonpoly_configs.append(suggestion)
+                logger.info('partial_new_nonpoly_configs %s', partial_new_nonpoly_configs)
             else:
-                # An alternative implementation of FLOW2
-                partial_new_numerical_configs = self._generate_num_candidates(nonpoly_config,
-                                                                              self.NUMERICAL_NUM)
-            if partial_new_numerical_configs:
-                hyperparameter_config_groups.append(partial_new_numerical_configs)
+                raise NotImplementedError
+            if partial_new_nonpoly_configs:
+                hyperparameter_config_groups.append(partial_new_nonpoly_configs)
                 searcher_trial_ids_groups.append(new_searcher_trial_ids)
         # ----------- coordinate generation of new challengers in the case of multiple groups
         new_trials = []
         for i in range(len(hyperparameter_config_groups)):
-            logger.info('hyperparameter_config_groups[i] %s %s', len(hyperparameter_config_groups[i]), hyperparameter_config_groups[i])
+            logger.info('hyperparameter_config_groups[i] %s %s',
+                        len(hyperparameter_config_groups[i]),
+                        hyperparameter_config_groups[i])
             for j, new_partial_config in enumerate(hyperparameter_config_groups[i]):
                 new_seed_config = seed_config.copy()
-                print('new_partial_config',  new_partial_config)
+                print('new_partial_config', new_partial_config)
                 new_seed_config.update(new_partial_config)
-                # for some groups of the hyperparamters, we may have already generated the searcher_trial_id, 
-                # in that case, we only need to retrive the searcher_trial_id such that we don't need to genearte again
-                # For the case, searcher_trial_id is not geneated, we set teh searcher_trial_id to be None, and when
-                # creating a trial from a config, a searcher_trial_id will be geneated if None is provided.
-                # TODO: An alternative option is to geneate a searcher_trial_id for each partial config
+                # For some groups of the hyperparameters, we may have already generated the
+                # searcher_trial_id. In that case, we only need to retrieve the searcher_trial_id
+                # instead of generating it again. So we do not generate searcher_trial_id and
+                # instead set the searcher_trial_id to be None. When creating a trial from a config,
+                # a searcher_trial_id will be generated if None is provided.
+                # TODO: An alternative option is to generate a searcher_trial_id for each partial config
                 if searcher_trial_ids_groups[i]:
                     new_searcher_trial_id = searcher_trial_ids_groups[i][j]
                 else:
                     new_searcher_trial_id = None
                 new_trial = self._create_trial_from_config(new_seed_config, new_searcher_trial_id)
-                self._searcher_trialid_to_trialid[new_searcher_trial_id] = new_trial.trial_id
                 new_trials.append(new_trial)
         logger.info('new_configs %s', [t.trial_id for t in new_trials])
         return new_trials
@@ -259,73 +278,20 @@ class ChampionFrontierSearcher(BaseSearcher):
         configs_w_key = [{hp_name: hp_config} for hp_config in configs]
         return configs_w_key
 
-    def _generate_poly_expansion_sets(self, champion_config,
-                                      interaction_num_to_add, order=2):
-        champion_all_combinations = self._generate_all_comb(champion_config)
+    def _generate_poly_expansion_sets(self, champion_config, interaction_num_to_add, order):
+        champion_all_combinations = self._generate_all_comb(champion_config, order)
         space = sorted(list(itertools.combinations(
                        champion_all_combinations, interaction_num_to_add)))
         self._random_state.shuffle(space)
         candidate_configs = [set(champion_config) | set(item) for item in space]
-        assert len(candidate_configs) <= len(champion_config) * (len(champion_config) - 1) / 2.0
         final_candidate_configs = []
         for c in candidate_configs:
             new_c = set([e for e in c if len(e) > 1])
             final_candidate_configs.append(new_c)
         return final_candidate_configs
 
-    def _generate_num_candidates(self, config, num):
-        """Use local search to generate new candidate
-        """
-        self._random = np.random.RandomState(self.NUM_RANDOM_SEED)
-        logger.info('num %s', num)
-        half_num = int(num / 2)
-        new_candidate_list = []
-        hp_vec = list(config.keys())
-        hp_config_vec = [config[k] for k in hp_vec]
-        dim = len(hp_config_vec)
-        candidate_config_vecs = []
-        for i in range(half_num):
-            move_direction = self._rand_vector_unit_sphere(dim)
-            c1 = [hp_config_vec[i] * (2**move_direction[i]) for i in range(dim)]
-            c2 = [hp_config_vec[i] * (2**(-move_direction[i])) for i in range(dim)]
-            projected_c1 = self._project(hp_vec, c1)
-            projected_c2 = self._project(hp_vec, c2)
-            logger.info('on_trial_complete(trial.trial_id) %s %s %s', projected_c1,
-                        type(projected_c1), hp_config_vec)
-            if not (projected_c1 == hp_config_vec).all():
-                candidate_config_vecs.append(projected_c1)
-            if not (projected_c2 == hp_config_vec).all():
-                candidate_config_vecs.append(projected_c2)
-
-        for c in candidate_config_vecs:
-            new_config = {}
-            for i in range(dim):
-                new_config[hp_vec[i]] = c[i]
-            new_candidate_list.append(new_config)
-        logger.info('new_candidate_list %s %s', config, new_candidate_list)
-        return new_candidate_list
-
-    def _rand_vector_unit_sphere(self, dim) -> np.ndarray:
-        vec = self._random.normal(0, 1, dim)
-        mag = np.linalg.norm(vec)
-        return vec / mag
-
-    def _project(self, hp_key_vec, hp_value_vec):
-        projected_vec = []
-        for i in range(len(hp_key_vec)):
-            config_domain = self._space[hp_key_vec[i]]
-            logger.info('Float %s', config_domain)
-            value = hp_value_vec[i]
-            upper = config_domain.upper
-            lower = config_domain.lower
-            logger.info('config_domain %s', lower)
-            print(config_domain, lower, type(lower))
-            projected = min(max(value, lower), upper)
-            projected_vec.append(projected)
-        return np.array(projected_vec)
-
     @staticmethod
-    def _generate_all_comb(champion_config, order=2):
+    def _generate_all_comb(champion_config, order):
         def convert_nested_tuple_to_tuple(test_tuple):
             res = ''
             if type(test_tuple) is int:
@@ -359,12 +325,11 @@ class ChampionFrontierSearcher(BaseSearcher):
 
         seed = champion_config.copy()
         all_combinations = seed
-        inter_order = order
-        while inter_order >= order:
+        while order > 1:
             all_combinations = get_unique_combinations(all_combinations, seed)
-            inter_order -= 1
+            order -= 1
         all_combinations = [convert_nested_tuple_to_tuple(element) for element in all_combinations]
-        # remove duplicate features
+        # TODO: by default removing duplicate features. May want to make it optional.
         all_combinations = [c for c in all_combinations if len(c) == len(set(c))]
         logger.debug('all_combinations %s', all_combinations)
         all_combinations_joined = [''.join(candidate) for candidate in all_combinations]
