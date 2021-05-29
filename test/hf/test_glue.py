@@ -66,7 +66,7 @@ def get_autohf_settings(time_as_grid, jobid_config):
                        "num_samples": 100000 if jobid_config.mod != "grid" else 1,
                        "time_budget": 100000 if jobid_config.mod == "grid"
                        else time_as_grid * glue_time_budget_mapping[jobid_config.subdat][jobid_config.pre],
-                       "ckpt_per_epoch": 0.001 # if jobid_config.subdat in ("rte", "mrpc", "cola", "stsb", "wnli") else 10,
+                       "ckpt_per_epoch": 5 # if jobid_config.subdat in ("rte", "mrpc", "cola", "stsb", "wnli") else 10,
                       }
     autohf_settings["hpo_space"] = get_search_space(jobid_config.mod, jobid_config.subdat, jobid_config.pre)
     return autohf_settings
