@@ -14,31 +14,31 @@ global azure_key
 
 glue_time_budget_mapping = {
     "wnli": {
-        "electra": 420,
+        "electra": 100,
         "roberta": 660,
     },
     "rte": {
-        "electra": 1000,
+        "electra": 300,
         "roberta": 720,
     },
     "mrpc": {
-        "electra": 420,
+        "electra": 200,
         "roberta": 720,
     },
     "cola": {
-        "electra": 420,
+        "electra": 300,
         "roberta": 1200
     },
     "stsb": {
-        "electra": 1200,
+        "electra": 600,
         "roberta": 1000,
     },
     "sst2": {
-        "electra": 1200,
+        "electra": 2000,
         "roberta": 7800,
     },
     "qnli": {
-        "electra": 1800,
+        "electra": 3000,
         "roberta": 7800,
     },
     "qqp": {
@@ -61,10 +61,11 @@ def get_preparedata_setting(args, jobid_config, wandb_utils):
         preparedata_setting["fold_name"] = ['train', 'validation_matched', 'test_matched']
     return preparedata_setting
 
-def get_autohf_settings(jobid_config):
+def get_autohf_settings(time_as_grid, jobid_config):
     autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
                        "num_samples": 100000 if jobid_config.mod != "grid" else 1,
-                       "time_budget": 100000 if jobid_config.mod == "grid" else glue_time_budget_mapping[jobid_config.subdat][jobid_config.pre],
+                       "time_budget": 100000 if jobid_config.mod == "grid"
+                       else time_as_grid * glue_time_budget_mapping[jobid_config.subdat][jobid_config.pre],
                        "ckpt_per_epoch": 0.001 # if jobid_config.subdat in ("rte", "mrpc", "cola", "stsb", "wnli") else 10,
                       }
     autohf_settings["hpo_space"] = get_search_space(jobid_config.mod, jobid_config.subdat, jobid_config.pre)
@@ -115,7 +116,7 @@ def _test_hpo(args,
         preparedata_setting = get_preparedata_setting(args, jobid_config, wandb_utils)
         autohf.prepare_data(**preparedata_setting)
 
-        autohf_settings = get_autohf_settings(jobid_config)
+        autohf_settings = get_autohf_settings(args.time_as_grid, jobid_config)
         validation_metric, analysis = autohf.fit(**autohf_settings,)
 
         predictions, test_metric = autohf.predict()

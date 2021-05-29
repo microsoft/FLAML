@@ -13,7 +13,7 @@ def load_console_args():
                             required=False, default = None)
     arg_parser.add_argument('--space_mode', type=str, help='space mode', required=False, choices = ["gnr", "uni", "uni_test", "cus", "buni"], default = None)
     arg_parser.add_argument('--search_alg_args_mode', type=str, help = 'search algorithm args mode', required = False, choices = ["dft", "exp", "cus"])
-    arg_parser.add_argument('--algo_name', type=str, help='algorithm', required=False, choices = ["bs", "optuna", "cfo"], default = None)
+    arg_parser.add_argument('--algo_name', type=str, help='algorithm', required=False, choices = ["bs", "optuna", "cfo", "rs"], default = None)
     arg_parser.add_argument('--pruner', type=str, help='pruner', required=False, choices=["asha", "None"], default = None)
     arg_parser.add_argument('--pretrained_model_size', type=str, help='pretrained model', required=False,
                         choices=["xlnet-base-cased:base", "albert-large-v1:small", "distilbert-base-uncased:base",
@@ -22,6 +22,7 @@ def load_console_args():
                                  "funnel-transformer/xlarge-base:xlarge", "google/electra-base-discriminator:base"], default = None)
     arg_parser.add_argument('--sample_num', type=int, help='sample num', required=False, default = None)
     arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False, default = None)
+    arg_parser.add_argument('--time_as_grid', type=int, help='time as grid search', required=False, default=None)
     arg_parser.add_argument('--rep_id', type=int, help='rep id', required=False, default = None)
     arg_parser.add_argument('--azure_key', type=str, help='azure key', required=False, default = None)
     arg_parser.add_argument('--resplit_mode', type=str, help='resplit mode', required=True, choices = ["rspt", "ori"], default = None)
