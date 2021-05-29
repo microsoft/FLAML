@@ -15,27 +15,27 @@ global azure_key
 glue_time_budget_mapping = {
     "wnli": {
         "electra": 100,
-        "roberta": 660,
+        "roberta": 500,
     },
     "rte": {
         "electra": 400,
-        "roberta": 720,
+        "roberta": 3000,
     },
     "mrpc": {
         "electra": 200,
-        "roberta": 720,
+        "roberta": 3000,
     },
     "cola": {
         "electra": 300,
-        "roberta": 1200
+        "roberta": 1700
     },
     "stsb": {
         "electra": 800,
-        "roberta": 1000,
+        "roberta": 3000,
     },
     "sst2": {
         "electra": 2000,
-        "roberta": 7800,
+        "roberta": 8000,
     },
     "qnli": {
         "electra": 3000,
