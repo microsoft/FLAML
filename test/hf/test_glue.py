@@ -18,7 +18,7 @@ glue_time_budget_mapping = {
         "roberta": 660,
     },
     "rte": {
-        "electra": 300,
+        "electra": 400,
         "roberta": 720,
     },
     "mrpc": {
@@ -30,7 +30,7 @@ glue_time_budget_mapping = {
         "roberta": 1200
     },
     "stsb": {
-        "electra": 600,
+        "electra": 800,
         "roberta": 1000,
     },
     "sst2": {
@@ -45,7 +45,7 @@ glue_time_budget_mapping = {
         "electra": 7800,
     },
     "mnli": {
-        "electra": 6600
+        "electra": 10000
     }
 }
 
