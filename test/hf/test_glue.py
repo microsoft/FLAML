@@ -80,7 +80,7 @@ def get_search_space(algo_mode, subdataset, model_name):
             "hidden_dropout": {"l": 0, "u": 0.2, "space": "linear"},
             "weight_decay": {"l": 0, "u": 0.3, "space": "linear"},
             "per_device_train_batch_size": [16, 32, 64],
-            "num_train_epochs": [10] if subdataset == "rte" else [3],
+            "num_train_epochs": [10] if subdataset in ("rte", "stsb") else [3],
             "adam_epsilon": [1e-6]
         }
     elif model_name == "roberta":
