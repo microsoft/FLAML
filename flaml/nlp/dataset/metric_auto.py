@@ -11,7 +11,7 @@ metric_mode_mapping_glue = {
     "qqp":  [("accuracy", "max"), ("f1", "max")],
     "rte":  [("accuracy", "max")],
     "sst2": [("accuracy", "max")],
-    "stsb": [("pearson", "max"), ("spearman", "max")],
+    "stsb": [("pearson", "max"), ("spearmanr", "max")],
     "wnli": [("accuracy", "max")]
 }
 
