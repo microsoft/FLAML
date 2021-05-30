@@ -30,6 +30,7 @@ def load_console_args():
     arg_parser.add_argument('--yml_file', type=str, help='yml file path', required=True, default = None)
     arg_parser.add_argument('--key_path', type=str, help='path for key.json', required=True, default=None)
     arg_parser.add_argument('--root_log_path', type=str, help='root path for log', required=False, default="logs_azure")
+    arg_parser.add_argument('--round_idx', type=int, help='round idx for acl experiments', required=False, default= 0)
     return arg_parser.parse_args()
 
 def get_wandb_azure_key(key_path):

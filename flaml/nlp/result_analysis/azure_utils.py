@@ -31,6 +31,7 @@ class JobID:
     def is_partial_match(self, partial_config):
         is_not_match = False
         for key, val in partial_config.__dict__.items():
+            if val is None: continue
             if getattr(self, key) != val:
                 is_not_match = True
         return not is_not_match
@@ -507,7 +508,10 @@ class AzureUtils:
 
     def get_best_perf_config(self, jobid_config):
         matched_blob_list = self.get_blob_list_matching_partial_jobid("logs_acl/", jobid_config)
-        assert len(matched_blob_list) == 1
+        try:
+            assert len(matched_blob_list) == 1
+        except:
+            stop = 0
 
         each_jobconfig, each_blob = matched_blob_list[0]
         self.download_azure_blob(each_blob.name)

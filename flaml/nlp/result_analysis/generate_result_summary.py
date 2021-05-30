@@ -216,8 +216,69 @@ def download_validation(console_args, result_root_dir):
     azure_utils.get_validation_perf(jobid_config=jobid_config)
     azure_utils.get_test_perf(jobid_config, result_root_dir)
 
+def get_result_str(jobid_config, val_score, test_score, best_config, subdat2config = None, mode="grid"):
+    result_str = jobid_config.subdat.upper() + ","
+    if jobid_config.alg:
+        result_str += jobid_config.alg.upper().replace("OPTUNA", "Optuna")
+    if jobid_config.pru != None and jobid_config.pru != "None":
+        result_str += "+" + jobid_config.pru.upper()
+    result_str += ",rep " + str(jobid_config.rep) + " & " + str(
+        "%.1f" % (val_score * 100)) + " & " + str(test_score)
+    for hp in ["learning_rate", "warmup_ratio", "per_device_train_batch_size", "hidden_dropout", "attention_dropout",
+               "weight_decay"]:
+        if hp not in best_config:
+            result_str += " & "
+        else:
+            if mode == "hpo":
+                if best_config[hp] > 1.2 * subdat2config[jobid_config.subdat][hp]:
+                    wrap_left = "\cellcolor{green!85}{"
+                elif best_config[hp] > subdat2config[jobid_config.subdat][hp]:
+                    wrap_left = "\cellcolor{green!15}{"
+                elif best_config[hp] < subdat2config[jobid_config.subdat][hp] / 1.2:
+                    wrap_left = "\cellcolor{red!85}{"
+                else:
+                    wrap_left = "\cellcolor{red!15}{"
+                wrap_right = "}"
+            else:
+                wrap_left = wrap_right = ""
+            if hp == "per_device_train_batch_size" or hp == "learning_rate":
+                wrap_left = wrap_right = ""
+            if hp == "learning_rate":
+                result_str += " & " + wrap_left + "{:.1e}".format(best_config[hp]) + wrap_right
+            elif hp == "per_device_train_batch_size":
+                result_str += " & " + wrap_left + str(best_config[hp])+ wrap_right
+            else:
+                result_str += " & " + wrap_left + str("%.3f" % best_config[hp])+ wrap_right
+    return result_str + "\\\\"
+
 def extract_roberta_overfitting_configs(console_args):
     from .azure_utils import JobID, AzureUtils
+    jobid_config = JobID()
+    jobid_config.pre = "roberta"
+    jobid_config.presz = "base"
+
+    overfitting_subdat = ["rte", "mrpc", "cola", "sst2"]
+    test_scores = ["73.1", "91.4/88.5", "61.4", "96"]
+    key2printstr = {}
+    subdat2config = {}
+
+    for idx in range(len(overfitting_subdat)):
+        jobid_config.subdat = overfitting_subdat[idx]
+        jobid_config.mod = "grid"
+        jobid_config.rep = 0
+        azure_utils = AzureUtils(console_args=console_args, jobid=jobid_config)
+        best_config, val_score = azure_utils.get_best_perf_config(jobid_config)
+        best_config["hidden_dropout"] = 0.1
+        best_config["attention_dropout"] = 0.1
+        test_score = test_scores[idx]
+        key2printstr[jobid_config.subdat.upper() + ", grid"] = get_result_str(jobid_config, val_score,
+                                                                              test_score, best_config)
+        subdat2config[jobid_config.subdat] = best_config
+
+    print()
+    for key, printstr in sorted(key2printstr.items(), key=lambda x: x[0]):
+        print(printstr)
+
     jobid_config = JobID()
     jobid_config.pre = "roberta"
     jobid_config.presz = "base"
@@ -228,6 +289,7 @@ def extract_roberta_overfitting_configs(console_args):
     overfitting_rep = [0, 2, 0, 1, 1, 1, 1, 0, 2, 0, 2, 0, 1, 2, 1]
     test_scores = ["72.7", "72.3", "90.9/87.9", "90.9/87.7", "72.6", "91.4/88.2",
                    "57.4", "95.4", "95.9", "71.3", "72.7", "90.9/87.6", "90.7/87.5", "90.2/86.8", "95.2"]
+    key2printstr = {}
 
     for idx in range(len(overfitting_subdat)):
         jobid_config.subdat = overfitting_subdat[idx]
@@ -237,5 +299,10 @@ def extract_roberta_overfitting_configs(console_args):
         azure_utils = AzureUtils(console_args=console_args, jobid=jobid_config)
         best_config, val_score = azure_utils.get_best_perf_config(jobid_config)
         test_score = test_scores[idx]
-        result_str = str(val_score) + " & " + str(test_score) + " & "
-        # for hp in ["learning_rate", "warmup_ratio", ""]
+        key2printstr[jobid_config.subdat.upper() + "," + jobid_config.alg.upper() + "," \
+                     + jobid_config.pru +",rep " + str(jobid_config.rep)] = get_result_str(jobid_config, val_score, test_score, best_config, subdat2config, mode="hpo")
+
+    for key, printstr in sorted(key2printstr.items(), key = lambda x:x[0]):
+        print(printstr)
+
+

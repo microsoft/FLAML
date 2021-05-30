@@ -61,39 +61,92 @@ def get_preparedata_setting(args, jobid_config, wandb_utils):
         preparedata_setting["fold_name"] = ['train', 'validation_matched', 'test_matched']
     return preparedata_setting
 
-def get_autohf_settings(time_as_grid, jobid_config):
+def set_space_resource(round_idx, jobid_config):
+    if round_idx == 0:
+        return "full", 1
+    else:
+        if jobid_config.pre == "electra":
+            return "full", 1
+        else:
+            return "full", 1
+
+def get_autohf_settings(console_args, jobid_config):
+    space_mode, time_as_grid = set_space_resource(console_args.round_idx, jobid_config)
     autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
                        "num_samples": 100000 if jobid_config.mod != "grid" else 1,
                        "time_budget": 100000 if jobid_config.mod == "grid"
                        else time_as_grid * glue_time_budget_mapping[jobid_config.subdat][jobid_config.pre],
-                       "ckpt_per_epoch": 5 # if jobid_config.subdat in ("rte", "mrpc", "cola", "stsb", "wnli") else 10,
+                       "ckpt_per_epoch": 5
                       }
-    autohf_settings["hpo_space"] = get_search_space(jobid_config.mod, jobid_config.subdat, jobid_config.pre)
+    autohf_settings["hpo_space"] = get_search_space(space_mode, jobid_config.subdat, jobid_config.pre)
     return autohf_settings
 
-def get_search_space(algo_mode, subdataset, model_name):
+def get_search_space(space_mode, subdataset, model_name):
     if model_name == "electra":
-        return {
-            "learning_rate": {"l": 2.99e-5, "u": 1.51e-4, "space": "log"},
-            "warmup_ratio": {"l": 0, "u": 0.2, "space": "linear"},
-            "attention_dropout": {"l": 0, "u": 0.2, "space": "linear"},
-            "hidden_dropout": {"l": 0, "u": 0.2, "space": "linear"},
-            "weight_decay": {"l": 0, "u": 0.3, "space": "linear"},
-            "per_device_train_batch_size": [16, 32, 64],
-            "num_train_epochs": [10] if subdataset in ("rte", "stsb") else [3],
-            "adam_epsilon": [1e-6]
-        }
+        if space_mode == "full":
+            return {
+                "learning_rate": {"l": 2.99e-5, "u": 1.51e-4, "space": "log"},
+                "warmup_ratio": {"l": 0, "u": 0.2, "space": "linear"},
+                "attention_dropout": {"l": 0, "u": 0.2, "space": "linear"},
+                "hidden_dropout": {"l": 0, "u": 0.2, "space": "linear"},
+                "weight_decay": {"l": 0, "u": 0.3, "space": "linear"},
+                "per_device_train_batch_size": [16, 32, 64],
+                "num_train_epochs": [10] if subdataset in ("rte", "stsb") else [3],
+                "adam_epsilon": [1e-6]
+            }
+        elif space_mode == "fixhalf":
+            return {
+                "learning_rate": {"l": 2.99e-5, "u": 1.51e-4, "space": "log"},
+                "warmup_ratio": [0.1],
+                "attention_dropout": {"l": 0, "u": 0.2, "space": "linear"},
+                "hidden_dropout": {"l": 0, "u": 0.2, "space": "linear"},
+                "weight_decay": {"l": 0, "u": 0.3, "space": "linear"},
+                "per_device_train_batch_size": [16, 32, 64],
+                "num_train_epochs": [10] if subdataset in ("rte", "stsb") else [3],
+                "adam_epsilon": [1e-6]
+            }
+        elif space_mode == "fixall":
+            return {
+                "learning_rate": {"l": 2.99e-5, "u": 1.51e-4, "space": "log"},
+                "warmup_ratio": [0.1],
+                "attention_dropout": [0.1],
+                "hidden_dropout": [0.1],
+                "weight_decay": [0.0],
+                "per_device_train_batch_size": [16, 32, 64],
+                "num_train_epochs": [10] if subdataset in ("rte", "stsb") else [3],
+                "adam_epsilon": [1e-6]
+            }
     elif model_name == "roberta":
-        return {
-            "learning_rate": {"l": 0.99e-5, "u": 3.01e-5, "space": "linear"},
-            "warmup_ratio": {"l": 0, "u": 0.12, "space": "linear"},
-            "attention_dropout": {"l": 0, "u": 0.2, "space": "linear"},
-            "hidden_dropout": {"l": 0, "u": 0.2, "space": "linear"},
-            "weight_decay": {"l": 0, "u": 0.3, "space": "linear"},
-            "per_device_train_batch_size": [16, 32, 64],
-            "num_train_epochs": [10],
-            "adam_epsilon": [1e-6]
-        }
+        if space_mode == "full":
+            return {
+                "learning_rate": {"l": 0.99e-5, "u": 3.01e-5, "space": "linear"},
+                "warmup_ratio": {"l": 0, "u": 0.12, "space": "linear"},
+                "attention_dropout": {"l": 0, "u": 0.2, "space": "linear"},
+                "hidden_dropout": {"l": 0, "u": 0.2, "space": "linear"},
+                "weight_decay": {"l": 0, "u": 0.3, "space": "linear"},
+                "per_device_train_batch_size": [16, 32, 64],
+                "num_train_epochs": [10],
+            }
+        elif space_mode == "fixhalf":
+            return {
+                "learning_rate": {"l": 0.99e-5, "u": 3.01e-5, "space": "linear"},
+                "warmup_ratio": [0.06],
+                "attention_dropout": {"l": 0, "u": 0.2, "space": "linear"},
+                "hidden_dropout": [0.1],
+                "weight_decay": {"l": 0, "u": 0.3, "space": "linear"},
+                "per_device_train_batch_size": [16, 32, 64],
+                "num_train_epochs": [10],
+            }
+        elif space_mode == "fixall":
+            return {
+                "learning_rate": {"l": 0.99e-5, "u": 3.01e-5, "space": "linear"},
+                "warmup_ratio": [0.06],
+                "attention_dropout": [0.1],
+                "hidden_dropout": [0.1],
+                "weight_decay": [0.1],
+                "per_device_train_batch_size": [16, 32, 64],
+                "num_train_epochs": [10],
+            }
 
 def rm_home_result():
     from os.path import expanduser
@@ -116,7 +169,7 @@ def _test_hpo(args,
         preparedata_setting = get_preparedata_setting(args, jobid_config, wandb_utils)
         autohf.prepare_data(**preparedata_setting)
 
-        autohf_settings = get_autohf_settings(args.time_as_grid, jobid_config)
+        autohf_settings = get_autohf_settings(args, jobid_config)
         validation_metric, analysis = autohf.fit(**autohf_settings,)
 
         predictions, test_metric = autohf.predict()
