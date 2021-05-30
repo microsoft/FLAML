@@ -35,6 +35,7 @@ glue_time_budget_mapping = {
     },
     "sst2": {
         "electra": 2000,
+        "roberta": 8000,
     },
     "qnli": {
         "electra": 3000,
