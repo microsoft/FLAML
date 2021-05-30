@@ -208,8 +208,34 @@ def download_validation(console_args, result_root_dir):
     jobid_config.mod = "grid"
     jobid_config.pre = "roberta"
     jobid_config.presz = "base"
+    # jobid_config.alg = "optuna"
+    # jobid_config.pru = "asha"
     jobid_config.rep = 0
 
     azure_utils = AzureUtils(console_args=console_args, jobid=jobid_config)
     azure_utils.get_validation_perf(jobid_config=jobid_config)
     azure_utils.get_test_perf(jobid_config, result_root_dir)
+
+def extract_roberta_overfitting_configs(console_args):
+    from .azure_utils import JobID, AzureUtils
+    jobid_config = JobID()
+    jobid_config.pre = "roberta"
+    jobid_config.presz = "base"
+
+    overfitting_subdat = ["rte", "rte", "mrpc", "mrpc", "rte", "mrpc", "cola", "sst2", "sst2", "rte", "rte", "mrpc", "mrpc", "mrpc", "sst2"]
+    overfitting_alg = ["rs", "rs", "rs", "rs", "rs", "rs", "rs", "rs", "rs", "optuna", "optuna", "optuna", "optuna", "optuna", "optuna"]
+    overfitting_pru = ["None", "None", "None", "None", "asha", "asha", "asha", "asha", "asha", "asha", "asha", "asha", "asha", "asha", "asha"]
+    overfitting_rep = [0, 2, 0, 1, 1, 1, 1, 0, 2, 0, 2, 0, 1, 2, 1]
+    test_scores = ["72.7", "72.3", "90.9/87.9", "90.9/87.7", "72.6", "91.4/88.2",
+                   "57.4", "95.4", "95.9", "71.3", "72.7", "90.9/87.6", "90.7/87.5", "90.2/86.8", "95.2"]
+
+    for idx in range(len(overfitting_subdat)):
+        jobid_config.subdat = overfitting_subdat[idx]
+        jobid_config.alg = overfitting_alg[idx]
+        jobid_config.pru = overfitting_pru[idx]
+        jobid_config.rep = overfitting_rep[idx]
+        azure_utils = AzureUtils(console_args=console_args, jobid=jobid_config)
+        best_config, val_score = azure_utils.get_best_perf_config(jobid_config)
+        test_score = test_scores[idx]
+        result_str = str(val_score) + " & " + str(test_score) + " & "
+        # for hp in ["learning_rate", "warmup_ratio", ""]

@@ -446,32 +446,37 @@ class AzureUtils:
             dataset_namelist = ["wnli", "rte", "mrpc", "cola", "stsb", "sst2", "qnli", "mnli"]
         else:
             dataset_namelist = ["wnli", "rte", "mrpc", "cola", "stsb", "sst2"]
-        dataset_vallist = [0] * len(dataset_namelist)
+        dataset_vallist1 = [0] * len(dataset_namelist)
+        dataset_vallist2 = [0] * len(dataset_namelist)
 
         matched_blob_list = self.get_blob_list_matching_partial_jobid("logs_acl/", jobid_config)
         for (each_jobconfig, each_blob) in matched_blob_list:
             subdat_name = each_jobconfig.subdat
             self.download_azure_blob(each_blob.name)
             data_json = json.load(open(each_blob.name, "r"))
+            print(len(data_json["val_log"]))
             validation_metric = data_json['valid_metric']
             try:
                 dataset_idx = dataset_namelist.index(subdat_name)
-                dataset_vallist[dataset_idx] = self.get_validation_metricstr(validation_metric)
+                dataset_vallist1[dataset_idx],dataset_vallist2[dataset_idx] = self.get_validation_metricstr(validation_metric)
             except ValueError:
                 pass
-        print(" & ".join(dataset_vallist))
+        print(" & ".join(dataset_vallist1))
+        print(", ,".join(dataset_vallist2))
 
     def get_validation_metricstr(self, validation_metric):
-        validation_str = ""
+        validation_str1 = validation_str2 = ""
         is_first = True
         for key in ["f1", "accuracy", "pearson", "spearmanr", "matthews_correlation"]:
             if "eval_" + key in validation_metric.keys():
                 if is_first:
-                    validation_str += str("%.1f" % (validation_metric["eval_" + key] * 100))
+                    validation_str1 += str("%.1f" % (validation_metric["eval_" + key] * 100))
+                    validation_str2 += str(validation_metric["eval_" + key] * 100)
                     is_first = False
                 else:
-                    validation_str += "/" + str("%.1f" % (validation_metric["eval_" + key] * 100))
-        return validation_str
+                    validation_str1 += "/" + str("%.1f" % (validation_metric["eval_" + key] * 100))
+                    validation_str2 += "," + str(validation_metric["eval_" + key] * 100)
+        return validation_str1, validation_str2
 
     def get_test_perf(self, jobid_config, result_root_dir):
         import shutil
@@ -499,3 +504,16 @@ class AzureUtils:
             dst = os.path.join(output_dir, file_name_mapping_glue[subdat_name][0])
             shutil.copy(src, dst)
         shutil.make_archive(os.path.join(output_dir), 'zip', output_dir)
+
+    def get_best_perf_config(self, jobid_config):
+        matched_blob_list = self.get_blob_list_matching_partial_jobid("logs_acl/", jobid_config)
+        assert len(matched_blob_list) == 1
+
+        each_jobconfig, each_blob = matched_blob_list[0]
+        self.download_azure_blob(each_blob.name)
+        data_json = json.load(open(each_blob.name, "r"))
+
+        sorted_entries = sorted(data_json['val_log'], key = lambda x:x['metric_score']['max'], reverse=True)
+        best_config = sorted_entries[0]['config']
+        best_score = sorted_entries[0]['metric_score']['max']
+        return best_config, best_score
