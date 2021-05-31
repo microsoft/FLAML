@@ -33,6 +33,7 @@ class TrainerForAutoTransformers(transformers.Trainer):
                     eval_dataset:
                         the dataset to be evaluated
             """
+        import wandb
         eval_dataloader = self.get_eval_dataloader(eval_dataset)
         output = self.prediction_loop(
             eval_dataloader, description="Evaluation")
@@ -44,6 +45,7 @@ class TrainerForAutoTransformers(transformers.Trainer):
         for key in output.metrics.keys():
             if key.startswith("eval_"):
                 output_metrics[key[5:]] = output_metrics[key]
+            wandb.log({"final_" + key: output_metrics[key]})
         tune.report(**output_metrics)
 
         return output_metrics
