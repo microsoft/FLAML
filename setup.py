@@ -48,7 +48,6 @@ setuptools.setup(
             "xgboost<1.3",
             "rgf-python",
             "optuna==2.3.0",
-            "ray[tune]",
         ],
         "blendsearch": [
             "optuna==2.3.0"
