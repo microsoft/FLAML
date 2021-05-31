@@ -146,8 +146,7 @@ class OnlineTrialRunner:
         # ***********Update running trials with observation***************************
         if data_sample is not None:
             self._total_steps += 1
-            prediction_made = prediction_trial_tuple[0]
-            prediction_trial = prediction_trial_tuple[1]
+            prediction_made, prediction_trial = prediction_trial_tuple[0], prediction_trial_tuple[1]
             # assert prediction_trial.status == Trial.RUNNING
             trials_to_pause = []
             for trial in list(self._running_trials):
@@ -161,7 +160,7 @@ class OnlineTrialRunner:
                              trial.result.resource_used, trial.resource_lease)  
                 # report result to the searcher
                 self._searcher.on_trial_result(trial.trial_id, trial.result)
-                # report result the scheduler and the scheduler makes a decision about
+                # report result to the scheduler and the scheduler makes a decision about
                 # the running status of the trial
                 decision = self._scheduler.on_trial_result(self, trial, trial.result)
                 # set the status of the trial according to the decision made by the scheduler
@@ -238,7 +237,7 @@ class OnlineTrialRunner:
             trial_num_upper_bound = int(round((np.log10(self._total_steps) + 1) * self._first_challenger_pool_size)
                                         ) if self._first_challenger_pool_size else np.inf
             if active_trial_size > trial_num_upper_bound:
-                logger.info('Do not add new trials: %s exceed trial limit %s.',
+                logger.info('Not adding new trials: %s exceeds trial limit %s.',
                             active_trial_size, trial_num_upper_bound)
                 return None
 
@@ -249,7 +248,7 @@ class OnlineTrialRunner:
         trial = self._searcher.next_trial()
         if trial is not None:
             self.add_trial(trial)  # dup checked in add_trial
-            # the champion_trial is initially None, so we need to set up it the first time
+            # the champion_trial is initially None, so we need to set it up the first time
             # a valid trial is added.
             # Assumption on self._searcher: the first trial generated is the champion trial
             if self._champion_trial is None:
@@ -272,10 +271,9 @@ class OnlineTrialRunner:
             if is_new_champion_found:
                 self._set_champion(new_champion_trial=self._best_challenger_trial)
 
-        # performs WorseThan test, which is an optional compontent in ChaCha
+        # performs _worse_than_champion_test, which is an optional component in ChaCha
         if self._remove_worse:
             to_stop = []
-            active_trials = [t for t in self._trials if t.status != Trial.TERMINATED]
             for trial_to_test in self._trials:
                 if trial_to_test.status != Trial.TERMINATED:
                     worse_than_champion = self._worse_than_champion_test(
@@ -283,7 +281,9 @@ class OnlineTrialRunner:
                     if worse_than_champion:
                         to_stop.append(trial_to_test)
             # we want to ensure there are at least #max_live_model_num of challengers remaining
-            for i in range(min(len(active_trials) - self._max_live_model_num, len(to_stop))):
+            max_to_stop_num = len([t for t in self._trials if t.status != Trial.TERMINATED]
+                                  ) - self._max_live_model_num
+            for i in range(min(max_to_stop_num, len(to_stop))):
                 self.stop_trial(to_stop[i])
 
     def _get_best_challenger(self):
@@ -323,7 +323,7 @@ class OnlineTrialRunner:
                 trial.set_checked_under_current_champion(False)
         self._champion_trial = new_champion_trial
         self._all_new_challengers_added = False
-        logger.info('Set the champion  as %s', self._champion_trial.trial_id)
+        logger.info('Set the champion as %s', self._champion_trial.trial_id)
         if not is_init_update:
             self._champion_update_times += 1
             # calling set_search_properties of searcher will trigger
@@ -349,14 +349,9 @@ class OnlineTrialRunner:
             trial (Trial): Trial to queue.
 
         NOTE:
-            Even if the new trial already exisits, we still want to add a new trial because
-            we want to reset the status of the resouce consumption, such that we can replace
-            bad ones in time. Otherwise, it is likely to get stuck on.
-
             Only add the new trial when it does not exist (according to the trial_id, which is
             the signature of the trail) in self._trials.
         """
-        # Do not a trial with the same trial_id already exist, we do not add it directly.
         for trial in self._trials:
             if trial.trial_id == new_trial.trial_id:
                 trial.set_checked_under_current_champion(True)
@@ -368,14 +363,7 @@ class OnlineTrialRunner:
 
     def stop_trial(self, trial):
         """Stop a trial: set the status of a trial to be Trial.TERMINATED and perform
-        other subsequent operations.
-
-        NOTE:
-            Trials may be stopped at any time. If trial is in state PENDING
-            or PAUSED, calls `on_trial_remove`  for scheduler and
-            `on_trial_complete() for searcher.
-            Otherwise waits for result for the trial and calls
-            `on_trial_complete` for scheduler and searcher if RUNNING.
+        other subsequent operations
         """
         if trial.status in [Trial.ERROR, Trial.TERMINATED]:
             return
@@ -396,8 +384,8 @@ class OnlineTrialRunner:
         if trial.status in [Trial.ERROR, Trial.TERMINATED]:
             return
         else:
-            logger.info('Pausing trial %s, with trial result %s %s %s %s',
-                        trial.trial_id, trial.result.loss_avg,
+            logger.info('Pausing trial %s, with trial loss_avg: %s, loss_cb: %s, loss_ucb: %s,\
+                        resource_lease: %s', trial.trial_id, trial.result.loss_avg,
                         trial.result.loss_cb, trial.result.loss_avg + trial.result.loss_cb,
                         trial.resource_lease)
             trial.set_status(Trial.PAUSED)
@@ -421,13 +409,7 @@ class OnlineTrialRunner:
         the current champion config
 
         Returns:
-            new_champion_found: bool, which indicates whether a new champion is found
-            new_champion_trial:  which is the new champion found (it is None if
-                a new champion is not found)
-        NOTE:
-            when the result is None, it is not a live model, which means that we shoud
-            not try to use it. A non-live trial will only be scheduled to run in the
-            scheduler, which does not need the result.
+            A bool indicating whether a new champion is found
         """
         if trial_to_test.result is not None and self._champion_trial.result is not None:
             if 'ucb' in self._champion_test_policy:
@@ -436,10 +418,10 @@ class OnlineTrialRunner:
                 return self._test_avg_loss(self._champion_trial, trial_to_test, self.WARMSTART_NUM)
             elif 'martingale' in self._champion_test_policy:
                 return self._test_martingale(self._champion_trial, trial_to_test)
-            elif 'notest' in self._champion_test_policy:
-                logger.info('no test')
-                return False
-        return False
+            else:
+                raise NotImplementedError
+        else:
+            return False
 
     @staticmethod
     def _worse_than_champion_test(champion_trial, trial, warmstart_num=1) -> bool:
