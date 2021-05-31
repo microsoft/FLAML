@@ -71,8 +71,8 @@ class ChampionFrontierSearcher(BaseSearcher):
     # how many item to add when doing the expansion
     # (i.e. how many interaction items to add at each time)
     POLY_EXPANSION_ADDITION_NUM = 1
-    # the order of polynomial expansions to add based on the current one
-    POLY_EXPANSION_ORDER = 2
+    # the order of polynomial expansions to add based on the given seed interactions
+    EXPANSION_ORDER = 2
     # the number of new challengers with new numerical hyperparamter configs
     NUMERICAL_NUM = 2
 
@@ -267,11 +267,13 @@ class ChampionFrontierSearcher(BaseSearcher):
 
     def _generate_independent_hp_configs(self, hp_name, current_config_value, config_domain) -> List:
         if isinstance(config_domain, PolynomialExpansionSet):
-            monomials = list(current_config_value) + list(config_domain.init_monomials)
-            logger.info('current_config_value %s %s', current_config_value, monomials)
-            configs = self._generate_poly_expansion_sets(monomials,
+            seed_interactions = list(current_config_value) + list(config_domain.init_monomials)
+            logger.info('current_config_value %s %s', current_config_value, seed_interactions)
+            configs = self._generate_poly_expansion_sets(seed_interactions,
+                                                         self.EXPANSION_ORDER,
+                                                         config_domain.allow_self_inter,
+                                                         config_domain.highest_poly_order,
                                                          self.POLY_EXPANSION_ADDITION_NUM,
-                                                         self.POLY_EXPANSION_ORDER
                                                          )
         else:
             configs = [current_config_value]
@@ -279,12 +281,13 @@ class ChampionFrontierSearcher(BaseSearcher):
         configs_w_key = [{hp_name: hp_config} for hp_config in configs]
         return configs_w_key
 
-    def _generate_poly_expansion_sets(self, champion_config, interaction_num_to_add, order):
-        champion_all_combinations = self._generate_all_comb(champion_config, order)
+    def _generate_poly_expansion_sets(self, seed_interactions, order, allow_self_inter,
+                                      highest_poly_order, interaction_num_to_add):
+        champion_all_combinations = self._generate_all_comb(seed_interactions, order, allow_self_inter, highest_poly_order)
         space = sorted(list(itertools.combinations(
                        champion_all_combinations, interaction_num_to_add)))
         self._random_state.shuffle(space)
-        candidate_configs = [set(champion_config) | set(item) for item in space]
+        candidate_configs = [set(seed_interactions) | set(item) for item in space]
         final_candidate_configs = []
         for c in candidate_configs:
             new_c = set([e for e in c if len(e) > 1])
@@ -292,13 +295,13 @@ class ChampionFrontierSearcher(BaseSearcher):
         return final_candidate_configs
 
     @staticmethod
-    def _generate_all_comb(seed_config: list, seed_interaction_order: int,
+    def _generate_all_comb(seed_interactions: list, seed_interaction_order: int,
                            allow_self_inter: Optional[bool] = False,
                            highest_poly_order: Optional[int] = None):
-        """Generate new interactions by doing up to seed_interaction_order on the seed_config
+        """Generate new interactions by doing up to seed_interaction_order on the seed_interactions
 
         Args:
-            seed_config (List[str]): the see config which is a list of interactions string
+            seed_interactions (List[str]): the see config which is a list of interactions string
             (including the singletons)
             seed_interaction_order (int): the maxmum order of interactions to perform on the seed_config
             allow_self_inter (bool): whether self-interaction is allowed
@@ -338,10 +341,10 @@ class ChampionFrontierSearcher(BaseSearcher):
                         new_s += i
                 return new_s
 
-        interactions = seed_config.copy()
+        interactions = seed_interactions.copy()
         all_interactions = []
         while seed_interaction_order > 1:
-            interactions = get_interactions(interactions, seed_config)
+            interactions = get_interactions(interactions, seed_interactions)
             seed_interaction_order -= 1
             all_interactions += interactions
         if not allow_self_inter:
