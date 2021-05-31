@@ -428,7 +428,7 @@ class OnlineTrialRunner:
         """Test whether the input trial is worse than the champion_trial
         """
         if trial.result is not None and trial.result.resource_used >= warmstart_num:
-            if trial.result.loss_lcb - trial.result.loss_cb > champion_trial.result.loss_ucb:
+            if trial.result.loss_lcb > champion_trial.result.loss_ucb:
                 logger.info('=========trial %s is worse than champion %s=====',
                             trial.trial_id, champion_trial.trial_id)
                 logger.info('trial %s %s %s', trial.config, trial.result, trial.resource_lease)
