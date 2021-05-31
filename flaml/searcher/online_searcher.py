@@ -91,6 +91,7 @@ class ChampionFrontierSearcher(BaseSearcher):
     NUM_RANDOM_SEED = 111
 
     CHAMPION_TRIAL_NAME = 'champion_trial'
+    TRIAL_CLASS = VWOnlineTrial
 
     def __init__(self,
                  init_config: dict,
@@ -165,7 +166,7 @@ class ChampionFrontierSearcher(BaseSearcher):
     def _create_trial_from_config(self, config, searcher_trial_id=None):
         if searcher_trial_id is None:
             searcher_trial_id = Trial.generate_id()
-        trial = VWOnlineTrial(config, **self._online_trial_args)
+        trial = self.TRIAL_CLASS(config, **self._online_trial_args)
         self._searcher_trialid_to_trialid[searcher_trial_id] = trial.trial_id
         # only update the dict when the trial_id does not exist
         if trial.trial_id not in self._trialid_to_searcher_trial_id:
@@ -291,46 +292,66 @@ class ChampionFrontierSearcher(BaseSearcher):
         return final_candidate_configs
 
     @staticmethod
-    def _generate_all_comb(champion_config, order):
-        def convert_nested_tuple_to_tuple(test_tuple):
-            res = ''
-            if type(test_tuple) is int:
-                return (test_tuple,)
-            else:
-                for ele in test_tuple:
-                    if isinstance(ele, tuple):
-                        res += convert_nested_tuple_to_tuple(ele)
-                    else:
-                        res += ele
-                return res
+    def _generate_all_comb(seed_config: list, seed_interaction_order: int,
+                           allow_self_inter: Optional[bool] = False,
+                           highest_poly_order: Optional[int] = None):
+        """Generate new interactions by doing up to seed_interaction_order on the seed_config
 
-        def get_unique_combinations(list1, list2, no_dup=True):
-            """ get combinatorial list of tuples
+        Args:
+            seed_config (List[str]): the see config which is a list of interactions string
+            (including the singletons)
+            seed_interaction_order (int): the maxmum order of interactions to perform on the seed_config
+            allow_self_inter (bool): whether self-interaction is allowed
+                e.g. if set False, 'aab' will be considered as 'ab', i.e. duplicates in the interaction
+                string are removed.
+            highest_poly_order (int): the highest polynomial order allowed for the resulting interaction.
+                e.g. if set 3, the interaction 'abcd' will be excluded.
+        """
+
+        def get_interactions(list1, list2):
+            """Get combinatorial list of tuples
             """
             new_list = []
             for i in list1:
                 for j in list2:
-                    if len(i) < len(j):
-                        shorter = i
-                        longer = j
-                    else:
-                        shorter = j
-                        longer = i
-                    if no_dup and i != j and shorter not in longer:
-                        new_tuple = sorted(''.join(i) + ''.join(j))
-                        new_tuple = ''.join(new_tuple)
-                        if new_tuple not in new_list:
-                            new_list.append(new_tuple)
+                    # each interaction is sorted. E.g. after sorting
+                    # 'abc' 'cba' 'bca' are all 'abc'
+                    # this is done to ensure we can use the config as the signature
+                    # of the trial, i.e., trial id.
+                    new_interaction = ''.join(sorted(i + j))
+                    if new_interaction not in new_list:
+                        new_list.append(new_interaction)
             return new_list
 
-        seed = champion_config.copy()
-        all_combinations = seed
-        while order > 1:
-            all_combinations = get_unique_combinations(all_combinations, seed)
-            order -= 1
-        all_combinations = [convert_nested_tuple_to_tuple(element) for element in all_combinations]
-        # TODO: by default removing duplicate features. May want to make it optional.
-        all_combinations = [c for c in all_combinations if len(c) == len(set(c))]
-        logger.debug('all_combinations %s', all_combinations)
-        all_combinations_joined = [''.join(candidate) for candidate in all_combinations]
-        return all_combinations_joined
+        def strip_self_inter(s):
+            """Remove duplicates in an interaction string
+            """
+            if len(s) == len(set(s)):
+                return s
+            else:
+                # return ''.join(sorted(set(s)))
+                new_s = ''
+                char_list = []
+                for i in s:
+                    if i not in char_list:
+                        char_list.append(i)
+                        new_s += i
+                return new_s
+
+        interactions = seed_config.copy()
+        all_interactions = []
+        while seed_interaction_order > 1:
+            interactions = get_interactions(interactions, seed_config)
+            seed_interaction_order -= 1
+            all_interactions += interactions
+        if not allow_self_inter:
+            all_interactions_no_self_inter = []
+            for s in all_interactions:
+                s_no_inter = strip_self_inter(s)
+                if len(s_no_inter) > 1 and s_no_inter not in all_interactions_no_self_inter:
+                    all_interactions_no_self_inter.append(s_no_inter)
+            all_interactions = all_interactions_no_self_inter
+        if highest_poly_order is not None:
+            all_interactions = [c for c in all_interactions if len(c) <= highest_poly_order]
+        logger.info('all_combinations %s', all_interactions)
+        return all_interactions
