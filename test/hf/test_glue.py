@@ -18,15 +18,15 @@ glue_time_budget_mapping = {
         "roberta": 500,
     },
     "rte": {
-        "electra": 400,
+        "electra": 1800,
         "roberta": 3000,
     },
     "mrpc": {
-        "electra": 200,
+        "electra": 600,
         "roberta": 3000,
     },
     "cola": {
-        "electra": 300,
+        "electra": 600,
         "roberta": 1700
     },
     "stsb": {
@@ -71,7 +71,7 @@ def get_autohf_settings(console_args, jobid_config):
     autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
                        "num_samples": 100000 if jobid_config.mod != "grid" else 1,
                        "time_budget": 100000 if jobid_config.mod == "grid"
-                       else time_as_grid * glue_time_budget_mapping[jobid_config.subdat][jobid_config.pre],
+                       else 4 * glue_time_budget_mapping[jobid_config.subdat][jobid_config.pre],
                        "ckpt_per_epoch": 5
                       }
     autohf_settings["hpo_space"] = get_search_space(space_mode, jobid_config.subdat, jobid_config.pre)
@@ -83,19 +83,19 @@ def get_search_space(space_mode, subdataset, model_name):
             return {
                 "learning_rate": {"l": 2.99e-5, "u": 1.51e-4, "space": "log"},
                 "warmup_ratio": {"l": 0, "u": 0.2, "space": "linear"},
-                "attention_dropout": {"l": 0, "u": 0.2, "space": "linear"},
-                "hidden_dropout": {"l": 0, "u": 0.2, "space": "linear"},
+                "attention_probs_dropout_prob": {"l": 0, "u": 0.2, "space": "linear"},
+                "hidden_dropout_prob": {"l": 0, "u": 0.2, "space": "linear"},
                 "weight_decay": {"l": 0, "u": 0.3, "space": "linear"},
                 "per_device_train_batch_size": [16, 32, 64],
-                "num_train_epochs": [10] if subdataset in ("rte", "stsb") else [3],
+                "num_train_epochs": {"l": 9.5, "u": 10.5, "space": "linear"} if subdataset in ("rte", "stsb") else {"l": 2.5, "u": 3.5, "space": "linear"},
                 "adam_epsilon": [1e-6]
             }
         elif space_mode == "fixhalf":
             return {
                 "learning_rate": {"l": 2.99e-5, "u": 1.51e-4, "space": "log"},
                 "warmup_ratio": [0.1],
-                "attention_dropout": {"l": 0, "u": 0.2, "space": "linear"},
-                "hidden_dropout": {"l": 0, "u": 0.2, "space": "linear"},
+                "attention_probs_dropout_prob": {"l": 0, "u": 0.2, "space": "linear"},
+                "hidden_dropout_prob": {"l": 0, "u": 0.2, "space": "linear"},
                 "weight_decay": {"l": 0, "u": 0.3, "space": "linear"},
                 "per_device_train_batch_size": [16, 32, 64],
                 "num_train_epochs": [10] if subdataset in ("rte", "stsb") else [3],
@@ -105,8 +105,8 @@ def get_search_space(space_mode, subdataset, model_name):
             return {
                 "learning_rate": {"l": 2.99e-5, "u": 1.51e-4, "space": "log"},
                 "warmup_ratio": [0.1],
-                "attention_dropout": [0.1],
-                "hidden_dropout": [0.1],
+                "attention_probs_dropout_prob": [0.1],
+                "hidden_dropout_prob": [0.1],
                 "weight_decay": [0.0],
                 "per_device_train_batch_size": [16, 32, 64],
                 "num_train_epochs": [10] if subdataset in ("rte", "stsb") else [3],
@@ -117,8 +117,8 @@ def get_search_space(space_mode, subdataset, model_name):
             return {
                 "learning_rate": {"l": 0.99e-5, "u": 3.01e-5, "space": "linear"},
                 "warmup_ratio": {"l": 0, "u": 0.12, "space": "linear"},
-                "attention_dropout": {"l": 0, "u": 0.2, "space": "linear"},
-                "hidden_dropout": {"l": 0, "u": 0.2, "space": "linear"},
+                "attention_probs_dropout_prob": {"l": 0, "u": 0.2, "space": "linear"},
+                "hidden_dropout_prob": {"l": 0, "u": 0.2, "space": "linear"},
                 "weight_decay": {"l": 0, "u": 0.3, "space": "linear"},
                 "per_device_train_batch_size": [16, 32, 64],
                 "num_train_epochs": [10],
@@ -127,8 +127,8 @@ def get_search_space(space_mode, subdataset, model_name):
             return {
                 "learning_rate": {"l": 0.99e-5, "u": 3.01e-5, "space": "linear"},
                 "warmup_ratio": [0.06],
-                "attention_dropout": {"l": 0, "u": 0.2, "space": "linear"},
-                "hidden_dropout": [0.1],
+                "attention_probs_dropout_prob": {"l": 0, "u": 0.2, "space": "linear"},
+                "hidden_dropout_prob": [0.1],
                 "weight_decay": {"l": 0, "u": 0.3, "space": "linear"},
                 "per_device_train_batch_size": [16, 32, 64],
                 "num_train_epochs": [10],
@@ -137,8 +137,8 @@ def get_search_space(space_mode, subdataset, model_name):
             return {
                 "learning_rate": {"l": 0.99e-5, "u": 3.01e-5, "space": "linear"},
                 "warmup_ratio": [0.06],
-                "attention_dropout": [0.1],
-                "hidden_dropout": [0.1],
+                "attention_probs_dropout_prob": [0.1],
+                "hidden_dropout_prob": [0.1],
                 "weight_decay": [0.1],
                 "per_device_train_batch_size": [16, 32, 64],
                 "num_train_epochs": [10],
@@ -186,6 +186,6 @@ if __name__ == "__main__":
     args = load_console_args()
     jobid_config = JobID(args)
     autohf = AutoTransformers()
-    wandb_utils = WandbUtils(is_wandb_on = False, console_args=args, jobid_config=jobid_config)
+    wandb_utils = WandbUtils(is_wandb_on = True, console_args=args, jobid_config=jobid_config)
     wandb_utils.set_wandb_per_run()
     _test_hpo(args, jobid_config, autohf, wandb_utils)

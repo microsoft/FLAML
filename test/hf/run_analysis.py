@@ -62,10 +62,10 @@ if __name__ == "__main__":
 
     partial_config_large = create_partial_config_bestnn()
     from flaml.nlp.result_analysis.generate_result_summary import compare_small_vs_large, get_result, check_conflict, \
-    print_cfo, download_validation, extract_roberta_overfitting_configs
+    print_cfo, download_validation, extract_roberta_overfitting_configs, extract_electra_overfitting_configs
 
     #get_result(args, partial_config_large)
     #check_conflict(args, [partial_config_large])
-    #download_validation(args, "/data/xliu127/projects/hyperopt/data/result/")
+    download_validation(args, "/data/xliu127/projects/hyperopt/data/result/")
 
-    extract_roberta_overfitting_configs(args)
+    #extract_electra_overfitting_configs(args)

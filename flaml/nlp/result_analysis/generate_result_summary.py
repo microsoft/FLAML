@@ -205,11 +205,11 @@ def print_cfo(console_args):
 def download_validation(console_args, result_root_dir):
     from .azure_utils import JobID, AzureUtils
     jobid_config = JobID()
-    jobid_config.mod = "grid"
-    jobid_config.pre = "roberta"
+    jobid_config.mod = "hpo"
+    jobid_config.pre = "electra"
     jobid_config.presz = "base"
-    # jobid_config.alg = "optuna"
-    # jobid_config.pru = "asha"
+    jobid_config.alg = "rs"
+    jobid_config.pru = "None"
     jobid_config.rep = 0
 
     azure_utils = AzureUtils(console_args=console_args, jobid=jobid_config)
@@ -251,17 +251,10 @@ def get_result_str(jobid_config, val_score, test_score, best_config, subdat2conf
                 result_str += " & " + wrap_left + str("%.3f" % best_config[hp])+ wrap_right
     return result_str + "\\\\"
 
-def extract_roberta_overfitting_configs(console_args):
+def extract_grid(console_args, jobid_config, overfitting_subdat, test_scores):
     from .azure_utils import JobID, AzureUtils
-    jobid_config = JobID()
-    jobid_config.pre = "roberta"
-    jobid_config.presz = "base"
-
-    overfitting_subdat = ["rte", "mrpc", "cola", "sst2"]
-    test_scores = ["73.1", "91.4/88.5", "61.4", "96"]
     key2printstr = {}
     subdat2config = {}
-
     for idx in range(len(overfitting_subdat)):
         jobid_config.subdat = overfitting_subdat[idx]
         jobid_config.mod = "grid"
@@ -274,23 +267,14 @@ def extract_roberta_overfitting_configs(console_args):
         key2printstr[jobid_config.subdat.upper() + ", grid"] = get_result_str(jobid_config, val_score,
                                                                               test_score, best_config)
         subdat2config[jobid_config.subdat] = best_config
-
     print()
     for key, printstr in sorted(key2printstr.items(), key=lambda x: x[0]):
         print(printstr)
+    return subdat2config
 
-    jobid_config = JobID()
-    jobid_config.pre = "roberta"
-    jobid_config.presz = "base"
-
-    overfitting_subdat = ["rte", "rte", "mrpc", "mrpc", "rte", "mrpc", "cola", "sst2", "sst2", "rte", "rte", "mrpc", "mrpc", "mrpc", "sst2"]
-    overfitting_alg = ["rs", "rs", "rs", "rs", "rs", "rs", "rs", "rs", "rs", "optuna", "optuna", "optuna", "optuna", "optuna", "optuna"]
-    overfitting_pru = ["None", "None", "None", "None", "asha", "asha", "asha", "asha", "asha", "asha", "asha", "asha", "asha", "asha", "asha"]
-    overfitting_rep = [0, 2, 0, 1, 1, 1, 1, 0, 2, 0, 2, 0, 1, 2, 1]
-    test_scores = ["72.7", "72.3", "90.9/87.9", "90.9/87.7", "72.6", "91.4/88.2",
-                   "57.4", "95.4", "95.9", "71.3", "72.7", "90.9/87.6", "90.7/87.5", "90.2/86.8", "95.2"]
+def extract_hpo(console_args, jobid_config, overfitting_subdat, overfitting_alg, overfitting_pru, overfitting_rep, subdat2config, test_scores):
+    from .azure_utils import JobID, AzureUtils
     key2printstr = {}
-
     for idx in range(len(overfitting_subdat)):
         jobid_config.subdat = overfitting_subdat[idx]
         jobid_config.alg = overfitting_alg[idx]
@@ -305,4 +289,47 @@ def extract_roberta_overfitting_configs(console_args):
     for key, printstr in sorted(key2printstr.items(), key = lambda x:x[0]):
         print(printstr)
 
+def extract_roberta_overfitting_configs(console_args):
+    from .azure_utils import JobID, AzureUtils
+    jobid_config = JobID()
+    jobid_config.pre = "roberta"
+    jobid_config.presz = "base"
 
+    overfitting_subdat = ["rte", "mrpc", "cola", "sst2"]
+    test_scores = ["73.1", "91.4/88.5", "61.4", "96"]
+    subdat2config = extract_grid(console_args, jobid_config, overfitting_subdat, test_scores)
+
+    jobid_config = JobID()
+    jobid_config.pre = "roberta"
+    jobid_config.presz = "base"
+
+    overfitting_subdat = ["rte", "rte", "mrpc", "mrpc", "rte", "mrpc", "cola", "sst2", "sst2", "rte", "rte", "mrpc", "mrpc", "mrpc", "sst2"]
+    overfitting_alg = ["rs", "rs", "rs", "rs", "rs", "rs", "rs", "rs", "rs", "optuna", "optuna", "optuna", "optuna", "optuna", "optuna"]
+    overfitting_pru = ["None", "None", "None", "None", "asha", "asha", "asha", "asha", "asha", "asha", "asha", "asha", "asha", "asha", "asha"]
+    overfitting_rep = [0, 2, 0, 1, 1, 1, 1, 0, 2, 0, 2, 0, 1, 2, 1]
+    test_scores = ["72.7", "72.3", "90.9/87.9", "90.9/87.7", "72.6", "91.4/88.2",
+                   "57.4", "95.4", "95.9", "71.3", "72.7", "90.9/87.6", "90.7/87.5", "90.2/86.8", "95.2"]
+    extract_hpo(console_args, jobid_config, overfitting_subdat, overfitting_alg, overfitting_pru, overfitting_rep,
+                subdat2config, test_scores)
+
+def extract_electra_overfitting_configs(console_args):
+    from .azure_utils import JobID, AzureUtils
+    jobid_config = JobID()
+    jobid_config.pre = "electra"
+    jobid_config.presz = "base"
+
+    overfitting_subdat = ["rte", "qnli", "cola"]
+    test_scores = ["74.4", "93.2", "64.8"]
+    subdat2config = extract_grid(console_args, jobid_config, overfitting_subdat, test_scores)
+
+    jobid_config = JobID()
+    jobid_config.pre = "electra"
+    jobid_config.presz = "base"
+
+    overfitting_subdat = ["rte", "rte", "qnli", "cola", "qnli", "cola"]
+    overfitting_alg = ["rs", "rs", "rs", "rs", "rs", "optuna"]
+    overfitting_pru = ["None", "None", "None", "asha", "asha", "asha"]
+    overfitting_rep = [0, 1, 0, 2, 0, 0]
+    test_scores = ["73.8", "74.3", "92.8", "64.7", "92.9", "63.6"]
+    extract_hpo(console_args, jobid_config, overfitting_subdat, overfitting_alg, overfitting_pru, overfitting_rep,
+                subdat2config, test_scores)

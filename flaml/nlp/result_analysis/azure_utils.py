@@ -444,13 +444,13 @@ class AzureUtils:
 
     def get_validation_perf(self, jobid_config):
         if jobid_config.pre == "electra":
-            dataset_namelist = ["wnli", "rte", "mrpc", "cola", "stsb", "sst2", "qnli", "mnli"]
+            dataset_namelist = ["rte"] #["wnli", "rte", "mrpc", "cola", "stsb", "sst2", "qnli", "mnli"]
         else:
             dataset_namelist = ["wnli", "rte", "mrpc", "cola", "stsb", "sst2"]
         dataset_vallist1 = [0] * len(dataset_namelist)
         dataset_vallist2 = [0] * len(dataset_namelist)
 
-        matched_blob_list = self.get_blob_list_matching_partial_jobid("logs_acl/", jobid_config)
+        matched_blob_list = self.get_blob_list_matching_partial_jobid("logs_acl_tmdev/", jobid_config)
         for (each_jobconfig, each_blob) in matched_blob_list:
             subdat_name = each_jobconfig.subdat
             self.download_azure_blob(each_blob.name)
