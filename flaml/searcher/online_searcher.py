@@ -194,7 +194,7 @@ class ChampionFrontierSearcher(BaseSearcher):
                     hyperparameter_config_groups.append(partial_new_configs)
                     # does not have searcher_trial_ids
                     searcher_trial_ids_groups.append([])
-            else:
+            elif isinstance(config_domain, Float) or isinstance(config_domain, Categorical):
                 # otherwise we need to deal with them in group
                 nonpoly_config[k] = v
                 if k not in self._space_of_nonpoly_hp:
@@ -249,7 +249,6 @@ class ChampionFrontierSearcher(BaseSearcher):
                         hyperparameter_config_groups[i])
             for j, new_partial_config in enumerate(hyperparameter_config_groups[i]):
                 new_seed_config = seed_config.copy()
-                print('new_partial_config', new_partial_config)
                 new_seed_config.update(new_partial_config)
                 # For some groups of the hyperparameters, we may have already generated the
                 # searcher_trial_id. In that case, we only need to retrieve the searcher_trial_id
