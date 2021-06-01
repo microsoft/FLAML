@@ -4,7 +4,7 @@ import itertools
 from typing import Dict, Optional, List
 from flaml.tune.sample import Categorical, Float, PolynomialExpansionSet
 from flaml.tune.trial import Trial
-from flaml.onlineml.trial import VWOnlineTrial
+from flaml.onlineml.trial import VowpalWabbitTrial
 from flaml.searcher import CFO
 
 logger = logging.getLogger(__name__)
@@ -21,13 +21,13 @@ class BaseSearcher:
     """
 
     def __init__(self,
-                 metric: str = None,
-                 mode: str = None,
+                 metric: Optional[str] = None,
+                 mode: Optional[str] = None,
                  ):
         pass
 
-    def set_search_properties(self, metric: Optional[str], mode: Optional[str],
-                              config: dict) -> bool:
+    def set_search_properties(self, metric: Optional[str] = None, mode: Optional[str] = None,
+                              config: Optional[Dict] = None):
         if metric:
             self._metric = metric
         if mode:
@@ -48,7 +48,7 @@ class ChampionFrontierSearcher(BaseSearcher):
     """The ChampionFrontierSearcher class
 
     Methods:
-        set_search_properties(metric, mode, config)
+        (metric, mode, config)
             Generate a list of new challengers, and add them to the _challenger_list
         next_trial()
             Pop a trial from the _challenger_list
@@ -82,7 +82,7 @@ class ChampionFrontierSearcher(BaseSearcher):
     # of different configs are perserved. We set the loss of the init config to be
     # a large value (CFO_SEARCHER_LARGE_LOSS), and set the loss of the better config as
     # 0.95 of the previous best config's loss.
-    # NOTE: this setting depends on the assumption that set_search_properties (and thus
+    # NOTE: this setting depends on the assumption that  (and thus
     # _query_config_oracle) is only triggered when a better champion is found.
     CFO_SEARCHER_METRIC_NAME = 'pseudo_loss'
     CFO_SEARCHER_LARGE_LOSS = 1e6
@@ -91,15 +91,15 @@ class ChampionFrontierSearcher(BaseSearcher):
     NUM_RANDOM_SEED = 111
 
     CHAMPION_TRIAL_NAME = 'champion_trial'
-    TRIAL_CLASS = VWOnlineTrial
+    TRIAL_CLASS = VowpalWabbitTrial
 
     def __init__(self,
-                 init_config: dict,
-                 space: Optional[dict] = None,
+                 init_config: Dict,
+                 space: Optional[Dict] = None,
                  metric: Optional[str] = None,
                  mode: Optional[str] = None,
                  random_seed: Optional[int] = 2345,
-                 online_trial_args: Optional[dict] = {},
+                 online_trial_args: Optional[Dict] = {},
                  nonpoly_searcher_name: Optional[str] = 'CFO'
                  ):
         '''Constructor
@@ -128,11 +128,13 @@ class ChampionFrontierSearcher(BaseSearcher):
         self._trialid_to_searcher_trial_id = {}  # value: trial_id, key: searcher_trial_id
         self._challenger_list = []
         # initialize the search in set_search_properties
-        self.set_search_properties(metric, mode, {self.CHAMPION_TRIAL_NAME: None}, init_call=True)
+        self.set_search_properties(config={self.CHAMPION_TRIAL_NAME: None}, init_call=True)
         logger.debug('using random seed %s in config oracle', self._seed)
 
-    def set_search_properties(self, metric: Optional[str], mode: Optional[str],
-                              config: dict, init_call=False):
+    def set_search_properties(self, metric: Optional[str] = None,
+                              mode: Optional[str] = None,
+                              config: Optional[Dict] = {},
+                              init_call: Optional[bool] = False):
         """Construct search space with given config, and setup the search
         """
         super().set_search_properties(metric, mode, config)
@@ -186,8 +188,7 @@ class ChampionFrontierSearcher(BaseSearcher):
         for k, v in seed_config.items():
             config_domain = self._space[k]
             if isinstance(config_domain, PolynomialExpansionSet):
-                # get candidate configs for hyperparameters which are independent with other hyperparamters
-                # TODO: explain the meaning of independent
+                # get candidate configs for hyperparameters of the PolynomialExpansionSet type
                 partial_new_configs = self._generate_independent_hp_configs(k, v, config_domain)
                 if partial_new_configs:
                     hyperparameter_config_groups.append(partial_new_configs)
@@ -276,7 +277,6 @@ class ChampionFrontierSearcher(BaseSearcher):
                                                          self.POLY_EXPANSION_ADDITION_NUM,
                                                          )
         else:
-            configs = [current_config_value]
             raise NotImplementedError
         configs_w_key = [{hp_name: hp_config} for hp_config in configs]
         return configs_w_key

@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 class OnlineResult:
     """Class for managing the result statistics of a trial
 
+    Attributes:
+        observation_count: the total number of observations
+        resource_used: the sum of loss
+
     Methods:
         update_result(new_loss, new_resource_used, data_dimension)
             Update result
@@ -25,37 +29,37 @@ class OnlineResult:
     LOSS_MAX = np.inf
     CB_COEF = 0.05  # 0.001 for mse
 
-    def __init__(self, result_trial_id, result_type_name, cb_coef=None, init_loss=0.0,
-                 init_cb=100.0, mode='min', sliding_window_size=100):
+    def __init__(self, result_type_name: str, cb_coef: Optional[float] = None,
+                 init_loss: Optional[float] = 0.0, init_cb: Optional[float] = 100.0,
+                 mode: Optional[str] = 'min', sliding_window_size: Optional[int] = 100):
         """
         Args:
-            result_trial_id: str
-            result_type_name: str
-                The name of the result type
+            result_type_name (str): The name of the result type
         """
-        self._result_trial_id = result_trial_id
         self._result_type_name = result_type_name  # for example 'mse' or 'mae'
         self._mode = mode
         self._init_loss = init_loss
         # statistics needed for alg
-        self.loss_sum = 0.0
         self.observation_count = 0
         self.resource_used = 0.0
-        self.loss_cb = init_cb  # a large number (TODO: this can be changed)
+        self._loss_avg = 0.0
+        self._loss_cb = init_cb  # a large number (TODO: this can be changed)
         self._cb_coef = cb_coef if cb_coef is not None else self.CB_COEF
         # optional statistics
         self._sliding_window_size = sliding_window_size
         self._loss_queue = collections.deque(maxlen=self._sliding_window_size)
 
     def update_result(self, new_loss, new_resource_used, data_dimension,
-                      bound_of_range=1.0, new_observation_count=1):
+                      bound_of_range=1.0, new_observation_count=1.0):
         """Update result statistics
-        """
-        self.observation_count += new_observation_count
+        """   
         self.resource_used += new_resource_used
-        self.loss_sum += new_loss
-        self.loss_cb = self._update_loss_cb(bound_of_range, data_dimension)
+        # keep the running average instead of sum of loss to avoid over overflow
+        self._loss_avg = self._loss_avg * (self.observation_count / (self.observation_count + new_observation_count)
+                                           ) + new_loss / (self.observation_count + new_observation_count)
+        self._loss_cb = self._update_loss_cb(bound_of_range, data_dimension)
         self._loss_queue.append(new_loss)
+        self.observation_count += new_observation_count
 
     def _update_loss_cb(self, bound_of_range, data_dim,
                         bound_name='sample_complexity_bound'):
@@ -75,25 +79,21 @@ class OnlineResult:
             raise NotImplementedError
 
     @property
-    def result_trial_id(self):
-        return self.result_trial_id
-
-    @property
     def result_type_name(self):
         return self._result_type_name
 
     @property
     def loss_avg(self):
-        return self.loss_sum / self.observation_count if \
+        return self._loss_avg if \
             self.observation_count != 0 else self._init_loss
 
     @property
     def loss_lcb(self):
-        return max(self.loss_avg - self.loss_cb, OnlineResult.LOSS_MIN)
+        return max(self._loss_avg - self._loss_cb, OnlineResult.LOSS_MIN)
 
     @property
     def loss_ucb(self):
-        return min(self.loss_avg + self.loss_cb, OnlineResult.LOSS_MAX)
+        return min(self._loss_avg + self._loss_cb, OnlineResult.LOSS_MAX)
 
     @property
     def loss_avg_recent(self):
@@ -102,11 +102,11 @@ class OnlineResult:
 
     def get_score(self, score_name, cb_ratio=1):
         if 'lcb' in score_name:
-            return max(self.loss_avg - cb_ratio * self.loss_cb, OnlineResult.LOSS_MIN)
+            return max(self._loss_avg - cb_ratio * self._loss_cb, OnlineResult.LOSS_MIN)
         elif 'ucb' in score_name:
-            return min(self.loss_avg + cb_ratio * self.loss_cb, OnlineResult.LOSS_MAX)
+            return min(self._loss_avg + cb_ratio * self._loss_cb, OnlineResult.LOSS_MAX)
         elif 'avg' in score_name:
-            return self.loss_avg
+            return self._loss_avg
         else:
             raise NotImplementedError
 
@@ -114,13 +114,19 @@ class OnlineResult:
 class BaseOnlineTrial(Trial):
     """Class for online trial.
 
+    Attributes：
+        config: the config for this trial
+        trial_id: the trial_id of this trial
+        min_resource_lease (float): the minimum resource realse
+        status: the status of this trial
+        start_time: the start time of this trial
+        custom_trial_name: a custom name for this trial
+ 
     Methods:
         set_resource_lease(resource)
         set_status(status)
         set_checked_under_current_champion(checked_under_current_champion)
     """
-
-    model_class = None
 
     def __init__(self,
                  config: dict,
@@ -136,7 +142,7 @@ class BaseOnlineTrial(Trial):
             min_resource_lease: the minimum resource realse
             is_champion: a bool variable
             is_checked_under_current_champion: a bool variable
-            custom_trial_name: custom trial name,
+            custom_trial_name: custom trial name
             trial_id: the trial id
         """
         # ****basic variables
@@ -167,17 +173,17 @@ class BaseOnlineTrial(Trial):
         return self._resource_lease
 
     def set_checked_under_current_champion(self, checked_under_current_champion: bool):
-        """TODO: add documentation why this is needed. Brifly speacking, it is needed because we want to 
-        know whether a trial has been paused since a new champion is promoted.
-        We want to try to pause those running trials (even though they are not yet achieve the next scheduling
-        check point according to resource used and resource lease), because a better trial is likely to be 
-        in the new challengers generated by the new champion, so we want to try them as soon as possible.
-        If we wait until we reach the next scheduling point, we may waste a lot of resource (depending
-        on what is the current resource lease) on the old trials (note that new trials is not possible to be scheduled
-        to run until there is a slot openning). 
-
-        Intuitively speaking, we want to squize an opening slot as soon as possible once a new champion is promoted,
-        such that we are able to try newly generated challengers.
+        """TODO: add documentation why this is needed. This is needed because sometimes
+        we want to know whether a trial has been paused since a new champion is promoted.
+        We want to try to pause those running trials (even though they are not yet achieve
+        the next scheduling check point according to resource used and resource lease),
+        because a better trial is likely to be in the new challengers generated by the new
+        champion, so we want to try them as soon as possible.
+        If we wait until we reach the next scheduling point, we may waste a lot of resource
+        (depending on what is the current resource lease) on the old trials (note that new
+        trials is not possible to be scheduled to run until there is a slot openning).
+        Intuitively speaking, we want to squize an opening slot as soon as possible once
+        a new champion is promoted, such that we are able to try newly generated challengers.
         """
         self._is_checked_under_current_champion = checked_under_current_champion
 
@@ -193,9 +199,21 @@ class BaseOnlineTrial(Trial):
                 self.start_time = time.time()
 
 
-class VWOnlineTrial(BaseOnlineTrial):
-    """Implement BaseOnlineTrial for VW
+class VowpalWabbitTrial(BaseOnlineTrial):
+    """Implement BaseOnlineTrial for Vowpal Wabbit
 
+    Attributes:
+        model: the online model
+        result: the anytime result for the online model
+        trainable_class: the model class (set as pyvw.vw for VowpalWabbitTrial)
+
+        config: the config for this trial
+        trial_id: the trial_id of this trial
+        min_resource_lease (float): the minimum resource realse
+        status: the status of this trial
+        start_time: the start time of this trial
+        custom_trial_name: a custom name for this trial
+  
     Methods:
         set_resource_lease(resource)
         set_status(status)
@@ -207,9 +225,9 @@ class VWOnlineTrial(BaseOnlineTrial):
         2. result about resources lease (need to be updated externally)
 
         About namespaces in vw:
-        - Wiki in vw: 
+        - Wiki in vw:
         https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Namespaces
-        - Namespace vs features: 
+        - Namespace vs features:
         https://stackoverflow.com/questions/28586225/in-vowpal-wabbit-what-is-the-difference-between-a-namespace-and-feature
     """
     MODEL_CLASS = pyvw.vw
@@ -230,29 +248,31 @@ class VWOnlineTrial(BaseOnlineTrial):
         """Constructor
 
         Args:
-            config (dict): the config of the trial (note that the config is a set because the hyperparameters are )
+            config (dict): the config of the trial (note that the config is a set
+                because the hyperparameters are )
             min_resource_lease (float): the minimum resource lease
             metric (str): the loss metric
             is_champion (bool): indicates whether the trial is the current champion or not
-            is_checked_under_current_champion (bool): indicates whether this trials has been paused under the current champion
+            is_checked_under_current_champion (bool): indicates whether this trials has
+                been paused under the current champion
             trial_id (str): id of the trial (if None, it will be generated in the constructor)
 
         """
+        # attributes
         self.trial_id = self._config_to_id(config) if trial_id is None else trial_id
         logger.info('Create trial with trial_id: %s', self.trial_id)
         super().__init__(config, min_resource_lease, is_champion, is_checked_under_current_champion,
                          custom_trial_name, self.trial_id)
+        self.model = None   # model is None until the config is scheduled to run
+        self.result = None
+        self.trainable_class = self.MODEL_CLASS
         # variables that are needed during online training
         self._metric = metric
         self._y_min_observed = None
         self._y_max_observed = None
-        self.model = None   # model is None until the config is scheduled to run
-        self.result = None
-        # application dependent info
+        # application dependent variables
         self._dim = None
-        self._namespace_set = None
-        self.trainable_func = self.MODEL_CLASS
-        self.cb_coef = cb_coef
+        self._cb_coef = cb_coef
 
     @staticmethod
     def _config_to_id(config):
@@ -263,34 +283,32 @@ class VWOnlineTrial(BaseOnlineTrial):
         config_id_full = ''
         for key in sorted_k_list:
             v = config[key]
+            config_id = '|'
             if isinstance(v, set):
-                config_id = ''
-                key_list = sorted(v)
-                for k in key_list:
-                    config_id = config_id + '_' + str(k)
+                value_list = sorted(v)
+                config_id += '_'.join([str(k) for k in value_list])
             else:
-                config_id = str(v)
+                config_id += str(v)
             config_id_full = config_id_full + config_id
         return config_id_full
 
     def initialize_vw_model(self, vw_example):
-        """Initialize a vw model using the trainable_fuc
+        """Initialize a vw model using the trainable_class
         """
-        # get the dimensionality of the feature according to the namespace configuration
-        self._vw_config_tuned = self.config.copy()
+        self._vw_config = self.config.copy()
+        ns_interactions = self.config.get(VowpalWabbitTrial.interactions_config_key, None)
         # ensure the feature interaction config is a list (required by VW)
-        if VWOnlineTrial.interactions_config_key in self._vw_config_tuned.keys():
-            self._vw_config_tuned[VWOnlineTrial.interactions_config_key] \
-                = list(self._vw_config_tuned[VWOnlineTrial.interactions_config_key])
-        self._namespace_set = self.config[VWOnlineTrial.interactions_config_key]
+        if ns_interactions is not None:
+            self._vw_config[VowpalWabbitTrial.interactions_config_key] \
+                = list(ns_interactions)
+        # get the dimensionality of the feature according to the namespace configuration
         namespace_feature_dim = self.get_ns_feature_dim_from_vw_example(vw_example)
-        self._dim = self._get_dim_from_ns(namespace_feature_dim, self._namespace_set)
+        self._dim = self._get_dim_from_ns(namespace_feature_dim, ns_interactions)
         # construct an instance of vw model using the input config and fixed config
-        self.model = self.trainable_func(**self._vw_config_tuned)
+        self.model = self.trainable_class(**self._vw_config)
         self.result = OnlineResult(self.trial_id, self._metric,
-                                   cb_coef=self.cb_coef,
+                                   cb_coef=self._cb_coef,
                                    init_loss=0.0, init_cb=100.0,)
-        self._data_sample_size = 0
 
     def train_eval_model_online(self, data_sample, y_pred):
         """Train and eval model online
@@ -315,9 +333,8 @@ class VWOnlineTrial(BaseOnlineTrial):
         if bound_of_range == 0:
             bound_of_range = 1.0
         self.result.update_result(new_loss,
-                                  VWOnlineTrial.cost_unit * data_sample_size,
+                                  VowpalWabbitTrial.cost_unit * data_sample_size,
                                   self._dim, bound_of_range)
-        self._data_sample_size += data_sample_size
 
     def predict(self, x):
         """Predict using the model
@@ -326,10 +343,6 @@ class VWOnlineTrial(BaseOnlineTrial):
             # initialize self.model and self.result
             self.initialize_vw_model(x)
         return self.model.predict(x)
-
-    @property
-    def get_result(self) -> OnlineResult:
-        return self.result
 
     def _get_loss(self, y_true, y_pred, loss_func_name, y_min_observed, y_max_observed):
         """Get instantaneous loss from y_true and y_pred, and loss_func_name
@@ -356,16 +369,16 @@ class VWOnlineTrial(BaseOnlineTrial):
             self._y_max_observed = y
 
     @staticmethod
-    def _get_dim_from_ns(namespace_feature_dim: dict, namespace_set: set):
+    def _get_dim_from_ns(namespace_feature_dim: dict, namespace_interactions: [set, list]):
         """Get the dimensionality of the corresponding feature of input namespace set
         """
-        total_dim = 0
-        for f in namespace_set:
-            ns_dim = 1.0
-            for c in f:
-                ns_dim *= namespace_feature_dim[c]
-            total_dim += ns_dim
-        total_dim += sum(namespace_feature_dim.values())
+        total_dim = sum(namespace_feature_dim.values())
+        if namespace_interactions:
+            for f in namespace_interactions:
+                ns_dim = 1.0
+                for c in f:
+                    ns_dim *= namespace_feature_dim[c]
+                total_dim += ns_dim
         return total_dim
 
     def clean_up_model(self):
@@ -393,7 +406,7 @@ class VWOnlineTrial(BaseOnlineTrial):
 
             The output of both cases are {'ns1': 2, 'ns2': 2}
 
-            For more information about the input formate of vw example, please refer to 
+            For more information about the input formate of vw example, please refer to
             https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format
         """
         ns_feature_dim = {}

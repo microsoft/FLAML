@@ -71,7 +71,7 @@ class OnlineTrialRunner:
             scheduler: A class for managing the 'live' trials and allocating the resources for the trials.
                 Required methods of the scheduler: 
                 - on_trial_add(trial_runner, trial: Trial)
-                    It add candidate trials to the scheduler. It is called inside of the add_trial
+                    It adds candidate trials to the scheduler. It is called inside of the add_trial
                     function in the TrialRunner. 
                 - on_trial_remove(trial_runner, trial: Trial)
                     Remove terminated trials from the scheduler.
@@ -104,6 +104,7 @@ class OnlineTrialRunner:
         # set the first trial as the champion (which is done inside self.step())
         self._total_steps = 0
         logger.info('init step %s', self._max_live_model_num)
+        # TODO: add more comments
         self.step()
         assert self._champion_trial is not None
 
@@ -157,7 +158,7 @@ class OnlineTrialRunner:
                 trial.train_eval_model_online(data_sample, y_predicted)
                 logger.debug('running trial at iter %s %s %s %s %s %s', self._total_steps,
                              trial.trial_id, trial.result.loss_avg, trial.result.loss_cb,
-                             trial.result.resource_used, trial.resource_lease)  
+                             trial.result.resource_used, trial.resource_lease)
                 # report result to the searcher
                 self._searcher.on_trial_result(trial.trial_id, trial.result)
                 # report result to the scheduler and the scheduler makes a decision about
