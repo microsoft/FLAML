@@ -1,0 +1,90 @@
+---
+
+test:
+  max_sample_num: 5000
+  run_num: 1
+  max_live_model_num: 5
+  namespace_num: 10
+  hp_to_tune: 'NS'
+
+# 1m1c:
+#   folds: 10
+#   max_runtime_seconds: 60
+#   cores: 1
+
+5k_1_5:
+  max_sample_num: 500
+  run_num: 1
+  max_live_model_num: 5
+  namespace_num: 10
+  hp_to_tune: 'NS'
+
+10k_1_5:
+  max_sample_num: 10000
+  run_num: 1
+  max_live_model_num: 5 
+  namespace_num: 10
+  hp_to_tune: 'NS'
+
+50k_1_5:
+  max_sample_num: 50000
+  run_num: 1
+  max_live_model_num: 5
+  namespace_num: 10
+  hp_to_tune: 'NS'
+
+100k_1_5:
+  max_sample_num: 100000
+  run_num: 1
+  max_live_model_num: 5
+  namespace_num: 10
+  hp_to_tune: 'NS'
+
+500k_1_5:
+  max_sample_num: 500000
+  run_num: 1
+  max_live_model_num: 5
+  namespace_num: 10
+  hp_to_tune: 'NS'
+
+500k_1_5_ns+lr:
+  max_sample_num: 500000
+  run_num: 1
+  max_live_model_num: 5
+  namespace_num: 10
+  hp_to_tune: 'NS+LR'
+
+1000k_1_5:
+  max_sample_num: 1000000
+  run_num: 1
+  max_live_model_num: 5
+  namespace_num: 10
+  hp_to_tune: 'NS'
+
+10k_1_5_ns+lr:
+  max_sample_num: 10000
+  run_num: 1
+  max_live_model_num: 5 
+  namespace_num: 10
+  hp_to_tune: 'NS+LR'
+
+50k_1_5_ns+lr:
+  max_sample_num: 50000
+  run_num: 1
+  max_live_model_num: 5 
+  namespace_num: 10
+  hp_to_tune: 'NS+LR'
+
+100k_1_5_ns+lr:
+  max_sample_num: 100000
+  run_num: 1
+  max_live_model_num: 5 
+  namespace_num: 10
+  hp_to_tune: 'NS+LR'
+
+1000k_1_5_ns+lr:
+  max_sample_num: 1000000
+  run_num: 1
+  max_live_model_num: 5 
+  namespace_num: 10
+  hp_to_tune: 'NS+LR'

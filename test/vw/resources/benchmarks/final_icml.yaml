@@ -1,0 +1,137 @@
+---
+
+# save info about the tested benchmark
+
+oml_344_10:
+  type: openml_regression
+  dataset_id: 344
+  vw_namespace_num: 10 #TODO: this is sth we can share 
+  obj_name: mse
+  shuffle: False
+  
+oml_5648_10:
+  type: openml_regression
+  dataset_id: 5648
+  vw_namespace_num: 10 
+  obj_name: mse
+  shuffle: False
+
+oml_23515_10:
+  type: openml_regression
+  dataset_id: 23515
+  vw_namespace_num: 10 
+  obj_name: mse
+  shuffle: False
+
+oml_41506_10:
+  type: openml_regression
+  dataset_id: 41506
+  vw_namespace_num: 10 
+  obj_name: mse
+  shuffle: False
+
+oml_42183_10:
+  dataset_id: 42183
+  obj_name: mse
+  shuffle: false
+  type: openml_regression
+  vw_namespace_num: 10
+
+oml_1203_10:
+  type: openml_regression
+  dataset_id: 1203
+  vw_namespace_num: 10 
+  obj_name: mse
+  shuffle: False
+
+oml_42729_10:
+  type: openml_regression
+  dataset_id: 42729
+  vw_namespace_num: 10 
+  obj_name: mse
+  shuffle: False
+
+oml_201_10:
+  type: openml_regression
+  dataset_id: 201
+  vw_namespace_num: 10 
+  obj_name: mse
+  shuffle: False
+
+oml_215_10:
+  type: openml_regression
+  dataset_id: 215
+  vw_namespace_num: 10 
+  obj_name: mse
+  shuffle: False
+
+oml_564_10:
+  type: openml_regression
+  dataset_id: 564
+  vw_namespace_num: 10 
+  obj_name: mse
+  shuffle: False
+
+oml_1206_10:
+  type: openml_regression
+  dataset_id: 1206
+  vw_namespace_num: 10 
+  obj_name: mse
+  shuffle: False
+
+# Running
+oml_1575_10:
+  dataset_id: 1575
+  obj_name: mse
+  shuffle: false
+  type: openml_regression
+  vw_namespace_num: 10
+
+
+# naive similar with Exhaustive
+oml_1199_10:
+  type: openml_regression
+  dataset_id: 1199
+  vw_namespace_num: 10 
+  obj_name: mse
+  shuffle: False
+
+# naive similar with Exhaustive
+oml_42496_10:
+  type: openml_regression
+  dataset_id: 42496
+  vw_namespace_num: 10 
+  obj_name: mse
+  shuffle: False
+
+# naive similar with Exhaustive
+oml_1191_10:
+  type: openml_regression
+  dataset_id: 1191
+  vw_namespace_num: 10 
+  obj_name: mse
+  shuffle: False
+
+# # remove because Exhaustive = Vanilla
+# oml_537_10:
+#   type: openml_regression
+#   dataset_id: 537
+#   vw_namespace_num: 10 
+#   obj_name: mse
+#   shuffle: False
+
+# # small difference
+# oml_42821_10:
+#   dataset_id: 42821
+#   obj_name: mse
+#   shuffle: false
+#   type: openml_regression
+#   vw_namespace_num: 10
+
+# # small difference
+# oml_42225_10:
+#   dataset_id: 42225
+#   obj_name: mse
+#   shuffle: false
+#   type: openml_regression
+#   vw_namespace_num: 10

@@ -1,0 +1,41 @@
+---
+
+# save info about the tested benchmark
+
+
+oml_5648_10:
+  type: openml_regression
+  dataset_id: 5648
+  vw_namespace_num: 10 
+  obj_name: mse
+  shuffle: False
+
+
+oml_1203_10:
+  type: openml_regression
+  dataset_id: 1203
+  vw_namespace_num: 10 
+  obj_name: mse
+  shuffle: False
+
+oml_42729_10:
+  type: openml_regression
+  dataset_id: 42729
+  vw_namespace_num: 10 
+  obj_name: mse
+  shuffle: False
+
+oml_1206_10:
+  type: openml_regression
+  dataset_id: 1206
+  vw_namespace_num: 10 
+  obj_name: mse
+  shuffle: False
+
+# Running
+oml_1575_10:
+  dataset_id: 1575
+  obj_name: mse
+  shuffle: false
+  type: openml_regression
+  vw_namespace_num: 10
