@@ -57,9 +57,9 @@ class OnlineResult:
         # keep the running average instead of sum of loss to avoid over overflow
         self._loss_avg = self._loss_avg * (self.observation_count / (self.observation_count + new_observation_count)
                                            ) + new_loss / (self.observation_count + new_observation_count)
+        self.observation_count += new_observation_count
         self._loss_cb = self._update_loss_cb(bound_of_range, data_dimension)
         self._loss_queue.append(new_loss)
-        self.observation_count += new_observation_count
 
     def _update_loss_cb(self, bound_of_range, data_dim,
                         bound_name='sample_complexity_bound'):
@@ -86,6 +86,10 @@ class OnlineResult:
     def loss_avg(self):
         return self._loss_avg if \
             self.observation_count != 0 else self._init_loss
+
+    @property
+    def loss_cb(self):
+        return self._loss_cb
 
     @property
     def loss_lcb(self):
@@ -306,7 +310,7 @@ class VowpalWabbitTrial(BaseOnlineTrial):
         self._dim = self._get_dim_from_ns(namespace_feature_dim, ns_interactions)
         # construct an instance of vw model using the input config and fixed config
         self.model = self.trainable_class(**self._vw_config)
-        self.result = OnlineResult(self.trial_id, self._metric,
+        self.result = OnlineResult(self._metric,
                                    cb_coef=self._cb_coef,
                                    init_loss=0.0, init_cb=100.0,)
 

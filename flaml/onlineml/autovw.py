@@ -21,7 +21,7 @@ class AutoVW:
                  init_config: dict,
                  search_space: dict,
                  max_live_model_num: int,
-                 min_resource_lease: Optional[float, str] = 'auto',
+                 min_resource_lease: Optional[float] = 'auto',
                  automl_runner_args: Optional[dict] = {},
                  scheduler_args: Optional[dict] = {},
                  model_select_policy: Optional[str] = 'threshold_loss_ucb',
@@ -123,8 +123,7 @@ class AutoVW:
                     best_score = score
                     new_best_trial = trial
         if new_best_trial is not None:
-            logger.debug('best_trial._data_sample_size: %s, resource used: %s', new_best_trial._data_sample_size,
-                         new_best_trial.result.resource_used)
+            logger.debug('best_trial resource used: %s', new_best_trial.result.resource_used)
             return new_best_trial
         else:
             # This branch will be triggered when the resource consumption all trials are smaller
