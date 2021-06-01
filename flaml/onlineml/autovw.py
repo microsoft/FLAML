@@ -1,10 +1,10 @@
 import numpy as np
 from typing import Optional
 import logging
-from flaml.tune.trial import Trial
-from flaml.onlineml.trial_runner import OnlineTrialRunner
-from flaml.scheduler.online_scheduler import ChaChaScheduler
-from flaml.searcher.online_searcher import ChampionFrontierSearcher
+from flaml.tune import Trial
+from flaml.onlineml import OnlineTrialRunner
+from flaml.scheduler import ChaChaScheduler
+from flaml.searcher import ChampionFrontierSearcher
 logger = logging.getLogger(__name__)
 
 

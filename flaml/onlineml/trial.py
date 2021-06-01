@@ -7,7 +7,7 @@ import collections
 from typing import Dict, Optional
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from vowpalwabbit import pyvw
-from flaml.tune.trial import Trial
+from flaml.tune import Trial
 logger = logging.getLogger(__name__)
 
 
