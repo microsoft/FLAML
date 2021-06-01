@@ -52,7 +52,7 @@ class OnlineResult:
     def update_result(self, new_loss, new_resource_used, data_dimension,
                       bound_of_range=1.0, new_observation_count=1.0):
         """Update result statistics
-        """   
+        """ 
         self.resource_used += new_resource_used
         # keep the running average instead of sum of loss to avoid over overflow
         self._loss_avg = self._loss_avg * (self.observation_count / (self.observation_count + new_observation_count)
@@ -398,7 +398,7 @@ class VowpalWabbitTrial(BaseOnlineTrial):
         NOTE:
             Assumption: assume the vw_example takes one of the following format
             depending on whether the example includes the feature names
-    
+
             format 1: 'y | ns1 feature1:feature_value1 feature2:feature_value2 | 
                     ns2 feature3:feature_value3 feature4:feature_value4'
             format 2: 'y | ns1 feature_value1 feature_value2 |
