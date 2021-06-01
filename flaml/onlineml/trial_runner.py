@@ -2,7 +2,7 @@ import time
 import numpy as np
 import math
 from flaml.tune.trial import Trial
-from flaml.tune.schedulers.trial_scheduler import TrialScheduler
+from flaml.schedulers.trial_scheduler import TrialScheduler
 
 import logging
 logger = logging.getLogger(__name__)

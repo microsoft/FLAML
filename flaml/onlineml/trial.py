@@ -393,7 +393,7 @@ class VowpalWabbitTrial(BaseOnlineTrial):
 
     @staticmethod
     def get_ns_feature_dim_from_vw_example(vw_example) -> dict:
-        """Get a dictionary of feature dimensionality for each namespace
+        """Get a dictionary of feature dimensionality for each namespace singleton
 
         NOTE:
             Assumption: assume the vw_example takes one of the following format
@@ -423,7 +423,6 @@ class VowpalWabbitTrial(BaseOnlineTrial):
                 feature_dim = len(data_split) - 1
                 if len(data_split[-1]) == 0:
                     feature_dim -= 1
-            if len(ns) == 1:
-                ns_feature_dim[ns] = feature_dim
+            ns_feature_dim[ns] = feature_dim
         logger.debug('name space feature dimension %s', ns_feature_dim)
         return ns_feature_dim
