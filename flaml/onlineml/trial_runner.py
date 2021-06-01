@@ -1,8 +1,8 @@
 import time
 import numpy as np
 import math
-from flaml.tune.trial import Trial
-from flaml.scheduler.trial_scheduler import TrialScheduler
+from flaml.tune import Trial
+from flaml.scheduler import TrialScheduler
 
 import logging
 logger = logging.getLogger(__name__)
