@@ -561,7 +561,8 @@ def qrandn(mean: float, sd: float, q: float):
     """
     return Float(None, None).normal(mean, sd).quantized(q)
 
+
 def polynomial_expansion_set(init_monomials: set, highest_poly_order: int = None,
                              allow_self_inter: bool = False):
 
-    return PolynomialExpansionSet(init_monomials, highest_poly_order, allow_self_inter) 
+    return PolynomialExpansionSet(init_monomials, highest_poly_order, allow_self_inter)

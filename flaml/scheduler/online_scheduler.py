@@ -72,7 +72,7 @@ class OnlineSuccessiveDoublingScheduler(OnlineScheduler):
         if trial.result is None or trial.result.resource_used < trial.resource_lease:
             return TrialScheduler.CONTINUE
         else:
-            trial.set_resource_lease(trial.resource_lease * self._increase_factor)   
+            trial.set_resource_lease(trial.resource_lease * self._increase_factor)
             logger.info('Doubled resource for trial %s, used: %s, current budget %s',
                         trial.trial_id, trial.result.resource_used, trial.resource_lease)
             return TrialScheduler.PAUSE

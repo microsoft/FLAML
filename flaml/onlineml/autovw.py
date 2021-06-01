@@ -40,7 +40,7 @@ class AutoVW:
                 the value is a fixed value.
             max_live_model_num: The maximum number of 'live' models, which, in other words,
                 is the maximum number of models allowed to update in each learning iteraction.
-            min_resource_lease: The minimum resource lease assigned to a particular model/trial. 
+            min_resource_lease: The minimum resource lease assigned to a particular model/trial.
                 If set as 'auto', it will be calculated automatically.
             automl_runner_args: A dictionary of configuration for the OnlineTrialRunner.
                 If set {}, default values will be used.
@@ -51,7 +51,7 @@ class AutoVW:
             metric: A string to specify the name of the loss function used for calculating
                 the progressive validation loss
             random_seed (int): An integer of the random seed used in the searcher
-                (more specifically this the random seed for ConfigOracle) 
+                (more specifically this the random seed for ConfigOracle)
             model_selection_mode: A string in ['min', 'max'] to specify the objective as
                 minimization or maximization.
             cb_coef (float): A float coefficient (optional) used in the sample complexity bound.

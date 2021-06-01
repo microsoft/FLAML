@@ -27,7 +27,8 @@ def oml_to_vw_w_grouping(X, y, ds_dir, fname, orginal_dim, group_num,
     if grouping_method == 'sequential':
         group_indexes = []  # lists of lists
         for i in range(group_num):
-            indexes = [ind for ind in range(i * max_size_per_group, min((i+1) * max_size_per_group, orginal_dim))]
+            indexes = [ind for ind in range(i * max_size_per_group,
+                       min((i + 1) * max_size_per_group, orginal_dim))]
             if len(indexes) > 0:
                 group_indexes.append(indexes)
             print(group_indexes)
@@ -36,7 +37,7 @@ def oml_to_vw_w_grouping(X, y, ds_dir, fname, orginal_dim, group_num,
         NotImplementedError
     if group_indexes:
         if not os.path.exists(ds_dir):
-            os.makedirs(ds_dir)  
+            os.makedirs(ds_dir)
         with open(os.path.join(ds_dir, fname), 'w') as f:
             if isinstance(X, pd.DataFrame):
                 raise NotImplementedError
@@ -44,10 +45,12 @@ def oml_to_vw_w_grouping(X, y, ds_dir, fname, orginal_dim, group_num,
                 for i in range(len(X)):
                     NS_content = []
                     for zz in range(len(group_indexes)):
-                        ns_features = ' '.join('{}:{:.6f}'.format(ind, X[i][ind]) for ind in group_indexes[zz])     
+                        ns_features = ' '.join('{}:{:.6f}'.format(ind, X[i][ind]
+                                                                  ) for ind in group_indexes[zz])
                         NS_content.append(ns_features)
-                    ns_line = '{} |{}'.format(str(y[i]), '|'.join('{} {}'.format(NS_LIST[j], NS_content[j]) for
-                                              j in range(len(group_indexes))))
+                    ns_line = '{} |{}'.format(str(y[i]), '|'.join(
+                                              '{} {}'.format(NS_LIST[j], NS_content[j]
+                                                             ) for j in range(len(group_indexes))))
                     f.write(ns_line)
                     f.write('\n')
             elif isinstance(X, scipy.sparse.csr_matrix):
@@ -120,13 +123,15 @@ def get_oml_to_vw(did, max_ns_num, ds_dir=VW_DS_DIR):
 def load_vw_dataset(did, ds_dir, is_regression, max_ns_num):
     import os
     if is_regression:
-        fname = 'ds_{}_{}_{}.vw'.format(did, max_ns_num, 0) # the second field specifies the largest number of namespaces using.
+        # the second field specifies the largest number of namespaces using.
+        fname = 'ds_{}_{}_{}.vw'.format(did, max_ns_num, 0)
         vw_dataset_file = os.path.join(ds_dir, fname)
         # if file does not exist, generate and save the datasets
         if not os.path.exists(vw_dataset_file) or os.stat(vw_dataset_file).st_size < 1000:
             get_oml_to_vw(did, max_ns_num)
         print(ds_dir, vw_dataset_file)
-        if not os.path.exists(ds_dir): os.makedirs(ds_dir)
+        if not os.path.exists(ds_dir):
+            os.makedirs(ds_dir)
         with open(os.path.join(ds_dir, fname), 'r') as f:
             vw_content = f.read().splitlines()
             print(type(vw_content), len(vw_content))

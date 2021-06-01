@@ -69,10 +69,10 @@ class OnlineTrialRunner:
                 - on_trial_result(trial_id: str, result: Dict)
                     Reprot results to the scheduler.
             scheduler: A class for managing the 'live' trials and allocating the resources for the trials.
-                Required methods of the scheduler: 
+                Required methods of the scheduler:
                 - on_trial_add(trial_runner, trial: Trial)
                     It adds candidate trials to the scheduler. It is called inside of the add_trial
-                    function in the TrialRunner. 
+                    function in the TrialRunner.
                 - on_trial_remove(trial_runner, trial: Trial)
                     Remove terminated trials from the scheduler.
                 - on_trial_result(trial_runner, trial: Trial, result: Dict)
@@ -138,7 +138,7 @@ class OnlineTrialRunner:
             Online Scheduling:
             2. Report results to the searcher and scheduler (the scheduler will return a decision about
                 the status of the running trials).
-            3. Pause or stop a trial according to the scheduler's decision. 
+            3. Pause or stop a trial according to the scheduler's decision.
             Add trial into the OnlineTrialRunner if there are opening slots.
 
         TODO:
