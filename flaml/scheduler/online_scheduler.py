@@ -96,7 +96,7 @@ class ChaChaScheduler(OnlineSuccessiveDoublingScheduler):
         super().__init__(increase_factor)
         self._keep_champion = kwargs.get('keep_champion', True)
         self._keep_challenger_metric = kwargs.get('keep_challenger_metric', 'ucb')
-        self._keep_challenger_ratio = kwargs.get('keep_challenger_ratio', 'tophalf')
+        self._keep_challenger_ratio = kwargs.get('keep_challenger_ratio', 0.5)
         self._pause_old_froniter = kwargs.get('pause_old_froniter', False)
         logger.info('Using chacha scheduler with config %s', kwargs)
 
