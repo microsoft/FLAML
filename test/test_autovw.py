@@ -8,7 +8,6 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 import time
 import logging
 from flaml.tune import loguniform, polynomial_expansion_set
-from flaml.onlineml import VowpalWabbitTrial
 from vowpalwabbit import pyvw
 from flaml import AutoVW
 import string
@@ -201,7 +200,7 @@ class VowpalWabbitNamesspaceTuningProblem:
                               }
         self._problem_info.update(kwargs)
         self._fixed_hp_config = kwargs.get('fixed_hp_config', {})
-        self.namespace_feature_dim = VowpalWabbitTrial.get_ns_feature_dim_from_vw_example(self.vw_examples[0])
+        self.namespace_feature_dim = AutoVW.get_ns_feature_dim_from_vw_example(self.vw_examples[0])
         self._raw_namespaces = list(self.namespace_feature_dim.keys())
         self._setup_search()
 

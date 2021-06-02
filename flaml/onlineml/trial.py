@@ -11,6 +11,42 @@ from flaml.tune import Trial
 logger = logging.getLogger(__name__)
 
 
+def get_ns_feature_dim_from_vw_example(vw_example) -> dict:
+    """Get a dictionary of feature dimensionality for each namespace singleton
+
+    NOTE:
+        Assumption: assume the vw_example takes one of the following format
+        depending on whether the example includes the feature names
+
+        format 1: 'y | ns1 feature1:feature_value1 feature2:feature_value2 |
+                ns2 feature3:feature_value3 feature4:feature_value4'
+        format 2: 'y | ns1 feature_value1 feature_value2 |
+                ns2 feature_value3 feature_value4'
+
+        The output of both cases are {'ns1': 2, 'ns2': 2}
+
+        For more information about the input formate of vw example, please refer to
+        https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format
+    """
+    ns_feature_dim = {}
+    data = vw_example.split('|')
+    for i in range(1, len(data)):
+        if ':' in data[i]:
+            ns_w_feature = data[i].split(' ')
+            ns = ns_w_feature[0]
+            feature = ns_w_feature[1:]
+            feature_dim = len(feature)
+        else:
+            data_split = data[i].split(' ')
+            ns = data_split[0]
+            feature_dim = len(data_split) - 1
+            if len(data_split[-1]) == 0:
+                feature_dim -= 1
+        ns_feature_dim[ns] = feature_dim
+    logger.debug('name space feature dimension %s', ns_feature_dim)
+    return ns_feature_dim
+
+
 class OnlineResult:
     """Class for managing the result statistics of a trial
 
@@ -296,7 +332,7 @@ class VowpalWabbitTrial(BaseOnlineTrial):
             config_id_full = config_id_full + config_id
         return config_id_full
 
-    def initialize_vw_model(self, vw_example):
+    def _initialize_vw_model(self, vw_example):
         """Initialize a vw model using the trainable_class
         """
         self._vw_config = self.config.copy()
@@ -306,7 +342,7 @@ class VowpalWabbitTrial(BaseOnlineTrial):
             self._vw_config[VowpalWabbitTrial.interactions_config_key] \
                 = list(ns_interactions)
         # get the dimensionality of the feature according to the namespace configuration
-        namespace_feature_dim = self.get_ns_feature_dim_from_vw_example(vw_example)
+        namespace_feature_dim = get_ns_feature_dim_from_vw_example(vw_example)
         self._dim = self._get_dim_from_ns(namespace_feature_dim, ns_interactions)
         # construct an instance of vw model using the input config and fixed config
         self.model = self.trainable_class(**self._vw_config)
@@ -325,7 +361,7 @@ class VowpalWabbitTrial(BaseOnlineTrial):
         self._update_y_range(y)
         if self.model is None:
             # initialize self.model and self.result
-            self.initialize_vw_model(data_sample)
+            self._initialize_vw_model(data_sample)
         # do one step of learning
         self.model.learn(data_sample)
         # update training related results accordingly
@@ -345,7 +381,7 @@ class VowpalWabbitTrial(BaseOnlineTrial):
         """
         if self.model is None:
             # initialize self.model and self.result
-            self.initialize_vw_model(x)
+            self._initialize_vw_model(x)
         return self.model.predict(x)
 
     def _get_loss(self, y_true, y_pred, loss_func_name, y_min_observed, y_max_observed):
@@ -394,39 +430,3 @@ class VowpalWabbitTrial(BaseOnlineTrial):
         """Get y from a vw_example. this works for regression datasets.
         """
         return float(vw_example.split('|')[0])
-
-    @staticmethod
-    def get_ns_feature_dim_from_vw_example(vw_example) -> dict:
-        """Get a dictionary of feature dimensionality for each namespace singleton
-
-        NOTE:
-            Assumption: assume the vw_example takes one of the following format
-            depending on whether the example includes the feature names
-
-            format 1: 'y | ns1 feature1:feature_value1 feature2:feature_value2 |
-                    ns2 feature3:feature_value3 feature4:feature_value4'
-            format 2: 'y | ns1 feature_value1 feature_value2 |
-                    ns2 feature_value3 feature_value4'
-
-            The output of both cases are {'ns1': 2, 'ns2': 2}
-
-            For more information about the input formate of vw example, please refer to
-            https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format
-        """
-        ns_feature_dim = {}
-        data = vw_example.split('|')
-        for i in range(1, len(data)):
-            if ':' in data[i]:
-                ns_w_feature = data[i].split(' ')
-                ns = ns_w_feature[0]
-                feature = ns_w_feature[1:]
-                feature_dim = len(feature)
-            else:
-                data_split = data[i].split(' ')
-                ns = data_split[0]
-                feature_dim = len(data_split) - 1
-                if len(data_split[-1]) == 0:
-                    feature_dim -= 1
-            ns_feature_dim[ns] = feature_dim
-        logger.debug('name space feature dimension %s', ns_feature_dim)
-        return ns_feature_dim

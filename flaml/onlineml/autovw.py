@@ -5,6 +5,7 @@ from flaml.tune import Trial
 from flaml.onlineml import OnlineTrialRunner
 from flaml.scheduler import ChaChaScheduler
 from flaml.searcher import ChampionFrontierSearcher
+from flaml.onlineml.trial import get_ns_feature_dim_from_vw_example
 logger = logging.getLogger(__name__)
 
 
@@ -43,9 +44,18 @@ class AutoVW:
             min_resource_lease: The minimum resource lease assigned to a particular model/trial.
                 If set as 'auto', it will be calculated automatically.
             automl_runner_args: A dictionary of configuration for the OnlineTrialRunner.
-                If set {}, default values will be used.
+                 If set {}, default values will be used, which is equivalent to using the following configs.
+                automl_runner_args =
+                    {"champion_test_policy": 'loss_ucb' # specifcies how to do the statistic test for a better champion
+                    "remove_worse": False              # specifcies whether to do worse than test
+                    }
             scheduler_args: A dictionary of configuration for the scheduler.
-                If set {}, default values will be used.
+                If set {}, default values will be used, which is equivalent to using the following configs.
+                scheduler_args =
+                    {"keep_challenger_metric": 'ucb' # what metric to use when deciding the top performing challengers
+                    "keep_challenger_ratio": 0.5     # denotes the ratio of top performing challengers to keep live
+                    "keep_champion": True            # specifcies whether to keep the champion always running
+                    }
             model_select_policy: A string to specify how to select one model to do prediction
                 from the live model pool
             metric: A string to specify the name of the loss function used for calculating
@@ -139,3 +149,9 @@ class AutoVW:
                 logger.debug('using champion trial: %s',
                              self._trial_runner.champion_trial.trial_id)
                 return self._trial_runner.champion_trial
+
+    @staticmethod
+    def get_ns_feature_dim_from_vw_example(vw_example) -> dict:
+        """Get a dictionary of feature dimensionality for each namespace singleton
+        """
+        return get_ns_feature_dim_from_vw_example(vw_example)
