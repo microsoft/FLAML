@@ -56,11 +56,11 @@ class AutoVW:
                     "keep_challenger_ratio": 0.5     # denotes the ratio of top performing challengers to keep live
                     "keep_champion": True            # specifcies whether to keep the champion always running
                     }
-            model_select_policy: A string in ['threshold_loss_ucb', 'threshold_loss_lcb', 'threshold_loss_avg', 
+            model_select_policy: A string in ['threshold_loss_ucb', 'threshold_loss_lcb', 'threshold_loss_avg',
                 'loss_ucb', 'loss_lcb', 'loss_avg'] to specify how to select one model to do prediction
                 from the live model pool. Default value is 'threshold_loss_ucb'.
-            metric: A string to specify the name of the loss function used for calculating
-                the progressive validation loss
+            metric: A string in ['mae_clipped', 'mae', 'mse', 'absolute_clipped', 'absolute', 'squared']
+                to specify the name of the loss function used for calculating the progressive validation loss in ChaCha.
             random_seed (int): An integer of the random seed used in the searcher
                 (more specifically this the random seed for ConfigOracle)
             model_selection_mode: A string in ['min', 'max'] to specify the objective as
