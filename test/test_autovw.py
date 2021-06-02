@@ -30,7 +30,6 @@ def oml_to_vw_w_grouping(X, y, ds_dir, fname, orginal_dim, group_num,
                        min((i + 1) * max_size_per_group, orginal_dim))]
             if len(indexes) > 0:
                 group_indexes.append(indexes)
-            print(group_indexes)
         print(group_indexes)
     else:
         NotImplementedError
