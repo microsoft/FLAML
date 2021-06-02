@@ -253,7 +253,6 @@ class TestAutoML(unittest.TestCase):
             "log_file_name": "test/micro_macro_f1.log",
             "log_training_metric": True,
             "n_jobs": 1,
-            # "estimator_list": ['xgboost'],
             "model_history": True
         }
         X_train, y_train = load_iris(return_X_y=True)
