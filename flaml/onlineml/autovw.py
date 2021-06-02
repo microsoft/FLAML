@@ -44,7 +44,7 @@ class AutoVW:
             min_resource_lease: The minimum resource lease assigned to a particular model/trial.
                 If set as 'auto', it will be calculated automatically.
             automl_runner_args: A dictionary of configuration for the OnlineTrialRunner.
-                 If set {}, default values will be used, which is equivalent to using the following configs.
+                If set {}, default values will be used, which is equivalent to using the following configs.
                 automl_runner_args =
                     {"champion_test_policy": 'loss_ucb' # specifcies how to do the statistic test for a better champion
                     "remove_worse": False              # specifcies whether to do worse than test
