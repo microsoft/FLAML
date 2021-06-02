@@ -332,9 +332,9 @@ class TestAutoVW(unittest.TestCase):
     def test_supervised_vw_tune_namespace(self):
         # basic experiment setting
         vw_oml_problem_args, vw_online_aml_problem = get_vw_tuning_problem()
-        autovw = AutoVW(init_config=vw_online_aml_problem.init_config,
+        autovw = AutoVW(max_live_model_num=5,
                         search_space=vw_online_aml_problem.search_space,
-                        max_live_model_num=5,
+                        init_config=vw_online_aml_problem.init_config,
                         min_resource_lease='auto',
                         random_seed=2345)
 
@@ -348,9 +348,9 @@ class TestAutoVW(unittest.TestCase):
     def test_supervised_vw_tune_namespace_learningrate(self):
         # basic experiment setting
         vw_oml_problem_args, vw_online_aml_problem = get_vw_tuning_problem(tuning_hp='NamesapceInteraction+LearningRate')
-        autovw = AutoVW(init_config=vw_online_aml_problem.init_config,
+        autovw = AutoVW(max_live_model_num=5,
                         search_space=vw_online_aml_problem.search_space,
-                        max_live_model_num=5,
+                        init_config=vw_online_aml_problem.init_config,
                         min_resource_lease='auto',
                         random_seed=2345)
 

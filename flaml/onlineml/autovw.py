@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Optional
 import logging
-from flaml.tune import Trial
+from flaml.tune import Trial, Categorical, Float, PolynomialExpansionSet
 from flaml.onlineml import OnlineTrialRunner
 from flaml.scheduler import ChaChaScheduler
 from flaml.searcher import ChampionFrontierSearcher
@@ -19,9 +19,9 @@ class AutoVW:
     WARMSTART_NUM = 100
 
     def __init__(self,
-                 init_config: dict,
-                 search_space: dict,
                  max_live_model_num: int,
+                 search_space: dict,
+                 init_config: Optional[dict] = {},
                  min_resource_lease: Optional[float] = 'auto',
                  automl_runner_args: Optional[dict] = {},
                  scheduler_args: Optional[dict] = {},
@@ -34,13 +34,13 @@ class AutoVW:
         """Constructor
 
         Args:
-            init_config: A dictionary of a partial or full initial config,
-                e.g. {'interactions': set(), 'learning_rate': 0.5}
+            max_live_model_num: The maximum number of 'live' models, which, in other words,
+                is the maximum number of models allowed to update in each learning iteraction.
             search_space: A dictionary of the search space. This search space includes both
                 hyperparameters we want to tune and fixed hyperparameters. In the latter case,
                 the value is a fixed value.
-            max_live_model_num: The maximum number of 'live' models, which, in other words,
-                is the maximum number of models allowed to update in each learning iteraction.
+            init_config: A dictionary of a partial or full initial config,
+                e.g. {'interactions': set(), 'learning_rate': 0.5}
             min_resource_lease: The minimum resource lease assigned to a particular model/trial.
                 If set as 'auto', it will be calculated automatically.
             automl_runner_args: A dictionary of configuration for the OnlineTrialRunner.
@@ -74,6 +74,13 @@ class AutoVW:
                              "cb_coef": cb_coef,
                              }
         # setup the arguments for searcher, which contains the ConfigOracle
+        # setup the init_config according to the research space
+        for k, v in search_space.items():
+            if k not in init_config:
+                if isinstance(v, PolynomialExpansionSet):
+                    init_config[k] = set()
+                elif (not isinstance(v, Categorical) and not isinstance(v, Float)):
+                    init_config[k] = v
         searcher_args = {"init_config": init_config,
                          "random_seed": random_seed,
                          'online_trial_args': online_trial_args,
