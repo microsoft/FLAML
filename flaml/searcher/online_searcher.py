@@ -268,6 +268,7 @@ class ChampionFrontierSearcher(BaseSearcher):
     def _generate_independent_hp_configs(self, hp_name, current_config_value, config_domain) -> List:
         if isinstance(config_domain, PolynomialExpansionSet):
             seed_interactions = list(current_config_value) + list(config_domain.init_monomials)
+            logger.critical('Seed namespaces (singletons and interactions): %s', seed_interactions)
             logger.info('current_config_value %s %s', current_config_value, seed_interactions)
             configs = self._generate_poly_expansion_sets(seed_interactions,
                                                          self.EXPANSION_ORDER,
