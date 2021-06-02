@@ -18,7 +18,7 @@ def get_ns_feature_dim_from_vw_example(vw_example) -> dict:
         Assumption: assume the vw_example takes one of the following format
         depending on whether the example includes the feature names
 
-        format 1: 'y | ns1 feature1:feature_value1 feature2:feature_value2 |
+        format 1: 'y |ns1 feature1:feature_value1 feature2:feature_value2 |ns2
                 ns2 feature3:feature_value3 feature4:feature_value4'
         format 2: 'y | ns1 feature_value1 feature_value2 |
                 ns2 feature_value3 feature_value4'
