@@ -815,8 +815,10 @@ class AutoML:
 
                 .. code-block:: python
 
-                    def custom_metric(X_test, y_test, estimator, labels,
-                     X_train, y_train, weight_test=None, weight_train=None):
+                    def custom_metric(
+                        X_test, y_test, estimator, labels,
+                        X_train, y_train, weight_test=None, weight_train=None
+                    ):
                         return metric_to_minimize, metrics_to_log
 
                 which returns a float number as the minimization objective,
