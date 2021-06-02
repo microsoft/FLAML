@@ -74,8 +74,7 @@ def save_vw_dataset_w_ns(X, y, did, ds_dir, max_ns_num, is_regression):
 def shuffle_data(X, y, seed):
     try:
         n = len(X)
-    # TOOD: add exception info
-    except:
+    except ValueError:
         n = X.getnnz()
 
     perm = np.random.RandomState(seed=seed).permutation(n)
@@ -94,7 +93,7 @@ def get_oml_to_vw(did, max_ns_num, ds_dir=VW_DS_DIR):
 
     print('target=ds.default_target_attribute', target_attribute)
     data = ds.get_data(target=target_attribute, dataset_format='array')
-    X, y = data[0], data[1] # return X: pd DataFrame, y: pd series
+    X, y = data[0], data[1]  # return X: pd DataFrame, y: pd series
     import scipy
     if scipy.sparse.issparse(X):
         X = scipy.sparse.csr_matrix.toarray(X)
@@ -113,8 +112,7 @@ def get_oml_to_vw(did, max_ns_num, ds_dir=VW_DS_DIR):
             success = True
         else:
             print('---failed to convert/save oml dataset to vw!!!----')
-    # TODO: add exception info
-    except:
+    except ValueError:
         print('-------------failed to get oml dataset!!!', did)
     return success
 
