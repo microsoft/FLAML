@@ -204,8 +204,8 @@
 
 <span class="sd">        Args:</span>
 <span class="sd">            metric: A string of the metric name to optimize for.</span>
-<span class="sd">                minimization or maximization.</span>
 <span class="sd">            mode: A string in [&#39;min&#39;, &#39;max&#39;] to specify the objective as</span>
+<span class="sd">                minimization or maximization.</span>
 <span class="sd">            space: A dictionary to specify the search space.</span>
 <span class="sd">            points_to_evaluate: Initial parameter suggestions to be run first.</span>
 <span class="sd">            low_cost_partial_config: A dictionary from a subset of</span>
@@ -260,6 +260,13 @@
 <span class="sd">        &#39;&#39;&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">=</span> <span class="n">metric</span><span class="p">,</span> <span class="n">mode</span>
         <span class="n">init_config</span> <span class="o">=</span> <span class="n">low_cost_partial_config</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">init_config</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;No low-cost init config given to the search algorithm.&quot;</span>
+                <span class="s2">&quot;For cost-frugal search, &quot;</span>
+                <span class="s2">&quot;consider providing init values for cost-related hps via &quot;</span>
+                <span class="s2">&quot;&#39;init_config&#39;.&quot;</span>
+            <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_points_to_evaluate</span> <span class="o">=</span> <span class="n">points_to_evaluate</span> <span class="ow">or</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_config_constraints</span> <span class="o">=</span> <span class="n">config_constraints</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span> <span class="o">=</span> <span class="n">metric_constraints</span>
@@ -354,6 +361,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">_metric_constraints</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraint_satisfied</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">_metric_constraint_satisfied</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraint_penalty</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">_metric_constraint_penalty</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">metric_target</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_target</span>
 
 <div class="viewcode-block" id="BlendSearch.restore_from_dir"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.restore_from_dir">[docs]</a>    <span class="k">def</span> <span class="nf">restore_from_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">checkpoint_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
         <span class="nb">super</span><span class="o">.</span><span class="n">restore_from_dir</span><span class="p">(</span><span class="n">checkpoint_dir</span><span class="p">)</span></div>

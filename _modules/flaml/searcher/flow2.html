@@ -200,8 +200,8 @@
 <span class="sd">                to the initial low-cost values.</span>
 <span class="sd">                e.g. {&#39;epochs&#39;: 1}</span>
 <span class="sd">            metric: A string of the metric name to optimize for.</span>
-<span class="sd">                minimization or maximization.</span>
 <span class="sd">            mode: A string in [&#39;min&#39;, &#39;max&#39;] to specify the objective as</span>
+<span class="sd">                minimization or maximization.</span>
 <span class="sd">            cat_hp_cost: A dictionary from a subset of categorical dimensions</span>
 <span class="sd">                to the relative cost of each choice.</span>
 <span class="sd">                e.g.,</span>
@@ -245,13 +245,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">space</span> <span class="o">=</span> <span class="n">flatten_dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="p">,</span> <span class="n">prevent_delimiter</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_random</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_seed</span> <span class="o">=</span> <span class="n">seed</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">init_config</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;No init config given to FLOW2. Using random initial config.&quot;</span>
-                <span class="s2">&quot;For cost-frugal search, &quot;</span>
-                <span class="s2">&quot;consider providing init values for cost-related hps via &quot;</span>
-                <span class="s2">&quot;&#39;init_config&#39;.&quot;</span>
-            <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">init_config</span> <span class="o">=</span> <span class="n">init_config</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">best_config</span> <span class="o">=</span> <span class="n">flatten_dict</span><span class="p">(</span><span class="n">init_config</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cat_hp_cost</span> <span class="o">=</span> <span class="n">cat_hp_cost</span>
@@ -661,6 +654,7 @@
 <span class="sd">        1. same incumbent, increase resource</span>
 <span class="sd">        2. same resource, move from the incumbent to a random direction</span>
 <span class="sd">        3. same resource, move from the incumbent to the opposite direction</span>
+<span class="sd">        #TODO: better decouple FLOW2 config suggestion and stepsize update</span>
 <span class="sd">        &#39;&#39;&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">trial_count_proposed</span> <span class="o">+=</span> <span class="mi">1</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_complete4incumbent</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cost_incumbent</span> <span class="ow">and</span> \
