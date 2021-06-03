@@ -1,7 +1,7 @@
 import numpy as np
-from typing import Optional
+from typing import Optional, Union
 import logging
-from flaml.tune import Trial, Categorical, Float, PolynomialExpansionSet
+from flaml.tune import Trial, Categorical, Float, PolynomialExpansionSet, polynomial_expansion_set
 from flaml.onlineml import OnlineTrialRunner
 from flaml.scheduler import ChaChaScheduler
 from flaml.searcher import ChampionFrontierSearcher
@@ -15,14 +15,17 @@ class AutoVW:
     Methods:
         predict(data_sample)
         learn(data_sample)
+        AUTO
     """
     WARMSTART_NUM = 100
+    AUTO_STRING = '_auto'
+    VW_INTERACTION_ARG_NAME = 'interactions'
 
     def __init__(self,
                  max_live_model_num: int,
                  search_space: dict,
                  init_config: Optional[dict] = {},
-                 min_resource_lease: Optional[float] = 'auto',
+                 min_resource_lease: Optional[Union[str, float]] = 'auto',
                  automl_runner_args: Optional[dict] = {},
                  scheduler_args: Optional[dict] = {},
                  model_select_policy: Optional[str] = 'threshold_loss_ucb',
@@ -67,39 +70,57 @@ class AutoVW:
                 minimization or maximization.
             cb_coef (float): A float coefficient (optional) used in the sample complexity bound.
         """
+        self._max_live_model_num = max_live_model_num
+        self._search_space = search_space
+        self._init_config = init_config
+        self._online_trial_args = {"metric": metric,
+                                   "min_resource_lease": min_resource_lease,
+                                   "cb_coef": cb_coef,
+                                   }
+        self._automl_runner_args = automl_runner_args
+        self._scheduler_args = scheduler_args
         self._model_select_policy = model_select_policy
         self._model_selection_mode = model_selection_mode
-        online_trial_args = {"metric": metric,
-                             "min_resource_lease": min_resource_lease,
-                             "cb_coef": cb_coef,
-                             }
-        # setup the arguments for searcher, which contains the ConfigOracle
-        # setup the init_config according to the research space
+        self._random_seed = random_seed
+        self._trial_runner = None
+        self._best_trial = None
+        # code for debugging purpose
+        self._prediction_trial_id = None
+        self._iter = 0
+
+    def _setup_trial_runner(self, vw_example):
+        """Set up the _trial_runner based on one vw_example
+        """
+        # setup the default search space for the namespace interaction hyperparameter
+        search_space = self._search_space.copy()
+        for k, v in self._search_space.items():
+            if k == self.VW_INTERACTION_ARG_NAME and v == self.AUTO_STRING:
+                raw_namespaces = self.get_ns_feature_dim_from_vw_example(vw_example).keys()
+                search_space[k] = polynomial_expansion_set(init_monomials=set(raw_namespaces))
+        # setup the init config based on the input _init_config and search space
+        init_config = self._init_config.copy()
         for k, v in search_space.items():
-            if k not in init_config:
+            if k not in init_config.keys():
                 if isinstance(v, PolynomialExpansionSet):
                     init_config[k] = set()
                 elif (not isinstance(v, Categorical) and not isinstance(v, Float)):
                     init_config[k] = v
         searcher_args = {"init_config": init_config,
-                         "random_seed": random_seed,
-                         'online_trial_args': online_trial_args,
-                         'space': search_space,
+                         "space": search_space,
+                         "random_seed": self._random_seed,
+                         'online_trial_args': self._online_trial_args,
                          }
-        logger.info("search_space %s", search_space)
-        searcher = ChampionFrontierSearcher(**searcher_args)
-        scheduler = ChaChaScheduler(**scheduler_args)
-        logger.info('scheduler_args %s', scheduler_args)
+        logger.info("original search_space %s", self._search_space)
+        logger.info("original init_config %s", self._init_config)
         logger.info('searcher_args %s', searcher_args)
-        logger.info('automl_runner_args %s', automl_runner_args)
-        self._trial_runner = OnlineTrialRunner(max_live_model_num=max_live_model_num,
+        logger.info('scheduler_args %s', self._scheduler_args)
+        logger.info('automl_runner_args %s', self._automl_runner_args)
+        searcher = ChampionFrontierSearcher(**searcher_args)
+        scheduler = ChaChaScheduler(**self._scheduler_args)
+        self._trial_runner = OnlineTrialRunner(max_live_model_num=self._max_live_model_num,
                                                searcher=searcher,
                                                scheduler=scheduler,
-                                               **automl_runner_args)
-        self._best_trial = None
-        # code for debugging purpose
-        self._prediction_trial_id = None
-        self._iter = 0
+                                               **self._automl_runner_args)
 
     def predict(self, data_sample):
         """Predict on the input example (e.g., vw example)
@@ -107,6 +128,8 @@ class AutoVW:
         Args:
             data_sample (vw_example)
         """
+        if self._trial_runner is None:
+            self._setup_trial_runner(data_sample)
         self._best_trial = self._select_best_trial()
         self._y_predict = self._best_trial.predict(data_sample)
         # code for debugging purpose
