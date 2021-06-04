@@ -66,6 +66,6 @@ if __name__ == "__main__":
 
     #get_result(args, partial_config_large)
     #check_conflict(args, [partial_config_large])
-    download_validation(args, "/data/xliu127/projects/hyperopt/data/result/")
+    #download_validation(args, "/data/xliu127/projects/hyperopt/data/result/")
 
-    #extract_electra_overfitting_configs(args)
+    extract_roberta_overfitting_configs(args)

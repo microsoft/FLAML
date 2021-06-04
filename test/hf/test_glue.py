@@ -71,7 +71,7 @@ def get_autohf_settings(console_args, jobid_config):
     autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
                        "num_samples": 100000 if jobid_config.mod != "grid" else 1,
                        "time_budget": 100000 if jobid_config.mod == "grid"
-                       else 4 * glue_time_budget_mapping[jobid_config.subdat][jobid_config.pre],
+                       else 8 * glue_time_budget_mapping[jobid_config.subdat][jobid_config.pre],
                        "ckpt_per_epoch": 5
                       }
     autohf_settings["hpo_space"] = get_search_space(space_mode, jobid_config.subdat, jobid_config.pre)
@@ -87,7 +87,7 @@ def get_search_space(space_mode, subdataset, model_name):
                 "hidden_dropout_prob": {"l": 0, "u": 0.2, "space": "linear"},
                 "weight_decay": {"l": 0, "u": 0.3, "space": "linear"},
                 "per_device_train_batch_size": [16, 32, 64],
-                "num_train_epochs": {"l": 9.5, "u": 10.5, "space": "linear"} if subdataset in ("rte", "stsb") else {"l": 2.5, "u": 3.5, "space": "linear"},
+                "num_train_epochs": [10] if subdataset in ("rte", "stsb") else [3],
                 "adam_epsilon": [1e-6]
             }
         elif space_mode == "fixhalf":

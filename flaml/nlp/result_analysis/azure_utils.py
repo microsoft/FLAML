@@ -444,13 +444,13 @@ class AzureUtils:
 
     def get_validation_perf(self, jobid_config):
         if jobid_config.pre == "electra":
-            dataset_namelist = ["rte"] #["wnli", "rte", "mrpc", "cola", "stsb", "sst2", "qnli", "mnli"]
+            dataset_namelist = ["wnli", "rte", "mrpc", "cola", "stsb", "sst2", "qnli", "mnli"]
         else:
             dataset_namelist = ["wnli", "rte", "mrpc", "cola", "stsb", "sst2"]
         dataset_vallist1 = [0] * len(dataset_namelist)
         dataset_vallist2 = [0] * len(dataset_namelist)
 
-        matched_blob_list = self.get_blob_list_matching_partial_jobid("logs_acl_tmdev/", jobid_config)
+        matched_blob_list = self.get_blob_list_matching_partial_jobid("logs_acl/", jobid_config)
         for (each_jobconfig, each_blob) in matched_blob_list:
             subdat_name = each_jobconfig.subdat
             self.download_azure_blob(each_blob.name)
@@ -519,5 +519,8 @@ class AzureUtils:
 
         sorted_entries = sorted(data_json['val_log'], key = lambda x:x['metric_score']['max'], reverse=True)
         best_config = sorted_entries[0]['config']
-        best_score = sorted_entries[0]['metric_score']['max']
+        if jobid_config.subdat != "mrpc":
+            best_score = sorted_entries[0]['metric_score']['max']
+        else:
+            best_score = (data_json["valid_metric"]["eval_f1"], data_json["valid_metric"]["eval_accuracy"])
         return best_config, best_score

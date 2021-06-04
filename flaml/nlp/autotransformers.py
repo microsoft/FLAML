@@ -4,6 +4,7 @@ import random
 
 import torch
 import transformers
+import wandb
 
 from .dataset.dataprocess_auto import AutoToEncoded
 from .dataset.sentence_keys_auto import get_sentence_keys
@@ -421,6 +422,9 @@ class AutoTransformers:
         trainer.trial_id = reporter.trial_id
 
         run = self.wandb_utils.set_wandb_per_trial()
+        for each_hp in config:
+            if each_hp in hp_type_mapping.keys():
+                wandb.log({each_hp: config[each_hp]})
         trainer.train()
         output_metrics = trainer.evaluate(self.eval_dataset)
         if run:

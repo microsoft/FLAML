@@ -205,11 +205,11 @@ def print_cfo(console_args):
 def download_validation(console_args, result_root_dir):
     from .azure_utils import JobID, AzureUtils
     jobid_config = JobID()
-    jobid_config.mod = "hpo"
-    jobid_config.pre = "electra"
+    jobid_config.mod = "grid"
+    jobid_config.pre = "roberta"
     jobid_config.presz = "base"
-    jobid_config.alg = "rs"
-    jobid_config.pru = "None"
+    # jobid_config.alg = "optuna"
+    # jobid_config.pru = "asha"
     jobid_config.rep = 0
 
     azure_utils = AzureUtils(console_args=console_args, jobid=jobid_config)
@@ -222,8 +222,13 @@ def get_result_str(jobid_config, val_score, test_score, best_config, subdat2conf
         result_str += jobid_config.alg.upper().replace("OPTUNA", "Optuna")
     if jobid_config.pru != None and jobid_config.pru != "None":
         result_str += "+" + jobid_config.pru.upper()
-    result_str += ",rep " + str(jobid_config.rep) + " & " + str(
+    if jobid_config.subdat != "mrpc":
+        result_str += ",rep " + str(jobid_config.rep) + " & " + str(
         "%.1f" % (val_score * 100)) + " & " + str(test_score)
+    else:
+        result_str += ",rep " + str(jobid_config.rep) + " & " + str(
+            "%.1f" % (val_score[0] * 100)) + "/" + str(
+            "%.1f" % (val_score[1] * 100)) + " & " + str(test_score)
     for hp in ["learning_rate", "warmup_ratio", "per_device_train_batch_size", "hidden_dropout", "attention_dropout",
                "weight_decay"]:
         if hp not in best_config:
@@ -295,20 +300,29 @@ def extract_roberta_overfitting_configs(console_args):
     jobid_config.pre = "roberta"
     jobid_config.presz = "base"
 
-    overfitting_subdat = ["rte", "mrpc", "cola", "sst2"]
-    test_scores = ["73.1", "91.4/88.5", "61.4", "96"]
+    overfitting_subdat = ["rte", "mrpc", "cola", "sst2", "stsb"]
+    test_scores = ["73.1", "91.4/88.5", "61.4", "96", "89.5/88.7"]
     subdat2config = extract_grid(console_args, jobid_config, overfitting_subdat, test_scores)
 
     jobid_config = JobID()
     jobid_config.pre = "roberta"
     jobid_config.presz = "base"
 
-    overfitting_subdat = ["rte", "rte", "mrpc", "mrpc", "rte", "mrpc", "cola", "sst2", "sst2", "rte", "rte", "mrpc", "mrpc", "mrpc", "sst2"]
-    overfitting_alg = ["rs", "rs", "rs", "rs", "rs", "rs", "rs", "rs", "rs", "optuna", "optuna", "optuna", "optuna", "optuna", "optuna"]
-    overfitting_pru = ["None", "None", "None", "None", "asha", "asha", "asha", "asha", "asha", "asha", "asha", "asha", "asha", "asha", "asha"]
-    overfitting_rep = [0, 2, 0, 1, 1, 1, 1, 0, 2, 0, 2, 0, 1, 2, 1]
-    test_scores = ["72.7", "72.3", "90.9/87.9", "90.9/87.7", "72.6", "91.4/88.2",
-                   "57.4", "95.4", "95.9", "71.3", "72.7", "90.9/87.6", "90.7/87.5", "90.2/86.8", "95.2"]
+    overfitting_subdat = ["rte", "rte", "rte", "mrpc", "mrpc", "mrpc", "sst2",
+                          "rte", "mrpc", "mrpc", "stsb", "sst2", "sst2",
+                          "rte", "rte", "mrpc", "mrpc", "sst2", "sst2"]
+    overfitting_alg = ["rs", "rs", "rs", "rs", "rs", "rs", "rs",
+                       "rs", "rs", "rs", "rs", "rs", "rs",
+                       "optuna", "optuna", "optuna", "optuna", "optuna", "optuna"]
+    overfitting_pru = ["None", "None", "None", "None", "None", "None", "None",
+                       "asha", "asha", "asha", "asha", "asha", "asha",
+                       "asha", "asha", "asha", "asha", "asha", "asha"]
+    overfitting_rep = [0, 1, 2, 0, 1, 2, 0,
+                       1, 0, 2, 2, 1, 2,
+                       1, 2, 0, 1, 1, 2]
+    test_scores = ["71.5", "72.3", "72.2", "90.5/87.1", "90.5/87.4", "90.5/87.2", "95.6",
+                   "72.4", "90.7/87.4", "91.0/87.9", "89.4/88.8", "95.2", "95.7",
+                   "72.4", "72.4", "90.8/87.4", "90.3/86.5", "95.1", "95.8"]
     extract_hpo(console_args, jobid_config, overfitting_subdat, overfitting_alg, overfitting_pru, overfitting_rep,
                 subdat2config, test_scores)
 
