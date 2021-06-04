@@ -132,7 +132,7 @@ class FLOW2(Searcher):
                 elif isinstance(domain, sample.Integer) and str(sampler) == 'Uniform':
                     self._step_lb = min(
                         self._step_lb, 1.0 / (domain.upper - domain.lower))
-                if isinstance(domain, sample.Categolintrical):
+                if isinstance(domain, sample.Categorical):
                     cat_hp_cost = self.cat_hp_cost
                     if cat_hp_cost and key in cat_hp_cost:
                         cost = np.array(cat_hp_cost[key])
