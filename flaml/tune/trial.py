@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 This source file is adapted here because ray does not fully support Windows.
+
+Copyright (c) Microsoft Corporation.
 '''
 import uuid
 import time
@@ -121,8 +123,7 @@ class Trial:
                     self.metric_analysis[metric]["min"] = min(
                         value, self.metric_analysis[metric]["min"])
                     self.metric_analysis[metric]["avg"] = 1 / step * (
-                        value +
-                        (step - 1) * self.metric_analysis[metric]["avg"])
+                        value + (step - 1) * self.metric_analysis[metric]["avg"])
                     self.metric_analysis[metric]["last"] = value
 
                     for n in self.n_steps:

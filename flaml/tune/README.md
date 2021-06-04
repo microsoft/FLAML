@@ -27,7 +27,7 @@ analysis = tune.run(
         'x': tune.qloguniform(lower=1, upper=100000, q=1),
         'y': tune.randint(lower=1, upper=100000)
     }, # the search space
-    init_config={'x':1},    # a initial (partial) config with low cost
+    low_cost_partial_config={'x':1},    # a initial (partial) config with low cost
     metric='metric',    # the name of the metric used for optimization
     mode='min',         # the optimization mode, 'min' or 'max'
     num_samples=-1,    # the maximal number of configs to try, -1 means infinite
@@ -71,7 +71,7 @@ analysis = raytune.run(
     num_samples=-1,    # the maximal number of configs to try, -1 means infinite
     time_budget_s=60,   # the time budget in seconds
     local_dir='logs/',  # the local directory to store logs
-    search_alg=CFO(points_to_evaluate=[{'x':1}]) # or BlendSearch
+    search_alg=CFO(low_cost_partial_config=[{'x':1}]) # or BlendSearch
     )
 
 print(analysis.best_trial.last_result)  # the best trial's result
@@ -94,7 +94,7 @@ $nnictl create --config ./config.yml
 ## CFO: Frugal Optimization for Cost-related Hyperparameters
 
 <p align="center">
-    <img src="https://github.com/microsoft/FLAML/raw/v0.2.2/docs/images/CFO.png"  width=200>
+    <img src="https://github.com/microsoft/FLAML/blob/main/docs/images/CFO.png"  width=200>
     <br>
 </p>
 
@@ -113,7 +113,7 @@ FLOW<sup>2</sup> only requires pairwise comparisons between function values to p
 The GIFs attached below demostrates an example search trajectory of FLOW<sup>2</sup> shown in the loss and evaluation cost (i.e., the training time ) space respectively. From the demonstration, we can see that (1) FLOW<sup>2</sup> can quickly move toward the low-loss region, showing good convergence property and (2) FLOW<sup>2</sup> tends to avoid exploring the high-cost region until necessary.
 
 <p align="center">
-    <img align="center", src="https://github.com/microsoft/FLAML/raw/v0.2.2/docs/images/heatmap_loss_cfo_12s.gif"  width=360>  <img align="center", src="https://github.com/microsoft/FLAML/raw/v0.2.2/docs/images/heatmap_cost_cfo_12s.gif"  width=360> 
+    <img align="center", src="https://github.com/microsoft/FLAML/blob/main/docs/images/heatmap_loss_cfo_12s.gif"  width=360>  <img align="center", src="https://github.com/microsoft/FLAML/blob/main/docs/images/heatmap_cost_cfo_12s.gif"  width=360> 
     <br>
     <figcaption>Figure 1. FLOW<sup>2</sup> in tuning the # of leaves and the # of trees for XGBoost. The two background heatmaps show the loss and cost distribution of all configurations. The black dots are the points evaluated in FLOW<sup>2</sup>. Black dots connected by lines are points that yield better loss performance when evaluated.</figcaption>
 </p>
@@ -124,7 +124,7 @@ Example:
 ```python
 from flaml import CFO
 tune.run(...
-    search_alg = CFO(points_to_evaluate=[init_config]),
+    search_alg = CFO(low_cost_partial_config=low_cost_partial_config),
 )
 ```
 
@@ -136,7 +136,7 @@ using BlendSearch.
 ## BlendSearch: Economical Hyperparameter Optimization With Blended Search Strategy
 
 <p align="center">
-    <img src="https://github.com/microsoft/FLAML/raw/v0.2.2/docs/images/BlendSearch.png"  width=200>
+    <img src="https://github.com/microsoft/FLAML/blob/main/docs/images/BlendSearch.png"  width=200>
     <br>
 </p>
 
@@ -157,13 +157,17 @@ Example:
 # require: pip install flaml[blendsearch]
 from flaml import BlendSearch
 tune.run(...
-    search_alg = BlendSearch(points_to_evaluate=[init_config]),
+    search_alg = BlendSearch(low_cost_partial_config=low_cost_partial_config),
 )
 ```
 
-Recommended scenario: cost-related hyperparameters exist, a low-cost
+- Recommended scenario: cost-related hyperparameters exist, a low-cost
 initial point is known, and the search space is complex such that local search
 is prone to be stuck at local optima.
+
+
+- Suggestion about using larger search space in BlendSearch: 
+In hyperparameter optimization, a larger search space is desirable because it is more likely to include the optimal configuration (or one of the optimal configurations) in hindsight. However the performance (especially anytime performance) of most existing HPO methods is undesirable if the cost of the configurations in the search space has a large variation. Thus hand-crafted small search spaces (with relatively homogeneous cost) are often used in practice for these methods, which is subject to idiosyncrasy. BlendSearch combines the benefits of local search and global search, which enables a smart (economical) way of deciding where to explore in the search space even though it is larger than necessary. This allows users to specify a larger search space in BlendSearch, which is often easier and a better practice than narrowing down the search space by hand.
 
 For more technical details, please check our papers.
 
@@ -178,7 +182,7 @@ For more technical details, please check our papers.
 }
 ```
 
-* [Economical Hyperparameter Optimization With Blended Search Strategy](https://www.microsoft.com/en-us/research/publication/economical-hyperparameter-optimization-with-blended-search-strategy/). Chi Wang, Qingyun Wu, Silu Huang, Amin Saied. To appear in ICLR 2021.
+* [Economical Hyperparameter Optimization With Blended Search Strategy](https://www.microsoft.com/en-us/research/publication/economical-hyperparameter-optimization-with-blended-search-strategy/). Chi Wang, Qingyun Wu, Silu Huang, Amin Saied. ICLR 2021.
 
 ```
 @inproceedings{wang2021blendsearch,

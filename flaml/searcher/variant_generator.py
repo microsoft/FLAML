@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 This source file is adapted here because ray does not fully support Windows.
+
+Copyright (c) Microsoft Corporation.
 '''
 import copy
 import logging
@@ -66,8 +68,8 @@ def unflatten_dict(dt, delimiter="/"):
             item = item.setdefault(k, dict_type())
         item[path[-1]] = val
     return out
-    
-    
+
+
 class TuneError(Exception):
     """General error class raised by ray.tune."""
     pass
