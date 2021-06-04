@@ -124,6 +124,8 @@ class FLOW2(Searcher):
             if callable(getattr(domain, 'get_sampler', None)):
                 self._tunable_keys.append(key)
                 sampler = domain.get_sampler()
+                # the step size lower bound for uniform variables doesn't depend
+                # on the current config
                 if isinstance(sampler, sample.Quantized):
                     sampler_inner = sampler.get_sampler()
                     if str(sampler_inner) == 'Uniform':
@@ -198,6 +200,8 @@ class FLOW2(Searcher):
                 continue
             domain = self.space[key]
             sampler = domain.get_sampler()
+            # the stepsize lower bound for log uniform variables depends on the
+            # current config
             if isinstance(sampler, sample.Quantized):
                 sampler_inner = sampler.get_sampler()
                 if str(sampler_inner) == 'LogUniform':
