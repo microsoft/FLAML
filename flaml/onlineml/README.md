@@ -1,7 +1,6 @@
 # ChaCha for Online AutoML
 
-FLAML includes *ChaCha* which is an automatic hyperparameter tuning solution for online machine learning. Online machine learning has the following properties: (1) data comes in sequential order; and (2) the performance of the machine learning model is evaluated online, i.e., at every iteration. *ChaCha* performs online AutoML respecting the aforementioned properties of online learning, and at the same time respecting the following constraints: (1) only a small constant number of `live' models are allowed to perform online learning at the same time;  and (2) no model persistence or offline training is allowed, which means that once we decide to replace a ‘live’ model with a new one, the replaced model can no longer be retrieved.  
-
+FLAML includes *ChaCha* which is an automatic hyperparameter tuning solution for online machine learning. Online machine learning has the following properties: (1) data comes in sequential order; and (2) the performance of the machine learning model is evaluated online, i.e., at every iteration. *ChaCha* performs online AutoML respecting the aforementioned properties of online learning, and at the same time respecting the following constraints: (1) only a small constant number of 'live' models are allowed to perform online learning at the same time;  and (2) no model persistence or offline training is allowed, which means that once we decide to replace a 'live' model with a new one, the replaced model can no longer be retrieved.  
 
 For more technical details about *ChaCha*, please check our paper.
 
@@ -17,7 +16,7 @@ An example of online namespace interactions tuning in VW:
 # require: pip install flaml[vw]
 from flaml import AutoVW
 '''create an AutoVW instance for tuning namespace interactions'''
-autovw = AutoVW(max_live_model_num=5, search_space={'interactions': AutoVW.AUTO_STRING})
+autovw = AutoVW(max_live_model_num=5, search_space={'interactions': AutoVW.AUTOMATIC})
 ```
 
 An example of online tuning of both namespace interactions and learning rate in VW:
@@ -28,7 +27,7 @@ from flaml import AutoVW
 from flaml.tune import loguniform
 ''' create an AutoVW instance for tuning namespace interactions and learning rate'''
 # set up the search space and init config
-search_space_nilr = {'interactions': AutoVW.AUTO_STRING, 'learning_rate': loguniform(lower=2e-10, upper=1.0)}
+search_space_nilr = {'interactions': AutoVW.AUTOMATIC, 'learning_rate': loguniform(lower=2e-10, upper=1.0)}
 init_config_nilr = {'interactions': set(), 'learning_rate': 0.5}
 # create an AutoVW instance
 autovw = AutoVW(max_live_model_num=5, search_space=search_space_nilr, init_config=init_config_nilr)
