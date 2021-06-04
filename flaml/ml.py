@@ -89,9 +89,11 @@ def sklearn_metric_loss_score(
         score = log_loss(
             y_true, y_predict, labels=labels, sample_weight=sample_weight)
     elif 'micro_f1' in metric_name:
-        score = 1 - f1_score(y_true, y_predict, sample_weight=sample_weight, average='micro')
+        score = 1 - f1_score(
+            y_true, y_predict, sample_weight=sample_weight, average='micro')
     elif 'macro_f1' in metric_name:
-        score = 1 - f1_score(y_true, y_predict, sample_weight=sample_weight, average='macro')
+        score = 1 - f1_score(
+            y_true, y_predict, sample_weight=sample_weight, average='macro')
     elif 'f1' in metric_name:
         score = 1 - f1_score(y_true, y_predict, sample_weight=sample_weight)
     elif 'ap' in metric_name:
@@ -101,7 +103,7 @@ def sklearn_metric_loss_score(
         raise ValueError(
             metric_name + ' is not a built-in metric, '
             'currently built-in metrics are: '
-            'r2, rmse, mae, mse, accuracy, roc_auc, log_loss, f1, ap. '
+            'r2, rmse, mae, mse, accuracy, roc_auc, log_loss, f1, micro_f1, macro_f1, ap. '
             'please pass a customized metric function to AutoML.fit(metric=func)')
     return score
 
@@ -292,3 +294,45 @@ def get_classification_objective(num_labels: int) -> str:
     else:
         objective_name = 'multi:softmax'
     return objective_name
+
+
+def norm_confusion_matrix(y_true, y_pred):
+    '''normalized confusion matrix
+
+    Args:
+        estimator: A multi-class classification estimator
+        y_true: A numpy array or a pandas series of true labels
+        y_pred: A numpy array or a pandas series of predicted labels
+
+    Returns:
+        A normalized confusion matrix
+    '''
+    from sklearn.metrics import confusion_matrix
+    conf_mat = confusion_matrix(y_true, y_pred)
+    norm_conf_mat = conf_mat.astype('float') / conf_mat.sum(axis=1)[:, np.newaxis]
+    return norm_conf_mat
+
+
+def multi_class_curves(y_true, y_pred_proba, curve_func):
+    '''Binarize the data for multi-class tasks and produce ROC or precision-recall curves
+
+    Args:
+        y_true: A numpy array or a pandas series of true labels
+        y_pred_proba: A numpy array or a pandas dataframe of predicted probabilites
+        curve_func: A function to produce a curve (e.g., roc_curve or precision_recall_curve)
+
+    Returns:
+        A tuple of two dictionaries with the same set of keys (class indices)
+        The first dictionary curve_x stores the x coordinates of each curve, e.g.,
+            curve_x[0] is an 1D array of the x coordinates of class 0
+        The second dictionary curve_y stores the y coordinates of each curve, e.g.,
+            curve_y[0] is an 1D array of the y coordinates of class 0
+    '''
+    from sklearn.preprocessing import label_binarize
+    classes = np.unique(y_true)
+    y_true_binary = label_binarize(y_true, classes=classes)
+
+    curve_x, curve_y = {}, {}
+    for i in range(len(classes)):
+        curve_x[i], curve_y[i], _ = curve_func(y_true_binary[:, i], y_pred_proba[:, i])
+    return curve_x, curve_y

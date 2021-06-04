@@ -70,7 +70,7 @@ class MyRegularizedGreedyForest(SKLearnEstimator):
 
 def logregobj(preds, dtrain):
     labels = dtrain.get_label()
-    preds = 1.0 / (1.0 + np.exp(-preds)) # transform raw leaf weight
+    preds = 1.0 / (1.0 + np.exp(-preds))  # transform raw leaf weight
     grad = preds - labels
     hess = preds * (1.0 - preds)
     return grad, hess
@@ -81,7 +81,7 @@ class MyXGB1(XGBoostEstimator):
     '''
 
     def __init__(self, **params):
-        super().__init__(objective=logregobj, **params) 
+        super().__init__(objective=logregobj, **params)
 
 
 class MyXGB2(XGBoostEstimator):
@@ -150,7 +150,6 @@ class TestAutoML(unittest.TestCase):
         self.test_classification(True)
 
     def test_custom_metric(self):
-
         X_train, y_train = load_iris(return_X_y=True)
         automl_experiment = AutoML()
         automl_settings = {
@@ -185,7 +184,6 @@ class TestAutoML(unittest.TestCase):
         print(train_loss_history)
 
     def test_classification(self, as_frame=False):
-
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 4,
@@ -223,43 +221,55 @@ class TestAutoML(unittest.TestCase):
         print(automl_experiment.predict_proba(X_train)[:5])
 
     def test_datetime_columns(self):
-
         automl_experiment = AutoML()
         automl_settings = {
-            "time_budget":         2,
-            "metric":              'mse',
-            "task":                'regression',
-            "log_file_name":       "test/datetime_columns.log",
+            "time_budget": 2,
+            "metric": 'mse',
+            "task": 'regression',
+            "log_file_name": "test/datetime_columns.log",
             "log_training_metric": True,
-            "n_jobs":              1,
-            "model_history":       True
+            "n_jobs": 1,
+            "model_history": True
         }
-
-        fake_df = pd.DataFrame({'A': [datetime(1900, 2, 3), datetime(1900, 3, 4)]})
-        y = np.array([0, 1])
-        automl_experiment.fit(X_train=fake_df, X_val=fake_df, y_train=y, y_val=y, **automl_settings)
-
-        y_pred = automl_experiment.predict(fake_df)
+        fake_df = pd.DataFrame({'A': [datetime(1900, 2, 3), datetime(1900, 3, 4),
+                                      datetime(1900, 3, 4), datetime(1900, 3, 4),
+                                      datetime(1900, 7, 2), datetime(1900, 8, 9)],
+                                'B': [datetime(1900, 1, 1), datetime(1900, 1, 1),
+                                      datetime(1900, 1, 1), datetime(1900, 1, 1),
+                                      datetime(1900, 1, 1), datetime(1900, 1, 1)],
+                                'year_A': [datetime(1900, 1, 2), datetime(1900, 8, 1),
+                                           datetime(1900, 1, 4), datetime(1900, 6, 1),
+                                           datetime(1900, 1, 5), datetime(1900, 4, 1)]})
+        y = np.array([0, 1, 0, 1, 0, 0])
+        automl_experiment.fit(X_train=fake_df, y_train=y, **automl_settings)
+        _ = automl_experiment.predict(fake_df)
 
     def test_micro_macro_f1(self):
-        automl_experiment = AutoML()
+        automl_experiment_micro = AutoML()
         automl_experiment_macro = AutoML()
-
         automl_settings = {
-            "time_budget":         2,
-            "task":                'classification',
-            "log_file_name":       "test/micro_macro_f1.log",
+            "time_budget": 2,
+            "task": 'classification',
+            "log_file_name": "test/micro_macro_f1.log",
             "log_training_metric": True,
-            "n_jobs":              1,
-            "model_history":       True
+            "n_jobs": 1,
+            "model_history": True
         }
-
         X_train, y_train = load_iris(return_X_y=True)
-        automl_experiment.fit(X_train=X_train, y_train=y_train, metric='micro_f1', **automl_settings)
-        automl_experiment_macro.fit(X_train=X_train, y_train=y_train, metric='macro_f1', **automl_settings)
+        automl_experiment_micro.fit(
+            X_train=X_train, y_train=y_train, metric='micro_f1', **automl_settings)
+        automl_experiment_macro.fit(
+            X_train=X_train, y_train=y_train, metric='macro_f1', **automl_settings)
+        estimator = automl_experiment_macro.model
+        y_pred = estimator.predict(X_train)
+        y_pred_proba = estimator.predict_proba(X_train)
+        from flaml.ml import norm_confusion_matrix, multi_class_curves
+        print(norm_confusion_matrix(y_train, y_pred))
+        from sklearn.metrics import roc_curve, precision_recall_curve
+        print(multi_class_curves(y_train, y_pred_proba, roc_curve))
+        print(multi_class_curves(y_train, y_pred_proba, precision_recall_curve))
 
     def test_regression(self):
-
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 2,
@@ -285,7 +295,6 @@ class TestAutoML(unittest.TestCase):
         print(get_output_from_log(automl_settings["log_file_name"], 1))
 
     def test_sparse_matrix_classification(self):
-
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 2,
@@ -309,7 +318,6 @@ class TestAutoML(unittest.TestCase):
         print(automl_experiment.best_estimator)
 
     def test_sparse_matrix_regression(self):
-
         X_train = scipy.sparse.random(300, 900, density=0.0001)
         y_train = np.random.uniform(size=300)
         X_val = scipy.sparse.random(100, 900, density=0.0001)
@@ -339,7 +347,6 @@ class TestAutoML(unittest.TestCase):
         print(automl_experiment.best_config_train_time)
 
     def test_sparse_matrix_xgboost(self):
-
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 3,
@@ -362,7 +369,6 @@ class TestAutoML(unittest.TestCase):
         print(automl_experiment.best_estimator)
 
     def test_sparse_matrix_lr(self):
-
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 2,
@@ -385,7 +391,6 @@ class TestAutoML(unittest.TestCase):
         print(automl_experiment.best_estimator)
 
     def test_sparse_matrix_regression_cv(self):
-
         X_train = scipy.sparse.random(8, 100)
         y_train = np.random.uniform(size=8)
         automl_experiment = AutoML()

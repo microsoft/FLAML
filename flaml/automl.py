@@ -292,7 +292,7 @@ class AutoML:
         classification), storing the best trained model.
         '''
         if self._trained_estimator:
-            return self._trained_estimator.model
+            return self._trained_estimator
         else:
             return None
 
@@ -309,7 +309,7 @@ class AutoML:
         if estimator_name in self._search_states:
             state = self._search_states[estimator_name]
             if hasattr(state, 'trained_estimator'):
-                return state.trained_estimator.model
+                return state.trained_estimator
         return None
 
     @property
@@ -346,7 +346,7 @@ class AutoML:
         if self._label_transformer:
             return self._label_transformer.classes_.tolist()
         if self._trained_estimator:
-            return self._trained_estimator.model.classes_.tolist()
+            return self._trained_estimator.classes_.tolist()
         return None
 
     def predict(self, X_test):
@@ -809,14 +809,17 @@ class AutoML:
                 dataframe and label are ignored;
                 If not, dataframe and label must be provided.
             metric: A string of the metric name or a function,
-                e.g., 'accuracy', 'roc_auc', 'f1', 'micro_f1', 'macro_f1', 'log_loss', 'mae', 'mse', 'r2'
+                e.g., 'accuracy', 'roc_auc', 'f1', 'micro_f1', 'macro_f1',
+                'log_loss', 'mae', 'mse', 'r2'
                 if passing a customized metric function, the function needs to
                 have the follwing signature:
 
                 .. code-block:: python
 
-                    def custom_metric(X_test, y_test, estimator, labels,
-                     X_train, y_train, weight_test=None, weight_train=None):
+                    def custom_metric(
+                        X_test, y_test, estimator, labels,
+                        X_train, y_train, weight_test=None, weight_train=None
+                    ):
                         return metric_to_minimize, metrics_to_log
 
                 which returns a float number as the minimization objective,
@@ -922,6 +925,7 @@ class AutoML:
         # set up learner search space
         for estimator_name in estimator_list:
             estimator_class = self._state.learner_classes[estimator_name]
+            estimator_class.init()
             self._search_states[estimator_name] = SearchState(
                 learner_class=estimator_class,
                 data_size=self._state.data_size, task=self._state.task,
@@ -1036,9 +1040,8 @@ class AutoML:
                         prune_attr=prune_attr,
                         min_resource=min_resource,
                         max_resource=max_resource,
-                        resources_per_trial={"cpu": self._state.n_jobs,
-                                             "mem": self._mem_thres},
-                        mem_size=learner_class.size)
+                        config_constraints=[(learner_class.size, '<=', self._mem_thres)]
+                    )
                 else:
                     algo = SearchAlgo(
                         metric='val_loss', mode='min', space=search_space,
@@ -1094,7 +1097,7 @@ class AutoML:
                         self._state.time_from_start)
                     if self._save_model_history:
                         self._model_history[
-                            self._track_iter] = search_state.trained_estimator.model
+                            self._track_iter] = search_state.trained_estimator
                     elif self._trained_estimator:
                         del self._trained_estimator
                         self._trained_estimator = None
@@ -1217,6 +1220,8 @@ class AutoML:
         else:
             self._selected = self._trained_estimator = None
             self.modelcount = 0
+        if self.model and mlflow is not None and mlflow.active_run():
+            mlflow.sklearn.log_model(self.model, 'best_model')
 
     def __del__(self):
         if hasattr(self, '_trained_estimator') and self._trained_estimator \
@@ -1236,7 +1241,7 @@ class AutoML:
         for i, estimator in enumerate(estimator_list):
             if estimator in self._search_states and (
                 self._search_states[estimator].sample_size
-            ):  # sample_size=none meaning no result
+            ):  # sample_size=None meaning no result
                 search_state = self._search_states[estimator]
                 if (self._search_states[estimator].time2eval_best
                     > self._state.time_budget - self._state.time_from_start

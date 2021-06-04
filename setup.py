@@ -40,6 +40,7 @@ setuptools.setup(
             "jupyter",
             "matplotlib==3.2.0",
             "rgf-python",
+            "vowpalwabbit",
         ],
         "test": [
             "flake8>=3.8.4",
@@ -48,11 +49,16 @@ setuptools.setup(
             "xgboost<1.3",
             "rgf-python",
             "optuna==2.3.0",
+<<<<<<< HEAD
             "transformers==4.4.1",
             "wandb==0.10.26",
             "ray[tune]==1.2.0",
             "torch==1.8.1",
             "datasets==1.4.1",
+=======
+            "vowpalwabbit",
+            "openml",
+>>>>>>> upstream/main
         ],
         "blendsearch": [
             "optuna==2.3.0"
@@ -67,6 +73,9 @@ setuptools.setup(
         "nni": [
             "nni",
         ],
+        "vw": [
+            "vowpalwabbit",
+        ]
     },
     classifiers=[
         "Programming Language :: Python :: 3",

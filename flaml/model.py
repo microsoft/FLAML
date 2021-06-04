@@ -124,8 +124,7 @@ class BaseEstimator:
                 class j
         '''
         if 'regression' in self._task:
-            print('Regression tasks do not support predict_prob')
-            raise ValueError
+            raise ValueError('Regression tasks do not support predict_prob')
         else:
             X_test = self._preprocess(X_test)
             return self._model.predict_proba(X_test)
@@ -163,6 +162,11 @@ class BaseEstimator:
     def cost_relative2lgbm(cls):
         '''[optional method] relative cost compared to lightgbm'''
         return 1.0
+
+    @classmethod
+    def init(cls):
+        '''[optional method] initialize the class'''
+        pass
 
 
 class SKLearnEstimator(BaseEstimator):
@@ -457,6 +461,7 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
             'booster': params.get('booster', 'gbtree'),
             'colsample_bylevel': float(colsample_bylevel),
             'colsample_bytree': float(colsample_bytree),
+            'use_label_encoder': params.get('use_label_encoder', False),
         }
 
         if 'regression' in task:
@@ -632,6 +637,11 @@ class CatBoostEstimator(BaseEstimator):
     @classmethod
     def cost_relative2lgbm(cls):
         return 15
+
+    @classmethod
+    def init(cls):
+        CatBoostEstimator._time_per_iter = None
+        CatBoostEstimator._train_size = 0
 
     def __init__(
         self, task='binary:logistic', n_jobs=1,
