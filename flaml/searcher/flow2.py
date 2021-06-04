@@ -128,11 +128,11 @@ class FLOW2(Searcher):
                     sampler_inner = sampler.get_sampler()
                     if str(sampler_inner) == 'Uniform':
                         self._step_lb = min(
-                            self._step_lb, sampler.q/(domain.upper-domain.lower))
+                            self._step_lb, sampler.q / (domain.upper - domain.lower))
                 elif isinstance(domain, sample.Integer) and str(
-                    sampler) == 'Uniform':
+                     sampler) == 'Uniform':
                     self._step_lb = min(
-                        self._step_lb, 1.0/(domain.upper-domain.lower))
+                        self._step_lb, 1.0 / (domain.upper - domain.lower))
                 if isinstance(domain, sample.Categorical):
                     cat_hp_cost = self.cat_hp_cost
                     if cat_hp_cost and key in cat_hp_cost:
