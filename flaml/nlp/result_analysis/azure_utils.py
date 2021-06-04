@@ -28,6 +28,20 @@ class JobID:
         if console_args:
             self.load_console_args(console_args)
 
+    def set_unittest_config(self):
+        self.dat = ["glue"]
+        self.subdat = "mrpc"
+        self.mod = "hpo"
+        self.spa = "uni_test"
+        self.arg = "dft"
+        self.alg = "bs"
+        self.pru = "None"
+        self.pre_full = "google/mobilebert-uncased"
+        self.pre = "mobilebert"
+        self.presz = "small"
+        self.spt = "rspt"
+        self.rep = 0
+
     def is_partial_match(self, partial_config):
         is_not_match = False
         for key, val in partial_config.__dict__.items():

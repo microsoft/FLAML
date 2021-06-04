@@ -422,9 +422,10 @@ class AutoTransformers:
         trainer.trial_id = reporter.trial_id
 
         run = self.wandb_utils.set_wandb_per_trial()
-        for each_hp in config:
-            if each_hp in hp_type_mapping.keys():
-                wandb.log({each_hp: config[each_hp]})
+        if os.environ["WANDB_MODE"] == "online":
+            for each_hp in config:
+                if each_hp in hp_type_mapping.keys():
+                    wandb.log({each_hp: config[each_hp]})
         trainer.train()
         output_metrics = trainer.evaluate(self.eval_dataset)
         if run:
