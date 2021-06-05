@@ -24,7 +24,7 @@ def get_preparedata_setting(jobid_config, wandb_utils):
     return preparedata_setting
 
 def get_autohf_settings():
-    autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
+    autohf_settings = {"resources_per_trial": {"cpu": 1},
                        "num_samples": 1,
                        "time_budget": 100000,
                        "ckpt_per_epoch": 1,
