@@ -56,6 +56,7 @@ setuptools.setup(
             "ray[tune]==1.2.0",
             "torch==1.8.1",
             "datasets==1.4.1",
+            "azure-storage-blob"
         ],
         "blendsearch": [
             "optuna==2.3.0"
