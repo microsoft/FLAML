@@ -107,7 +107,7 @@ def hpo_space_gridunion_smoke_test(logger, model_type, model_size_type, dataset_
             'weight_decay': [0.0],
             'adam_epsilon': [1e-08],
             'warmup_ratio': [0.1],
-            'per_device_train_batch_size': [32],
+            'per_device_train_batch_size': [2],
             'hidden_dropout_prob': [0.1],
             'attention_probs_dropout_prob': [0.1],
             'num_train_epochs': [1]}
