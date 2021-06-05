@@ -4,7 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7f5504a5-ec11-456b-a91b-37101977d214" name="Default Changelist" comment="bo/cfo for large model" />
+    <list default="true" id="7f5504a5-ec11-456b-a91b-37101977d214" name="Default Changelist" comment="bo/cfo for large model">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flaml/nlp/autotransformers.py" beforeDir="false" afterPath="$PROJECT_DIR$/flaml/nlp/autotransformers.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -35,7 +38,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="v0.2.7" />
+        <entry key="$PROJECT_DIR$" value="exp" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -239,21 +242,7 @@
       <workItem from="1620862971263" duration="166193000" />
       <workItem from="1621369933440" duration="319220000" />
       <workItem from="1622852961857" duration="1241000" />
-      <workItem from="1622854232232" duration="11774000" />
-    </task>
-    <task id="LOCAL-00431" summary="fixed run_autohf.py">
-      <created>1622242846242</created>
-      <option name="number" value="00431" />
-      <option name="presentableId" value="LOCAL-00431" />
-      <option name="project" value="LOCAL" />
-      <updated>1622242846242</updated>
-    </task>
-    <task id="LOCAL-00432" summary="fixed run_autohf.py">
-      <created>1622242985131</created>
-      <option name="number" value="00432" />
-      <option name="presentableId" value="LOCAL-00432" />
-      <option name="project" value="LOCAL" />
-      <updated>1622242985131</updated>
+      <workItem from="1622854232232" duration="15380000" />
     </task>
     <task id="LOCAL-00433" summary="fixed run_autohf.py">
       <created>1622243723282</created>
@@ -584,7 +573,21 @@
       <option name="project" value="LOCAL" />
       <updated>1622918705084</updated>
     </task>
-    <option name="localTasksCounter" value="480" />
+    <task id="LOCAL-00480" summary="bo/cfo for large model">
+      <created>1622919195671</created>
+      <option name="number" value="00480" />
+      <option name="presentableId" value="LOCAL-00480" />
+      <option name="project" value="LOCAL" />
+      <updated>1622919195671</updated>
+    </task>
+    <task id="LOCAL-00481" summary="bo/cfo for large model">
+      <created>1622919230709</created>
+      <option name="number" value="00481" />
+      <option name="presentableId" value="LOCAL-00481" />
+      <option name="project" value="LOCAL" />
+      <updated>1622919230709</updated>
+    </task>
+    <option name="localTasksCounter" value="482" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -637,26 +640,6 @@
           <url>file://$USER_HOME$/Library/Caches/JetBrains/PyCharm2020.3/remote_sources/1078739270/-1495276350/transformers/trainer.py</url>
           <line>1658</line>
           <option name="timeStamp" value="45" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/flaml/nlp/result_analysis/generate_result_summary.py</url>
-          <line>70</line>
-          <option name="timeStamp" value="474" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/flaml/nlp/result_analysis/azure_utils.py</url>
-          <line>527</line>
-          <option name="timeStamp" value="653" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/flaml/nlp/result_analysis/azure_utils.py</url>
-          <line>478</line>
-          <option name="timeStamp" value="674" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/flaml/nlp/result_analysis/generate_result_summary.py</url>
-          <line>293</line>
-          <option name="timeStamp" value="680" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="jupyter-line">
           <url>notebook:///Users/xliu/Documents/xqq/Documents/work/projects/automl/FLAML/notebook/flaml_automl.ipynb</url>

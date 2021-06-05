@@ -57,13 +57,13 @@ class AutoTransformers:
 
             autohf = AutoTransformers()
             autohf_settings = {"resources_per_trial": {"cpu": 1},
-                       "num_samples": 1,
+                       "num_samples": -1,
                        "time_budget": 100000,
                        "ckpt_per_epoch": 1,
                        "fp16": False,
                       }
 
-            validation_metric, analysis = autohf.fit(**autohf_settings,)
+            validation_metric, analysis = autohf.fit(**autohf_settings)
 
     '''
 
@@ -74,12 +74,14 @@ class AutoTransformers:
         if mode == "grid":
             for each_hp in config_json.keys():
                 this_config = config_json[each_hp]
-                assert isinstance(this_config, dict) or isinstance(this_config, list), "config of " + each_hp + " must be dict or list"
+                assert isinstance(this_config, dict) or isinstance(this_config, list), \
+                    "config of " + each_hp + " must be dict or list"
                 search_space[each_hp] = ray.tune.grid_search(this_config)
         else:
             for each_hp in config_json.keys():
                 this_config = config_json[each_hp]
-                assert isinstance(this_config, dict) or isinstance(this_config, list), "config of " + each_hp + " must be dict or list"
+                assert isinstance(this_config, dict) or isinstance(this_config, list), \
+                    "config of " + each_hp + " must be dict or list"
                 if isinstance(this_config, dict):
                     lower = this_config["l"]
                     upper = this_config["u"]
@@ -99,14 +101,30 @@ class AutoTransformers:
                           **custom_hpo_args):
         search_space_dict_hpo = search_space_dict_grid = None
         if self.jobid_config.mod == "grid":
-            search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self.jobid_config.pre, self.jobid_config.presz, self.jobid_config.dat[0], self.jobid_config.subdat, "grid")
-            search_space_dict_grid = AutoTransformers._convert_dict_to_ray_tune_space(search_space_grid_json, mode="grid")
+            search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self.jobid_config.pre,
+                    self.jobid_config.presz, self.jobid_config.dat[0], self.jobid_config.subdat, "grid")
+            search_space_dict_grid \
+                = AutoTransformers._convert_dict_to_ray_tune_space(
+                    search_space_grid_json,
+                    mode="grid")
             search_space_dict_hpo = search_space_dict_grid
         if self.jobid_config.mod != "grid" and self.jobid_config.mod != "gridbert":
-            search_space_hpo_json = AutoHPOSearchSpace.from_model_and_dataset_name(logger, self.jobid_config.spa, self.jobid_config.pre, self.jobid_config.presz, self.jobid_config.dat[0], self.jobid_config.subdat, **custom_hpo_args)
+            search_space_hpo_json \
+                = AutoHPOSearchSpace.from_model_and_dataset_name(
+                    logger,
+                    self.jobid_config.spa,
+                    self.jobid_config.pre,
+                    self.jobid_config.presz,
+                    self.jobid_config.dat[0],
+                    self.jobid_config.subdat,
+                **custom_hpo_args)
             search_space_dict_hpo = AutoTransformers._convert_dict_to_ray_tune_space(search_space_hpo_json, mode="hpo")
         elif self.jobid_config.mod == "gridbert":
-            search_space_hpo_json = AutoGridSearchSpace.from_model_and_dataset_name("bert", "base", self.jobid_config.dat[0], self.jobid_config.subdat, "grid")
+            search_space_hpo_json = AutoGridSearchSpace.from_model_and_dataset_name(
+                "bert",
+                "base",
+                self.jobid_config.dat[0],
+                self.jobid_config.subdat, "grid")
             search_space_dict_hpo = AutoTransformers._convert_dict_to_ray_tune_space(search_space_hpo_json, mode="grid")
 
         search_space_dict_hpo = TrainerForAutoTransformers.resolve_hp_conflict(search_space_dict_hpo)
@@ -149,28 +167,31 @@ class AutoTransformers:
                      resplit_portion=None):
         '''Prepare data
 
+            An example:
+
+                preparedata_setting = {
+                "server_name": "tmdev",
+                "data_root_path": "data/",
+                "max_seq_length": 128,
+                "jobid_config": jobid_config,
+                "wandb_utils": wandb_utils,
+                "resplit_portion": {"source": ["train", "validation"], "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
+                }
+                autohf.prepare_data(**preparedata_setting)
+
             Args:
                 server_name:
-                    a string variable, which can be tmdev
-
-                model_name:
-                    the huggingface name path under huggingface.co/models
-                    e.g., "google/grid-base-discriminator"
-                split_mode:
-                    the mode for splitting the dataset, must be one of two:
-                    -- "resplit": mixing train and dev, then resplit them into a proportion defined by the resplit_portion parameter, this
-                     mode is mostly for resplitting glue after considering the overfitting problem in the few-sample subdatasets, e.g., RTE, MRPC, SST, QNLI
-                    -- "origin": keep the original train/dev/test split.
-                ckpt_path:
-                    the root path for outputting the checkpoints
-                result_path:
-                    the root path for outputting the result
-                log_path:
-                    the root path for saving the log
-                max_seq_length:
+                    a string variable, which can be tmdev or azureml
+                data_root_path:
+                    the root path for storing the checkpoints and output results, e.g., "data/"
+                jobid_config:
+                    a JobID object describing the profile of job
+                wandb_utils:
+                    a WandbUtils object for wandb operations
+                max_seq_length (optional):
                     max_seq_length for the huggingface, this hyperparameter must be specified at the data processing step
                 resplit_portion:
-                    the proportion for resplitting the train and dev data when split_mode="resplit". Not required.
+                    the proportion for resplitting the train and dev data when split_mode="resplit". If args.resplit_mode = "rspt", resplit_portion is required
             '''
         self._max_seq_length = max_seq_length
         self._server_name = server_name
@@ -276,7 +297,9 @@ class AutoTransformers:
                     this_model = AutoModelForSequenceClassification.from_pretrained(checkpoint_path, config=model_config)
                     model_config.num_labels = self._num_labels
                     this_model.num_labels = self._num_labels
-                    this_model.classifier = AutoSeqClassificationHead.from_model_type_and_config(self.jobid_config.pre, model_config)
+                    this_model.classifier = AutoSeqClassificationHead.from_model_type_and_config(
+                        self.jobid_config.pre,
+                        model_config)
                 else:
                     this_model = AutoModelForSequenceClassification.from_pretrained(checkpoint_path, config=model_config)
             else:
@@ -430,7 +453,11 @@ class AutoTransformers:
                          **custom_hpo_args):
         if search_algo_name == "BlendSearch":
             self._verify_init_config(**custom_hpo_args)
-        search_algo = AutoSearchAlgorithm.from_method_name(search_algo_name, search_algo_args_mode, self._search_space_hpo, **custom_hpo_args)
+        search_algo = AutoSearchAlgorithm.from_method_name(
+            search_algo_name,
+            search_algo_args_mode,
+            self._search_space_hpo,
+            **custom_hpo_args)
         return search_algo
 
     @staticmethod
@@ -448,18 +475,22 @@ class AutoTransformers:
 
     def _save_ckpt_json(self,
                         best_ckpt):
-        json.dump({"best_ckpt": best_ckpt}, open(os.path.join(self.path_utils.result_dir_per_run, "save_ckpt_" + self.jobid_config.to_jobid_string() + ".json"), "w"))
+        json.dump({"best_ckpt": best_ckpt},
+                  open(os.path.join(self.path_utils.result_dir_per_run,
+                  "save_ckpt_" + self.jobid_config.to_jobid_string() + ".json"), "w"))
 
     def _save_output_metric(self,
                             output_metrics):
         json.dump(output_metrics, open(
-            os.path.join(self.path_utils.result_dir_per_run, "output_metric_" + self.jobid_config.to_jobid_string() + ".json"), "w"))
+            os.path.join(self.path_utils.result_dir_per_run,
+            "output_metric_" + self.jobid_config.to_jobid_string() + ".json"), "w"))
 
     def _load_ckpt_json(self,
                         ckpt_dir = None,
                         **kwargs):
         if not ckpt_dir:
-            ckpt_dir = os.path.join(self.path_utils.result_dir_per_run, "save_ckpt_" + self.jobid_config.to_jobid_string() + ".json")
+            ckpt_dir = os.path.join(self.path_utils.result_dir_per_run,
+                                    "save_ckpt_" + self.jobid_config.to_jobid_string() + ".json")
         try:
             ckpt_json = json.load(open(ckpt_dir))
             return ckpt_json["best_ckpt"]
@@ -467,23 +498,31 @@ class AutoTransformers:
             logger.error("Saved checkpoint not found. Please make sure checkpoint is stored under {}".format(ckpt_dir))
             raise err
 
-    def set_metric(self, custom_metric_name = None, custom_metric_mode_name = None):
+    def _set_metric(self, custom_metric_name = None, custom_metric_mode_name = None):
         default_metric, default_mode, all_metrics, all_modes = get_default_and_alternative_metric(
                             self.jobid_config.dat[0],
                             subdataset_name=self.jobid_config.subdat,
                             custom_metric_name= custom_metric_name,
                             custom_metric_mode_name= custom_metric_mode_name)
-        _variable_override_default_alternative(logger, self, "metric_name", default_metric, all_metrics, custom_metric_name)
-        _variable_override_default_alternative(logger, self, "metric_mode_name", default_mode, all_modes, custom_metric_mode_name)
+        _variable_override_default_alternative(logger,
+                                               self,
+                                               "metric_name",
+                                               default_metric,
+                                               all_metrics,
+                                               custom_metric_name)
+        _variable_override_default_alternative(logger,
+                                               self,
+                                               "metric_mode_name",
+                                               default_mode,
+                                               all_modes,
+                                               custom_metric_mode_name)
         self._all_metrics = all_metrics
         self._all_modes = all_modes
 
-    def set_task(self):
+    def _set_task(self):
         self.task_name = get_default_task(self.jobid_config.dat[0], self.jobid_config.subdat)
 
     def fit_hf(self,
-               train_dataset,
-               eval_dataset,
                resources_per_trial,
                num_samples,
                time_budget,
@@ -492,6 +531,43 @@ class AutoTransformers:
                _fp16 = True,
                **custom_hpo_args
                ):
+        '''Fine tuning the huggingface using HF's API Transformers.hyperparameter_search
+
+                An example:
+                    autohf_settings = {"resources_per_trial": {"cpu": 1},
+                               "num_samples": 1,
+                               "time_budget": 100000,
+                               "ckpt_per_epoch": 1,
+                               "fp16": False,
+                              }
+                    validation_metric, analysis = autohf.fit(**autohf_settings,)
+
+                Args:
+                    resources_per_trial:
+                        A dict showing the resources used by each trial,
+                        e.g., {"gpu": 4, "cpu": 4}
+                    num_samples:
+                        An int variable of the maximum number of trials
+                    time_budget:
+                        An int variable of the maximum time budget
+                    custom_metric_name:
+                        A string of the dataset name or a function,
+                        e.g., 'accuracy', 'f1', 'loss',
+                    custom_metric_mode_name:
+                        A string of the mode name,
+                        e.g., "max", "min", "last", "all"
+                    fp16:
+                        boolean, default = True | whether to use fp16
+                    custom_hpo_args:
+                        The additional keyword arguments, e.g.,
+                        custom_hpo_args = {"points_to_evaluate": [{
+                                   "num_train_epochs": 1,
+                                   "per_device_train_batch_size": 128, }]}
+
+                Returns:
+                   validation_metric:
+                        a dict storing the validation score
+                '''
         def model_init():
             return self._load_model()
         def ray_hp_space(trial):
@@ -502,8 +578,8 @@ class AutoTransformers:
                 "per_device_train_batch_size": ray.tune.choice([4, 8, 16, 32, 64]),
             }
 
-        self.set_metric(custom_metric_name, custom_metric_mode_name)
-        self.set_task()
+        self._set_metric(custom_metric_name, custom_metric_mode_name)
+        self._set_task()
 
         training_args = TrainingArguments(
             output_dir=self.path_utils.hpo_ckpt_path,
@@ -515,8 +591,8 @@ class AutoTransformers:
             this_model,
             training_args,
             model_init=model_init,
-            train_dataset= train_dataset,
-            eval_dataset= eval_dataset,
+            train_dataset= self.train_dataset,
+            eval_dataset= self.eval_dataset,
             tokenizer=self._tokenizer,
             compute_metrics=self._compute_metrics_by_dataset_name,
         )
@@ -545,8 +621,8 @@ class AutoTransformers:
             this_model,
             best_training_args,
             model_init=model_init,
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset,
+            train_dataset= self.train_dataset,
+            eval_dataset= self.eval_dataset,
             tokenizer=self._tokenizer,
             compute_metrics=self._compute_metrics_by_dataset_name,
         )
@@ -573,58 +649,52 @@ class AutoTransformers:
             **custom_hpo_args):
         '''Fine tuning the huggingface using the hpo setting
 
+        An example:
+            autohf_settings = {"resources_per_trial": {"cpu": 1},
+                       "num_samples": 1,
+                       "time_budget": 100000,
+                       "ckpt_per_epoch": 1,
+                       "fp16": False,
+                      }
+            validation_metric, analysis = autohf.fit(**autohf_settings,)
+
         Args:
-            train_dataset:
-                the training data of type datasets.Dataset, loaded from datasets.load_dataset
-            eval_dataset:
-                the validation data of type datasets.Dataset, loaded from datasets.load_dataset
-            metric_name:
-                A string of the dataset name or a function,
-                e.g., 'accuracy', 'f1', 'loss',
-                if passing a customized dataset function, the function needs to
-                have the follwing signature:
-
-                .. code-block:: python
-
-                    def custom_metric(X_test, y_test, estimator, labels,
-                     X_train, y_train, weight_test=None, weight_train=None):
-                        return metric_to_minimize, metrics_to_log
-
-                which returns a float number as the minimization objective,
-                and a tuple of floats as the metrics to log
-            metric_mode_name:
-                A string of the mode name,
-                e.g., "max", "min", "last", "all"
             resources_per_trial:
                 A dict showing the resources used by each trial,
                 e.g., {"gpu": 4, "cpu": 4}
-            search_algo_name:
-                The search algoritihm for AutoHF()
-                e.g., "blendsearch" "cfo" "bo"
-            search_space_path:
-                a path for the json file for search space,
-                e.g., search_space_path = "./hpo/grid/"
-            scheduler_name:
-                A string of the scheduler name,
-                e.g., "ASHA", "HyperBand"
             num_samples:
                 An int variable of the maximum number of trials
             time_budget:
                 An int variable of the maximum time budget
+            custom_metric_name:
+                A string of the dataset name or a function,
+                e.g., 'accuracy', 'f1', 'loss',
+            custom_metric_mode_name:
+                A string of the mode name,
+                e.g., "max", "min", "last", "all"
+            ckpt_per_epoch:
+                An integer value of number of checkpoints per epoch, default = 1
             verbose:
                 int, default=1 | Controls the verbosity, higher means more
                 messages
             fp16:
                 boolean, default = True | whether to use fp16
-            search_algo_kwargs:
-                The keyword arguments to be fed into the search algorith, e.g.,
-                search_algo_kwargs = {"points_to_evaluate": [{
+            custom_hpo_args:
+                The additional keyword arguments, e.g.,
+                custom_hpo_args = {"points_to_evaluate": [{
                            "num_train_epochs": 1,
                            "per_device_train_batch_size": 128, }]}
+
+        Returns:
+           validation_metric:
+                a dict storing the validation score
+           analysis:
+                a ray.tune.analysis.Analysis object storing the analysis results from tune.run
+
         '''
         self._resources_per_trial = resources_per_trial
-        self.set_metric(custom_metric_name, custom_metric_mode_name)
-        self.set_task()
+        self._set_metric(custom_metric_name, custom_metric_mode_name)
+        self._set_task()
         self._fp16 = fp16
         ray.init()
 
@@ -705,9 +775,10 @@ class AutoTransformers:
                 **kwargs):
         '''Predict label for test data.
 
+        An example:
+            predictions, test_metric = autohf.predict()
+
         Args:
-            test_dataset:
-                the test dataset
             ckpt_json_dir:
                 the checkpoint for the fine-tuned huggingface if you wish to override the saved checkpoint in the training stage under self.path_utils._result_dir_per_run
 
@@ -748,7 +819,20 @@ class AutoTransformers:
                           output_prediction_path,
                           output_dir_name):
         """
-            Output prediction and prepare the submission file
+            When using the original GLUE split, prediction and prepare the submission file
+
+            Example:
+                local_archive_path = self.autohf.output_prediction(predictions,
+                                      output_prediction_path= self.console_args.data_root_dir + "result/",
+                                      output_dir_name=azure_save_file_name)
+
+            Args:
+                predictions:
+                    a list of predictions, which is the output of AutoTransformers.predict()
+                output_prediction_path:
+                    output path for the prediction
+                output_dir_name:
+                    an string, which is the name of the output prediction file
         """
         return auto_output_prediction(self.jobid_config.dat[0], output_prediction_path,
                                       output_dir_name, predictions, self.train_dataset,
