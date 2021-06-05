@@ -268,7 +268,7 @@ if __name__ == "__main__":
 
     jobid_config = JobID(args)
     autohf = AutoTransformers()
-    wandb_utils = WandbUtils(is_wandb_on= True, console_args=args, jobid_config=jobid_config)
+    wandb_utils = WandbUtils(is_wandb_on= False, console_args=args, jobid_config=jobid_config)
     wandb_utils.set_wandb_per_run()
 
     if args.algo_mode in ("hpo", "hfhpo", "grid", "gridbert"):
