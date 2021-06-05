@@ -28,6 +28,7 @@ def get_autohf_settings():
                        "num_samples": 1,
                        "time_budget": 100000,
                        "ckpt_per_epoch": 1,
+                       "fp16": False,
                       }
     return autohf_settings
 
