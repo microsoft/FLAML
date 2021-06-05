@@ -110,7 +110,7 @@ def hpo_space_gridunion_smoke_test(logger, model_type, model_size_type, dataset_
             'per_device_train_batch_size': [2],
             'hidden_dropout_prob': [0.1],
             'attention_probs_dropout_prob': [0.1],
-            'num_train_epochs': [1]}
+            'num_train_epochs': [0.1]}
 
 def hpo_space_gridunion(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
     output_config = AutoGridSearchSpace.from_model_and_dataset_name(model_type, model_size_type, dataset_name, subdataset_name, "hpo")
