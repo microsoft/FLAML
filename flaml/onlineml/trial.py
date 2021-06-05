@@ -309,7 +309,7 @@ class VowpalWabbitTrial(BaseOnlineTrial):
         except ImportError:
             raise ImportError(
                 'To use AutoVW, please run pip install flaml[vw] to install vowpalwabbit')
-        self.trainable_class = pyvw
+        self.trainable_class = pyvw.vw
         # variables that are needed during online training
         self._metric = metric
         self._y_min_observed = None
