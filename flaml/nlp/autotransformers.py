@@ -56,40 +56,16 @@ class AutoTransformers:
         .. code-block:: python
 
             autohf = AutoTransformers()
-            autohf_settings = {"metric_name": "accuracy",
-                   "mode_name": "max",
-                   "resources_per_trial": {"gpu": 4, "cpu": 4},
-                   "search_algo_name": method,
-                   "num_samples": 4,
-                   "time_budget": 7200,
-                   "points_to_evaluate": [{
-                       "num_train_epochs": 1,
-                       "per_device_train_batch_size": 128, }]
-                   }
+            autohf_settings = {"resources_per_trial": {"cpu": 1},
+                       "num_samples": 1,
+                       "time_budget": 100000,
+                       "ckpt_per_epoch": 1,
+                       "fp16": False,
+                      }
 
-            autohf.fit(train_dataset,
-                       eval_dataset,
-                       **autohf_settings,)
+            validation_metric, analysis = autohf.fit(**autohf_settings,)
 
     '''
-
-    # _task_name: str = field(metadata={"help": "The task name, e.g., text-classification, question-answering"})
-    # _dataset_name: list = field(metadata={"help": "The dataset name, e.g., glue"})
-    # _subdataset_name: Optional[str] = field(metadata={"help": "The subdataset name if there's any, e.g., mnli"})
-    # _model_type: str = field(metadata={"help": "The model type, e.g., bert, roberta, etc."})
-    # _split_mode: str = field(metadata={"help": "The split mode of the dataset, it can only be resplit or origin"})
-    #
-    # _scheduler_name: str = field(metadata={"help": "The scheduler name."})
-    # _search_algo_name: str = field(metadata={"help": "The hpo method name."})
-    #
-    # _metric_name: str = field(metadata={"help": "metric name"})
-    # _metric_mode_name: str = field(metadata={"help": "metric mode name"})
-    #
-    # _max_seq_length: Optional[int] = field(metadata={"help": "max seq length"})
-    # _fp16: Optional[bool] = field(metadata={"help": "is fp16"})
-    #
-    # # the following arguments are specific to text classification
-    # _num_labels: Optional[int] = field(metadata={"help": "The number of labels of output classes"})
 
     @staticmethod
     def _convert_dict_to_ray_tune_space(config_json, mode ="grid"):
@@ -174,16 +150,8 @@ class AutoTransformers:
         '''Prepare data
 
             Args:
-                dataset_config:
-                    a dict for data specification, it must contain two keys:
-                        -- "task": the task name, e.g., "text-classification" "question-answering"
-                        -- "dataset_name": the dataset name, must be one of the dataset name in huggingface, or "custom"
-                        -- "input_path": the custom path for specifying the custom dataset, must be specified if dataset_name = "custom"
-                        -- "subdataset_name": the sub dataset name, e.g., "glue", "qnli". Not required.
-                    e.g., {"task": "text-classification",
-                            "dataset_name": ["glue"],
-                            "subdataset_name": "rte",
-                            "folder_name": }
+                server_name:
+                    a string variable, which can be tmdev
 
                 model_name:
                     the huggingface name path under huggingface.co/models
