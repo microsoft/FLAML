@@ -22,6 +22,8 @@ class JobID:
     presz: str = field(default = None)
     spt: str = field(default = None)
     rep: int = field(default = 0)
+    sddt: int = field(default = 42)
+    sdhf: int = field(default=42)
 
     def __init__(self,
                  console_args = None):
@@ -154,6 +156,8 @@ class JobID:
         self.presz = console_args.pretrained_model_size.split(":")[1]
         self.spt = console_args.resplit_mode
         self.rep = console_args.rep_id
+        self.sddt = console_args.seed_data
+        self.sdhf = console_args.seed_transformers
 
     @staticmethod
     def legacy_old_blobname_to_new_blobname(self,
@@ -196,7 +200,8 @@ class JobID:
         result_grid = re.search(".*_mod(el)?(?P<model_id>\d+)_None_None(_spt(?P<split_id>\d+))?_rep(?P<rep_id>\d+).log",
                                 old_blobname)
         result = re.search(
-            ".*_mod(el)?(?P<model_id>\d+)_(alg)?(?P<algo_id>\d+)_(spa)?(?P<space_id>\d+)(_spt(?P<split_id>\d+))?_rep(?P<rep_id>\d+).log",
+        ".*_mod(el)?(?P<model_id>\d+)_(alg)?(?P<algo_id>\d+)_(spa)?"
+        "(?P<space_id>\d+)(_spt(?P<split_id>\d+))?_rep(?P<rep_id>\d+).log",
             old_blobname)
         if result_grid:
             dat = [old_blobname.split("/")[1].split("_")[0]]
@@ -350,10 +355,18 @@ class AzureUtils:
                 with open(old_blob.name, "r") as fin:
                     alllines = fin.readlines()
                     wandb_group_name = alllines[0].rstrip("\n:")
-                    timestamp = re.search("timestamp:(?P<timestamp>.*):", alllines[1].strip("\n")).group("timestamp")
-                    duration = re.search("duration:(?P<duration>.*)$", alllines[3].strip("\n")).group("duration")
-                    sample_num = int(re.search("sample_num: (?P<sample_num>\d+)$", alllines[4].strip("\n")).group("sample_num"))
-                    validation = {"accuracy": float(re.search("validation accuracy: (?P<validation>.*)$", alllines[2].strip("\n")).group("validation"))}
+                    timestamp = re.search(
+                        "timestamp:(?P<timestamp>.*):",
+                        alllines[1].strip("\n")).group("timestamp")
+                    duration = re.search(
+                        "duration:(?P<duration>.*)$",
+                        alllines[3].strip("\n")).group("duration")
+                    sample_num = int(re.search(
+                        "sample_num: (?P<sample_num>\d+)$",
+                        alllines[4].strip("\n")).group("sample_num"))
+                    validation = {"accuracy": float(re.search(
+                        "validation accuracy: (?P<validation>.*)$",
+                        alllines[2].strip("\n")).group("validation"))}
                     test = None
                     if len(alllines) > 6:
                         result_test = re.search("test accuracy:(?P<test>.*)$", alllines[6].strip("\n"))
@@ -431,8 +444,16 @@ class AzureUtils:
         data_json = json.load(open(blobname, "r"))
         return [(x['config'], x['metric_score']["max"], x['start_time']) for x in data_json['val_log']]
 
-    def get_config_and_score_from_partial_config(self, root_log_path, partial_config, group_attrs, method, earliest_time = None):
-        matched_blob_list = self.get_blob_list_matching_partial_jobid(root_log_path, partial_config, earliest_time=earliest_time)
+    def get_config_and_score_from_partial_config(self,
+                                                 root_log_path,
+                                                 partial_config,
+                                                 group_attrs,
+                                                 method,
+                                                 earliest_time = None):
+        matched_blob_list = self.get_blob_list_matching_partial_jobid(
+            root_log_path,
+            partial_config,
+            earliest_time=earliest_time)
         group_dict = {}
         for (each_jobconfig, each_blob) in matched_blob_list:
             self.download_azure_blob(each_blob.name)
@@ -456,7 +477,7 @@ class AzureUtils:
                             for (config, score, ts) in sorted_config_and_score])
         return group_dict
 
-    def get_validation_perf(self, jobid_config):
+    def get_validation_perf(self, console_args = None, jobid_config = None):
         if jobid_config.pre == "electra":
             dataset_namelist = ["wnli", "rte", "mrpc", "cola", "stsb", "sst2", "qnli", "mnli"]
         else:
@@ -464,7 +485,7 @@ class AzureUtils:
         dataset_vallist1 = [0] * len(dataset_namelist)
         dataset_vallist2 = [0] * len(dataset_namelist)
 
-        matched_blob_list = self.get_blob_list_matching_partial_jobid("logs_acl/", jobid_config)
+        matched_blob_list = self.get_blob_list_matching_partial_jobid(console_args.azure_root_log_path, jobid_config)
         for (each_jobconfig, each_blob) in matched_blob_list:
             subdat_name = each_jobconfig.subdat
             self.download_azure_blob(each_blob.name)
@@ -473,7 +494,8 @@ class AzureUtils:
             validation_metric = data_json['valid_metric']
             try:
                 dataset_idx = dataset_namelist.index(subdat_name)
-                dataset_vallist1[dataset_idx],dataset_vallist2[dataset_idx] = self.get_validation_metricstr(validation_metric)
+                dataset_vallist1[dataset_idx],dataset_vallist2[dataset_idx] \
+                    = self.get_validation_metricstr(validation_metric)
             except ValueError:
                 pass
         print(" & ".join(dataset_vallist1))

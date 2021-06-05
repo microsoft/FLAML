@@ -49,13 +49,20 @@ class AutoGridSearchSpace:
         )
 
     @classmethod
-    def from_model_and_dataset_name(cls, model_type, model_size_type, dataset_name, subdataset_name = None, algo_mode = None):
+    def from_model_and_dataset_name(cls,
+                                    model_type,
+                                    model_size_type,
+                                    dataset_name,
+                                    subdataset_name = None,
+                                    algo_mode = None):
         if model_type in GRID_SEARCH_SPACE_MAPPING.keys():
             try:
-                this_model_recommended_space = GRID_SEARCH_SPACE_MAPPING[model_type](model_size_type, dataset_name, subdataset_name, algo_mode)
+                this_model_recommended_space = GRID_SEARCH_SPACE_MAPPING[model_type]\
+                    (model_size_type, dataset_name, subdataset_name, algo_mode)
                 return this_model_recommended_space
             except:
-                raise ValueError("{}, {}, {}, {} Return empty".format(model_type, model_size_type, dataset_name, str(subdataset_name)))
+                raise ValueError("{}, {}, {}, {} Return empty".format(
+                    model_type, model_size_type, dataset_name, str(subdataset_name)))
         raise ValueError(
             "Unrecognized method {},{} for this kind of AutoGridSearchSpace: {}.\n"
             "Method name should be one of {}.".format(

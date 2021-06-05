@@ -36,18 +36,40 @@ def tokenize_superglue_wic(this_example,
                            subdataset_name=None,
                            **kwargs
                            ):
+    """
+        tokenize the data from the wic task (word-in-context dataset),
+        e.g., sentence 1: "There's a lot of trash on the bed of the river"
+        	  sentence 2: "I keep a glass of water next to my bed when I sleep",
+        	  label = False (different word senses)
+        In the superglue data, the position of the word in sentence 1 and 2 are provided
+        What this function does is to update the span position after tokenization, based on each LM's own tokenizer,
+        The key is to insert an [SEP] before and after the original sentence, then feed it into the LM's tokenizer.
+        There are two challenges:
+           (1) Each LM's tokenizations are different, e.g., in XLNet's tokenizer, the paddings are on the left'
+           (2) Some LM's tokenization would add an underline symbol before the word, e.g., "There's a lot"
+           -> [_There, _', _s, _a, _lot]
+           When underline meets special char such as '"', "'", the tokenized sequence after adding [SEP] needs to be
+           aligned with the sequence tokenized without [SEP]. We use a two pointer algorithm for the alignment
+    """
     sent1, sent2 = this_example["sentence1"], this_example["sentence2"]
     start1, end1 = this_example["start1"], this_example["end1"]
     start2, end2 = this_example["start2"], this_example["end2"]
+    """
+        Add [SEP] to the sentence
+    """
     altered_sent1 = inserting_sepp(sent1, start1, end1, this_tokenizer)
     altered_sent2 = inserting_sepp(sent2, start2, end2, this_tokenizer)
-    input_ids_sepp = this_tokenizer(*(altered_sent1, altered_sent2), padding="max_length", max_length= 1024, truncation=True)["input_ids"]
+    input_ids_sepp = this_tokenizer(*(altered_sent1, altered_sent2),
+                                    padding="max_length",
+                                    max_length= 1024,
+                                    truncation=True)["input_ids"]
     data_pair = (sent1, sent2)
     assert "max_seq_length" in kwargs, "max_seq_length must be provided for glue"
     this_data = this_tokenizer(*data_pair, padding="max_length", max_length=kwargs["max_seq_length"], truncation=True)
     input_ids = this_data["input_ids"]
     which_sepp = 0
     span_start_end = [[100000, 100000], [100000, 100000]]
+
     ptr_sepp = ptr_nosepp = 0
     try:
         padding_direction = this_tokenizer.padding_side
@@ -60,12 +82,17 @@ def tokenize_superglue_wic(this_example,
     except:
         pass
     sep_id = this_tokenizer.convert_tokens_to_ids([this_tokenizer.sep_token])[0]
+    """
+        use two pointers to align the tokenized sequence before and after adding [SEP];
+        ptr_sepp: the pointer after adding; ptr_nosepp: the pointer without adding
+    """
     while ptr_sepp < len(input_ids_sepp) and ptr_nosepp < len(input_ids) and \
         input_ids_sepp[ptr_sepp] != 0 and input_ids[ptr_nosepp] != 0:
         if input_ids_sepp[ptr_sepp] == input_ids[ptr_nosepp]:
             ptr_sepp += 1; ptr_nosepp += 1
         else:
-            if not (input_ids_sepp[ptr_sepp] == sep_id or this_tokenizer.convert_ids_to_tokens([input_ids_sepp[ptr_sepp]])[0] in ('▁', '_')):
+            if not (input_ids_sepp[ptr_sepp] == sep_id
+                    or this_tokenizer.convert_ids_to_tokens([input_ids_sepp[ptr_sepp]])[0] in ('▁', '_')):
                 break
             if input_ids_sepp[ptr_sepp] == sep_id:
                 span_start_end[int(which_sepp / 2)][which_sepp % 2] = ptr_nosepp
@@ -77,13 +104,14 @@ def tokenize_superglue_wic(this_example,
     word_indices = []
     for idx1 in range(2):
         if span_start_end[idx1][1] < kwargs["max_seq_length"]:
-            first_span = [x for x in range(span_start_end[idx1][0], span_start_end[idx1][1]) if x < kwargs["max_seq_length"]] \
+            first_span = [x for x in range(span_start_end[idx1][0],
+                         span_start_end[idx1][1]) if x < kwargs["max_seq_length"]] \
                         + [0] * (max_word_span - span_start_end[idx1][1] + span_start_end[idx1][0])
             word_indices.append(first_span)
     this_data["word_spans"] = word_indices
     return this_data
 
-def tokenize_gule(this_example,
+def tokenize_glue(this_example,
                   this_tokenizer,
                   dataset_name,
                   subdataset_name = None,
@@ -105,20 +133,20 @@ def tokenize_gule(this_example,
 
 TOKENIZER_MAPPING = OrderedDict(
     [
-        (("glue", "rte"), tokenize_gule),
-        (("glue", "mrpc"), tokenize_gule),
-        (("glue", "cola"), tokenize_gule),
-        (("glue", "wnli"), tokenize_gule),
-        (("glue", "stsb"), tokenize_gule),
-        (("glue", "sst2"), tokenize_gule),
-        (("glue", "mnli"), tokenize_gule),
-        (("glue", "qqp"), tokenize_gule),
-        (("glue", "qnli"), tokenize_gule),
+        (("glue", "rte"), tokenize_glue),
+        (("glue", "mrpc"), tokenize_glue),
+        (("glue", "cola"), tokenize_glue),
+        (("glue", "wnli"), tokenize_glue),
+        (("glue", "stsb"), tokenize_glue),
+        (("glue", "sst2"), tokenize_glue),
+        (("glue", "mnli"), tokenize_glue),
+        (("glue", "qqp"), tokenize_glue),
+        (("glue", "qnli"), tokenize_glue),
         (("super_glue", "wic"), tokenize_superglue_wic),
     ]
 )
 
-class AutoToEncoded:
+class AutoEncodeText:
     """
     This is a generic huggingface class that will be instantiated as one of the huggingface classes of the library
     ---with the search space for grid search
@@ -135,7 +163,12 @@ class AutoToEncoded:
         )
 
     @classmethod
-    def from_model_and_dataset_name(cls, data_raw, model_checkpoint_path, dataset_name, subdataset_name = None, **kwargs):
+    def from_model_and_dataset_name(cls,
+                                    data_raw,
+                                    model_checkpoint_path,
+                                    dataset_name,
+                                    subdataset_name = None,
+                                    **kwargs):
         if (dataset_name, subdataset_name) in TOKENIZER_MAPPING.keys():
             try:
                 this_tokenizer = AutoTokenizer.from_pretrained(model_checkpoint_path, use_fast=True)

@@ -89,9 +89,20 @@ OUTPUT_PREDICTION_MAPPING = OrderedDict(
     ]
 )
 
-def auto_output_prediction(dataset_name, output_path, output_dir_name, predictions, train_data, dev_name, subset_name):
+def auto_output_prediction(dataset_name,
+                           output_path,
+                           output_dir_name,
+                           predictions,
+                           train_data,
+                           dev_name,
+                           subset_name):
     if dataset_name in OUTPUT_PREDICTION_MAPPING.keys():
-        return OUTPUT_PREDICTION_MAPPING[dataset_name](output_path, output_dir_name, predictions, train_data, dev_name, subset_name)
+        return OUTPUT_PREDICTION_MAPPING[dataset_name](output_path,
+                                                       output_dir_name,
+                                                       predictions,
+                                                       train_data,
+                                                       dev_name,
+                                                       subset_name)
     else:
         raise ValueError(
             "Unrecognized dataset {}. \n"

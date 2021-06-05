@@ -43,21 +43,28 @@ METRIC_MAPPING = OrderedDict(
     ]
 )
 
-def get_default_and_alternative_metric(dataset_name, subdataset_name = None, custom_metric_name = None, custom_metric_mode_name = None):
+def get_default_and_alternative_metric(dataset_name,
+                                       subdataset_name = None,
+                                       custom_metric_name = None,
+                                       custom_metric_mode_name = None):
     if dataset_name not in METRIC_MAPPING.keys():
-        assert custom_metric_name and custom_metric_mode_name, "The dataset is not in {}, you must explicitly specify " \
+        assert custom_metric_name and custom_metric_mode_name, \
+            "The dataset is not in {}, you must explicitly specify " \
             "the custom_metric_name and custom_metric_mode_name".format(",".join(METRIC_MAPPING.keys()))
     eval_name_mapping = METRIC_MAPPING[dataset_name]
     if isinstance(eval_name_mapping, dict):
-        assert subdataset_name and subdataset_name in eval_name_mapping, "dataset_name and subdataset_name not correctly specified"
+        assert subdataset_name and subdataset_name in eval_name_mapping, \
+            "dataset_name and subdataset_name not correctly specified"
         default_metric, default_mode = eval_name_mapping[subdataset_name][0]
-        all_metrics, all_mode = [x[0] for x in eval_name_mapping[subdataset_name]] + ["loss"], [x[1] for x in eval_name_mapping[subdataset_name]] + ["min"]
+        all_metrics, all_mode = [x[0] for x in eval_name_mapping[subdataset_name]] \
+                                + ["loss"], [x[1] for x in eval_name_mapping[subdataset_name]] + ["min"]
 
         return default_metric, default_mode, all_metrics, all_mode
     else:
         assert isinstance(eval_name_mapping, list), "dataset_name and subdataset_name not correctly specified"
 
         default_metric, default_mode = eval_name_mapping[0]
-        all_metrics, all_mode = [x[0] for x in eval_name_mapping] + ["loss"], [x[1] for x in eval_name_mapping] + ["min"]
+        all_metrics, all_mode = [x[0] for x in eval_name_mapping] + ["loss"], \
+                                [x[1] for x in eval_name_mapping] + ["min"]
 
         return default_metric, default_mode, all_metrics, all_mode

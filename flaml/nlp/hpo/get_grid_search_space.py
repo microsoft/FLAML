@@ -177,7 +177,8 @@ def get_bert_space(model_size_type = None,
             "per_device_train_batch_size": [16],
             "num_train_epochs": [3],
         },
-        # Appedix A. The optimal hyperparameter values are task-specific, but we found the following range of possible values to work well across all tasks:
+        # Appedix A. The optimal hyperparameter values are task-specific, but we found the following
+        # range of possible values to work well across all tasks:
         # - Batch size: 16, 32
         # - Learning rate (Adam): 5e-5, 3e-5, 2e-5
         # - Number of epochs: 2, 3, 4
@@ -234,9 +235,11 @@ def get_electra_space(model_size_type = None,
         ELECTRA: PRE-TRAINING TEXT ENCODERS AS DISCRIMINATORS RATHER THAN GENERATORS
         https://arxiv.org/pdf/2003.10555.pdf
     """
-    assert model_size_type in ("small", "base", "large", "intermediate", "xlarge"), "Electra paper has only provided hyperparameter for the small and base huggingface"
+    assert model_size_type in ("small", "base", "large", "intermediate", "xlarge"), \
+        "Electra paper has only provided hyperparameter for the small and base huggingface"
     search_space_common = {
-        "learning_rate": [3e-5, 5e-5, 1e-4, 1.5e-4] if algo_mode == "grid" else [3e-5, 5e-5, 1e-4, 1.5e-4, 2e-4, 3e-4, 5e-3],
+        "learning_rate": [3e-5, 5e-5, 1e-4, 1.5e-4] if algo_mode == "grid"
+        else [3e-5, 5e-5, 1e-4, 1.5e-4, 2e-4, 3e-4, 5e-3],
         "weight_decay": [0.0],
         "adam_epsilon": [1e-6],
         "warmup_ratio": [0.1],
