@@ -15,7 +15,8 @@ def load_console_args():
                             choices = ["gnr", "uni", "uni_test", "cus", "buni"], default = None)
     arg_parser.add_argument('--search_alg_args_mode', type=str, help = 'search algorithm args mode', required = False,
                             choices = ["dft", "exp", "cus"])
-    arg_parser.add_argument('--algo_name', type=str, help='algorithm', required=False, choices = ["bs", "optuna", "cfo", "rs"], default = None)
+    arg_parser.add_argument('--algo_name', type=str, help='algorithm', required=False,
+                            choices = ["bs", "optuna", "cfo", "rs"], default = None)
     arg_parser.add_argument('--pruner', type=str, help='pruner', required=False, choices=["asha", "None"], default = None)
     arg_parser.add_argument('--pretrained_model_size', type=str, help='pretrained model', required=False,
                         choices=["xlnet-base-cased:base", "albert-large-v1:small", "distilbert-base-uncased:base",
