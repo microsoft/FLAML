@@ -72,7 +72,8 @@ class AutoSearchAlgorithm:
 
     @staticmethod
     def grid2list(grid_config):
-        key_val_list = [[(key, each_val) for each_val in val_list['grid_search']] for (key, val_list) in grid_config.items()]
+        key_val_list = [[(key, each_val) for each_val in val_list['grid_search']]
+                        for (key, val_list) in grid_config.items()]
         config_list = [dict(x) for x in itertools.product(*key_val_list)]
         return config_list
 

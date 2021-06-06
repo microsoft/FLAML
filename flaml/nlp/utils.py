@@ -17,23 +17,35 @@ def load_console_args():
                             choices = ["dft", "exp", "cus"])
     arg_parser.add_argument('--algo_name', type=str, help='algorithm', required=False,
                             choices = ["bs", "optuna", "cfo", "rs"], default = None)
-    arg_parser.add_argument('--pruner', type=str, help='pruner', required=False, choices=["asha", "None"], default = None)
+    arg_parser.add_argument('--pruner', type=str, help='pruner', required=False,
+                            choices=["asha", "None"], default = None)
     arg_parser.add_argument('--pretrained_model_size', type=str, help='pretrained model', required=False,
-                        choices=["xlnet-base-cased:base", "albert-large-v1:small", "distilbert-base-uncased:base",
-                                 "microsoft/deberta-base:base","funnel-transformer/small-base:small", "microsoft/deberta-large:large",
-                                 "funnel-transformer/large-base:large", "funnel-transformer/intermediate-base:intermediate",
-                                 "funnel-transformer/xlarge-base:xlarge", "google/electra-base-discriminator:base", "roberta-base:base"], default = None)
+                        choices=["xlnet-base-cased:base",
+                                 "albert-large-v1:small",
+                                 "distilbert-base-uncased:base",
+                                 "microsoft/deberta-base:base",
+                                 "funnel-transformer/small-base:small",
+                                 "microsoft/deberta-large:large",
+                                 "funnel-transformer/large-base:large",
+                                 "funnel-transformer/intermediate-base:intermediate",
+                                 "funnel-transformer/xlarge-base:xlarge",
+                                 "google/electra-base-discriminator:base",
+                                 "roberta-base:base"], default = None)
     arg_parser.add_argument('--sample_num', type=int, help='sample num', required=False, default = None)
     arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False, default = None)
     arg_parser.add_argument('--time_as_grid', type=int, help='time as grid search', required=False, default=None)
     arg_parser.add_argument('--rep_id', type=int, help='rep id', required=False, default = None)
     arg_parser.add_argument('--azure_key', type=str, help='azure key', required=False, default = None)
-    arg_parser.add_argument('--resplit_mode', type=str, help='resplit mode', required=True, choices = ["rspt", "ori"], default = None)
-    arg_parser.add_argument('--ds_config', type=str, help='deep speed config file path', required = False, default = None)
+    arg_parser.add_argument('--resplit_mode', type=str, help='resplit mode', required=True,
+                            choices = ["rspt", "ori"], default = None)
+    arg_parser.add_argument('--ds_config', type=str, help='deep speed config file path',
+                            required = False, default = None)
     arg_parser.add_argument('--yml_file', type=str, help='yml file path', required=True, default = None)
     arg_parser.add_argument('--key_path', type=str, help='path for key.json', required=True, default=None)
     arg_parser.add_argument('--root_log_path', type=str, help='root path for log', required=False, default="logs_azure")
     arg_parser.add_argument('--round_idx', type=int, help='round idx for acl experiments', required=False, default= 0)
+    arg_parser.add_argument('--seed_data', type=int, help='seed of data shuffling', required=False, default=None)
+    arg_parser.add_argument('--seed_transformers', type=int, help='seed of transformers', required=False, default=None)
     return arg_parser.parse_args()
 
 def get_wandb_azure_key(key_path):
@@ -74,20 +86,6 @@ def _variable_override_default_alternative(logger, obj_ref, var_name, default_va
 
 @dataclass
 class PathUtils:
-    """
-    This is the class for maintaining the paths (checkpoints, results) in AutoTransformers.
-
-    Args:
-        hpo_output_dir:
-            A string variable, the root directory for outputing data
-        dataset_name:
-            A list, the first element in the list is the name of the dataset, e.g., ["glue"]
-            If the dataset contains a second component, the list should contain a second element, e.g., ["openbookqa", "main"]
-        subdataset_name:
-            The sub dataset name, e.g., "qnli", not required
-        model_name:
-            The huggingface name for loading the huggingface from huggingface.co/models, e.g., "google/electra-base-discriminator"
-    """
     hpo_ckpt_path: str = field(metadata={"help": "the directory for hpo output"})
     hpo_result_path: str = field(metadata={"help": "the directory for hpo result"})
     hpo_log_path: str = field(metadata={"help": "the directory for log"})

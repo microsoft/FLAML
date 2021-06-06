@@ -59,7 +59,12 @@ def merge_configscore_list(small_dataset2configscorelist):
 def get_result(console_args, partial_jobid_config):
     from .azure_utils import AzureUtils, JobID
     azure_utils = AzureUtils(console_args=console_args)
-    dataset2configscorelist = azure_utils.get_config_and_score_from_partial_config(partial_jobid_config, ["dat", "subdat"], "hpo")
+    dataset2configscorelist = \
+        azure_utils.get_config_and_score_from_partial_config(
+            console_args.azure_root_log_path,
+            partial_jobid_config,
+            ["dat", "subdat"],
+            "hpo")
     for dataset, configscore_list in dataset2configscorelist.items():
         for rep_id in range(len(configscore_list)):
             config_dict = configscore_list[rep_id][0][0]
@@ -84,27 +89,6 @@ def print_config(config_dict):
 def compare_small_vs_large(console_args):
     from .azure_utils import AzureUtils, JobID
     azure_utils = AzureUtils(console_args=console_args)
-
-    # partial_jobid_config = JobID()
-    # partial_jobid_config.pre = "funnel"
-    # partial_jobid_config.mod = "list"
-    # partial_jobid_config.spa = "uni"
-    # partial_jobid_config.presz = "xlarge"
-    #
-    # small_large_dataset2configscorelist = azure_utils.get_config_and_score_from_partial_config(partial_jobid_config,
-    #                                                                                           ["dat", "subdat"], "list")
-    # small_large_merged_configscorelist = merge_configscore_list(small_large_dataset2configscorelist)
-    #
-    # partial_jobid_config = JobID()
-    # partial_jobid_config.pre = "funnel"
-    # partial_jobid_config.mod = "list"
-    # partial_jobid_config.spa = "uni"
-    # partial_jobid_config.presz = "small"
-    #
-    # only_small_dataset2configscorelist = azure_utils.get_config_and_score_from_partial_config(partial_jobid_config,
-    #                                                                                      ["dat", "subdat"], "list")
-    #
-    # only_small_merged_configscorelist = merge_configscore_list(only_small_dataset2configscorelist)
 
     partial_jobid_config = JobID()
     partial_jobid_config.pre = "deberta"
@@ -139,7 +123,8 @@ def compare_small_vs_large(console_args):
                 print(each_val, end=", ")
             print(large_score, is_in_onlysmall, sep=",")
         print()
-        for (each_tuple, small_score) in sorted(small_mergedconfiglist[each_dataset].items(), key = lambda x:x[1], reverse=True):
+        for (each_tuple, small_score) in \
+                sorted(small_mergedconfiglist[each_dataset].items(),key = lambda x:x[1], reverse=True):
             is_in_large = each_tuple in large_mergedconfiglist[each_dataset]
             for each_val in each_tuple:
                 print(each_val, end=", ")
@@ -151,7 +136,7 @@ def check_conflict(console_args, partial_jobid_config_list):
     for each_partial_config in partial_jobid_config_list:
         dataset2configscorelist = \
             azure_utils.get_config_and_score_from_partial_config(
-                "logs_azure/",
+                console_args.azure_root_log_path,
                 each_partial_config,
                 ["dat", "subdat"],
                 "unsorted")
@@ -187,7 +172,7 @@ def print_cfo(console_args):
 
         dataset2configscorelist = \
             azure_utils.get_config_and_score_from_partial_config(
-                "logs_azure/",
+                console_args.azure_root_log_path,
                 jobid_config,
                 ["dat", "subdat"],
                 "sort_time")
@@ -214,7 +199,7 @@ def download_validation(console_args, result_root_dir):
     jobid_config.rep = 0
 
     azure_utils = AzureUtils(console_args=console_args, jobid=jobid_config)
-    azure_utils.get_validation_perf(jobid_config=jobid_config)
+    azure_utils.get_validation_perf(console_args = console_args, jobid_config=jobid_config)
     azure_utils.get_test_perf(jobid_config, result_root_dir)
 
 def get_result_str(jobid_config, val_score, test_score, best_config, subdat2config = None, mode="grid"):
@@ -278,7 +263,15 @@ def extract_grid(console_args, jobid_config, overfitting_subdat, test_scores):
         print(printstr)
     return subdat2config
 
-def extract_hpo(console_args, jobid_config, overfitting_subdat, overfitting_alg, overfitting_pru, overfitting_rep, subdat2config, test_scores):
+def extract_hpo(
+        console_args,
+        jobid_config,
+        overfitting_subdat,
+        overfitting_alg,
+        overfitting_pru,
+        overfitting_rep,
+        subdat2config,
+        test_scores):
     from .azure_utils import JobID, AzureUtils
     key2printstr = {}
     for idx in range(len(overfitting_subdat)):
@@ -290,7 +283,8 @@ def extract_hpo(console_args, jobid_config, overfitting_subdat, overfitting_alg,
         best_config, val_score = azure_utils.get_best_perf_config(jobid_config)
         test_score = test_scores[idx]
         key2printstr[jobid_config.subdat.upper() + "," + jobid_config.alg.upper() + "," \
-                     + jobid_config.pru +",rep " + str(jobid_config.rep)] = get_result_str(jobid_config, val_score, test_score, best_config, subdat2config, mode="hpo")
+                     + jobid_config.pru +",rep " + str(jobid_config.rep)] \
+            = get_result_str(jobid_config, val_score, test_score, best_config, subdat2config, mode="hpo")
 
     for key, printstr in sorted(key2printstr.items(), key = lambda x:x[0]):
         print(printstr)

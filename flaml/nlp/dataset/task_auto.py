@@ -35,7 +35,8 @@ def get_default_task(dataset_name, subdataset_name = None):
             "the custom_metric_name and custom_metric_mode_name".format(",".join(TASK_MAPPING.keys()))
     eval_name_mapping = TASK_MAPPING[dataset_name]
     if isinstance(eval_name_mapping, dict):
-        assert subdataset_name and subdataset_name in eval_name_mapping, "dataset_name and subdataset_name not correctly specified"
+        assert subdataset_name and subdataset_name in eval_name_mapping, \
+            "dataset_name and subdataset_name not correctly specified"
         default_task = eval_name_mapping[subdataset_name]
     else:
         assert isinstance(eval_name_mapping, list), "dataset_name and subdataset_name not correctly specified"

@@ -56,8 +56,11 @@ def create_partial_config_hpo():
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('--mode', type=str, help='analysis mode', required=True, choices=["summary", "analysis", "plot", "extract"])
+    arg_parser.add_argument('--mode', type=str, help='analysis mode', required=True,
+                            choices=["summary", "analysis", "plot", "extract"])
     arg_parser.add_argument('--key_path', type=str, help='key path', required=False, default = "../../")
+    arg_parser.add_argument('--azure_root_log_path', type=str,
+                            help='root log path of blob storage', required=True, default="logs_azure/")
     args = arg_parser.parse_args()
 
     partial_config_large = create_partial_config_bestnn()

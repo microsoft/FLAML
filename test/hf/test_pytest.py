@@ -19,7 +19,10 @@ def get_preparedata_setting(jobid_config, wandb_utils):
         "max_seq_length": 128,
         "jobid_config": jobid_config,
         "wandb_utils": wandb_utils,
-        "resplit_portion": {"source": ["train", "validation"], "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
+        "resplit_portion": {"source": ["train", "validation"],
+                            "train": [0, 0.8],
+                            "validation": [0.8, 0.9],
+                            "test": [0.9, 1.0]}
         }
     return preparedata_setting
 
