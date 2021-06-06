@@ -10,16 +10,13 @@ import pickle
 import inspect
 
 try:
-    print('importing from ray')
     from ray.tune.suggest import Searcher
     from ray.tune.suggest.optuna import OptunaSearch as GlobalSearch
     from ray.tune.suggest.variant_generator import generate_variants
 except ImportError:
-    print('importing from flaml')
     from .suggestion import Searcher
     from .suggestion import OptunaSearch as GlobalSearch
     from .variant_generator import generate_variants
-# from .suggestion import OptunaSearch as GlobalSearch
 from .search_thread import SearchThread
 from .flow2 import FLOW2 as LocalSearch
 
