@@ -128,7 +128,7 @@ class AutoTransformers:
 
         """
             resolve the conflict in search_space_dict_hpo: only one of "max_steps" and "num_train_epochs" can exist
-            in the search space. If both exists, num_train_epochs is remoted. Similarly, if "warmup_steps" and
+            in the search space. If both exists, num_train_epochs is removed. Similarly, if "warmup_steps" and
             "warmup_ratio" both exists, warmup_ratio is removed
         """
         search_space_dict_hpo = TrainerForAutoTransformers.resolve_hp_conflict(search_space_dict_hpo)
