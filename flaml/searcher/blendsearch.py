@@ -125,11 +125,10 @@ class BlendSearch(Searcher):
         if global_search_alg is not None:
             self._gs = global_search_alg
         elif getattr(self, '__name__', None) != 'CFO':
-            gs_signature = inspect.signature(GlobalSearch.__init__)
-            if 'seed' in [p.split(',')[0] for p in gs_signature.parameters]:
+            try:
                 gs_seed = seed - 10 if (seed - 10) >= 0 else seed - 11 + 2 ** 32
                 self._gs = GlobalSearch(space=space, metric=metric, mode=mode, seed=gs_seed)
-            else:
+            except TypeError:
                 self._gs = GlobalSearch(space=space, metric=metric, mode=mode)
         else:
             self._gs = None
