@@ -205,11 +205,12 @@ def print_cfo(console_args):
 def download_validation(console_args, result_root_dir):
     from .azure_utils import JobID, AzureUtils
     jobid_config = JobID()
-    jobid_config.mod = "grid"
-    jobid_config.pre = "roberta"
-    jobid_config.presz = "base"
-    # jobid_config.alg = "optuna"
-    # jobid_config.pru = "asha"
+    jobid_config.mod = "hpo"
+    jobid_config.spa = "uni"
+    jobid_config.pre = "funnel"
+    jobid_config.presz = "xlarge"
+    jobid_config.alg = "bs"
+    jobid_config.pru = "None"
     jobid_config.rep = 0
 
     azure_utils = AzureUtils(console_args=console_args, jobid=jobid_config)

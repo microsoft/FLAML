@@ -456,7 +456,7 @@ class AzureUtils:
                             for (config, score, ts) in sorted_config_and_score])
         return group_dict
 
-    def get_validation_perf(self, jobid_config):
+    def get_validation_perf(self, console_args, jobid_config):
         if jobid_config.pre == "electra":
             dataset_namelist = ["wnli", "rte", "mrpc", "cola", "stsb", "sst2", "qnli", "mnli"]
         else:
@@ -464,7 +464,7 @@ class AzureUtils:
         dataset_vallist1 = [0] * len(dataset_namelist)
         dataset_vallist2 = [0] * len(dataset_namelist)
 
-        matched_blob_list = self.get_blob_list_matching_partial_jobid("logs_acl/", jobid_config)
+        matched_blob_list = self.get_blob_list_matching_partial_jobid(console_args.root, jobid_config)
         for (each_jobconfig, each_blob) in matched_blob_list:
             subdat_name = each_jobconfig.subdat
             self.download_azure_blob(each_blob.name)
