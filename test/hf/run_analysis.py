@@ -50,8 +50,13 @@ def create_partial_config_list():
 
 def create_partial_config_hpo():
     jobid_config = JobID()
-    jobid_config.mod = "hpo"
-    jobid_config.spa = "uni"
+    jobid_config.mod = "bestnn"
+    jobid_config.spa = "buni"
+    jobid_config.pre = "deberta"
+    jobid_config.presz = "large"
+    jobid_config.alg = "cfo"
+    jobid_config.pru = "None"
+
     return jobid_config
 
 if __name__ == "__main__":
@@ -63,12 +68,12 @@ if __name__ == "__main__":
                             help='root log path of blob storage', required=True, default="logs_azure/")
     args = arg_parser.parse_args()
 
-    partial_config_large = create_partial_config_bestnn()
+    partial_config_large = create_partial_config_hpo()
     from flaml.nlp.result_analysis.generate_result_summary import compare_small_vs_large, get_result, check_conflict, \
     print_cfo, download_validation, extract_roberta_overfitting_configs, extract_electra_overfitting_configs
 
-    #get_result(args, partial_config_large)
+    get_result(args, partial_config_large)
     #check_conflict(args, [partial_config_large])
-    download_validation(args, "/data/xliu127/projects/hyperopt/data/result/")
+    #download_validation(args, "/data/xliu127/projects/hyperopt/data/result/")
 
     #extract_roberta_overfitting_configs(args)

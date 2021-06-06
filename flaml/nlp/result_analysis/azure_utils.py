@@ -22,8 +22,8 @@ class JobID:
     presz: str = field(default = None)
     spt: str = field(default = None)
     rep: int = field(default = 0)
-    sddt: int = field(default = 42)
-    sdhf: int = field(default=42)
+    sddt: int = field(default = None)
+    sdhf: int = field(default= None)
 
     def __init__(self,
                  console_args = None):
@@ -80,7 +80,19 @@ class JobID:
 
     def blobname_to_jobid(self, keytoval_str):
         field_keys = [key for key in list(self.__dataclass_fields__.keys()) if not key.endswith("_full")]
-        regex_expression = ".*" + "_".join([key + "=(?P<" + key + ">.*)" for key in field_keys]) + ".(json|zip)"
+        regex_expression = ".*"
+        is_first = True
+        for key in field_keys:
+            if is_first:
+                prefix = ""
+                is_first = False
+            else:
+                prefix = "_"
+            if key.startswith("sd"):
+                regex_expression += "(" + prefix + key + "=(?P<" + key + ">.*))?"
+            else:
+                regex_expression += prefix + key + "=(?P<" + key + ">.*)"
+        regex_expression += ".(json|zip)"
         result = re.search(regex_expression, keytoval_str)
         if result:
             result_dict = {}
@@ -482,8 +494,8 @@ class AzureUtils:
             dataset_namelist = ["wnli", "rte", "mrpc", "cola", "stsb", "sst2", "qnli", "mnli"]
         else:
             dataset_namelist = ["wnli", "rte", "mrpc", "cola", "stsb", "sst2"]
-        dataset_vallist1 = [0] * len(dataset_namelist)
-        dataset_vallist2 = [0] * len(dataset_namelist)
+        dataset_vallist1 = ["0"] * len(dataset_namelist)
+        dataset_vallist2 = ["0"] * len(dataset_namelist)
 
         matched_blob_list = self.get_blob_list_matching_partial_jobid(console_args.azure_root_log_path, jobid_config)
         for (each_jobconfig, each_blob) in matched_blob_list:
@@ -498,8 +510,8 @@ class AzureUtils:
                     = self.get_validation_metricstr(validation_metric)
             except ValueError:
                 pass
-        print(" & ".join(dataset_vallist1))
-        print(", ,".join(dataset_vallist2))
+        # print(" & ".join(dataset_vallist1))
+        # print(", ,".join(dataset_vallist2))
 
     def get_validation_metricstr(self, validation_metric):
         validation_str1 = validation_str2 = ""
