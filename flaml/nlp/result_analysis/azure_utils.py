@@ -542,8 +542,8 @@ class AzureUtils:
             shutil.copy(src, dst)
         shutil.make_archive(os.path.join(output_dir), 'zip', output_dir)
 
-    def get_best_perf_config(self, jobid_config):
-        matched_blob_list = self.get_blob_list_matching_partial_jobid("logs_acl/", jobid_config)
+    def get_best_perf_config(self, console_args, jobid_config):
+        matched_blob_list = self.get_blob_list_matching_partial_jobid(console_args.azure_root_log_path, jobid_config)
         try:
             assert len(matched_blob_list) == 1
         except:
