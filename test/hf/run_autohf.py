@@ -6,7 +6,6 @@ import shutil
 
 from flaml.nlp import AutoTransformers
 from flaml.nlp import AzureUtils, JobID
-from flaml.nlp.result_analysis.wandb_utils import WandbUtils
 from flaml.nlp.utils import load_console_args
 
 global azure_log_path
@@ -20,13 +19,13 @@ def get_resplit_portion(jobid_config):
     else:
         return {"source": ["train", "validation"], "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
 
-def get_preparedata_setting(args, jobid_config, wandb_utils):
+def get_preparedata_setting(args, jobid_config):
     preparedata_setting = {
         "server_name": args.server_name,
         "data_root_path": args.data_root_dir,
         "max_seq_length": 128,
         "jobid_config": jobid_config,
-        "wandb_utils": wandb_utils
+        "is_wandb_on": True
         }
     if jobid_config.spt == 'rspt':
         preparedata_setting["resplit_portion"] = get_resplit_portion(jobid_config)
@@ -58,7 +57,7 @@ def rm_home_result():
     if os.path.exists(home + "/ray_results/"):
         shutil.rmtree(home + "/ray_results/")
 
-def get_best_base_config(args, jobid_config, autohf, wandb_utils):
+def get_best_base_config(args, jobid_config, autohf):
     import copy, re
     args_small = copy.deepcopy(args)
     args_small.algo_name = "optuna"
@@ -84,15 +83,15 @@ def get_best_base_config(args, jobid_config, autohf, wandb_utils):
                             console_args= args_small,
                             jobid=jobid_config_small,
                             autohf=autohf)
-    preparedata_setting = get_preparedata_setting(args, jobid_config, wandb_utils)
+    preparedata_setting = get_preparedata_setting(args, jobid_config)
     autohf.prepare_data(**preparedata_setting)
     autohf.set_metric()
 
     best_config = azure_utils_small.get_ranked_configs_from_azure_file(autohf.metric_mode_name)[0]
     return best_config
 
-def search_base_and_search_lower_lr(args, jobid_config, autohf, wandb_utils):
-    best_config = get_best_base_config(args, jobid_config, autohf, wandb_utils)
+def search_base_and_search_lower_lr(args, jobid_config, autohf):
+    best_config = get_best_base_config(args, jobid_config, autohf)
 
     import copy
     args_large = copy.deepcopy(args)
@@ -110,7 +109,6 @@ def search_base_and_search_lower_lr(args, jobid_config, autohf, wandb_utils):
     _test_hpo(args_large,
               jobid_config_large,
               autohf,
-              wandb_utils,
               azure_utils_large,
               autohf_settings=
               get_autohf_settings(args_large,
@@ -118,12 +116,12 @@ def search_base_and_search_lower_lr(args, jobid_config, autohf, wandb_utils):
                                      "bound": {"learning_rate":
                                     {"u": best_config["learning_rate"]}}}))
 
-def search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils):
+def search_base_and_search_around_best(args, jobid_config, autohf):
     args.algo_name = "bs"
     args.search_alg_args_mode = "dft"
     args.spa = "uni"
     args.pru = "None"
-    best_config = get_best_base_config(args, jobid_config, autohf, wandb_utils)
+    best_config = get_best_base_config(args, jobid_config, autohf)
 
     import copy
     args_large = copy.deepcopy(args)
@@ -140,7 +138,6 @@ def search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils):
     _test_hpo(args_large,
               jobid_config_large,
               autohf,
-              wandb_utils,
               azure_utils_large,
               autohf_settings=
         get_autohf_settings(args_large,
@@ -157,7 +154,6 @@ def evaluate_configs(autohf, args, ranked_all_configs):
     _test_hpo(this_args,
               jobid_config,
               autohf,
-              wandb_utils,
               azure_utils_large,
               autohf_settings=
               get_autohf_settings(this_args, **{"points_to_evaluate": ranked_all_configs}))
@@ -223,14 +219,13 @@ def evaluate_large_best_configs_on_small(small_args, autohf):
 def _test_hpo(args,
               jobid_config,
               autohf,
-              wandb_utils,
               azure_utils = None,
               autohf_settings = None,
               ):
     try:
         if not azure_utils:
             azure_utils = AzureUtils(console_args=args, jobid= jobid_config, autohf=autohf)
-        preparedata_setting = get_preparedata_setting(args, jobid_config, wandb_utils)
+        preparedata_setting = get_preparedata_setting(args, jobid_config)
         autohf.prepare_data(**preparedata_setting)
 
         analysis = validation_metric = test_metric = None
@@ -264,17 +259,14 @@ def _test_hpo(args,
     rm_home_result()
 
 if __name__ == "__main__":
-    args = load_console_args()
-
-    jobid_config = JobID(args)
     autohf = AutoTransformers()
-    wandb_utils = WandbUtils(is_wandb_on= True, console_args=args, jobid_config=jobid_config)
-    wandb_utils.set_wandb_per_run()
+    args = load_console_args()
+    jobid_config = JobID(args)
 
     if args.algo_mode in ("hpo", "hfhpo", "grid", "gridbert"):
-        _test_hpo(args, jobid_config, autohf, wandb_utils)
+        _test_hpo(args, jobid_config, autohf)
     elif args.algo_mode == "bestnn":
-        search_base_and_search_lower_lr(args, jobid_config, autohf, wandb_utils)
+        search_base_and_search_lower_lr(args, jobid_config, autohf)
     elif args.algo_mode == "list":
         evaluate_small_best_configs_on_large(args, autohf)
     elif args.algo_mode == "list_s":

@@ -4,9 +4,16 @@ How to use AutoTransformers:
 from flaml.nlp.autotransformers import AutoTransformers
 
 autohf = AutoTransformers()
-autohf_settings = {"resources_per_trial": {"cpu": 1},
-                    "num_samples": 1,
-                    "time_budget": 100000,
+preparedata_setting = {
+        "dataset_subdataset_name": "glue:rte",
+        "pretrained_model_size": "electra-base-discriminator:base",
+        "data_root_path": "data/",
+        "max_seq_length": 128,
+        }
+autohf.prepare_data(**preparedata_setting)
+autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
+                    "num_samples": -1, # unlimited sample size
+                    "time_budget": 3600,
                     "ckpt_per_epoch": 1,
                     "fp16": False,
                    }

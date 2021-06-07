@@ -31,6 +31,9 @@ from .huggingface.switch_head_auto import AutoSeqClassificationHead, MODEL_CLASS
 from .utils import PathUtils, _variable_override_default_alternative
 from .hpo.searchalgo_auto import AutoSearchAlgorithm
 from .hpo.scheduler_auto import AutoScheduler
+from .result_analysis.wandb_utils import WandbUtils
+from .result_analysis.azure_utils import JobID
+from .utils import load_console_args
 
 from .huggingface.trainer import TrainerForAutoTransformers
 
@@ -162,13 +165,14 @@ class AutoTransformers:
         return "train", "validation", "test"
 
     def prepare_data(self,
-                     server_name,
                      data_root_path,
-                     jobid_config,
-                     wandb_utils,
+                     jobid_config = None,
+                     is_wandb_on = False,
+                     server_name=None,
                      max_seq_length = 128,
                      fold_name = None,
-                     resplit_portion=None):
+                     resplit_portion=None,
+                     **custom_data_args):
         '''Prepare data
 
             An example:
@@ -194,38 +198,41 @@ class AutoTransformers:
                 wandb_utils:
                     a WandbUtils object for wandb operations
                 max_seq_length (optional):
-                    max_seq_length for the huggingface, this hyperparameter must be specified
+                    max_seq_lckpt_per_epochength for the huggingface, this hyperparameter must be specified
                     at the data processing step
                 resplit_portion:
                     the proportion for resplitting the train and dev data when split_mode="resplit".
                     If args.resplit_mode = "rspt", resplit_portion is required
             '''
-
+        console_args = load_console_args(**custom_data_args)
         self._max_seq_length = max_seq_length
-        self._server_name = server_name
-        self.jobid_config = jobid_config
-        self.wandb_utils = wandb_utils
+        self._server_name = server_name if server_name is not None else "tmdev"
+        self.jobid_config = jobid_config if jobid_config is not None else JobID(console_args)
+        self.wandb_utils = WandbUtils(is_wandb_on= is_wandb_on,
+                            console_args= console_args,
+                            jobid_config= self.jobid_config)
+        self.wandb_utils.set_wandb_per_run()
 
-        self.path_utils = PathUtils(jobid_config, hpo_data_root_path = data_root_path)
+        self.path_utils = PathUtils(self.jobid_config, hpo_data_root_path = data_root_path)
 
-        if jobid_config.spt == "rspt":
+        if self.jobid_config.spt == "rspt":
             assert resplit_portion, "If split mode is 'rspt', the resplit_portion must be provided. Please " \
                                     "refer to the example in the documentation of AutoTransformers.prepare_data()"
-        if jobid_config.subdat:
-            data_raw = load_dataset(jobid_config.dat[0], jobid_config.subdat)
+        if self.jobid_config.subdat:
+            data_raw = load_dataset(self.jobid_config.dat[0], self.jobid_config.subdat)
         else:
-            data_raw = self._wrapper(load_dataset, *jobid_config.dat)
+            data_raw = self._wrapper(load_dataset, *self.jobid_config.dat)
 
         self._train_name, self._dev_name, self._test_name = self._get_split_name(data_raw, fold_name=fold_name)
         auto_tokentoids_config = {"max_seq_length": self._max_seq_length}
-        self._tokenizer = AutoTokenizer.from_pretrained(jobid_config.pre_full, use_fast=True)
+        self._tokenizer = AutoTokenizer.from_pretrained(self.jobid_config.pre_full, use_fast=True)
 
         def autoencodetext_from_model_and_dataset_name():
             return AutoEncodeText.from_model_and_dataset_name(
                 data_raw,
-                jobid_config.pre_full,
-                jobid_config.dat[0],
-                jobid_config.subdat,
+                self.jobid_config.pre_full,
+                self.jobid_config.dat[0],
+                self.jobid_config.subdat,
                 **auto_tokentoids_config)
 
         data_encoded = autoencodetext_from_model_and_dataset_name()
@@ -239,7 +246,7 @@ class AutoTransformers:
         self._max_seq_length = int((self._max_seq_length + 15) / 16) * 16
         data_encoded = autoencodetext_from_model_and_dataset_name()
 
-        if jobid_config.spt == "rspt":
+        if self.jobid_config.spt == "rspt":
             all_folds_from_source = []
             assert "source" in resplit_portion.keys(), "Must specify the source for resplitting the dataset in" \
             "resplit_portion, which is a list of folder names, e.g., resplit_portion = {'source': ['train']}"
@@ -250,7 +257,7 @@ class AutoTransformers:
                 all_folds_from_source.append(this_fold_dataset)
 
             merged_folds_from_source = datasets.concatenate_datasets(all_folds_from_source)
-            merged_folds_from_source = merged_folds_from_source.shuffle(seed= jobid_config.sddt)
+            merged_folds_from_source = merged_folds_from_source.shuffle(seed= self.jobid_config.sddt)
 
             assert "train" in resplit_portion.keys() and "validation" in resplit_portion.keys() \
                 and "test" in resplit_portion.keys(), "train, validation, test must exist in resplit_portion"
@@ -654,7 +661,6 @@ class AutoTransformers:
         return validation_metric
 
     def fit(self,
-            resources_per_trial,
             num_samples,
             time_budget,
             custom_metric_name = None,
@@ -662,6 +668,7 @@ class AutoTransformers:
             ckpt_per_epoch=1,
             fp16 = True,
             verbose = 1,
+            resources_per_trial = {"gpu": 1, "cpu": 1},
             **custom_hpo_args):
         '''Fine tuning the huggingface using the hpo setting
 

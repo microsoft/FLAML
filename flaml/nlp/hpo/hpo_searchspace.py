@@ -88,32 +88,6 @@ def hpo_space_gridunion_smoke_test(
             'attention_probs_dropout_prob': [0.1],
             'num_train_epochs': [0.1]}
 
-def enumerate_onehp(logger = None,
-                    model_type = None,
-                    model_size_type = None,
-                    dataset_name = None,
-                    subdataset_name = None,
-                    **custom_hpo_args):
-    electra_config = AutoGridSearchSpace.from_model_and_dataset_name(
-        model_type, model_size_type, dataset_name, subdataset_name, "grid")
-    try:
-        hp_to_fix, hp_to_fix_value = custom_hpo_args["hp_to_fix"]
-        hp_to_tune, hp_to_tune_grids = custom_hpo_args["hp_to_tune"]
-        assert type(hp_to_fix_value) in {int, float, bool}
-    except Exception as err:
-        logger.log("When hpo_searchspace_mode = enumerate_onehp must specify "
-                   "both hp_to_fix and hp_to_tune in custom_hpo_args. "
-                   "hp_to_fix must be a tuple containing the hp and a scaler, "
-                   "hp_to_tun must be a tuple containing the hp and "
-                   "a list. ")
-        raise err
-    electra_config[hp_to_fix] = [hp_to_fix_value]
-    electra_config[hp_to_tune] = hp_to_tune_grids
-
-    electra_config = TrainerForAutoTransformers.resolve_hp_conflict(electra_config)
-
-    return electra_config
-
 def hpo_space_generic(logger = None,
                       model_type = None,
                       model_size_type = None,

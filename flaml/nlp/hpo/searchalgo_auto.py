@@ -35,7 +35,6 @@ class AutoSearchAlgorithm:
 
     @classmethod
     def from_method_name(cls, search_algo_name, search_algo_args_mode, hpo_search_space, **custom_hpo_args):
-        assert search_algo_args_mode in {"dft", "cus"}
         if not search_algo_name:
             search_algo_name = "grid"
         if search_algo_name in SEARCH_ALGO_MAPPING.keys():
@@ -82,7 +81,7 @@ def default_search_algo_args_bs(search_args_mode, hpo_search_space = None, **cus
         min_epoch = hpo_search_space["num_train_epochs"].lower
     default_search_algo_args = {
         "low_cost_partial_config": {
-            "num_train_epochs": max(0.1, min_epoch),
+            "num_train_epochs": min_epoch,
             "per_device_train_batch_size": max(hpo_search_space["per_device_train_batch_size"].categories),
         },
     }
@@ -128,11 +127,5 @@ DEFAULT_SEARCH_ALGO_ARGS_MAPPING = OrderedDict(
             ("bs", default_search_algo_args_bs),
             ("grid", default_search_algo_args_grid_search),
             ("gridbert", default_search_algo_args_random_search)
-        ]
-    )
-
-EXPERIMENT_SEARCH_ALGO_ARGS_MAPPING = OrderedDict(
-        [
-            ("cfo", experiment_search_algo_args_bs),
         ]
     )
