@@ -6,12 +6,17 @@ from transformers import TrainingArguments
 
 from .grid_searchspace_auto import AutoGridSearchSpace
 
-def hpo_space_custom(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
+def hpo_space_custom(**custom_hpo_args):
     assert "hpo_space" in custom_hpo_args
     custom_search_space = custom_hpo_args["hpo_space"]
     return custom_search_space
 
-def bounded_gridunion(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
+def bounded_gridunion(logger = None,
+                      model_type = None,
+                      model_size_type = None,
+                      dataset_name = None,
+                      subdataset_name = None,
+                      **custom_hpo_args):
     assert "bound" in custom_hpo_args
     gridunion_space = HPO_SEARCH_SPACE_MAPPING["uni"](logger,
                                                       model_type,
@@ -42,12 +47,12 @@ def bounded_gridunion(logger, model_type, model_size_type, dataset_name, subdata
         gridunion_space[each_key] = original_space[lower_id:upper_id]
     return gridunion_space
 
-def hpo_space_gridunion(logger,
-                              model_type,
-                              model_size_type,
-                              dataset_name,
-                              subdataset_name = None,
-                              **custom_hpo_args):
+def hpo_space_gridunion(logger = None,
+                        model_type = None,
+                        model_size_type = None,
+                        dataset_name = None,
+                        subdataset_name = None,
+                        **custom_hpo_args):
     output_config = {}
     for each_model_type in {"electra", "roberta", "bert"}:
         #if each_model_type == model_type: continue
@@ -64,19 +69,13 @@ def hpo_space_gridunion(logger,
                 pass
         output_config = merge_dicts(output_config, default_values)
 
-    # for each_hp in output_config.keys():
-    #     if each_hp == "warmup_ratio":
-    #         output_config[each_hp] = [x for x in output_config[each_hp] if x != 0]
-    #     if each_hp == "max_steps":
-    #         output_config[each_hp] = [x for x in output_config[each_hp] if x != -1]
-
     return output_config
 
 def hpo_space_gridunion_smoke_test(
-        logger,
-        model_type,
-        model_size_type,
-        dataset_name,
+        logger = None,
+        model_type = None,
+        model_size_type = None,
+        dataset_name = None,
         subdataset_name = None,
         **custom_hpo_args):
     return {'learning_rate':
@@ -89,10 +88,10 @@ def hpo_space_gridunion_smoke_test(
             'attention_probs_dropout_prob': [0.1],
             'num_train_epochs': [0.1]}
 
-def enumerate_onehp(logger,
-                    model_type,
-                    model_size_type,
-                    dataset_name,
+def enumerate_onehp(logger = None,
+                    model_type = None,
+                    model_size_type = None,
+                    dataset_name = None,
                     subdataset_name = None,
                     **custom_hpo_args):
     electra_config = AutoGridSearchSpace.from_model_and_dataset_name(
@@ -115,7 +114,12 @@ def enumerate_onehp(logger,
 
     return electra_config
 
-def hpo_space_generic(logger, model_type, model_size_type, dataset_name, subdataset_name = None, **custom_hpo_args):
+def hpo_space_generic(logger = None,
+                      model_type = None,
+                      model_size_type = None,
+                      dataset_name = None,
+                      subdataset_name = None,
+                      **custom_hpo_args):
     output_config = {
         "learning_rate": {"l": 1e-6, "u": 1e-3, "space": "log"},
         "num_train_epochs": {"l": 1.0, "u": 10.0, "space": "log"},
@@ -125,10 +129,10 @@ def hpo_space_generic(logger, model_type, model_size_type, dataset_name, subdata
     }
     return output_config
 
-def hpo_space_generic_grid(logger,
-                           model_type,
-                           model_size_type,
-                           dataset_name,
+def hpo_space_generic_grid(logger = None,
+                           model_type = None,
+                           model_size_type = None,
+                           dataset_name = None,
                            subdataset_name = None,
                            **custom_hpo_args):
     output_config = {
@@ -140,10 +144,10 @@ def hpo_space_generic_grid(logger,
     }
     return output_config
 
-def hpo_space_small(logger,
-                    model_type,
-                    model_size_type,
-                    dataset_name,
+def hpo_space_small(logger = None,
+                    model_type = None,
+                    model_size_type = None,
+                    dataset_name = None,
                     subdataset_name = None,
                     **custom_hpo_args):
     config_json = AutoGridSearchSpace.from_model_and_dataset_name(

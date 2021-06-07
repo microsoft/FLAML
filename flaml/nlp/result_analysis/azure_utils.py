@@ -43,6 +43,8 @@ class JobID:
         self.presz = "small"
         self.spt = "rspt"
         self.rep = 0
+        self.sddt = 43
+        self.sdhf = 42
 
     def is_partial_match(self, partial_config):
         is_not_match = False

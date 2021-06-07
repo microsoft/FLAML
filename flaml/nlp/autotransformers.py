@@ -26,7 +26,7 @@ from .dataset.metric_auto import get_default_and_alternative_metric
 from .dataset.submission_auto import auto_output_prediction
 from .dataset.task_auto import get_default_task
 from .hpo.grid_searchspace_auto import AutoGridSearchSpace
-from .hpo.hpo_searchspace import AutoHPOSearchSpace, hp_type_mapping
+from .hpo.hpo_searchspace import AutoHPOSearchSpace
 from .huggingface.switch_head_auto import AutoSeqClassificationHead, MODEL_CLASSIFICATION_HEAD_MAPPING
 from .utils import PathUtils, _variable_override_default_alternative
 from .hpo.searchalgo_auto import AutoSearchAlgorithm
@@ -423,8 +423,7 @@ class AutoTransformers:
         run = self.wandb_utils.set_wandb_per_trial()
         if os.environ["WANDB_MODE"] == "online":
             for each_hp in config:
-                if each_hp in hp_type_mapping.keys():
-                    wandb.log({each_hp: config[each_hp]})
+                wandb.log({each_hp: config[each_hp]})
         trainer.train()
         output_metrics = trainer.evaluate(self.eval_dataset)
         """
