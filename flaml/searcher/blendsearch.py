@@ -125,7 +125,7 @@ class BlendSearch(Searcher):
             self._gs = global_search_alg
         elif getattr(self, '__name__', None) != 'CFO':
             try:
-                gs_seed = seed - 10 if (seed - 10) >= 0 else seed - 11 + 2 ** 32
+                gs_seed = seed - 10 if (seed - 10) >= 0 else seed - 11 + (1 << 32)
                 self._gs = GlobalSearch(space=space, metric=metric, mode=mode, seed=gs_seed)
             except TypeError:
                 self._gs = GlobalSearch(space=space, metric=metric, mode=mode)
