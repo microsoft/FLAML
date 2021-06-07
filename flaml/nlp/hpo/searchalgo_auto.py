@@ -35,10 +35,17 @@ class AutoSearchAlgorithm:
 
     @classmethod
     def from_method_name(cls, search_algo_name, search_algo_args_mode, hpo_search_space, **custom_hpo_args):
+        assert hpo_search_space, "hpo_search_space needs to be specified for calling AutoSearchAlgorithm.from_method_name"
         if not search_algo_name:
             search_algo_name = "grid"
         if search_algo_name in SEARCH_ALGO_MAPPING.keys():
             try:
+                """
+                    filtering the customized args for hpo from custom_hpo_args, keep those
+                    which are in the input variable name list of the constructor of
+                    the algorithm, remove those which does not appear in the input variables
+                    of the constructor function
+                """
                 algo = SEARCH_ALGO_MAPPING[search_algo_name]()
                 this_search_algo_kwargs = allowed_custom_args = None
                 if algo:
@@ -46,6 +53,14 @@ class AutoSearchAlgorithm:
                     allowed_custom_args = {key: custom_hpo_args[key] for key in custom_hpo_args.keys() if
                                         key in allowed_arguments}
 
+                """
+                     If the search_algo_args_mode is "dft", set the args to the default args, e.g., 
+                     the default args for BlendSearch is 
+                     "low_cost_partial_config": {
+                        "num_train_epochs": min_epoch,
+                        "per_device_train_batch_size": max(hpo_search_space["per_device_train_batch_size"].categories),
+                    },
+                """
                 if search_algo_args_mode == "dft":
                     this_search_algo_kwargs = DEFAULT_SEARCH_ALGO_ARGS_MAPPING[search_algo_name](
                         "dft", hpo_search_space = hpo_search_space, **allowed_custom_args)
@@ -53,6 +68,9 @@ class AutoSearchAlgorithm:
                     this_search_algo_kwargs = DEFAULT_SEARCH_ALGO_ARGS_MAPPING[search_algo_name](
                         "cus", hpo_search_space=hpo_search_space, **allowed_custom_args)
 
+                """
+                    returning the hpo algorithm with the arguments
+                """
                 return SEARCH_ALGO_MAPPING[search_algo_name](**this_search_algo_kwargs)
             except:
                 return None
@@ -73,7 +91,10 @@ class AutoSearchAlgorithm:
 def get_search_algo_args_optuna(search_args_mode, hpo_search_space = None, **custom_hpo_args):
     return {}
 
-def default_search_algo_args_bs(search_args_mode, hpo_search_space = None, **custom_hpo_args):
+def default_search_algo_args_bs(search_args_mode, hpo_search_space, **custom_hpo_args):
+    assert hpo_search_space, "hpo_search_space needs to be specified for calling AutoSearchAlgorithm.from_method_name"
+    assert "num_train_epochs" in hpo_search_space, "num_train_epochs must be specified in hpo_search_space" \
+                                                   "for getting the default args for BlendSearch and CFO"
     if isinstance(hpo_search_space["num_train_epochs"], ray.tune.sample.Categorical):
         min_epoch = min(hpo_search_space["num_train_epochs"].categories)
     else:

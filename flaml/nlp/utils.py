@@ -50,7 +50,7 @@ def load_console_args(**custom_data_args):
     arg_parser.add_argument('--round_idx', type=int, help='round idx for acl experiments', required=False, default= 0)
     arg_parser.add_argument('--seed_data', type=int, help='seed of data shuffling', required=False, default= 43)
     arg_parser.add_argument('--seed_transformers', type=int, help='seed of transformers', required=False, default= 42)
-    args = arg_parser.parse_args()
+    args, unknown = arg_parser.parse_known_args()
 
     for each_key in custom_data_args.keys():
         if args.__contains__(each_key):
