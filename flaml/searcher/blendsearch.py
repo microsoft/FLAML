@@ -7,7 +7,6 @@ from typing import Dict, Optional, List, Tuple, Callable
 import numpy as np
 import time
 import pickle
-import inspect
 
 try:
     from ray.tune.suggest import Searcher
