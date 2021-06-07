@@ -78,7 +78,7 @@ class SearchThread:
         # calculate speed; use 0 for invalid speed temporarily
         if self.obj_best2 > self.obj_best1:
             self.speed = (self.obj_best2 - self.obj_best1) / (
-                max(self.cost_total - self.cost_best2, self._eps))
+                max(self.cost_total - self.cost_best2, SearchThread._eps))
         else:
             self.speed = 0
 
