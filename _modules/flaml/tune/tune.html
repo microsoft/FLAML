@@ -157,6 +157,7 @@
 <span class="sd"> * project root for license information.</span>
 <span class="sd">&#39;&#39;&#39;</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="k">try</span><span class="p">:</span>
@@ -468,6 +469,8 @@
         <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">num_trials</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="n">time_budget_s</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">time_budget_s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
     <span class="k">while</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">time_start</span> <span class="o">&lt;</span> <span class="n">time_budget_s</span> <span class="ow">and</span> <span class="p">(</span>
             <span class="n">num_samples</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">num_trials</span> <span class="o">&lt;</span> <span class="n">num_samples</span><span class="p">):</span>
         <span class="n">trial_to_run</span> <span class="o">=</span> <span class="n">_runner</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
