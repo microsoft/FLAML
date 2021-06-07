@@ -2,6 +2,17 @@
 import copy
 
 def get_space_union_and_unique(search_space_common, search_space_unique, this_case_tags: list):
+    """
+        get the recommended search configs for each pre-trained language models
+
+        Args:
+            search_space_common:
+                the union of configs recommended by the LM for all cases;
+            search_space_unique:
+                the recommended config by Longformer: The Long-Document Transformerthe LM for a specific condition, e.g., small model
+            this_case_tags:
+                a list, which contains the tag describing this unique space
+    """
     search_space_union = copy.deepcopy(search_space_common)
     this_search_space = copy.deepcopy(search_space_common)
     # enumerate over each case where the search space is different
@@ -54,7 +65,7 @@ def get_longformer_space(model_size_type = None,
                    subdataset_name = None,
                          algo_mode = None):
     """
-        Longformer: The Long-Document Transformer
+        TODO: Longformer: The Long-Document Transformer
     """
     search_space_dict = {}
     if dataset_name == "glue":

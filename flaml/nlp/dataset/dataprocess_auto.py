@@ -1,12 +1,8 @@
-import copy
-import re
 from collections import OrderedDict
 from functools import partial
 
 from transformers import AutoTokenizer
 from .sentence_keys_auto import get_sentence_keys
-from bisect import bisect
-import numpy as np
 
 def inserting_sepp(sent, start, end, this_tokenizer):
     return sent[:start].rstrip() \

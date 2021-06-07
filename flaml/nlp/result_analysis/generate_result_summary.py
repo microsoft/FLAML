@@ -1,9 +1,6 @@
-import json
-
 
 def extract_ranked_config_score(console_args, partial_config_dict):
     from .azure_utils import AzureUtils
-    import numpy as np
     azure_utils = AzureUtils(console_args=console_args)
 
     for method, each_partial_config in partial_config_dict.items():

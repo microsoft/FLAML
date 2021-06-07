@@ -1,4 +1,4 @@
-import os, shutil
+import os
 from ..utils import get_wandb_azure_key
 import subprocess, wandb
 import hashlib

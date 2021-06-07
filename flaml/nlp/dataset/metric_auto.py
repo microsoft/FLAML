@@ -1,6 +1,4 @@
 # https://github.com/huggingface/datasets/blob/master/metrics/glue/glue.py
-import os
-
 from collections import OrderedDict
 
 metric_mode_mapping_glue = {
