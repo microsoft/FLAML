@@ -40,8 +40,7 @@ class TrainerForAutoTransformers(transformers.Trainer):
 
         self.save_state()
 
-        output_metrics_keys = output.metrics.keys()
-        for key in output_metrics_keys:
+        for key in list(output.metrics.keys()):
             if key.startswith("eval_"):
                 output.metrics[key[5:]] = output.metrics[key]
         tune.report(**output.metrics)

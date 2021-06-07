@@ -47,6 +47,30 @@ class JobID:
         self.sdhf = 42
 
     def is_match(self, partial_jobid):
+        """
+            return a boolean variable whether the current object matches the partial jobid defined
+            in partial_jobid. For example,
+            self = JobID(dat = ['glue'],
+                            subdat = 'cola',
+                            mod = 'bestnn',
+                            spa = 'buni',
+                            arg = 'cus',
+                            alg = 'bs',
+                            pru = 'None',
+                            pre = 'funnel',
+                            presz = 'xlarge',
+                            spt = 'rspt',
+                            rep = 0,
+                            sddt = 43,
+                            sdhf = 42)
+            partial_jobid1 = JobID(dat = ['glue'],
+                                  subdat = 'cola',
+                                  mod = 'hpo')
+           partial_jobid2 = JobID(dat = ['glue'],
+                                  subdat = 'cola',
+                                  mod = 'bestnn')
+            return False for partial_jobid1 and True for partial_jobid2
+        """
         is_not_match = False
         for key, val in partial_jobid.__dict__.items():
             if val is None: continue
@@ -63,6 +87,9 @@ class JobID:
         return keytoval_str
 
     def to_jobid_string(self):
+        """
+            convert the current JobID into a blob name string
+        """
         list_keys = list(self.__dataclass_fields__.keys())
         field_dict = self.__dict__
         keytoval_str = "_".join([key + "=" + str(field_dict[key][0])
@@ -118,18 +145,18 @@ class JobID:
         else:
             return None
 
-    def set_jobid(self,
-                  **kwargs
+    def set_jobid_from_dict(self,
+                  jobid_dict
                   ):
-        for key in kwargs.keys():
+        for key in jobid_dict.keys():
             assert key in self.__dataclass_fields__.keys()
-            setattr(self, key, kwargs[key])
+            setattr(self, key, jobid_dict[key])
 
     def from_blobname(self, blobname):
         jobconfig_kwargs = self.blobname_to_jobid(blobname)
         if jobconfig_kwargs:
             jobconfig = JobID()
-            jobconfig.set_jobid(**jobconfig_kwargs)
+            jobconfig.set_jobid_from_dict(**jobconfig_kwargs)
             return jobconfig
         else:
             return None
@@ -238,7 +265,7 @@ class JobID:
             except:
                 spt = spt_id2val[0]
             rep = None
-            self.set_jobid(dat, subdat, mod, spa, arg, alg, pru, pre, presz, spt, rep)
+            self.set_jobid_from_dict(dat, subdat, mod, spa, arg, alg, pru, pre, presz, spt, rep)
             return self.to_jobid_string()
         if result:
             dat = [old_blobname.split("/")[1].split("_")[0]]
@@ -255,7 +282,7 @@ class JobID:
             except:
                 spt = spt_id2val[0]
             rep = int(result.group("rep_id"))
-            self.set_jobid(dat, subdat, mod, spa, arg, alg, pru, pre, presz, spt, rep)
+            self.set_jobid_from_dict(dat, subdat, mod, spa, arg, alg, pru, pre, presz, spt, rep)
             return self.to_jobid_string()
         return None
 
