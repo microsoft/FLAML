@@ -40,13 +40,13 @@ class TrainerForAutoTransformers(transformers.Trainer):
 
         self.save_state()
 
-        output_metrics = copy.deepcopy(output.metrics)
-        for key in output.metrics.keys():
+        output_metrics_keys = output.metrics.keys()
+        for key in output_metrics_keys:
             if key.startswith("eval_"):
-                output_metrics[key[5:]] = output_metrics[key]
-        tune.report(**output_metrics)
+                output.metrics[key[5:]] = output.metrics[key]
+        tune.report(**output.metrics)
 
-        return output_metrics
+        return output.metrics
 
     def save_state(self):
         """

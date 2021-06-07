@@ -46,7 +46,7 @@ class JobID:
         self.sddt = 43
         self.sdhf = 42
 
-    def is_partial_match(self, partial_config):
+    def is_match(self, partial_config):
         is_not_match = False
         for key, val in partial_config.__dict__.items():
             if val is None: continue
@@ -81,6 +81,24 @@ class JobID:
         return keytoval_str
 
     def blobname_to_jobid(self, keytoval_str):
+        """
+            converting an azure blobname to a JobID config,
+            e.g., blobname = "dat=glue_subdat=cola_mod=bestnn_spa=buni_arg=cus_
+                              alg=bs_pru=None_pre=funnel_presz=xlarge_spt=rspt_rep=0.json"
+            the converted jobid = JobID(dat = ['glue'],
+                                        subdat = 'cola',
+                                        mod = 'bestnn',
+                                        spa = 'buni',
+                                        arg = 'cus',
+                                        alg = 'bs',
+                                        pru = 'None',
+                                        pre = 'funnel',
+                                        presz = 'xlarge',
+                                        spt = 'rspt',
+                                        rep = 0,
+                                        sddt = 43,
+                                        sdhf = 42)
+        """
         field_keys = [key for key in list(self.__dataclass_fields__.keys()) if not key.endswith("_full")]
         regex_expression = ".*" + "_".join([key + "=(?P<" + key + ">.*)" for key in field_keys]) + ".(json|zip)"
         result = re.search(regex_expression, keytoval_str)
@@ -434,7 +452,7 @@ class AzureUtils:
                 each_jobconfig = jobid_config.from_blobname(each_blob.name)
                 is_append = False
                 if each_jobconfig:
-                    if each_jobconfig.is_partial_match(partial_config):
+                    if each_jobconfig.is_match(partial_config):
                         is_append = True
                     if earliest_time and not self.is_after_earliest_time(each_blob, earliest_time):
                         is_append = False
