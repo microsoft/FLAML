@@ -46,9 +46,9 @@ class JobID:
         self.sddt = 43
         self.sdhf = 42
 
-    def is_match(self, partial_config):
+    def is_match(self, partial_jobid):
         is_not_match = False
-        for key, val in partial_config.__dict__.items():
+        for key, val in partial_jobid.__dict__.items():
             if val is None: continue
             if getattr(self, key) != val:
                 is_not_match = True
@@ -443,7 +443,7 @@ class AzureUtils:
             return True
         return False
 
-    def get_blob_list_matching_partial_jobid(self, root_log_path, partial_config, earliest_time = None):
+    def get_blob_list_matching_partial_jobid(self, root_log_path, partial_jobid, earliest_time = None):
         blob_list = []
         container_client = self._init_azure_clients()
         jobid_config = JobID()
@@ -452,7 +452,7 @@ class AzureUtils:
                 each_jobconfig = jobid_config.from_blobname(each_blob.name)
                 is_append = False
                 if each_jobconfig:
-                    if each_jobconfig.is_match(partial_config):
+                    if each_jobconfig.is_match(partial_jobid):
                         is_append = True
                     if earliest_time and not self.is_after_earliest_time(each_blob, earliest_time):
                         is_append = False
@@ -464,15 +464,15 @@ class AzureUtils:
         data_json = json.load(open(blobname, "r"))
         return [(x['config'], x['metric_score']["max"], x['start_time']) for x in data_json['val_log']]
 
-    def get_config_and_score_from_partial_config(self,
+    def get_config_and_score_from_partial_jobid(self,
                                                  root_log_path,
-                                                 partial_config,
+                                                 partial_jobid,
                                                  group_attrs,
                                                  method,
                                                  earliest_time = None):
         matched_blob_list = self.get_blob_list_matching_partial_jobid(
             root_log_path,
-            partial_config,
+            partial_jobid,
             earliest_time=earliest_time)
         group_dict = {}
         for (each_jobconfig, each_blob) in matched_blob_list:
@@ -539,8 +539,8 @@ class AzureUtils:
         import shutil
         from flaml.nlp.dataset.submission_auto import file_name_mapping_glue, output_blank_tsv
         matched_blob_list = self.get_blob_list_matching_partial_jobid("data/", jobid_config)
-        partial_config_str = jobid_config.to_partial_jobid_string()
-        output_dir = os.path.join(result_root_dir, partial_config_str)
+        partial_jobid_str = jobid_config.to_partial_jobid_string()
+        output_dir = os.path.join(result_root_dir, partial_jobid_str)
         if os.path.exists(output_dir):
             assert os.path.isdir(output_dir)
         else:
