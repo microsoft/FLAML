@@ -42,7 +42,7 @@ class SearchThread:
 
     @classmethod
     def set_eps(cls, time_budget_s):
-        cls._eps = min(time_budget_s / 1000.0, cls._eps)
+        cls._eps = max(min(time_budget_s / 1000.0, cls._eps), 1e-10)
 
     def suggest(self, trial_id: str) -> Optional[Dict]:
         ''' use the suggest() of the underlying search algorithm
