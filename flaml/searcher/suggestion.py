@@ -594,7 +594,6 @@ class OptunaSearch(Searcher):
                     ot_trial, fn)(*args, **kwargs)
                 for (fn, args, kwargs) in self._space
             }
-        print('optuna', params)
         return unflatten_dict(params)
 
     def on_trial_result(self, trial_id: str, result: Dict):
