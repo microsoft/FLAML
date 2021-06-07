@@ -22,8 +22,8 @@ class JobID:
     presz: str = field(default = None)
     spt: str = field(default = None)
     rep: int = field(default = 0)
-    sddt: int = field(default = 42)
-    sdhf: int = field(default=42)
+    sddt: int = field(default = None)
+    sdhf: int = field(default= None)
 
     def __init__(self,
                  console_args = None):
