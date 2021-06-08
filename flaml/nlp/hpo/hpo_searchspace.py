@@ -240,7 +240,7 @@ class AutoHPOSearchSpace:
         raise ValueError(
             "Unrecognized method {},{} for this kind of AutoHPOSearchSpace: {}.\n"
             "Method name should be one of {}.".format(
-                hpo_searchspace_name, dataset_name, cls.__name__,
+                hpo_searchspace_mode, dataset_name, cls.__name__,
                 ", ".join(c.__name__ for c in HPO_SEARCH_SPACE_MAPPING.keys())
             )
         )
