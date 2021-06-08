@@ -213,7 +213,7 @@ def get_result_str(jobid_config, val_score, test_score, best_config, subdat2conf
     result_str = jobid_config.subdat.upper() + ","
     if jobid_config.alg:
         result_str += jobid_config.alg.upper().replace("OPTUNA", "Optuna")
-    if jobid_config.pru != None and jobid_config.pru != "None":
+    if jobid_config.pru is not None and jobid_config.pru != "None":
         result_str += "+" + jobid_config.pru.upper()
     if jobid_config.subdat != "mrpc":
         result_str += ",rep " + str(jobid_config.rep) + " & " + str(
@@ -291,7 +291,7 @@ def extract_hpo(
         azure_utils = AzureUtils(console_args=console_args, jobid=jobid_config)
         best_config, val_score = azure_utils.get_best_perf_config(console_args, jobid_config)
         test_score = test_scores[idx]
-        key2printstr[jobid_config.subdat.upper() + "," + jobid_config.alg.upper() + "," \
+        key2printstr[jobid_config.subdat.upper() + "," + jobid_config.alg.upper() + "," 
                      + jobid_config.pru + ",rep " + str(jobid_config.rep)] \
             = get_result_str(jobid_config, val_score, test_score, best_config, subdat2config, mode="hpo")
 

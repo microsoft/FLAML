@@ -1,6 +1,7 @@
 import os
 from ..utils import get_wandb_azure_key
-import subprocess, wandb
+import subprocess
+import wandb
 import hashlib
 from time import time
 
