@@ -1,0 +1,1605 @@
+commit a46f2ff7657d955c193dbaebafead42e89fb648a
+Author: liususan091219 <Xqq630517>
+Date:   Tue Jun 8 13:10:54 2021 -0400
+
+    fixing comment for Auto classes
+
+diff --git a/test/hf/test_electra.py b/test/hf/test_electra.py
+new file mode 100644
+index 0000000..e3ed71e
+--- /dev/null
++++ b/test/hf/test_electra.py
+@@ -0,0 +1,251 @@
++'''Require: pip install torch transformers datasets flaml[blendsearch,ray]
++'''
++import time
++import numpy as np
++import os
++
++try:
++    import ray
++    from datasets import (
++        load_dataset,
++        load_metric,
++    )
++    from transformers import (
++        AutoModelForSequenceClassification,
++        AutoTokenizer,
++        Trainer,
++        TrainingArguments,
++    )
++    import flaml
++    MODEL_CHECKPOINT = "google/electra-base-discriminator"
++    task_to_keys = {
++        "cola": ("sentence", None),
++        "mnli": ("premise", "hypothesis"),
++        "mrpc": ("sentence1", "sentence2"),
++        "qnli": ("question", "sentence"),
++        "qqp": ("question1", "question2"),
++        "rte": ("sentence1", "sentence2"),
++        "sst2": ("sentence", None),
++        "stsb": ("sentence1", "sentence2"),
++        "wnli": ("sentence1", "sentence2"),
++    }
++    max_seq_length = 128
++    overwrite_cache = False
++    pad_to_max_length = True
++    padding = "max_length"
++
++    TASK = "qnli"
++    # HP_METRIC, MODE = "loss", "min"
++    HP_METRIC, MODE = "accuracy", "max"
++
++    sentence1_key, sentence2_key = task_to_keys[TASK]
++    # Define tokenize method
++    tokenizer = AutoTokenizer.from_pretrained(MODEL_CHECKPOINT, use_fast=True)
++
++    def tokenize(examples):
++        args = (
++            (examples[sentence1_key],) if sentence2_key is None else (
++                examples[sentence1_key], examples[sentence2_key])
++        )
++        return tokenizer(*args, padding=padding, max_length=max_seq_length,
++                         truncation=True)
++
++except ImportError:
++    print("pip install torch transformers datasets flaml[blendsearch,ray]")
++
++import logging
++logger = logging.getLogger(__name__)
++os.makedirs('logs', exist_ok=True)
++logger.addHandler(logging.FileHandler('logs/tune_electra.log'))
++logger.setLevel(logging.INFO)
++
++
++def train_electra(config: dict):
++
++    # Load dataset and apply tokenizer
++    data_raw = load_dataset("glue", TASK)
++    data_encoded = data_raw.map(tokenize, batched=True)
++    train_dataset, eval_dataset = data_encoded["train"], data_encoded["validation"]
++
++    NUM_LABELS = len(train_dataset.features["label"].names)
++
++    metric = load_metric("glue", TASK)
++
++    def compute_metrics(eval_pred):
++        predictions, labels = eval_pred
++        predictions = np.argmax(predictions, axis=1)
++        return metric.compute(predictions=predictions, references=labels)
++
++    model = AutoModelForSequenceClassification.from_pretrained(
++        MODEL_CHECKPOINT, num_labels=NUM_LABELS
++    )
++
++    training_args = TrainingArguments(
++        output_dir='.',
++        do_eval=False,
++        disable_tqdm=True,
++        logging_steps=20000,
++        save_total_limit=0,
++        fp16=True,
++        **config,
++    )
++
++    trainer = Trainer(
++        model,
++        training_args,
++        train_dataset=train_dataset,
++        eval_dataset=eval_dataset,
++        tokenizer=tokenizer,
++        compute_metrics=compute_metrics,
++    )
++
++    # train model
++    trainer.train()
++
++    # evaluate model
++    eval_output = trainer.evaluate()
++
++    flaml.tune.report(
++        loss=eval_output["eval_loss"],
++        accuracy=eval_output["eval_accuracy"],
++    )
++
++    try:
++        from azureml.core import Run
++        run = Run.get_context()
++        run.log('accuracy', eval_output["eval_accuracy"])
++        run.log('loss', eval_output["eval_loss"])
++        run.log('config', config)
++    except ImportError:
++        pass
++
++
++def _test_electra(method='BlendSearch'):
++
++    max_num_epoch = 9
++    num_samples = -1
++    time_budget_s = 3600
++
++    search_space = {
++        # You can mix constants with search space objects.
++        "num_train_epochs": flaml.tune.loguniform(1, max_num_epoch),
++        "learning_rate": flaml.tune.loguniform(3e-5, 1.5e-4),
++        "weight_decay": flaml.tune.uniform(0, 0.3),
++        "per_device_train_batch_size": flaml.tune.choice([16, 32, 64, 128]),
++        "seed": flaml.tune.choice([12, 22, 33, 42]),
++    }
++
++    start_time = time.time()
++    ray.init(num_cpus=4, num_gpus=4)
++    if 'ASHA' == method:
++        algo = None
++    elif 'BOHB' == method:
++        from ray.tune.schedulers import HyperBandForBOHB
++        from ray.tune.suggest.bohb import tuneBOHB
++        algo = tuneBOHB(max_concurrent=4)
++        scheduler = HyperBandForBOHB(max_t=max_num_epoch)
++    elif 'Optuna' == method:
++        from ray.tune.suggest.optuna import OptunaSearch
++        algo = OptunaSearch()
++    elif 'CFO' == method:
++        from flaml import CFO
++        algo = CFO(low_cost_partial_config={
++            "num_train_epochs": 1,
++            "per_device_train_batch_size": 128,
++        })
++    elif 'BlendSearch' == method:
++        from flaml import BlendSearch
++        algo = BlendSearch(low_cost_partial_config={
++            "num_train_epochs": 1,
++            "per_device_train_batch_size": 128,
++        })
++    elif 'Dragonfly' == method:
++        from ray.tune.suggest.dragonfly import DragonflySearch
++        algo = DragonflySearch()
++    elif 'SkOpt' == method:
++        from ray.tune.suggest.skopt import SkOptSearch
++        algo = SkOptSearch()
++    elif 'Nevergrad' == method:
++        from ray.tune.suggest.nevergrad import NevergradSearch
++        import nevergrad as ng
++        algo = NevergradSearch(optimizer=ng.optimizers.OnePlusOne)
++    elif 'ZOOpt' == method:
++        from ray.tune.suggest.zoopt import ZOOptSearch
++        algo = ZOOptSearch(budget=num_samples)
++    elif 'Ax' == method:
++        from ray.tune.suggest.ax import AxSearch
++        algo = AxSearch(max_concurrent=3)
++    elif 'HyperOpt' == method:
++        from ray.tune.suggest.hyperopt import HyperOptSearch
++        algo = HyperOptSearch()
++        scheduler = None
++    if method != 'BOHB':
++        from ray.tune.schedulers import ASHAScheduler
++        scheduler = ASHAScheduler(
++            max_t=max_num_epoch,
++            grace_period=1)
++    scheduler = None
++    analysis = ray.tune.run(
++        train_electra,
++        metric=HP_METRIC,
++        mode=MODE,
++        resources_per_trial={"gpu": 4, "cpu": 4},
++        config=search_space, local_dir='logs/',
++        num_samples=num_samples, time_budget_s=time_budget_s,
++        keep_checkpoints_num=1, checkpoint_score_attr=HP_METRIC,
++        scheduler=scheduler, search_alg=algo)
++
++    ray.shutdown()
++
++    best_trial = analysis.get_best_trial(HP_METRIC, MODE, "all")
++    metric = best_trial.metric_analysis[HP_METRIC][MODE]
++
++    logger.info(f"method={method}")
++    logger.info(f"n_trials={len(analysis.trials)}")
++    logger.info(f"time={time.time()-start_time}")
++    logger.info(f"Best model eval {HP_METRIC}: {metric:.4f}")
++    logger.info(f"Best model parameters: {best_trial.config}")
++
++
++def _test_electra_cfo():
++    _test_electra('CFO')
++
++
++def _test_electra_dragonfly():
++    _test_electra('Dragonfly')
++
++
++def _test_electra_skopt():
++    _test_electra('SkOpt')
++
++
++def _test_electra_nevergrad():
++    _test_electra('Nevergrad')
++
++
++def _test_electra_zoopt():
++    _test_electra('ZOOpt')
++
++
++def _test_electra_ax():
++    _test_electra('Ax')
++
++
++def __test_electra_hyperopt():
++    _test_electra('HyperOpt')
++
++
++def _test_electra_optuna():
++    _test_electra('Optuna')
++
++
++def _test_electra_asha():
++    _test_electra('ASHA')
++
++
++def _test_electra_bohb():
++    _test_electra('BOHB')
++
++
++if __name__ == "__main__":
++    _test_electra()
+
+commit 3c0b94f7e8e8d7b37f42bf10134af4a92a349d10
+Author: liususan091219 <Xqq630517>
+Date:   Tue Jun 8 13:07:57 2021 -0400
+
+    fixing comment for Auto classes
+
+diff --git a/test/hf/test_electra.py b/test/hf/test_electra.py
+deleted file mode 100644
+index e3ed71e..0000000
+--- a/test/hf/test_electra.py
++++ /dev/null
+@@ -1,251 +0,0 @@
+-'''Require: pip install torch transformers datasets flaml[blendsearch,ray]
+-'''
+-import time
+-import numpy as np
+-import os
+-
+-try:
+-    import ray
+-    from datasets import (
+-        load_dataset,
+-        load_metric,
+-    )
+-    from transformers import (
+-        AutoModelForSequenceClassification,
+-        AutoTokenizer,
+-        Trainer,
+-        TrainingArguments,
+-    )
+-    import flaml
+-    MODEL_CHECKPOINT = "google/electra-base-discriminator"
+-    task_to_keys = {
+-        "cola": ("sentence", None),
+-        "mnli": ("premise", "hypothesis"),
+-        "mrpc": ("sentence1", "sentence2"),
+-        "qnli": ("question", "sentence"),
+-        "qqp": ("question1", "question2"),
+-        "rte": ("sentence1", "sentence2"),
+-        "sst2": ("sentence", None),
+-        "stsb": ("sentence1", "sentence2"),
+-        "wnli": ("sentence1", "sentence2"),
+-    }
+-    max_seq_length = 128
+-    overwrite_cache = False
+-    pad_to_max_length = True
+-    padding = "max_length"
+-
+-    TASK = "qnli"
+-    # HP_METRIC, MODE = "loss", "min"
+-    HP_METRIC, MODE = "accuracy", "max"
+-
+-    sentence1_key, sentence2_key = task_to_keys[TASK]
+-    # Define tokenize method
+-    tokenizer = AutoTokenizer.from_pretrained(MODEL_CHECKPOINT, use_fast=True)
+-
+-    def tokenize(examples):
+-        args = (
+-            (examples[sentence1_key],) if sentence2_key is None else (
+-                examples[sentence1_key], examples[sentence2_key])
+-        )
+-        return tokenizer(*args, padding=padding, max_length=max_seq_length,
+-                         truncation=True)
+-
+-except ImportError:
+-    print("pip install torch transformers datasets flaml[blendsearch,ray]")
+-
+-import logging
+-logger = logging.getLogger(__name__)
+-os.makedirs('logs', exist_ok=True)
+-logger.addHandler(logging.FileHandler('logs/tune_electra.log'))
+-logger.setLevel(logging.INFO)
+-
+-
+-def train_electra(config: dict):
+-
+-    # Load dataset and apply tokenizer
+-    data_raw = load_dataset("glue", TASK)
+-    data_encoded = data_raw.map(tokenize, batched=True)
+-    train_dataset, eval_dataset = data_encoded["train"], data_encoded["validation"]
+-
+-    NUM_LABELS = len(train_dataset.features["label"].names)
+-
+-    metric = load_metric("glue", TASK)
+-
+-    def compute_metrics(eval_pred):
+-        predictions, labels = eval_pred
+-        predictions = np.argmax(predictions, axis=1)
+-        return metric.compute(predictions=predictions, references=labels)
+-
+-    model = AutoModelForSequenceClassification.from_pretrained(
+-        MODEL_CHECKPOINT, num_labels=NUM_LABELS
+-    )
+-
+-    training_args = TrainingArguments(
+-        output_dir='.',
+-        do_eval=False,
+-        disable_tqdm=True,
+-        logging_steps=20000,
+-        save_total_limit=0,
+-        fp16=True,
+-        **config,
+-    )
+-
+-    trainer = Trainer(
+-        model,
+-        training_args,
+-        train_dataset=train_dataset,
+-        eval_dataset=eval_dataset,
+-        tokenizer=tokenizer,
+-        compute_metrics=compute_metrics,
+-    )
+-
+-    # train model
+-    trainer.train()
+-
+-    # evaluate model
+-    eval_output = trainer.evaluate()
+-
+-    flaml.tune.report(
+-        loss=eval_output["eval_loss"],
+-        accuracy=eval_output["eval_accuracy"],
+-    )
+-
+-    try:
+-        from azureml.core import Run
+-        run = Run.get_context()
+-        run.log('accuracy', eval_output["eval_accuracy"])
+-        run.log('loss', eval_output["eval_loss"])
+-        run.log('config', config)
+-    except ImportError:
+-        pass
+-
+-
+-def _test_electra(method='BlendSearch'):
+-
+-    max_num_epoch = 9
+-    num_samples = -1
+-    time_budget_s = 3600
+-
+-    search_space = {
+-        # You can mix constants with search space objects.
+-        "num_train_epochs": flaml.tune.loguniform(1, max_num_epoch),
+-        "learning_rate": flaml.tune.loguniform(3e-5, 1.5e-4),
+-        "weight_decay": flaml.tune.uniform(0, 0.3),
+-        "per_device_train_batch_size": flaml.tune.choice([16, 32, 64, 128]),
+-        "seed": flaml.tune.choice([12, 22, 33, 42]),
+-    }
+-
+-    start_time = time.time()
+-    ray.init(num_cpus=4, num_gpus=4)
+-    if 'ASHA' == method:
+-        algo = None
+-    elif 'BOHB' == method:
+-        from ray.tune.schedulers import HyperBandForBOHB
+-        from ray.tune.suggest.bohb import tuneBOHB
+-        algo = tuneBOHB(max_concurrent=4)
+-        scheduler = HyperBandForBOHB(max_t=max_num_epoch)
+-    elif 'Optuna' == method:
+-        from ray.tune.suggest.optuna import OptunaSearch
+-        algo = OptunaSearch()
+-    elif 'CFO' == method:
+-        from flaml import CFO
+-        algo = CFO(low_cost_partial_config={
+-            "num_train_epochs": 1,
+-            "per_device_train_batch_size": 128,
+-        })
+-    elif 'BlendSearch' == method:
+-        from flaml import BlendSearch
+-        algo = BlendSearch(low_cost_partial_config={
+-            "num_train_epochs": 1,
+-            "per_device_train_batch_size": 128,
+-        })
+-    elif 'Dragonfly' == method:
+-        from ray.tune.suggest.dragonfly import DragonflySearch
+-        algo = DragonflySearch()
+-    elif 'SkOpt' == method:
+-        from ray.tune.suggest.skopt import SkOptSearch
+-        algo = SkOptSearch()
+-    elif 'Nevergrad' == method:
+-        from ray.tune.suggest.nevergrad import NevergradSearch
+-        import nevergrad as ng
+-        algo = NevergradSearch(optimizer=ng.optimizers.OnePlusOne)
+-    elif 'ZOOpt' == method:
+-        from ray.tune.suggest.zoopt import ZOOptSearch
+-        algo = ZOOptSearch(budget=num_samples)
+-    elif 'Ax' == method:
+-        from ray.tune.suggest.ax import AxSearch
+-        algo = AxSearch(max_concurrent=3)
+-    elif 'HyperOpt' == method:
+-        from ray.tune.suggest.hyperopt import HyperOptSearch
+-        algo = HyperOptSearch()
+-        scheduler = None
+-    if method != 'BOHB':
+-        from ray.tune.schedulers import ASHAScheduler
+-        scheduler = ASHAScheduler(
+-            max_t=max_num_epoch,
+-            grace_period=1)
+-    scheduler = None
+-    analysis = ray.tune.run(
+-        train_electra,
+-        metric=HP_METRIC,
+-        mode=MODE,
+-        resources_per_trial={"gpu": 4, "cpu": 4},
+-        config=search_space, local_dir='logs/',
+-        num_samples=num_samples, time_budget_s=time_budget_s,
+-        keep_checkpoints_num=1, checkpoint_score_attr=HP_METRIC,
+-        scheduler=scheduler, search_alg=algo)
+-
+-    ray.shutdown()
+-
+-    best_trial = analysis.get_best_trial(HP_METRIC, MODE, "all")
+-    metric = best_trial.metric_analysis[HP_METRIC][MODE]
+-
+-    logger.info(f"method={method}")
+-    logger.info(f"n_trials={len(analysis.trials)}")
+-    logger.info(f"time={time.time()-start_time}")
+-    logger.info(f"Best model eval {HP_METRIC}: {metric:.4f}")
+-    logger.info(f"Best model parameters: {best_trial.config}")
+-
+-
+-def _test_electra_cfo():
+-    _test_electra('CFO')
+-
+-
+-def _test_electra_dragonfly():
+-    _test_electra('Dragonfly')
+-
+-
+-def _test_electra_skopt():
+-    _test_electra('SkOpt')
+-
+-
+-def _test_electra_nevergrad():
+-    _test_electra('Nevergrad')
+-
+-
+-def _test_electra_zoopt():
+-    _test_electra('ZOOpt')
+-
+-
+-def _test_electra_ax():
+-    _test_electra('Ax')
+-
+-
+-def __test_electra_hyperopt():
+-    _test_electra('HyperOpt')
+-
+-
+-def _test_electra_optuna():
+-    _test_electra('Optuna')
+-
+-
+-def _test_electra_asha():
+-    _test_electra('ASHA')
+-
+-
+-def _test_electra_bohb():
+-    _test_electra('BOHB')
+-
+-
+-if __name__ == "__main__":
+-    _test_electra()
+
+commit 688fb9c9634435aefcc0d3b1fabcfcd61b722635
+Author: liususan091219 <Xqq630517>
+Date:   Tue Jun 8 12:40:45 2021 -0400
+
+    fixing comment for Auto classes
+
+diff --git a/test/hf/test_electra.py b/test/hf/test_electra.py
+index c94439d..e3ed71e 100644
+--- a/test/hf/test_electra.py
++++ b/test/hf/test_electra.py
+@@ -248,4 +248,4 @@ def _test_electra_bohb():
+ 
+ 
+ if __name__ == "__main__":
+-    _test_electra()
+\ No newline at end of file
++    _test_electra()
+
+commit 8d14319010d385062949c2f9a8b92a7379b9f264
+Author: liususan091219 <Xqq630517>
+Date:   Tue Jun 8 12:35:34 2021 -0400
+
+    fixing comment for Auto classes
+
+diff --git a/test/hf/test_electra.py b/test/hf/test_electra.py
+index e3ed71e..c94439d 100644
+--- a/test/hf/test_electra.py
++++ b/test/hf/test_electra.py
+@@ -248,4 +248,4 @@ def _test_electra_bohb():
+ 
+ 
+ if __name__ == "__main__":
+-    _test_electra()
++    _test_electra()
+\ No newline at end of file
+
+commit f754635792ef2658bdf5898c13c02b2bdf45b683
+Author: liususan091219 <Xqq630517>
+Date:   Tue Jun 8 12:33:10 2021 -0400
+
+    fixing comment for Auto classes
+
+diff --git a/test/hf/test_electra.py b/test/hf/test_electra.py
+index af298cc..e3ed71e 100644
+--- a/test/hf/test_electra.py
++++ b/test/hf/test_electra.py
+@@ -2,6 +2,7 @@
+ '''
+ import time
+ import numpy as np
++import os
+ 
+ try:
+     import ray
+@@ -15,6 +16,7 @@ try:
+         Trainer,
+         TrainingArguments,
+     )
++    import flaml
+     MODEL_CHECKPOINT = "google/electra-base-discriminator"
+     task_to_keys = {
+         "cola": ("sentence", None),
+@@ -27,9 +29,9 @@ try:
+         "stsb": ("sentence1", "sentence2"),
+         "wnli": ("sentence1", "sentence2"),
+     }
+-    max_seq_length=128
+-    overwrite_cache=False
+-    pad_to_max_length=True
++    max_seq_length = 128
++    overwrite_cache = False
++    pad_to_max_length = True
+     padding = "max_length"
+ 
+     TASK = "qnli"
+@@ -46,19 +48,17 @@ try:
+                 examples[sentence1_key], examples[sentence2_key])
+         )
+         return tokenizer(*args, padding=padding, max_length=max_seq_length,
+-         truncation=True)
++                         truncation=True)
+ 
+-except:
++except ImportError:
+     print("pip install torch transformers datasets flaml[blendsearch,ray]")
+-    
++
+ import logging
+ logger = logging.getLogger(__name__)
+-import os
+ os.makedirs('logs', exist_ok=True)
+ logger.addHandler(logging.FileHandler('logs/tune_electra.log'))
+ logger.setLevel(logging.INFO)
+ 
+-import flaml
+ 
+ def train_electra(config: dict):
+ 
+@@ -76,7 +76,6 @@ def train_electra(config: dict):
+         predictions = np.argmax(predictions, axis=1)
+         return metric.compute(predictions=predictions, references=labels)
+ 
+-
+     model = AutoModelForSequenceClassification.from_pretrained(
+         MODEL_CHECKPOINT, num_labels=NUM_LABELS
+     )
+@@ -109,7 +108,7 @@ def train_electra(config: dict):
+     flaml.tune.report(
+         loss=eval_output["eval_loss"],
+         accuracy=eval_output["eval_accuracy"],
+-        )
++    )
+ 
+     try:
+         from azureml.core import Run
+@@ -117,10 +116,12 @@ def train_electra(config: dict):
+         run.log('accuracy', eval_output["eval_accuracy"])
+         run.log('loss', eval_output["eval_loss"])
+         run.log('config', config)
+-    except: pass
++    except ImportError:
++        pass
++
+ 
+ def _test_electra(method='BlendSearch'):
+- 
++
+     max_num_epoch = 9
+     num_samples = -1
+     time_budget_s = 3600
+@@ -148,16 +149,16 @@ def _test_electra(method='BlendSearch'):
+         algo = OptunaSearch()
+     elif 'CFO' == method:
+         from flaml import CFO
+-        algo = CFO(points_to_evaluate=[{
++        algo = CFO(low_cost_partial_config={
+             "num_train_epochs": 1,
+             "per_device_train_batch_size": 128,
+-        }])
++        })
+     elif 'BlendSearch' == method:
+         from flaml import BlendSearch
+-        algo = BlendSearch(points_to_evaluate=[{
++        algo = BlendSearch(low_cost_partial_config={
+             "num_train_epochs": 1,
+             "per_device_train_batch_size": 128,
+-        }])
++        })
+     elif 'Dragonfly' == method:
+         from ray.tune.suggest.dragonfly import DragonflySearch
+         algo = DragonflySearch()
+
+commit 06d72a0572eef5ddfb51e7a734f1c2a7c27d9c64
+Author: liususan091219 <Xqq630517>
+Date:   Tue Jun 8 12:23:48 2021 -0400
+
+    fixing comment for Auto classes
+
+diff --git a/test/hf/test_electra.py b/test/hf/test_electra.py
+index d7cf339..af298cc 100644
+--- a/test/hf/test_electra.py
++++ b/test/hf/test_electra.py
+@@ -247,4 +247,4 @@ def _test_electra_bohb():
+ 
+ 
+ if __name__ == "__main__":
+-    _test_electra()
+\ No newline at end of file
++    _test_electra()
+
+commit 2f6c84b800502d950f9cf612aa910999a42d84e7
+Author: liususan091219 <Xqq630517>
+Date:   Fri Mar 26 23:08:25 2021 -0400
+
+    Revert to 8589c22
+
+diff --git a/test/hf/test_electra.py b/test/hf/test_electra.py
+index 225e837..d7cf339 100644
+--- a/test/hf/test_electra.py
++++ b/test/hf/test_electra.py
+@@ -50,7 +50,7 @@ try:
+ 
+ except:
+     print("pip install torch transformers datasets flaml[blendsearch,ray]")
+-
++    
+ import logging
+ logger = logging.getLogger(__name__)
+ import os
+@@ -120,7 +120,7 @@ def train_electra(config: dict):
+     except: pass
+ 
+ def _test_electra(method='BlendSearch'):
+-
++ 
+     max_num_epoch = 9
+     num_samples = -1
+     time_budget_s = 3600
+
+commit 66bcbb9f84f64a3ac052dc728c1837ba7cf85c9f
+Author: liususan091219 <Xqq630517>
+Date:   Fri Mar 19 16:36:02 2021 -0400
+
+    Updating the line format; adding autosearchspace
+
+diff --git a/test/hf/test_electra.py b/test/hf/test_electra.py
+index 17037c4..225e837 100644
+--- a/test/hf/test_electra.py
++++ b/test/hf/test_electra.py
+@@ -15,7 +15,7 @@ try:
+         Trainer,
+         TrainingArguments,
+     )
+-    MODEL_CHECKPOINT = "google/grid-base-discriminator"
++    MODEL_CHECKPOINT = "google/electra-base-discriminator"
+     task_to_keys = {
+         "cola": ("sentence", None),
+         "mnli": ("premise", "hypothesis"),
+@@ -50,7 +50,7 @@ try:
+ 
+ except:
+     print("pip install torch transformers datasets flaml[blendsearch,ray]")
+-    
++
+ import logging
+ logger = logging.getLogger(__name__)
+ import os
+
+commit b3a09d50e49550b5e9249524c27fdb1e7e3daca1
+Author: liususan091219 <Xqq630517>
+Date:   Fri Mar 19 15:19:45 2021 -0400
+
+    Revert to 15d61ff
+
+diff --git a/test/hf/test_electra.py b/test/hf/test_electra.py
+index d87d39c..17037c4 100644
+--- a/test/hf/test_electra.py
++++ b/test/hf/test_electra.py
+@@ -15,7 +15,7 @@ try:
+         Trainer,
+         TrainingArguments,
+     )
+-    MODEL_CHECKPOINT = "google/electra-base-discriminator"
++    MODEL_CHECKPOINT = "google/grid-base-discriminator"
+     task_to_keys = {
+         "cola": ("sentence", None),
+         "mnli": ("premise", "hypothesis"),
+
+commit 4e6ae3bb59acbc06edc9f4fa69257c0d747ff43f
+Author: liususan091219 <Xqq630517>
+Date:   Wed Mar 17 23:36:31 2021 -0400
+
+    Revert to 15d61ff
+
+diff --git a/test/hf/test_electra.py b/test/hf/test_electra.py
+index 5b744f0..d87d39c 100644
+--- a/test/hf/test_electra.py
++++ b/test/hf/test_electra.py
+@@ -76,6 +76,7 @@ def train_electra(config: dict):
+         predictions = np.argmax(predictions, axis=1)
+         return metric.compute(predictions=predictions, references=labels)
+ 
++
+     model = AutoModelForSequenceClassification.from_pretrained(
+         MODEL_CHECKPOINT, num_labels=NUM_LABELS
+     )
+@@ -119,7 +120,7 @@ def train_electra(config: dict):
+     except: pass
+ 
+ def _test_electra(method='BlendSearch'):
+- 
++
+     max_num_epoch = 9
+     num_samples = -1
+     time_budget_s = 3600
+@@ -129,14 +130,8 @@ def _test_electra(method='BlendSearch'):
+         "num_train_epochs": flaml.tune.loguniform(1, max_num_epoch),
+         "learning_rate": flaml.tune.loguniform(3e-5, 1.5e-4),
+         "weight_decay": flaml.tune.uniform(0, 0.3),
+-        # "warmup_ratio": flaml.tune.uniform(0, 0.2),
+-        # "hidden_dropout_prob": flaml.tune.uniform(0, 0.2),
+-        # "attention_probs_dropout_prob": flaml.tune.uniform(0, 0.2),
+         "per_device_train_batch_size": flaml.tune.choice([16, 32, 64, 128]),
+         "seed": flaml.tune.choice([12, 22, 33, 42]),
+-        # "adam_beta1": flaml.tune.uniform(0.8, 0.99),
+-        # "adam_beta2": flaml.tune.loguniform(98e-2, 9999e-4),
+-        # "adam_epsilon": flaml.tune.loguniform(1e-9, 1e-7),
+     }
+ 
+     start_time = time.time()
+@@ -252,4 +247,4 @@ def _test_electra_bohb():
+ 
+ 
+ if __name__ == "__main__":
+-    _test_electra()
++    _test_electra()
+\ No newline at end of file
+
+commit 35766e1a7cf34722e9c9bf7488a77b7dfdea3d8d
+Author: liususan091219 <Xqq630517>
+Date:   Wed Mar 17 23:11:04 2021 -0400
+
+    Revert to previous version
+
+diff --git a/test/hf/test_electra.py b/test/hf/test_electra.py
+index d87d39c..5b744f0 100644
+--- a/test/hf/test_electra.py
++++ b/test/hf/test_electra.py
+@@ -76,7 +76,6 @@ def train_electra(config: dict):
+         predictions = np.argmax(predictions, axis=1)
+         return metric.compute(predictions=predictions, references=labels)
+ 
+-
+     model = AutoModelForSequenceClassification.from_pretrained(
+         MODEL_CHECKPOINT, num_labels=NUM_LABELS
+     )
+@@ -120,7 +119,7 @@ def train_electra(config: dict):
+     except: pass
+ 
+ def _test_electra(method='BlendSearch'):
+-
++ 
+     max_num_epoch = 9
+     num_samples = -1
+     time_budget_s = 3600
+@@ -130,8 +129,14 @@ def _test_electra(method='BlendSearch'):
+         "num_train_epochs": flaml.tune.loguniform(1, max_num_epoch),
+         "learning_rate": flaml.tune.loguniform(3e-5, 1.5e-4),
+         "weight_decay": flaml.tune.uniform(0, 0.3),
++        # "warmup_ratio": flaml.tune.uniform(0, 0.2),
++        # "hidden_dropout_prob": flaml.tune.uniform(0, 0.2),
++        # "attention_probs_dropout_prob": flaml.tune.uniform(0, 0.2),
+         "per_device_train_batch_size": flaml.tune.choice([16, 32, 64, 128]),
+         "seed": flaml.tune.choice([12, 22, 33, 42]),
++        # "adam_beta1": flaml.tune.uniform(0.8, 0.99),
++        # "adam_beta2": flaml.tune.loguniform(98e-2, 9999e-4),
++        # "adam_epsilon": flaml.tune.loguniform(1e-9, 1e-7),
+     }
+ 
+     start_time = time.time()
+@@ -247,4 +252,4 @@ def _test_electra_bohb():
+ 
+ 
+ if __name__ == "__main__":
+-    _test_electra()
+\ No newline at end of file
++    _test_electra()
+
+commit 923cbdafcd58c4a40a54b0d9e4bc30c5fccc797f
+Author: liususan091219 <Xqq630517>
+Date:   Wed Mar 17 01:15:49 2021 -0400
+
+    Merge remote-tracking branch 'upstream/main' into v0.2.7
+
+diff --git a/test/hf/test_electra.py b/test/hf/test_electra.py
+index 5b744f0..d87d39c 100644
+--- a/test/hf/test_electra.py
++++ b/test/hf/test_electra.py
+@@ -76,6 +76,7 @@ def train_electra(config: dict):
+         predictions = np.argmax(predictions, axis=1)
+         return metric.compute(predictions=predictions, references=labels)
+ 
++
+     model = AutoModelForSequenceClassification.from_pretrained(
+         MODEL_CHECKPOINT, num_labels=NUM_LABELS
+     )
+@@ -119,7 +120,7 @@ def train_electra(config: dict):
+     except: pass
+ 
+ def _test_electra(method='BlendSearch'):
+- 
++
+     max_num_epoch = 9
+     num_samples = -1
+     time_budget_s = 3600
+@@ -129,14 +130,8 @@ def _test_electra(method='BlendSearch'):
+         "num_train_epochs": flaml.tune.loguniform(1, max_num_epoch),
+         "learning_rate": flaml.tune.loguniform(3e-5, 1.5e-4),
+         "weight_decay": flaml.tune.uniform(0, 0.3),
+-        # "warmup_ratio": flaml.tune.uniform(0, 0.2),
+-        # "hidden_dropout_prob": flaml.tune.uniform(0, 0.2),
+-        # "attention_probs_dropout_prob": flaml.tune.uniform(0, 0.2),
+         "per_device_train_batch_size": flaml.tune.choice([16, 32, 64, 128]),
+         "seed": flaml.tune.choice([12, 22, 33, 42]),
+-        # "adam_beta1": flaml.tune.uniform(0.8, 0.99),
+-        # "adam_beta2": flaml.tune.loguniform(98e-2, 9999e-4),
+-        # "adam_epsilon": flaml.tune.loguniform(1e-9, 1e-7),
+     }
+ 
+     start_time = time.time()
+@@ -252,4 +247,4 @@ def _test_electra_bohb():
+ 
+ 
+ if __name__ == "__main__":
+-    _test_electra()
++    _test_electra()
+\ No newline at end of file
+
+commit 39d9d4f7f4eba26648d426d8390839aa2ccbf996
+Author: liususan091219 <Xqq630517>
+Date:   Sat Mar 13 13:30:35 2021 -0500
+
+    adding AutoHuggingFace
+
+diff --git a/test/hf/test_electra.py b/test/hf/test_electra.py
+index f95da33..5b744f0 100644
+--- a/test/hf/test_electra.py
++++ b/test/hf/test_electra.py
+@@ -76,7 +76,6 @@ def train_electra(config: dict):
+         predictions = np.argmax(predictions, axis=1)
+         return metric.compute(predictions=predictions, references=labels)
+ 
+-
+     model = AutoModelForSequenceClassification.from_pretrained(
+         MODEL_CHECKPOINT, num_labels=NUM_LABELS
+     )
+
+commit 075c2d909ceface189a8cac9b82c282513f6ace4
+Merge: c2f0d80 840e3fc
+Author: liususan091219 <Xqq630517>
+Date:   Tue Mar 9 18:00:25 2021 -0500
+
+    resolve conflict
+
+commit 1560a6e52a742908e0b648ee95d88f8202ad0b82
+Author: Chi Wang <Sonicive@hotmail.com>
+Date:   Fri Mar 5 23:39:14 2021 -0800
+
+    V0.2.7 (#35)
+    
+    * bug fix
+    
+    * admissible region
+    
+    * use CFO's init point as backup
+    
+    * step lower bound
+    
+    * test electra
+
+diff --git a/test/hf/test_electra.py b/test/hf/test_electra.py
+new file mode 100644
+index 0000000..65fda2b
+--- /dev/null
++++ b/test/hf/test_electra.py
+@@ -0,0 +1,256 @@
++'''Require: pip install torch transformers datasets flaml[blendsearch,ray]
++'''
++import time
++import numpy as np
++
++try:
++    import ray
++    from datasets import (
++        load_dataset,
++        load_metric,
++    )
++    from transformers import (
++        AutoModelForSequenceClassification,
++        AutoTokenizer,
++        Trainer,
++        TrainingArguments,
++    )
++    MODEL_CHECKPOINT = "google/electra-base-discriminator"
++    task_to_keys = {
++        "cola": ("sentence", None),
++        "mnli": ("premise", "hypothesis"),
++        "mrpc": ("sentence1", "sentence2"),
++        "qnli": ("question", "sentence"),
++        "qqp": ("question1", "question2"),
++        "rte": ("sentence1", "sentence2"),
++        "sst2": ("sentence", None),
++        "stsb": ("sentence1", "sentence2"),
++        "wnli": ("sentence1", "sentence2"),
++    }
++    max_seq_length=128
++    overwrite_cache=False
++    pad_to_max_length=True
++    padding = "max_length"
++
++    TASK = "qnli"
++    # HP_METRIC, MODE = "loss", "min"
++    HP_METRIC, MODE = "accuracy", "max"
++
++    sentence1_key, sentence2_key = task_to_keys[TASK]
++    # Define tokenize method
++    tokenizer = AutoTokenizer.from_pretrained(MODEL_CHECKPOINT, use_fast=True)
++
++    def tokenize(examples):
++        args = (
++            (examples[sentence1_key],) if sentence2_key is None else (
++                examples[sentence1_key], examples[sentence2_key])
++        )
++        return tokenizer(*args, padding=padding, max_length=max_seq_length,
++         truncation=True)
++
++except:
++    print("pip install torch transformers datasets flaml[blendsearch,ray]")
++    
++import logging
++logger = logging.getLogger(__name__)
++import os
++os.makedirs('logs', exist_ok=True)
++logger.addHandler(logging.FileHandler('logs/tune_electra.log'))
++logger.setLevel(logging.INFO)
++
++import flaml
++
++def train_electra(config: dict):
++
++    # Load dataset and apply tokenizer
++    data_raw = load_dataset("glue", TASK)
++    data_encoded = data_raw.map(tokenize, batched=True)
++    train_dataset, eval_dataset = data_encoded["train"], data_encoded["validation"]
++
++    NUM_LABELS = len(train_dataset.features["label"].names)
++
++    metric = load_metric("glue", TASK)
++
++    def compute_metrics(eval_pred):
++        predictions, labels = eval_pred
++        predictions = np.argmax(predictions, axis=1)
++        return metric.compute(predictions=predictions, references=labels)
++
++
++    model = AutoModelForSequenceClassification.from_pretrained(
++        MODEL_CHECKPOINT, num_labels=NUM_LABELS
++    )
++
++    training_args = TrainingArguments(
++        output_dir='.',
++        do_eval=False,
++        disable_tqdm=True,
++        logging_steps=20000,
++        save_total_limit=0,
++        fp16=True,
++        **config,
++    )
++
++    trainer = Trainer(
++        model,
++        training_args,
++        train_dataset=train_dataset,
++        eval_dataset=eval_dataset,
++        tokenizer=tokenizer,
++        compute_metrics=compute_metrics,
++    )
++
++    # train model
++    trainer.train()
++
++    # evaluate model
++    eval_output = trainer.evaluate()
++
++    flaml.tune.report(
++        loss=eval_output["eval_loss"],
++        accuracy=eval_output["eval_accuracy"],
++        )
++
++    try:
++        from azureml.core import Run
++        run = Run.get_context()
++        run.log('accuracy', eval_output["eval_accuracy"])
++        run.log('loss', eval_output["eval_loss"])
++        run.log('config', config)
++    except: pass
++
++def _test_electra(method='BlendSearch'):
++ 
++    max_num_epoch = 9
++    num_samples = -1
++    time_budget_s = 3600
++
++    search_space = {
++        # You can mix constants with search space objects.
++        "num_train_epochs": flaml.tune.loguniform(1, max_num_epoch),
++        "learning_rate": flaml.tune.loguniform(3e-5, 1.5e-4),
++        "weight_decay": flaml.tune.uniform(0, 0.3),
++        # "warmup_ratio": flaml.tune.uniform(0, 0.2),
++        # "hidden_dropout_prob": flaml.tune.uniform(0, 0.2),
++        # "attention_probs_dropout_prob": flaml.tune.uniform(0, 0.2),
++        "per_device_train_batch_size": flaml.tune.choice([16, 32, 64, 128]),
++        "seed": flaml.tune.choice([12, 22, 33, 42]),
++        # "adam_beta1": flaml.tune.uniform(0.8, 0.99),
++        # "adam_beta2": flaml.tune.loguniform(98e-2, 9999e-4),
++        # "adam_epsilon": flaml.tune.loguniform(1e-9, 1e-7),
++    }
++
++    start_time = time.time()
++    ray.init(num_cpus=4, num_gpus=4)
++    if 'ASHA' == method:
++        algo = None
++    elif 'BOHB' == method:
++        from ray.tune.schedulers import HyperBandForBOHB
++        from ray.tune.suggest.bohb import tuneBOHB
++        algo = tuneBOHB(max_concurrent=4)
++        scheduler = HyperBandForBOHB(max_t=max_num_epoch)
++    elif 'Optuna' == method:
++        from ray.tune.suggest.optuna import OptunaSearch
++        algo = OptunaSearch()
++    elif 'CFO' == method:
++        from flaml import CFO
++        algo = CFO(points_to_evaluate=[{
++            "num_train_epochs": 1,
++            "per_device_train_batch_size": 128,
++        }])
++    elif 'BlendSearch' == method:
++        from flaml import BlendSearch
++        algo = BlendSearch(points_to_evaluate=[{
++            "num_train_epochs": 1,
++            "per_device_train_batch_size": 128,
++        }])
++    elif 'Dragonfly' == method:
++        from ray.tune.suggest.dragonfly import DragonflySearch
++        algo = DragonflySearch()
++    elif 'SkOpt' == method:
++        from ray.tune.suggest.skopt import SkOptSearch
++        algo = SkOptSearch()
++    elif 'Nevergrad' == method:
++        from ray.tune.suggest.nevergrad import NevergradSearch
++        import nevergrad as ng
++        algo = NevergradSearch(optimizer=ng.optimizers.OnePlusOne)
++    elif 'ZOOpt' == method:
++        from ray.tune.suggest.zoopt import ZOOptSearch
++        algo = ZOOptSearch(budget=num_samples)
++    elif 'Ax' == method:
++        from ray.tune.suggest.ax import AxSearch
++        algo = AxSearch(max_concurrent=3)
++    elif 'HyperOpt' == method:
++        from ray.tune.suggest.hyperopt import HyperOptSearch
++        algo = HyperOptSearch()
++        scheduler = None
++    if method != 'BOHB':
++        from ray.tune.schedulers import ASHAScheduler
++        scheduler = ASHAScheduler(
++            max_t=max_num_epoch,
++            grace_period=1)
++    scheduler = None
++    analysis = ray.tune.run(
++        train_electra,
++        metric=HP_METRIC,
++        mode=MODE,
++        resources_per_trial={"gpu": 4, "cpu": 4},
++        config=search_space, local_dir='logs/',
++        num_samples=num_samples, time_budget_s=time_budget_s,
++        keep_checkpoints_num=1, checkpoint_score_attr=HP_METRIC,
++        scheduler=scheduler, search_alg=algo)
++
++    ray.shutdown()
++
++    best_trial = analysis.get_best_trial(HP_METRIC, MODE, "all")
++    metric = best_trial.metric_analysis[HP_METRIC][MODE]
++
++    logger.info(f"method={method}")
++    logger.info(f"n_trials={len(analysis.trials)}")
++    logger.info(f"time={time.time()-start_time}")
++    logger.info(f"Best model eval {HP_METRIC}: {metric:.4f}")
++    logger.info(f"Best model parameters: {best_trial.config}")
++
++
++def _test_electra_cfo():
++    _test_electra('CFO')
++
++
++def _test_electra_dragonfly():
++    _test_electra('Dragonfly')
++
++
++def _test_electra_skopt():
++    _test_electra('SkOpt')
++
++
++def _test_electra_nevergrad():
++    _test_electra('Nevergrad')
++
++
++def _test_electra_zoopt():
++    _test_electra('ZOOpt')
++
++
++def _test_electra_ax():
++    _test_electra('Ax')
++
++
++def __test_electra_hyperopt():
++    _test_electra('HyperOpt')
++
++
++def _test_electra_optuna():
++    _test_electra('Optuna')
++
++
++def _test_electra_asha():
++    _test_electra('ASHA')
++
++
++def _test_electra_bohb():
++    _test_electra('BOHB')
++
++
++if __name__ == "__main__":
++    _test_electra()
+\ No newline at end of file
+
+commit b78bcf0afe82e20ba2b8083af64239b57908466c
+Author: liususan091219 <Xqq630517>
+Date:   Wed Mar 3 00:48:28 2021 -0500
+
+    adding AutoHuggingFace
+
+diff --git a/test/hf/test_electra.py b/test/hf/test_electra.py
+index 2c77740..2cac126 100644
+--- a/test/hf/test_electra.py
++++ b/test/hf/test_electra.py
+@@ -38,7 +38,7 @@ try:
+ 
+     sentence1_key, sentence2_key = task_to_keys[TASK]
+     # Define tokenize method
+-    tokenizer = AutoTokenizer.from_pretrained(MODEL_CHECKPOINT, use_fast=True)
++
+ 
+     def tokenize(examples):
+         args = (
+@@ -122,7 +122,7 @@ def train_electra(config: dict):
+ def _test_electra(method='BlendSearch'):
+  
+     max_num_epoch = 9
+-    num_samples = -1
++    num_samples = 4
+     time_budget_s = 7200
+ 
+     search_space = {
+@@ -142,44 +142,44 @@ def _test_electra(method='BlendSearch'):
+ 
+     start_time = time.time()
+     ray.init(num_cpus=4, num_gpus=4)
+-    if 'ASHA' == method:
++    if 'ASHA' == hpo_method:
+         algo = None
+-    elif 'BOHB' == method:
++    elif 'BOHB' == hpo_method:
+         from ray.tune.schedulers import HyperBandForBOHB
+         from ray.tune.suggest.bohb import tuneBOHB
+         algo = tuneBOHB(max_concurrent=4)
+         scheduler = HyperBandForBOHB(max_t=max_num_epoch)
+-    elif 'Optuna' == method:
++    elif 'Optuna' == hpo_method:
+         from ray.tune.suggest.optuna import OptunaSearch
+         algo = OptunaSearch()
+-    elif 'CFO' == method:
++    elif 'CFO' == hpo_method:
+         from flaml import CFO
+         algo = CFO(points_to_evaluate=[{
+             "num_train_epochs": 1,
+         }])
+-    elif 'BlendSearch' == method:
++    elif 'BlendSearch' == hpo_method:
+         from flaml import BlendSearch
+         algo = BlendSearch(points_to_evaluate=[{
+             "num_train_epochs": 1,
+             "per_device_train_batch_size": 128,
+         }])
+-    elif 'Dragonfly' == method:
++    elif 'Dragonfly' == hpo_method:
+         from ray.tune.suggest.dragonfly import DragonflySearch
+         algo = DragonflySearch()
+-    elif 'SkOpt' == method:
++    elif 'SkOpt' == hpo_method:
+         from ray.tune.suggest.skopt import SkOptSearch
+         algo = SkOptSearch()
+-    elif 'Nevergrad' == method:
++    elif 'Nevergrad' == hpo_method:
+         from ray.tune.suggest.nevergrad import NevergradSearch
+         import nevergrad as ng
+         algo = NevergradSearch(optimizer=ng.optimizers.OnePlusOne)
+-    elif 'ZOOpt' == method:
++    elif 'ZOOpt' == hpo_method:
+         from ray.tune.suggest.zoopt import ZOOptSearch
+         algo = ZOOptSearch(budget=num_samples)
+-    elif 'Ax' == method:
++    elif 'Ax' == hpo_method:
+         from ray.tune.suggest.ax import AxSearch
+         algo = AxSearch(max_concurrent=3)
+-    elif 'HyperOpt' == method:
++    elif 'HyperOpt' == hpo_method:
+         from ray.tune.suggest.hyperopt import HyperOptSearch
+         algo = HyperOptSearch()
+         scheduler = None
+
+commit 699266bc651b1be3f5157165a1f63222595b818f
+Author: Chi Wang (MSR) <chiw@microsoft.com>
+Date:   Tue Mar 2 12:27:54 2021 -0800
+
+    makedirs
+
+diff --git a/test/hf/test_electra.py b/test/hf/test_electra.py
+index f71c555..2c77740 100644
+--- a/test/hf/test_electra.py
++++ b/test/hf/test_electra.py
+@@ -53,6 +53,8 @@ except:
+     
+ import logging
+ logger = logging.getLogger(__name__)
++import os
++os.makedirs('logs', exist_ok=True)
+ logger.addHandler(logging.FileHandler('logs/tune_electra.log'))
+ logger.setLevel(logging.INFO)
+ 
+
+commit 9f942e8b9a4888d59f85d8f2fe225bf3a668c5df
+Author: Chi Wang (MSR) <chiw@microsoft.com>
+Date:   Tue Mar 2 11:50:42 2021 -0800
+
+    test electra
+
+diff --git a/test/hf/test_electra.py b/test/hf/test_electra.py
+new file mode 100644
+index 0000000..f71c555
+--- /dev/null
++++ b/test/hf/test_electra.py
+@@ -0,0 +1,255 @@
++'''Require: pip install torch transformers datasets flaml[blendsearch,ray]
++'''
++import time
++import numpy as np
++
++try:
++    import ray
++    from datasets import (
++        load_dataset,
++        load_metric,
++    )
++    from transformers import (
++        AutoModelForSequenceClassification,
++        AutoTokenizer,
++        Trainer,
++        TrainingArguments,
++    )
++    MODEL_CHECKPOINT = "google/electra-base-discriminator"
++    task_to_keys = {
++        "cola": ("sentence", None),
++        "mnli": ("premise", "hypothesis"),
++        "mrpc": ("sentence1", "sentence2"),
++        "qnli": ("question", "sentence"),
++        "qqp": ("question1", "question2"),
++        "rte": ("sentence1", "sentence2"),
++        "sst2": ("sentence", None),
++        "stsb": ("sentence1", "sentence2"),
++        "wnli": ("sentence1", "sentence2"),
++    }
++    max_seq_length=128
++    overwrite_cache=False
++    pad_to_max_length=True
++    padding = "max_length"
++
++    TASK = "qnli"
++    # HP_METRIC, MODE = "loss", "min"
++    HP_METRIC, MODE = "accuracy", "max"
++
++    sentence1_key, sentence2_key = task_to_keys[TASK]
++    # Define tokenize method
++    tokenizer = AutoTokenizer.from_pretrained(MODEL_CHECKPOINT, use_fast=True)
++
++    def tokenize(examples):
++        args = (
++            (examples[sentence1_key],) if sentence2_key is None else (
++                examples[sentence1_key], examples[sentence2_key])
++        )
++        return tokenizer(*args, padding=padding, max_length=max_seq_length,
++         truncation=True)
++
++except:
++    print("pip install torch transformers datasets flaml[blendsearch,ray]")
++    
++import logging
++logger = logging.getLogger(__name__)
++logger.addHandler(logging.FileHandler('logs/tune_electra.log'))
++logger.setLevel(logging.INFO)
++
++import flaml
++
++def train_electra(config: dict):
++
++    # Load dataset and apply tokenizer
++    data_raw = load_dataset("glue", TASK)
++    data_encoded = data_raw.map(tokenize, batched=True)
++    train_dataset, eval_dataset = data_encoded["train"], data_encoded["validation"]
++
++    NUM_LABELS = len(train_dataset.features["label"].names)
++
++    metric = load_metric("glue", TASK)
++
++    def compute_metrics(eval_pred):
++        predictions, labels = eval_pred
++        predictions = np.argmax(predictions, axis=1)
++        return metric.compute(predictions=predictions, references=labels)
++
++
++    model = AutoModelForSequenceClassification.from_pretrained(
++        MODEL_CHECKPOINT, num_labels=NUM_LABELS
++    )
++
++    training_args = TrainingArguments(
++        output_dir='.',
++        do_eval=False,
++        disable_tqdm=True,
++        logging_steps=20000,
++        save_total_limit=0,
++        fp16=True,
++        **config,
++    )
++
++    trainer = Trainer(
++        model,
++        training_args,
++        train_dataset=train_dataset,
++        eval_dataset=eval_dataset,
++        tokenizer=tokenizer,
++        compute_metrics=compute_metrics,
++    )
++
++    # train model
++    trainer.train()
++
++    # evaluate model
++    eval_output = trainer.evaluate()
++
++    flaml.tune.report(
++        loss=eval_output["eval_loss"],
++        accuracy=eval_output["eval_accuracy"],
++        )
++
++    try:
++        from azureml.core import Run
++        run = Run.get_context()
++        run.log('accuracy', eval_output["eval_accuracy"])
++        run.log('loss', eval_output["eval_loss"])
++        run.log('config', config)
++    except: pass
++
++def _test_electra(method='BlendSearch'):
++ 
++    max_num_epoch = 9
++    num_samples = -1
++    time_budget_s = 7200
++
++    search_space = {
++        # You can mix constants with search space objects.
++        "num_train_epochs": flaml.tune.loguniform(1, max_num_epoch),
++        "learning_rate": flaml.tune.loguniform(2.9e-5, 1.6e-4),
++        "weight_decay": flaml.tune.uniform(0, 0.3),
++        # "warmup_ratio": flaml.tune.uniform(0, 0.2),
++        # "hidden_dropout_prob": flaml.tune.uniform(0, 0.2),
++        # "attention_probs_dropout_prob": flaml.tune.uniform(0, 0.2),
++        "per_device_train_batch_size": flaml.tune.choice([16, 32, 64, 128]),
++        "seed": flaml.tune.choice([12, 22, 33, 42]),
++        # "adam_beta1": flaml.tune.uniform(0.8, 0.99),
++        # "adam_beta2": flaml.tune.loguniform(98e-2, 9999e-4),
++        # "adam_epsilon": flaml.tune.loguniform(1e-9, 1e-7),
++    }
++
++    start_time = time.time()
++    ray.init(num_cpus=4, num_gpus=4)
++    if 'ASHA' == method:
++        algo = None
++    elif 'BOHB' == method:
++        from ray.tune.schedulers import HyperBandForBOHB
++        from ray.tune.suggest.bohb import tuneBOHB
++        algo = tuneBOHB(max_concurrent=4)
++        scheduler = HyperBandForBOHB(max_t=max_num_epoch)
++    elif 'Optuna' == method:
++        from ray.tune.suggest.optuna import OptunaSearch
++        algo = OptunaSearch()
++    elif 'CFO' == method:
++        from flaml import CFO
++        algo = CFO(points_to_evaluate=[{
++            "num_train_epochs": 1,
++        }])
++    elif 'BlendSearch' == method:
++        from flaml import BlendSearch
++        algo = BlendSearch(points_to_evaluate=[{
++            "num_train_epochs": 1,
++            "per_device_train_batch_size": 128,
++        }])
++    elif 'Dragonfly' == method:
++        from ray.tune.suggest.dragonfly import DragonflySearch
++        algo = DragonflySearch()
++    elif 'SkOpt' == method:
++        from ray.tune.suggest.skopt import SkOptSearch
++        algo = SkOptSearch()
++    elif 'Nevergrad' == method:
++        from ray.tune.suggest.nevergrad import NevergradSearch
++        import nevergrad as ng
++        algo = NevergradSearch(optimizer=ng.optimizers.OnePlusOne)
++    elif 'ZOOpt' == method:
++        from ray.tune.suggest.zoopt import ZOOptSearch
++        algo = ZOOptSearch(budget=num_samples)
++    elif 'Ax' == method:
++        from ray.tune.suggest.ax import AxSearch
++        algo = AxSearch(max_concurrent=3)
++    elif 'HyperOpt' == method:
++        from ray.tune.suggest.hyperopt import HyperOptSearch
++        algo = HyperOptSearch()
++        scheduler = None
++    if method != 'BOHB':
++        from ray.tune.schedulers import ASHAScheduler
++        scheduler = ASHAScheduler(
++            max_t=max_num_epoch,
++            grace_period=1)
++    scheduler = None
++    analysis = ray.tune.run(
++        train_electra,
++        metric=HP_METRIC,
++        mode=MODE,
++        resources_per_trial={"gpu": 4, "cpu": 4},
++        config=search_space, local_dir='logs/',
++        num_samples=num_samples, time_budget_s=time_budget_s,
++        keep_checkpoints_num=1, checkpoint_score_attr=HP_METRIC,
++        scheduler=scheduler, search_alg=algo)
++
++    ray.shutdown()
++
++    best_trial = analysis.get_best_trial(HP_METRIC, MODE, "all")
++    metric = best_trial.metric_analysis[HP_METRIC][MODE]
++
++    logger.info(f"method={method}")
++    logger.info(f"n_trials={len(analysis.trials)}")
++    logger.info(f"time={time.time()-start_time}")
++    logger.info(f"Best model eval {HP_METRIC}: {metric:.4f}")
++    logger.info(f"Best model parameters: {best_trial.config}")
++
++
++def _test_electra_cfo():
++    _test_electra('CFO')
++
++
++def _test_electra_dragonfly():
++    _test_electra('Dragonfly')
++
++
++def _test_electra_skopt():
++    _test_electra('SkOpt')
++
++
++def _test_electra_nevergrad():
++    _test_electra('Nevergrad')
++
++
++def _test_electra_zoopt():
++    _test_electra('ZOOpt')
++
++
++def _test_electra_ax():
++    _test_electra('Ax')
++
++
++def __test_electra_hyperopt():
++    _test_electra('HyperOpt')
++
++
++def _test_electra_optuna():
++    _test_electra('Optuna')
++
++
++def _test_electra_asha():
++    _test_electra('ASHA')
++
++
++def _test_electra_bohb():
++    _test_electra('BOHB')
++
++
++if __name__ == "__main__":
++    _test_electra()
++    _test_electra_optuna()
++    _test_electra_ax()
+\ No newline at end of file
