@@ -506,7 +506,8 @@ class AzureUtils:
         sorted_trialid_to_score = sorted(trialid_to_score.items(), key=lambda x: x[1], reverse=True)
         return [trialid_to_config[entry[0]] for entry in sorted_trialid_to_score]
 
-    def is_after_earliest_time(self, this_blob, earliest_time):
+    @staticmethod
+    def is_after_earliest_time(this_blob, earliest_time):
         import pytz
         utc = pytz.UTC
         if this_blob.last_modified >= utc.localize(datetime(earliest_time[0], earliest_time[1], earliest_time[2])):
@@ -527,13 +528,14 @@ class AzureUtils:
                 if each_jobconfig:
                     if each_jobconfig.is_match(partial_jobid):
                         is_append = True
-                    if earliest_time and not self.is_after_earliest_time(each_blob, earliest_time):
+                    if earliest_time and not AzureUtils.is_after_earliest_time(each_blob, earliest_time):
                         is_append = False
                     if is_append:
                         blob_list.append((each_jobconfig, each_blob))
         return blob_list
 
-    def extract_config_and_score(self, blobname):
+    @staticmethod
+    def extract_config_and_score(blobname):
         data_json = json.load(open(blobname, "r"))
         return [(x['config'], x['metric_score']["max"], x['start_time']) for x in data_json['val_log']]
 
@@ -553,7 +555,7 @@ class AzureUtils:
         group_dict = {}
         for (each_jobconfig, each_blob) in matched_blob_list:
             self.download_azure_blob(each_blob.name)
-            config_and_score = self.extract_config_and_score(each_blob.name)
+            config_and_score = AzureUtils.extract_config_and_score(each_blob.name)
             if method == "unsorted":
                 sorted_config_and_score = config_and_score
             elif method == "sort_time":

@@ -74,7 +74,7 @@ class AutoSearchAlgorithm:
                 this_search_algo_kwargs = None
                 allowed_arguments = SEARCH_ALGO_MAPPING[search_algo_name].__init__.__code__.co_varnames
                 allowed_custom_args = {key: custom_hpo_args[key] for key in custom_hpo_args.keys() if
-                                    key in allowed_arguments}
+                                       key in allowed_arguments}
 
                 """
                      If the search_algo_args_mode is "dft", set the args to the default args, e.g., 
@@ -86,7 +86,7 @@ class AutoSearchAlgorithm:
                 """
                 if search_algo_args_mode == "dft":
                     this_search_algo_kwargs = DEFAULT_SEARCH_ALGO_ARGS_MAPPING[search_algo_name](
-                        "dft", hpo_search_space = hpo_search_space, **allowed_custom_args)
+                        "dft", hpo_search_space=hpo_search_space, **allowed_custom_args)
                 elif search_algo_args_mode == "cus":
                     this_search_algo_kwargs = DEFAULT_SEARCH_ALGO_ARGS_MAPPING[search_algo_name](
                         "cus", hpo_search_space=hpo_search_space, **allowed_custom_args)
@@ -111,10 +111,12 @@ class AutoSearchAlgorithm:
         config_list = [dict(x) for x in itertools.product(*key_val_list)]
         return config_list
 
-def get_search_algo_args_optuna(search_args_mode, hpo_search_space = None, **custom_hpo_args):
+
+def get_search_algo_args_optuna(search_args_mode, hpo_search_space=None, **custom_hpo_args):
     return {}
 
-def default_search_algo_args_bs(search_args_mode, hpo_search_space = None, **custom_hpo_args):
+
+def default_search_algo_args_bs(search_args_mode, hpo_search_space=None, **custom_hpo_args):
     assert hpo_search_space, "hpo_search_space needs to be specified for calling AutoSearchAlgorithm.from_method_name"
     if "num_train_epochs" in hpo_search_space and \
             isinstance(hpo_search_space["num_train_epochs"], ray.tune.sample.Categorical):
@@ -132,7 +134,8 @@ def default_search_algo_args_bs(search_args_mode, hpo_search_space = None, **cus
         default_search_algo_args.update(custom_hpo_args)
     return default_search_algo_args
 
-def experiment_search_algo_args_bs(hpo_search_space = None):
+
+def experiment_search_algo_args_bs(hpo_search_space=None):
     if "num_train_epochs" in hpo_search_space and \
             isinstance(hpo_search_space["num_train_epochs"], ray.tune.sample.Categorical):
         min_epoch = min(hpo_search_space["num_train_epochs"].categories)
@@ -146,30 +149,37 @@ def experiment_search_algo_args_bs(hpo_search_space = None):
     }
     return default_search_algo_args
 
-def default_search_algo_args_skopt(hpo_search_space = None):
+
+def default_search_algo_args_skopt(hpo_search_space=None):
     return {}
 
-def default_search_algo_args_dragonfly(hpo_search_space = None):
+
+def default_search_algo_args_dragonfly(hpo_search_space=None):
     return {}
 
-def default_search_algo_args_nevergrad(hpo_search_space = None):
+
+def default_search_algo_args_nevergrad(hpo_search_space=None):
     return {}
 
-def default_search_algo_args_hyperopt(hpo_search_space = None):
+
+def default_search_algo_args_hyperopt(hpo_search_space=None):
     return {}
 
-def default_search_algo_args_grid_search(search_args_mode, hpo_search_space = None, **custom_hpo_args):
+
+def default_search_algo_args_grid_search(search_args_mode, hpo_search_space=None, **custom_hpo_args):
     return {}
 
-def default_search_algo_args_random_search(search_args_mode, hpo_search_space = None, **custom_hpo_args):
+
+def default_search_algo_args_random_search(search_args_mode, hpo_search_space=None, **custom_hpo_args):
     return {}
+
 
 DEFAULT_SEARCH_ALGO_ARGS_MAPPING = OrderedDict(
-        [
-            ("optuna", get_search_algo_args_optuna),
-            ("cfo", default_search_algo_args_bs),
-            ("bs", default_search_algo_args_bs),
-            ("grid", default_search_algo_args_grid_search),
-            ("gridbert", default_search_algo_args_random_search)
-        ]
-    )
+    [
+        ("optuna", get_search_algo_args_optuna),
+        ("cfo", default_search_algo_args_bs),
+        ("bs", default_search_algo_args_bs),
+        ("grid", default_search_algo_args_grid_search),
+        ("gridbert", default_search_algo_args_random_search)
+    ]
+)

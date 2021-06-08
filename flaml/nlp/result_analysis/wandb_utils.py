@@ -43,14 +43,15 @@ class WandbUtils:
             os.environ["WANDB_SILENT"] = "false"
             return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
                               group=self.wandb_group_name,
-                              name=str(self._get_next_trial_ids()),
+                              name=str(WandbUtils._get_next_trial_ids()),
                               settings=wandb.Settings(
                                   _disable_stats=True),
                               reinit=False)
         else:
             return None
 
-    def _get_next_trial_ids(self):
+    @staticmethod
+    def _get_next_trial_ids():
         hash = hashlib.sha1()
         hash.update(str(time()).encode('utf-8'))
         return "trial_" + hash.hexdigest()[:3]

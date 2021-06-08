@@ -8,8 +8,8 @@ file_name_mapping_glue = {
     "mnli": ["MNLI-m.tsv", "MNLI-mm.tsv"],
     "mrpc": ["MRPC.tsv"],
     "qnli": ["QNLI.tsv"],
-    "qqp":  ["QQP.tsv"],
-    "rte":  ["RTE.tsv"],
+    "qqp": ["QQP.tsv"],
+    "rte": ["RTE.tsv"],
     "sst2": ["SST-2.tsv"],
     "stsb": ["STS-B.tsv"],
     "wnli": ["WNLI.tsv"]
@@ -21,8 +21,8 @@ default_prediction_glue = {
     "mnli": ["neutral", "neutral"],
     "mrpc": ["0"],
     "qnli": ["not_entailment"],
-    "qqp":  ["0"],
-    "rte":  ["not_entailment"],
+    "qqp": ["0"],
+    "rte": ["not_entailment"],
     "sst2": ["0"],
     "stsb": ["0.0"],
     "wnli": ["0"]
@@ -34,12 +34,13 @@ test_size_glue = {
     "mnli": [9796, 9847],
     "mrpc": [1725],
     "qnli": [5463],
-    "qqp":  [390965],
-    "rte":  [3000],
+    "qqp": [390965],
+    "rte": [3000],
     "sst2": [1821],
     "stsb": [1379],
     "wnli": [146]
 }
+
 
 def output_prediction_glue(output_path, output_dir_name, predictions, train_data, dev_name, subdataset_name):
     output_dir = os.path.join(output_path, output_dir_name)
@@ -83,11 +84,13 @@ def output_prediction_glue(output_path, output_dir_name, predictions, train_data
     shutil.make_archive(os.path.join(output_path, output_dir_name), 'zip', output_dir)
     return os.path.join(output_path, output_dir_name + ".zip")
 
+
 OUTPUT_PREDICTION_MAPPING = OrderedDict(
     [
         ("glue", output_prediction_glue),
     ]
 )
+
 
 def auto_output_prediction(dataset_name,
                            output_path,
@@ -107,8 +110,9 @@ def auto_output_prediction(dataset_name,
         raise ValueError(
             "Unrecognized dataset {}. \n"
             "Should be one of {}.".format(dataset_name, ", ".join(c.__name__ for c in OUTPUT_PREDICTION_MAPPING.keys())
-            )
+                                          )
         )
+
 
 def output_blank_tsv(output_dir):
     for each_subdataset_name in file_name_mapping_glue.keys():

@@ -1,9 +1,10 @@
 '''Require: pip install torch transformers datasets wandb flaml[blendsearch,ray]
 '''
-#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
+# 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
 
 global azure_log_path
 global azure_key
+
 
 def get_preparedata_setting(jobid_config):
     preparedata_setting = {
@@ -15,8 +16,9 @@ def get_preparedata_setting(jobid_config):
                             "train": [0, 0.8],
                             "validation": [0.8, 0.9],
                             "test": [0.9, 1.0]}
-        }
+    }
     return preparedata_setting
+
 
 def get_autohf_settings():
     autohf_settings = {"resources_per_trial": {"cpu": 1},
@@ -24,8 +26,9 @@ def get_autohf_settings():
                        "time_budget": 100000,
                        "ckpt_per_epoch": 1,
                        "fp16": False,
-                      }
+                       }
     return autohf_settings
+
 
 def test_hpo():
     try:
@@ -45,7 +48,7 @@ def test_hpo():
         autohf.prepare_data(**preparedata_setting)
 
         autohf_settings = get_autohf_settings()
-        validation_metric, analysis = autohf.fit(**autohf_settings,)
+        validation_metric, analysis = autohf.fit(**autohf_settings, )
 
         predictions, test_metric = autohf.predict()
         if test_metric:
@@ -53,6 +56,7 @@ def test_hpo():
 
     except AssertionError as err:
         pass
+
 
 if __name__ == "__main__":
     test_hpo()
