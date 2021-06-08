@@ -1,15 +1,11 @@
-import hashlib
-import os, json
-import random
+import json
+import os
 
 import torch
 import transformers
 import wandb
 
 from .dataset.dataprocess_auto import AutoEncodeText
-from .dataset.sentence_keys_auto import get_sentence_keys
-
-transformers.logging.set_verbosity_error()
 import numpy as np
 
 from ray.tune import CLIReporter
@@ -39,6 +35,7 @@ from .huggingface.trainer import TrainerForAutoTransformers
 
 import logging
 
+transformers.logging.set_verbosity_error()
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
     '[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s',

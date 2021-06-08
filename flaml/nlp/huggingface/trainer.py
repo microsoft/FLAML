@@ -3,12 +3,11 @@ import os
 
 import transformers
 
-transformers.logging.set_verbosity_error()
 from ray import tune
 import torch
 from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
 
-
+transformers.logging.set_verbosity_error()
 class TrainerForAutoTransformers(transformers.Trainer):
     """
         Overriding transformers.Trainer.
