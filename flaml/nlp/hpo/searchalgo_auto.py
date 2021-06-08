@@ -133,7 +133,8 @@ def default_search_algo_args_bs(search_args_mode, hpo_search_space = None, **cus
     return default_search_algo_args
 
 def experiment_search_algo_args_bs(hpo_search_space = None):
-    if isinstance(hpo_search_space["num_train_epochs"], ray.tune.sample.Categorical):
+    if "num_train_epochs" in hpo_search_space and \
+            isinstance(hpo_search_space["num_train_epochs"], ray.tune.sample.Categorical):
         min_epoch = min(hpo_search_space["num_train_epochs"].categories)
     else:
         assert isinstance(hpo_search_space["num_train_epochs"], ray.tune.sample.Float)
