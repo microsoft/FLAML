@@ -8,25 +8,26 @@ from dataclasses import dataclass, field
 from ..hpo.grid_searchspace_auto import HF_MODEL_LIST
 import json
 
+
 @dataclass
 class JobID:
-    dat: list = field(default = None)
-    subdat: str = field(default= None)
-    mod: str = field(default = None)
-    spa: str = field(default = None)
-    arg: str = field(default = None)
-    alg: str = field(default = None)
-    pru: str = field(default = None)
-    pre_full: str = field(default = None)
-    pre: str = field(default = None)
-    presz: str = field(default = None)
-    spt: str = field(default = None)
-    rep: int = field(default = 0)
-    sddt: int = field(default = None)
-    sdhf: int = field(default= None)
+    dat: list = field(default=None)
+    subdat: str = field(default=None)
+    mod: str = field(default=None)
+    spa: str = field(default=None)
+    arg: str = field(default=None)
+    alg: str = field(default=None)
+    pru: str = field(default=None)
+    pre_full: str = field(default=None)
+    pre: str = field(default=None)
+    presz: str = field(default=None)
+    spt: str = field(default=None)
+    rep: int = field(default=0)
+    sddt: int = field(default=None)
+    sdhf: int = field(default=None)
 
     def __init__(self,
-                 console_args = None):
+                 console_args=None):
         if console_args:
             self.set_jobid_from_console_args(console_args)
 
@@ -109,7 +110,7 @@ class JobID:
             convert the current JobID into a blob name string which only contains the fields whose values are not "None"
         """
         list_keys = list(JobID.__dataclass_fields__.keys())
-        field_dict = self.__dict__ # field_dict contains fields whose values are not None
+        field_dict = self.__dict__  # field_dict contains fields whose values are not None
         keytoval_str = "_".join([key + "=" + str(field_dict[key][0])
                                  if type(field_dict[key]) == list
                                  else key + "=" + str(field_dict[key])
@@ -149,8 +150,8 @@ class JobID:
 
     @staticmethod
     def set_jobid_from_arg_list(self,
-        **jobid_list
-        ):
+                                **jobid_list
+                                ):
         """
             set the jobid from a dict object
         """
@@ -264,8 +265,8 @@ class JobID:
         result_grid = re.search(".*_mod(el)?(?P<model_id>\d+)_None_None(_spt(?P<split_id>\d+))?_rep(?P<rep_id>\d+).log",
                                 old_blobname)
         result = re.search(
-        ".*_mod(el)?(?P<model_id>\d+)_(alg)?(?P<algo_id>\d+)_(spa)?"
-        "(?P<space_id>\d+)(_spt(?P<split_id>\d+))?_rep(?P<rep_id>\d+).log",
+            ".*_mod(el)?(?P<model_id>\d+)_(alg)?(?P<algo_id>\d+)_(spa)?"
+            "(?P<space_id>\d+)(_spt(?P<split_id>\d+))?_rep(?P<rep_id>\d+).log",
             old_blobname)
         if result_grid:
             dat = [old_blobname.split("/")[1].split("_")[0]]
@@ -303,13 +304,14 @@ class JobID:
             return self.to_jobid_string()
         return None
 
+
 class AzureUtils:
 
     def __init__(self,
-                 root_log_path = None,
-                 console_args = None,
-                 jobid = None,
-                 autohf = None):
+                 root_log_path=None,
+                 console_args=None,
+                 jobid=None,
+                 autohf=None):
         if root_log_path:
             self.root_log_path = root_log_path
         else:
@@ -324,19 +326,19 @@ class AzureUtils:
 
     def _get_complete_connection_string(self):
         return "DefaultEndpointsProtocol=https;AccountName=docws5141197765;AccountKey=" \
-            + self._azure_key + ";EndpointSuffix=core.windows.net"
+               + self._azure_key + ";EndpointSuffix=core.windows.net"
 
     def _init_azure_clients(self):
         connection_string = self._get_complete_connection_string()
         container_client = ContainerClient.from_connection_string(conn_str=connection_string,
-                            container_name= self._container_name)
+                                                                  container_name=self._container_name)
         return container_client
 
     def _init_blob_client(self,
                           local_file_path):
         connection_string = self._get_complete_connection_string()
         blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-        blob_client = blob_service_client.get_blob_client(container= self._container_name, blob= local_file_path)
+        blob_client = blob_service_client.get_blob_client(container=self._container_name, blob=local_file_path)
         return blob_client
 
     def upload_local_file_to_azure(self, local_file_path):
@@ -353,8 +355,8 @@ class AzureUtils:
 
     def write_exception(self):
         result_json = {
-                       "timestamp": datetime.now(),
-                       }
+            "timestamp": datetime.now(),
+        }
         local_file_path = self.generate_local_json_path()
         self.create_local_json_and_upload(result_json, local_file_path)
 
@@ -383,10 +385,10 @@ class AzureUtils:
         return json_log
 
     def write_autohf_output(self,
-                      json_log = None,
-                      valid_metric = None,
-                      predictions = None,
-                      duration = None):
+                            json_log=None,
+                            valid_metric=None,
+                            predictions=None,
+                            duration=None):
         """
             write the key info from a job and upload to azure blob storage
         """
@@ -450,26 +452,26 @@ class AzureUtils:
                         if alllines[8].startswith("aml"):
                             yml_file = alllines[8].strip("\n")
                     new_json = {"wandb_group_name": wandb_group_name,
-                               "validation": validation,
-                               "test": test,
-                               "timestamp": timestamp,
-                               "duration": duration,
-                               "sample_num": sample_num,
-                               "yml_file": yml_file}
+                                "validation": validation,
+                                "test": test,
+                                "timestamp": timestamp,
+                                "duration": duration,
+                                "sample_num": sample_num,
+                                "yml_file": yml_file}
                     full_dataset_name = self.jobid.get_jobid_full_data_name()
                     new_blobname = os.path.join("logs_azure/", full_dataset_name, new_jobid_str + ".json")
                     self.create_local_json_and_upload(new_json, new_blobname)
 
     def create_local_prediction_and_upload(self,
-                         local_json_file,
-                         predictions):
+                                           local_json_file,
+                                           predictions):
         """
             store predictions (a .zip file) locally and upload
         """
         azure_save_file_name = local_json_file.split("/")[-1][:-5]
         local_archive_path = self.autohf.output_prediction(predictions,
-                                      output_prediction_path= self.console_args.data_root_dir + "result/",
-                                      output_zip_file_name=azure_save_file_name)
+                                                           output_prediction_path=self.console_args.data_root_dir + "result/",
+                                                           output_zip_file_name=azure_save_file_name)
         self.upload_local_file_to_azure(local_archive_path)
 
     def get_ranked_configs(self, metric_mode):
@@ -493,7 +495,7 @@ class AzureUtils:
             trialid_to_config[trial_id] = config
             trialid_to_score[trial_id] = this_score
 
-        sorted_trialid_to_score = sorted(trialid_to_score.items(), key = lambda x:x[1], reverse=True)
+        sorted_trialid_to_score = sorted(trialid_to_score.items(), key=lambda x: x[1], reverse=True)
         return [trialid_to_config[entry[0]] for entry in sorted_trialid_to_score]
 
     def is_after_earliest_time(self, this_blob, earliest_time):
@@ -503,7 +505,7 @@ class AzureUtils:
             return True
         return False
 
-    def get_blob_list_matching_partial_jobid(self, root_log_path, partial_jobid, earliest_time = None):
+    def get_blob_list_matching_partial_jobid(self, root_log_path, partial_jobid, earliest_time=None):
         """
             get all blobs whose jobid configs match the partial_jobid
         """
@@ -528,11 +530,11 @@ class AzureUtils:
         return [(x['config'], x['metric_score']["max"], x['start_time']) for x in data_json['val_log']]
 
     def get_config_and_score_from_partial_jobid(self,
-                                                 root_log_path,
-                                                 partial_jobid,
-                                                 group_attrs,
-                                                 method,
-                                                 earliest_time = None):
+                                                root_log_path,
+                                                partial_jobid,
+                                                group_attrs,
+                                                method,
+                                                earliest_time=None):
         """
             get the best config and best score for each job matching the partial_jobid
         """
@@ -549,7 +551,7 @@ class AzureUtils:
             elif method == "sort_time":
                 sorted_config_and_score = sorted(config_and_score, key=lambda x: x[2], reverse=False)
             else:
-                sorted_config_and_score = sorted(config_and_score, key = lambda x:x[1], reverse=True)
+                sorted_config_and_score = sorted(config_and_score, key=lambda x: x[1], reverse=True)
             group_attr_list = []
             for each_attr in group_attrs:
                 group_val = getattr(each_jobconfig, each_attr)
@@ -560,10 +562,10 @@ class AzureUtils:
             group_attr_tuple = tuple(group_attr_list)
             group_dict.setdefault(group_attr_tuple, [])
             group_dict[group_attr_tuple].append([(config, score, each_blob.name)
-                            for (config, score, ts) in sorted_config_and_score])
+                                                 for (config, score, ts) in sorted_config_and_score])
         return group_dict
 
-    def get_validation_perf(self, console_args = None, partial_jobid_config = None):
+    def get_validation_perf(self, console_args=None, partial_jobid_config=None):
         """
             get the validation score for all blobs matching the partial_jobid_config
         """
@@ -574,7 +576,8 @@ class AzureUtils:
         dataset_vallist1 = [0] * len(dataset_namelist)
         dataset_vallist2 = [0] * len(dataset_namelist)
 
-        matched_blob_list = self.get_blob_list_matching_partial_jobid(console_args.azure_root_log_path, partial_jobid_config)
+        matched_blob_list = self.get_blob_list_matching_partial_jobid(console_args.azure_root_log_path,
+                                                                      partial_jobid_config)
         for (each_jobconfig, each_blob) in matched_blob_list:
             subdat_name = each_jobconfig.subdat
             self.download_azure_blob(each_blob.name)
@@ -583,7 +586,7 @@ class AzureUtils:
             validation_metric = data_json['valid_metric']
             try:
                 dataset_idx = dataset_namelist.index(subdat_name)
-                dataset_vallist1[dataset_idx],dataset_vallist2[dataset_idx] \
+                dataset_vallist1[dataset_idx], dataset_vallist2[dataset_idx] \
                     = self.get_validation_metricstr(validation_metric)
             except ValueError:
                 pass
@@ -607,7 +610,7 @@ class AzureUtils:
                     validation_str2 += "," + str(validation_metric["eval_" + key] * 100)
         return validation_str1, validation_str2
 
-    def get_test_perf(self, partial_jobid_config = None, result_root_dir = None):
+    def get_test_perf(self, partial_jobid_config=None, result_root_dir=None):
         """
             get the test scores for all blobs matching the partial_jobid_config
         """
@@ -651,7 +654,7 @@ class AzureUtils:
         self.download_azure_blob(each_blob.name)
         data_json = json.load(open(each_blob.name, "r"))
 
-        sorted_entries = sorted(data_json['val_log'], key = lambda x:x['metric_score']['max'], reverse=True)
+        sorted_entries = sorted(data_json['val_log'], key=lambda x: x['metric_score']['max'], reverse=True)
         best_config = sorted_entries[0]['config']
         if jobid_config.subdat != "mrpc":
             best_score = sorted_entries[0]['metric_score']['max']

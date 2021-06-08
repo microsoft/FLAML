@@ -1,6 +1,7 @@
 # lookup table for the grid configs in each pre-trained language huggingface for different tasks
 import copy
 
+
 def get_space_union_and_unique(search_space_common, search_space_unique, this_case_tags: list):
     """
         get the recommended search configs for each pre-trained language models
@@ -34,36 +35,38 @@ def get_space_union_and_unique(search_space_common, search_space_unique, this_ca
             search_space_union = merge_dicts(search_space_union, search_space_unique["other"])
         return search_space_union
 
-def get_deberta_space(model_size_type = None,
-                   dataset_name = None,
-                   subdataset_name = None,
-                    algo_mode = None):
+
+def get_deberta_space(model_size_type=None,
+                      dataset_name=None,
+                      subdataset_name=None,
+                      algo_mode=None):
     """
         DEBERTA: DECODING-ENHANCED BERT WITH DISENTANGLED ATTENTION: Table 9
         https://arxiv.org/abs/2006.03654
     """
     search_space_common = {
-                           "cls_dropout": [0,0.1,0.15],
-                           "warmup_steps": [50,100,500,1000],
-                           "per_device_train_batch_size": [16,32,48,64],
-                           "num_train_epochs": [10],
-                           "adam_epsilon": [1e-6],
-                           }
+        "cls_dropout": [0, 0.1, 0.15],
+        "warmup_steps": [50, 100, 500, 1000],
+        "per_device_train_batch_size": [16, 32, 48, 64],
+        "num_train_epochs": [10],
+        "adam_epsilon": [1e-6],
+    }
     search_space_unique = {
-            "large": {
-                "learning_rate": [5e-6, 8e-6, 9e-6, 1e-5],
-                "weight_decay": [0.01],
-            },
-            "base": {
-                "learning_rate": [1.5e-5,2e-5, 3e-5, 4e-5],
-            }
+        "large": {
+            "learning_rate": [5e-6, 8e-6, 9e-6, 1e-5],
+            "weight_decay": [0.01],
+        },
+        "base": {
+            "learning_rate": [1.5e-5, 2e-5, 3e-5, 4e-5],
         }
+    }
     return get_space_union_and_unique(search_space_common, search_space_unique, [model_size_type])
 
-def get_longformer_space(model_size_type = None,
-                   dataset_name = None,
-                   subdataset_name = None,
-                         algo_mode = None):
+
+def get_longformer_space(model_size_type=None,
+                         dataset_name=None,
+                         subdataset_name=None,
+                         algo_mode=None):
     """
         TODO: Longformer: The Long-Document Transformer
     """
@@ -71,22 +74,23 @@ def get_longformer_space(model_size_type = None,
     if dataset_name == "glue":
         return
 
-def get_funnel_space(model_size_type = None,
-                   dataset_name = None,
-                   subdataset_name = None,
-                     algo_mode = None):
+
+def get_funnel_space(model_size_type=None,
+                     dataset_name=None,
+                     subdataset_name=None,
+                     algo_mode=None):
     """
     Funnel-Transformer: Filtering out Sequential Redundancy for Efficient Language Processing
     https://arxiv.org/abs/2006.03236
     """
-    search_space_common = {"learning_rate":[1e-5, 2e-5, 3e-5],
-                         "hidden_dropout": [0.1],
-                         "activation_dropout": [0.0],
-                         "attention_dropout": [0.1],
-                         "weight_decay": [0.01],
-                         "warmup_ratio": [0.1],
-                         "adam_epsilon": [1e-6],
-                         }
+    search_space_common = {"learning_rate": [1e-5, 2e-5, 3e-5],
+                           "hidden_dropout": [0.1],
+                           "activation_dropout": [0.0],
+                           "attention_dropout": [0.1],
+                           "weight_decay": [0.01],
+                           "warmup_ratio": [0.1],
+                           "adam_epsilon": [1e-6],
+                           }
     search_space_unique = {
         "imdb": {
             "per_device_train_batch_size": [32],
@@ -151,12 +155,13 @@ def get_funnel_space(model_size_type = None,
     }
     from ..result_analysis.azure_utils import JobID
     return get_space_union_and_unique(search_space_common, search_space_unique,
-            [JobID.get_full_data_name(dataset_name, subdataset_name)])
+                                      [JobID.get_full_data_name(dataset_name, subdataset_name)])
 
-def get_bert_space(model_size_type = None,
-                   dataset_name = None,
-                   subdataset_name = None,
-                   algo_mode = None):
+
+def get_bert_space(model_size_type=None,
+                   dataset_name=None,
+                   subdataset_name=None,
+                   algo_mode=None):
     """
         BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding
         https://arxiv.org/pdf/1810.04805.pdf
@@ -201,10 +206,11 @@ def get_bert_space(model_size_type = None,
     }
     return get_space_union_and_unique(search_space_common, search_space_unique, [dataset_name])
 
-def get_roberta_space(model_size_type = None,
-                      dataset_name = None,
-                      subdataset_name = None,
-                      algo_mode = None):
+
+def get_roberta_space(model_size_type=None,
+                      dataset_name=None,
+                      subdataset_name=None,
+                      algo_mode=None):
     # RoBERTa: A Robustly Optimized BERT Pretraining Approach
     # https://arxiv.org/pdf/1907.11692.pdf
     search_space_common = {
@@ -223,7 +229,7 @@ def get_roberta_space(model_size_type = None,
             "weight_decay": [0.1],
             "num_train_epochs": [10],
         },
-        "race":{
+        "race": {
             "learning_rate": [1e-5],
             "per_device_train_batch_size": [16],
             "weight_decay": [0.1],
@@ -238,10 +244,11 @@ def get_roberta_space(model_size_type = None,
     }
     return get_space_union_and_unique(search_space_common, search_space_unique, [dataset_name])
 
-def get_electra_space(model_size_type = None,
-                      dataset_name = None,
-                      subdataset_name = None,
-                      algo_mode = None):
+
+def get_electra_space(model_size_type=None,
+                      dataset_name=None,
+                      subdataset_name=None,
+                      algo_mode=None):
     """
         ELECTRA: PRE-TRAINING TEXT ENCODERS AS DISCRIMINATORS RATHER THAN GENERATORS
         https://arxiv.org/pdf/2003.10555.pdf
@@ -266,7 +273,7 @@ def get_electra_space(model_size_type = None,
         "squad_v2": {
             "num_train_epochs": [2]
         },
-        "glue_stsb":{
+        "glue_stsb": {
             "num_train_epochs": [10],
         },
         "glue_rte": {
@@ -296,12 +303,13 @@ def get_electra_space(model_size_type = None,
     }
     from ..result_analysis.azure_utils import JobID
     return get_space_union_and_unique(search_space_common, search_space_unique,
-        [JobID.get_full_data_name(dataset_name, subdataset_name), model_size_type])
+                                      [JobID.get_full_data_name(dataset_name, subdataset_name), model_size_type])
 
-def get_mobilebert_space(model_size_type = None,
-                         dataset_name = None,
-                         subdataset_name = None,
-                         algo_mode = None):
+
+def get_mobilebert_space(model_size_type=None,
+                         dataset_name=None,
+                         subdataset_name=None,
+                         algo_mode=None):
     """
         MobileBERT: a Compact Task-Agnostic BERT for Resource-Limited Devices
         https://arxiv.org/pdf/2004.02984.pdf
@@ -317,10 +325,11 @@ def get_mobilebert_space(model_size_type = None,
     search_space_unique = {}
     return get_space_union_and_unique(search_space_common, search_space_unique, [])
 
-def get_albert_space(model_size_type = None,
-                     dataset_name = None,
-                     subdataset_name = None,
-                     algo_mode = None):
+
+def get_albert_space(model_size_type=None,
+                     dataset_name=None,
+                     subdataset_name=None,
+                     algo_mode=None):
     """
         Hyperparameters for downstream tasks are shown in Table 14. We adapt these hyperparameters
         from Liu et al. (2019), Devlin et al. (2019), and Yang et al. (2019).
@@ -343,7 +352,7 @@ def get_albert_space(model_size_type = None,
     }
     search_space_unique = {
         "glue_cola": {
-           "learning_rate":  [1e-5],
+            "learning_rate": [1e-5],
             "per_device_train_batch_size": [16],
             "attention_probs_dropout_prob": [0],
             "classifier_dropout_prob": [0.1],
@@ -445,4 +454,4 @@ def get_albert_space(model_size_type = None,
     # rates ((1-10) * e-5), and the number of epochs (2-10)
     from ..result_analysis.azure_utils import JobID
     return get_space_union_and_unique(search_space_common, search_space_unique,
-        [JobID.get_full_data_name(dataset_name, subdataset_name)])
+                                      [JobID.get_full_data_name(dataset_name, subdataset_name)])

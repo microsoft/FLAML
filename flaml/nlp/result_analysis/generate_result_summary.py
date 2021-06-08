@@ -1,10 +1,10 @@
-
 def extract_ranked_config_score(console_args, partial_config_dict):
     from .azure_utils import AzureUtils
     azure_utils = AzureUtils(console_args=console_args)
 
     for method, each_partial_config in partial_config_dict.items():
-        dataset2configscorelist = azure_utils.get_config_and_score_from_partial_config(each_partial_config, ["dat", "subdat"], method)
+        dataset2configscorelist = azure_utils.get_config_and_score_from_partial_config(each_partial_config,
+                                                                                       ["dat", "subdat"], method)
         for each_dataset, configscorelist in dataset2configscorelist.items():
             for config_idx in range(len(configscorelist)):
                 avg_scores = configscorelist[config_idx][0][1]
@@ -12,6 +12,7 @@ def extract_ranked_config_score(console_args, partial_config_dict):
                 # print(method + "," + str(each_dataset) + ",rep=" + str(config_idx))
                 # print("avg score :" + str(avg_scores))
                 # print(''.join(['{0}={1}\n'.format(key, top_config[key]) for key in sorted(top_config.keys())]))
+
 
 def extract_sorted_config_list(dataset2configscorelist, topk):
     dataset2topkconfigs = {}
@@ -21,21 +22,25 @@ def extract_sorted_config_list(dataset2configscorelist, topk):
             for item in scorelist:
                 if item[0] not in [x[0] for x in all_configscorelist]:
                     all_configscorelist.append(item)
-        sorted_all_configscorelist = sorted(all_configscorelist, key = lambda x:x[1], reverse = True)
+        sorted_all_configscorelist = sorted(all_configscorelist, key=lambda x: x[1], reverse=True)
         topk_configs = []
 
-        for each_hp in ("learning_rate", "num_train_epochs", "per_device_train_batch_size", "warmup_ratio", "weight_decay", "adam_epsilon"):
+        for each_hp in (
+        "learning_rate", "num_train_epochs", "per_device_train_batch_size", "warmup_ratio", "weight_decay",
+        "adam_epsilon"):
             topk_configs.append((each_hp, [sorted_all_configscorelist[x][0][each_hp] for x in range(topk)]))
         topk_configs.append(("perf", [sorted_all_configscorelist[x][1] for x in range(topk)]))
 
         dataset2topkconfigs[dataset] = topk_configs
     return dataset2topkconfigs
 
+
 def dict2tuple(this_dict):
     tuple_list = []
     for key in sorted(this_dict.keys()):
         tuple_list.append(this_dict[key])
     return tuple(tuple_list)
+
 
 def merge_configscore_list(small_dataset2configscorelist):
     dataset2merged_configscorelist = {}
@@ -52,6 +57,7 @@ def merge_configscore_list(small_dataset2configscorelist):
                     merged_configscore_list[dict2tuple(each_configscore_entry[0])] = each_configscore_entry[1]
         dataset2merged_configscorelist[dataset] = merged_configscore_list
     return dataset2merged_configscorelist
+
 
 def get_result(console_args, partial_jobid_config):
     from .azure_utils import AzureUtils, JobID
@@ -72,6 +78,7 @@ def get_result(console_args, partial_jobid_config):
             print()
     stop = 0
 
+
 def print_config(config_dict):
     for key in sorted(config_dict.keys()):
         if key in ("attention_probs_dropout_prob", "hidden_dropout_prob", "seed"): continue
@@ -82,6 +89,7 @@ def print_config(config_dict):
         else:
             short_key = key
         print(short_key, config_dict[key])
+
 
 def compare_small_vs_large(console_args):
     from .azure_utils import AzureUtils, JobID
@@ -94,7 +102,7 @@ def compare_small_vs_large(console_args):
     partial_jobid_config.presz = "base"
 
     small_dataset2configscorelist = azure_utils.get_config_and_score_from_partial_config(partial_jobid_config,
-                                                                                   ["dat", "subdat"], "list")
+                                                                                         ["dat", "subdat"], "list")
 
     small_mergedconfiglist = merge_configscore_list(small_dataset2configscorelist)
 
@@ -113,19 +121,20 @@ def compare_small_vs_large(console_args):
         merged_large_configlist = large_mergedconfiglist[each_dataset]
         print(each_dataset)
         print()
-        for (each_tuple, large_score) in sorted(merged_large_configlist.items(), key = lambda x:x[1], reverse=True):
-            #small_score = merged_small_configlist[each_tuple]
+        for (each_tuple, large_score) in sorted(merged_large_configlist.items(), key=lambda x: x[1], reverse=True):
+            # small_score = merged_small_configlist[each_tuple]
             is_in_onlysmall = each_tuple in small_mergedconfiglist[each_dataset]
             for each_val in each_tuple:
                 print(each_val, end=", ")
             print(large_score, is_in_onlysmall, sep=",")
         print()
         for (each_tuple, small_score) in \
-                sorted(small_mergedconfiglist[each_dataset].items(),key = lambda x:x[1], reverse=True):
+                sorted(small_mergedconfiglist[each_dataset].items(), key=lambda x: x[1], reverse=True):
             is_in_large = each_tuple in large_mergedconfiglist[each_dataset]
             for each_val in each_tuple:
                 print(each_val, end=", ")
             print(small_score, is_in_large, sep=",")
+
 
 def check_conflict(console_args, partial_jobid_config_list):
     from .azure_utils import AzureUtils, JobID
@@ -154,6 +163,7 @@ def check_conflict(console_args, partial_jobid_config_list):
             print(len(dupkey_count))
             print(dupkey_count)
 
+
 def print_cfo(console_args):
     from .azure_utils import JobID, AzureUtils
     jobid_config = JobID()
@@ -165,7 +175,7 @@ def print_cfo(console_args):
 
     for each_rep in range(3):
         jobid_config.rep = each_rep
-        azure_utils = AzureUtils(console_args=console_args, jobid = jobid_config)
+        azure_utils = AzureUtils(console_args=console_args, jobid=jobid_config)
 
         dataset2configscorelist = \
             azure_utils.get_config_and_score_from_partial_config(
@@ -177,12 +187,13 @@ def print_cfo(console_args):
         configscorelist = dataset2configscorelist[dataset]
         count = 0
         print(dataset)
-        for (config, score, blobname) in sorted(configscorelist[0], key = lambda x:x[1], reverse=True)[0:1]:
+        for (config, score, blobname) in sorted(configscorelist[0], key=lambda x: x[1], reverse=True)[0:1]:
             print(count)
             print(score)
             print_config(config)
             print()
             count += 1
+
 
 def download_validation(console_args, result_root_dir):
     from .azure_utils import JobID, AzureUtils
@@ -195,10 +206,11 @@ def download_validation(console_args, result_root_dir):
     partial_jobid_config.rep = 0
 
     azure_utils = AzureUtils(console_args=console_args, jobid=partial_jobid_config)
-    azure_utils.get_validation_perf(console_args = console_args, partial_jobid_config=partial_jobid_config)
+    azure_utils.get_validation_perf(console_args=console_args, partial_jobid_config=partial_jobid_config)
     azure_utils.get_test_perf(partial_jobid_config, result_root_dir)
 
-def get_result_str(jobid_config, val_score, test_score, best_config, subdat2config = None, mode="grid"):
+
+def get_result_str(jobid_config, val_score, test_score, best_config, subdat2config=None, mode="grid"):
     result_str = jobid_config.subdat.upper() + ","
     if jobid_config.alg:
         result_str += jobid_config.alg.upper().replace("OPTUNA", "Optuna")
@@ -206,7 +218,7 @@ def get_result_str(jobid_config, val_score, test_score, best_config, subdat2conf
         result_str += "+" + jobid_config.pru.upper()
     if jobid_config.subdat != "mrpc":
         result_str += ",rep " + str(jobid_config.rep) + " & " + str(
-        "%.1f" % (val_score * 100)) + " & " + str(test_score)
+            "%.1f" % (val_score * 100)) + " & " + str(test_score)
     else:
         result_str += ",rep " + str(jobid_config.rep) + " & " + str(
             "%.1f" % (val_score[0] * 100)) + "/" + str(
@@ -233,10 +245,11 @@ def get_result_str(jobid_config, val_score, test_score, best_config, subdat2conf
             if hp == "learning_rate":
                 result_str += " & " + wrap_left + "{:.1e}".format(best_config[hp]) + wrap_right
             elif hp == "per_device_train_batch_size":
-                result_str += " & " + wrap_left + str(best_config[hp])+ wrap_right
+                result_str += " & " + wrap_left + str(best_config[hp]) + wrap_right
             else:
-                result_str += " & " + wrap_left + str("%.3f" % best_config[hp])+ wrap_right
+                result_str += " & " + wrap_left + str("%.3f" % best_config[hp]) + wrap_right
     return result_str + "\\\\"
+
 
 def extract_grid(console_args, jobid_config, overfitting_subdat, test_scores):
     from .azure_utils import JobID, AzureUtils
@@ -259,6 +272,7 @@ def extract_grid(console_args, jobid_config, overfitting_subdat, test_scores):
         print(printstr)
     return subdat2config
 
+
 def extract_hpo(
         console_args,
         jobid_config,
@@ -276,14 +290,15 @@ def extract_hpo(
         jobid_config.pru = overfitting_pru[idx]
         jobid_config.rep = overfitting_rep[idx]
         azure_utils = AzureUtils(console_args=console_args, jobid=jobid_config)
-        best_config, val_score = azure_utils.get_best_perf_config(jobid_config)
+        best_config, val_score = azure_utils.get_best_perf_config(console_args, jobid_config)
         test_score = test_scores[idx]
         key2printstr[jobid_config.subdat.upper() + "," + jobid_config.alg.upper() + "," \
-                     + jobid_config.pru +",rep " + str(jobid_config.rep)] \
+                     + jobid_config.pru + ",rep " + str(jobid_config.rep)] \
             = get_result_str(jobid_config, val_score, test_score, best_config, subdat2config, mode="hpo")
 
-    for key, printstr in sorted(key2printstr.items(), key = lambda x:x[0]):
+    for key, printstr in sorted(key2printstr.items(), key=lambda x: x[0]):
         print(printstr)
+
 
 def extract_roberta_overfitting_configs(console_args):
     from .azure_utils import JobID, AzureUtils
@@ -316,6 +331,7 @@ def extract_roberta_overfitting_configs(console_args):
                    "72.4", "72.4", "90.8/87.4", "90.3/86.5", "95.1", "95.8"]
     extract_hpo(console_args, jobid_config, overfitting_subdat, overfitting_alg, overfitting_pru, overfitting_rep,
                 subdat2config, test_scores)
+
 
 def extract_electra_overfitting_configs(console_args):
     from .azure_utils import JobID, AzureUtils

@@ -4,27 +4,30 @@ from functools import partial
 from transformers import AutoTokenizer
 from .sentence_keys_auto import get_sentence_keys
 
+
 def inserting_sepp(sent, start, end, this_tokenizer):
     return sent[:start].rstrip() \
-        + " " + this_tokenizer.sep_token + " " \
-        + sent[start:end] \
-        + " " + this_tokenizer.sep_token + " " \
-        + sent[end:].lstrip()
+           + " " + this_tokenizer.sep_token + " " \
+           + sent[start:end] \
+           + " " + this_tokenizer.sep_token + " " \
+           + sent[end:].lstrip()
+
 
 def tokenize_superglue_copa(this_example,
-                           this_tokenizer,
-                           dataset_name,
-                           subdataset_name=None,
-                           **kwargs):
-
+                            this_tokenizer,
+                            dataset_name,
+                            subdataset_name=None,
+                            **kwargs):
     return None
+
 
 def tokenize_superglue_wic_gpt2(this_example,
-                               this_tokenizer,
-                               dataset_name,
-                               subdataset_name=None,
-                               **kwargs):
+                                this_tokenizer,
+                                dataset_name,
+                                subdataset_name=None,
+                                **kwargs):
     return None
+
 
 def tokenize_superglue_wic(this_example,
                            this_tokenizer,
@@ -57,7 +60,7 @@ def tokenize_superglue_wic(this_example,
     altered_sent2 = inserting_sepp(sent2, start2, end2, this_tokenizer)
     input_ids_sepp = this_tokenizer(*(altered_sent1, altered_sent2),
                                     padding="max_length",
-                                    max_length= 1024,
+                                    max_length=1024,
                                     truncation=True)["input_ids"]
     data_pair = (sent1, sent2)
     assert "max_seq_length" in kwargs, "max_seq_length must be provided for glue"
@@ -83,9 +86,10 @@ def tokenize_superglue_wic(this_example,
         ptr_sepp: the pointer after adding; ptr_nosepp: the pointer without adding
     """
     while ptr_sepp < len(input_ids_sepp) and ptr_nosepp < len(input_ids) and \
-        input_ids_sepp[ptr_sepp] != 0 and input_ids[ptr_nosepp] != 0:
+            input_ids_sepp[ptr_sepp] != 0 and input_ids[ptr_nosepp] != 0:
         if input_ids_sepp[ptr_sepp] == input_ids[ptr_nosepp]:
-            ptr_sepp += 1; ptr_nosepp += 1
+            ptr_sepp += 1;
+            ptr_nosepp += 1
         else:
             if not (input_ids_sepp[ptr_sepp] == sep_id
                     or this_tokenizer.convert_ids_to_tokens([input_ids_sepp[ptr_sepp]])[0] in ('▁', '_')):
@@ -101,16 +105,17 @@ def tokenize_superglue_wic(this_example,
     for idx1 in range(2):
         if span_start_end[idx1][1] < kwargs["max_seq_length"]:
             first_span = [x for x in range(span_start_end[idx1][0],
-                         span_start_end[idx1][1]) if x < kwargs["max_seq_length"]] \
-                        + [0] * (max_word_span - span_start_end[idx1][1] + span_start_end[idx1][0])
+                                           span_start_end[idx1][1]) if x < kwargs["max_seq_length"]] \
+                         + [0] * (max_word_span - span_start_end[idx1][1] + span_start_end[idx1][0])
             word_indices.append(first_span)
     this_data["word_spans"] = word_indices
     return this_data
 
+
 def tokenize_glue(this_example,
                   this_tokenizer,
                   dataset_name,
-                  subdataset_name = None,
+                  subdataset_name=None,
                   **kwargs):
     sentence_keys = get_sentence_keys(dataset_name, subdataset_name)
 
@@ -125,7 +130,8 @@ def tokenize_glue(this_example,
             this_example[sentence1_key], this_example[sentence2_key])
     )
     assert "max_seq_length" in kwargs, "max_seq_length must be provided for glue"
-    return this_tokenizer(*data_pair, padding="max_length", max_length= kwargs["max_seq_length"], truncation=True)
+    return this_tokenizer(*data_pair, padding="max_length", max_length=kwargs["max_seq_length"], truncation=True)
+
 
 TOKENIZER_MAPPING = OrderedDict(
     [
@@ -142,10 +148,14 @@ TOKENIZER_MAPPING = OrderedDict(
     ]
 )
 
+
 class AutoEncodeText:
     """
+    This is a generic input text tokenization class that will be instantiated as one of the
+    tokenization classes of the library when created with the
+    `~flaml.nlp.dataset.AutoEncodeText.from_model_and_dataset_name` class method.
 
-    This is a generic class for encoding the input text into tokens
+    This class cannot be instantiated directly using ``__init__()`` (throws an error).
     """
 
     def __init__(self):
@@ -160,7 +170,7 @@ class AutoEncodeText:
                                     data_raw,
                                     model_checkpoint_path,
                                     dataset_name,
-                                    subdataset_name = None,
+                                    subdataset_name=None,
                                     **kwargs):
         if (dataset_name, subdataset_name) in TOKENIZER_MAPPING.keys():
             try:
@@ -169,8 +179,8 @@ class AutoEncodeText:
                 return data_raw.map(
                     partial(token_func,
                             this_tokenizer=this_tokenizer,
-                            dataset_name = dataset_name,
-                            subdataset_name = subdataset_name,
+                            dataset_name=dataset_name,
+                            subdataset_name=subdataset_name,
                             **kwargs), batched=False)
             except:
                 raise ValueError("{}, {}, Return empty".format(dataset_name, subdataset_name))

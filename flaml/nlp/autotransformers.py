@@ -1,5 +1,5 @@
 import hashlib
-import os,json
+import os, json
 import random
 
 import torch
@@ -38,6 +38,7 @@ from .utils import load_console_args
 from .huggingface.trainer import TrainerForAutoTransformers
 
 import logging
+
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
     '[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s',
@@ -49,8 +50,8 @@ task_list = [
     "question-answering"
 ]
 
-class AutoTransformers:
 
+class AutoTransformers:
     '''The AutoTransformers class
 
     Example:
@@ -70,7 +71,7 @@ class AutoTransformers:
     '''
 
     @staticmethod
-    def _convert_dict_to_ray_tune_space(config_json, mode ="grid"):
+    def _convert_dict_to_ray_tune_space(config_json, mode="grid"):
         search_space = {}
 
         if mode == "grid":
@@ -104,21 +105,23 @@ class AutoTransformers:
         search_space_dict_hpo = search_space_dict_grid = None
         if self.jobid_config.mod == "grid":
             search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self.jobid_config.pre,
-                    self.jobid_config.presz, self.jobid_config.dat[0], self.jobid_config.subdat, "grid")
+                                                                                     self.jobid_config.presz,
+                                                                                     self.jobid_config.dat[0],
+                                                                                     self.jobid_config.subdat, "grid")
             search_space_dict_grid \
                 = AutoTransformers._convert_dict_to_ray_tune_space(
-                    search_space_grid_json,
-                    mode="grid")
+                search_space_grid_json,
+                mode="grid")
             search_space_dict_hpo = search_space_dict_grid
         if self.jobid_config.mod != "grid" and self.jobid_config.mod != "gridbert":
             search_space_hpo_json \
                 = AutoHPOSearchSpace.from_model_and_dataset_name(
-                    logger,
-                    self.jobid_config.spa,
-                    self.jobid_config.pre,
-                    self.jobid_config.presz,
-                    self.jobid_config.dat[0],
-                    self.jobid_config.subdat,
+                logger,
+                self.jobid_config.spa,
+                self.jobid_config.pre,
+                self.jobid_config.presz,
+                self.jobid_config.dat[0],
+                self.jobid_config.subdat,
                 **custom_hpo_args)
             search_space_dict_hpo = AutoTransformers._convert_dict_to_ray_tune_space(search_space_hpo_json, mode="hpo")
         elif self.jobid_config.mod == "gridbert":
@@ -150,7 +153,7 @@ class AutoTransformers:
     def _wrapper(self, func, *args):  # with star
         return func(*args)
 
-    def _get_split_name(self, data_raw, fold_name = None):
+    def _get_split_name(self, data_raw, fold_name=None):
         if fold_name:
             return fold_name
         fold_keys = data_raw.keys()
@@ -166,11 +169,11 @@ class AutoTransformers:
 
     def prepare_data(self,
                      data_root_path,
-                     jobid_config = None,
-                     is_wandb_on = False,
+                     jobid_config=None,
+                     is_wandb_on=False,
                      server_name=None,
-                     max_seq_length = 128,
-                     fold_name = None,
+                     max_seq_length=128,
+                     fold_name=None,
                      resplit_portion=None,
                      **custom_data_args):
         '''Prepare data
@@ -208,12 +211,12 @@ class AutoTransformers:
         self._max_seq_length = max_seq_length
         self._server_name = server_name if server_name is not None else "tmdev"
         self.jobid_config = jobid_config if jobid_config is not None else JobID(console_args)
-        self.wandb_utils = WandbUtils(is_wandb_on= is_wandb_on,
-                            console_args= console_args,
-                            jobid_config= self.jobid_config)
+        self.wandb_utils = WandbUtils(is_wandb_on=is_wandb_on,
+                                      console_args=console_args,
+                                      jobid_config=self.jobid_config)
         self.wandb_utils.set_wandb_per_run()
 
-        self.path_utils = PathUtils(self.jobid_config, hpo_data_root_path = data_root_path)
+        self.path_utils = PathUtils(self.jobid_config, hpo_data_root_path=data_root_path)
 
         if self.jobid_config.spt == "rspt":
             assert resplit_portion, "If split mode is 'rspt', the resplit_portion must be provided. Please " \
@@ -242,14 +245,15 @@ class AutoTransformers:
         """
         for each_fold in data_encoded.keys():
             self._max_seq_length = max(self._max_seq_length,
-                max([sum(data_encoded[each_fold][x]['attention_mask']) for x in range(len(data_encoded[each_fold]))]))
+                                       max([sum(data_encoded[each_fold][x]['attention_mask']) for x in
+                                            range(len(data_encoded[each_fold]))]))
         self._max_seq_length = int((self._max_seq_length + 15) / 16) * 16
         data_encoded = autoencodetext_from_model_and_dataset_name()
 
         if self.jobid_config.spt == "rspt":
             all_folds_from_source = []
             assert "source" in resplit_portion.keys(), "Must specify the source for resplitting the dataset in" \
-            "resplit_portion, which is a list of folder names, e.g., resplit_portion = {'source': ['train']}"
+                                                       "resplit_portion, which is a list of folder names, e.g., resplit_portion = {'source': ['train']}"
 
             source_fold_names = resplit_portion['source']
             for each_fold_name in source_fold_names:
@@ -257,10 +261,10 @@ class AutoTransformers:
                 all_folds_from_source.append(this_fold_dataset)
 
             merged_folds_from_source = datasets.concatenate_datasets(all_folds_from_source)
-            merged_folds_from_source = merged_folds_from_source.shuffle(seed= self.jobid_config.sddt)
+            merged_folds_from_source = merged_folds_from_source.shuffle(seed=self.jobid_config.sddt)
 
             assert "train" in resplit_portion.keys() and "validation" in resplit_portion.keys() \
-                and "test" in resplit_portion.keys(), "train, validation, test must exist in resplit_portion"
+                   and "test" in resplit_portion.keys(), "train, validation, test must exist in resplit_portion"
 
             for key in ["train", "validation", "test"]:
                 target_fold_start, target_fold_end = \
@@ -279,8 +283,8 @@ class AutoTransformers:
                 = data_encoded[self._train_name], data_encoded[self._dev_name], data_encoded[
                 self._test_name]
 
-    def  _load_model(self,
-                    checkpoint_path = None,
+    def _load_model(self,
+                    checkpoint_path=None,
                     per_model_config=None):
 
         this_task = get_default_task(self.jobid_config.dat[0], self.jobid_config.subdat)
@@ -323,7 +327,7 @@ class AutoTransformers:
                     this_model = get_this_model()
                     model_config.num_labels = self._num_labels
                     this_model.num_labels = self._num_labels
-                    this_model.classifier = AutoSeqClassificationHead\
+                    this_model.classifier = AutoSeqClassificationHead \
                         .from_model_type_and_config(
                         self.jobid_config.pre,
                         model_config)
@@ -384,6 +388,7 @@ class AutoTransformers:
     def _objective(self, config, reporter, checkpoint_dir=None):
         def model_init():
             return self._load_model()
+
         from transformers.trainer_utils import set_seed
         set_seed(config["seed"])
 
@@ -394,20 +399,20 @@ class AutoTransformers:
         self.path_utils.make_dir_per_trial(trial_id)
 
         ckpt_freq = self._compute_checkpoint_freq(
-            num_train_epochs = config["num_train_epochs"],
-            batch_size = config["per_device_train_batch_size"])
+            num_train_epochs=config["num_train_epochs"],
+            batch_size=config["per_device_train_batch_size"])
 
         assert self.path_utils.ckpt_dir_per_trial
         training_args = TrainingArguments(
             output_dir=self.path_utils.ckpt_dir_per_trial,
             do_eval=False,
             per_device_eval_batch_size=32,
-            eval_steps= ckpt_freq,
-            evaluation_strategy = IntervalStrategy.STEPS,
-            save_steps= ckpt_freq,
+            eval_steps=ckpt_freq,
+            evaluation_strategy=IntervalStrategy.STEPS,
+            save_steps=ckpt_freq,
             save_total_limit=0,
-            fp16= self._fp16,
-            deepspeed = self.ds_config,
+            fp16=self._fp16,
+            deepspeed=self.ds_config,
             **training_args_config,
         )
 
@@ -418,7 +423,7 @@ class AutoTransformers:
             train_dataset=self.train_dataset,
             eval_dataset=self.eval_dataset,
             tokenizer=self._tokenizer,
-            compute_metrics= self._compute_metrics_by_dataset_name,
+            compute_metrics=self._compute_metrics_by_dataset_name,
         )
         trainer.logger = logger
         trainer.trial_id = reporter.trial_id
@@ -443,27 +448,27 @@ class AutoTransformers:
         for key in custom_hpo_args.keys():
             if key == "points_to_evaluate":
                 for each_init_config in custom_hpo_args[key]:
-                   for each_hp in each_init_config.keys():
-                       assert each_hp in self._search_space_hpo.keys(), \
-                           "points_to_evaluate hp must be within the search space"
+                    for each_hp in each_init_config.keys():
+                        assert each_hp in self._search_space_hpo.keys(), \
+                            "points_to_evaluate hp must be within the search space"
 
-                       assert isinstance(each_init_config[each_hp], int) or \
-                              isinstance(each_init_config[each_hp], float) or \
-                              isinstance(each_init_config[each_hp], str) or \
-                              isinstance(each_init_config[each_hp], bool), " points_to_evaluate must be a scalar"
+                        assert isinstance(each_init_config[each_hp], int) or \
+                               isinstance(each_init_config[each_hp], float) or \
+                               isinstance(each_init_config[each_hp], str) or \
+                               isinstance(each_init_config[each_hp], bool), " points_to_evaluate must be a scalar"
 
-                       assert isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Categorical) or \
-                              isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Float) or \
-                              isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Integer), \
+                        assert isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Categorical) or \
+                               isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Float) or \
+                               isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Integer), \
                             "Every hp space must either be categorical, integer or float"
 
-                       if isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Categorical):
-                           assert each_init_config[each_hp] in self._search_space_hpo[each_hp].categories, \
-                               f"points_to_evaluate {each_hp} value must be within the search space"
-                       else:
-                           assert each_init_config[each_hp] >= self._search_space_hpo[each_hp].lower \
-                                  and each_init_config[each_hp] <= self._search_space_hpo[each_hp].upper, \
-                               f"points_to_evaluate {each_hp} value must be within the search space"
+                        if isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Categorical):
+                            assert each_init_config[each_hp] in self._search_space_hpo[each_hp].categories, \
+                                f"points_to_evaluate {each_hp} value must be within the search space"
+                        else:
+                            assert each_init_config[each_hp] >= self._search_space_hpo[each_hp].lower \
+                                   and each_init_config[each_hp] <= self._search_space_hpo[each_hp].upper, \
+                                f"points_to_evaluate {each_hp} value must be within the search space"
 
     def _get_search_algo(self,
                          search_algo_name,
@@ -495,16 +500,16 @@ class AutoTransformers:
                         best_ckpt):
         json.dump({"best_ckpt": best_ckpt},
                   open(os.path.join(self.path_utils.result_dir_per_run,
-                  "save_ckpt_" + self.jobid_config.to_jobid_string() + ".json"), "w"))
+                                    "save_ckpt_" + self.jobid_config.to_jobid_string() + ".json"), "w"))
 
     def _save_output_metric(self,
                             output_metrics):
         json.dump(output_metrics, open(
             os.path.join(self.path_utils.result_dir_per_run,
-            "output_metric_" + self.jobid_config.to_jobid_string() + ".json"), "w"))
+                         "output_metric_" + self.jobid_config.to_jobid_string() + ".json"), "w"))
 
     def _load_ckpt_json(self,
-                        ckpt_dir = None,
+                        ckpt_dir=None,
                         **kwargs):
         if not ckpt_dir:
             ckpt_dir = os.path.join(self.path_utils.result_dir_per_run,
@@ -516,12 +521,12 @@ class AutoTransformers:
             logger.error("Saved checkpoint not found. Please make sure checkpoint is stored under {}".format(ckpt_dir))
             raise err
 
-    def _set_metric(self, custom_metric_name = None, custom_metric_mode_name = None):
+    def _set_metric(self, custom_metric_name=None, custom_metric_mode_name=None):
         default_metric, default_mode, all_metrics, all_modes = get_default_and_alternative_metric(
-                            self.jobid_config.dat[0],
-                            subdataset_name=self.jobid_config.subdat,
-                            custom_metric_name= custom_metric_name,
-                            custom_metric_mode_name= custom_metric_mode_name)
+            self.jobid_config.dat[0],
+            subdataset_name=self.jobid_config.subdat,
+            custom_metric_name=custom_metric_name,
+            custom_metric_mode_name=custom_metric_mode_name)
         _variable_override_default_alternative(logger,
                                                self,
                                                "metric_name",
@@ -546,7 +551,7 @@ class AutoTransformers:
                time_budget,
                custom_metric_name=None,
                custom_metric_mode_name=None,
-               _fp16 = True,
+               _fp16=True,
                **custom_hpo_args
                ):
         '''Fine tuning the huggingface using HF's API Transformers.hyperparameter_search (for comparitive purpose).
@@ -590,8 +595,10 @@ class AutoTransformers:
                    validation_metric:
                         a dict storing the validation score
                 '''
+
         def model_init():
             return self._load_model()
+
         def ray_hp_space(trial):
             return {
                 "learning_rate": ray.tune.loguniform(1e-6, 1e-4),
@@ -613,8 +620,8 @@ class AutoTransformers:
             this_model,
             training_args,
             model_init=model_init,
-            train_dataset= self.train_dataset,
-            eval_dataset= self.eval_dataset,
+            train_dataset=self.train_dataset,
+            eval_dataset=self.eval_dataset,
             tokenizer=self._tokenizer,
             compute_metrics=self._compute_metrics_by_dataset_name,
         )
@@ -622,11 +629,11 @@ class AutoTransformers:
 
         start_time = time.time()
         best_run = trainer.hyperparameter_search(
-            n_trials = num_samples,
-            time_budget_s= time_budget,
-            hp_space = ray_hp_space,
+            n_trials=num_samples,
+            time_budget_s=time_budget,
+            hp_space=ray_hp_space,
             backend=HPSearchBackend.RAY,
-            resources_per_trial = resources_per_trial)
+            resources_per_trial=resources_per_trial)
         duration = time.time() - start_time
         self.last_run_duration = duration
 
@@ -643,8 +650,8 @@ class AutoTransformers:
             this_model,
             best_training_args,
             model_init=model_init,
-            train_dataset= self.train_dataset,
-            eval_dataset= self.eval_dataset,
+            train_dataset=self.train_dataset,
+            eval_dataset=self.eval_dataset,
             tokenizer=self._tokenizer,
             compute_metrics=self._compute_metrics_by_dataset_name,
         )
@@ -662,12 +669,12 @@ class AutoTransformers:
     def fit(self,
             num_samples,
             time_budget,
-            custom_metric_name = None,
-            custom_metric_mode_name = None,
+            custom_metric_name=None,
+            custom_metric_mode_name=None,
             ckpt_per_epoch=1,
-            fp16 = True,
-            verbose = 1,
-            resources_per_trial = {"gpu": 1, "cpu": 1},
+            fp16=True,
+            verbose=1,
+            resources_per_trial={"gpu": 1, "cpu": 1},
             **custom_hpo_args):
         '''Fine tuning the huggingface using the hpo setting
 
@@ -740,18 +747,18 @@ class AutoTransformers:
 
         analysis = ray.tune.run(
             self._objective,
-            metric= self.metric_name,
-            mode = self.metric_mode_name,
-            name = "ray_result",
-            resources_per_trial = resources_per_trial,
-            config= tune_config,
-            verbose= verbose,
-            local_dir= self.path_utils.ckpt_dir_per_run,
-            num_samples = num_samples,
-            time_budget_s= time_budget,
-            keep_checkpoints_num = 1,
-            scheduler= scheduler,
-            search_alg= search_algo,
+            metric=self.metric_name,
+            mode=self.metric_mode_name,
+            name="ray_result",
+            resources_per_trial=resources_per_trial,
+            config=tune_config,
+            verbose=verbose,
+            local_dir=self.path_utils.ckpt_dir_per_run,
+            num_samples=num_samples,
+            time_budget_s=time_budget,
+            keep_checkpoints_num=1,
+            scheduler=scheduler,
+            search_alg=search_algo,
         )
         duration = time.time() - start_time
         self.last_run_duration = duration
@@ -759,25 +766,25 @@ class AutoTransformers:
 
         ray.shutdown()
 
-        best_trial = analysis.get_best_trial(scope="all", metric= self.metric_name, mode= self.metric_mode_name)
+        best_trial = analysis.get_best_trial(scope="all", metric=self.metric_name, mode=self.metric_mode_name)
         validation_metric = {"eval_" + self.metric_name:
-                    best_trial.metric_analysis[self.metric_name][self.metric_mode_name]}
+                                 best_trial.metric_analysis[self.metric_name][self.metric_mode_name]}
         for x in range(len(self._all_metrics)):
             validation_metric["eval_" + self._all_metrics[x]] \
                 = best_trial.metric_analysis[self._all_metrics[x]][self._all_modes[x]]
 
-        get_best_ckpt = analysis.get_best_checkpoint(best_trial, metric= self.metric_name, mode= self.metric_mode_name)
+        get_best_ckpt = analysis.get_best_checkpoint(best_trial, metric=self.metric_name, mode=self.metric_mode_name)
         best_ckpt = AutoTransformers._recover_checkpoint(get_best_ckpt)
 
         self._save_ckpt_json(best_ckpt)
 
-        if verbose==0:
+        if verbose == 0:
             logger.setLevel(old_level)
 
         return validation_metric, analysis
 
     def predict(self,
-                ckpt_json_dir = None,
+                ckpt_json_dir=None,
                 **kwargs):
         '''Predict label for test data.
 
@@ -822,9 +829,9 @@ class AutoTransformers:
             return predictions, None
 
     def output_prediction(self,
-                          predictions = None,
-                          output_prediction_path = None,
-                          output_zip_file_name = None):
+                          predictions=None,
+                          output_prediction_path=None,
+                          output_zip_file_name=None):
         """
             When using the original GLUE split, output the prediction on test data,
             and prepare the .zip file for submission

@@ -4,6 +4,7 @@ import subprocess, wandb
 import hashlib
 from time import time
 
+
 class WandbUtils:
 
     # Documentation on the wandb setting:
@@ -24,9 +25,9 @@ class WandbUtils:
     # https://docs.ray.io/en/master/tune/tutorials/tune-wandb.html
 
     def __init__(self,
-                 is_wandb_on = None,
-                 console_args = None,
-                 jobid_config = None):
+                 is_wandb_on=None,
+                 console_args=None,
+                 jobid_config=None):
         if is_wandb_on == True:
             wandb_key, azure_key, container_name = get_wandb_azure_key(console_args.key_path)
             subprocess.run(["wandb", "login", "--relogin", wandb_key])
@@ -40,12 +41,12 @@ class WandbUtils:
         print("before wandb.init\n\n\n")
         if os.environ["WANDB_MODE"] == "online":
             os.environ["WANDB_SILENT"] = "false"
-            return wandb.init(project = self.jobid_config.get_jobid_full_data_name(),
-                       group= self.wandb_group_name,
-                       name= str(self._get_next_trial_ids()),
-                       settings=wandb.Settings(
-                       _disable_stats=True),
-                       reinit=False)
+            return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
+                              group=self.wandb_group_name,
+                              name=str(self._get_next_trial_ids()),
+                              settings=wandb.Settings(
+                                  _disable_stats=True),
+                              reinit=False)
         else:
             return None
 
@@ -59,10 +60,10 @@ class WandbUtils:
         self.wandb_group_name = os.environ["WANDB_RUN_GROUP"]
         if os.environ["WANDB_MODE"] == "online":
             os.environ["WANDB_SILENT"] = "false"
-            return wandb.init(project= self.jobid_config.get_jobid_full_data_name(),
-                       group= os.environ["WANDB_RUN_GROUP"],
-                       settings=wandb.Settings(
-                           _disable_stats=True),
-                       reinit=False)
+            return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
+                              group=os.environ["WANDB_RUN_GROUP"],
+                              settings=wandb.Settings(
+                                  _disable_stats=True),
+                              reinit=False)
         else:
             return None

@@ -2,6 +2,7 @@ import copy
 import os
 
 import transformers
+
 transformers.logging.set_verbosity_error()
 from ray import tune
 import torch
@@ -23,7 +24,7 @@ class TrainerForAutoTransformers(transformers.Trainer):
         return (self.current_optimizer, self.current_scheduler)
 
     def evaluate(self,
-                 eval_dataset= None):
+                 eval_dataset=None):
         """
             Overriding transformers.Trainer.evaluate by saving state with save_state
 

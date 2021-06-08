@@ -19,10 +19,9 @@ SEARCH_ALGO_MAPPING = OrderedDict(
 
 class AutoSearchAlgorithm:
     """
-    This is a generic huggingface class that will be instantiated as one of the huggingface classes of the library
-    ---with the search algorithm
-    ---when created with the when created with the
-    :meth:`~transformers.AutoSearchAlgorithm.from_method_name` class method.
+    This is a class for getting the search algorithm based on the search algorithm name
+    (a string variable) instantiated as one of the algorithms of the library when
+    created with the `~flaml.nlp.hpo.AutoSearchAlgorithm.from_method_name` method.
 
     This class cannot be instantiated directly using ``__init__()`` (throws an error).
     """
@@ -30,7 +29,8 @@ class AutoSearchAlgorithm:
     def __init__(self):
         raise EnvironmentError(
             "AutoSearchAlgorithm is designed to be instantiated "
-            "using the `AutoSearchAlgorithm.from_method_name(method_name)` methods."
+            "using the `AutoSearchAlgorithm.from_method_name(cls, search_algo_name, search_algo_args_mode,"
+            " hpo_search_space, **custom_hpo_args)` methods."
         )
 
     @classmethod

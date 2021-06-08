@@ -12,10 +12,9 @@ SCHEDULER_MAPPING = OrderedDict(
 
 class AutoScheduler:
     """
-    This is a generic huggingface class that will be instantiated as one of the huggingface classes of the library
-    ---with the tune scheduler
-    ---when created with the when created with the
-    :meth:`~transformers.AutoScheduler.from_scheduler_name` class method.
+    This is a class for getting the scheduler based on the scheduler name
+    (a string variable) instantiated as one of the schedulers of the library when
+    created with the `~flaml.nlp.hpo.AutoScheduler.from_scheduler_name` method.
 
     This class cannot be instantiated directly using ``__init__()`` (throws an error).
     """
@@ -23,7 +22,7 @@ class AutoScheduler:
     def __init__(self):
         raise EnvironmentError(
             "AutoScheduler is designed to be instantiated "
-            "using the `AutoScheduler.from_scheduler_name(method_name)` methods."
+            "using the `AutoScheduler.from_scheduler_name(cls, scheduler_name, **kwargs)` methods."
         )
 
     @classmethod
