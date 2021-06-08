@@ -266,7 +266,7 @@ def _test_hpo(args,
                                         predictions=predictions,
                                         duration=autohf.last_run_duration)
 
-    except AssertionError as err:
+    except AssertionError:
         azure_utils.write_exception()
     rm_home_result()
 

@@ -55,8 +55,9 @@ def get_default_and_alternative_metric(dataset_name,
         assert subdataset_name and subdataset_name in eval_name_mapping, \
             "dataset_name and subdataset_name not correctly specified"
         default_metric, default_mode = eval_name_mapping[subdataset_name][0]
-        all_metrics, all_mode = [x[0] for x in eval_name_mapping[subdataset_name]] \
-                                + ["loss"], [x[1] for x in eval_name_mapping[subdataset_name]] + ["min"]
+        all_metrics, all_mode \
+            = [x[0] for x in eval_name_mapping[subdataset_name]] \
+            + ["loss"], [x[1] for x in eval_name_mapping[subdataset_name]] + ["min"]
 
         return default_metric, default_mode, all_metrics, all_mode
     else:

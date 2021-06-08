@@ -79,7 +79,8 @@ def get_result(console_args, partial_jobid_config):
 
 def print_config(config_dict):
     for key in sorted(config_dict.keys()):
-        if key in ("attention_probs_dropout_prob", "hidden_dropout_prob", "seed"): continue
+        if key in ("attention_probs_dropout_prob", "hidden_dropout_prob", "seed"):
+            continue
         if key == "per_device_train_batch_size":
             short_key = "batch_size"
         elif key == "num_train_epochs":

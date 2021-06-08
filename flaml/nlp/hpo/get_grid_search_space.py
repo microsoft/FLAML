@@ -70,7 +70,6 @@ def get_longformer_space(model_size_type=None,
     """
         TODO: Longformer: The Long-Document Transformer
     """
-    search_space_dict = {}
     if dataset_name == "glue":
         return
 

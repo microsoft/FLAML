@@ -1,4 +1,6 @@
-import re, pathlib, os
+import re
+import pathlib
+import os
 from azure.storage.blob import BlobServiceClient, ContainerClient
 from transformers import AutoConfig
 
@@ -659,7 +661,7 @@ class AzureUtils:
         try:
             assert len(matched_blob_list) == 1
         except AssertionError:
-            stop = 0
+            import pdb; pdb.set_trace()
 
         each_jobconfig, each_blob = matched_blob_list[0]
         self.download_azure_blob(each_blob.name)

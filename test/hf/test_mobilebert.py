@@ -33,7 +33,7 @@ def get_autohf_settings():
 def test_hpo():
     try:
         import ray
-    except:
+    except ImportError:
         return
 
     from flaml.nlp import AutoTransformers
@@ -54,7 +54,7 @@ def test_hpo():
         if test_metric:
             validation_metric.update({"test": test_metric})
 
-    except AssertionError as err:
+    except AssertionError:
         pass
 
 
