@@ -38,8 +38,8 @@ def tokenize_superglue_wic(this_example,
     """
         tokenize the data from the wic task (word-in-context dataset),
         e.g., sentence 1: "There's a lot of trash on the bed of the river"
-        	  sentence 2: "I keep a glass of water next to my bed when I sleep",
-        	  label = False (different word senses)
+        sentence 2: "I keep a glass of water next to my bed when I sleep",
+        label = False (different word senses)
         In the superglue data, the position of the word in sentence 1 and 2 are provided
         What this function does is to update the span position after tokenization, based on each LM's own tokenizer,
         The key is to insert an [SEP] before and after the original sentence, then feed it into the LM's tokenizer.
@@ -84,7 +84,7 @@ def tokenize_superglue_wic(this_example,
                 ptr_sepp += 1
             while input_ids[ptr_nosepp] == padding_id:
                 ptr_nosepp += 1
-    except:
+    except KeyError:
         pass
     sep_id = this_tokenizer.convert_tokens_to_ids([this_tokenizer.sep_token])[0]
     """

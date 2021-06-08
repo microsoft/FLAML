@@ -28,7 +28,7 @@ class WandbUtils:
                  is_wandb_on=None,
                  console_args=None,
                  jobid_config=None):
-        if is_wandb_on == True:
+        if is_wandb_on:
             wandb_key, azure_key, container_name = get_wandb_azure_key(console_args.key_path)
             subprocess.run(["wandb", "login", "--relogin", wandb_key])
             os.environ["WANDB_API_KEY"] = wandb_key

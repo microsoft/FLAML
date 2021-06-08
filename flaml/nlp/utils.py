@@ -1,6 +1,9 @@
+import argparse
+import json
+import os
+import pathlib
+import re
 from dataclasses import dataclass, field
-import os, json, re
-import pathlib, argparse
 
 
 def dataset_subdataset_name_format_check(val_str):

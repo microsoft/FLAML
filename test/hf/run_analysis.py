@@ -1,8 +1,7 @@
 '''Require: pip install torch transformers datasets wandb flaml[blendsearch,ray]
 '''
 # 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
-import argparse, os
-import subprocess
+import argparse
 from flaml.nlp.result_analysis.azure_utils import JobID
 
 

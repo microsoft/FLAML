@@ -120,8 +120,7 @@ def search_base_and_search_lower_lr(args, jobid_config, autohf):
               autohf_settings=
               get_autohf_settings(args_large,
                                   **{"points_to_evaluate": [best_config],
-                                     "bound": {"learning_rate":
-                                                   {"u": best_config["learning_rate"]}}}))
+                                     "bound": {"learning_rate": {"u": best_config["learning_rate"]}}}))
 
 
 def search_base_and_search_around_best(args, jobid_config, autohf):
@@ -148,8 +147,7 @@ def search_base_and_search_around_best(args, jobid_config, autohf):
               autohf,
               azure_utils_large,
               autohf_settings=
-              get_autohf_settings(args_large,
-                                  **{"points_to_evaluate": [best_config]}))
+              get_autohf_settings(args_large, **{"points_to_evaluate": [best_config]}))
 
 
 def evaluate_configs(autohf, args, ranked_all_configs):
@@ -169,7 +167,8 @@ def evaluate_configs(autohf, args, ranked_all_configs):
 
 
 def convert_config_to_different_size(origin_config, mode):
-    import re, copy
+    import re
+    import copy
     if mode == "small":
         new_config = copy.deepcopy(origin_config)
         if new_config.pre == "funnel":

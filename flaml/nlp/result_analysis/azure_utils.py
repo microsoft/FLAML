@@ -77,7 +77,8 @@ class JobID:
         """
         is_not_match = False
         for key, val in partial_jobid.__dict__.items():
-            if val is None: continue
+            if val is None:
+                continue
             if getattr(self, key) != val:
                 is_not_match = True
         return not is_not_match
@@ -140,7 +141,7 @@ class JobID:
                 elif key == "rep":
                     try:
                         result_dict[key] = int(result.group(key))
-                    except:
+                    except IndexError:
                         result_dict[key] = -1
                 else:
                     result_dict[key] = result.group(key)
@@ -212,7 +213,7 @@ class JobID:
         config_json_file = model_config.get_config_dict(full_model_name)[0]
         try:
             model_type = config_json_file["model_type"]
-        except:
+        except KeyError:
             model_type = JobID._extract_model_type_with_keywords_match()
         return model_type
 
@@ -270,11 +271,11 @@ class JobID:
             0: "rspt",
             1: "ori"
         }
-        result_grid = re.search(".*_mod(el)?(?P<model_id>\d+)_None_None(_spt(?P<split_id>\d+))?_rep(?P<rep_id>\d+).log",
+        result_grid = re.search(r".*_mod(el)?(?P<model_id>\d+)_None_None(_spt(?P<split_id>\d+))?_rep(?P<rep_id>\d+).log",
                                 old_blobname)
         result = re.search(
-            ".*_mod(el)?(?P<model_id>\d+)_(alg)?(?P<algo_id>\d+)_(spa)?"
-            "(?P<space_id>\d+)(_spt(?P<split_id>\d+))?_rep(?P<rep_id>\d+).log",
+            r".*_mod(el)?(?P<model_id>\d+)_(alg)?(?P<algo_id>\d+)_(spa)?"
+            r"(?P<space_id>\d+)(_spt(?P<split_id>\d+))?_rep(?P<rep_id>\d+).log",
             old_blobname)
         if result_grid:
             dat = [old_blobname.split("/")[1].split("_")[0]]
@@ -288,7 +289,7 @@ class JobID:
             presz = presz_id2val[int(result_grid.group("model_id"))]
             try:
                 spt = spt_id2val[int(result_grid.group("split_id"))]
-            except:
+            except KeyError:
                 spt = spt_id2val[0]
             rep = None
             self.set_jobid_from_arg_list(dat, subdat, mod, spa, arg, alg, pru, pre, presz, spt, rep)
@@ -305,7 +306,7 @@ class JobID:
             presz = presz_id2val[int(result_grid.group("model_id"))]
             try:
                 spt = spt_id2val[int(result_grid.group("split_id"))]
-            except:
+            except kEYeRROR:
                 spt = spt_id2val[0]
             rep = int(result.group("rep_id"))
             self.set_jobid_from_arg_list(dat, subdat, mod, spa, arg, alg, pru, pre, presz, spt, rep)
@@ -439,13 +440,13 @@ class AzureUtils:
                     alllines = fin.readlines()
                     wandb_group_name = alllines[0].rstrip("\n:")
                     timestamp = re.search(
-                        "timestamp:(?P<timestamp>.*):",
+                        r"timestamp:(?P<timestamp>.*):",
                         alllines[1].strip("\n")).group("timestamp")
                     duration = re.search(
-                        "duration:(?P<duration>.*)$",
+                        r"duration:(?P<duration>.*)$",
                         alllines[3].strip("\n")).group("duration")
                     sample_num = int(re.search(
-                        "sample_num: (?P<sample_num>\d+)$",
+                        r"sample_num: (?P<sample_num>\d+)$",
                         alllines[4].strip("\n")).group("sample_num"))
                     validation = {"accuracy": float(re.search(
                         "validation accuracy: (?P<validation>.*)$",
@@ -657,7 +658,7 @@ class AzureUtils:
         matched_blob_list = self.get_blob_list_matching_partial_jobid(console_args.azure_root_log_path, jobid_config)
         try:
             assert len(matched_blob_list) == 1
-        except:
+        except AssertionError:
             stop = 0
 
         each_jobconfig, each_blob = matched_blob_list[0]

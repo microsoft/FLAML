@@ -361,11 +361,11 @@ class AutoTransformers:
                                  num_train_epochs,
                                  batch_size):
         if "gpu" in self._resources_per_trial:
-            ckpt_step_freq = int(min(num_train_epochs, 1) * len(self.train_dataset) / batch_size /
-                                 self._resources_per_trial["gpu"] / self.ckpt_per_epoch) + 1
+            ckpt_step_freq = int(min(num_train_epochs, 1) * len(self.train_dataset) / batch_size
+                                 / self._resources_per_trial["gpu"] / self.ckpt_per_epoch) + 1
         else:
-            ckpt_step_freq = int(min(num_train_epochs, 1) * len(self.train_dataset) / batch_size /
-                                 self._resources_per_trial["cpu"] / self.ckpt_per_epoch) + 1
+            ckpt_step_freq = int(min(num_train_epochs, 1) * len(self.train_dataset) / batch_size
+                                 / self._resources_per_trial["cpu"] / self.ckpt_per_epoch) + 1
 
         return ckpt_step_freq
 
@@ -433,7 +433,7 @@ class AutoTransformers:
             for each_hp in config:
                 wandb.log({each_hp: config[each_hp]})
         trainer.train()
-        output_metrics = trainer.evaluate(self.eval_dataset)
+        trainer.evaluate(self.eval_dataset)
         """
             If a wandb run was created, close the run after train and evaluate finish
         """
@@ -457,15 +457,15 @@ class AutoTransformers:
                         assert isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Categorical) or \
                                isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Float) or \
                                isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Integer), \
-                            "Every hp space must either be categorical, integer or float"
+                               f"Every hp space must either be categorical, integer or float"
 
                         if isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Categorical):
                             assert each_init_config[each_hp] in self._search_space_hpo[each_hp].categories, \
-                                f"points_to_evaluate {each_hp} value must be within the search space"
+                                "points_to_evaluate {each_hp} value must be within the search space"
                         else:
-                            assert each_init_config[each_hp] >= self._search_space_hpo[each_hp].lower \
-                                   and each_init_config[each_hp] <= self._search_space_hpo[each_hp].upper, \
-                                f"points_to_evaluate {each_hp} value must be within the search space"
+                            assert self._search_space_hpo[each_hp].lower <= each_init_config[each_hp] <= \
+                                self._search_space_hpo[each_hp].upper, \
+                                "points_to_evaluate {each_hp} value must be within the search space"
 
     def _get_search_algo(self,
                          search_algo_name,
@@ -767,8 +767,8 @@ class AutoTransformers:
         ray.shutdown()
 
         best_trial = analysis.get_best_trial(scope="all", metric=self.metric_name, mode=self.metric_mode_name)
-        validation_metric = {"eval_" + self.metric_name:
-                                 best_trial.metric_analysis[self.metric_name][self.metric_mode_name]}
+        validation_metric = {"eval_" + self.metric_name
+                             : best_trial.metric_analysis[self.metric_name][self.metric_mode_name]}
         for x in range(len(self._all_metrics)):
             validation_metric["eval_" + self._all_metrics[x]] \
                 = best_trial.metric_analysis[self._all_metrics[x]][self._all_modes[x]]

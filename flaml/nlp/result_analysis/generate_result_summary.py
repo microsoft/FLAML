@@ -25,9 +25,8 @@ def extract_sorted_config_list(dataset2configscorelist, topk):
         sorted_all_configscorelist = sorted(all_configscorelist, key=lambda x: x[1], reverse=True)
         topk_configs = []
 
-        for each_hp in (
-        "learning_rate", "num_train_epochs", "per_device_train_batch_size", "warmup_ratio", "weight_decay",
-        "adam_epsilon"):
+        for each_hp in ("learning_rate", "num_train_epochs", "per_device_train_batch_size", "warmup_ratio",
+                        "weight_decay", "adam_epsilon"):
             topk_configs.append((each_hp, [sorted_all_configscorelist[x][0][each_hp] for x in range(topk)]))
         topk_configs.append(("perf", [sorted_all_configscorelist[x][1] for x in range(topk)]))
 
@@ -76,7 +75,6 @@ def get_result(console_args, partial_jobid_config):
             print_config(config_dict)
             print(score)
             print()
-    stop = 0
 
 
 def print_config(config_dict):
@@ -230,13 +228,13 @@ def get_result_str(jobid_config, val_score, test_score, best_config, subdat2conf
         else:
             if mode == "hpo":
                 if best_config[hp] > 1.2 * subdat2config[jobid_config.subdat][hp]:
-                    wrap_left = "\cellcolor{green!85}{"
+                    wrap_left = "\\cellcolor{green!85}{"
                 elif best_config[hp] > subdat2config[jobid_config.subdat][hp]:
-                    wrap_left = "\cellcolor{green!15}{"
+                    wrap_left = "\\cellcolor{green!15}{"
                 elif best_config[hp] < subdat2config[jobid_config.subdat][hp] / 1.2:
-                    wrap_left = "\cellcolor{red!85}{"
+                    wrap_left = "\\cellcolor{red!85}{"
                 else:
-                    wrap_left = "\cellcolor{red!15}{"
+                    wrap_left = "\\cellcolor{red!15}{"
                 wrap_right = "}"
             else:
                 wrap_left = wrap_right = ""
