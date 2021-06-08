@@ -360,6 +360,9 @@ class AzureUtils:
 
     def extract_log_from_analysis(self,
                                   analysis):
+        """
+            Extracting a json object for storing the key information returned from tune.run
+        """
         json_log = []
         for each_trial in analysis.trials:
             trial_id = each_trial.trial_id
@@ -384,6 +387,9 @@ class AzureUtils:
                       valid_metric = None,
                       predictions = None,
                       duration = None):
+        """
+            write the key info from a job and upload to azure blob storage
+        """
         local_file_path = self.generate_local_json_path()
         output_json = {}
         if json_log:
@@ -398,6 +404,9 @@ class AzureUtils:
             self.create_local_prediction_and_upload(local_file_path, predictions)
 
     def generate_local_json_path(self):
+        """
+            return a path string for storing the json file locally
+        """
         full_dataset_name = self.jobid.get_jobid_full_data_name()
         jobid_str = self.jobid.to_jobid_string()
         local_file_path = os.path.join(self.root_log_path, full_dataset_name, jobid_str + ".json")
@@ -454,13 +463,20 @@ class AzureUtils:
     def create_local_prediction_and_upload(self,
                          local_json_file,
                          predictions):
+        """
+            store predictions (a .zip file) locally and upload
+        """
         azure_save_file_name = local_json_file.split("/")[-1][:-5]
         local_archive_path = self.autohf.output_prediction(predictions,
                                       output_prediction_path= self.console_args.data_root_dir + "result/",
-                                      output_dir_name=azure_save_file_name)
+                                      output_zip_file_name=azure_save_file_name)
         self.upload_local_file_to_azure(local_archive_path)
 
-    def get_ranked_configs_from_azure_file(self, metric_mode):
+    def get_ranked_configs(self, metric_mode):
+        """
+            extract the configs (ranked in descebding order by the score) for the azure file of the current object
+            (defined by self.jobid_config)
+        """
         azure_file_path = self.generate_local_json_path()
         self.download_azure_blob(azure_file_path)
 
@@ -488,6 +504,9 @@ class AzureUtils:
         return False
 
     def get_blob_list_matching_partial_jobid(self, root_log_path, partial_jobid, earliest_time = None):
+        """
+            get all blobs whose jobid configs match the partial_jobid
+        """
         blob_list = []
         container_client = self._init_azure_clients()
         jobid_config = JobID()
@@ -544,15 +563,18 @@ class AzureUtils:
                             for (config, score, ts) in sorted_config_and_score])
         return group_dict
 
-    def get_validation_perf(self, console_args = None, jobid_config = None):
-        if jobid_config.pre == "electra":
+    def get_validation_perf(self, console_args = None, partial_jobid_config = None):
+        """
+            get the validation score for all blobs matching the partial_jobid_config
+        """
+        if partial_jobid_config.pre == "electra":
             dataset_namelist = ["wnli", "rte", "mrpc", "cola", "stsb", "sst2", "qnli", "mnli"]
         else:
             dataset_namelist = ["wnli", "rte", "mrpc", "cola", "stsb", "sst2"]
         dataset_vallist1 = [0] * len(dataset_namelist)
         dataset_vallist2 = [0] * len(dataset_namelist)
 
-        matched_blob_list = self.get_blob_list_matching_partial_jobid(console_args.azure_root_log_path, jobid_config)
+        matched_blob_list = self.get_blob_list_matching_partial_jobid(console_args.azure_root_log_path, partial_jobid_config)
         for (each_jobconfig, each_blob) in matched_blob_list:
             subdat_name = each_jobconfig.subdat
             self.download_azure_blob(each_blob.name)
@@ -569,6 +591,9 @@ class AzureUtils:
         # print(", ,".join(dataset_vallist2))
 
     def get_validation_metricstr(self, validation_metric):
+        """
+            get a string representing validations for pasting to Google spreadsheet
+        """
         validation_str1 = validation_str2 = ""
         is_first = True
         for key in ["f1", "accuracy", "pearson", "spearmanr", "matthews_correlation"]:
@@ -582,11 +607,14 @@ class AzureUtils:
                     validation_str2 += "," + str(validation_metric["eval_" + key] * 100)
         return validation_str1, validation_str2
 
-    def get_test_perf(self, jobid_config, result_root_dir):
+    def get_test_perf(self, partial_jobid_config = None, result_root_dir = None):
+        """
+            get the test scores for all blobs matching the partial_jobid_config
+        """
         import shutil
         from flaml.nlp.dataset.submission_auto import file_name_mapping_glue, output_blank_tsv
-        matched_blob_list = self.get_blob_list_matching_partial_jobid("data/", jobid_config)
-        partial_jobid_str = jobid_config.to_partial_jobid_string()
+        matched_blob_list = self.get_blob_list_matching_partial_jobid("data/", partial_jobid_config)
+        partial_jobid_str = partial_jobid_config.to_partial_jobid_string()
         output_dir = os.path.join(result_root_dir, partial_jobid_str)
         if os.path.exists(output_dir):
             assert os.path.isdir(output_dir)
@@ -610,6 +638,9 @@ class AzureUtils:
         shutil.make_archive(os.path.join(output_dir), 'zip', output_dir)
 
     def get_best_perf_config(self, console_args, jobid_config):
+        """
+            get the config of the best performed trial
+        """
         matched_blob_list = self.get_blob_list_matching_partial_jobid(console_args.azure_root_log_path, jobid_config)
         try:
             assert len(matched_blob_list) == 1

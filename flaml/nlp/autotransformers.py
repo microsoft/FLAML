@@ -823,9 +823,9 @@ class AutoTransformers:
             return predictions, None
 
     def output_prediction(self,
-                          predictions,
-                          output_prediction_path,
-                          output_zip_file_name):
+                          predictions = None,
+                          output_prediction_path = None,
+                          output_zip_file_name = None):
         """
             When using the original GLUE split, output the prediction on test data,
             and prepare the .zip file for submission

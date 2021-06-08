@@ -87,7 +87,7 @@ def get_best_base_config(args, jobid_config, autohf):
     autohf.prepare_data(**preparedata_setting)
     autohf.set_metric()
 
-    best_config = azure_utils_small.get_ranked_configs_from_azure_file(autohf.metric_mode_name)[0]
+    best_config = azure_utils_small.get_ranked_configs(autohf.metric_mode_name)[0]
     return best_config
 
 def search_base_and_search_lower_lr(args, jobid_config, autohf):
@@ -187,7 +187,7 @@ def evaluate_small_best_configs_on_large(large_args, autohf):
     jobid_config_small = convert_config_to_different_size(JobID(large_args), mode="small")
     jobid_config_small.rep = 0
     azure_utils_small = AzureUtils(console_args = None, jobid = jobid_config_small, autohf = autohf)
-    ranked_all_small_configs = azure_utils_small.get_ranked_configs_from_azure_file(autohf.metric_mode_name)
+    ranked_all_small_configs = azure_utils_small.get_ranked_configs(autohf.metric_mode_name)
     evaluate_configs(large_args, ranked_all_small_configs[:int(len(ranked_all_small_configs) / 2)])
 
 def add_dict_item_to_list(this_list, this_dict):
@@ -204,13 +204,13 @@ def evaluate_large_best_configs_on_small(small_args, autohf):
     for rep_id in range(3):
         jobid_config_large.rep = rep_id
         azure_utils_large = AzureUtils(console_args=small_args, jobid=jobid_config_large, autohf=autohf)
-        ranked_all_large_configs = azure_utils_large.get_ranked_configs_from_azure_file(autohf.metric_mode_name)
+        ranked_all_large_configs = azure_utils_large.get_ranked_configs(autohf.metric_mode_name)
         for each_config in ranked_all_large_configs:
             all_configs_from_large = add_dict_item_to_list(all_configs_from_large, each_config)
     jobid_config_small = convert_config_to_different_size(JobID(small_args), mode="small")
     jobid_config_small.rep = 0
     azure_utils_small = AzureUtils(console_args=small_args, jobid=jobid_config_small, autohf=autohf)
-    ranked_all_small_configs = azure_utils_small.get_ranked_configs_from_azure_file(autohf.metric_mode_name)
+    ranked_all_small_configs = azure_utils_small.get_ranked_configs(autohf.metric_mode_name)
     for each_config in ranked_all_small_configs:
         all_configs_from_large = add_dict_item_to_list(all_configs_from_large, each_config)
 

@@ -186,17 +186,17 @@ def print_cfo(console_args):
 
 def download_validation(console_args, result_root_dir):
     from .azure_utils import JobID, AzureUtils
-    jobid_config = JobID()
-    jobid_config.mod = "grid"
-    jobid_config.pre = "roberta"
-    jobid_config.presz = "base"
-    # jobid_config.alg = "optuna"
-    # jobid_config.pru = "asha"
-    jobid_config.rep = 0
+    partial_jobid_config = JobID()
+    partial_jobid_config.mod = "grid"
+    partial_jobid_config.pre = "roberta"
+    partial_jobid_config.presz = "base"
+    # partial_jobid_config.alg = "optuna"
+    # partial_jobid_config.pru = "asha"
+    partial_jobid_config.rep = 0
 
-    azure_utils = AzureUtils(console_args=console_args, jobid=jobid_config)
-    azure_utils.get_validation_perf(console_args = console_args, jobid_config=jobid_config)
-    azure_utils.get_test_perf(jobid_config, result_root_dir)
+    azure_utils = AzureUtils(console_args=console_args, jobid=partial_jobid_config)
+    azure_utils.get_validation_perf(console_args = console_args, partial_jobid_config=partial_jobid_config)
+    azure_utils.get_test_perf(partial_jobid_config, result_root_dir)
 
 def get_result_str(jobid_config, val_score, test_score, best_config, subdat2config = None, mode="grid"):
     result_str = jobid_config.subdat.upper() + ","
@@ -247,7 +247,7 @@ def extract_grid(console_args, jobid_config, overfitting_subdat, test_scores):
         jobid_config.mod = "grid"
         jobid_config.rep = 0
         azure_utils = AzureUtils(console_args=console_args, jobid=jobid_config)
-        best_config, val_score = azure_utils.get_best_perf_config(jobid_config)
+        best_config, val_score = azure_utils.get_best_perf_config(console_args, jobid_config)
         best_config["hidden_dropout"] = 0.1
         best_config["attention_dropout"] = 0.1
         test_score = test_scores[idx]

@@ -1,8 +1,6 @@
 '''Require: pip install torch transformers datasets wandb flaml[blendsearch,ray]
 '''
 #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
-import os
-import shutil
 
 from flaml.nlp import AutoTransformers
 from flaml.nlp import AzureUtils, JobID
@@ -35,6 +33,11 @@ def get_autohf_settings():
     return autohf_settings
 
 def test_hpo():
+    try:
+        import ray
+    except:
+        return
+
     jobid_config = JobID()
     jobid_config.set_unittest_config()
     autohf = AutoTransformers()
