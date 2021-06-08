@@ -54,11 +54,10 @@ class AutoSearchAlgorithm:
                 The customized arguments for the search algorithm (specified by user)
 
         Example:
-            >>> from flaml.nlp.hpo.hpo_searchspace import AutoHPOSearchSpace
-            >>> search_space_hpo
-                = AutoHPOSearchSpace.from_model_and_dataset_name(logger, "uni", "electra", "small", "glue", "rte")
-            >>> search_algo = AutoSearchAlgorithm.from_method_name("bs", "cus", search_space_hpo,
-                             {"points_to_evaluate": [{"learning_rate": 1e-5, "num_train_epochs": 10}])
+        >>> from flaml.nlp.hpo.hpo_searchspace import AutoHPOSearchSpace
+        >>> search_space_hpo=AutoHPOSearchSpace.from_model_and_dataset_name(logger, "uni", "electra", "small", "glue", "rte")
+        >>> search_algo = AutoSearchAlgorithm.from_method_name("bs", "cus", search_space_hpo,
+                         {"points_to_evaluate": [{"learning_rate": 1e-5, "num_train_epochs": 10}])
         """
 
         assert hpo_search_space, "hpo_search_space needs to be specified for calling AutoSearchAlgorithm.from_method_name"

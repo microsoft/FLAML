@@ -226,17 +226,14 @@ class AutoHPOSearchSpace:
         """
 
         if hpo_searchspace_mode in HPO_SEARCH_SPACE_MAPPING.keys():
-            try:
-                hpo_space = HPO_SEARCH_SPACE_MAPPING[hpo_searchspace_mode](
-                    logger,
-                    model_type,
-                    model_size_type,
-                    dataset_name,
-                    subdataset_name,
-                    **custom_hpo_args)
-                return hpo_space
-            except KeyError:
-                return None
+            hpo_space = HPO_SEARCH_SPACE_MAPPING[hpo_searchspace_mode](
+                logger,
+                model_type,
+                model_size_type,
+                dataset_name,
+                subdataset_name,
+                **custom_hpo_args)
+            return hpo_space
         raise ValueError(
             "Unrecognized method {},{} for this kind of AutoHPOSearchSpace: {}.\n"
             "Method name should be one of {}.".format(

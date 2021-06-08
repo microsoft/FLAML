@@ -211,17 +211,14 @@ class AutoEncodeText:
 
         """
         if (dataset_name, subdataset_name) in TOKENIZER_MAPPING.keys():
-            try:
-                this_tokenizer = AutoTokenizer.from_pretrained(model_checkpoint_path, use_fast=True)
-                token_func = TOKENIZER_MAPPING[(dataset_name, subdataset_name)]
-                return data_raw.map(
-                    partial(token_func,
-                            this_tokenizer=this_tokenizer,
-                            dataset_name=dataset_name,
-                            subdataset_name=subdataset_name,
-                            **kwargs), batched=False)
-            except KeyError:
-                raise ValueError("{}, {}, Return empty".format(dataset_name, subdataset_name))
+            this_tokenizer = AutoTokenizer.from_pretrained(model_checkpoint_path, use_fast=True)
+            token_func = TOKENIZER_MAPPING[(dataset_name, subdataset_name)]
+            return data_raw.map(
+                partial(token_func,
+                        this_tokenizer=this_tokenizer,
+                        dataset_name=dataset_name,
+                        subdataset_name=subdataset_name,
+                        **kwargs), batched=False)
         raise ValueError(
             "Unrecognized method {},{} for this kind of AutoGridSearchSpace: {}.\n"
             "Method name should be one of {}.".format(

@@ -41,7 +41,7 @@ class AutoScheduler:
         if scheduler_name in SCHEDULER_MAPPING.keys():
             try:
                 return SCHEDULER_MAPPING[scheduler_name](**kwargs)
-            except KeyError:
+            except TypeError:
                 return None
         raise ValueError(
             "Unrecognized scheduler {} for this kind of AutoScheduler: {}.\n"

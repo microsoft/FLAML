@@ -287,7 +287,7 @@ class AutoTransformers:
                     checkpoint_path=None,
                     per_model_config=None):
 
-        this_task = get_default_task(JobID.dataset_list_to_str(self.jobid_config.dat), self.jobid_config.subdat)
+        this_task = get_default_task(self.get_full_data_name(), self.jobid_config.subdat)
         if this_task == "seq-classification":
             self._num_labels = len(self.train_dataset.features["label"].names)
         elif this_task == "regression":

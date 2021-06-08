@@ -82,13 +82,9 @@ class AutoGridSearchSpace:
         """
 
         if model_type in GRID_SEARCH_SPACE_MAPPING.keys():
-            try:
-                this_model_recommended_space = GRID_SEARCH_SPACE_MAPPING[model_type] \
-                    (model_size_type, dataset_name, subdataset_name, algo_mode)
-                return this_model_recommended_space
-            except KeyError:
-                raise ValueError("{}, {}, {}, {} Return empty".format(
-                    model_type, model_size_type, dataset_name, str(subdataset_name)))
+            this_model_recommended_space = GRID_SEARCH_SPACE_MAPPING[model_type] \
+                (model_size_type, dataset_name, subdataset_name, algo_mode)
+            return this_model_recommended_space
         raise ValueError(
             "Unrecognized method {},{} for this kind of AutoGridSearchSpace: {}.\n"
             "Method name should be one of {}.".format(
