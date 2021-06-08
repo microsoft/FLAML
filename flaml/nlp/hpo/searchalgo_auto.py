@@ -141,7 +141,7 @@ def experiment_search_algo_args_bs(hpo_search_space = None):
         min_epoch = hpo_search_space["num_train_epochs"].lower
     default_search_algo_args = {
         "low_cost_partial_config": {
-            "num_train_epochs": max(1, min_epoch),
+            "num_train_epochs": min_epoch,
         },
     }
     return default_search_algo_args
