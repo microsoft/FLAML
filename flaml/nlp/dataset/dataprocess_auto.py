@@ -106,6 +106,10 @@ def tokenize_superglue_wic(this_example,
                 ptr_sepp += 1
             else:
                 ptr_sepp += 1
+    """
+        max_word_span is set to 16 following deberta
+        https://github.com/microsoft/DeBERTa/blob/master/DeBERTa/apps/tasks/superglue_tasks.py#L1054
+    """
     max_word_span = 16
     word_indices = []
     for idx1 in range(2):
