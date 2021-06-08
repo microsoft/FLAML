@@ -204,12 +204,6 @@ class AutoHPOSearchSpace:
                     dataset_name,
                     subdataset_name,
                     **custom_hpo_args)
-                if "warmup_steps" in hpo_space:
-                    hpo_space["warmup_ratio"] = hpo_space["warmup_ratio"] + hpo_space["warmup_steps"]
-                    del hpo_space["warmup_steps"]
-                if "max_steps" in hpo_space:
-                    hpo_space["num_train_epochs"] = hpo_space["num_train_epochs"] + hpo_space["max_steps"]
-                    del hpo_space["max_steps"]
                 return hpo_space
             except:
                 return None
