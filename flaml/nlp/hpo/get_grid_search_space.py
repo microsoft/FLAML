@@ -10,9 +10,9 @@ def get_space_union_and_unique(search_space_common, search_space_unique, this_ca
             search_space_common:
                 the union of configs recommended by the LM for all cases;
             search_space_unique:
-                the recommended config by Longformer: The Long-Document Transformerthe LM for a specific condition, e.g., small model
+                the recommended config by the LM for a specific condition, e.g., small model
             this_case_tags:
-                a list, which contains the tag describing this unique space
+                a list, which contains the tag describing the specific condition, e.g., small model
     """
     search_space_union = copy.deepcopy(search_space_common)
     this_search_space = copy.deepcopy(search_space_common)
