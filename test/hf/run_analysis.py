@@ -56,8 +56,6 @@ def create_partial_config_hpo():
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('--mode', type=str, help='analysis mode', required=True,
-                            choices=["summary", "analysis", "plot", "extract"])
     arg_parser.add_argument('--key_path', type=str, help='key path', required=False, default = "../../")
     arg_parser.add_argument('--azure_root_log_path', type=str,
                             help='root log path of blob storage', required=True, default="logs_azure/")
@@ -69,6 +67,6 @@ if __name__ == "__main__":
 
     #get_result(args, partial_config_large)
     #check_conflict(args, [partial_config_large])
-    #download_validation(args, "/data/xliu127/projects/hyperopt/data/result/")
+    download_validation(args, "/data/xliu127/projects/hyperopt/data/result/")
 
-    extract_roberta_overfitting_configs(args)
+    #extract_roberta_overfitting_configs(args)

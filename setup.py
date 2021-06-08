@@ -53,7 +53,6 @@ setuptools.setup(
             "openml",
             "transformers==4.4.1",
             "wandb==0.10.26",
-            "ray[tune]==1.2.0",
             "torch==1.8.1",
             "datasets==1.4.1",
             "azure-storage-blob"

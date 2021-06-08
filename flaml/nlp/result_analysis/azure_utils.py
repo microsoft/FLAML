@@ -28,9 +28,12 @@ class JobID:
     def __init__(self,
                  console_args = None):
         if console_args:
-            self.load_console_args(console_args)
+            self.set_jobid_from_console_args(console_args)
 
     def set_unittest_config(self):
+        """
+            set the JobID config for unit test
+        """
         self.dat = ["glue"]
         self.subdat = "mrpc"
         self.mod = "hpo"
@@ -79,6 +82,9 @@ class JobID:
         return not is_not_match
 
     def to_wandb_string(self):
+        """
+            preparing for the job ID for wandb
+        """
         field_dict = self.__dict__
         keytoval_str = "_".join([str(field_dict[key][0])
                                  if type(field_dict[key]) == list
@@ -88,9 +94,9 @@ class JobID:
 
     def to_jobid_string(self):
         """
-            convert the current JobID into a blob name string
+            convert the current JobID into a blob name string which contains all the fields
         """
-        list_keys = list(self.__dataclass_fields__.keys())
+        list_keys = list(JobID.__dataclass_fields__.keys())
         field_dict = self.__dict__
         keytoval_str = "_".join([key + "=" + str(field_dict[key][0])
                                  if type(field_dict[key]) == list
@@ -99,34 +105,30 @@ class JobID:
         return keytoval_str
 
     def to_partial_jobid_string(self):
-        list_keys = list(self.__dataclass_fields__.keys())
-        field_dict = self.__dict__
+        """
+            convert the current JobID into a blob name string which only contains the fields whose values are not "None"
+        """
+        list_keys = list(JobID.__dataclass_fields__.keys())
+        field_dict = self.__dict__ # field_dict contains fields whose values are not None
         keytoval_str = "_".join([key + "=" + str(field_dict[key][0])
                                  if type(field_dict[key]) == list
                                  else key + "=" + str(field_dict[key])
                                  for key in list_keys if key in field_dict.keys()])
         return keytoval_str
 
-    def blobname_to_jobid(self, keytoval_str):
+    @staticmethod
+    def blobname_to_jobid_dict(keytoval_str):
         """
             converting an azure blobname to a JobID config,
             e.g., blobname = "dat=glue_subdat=cola_mod=bestnn_spa=buni_arg=cus_
                               alg=bs_pru=None_pre=funnel_presz=xlarge_spt=rspt_rep=0.json"
-            the converted jobid = JobID(dat = ['glue'],
-                                        subdat = 'cola',
-                                        mod = 'bestnn',
-                                        spa = 'buni',
-                                        arg = 'cus',
-                                        alg = 'bs',
-                                        pru = 'None',
-                                        pre = 'funnel',
-                                        presz = 'xlarge',
-                                        spt = 'rspt',
-                                        rep = 0,
-                                        sddt = 43,
-                                        sdhf = 42)
+            the converted jobid dict = {dat = ['glue'], subdat = 'cola', mod = 'bestnn',
+                                   spa = 'buni', arg = 'cus', alg = 'bs', pru = 'None',
+                                   pre = 'funnel', presz = 'xlarge', spt = 'rspt',
+                                   rep = 0, sddt = 43, sdhf = 42)
         """
-        field_keys = [key for key in list(self.__dataclass_fields__.keys()) if not key.endswith("_full")]
+        field_keys = [key for key in
+                      list(JobID.__dataclass_fields__.keys()) if not key.endswith("_full")]
         regex_expression = ".*" + "_".join([key + "=(?P<" + key + ">.*)" for key in field_keys]) + ".(json|zip)"
         result = re.search(regex_expression, keytoval_str)
         if result:
@@ -145,30 +147,45 @@ class JobID:
         else:
             return None
 
-    def set_jobid_from_dict(self,
-                  jobid_dict
-                  ):
-        for key in jobid_dict.keys():
-            assert key in self.__dataclass_fields__.keys()
-            setattr(self, key, jobid_dict[key])
+    @staticmethod
+    def set_jobid_from_arg_list(self,
+        **jobid_list
+        ):
+        """
+            set the jobid from a dict object
+        """
 
-    def from_blobname(self, blobname):
-        jobconfig_kwargs = self.blobname_to_jobid(blobname)
-        if jobconfig_kwargs:
+        for key in jobid_list.keys():
+            assert key in JobID.__dataclass_fields__.keys()
+            setattr(self, key, jobid_list[key])
+
+    @staticmethod
+    def convert_blobname_to_jobid(blobname):
+        """
+            converting a blobname string to a JobID object
+        """
+        jobconfig_dict = JobID.blobname_to_jobid_dict(blobname)
+        if jobconfig_dict:
             jobconfig = JobID()
-            jobconfig.set_jobid_from_dict(**jobconfig_kwargs)
+            jobconfig.set_jobid_from_arg_list(**jobconfig_dict)
             return jobconfig
         else:
             return None
 
     @staticmethod
     def get_full_data_name(dataset_name, subdataset_name=None):
+        """
+            convert a dataset name and sub dataset name to a full dataset name
+        """
         full_dataset_name = dataset_name
         if subdataset_name:
             full_dataset_name = full_dataset_name + "_" + subdataset_name
         return full_dataset_name
 
     def get_jobid_full_data_name(self):
+        """
+            get the full dataset name of the current JobID object
+        """
         return JobID.get_full_data_name(self.dat[0], self.subdat)
 
     @staticmethod
@@ -190,7 +207,7 @@ class JobID:
             model_type = JobID._extract_model_type_with_keywords_match()
         return model_type
 
-    def load_console_args(self, console_args):
+    def set_jobid_from_console_args(self, console_args):
         self.dat = console_args.dataset_subdataset_name.split(":")[0].split(",")
         self.subdat = console_args.dataset_subdataset_name.split(":")[1]
         self.mod = console_args.algo_mode
@@ -265,7 +282,7 @@ class JobID:
             except:
                 spt = spt_id2val[0]
             rep = None
-            self.set_jobid_from_dict(dat, subdat, mod, spa, arg, alg, pru, pre, presz, spt, rep)
+            self.set_jobid_from_arg_list(dat, subdat, mod, spa, arg, alg, pru, pre, presz, spt, rep)
             return self.to_jobid_string()
         if result:
             dat = [old_blobname.split("/")[1].split("_")[0]]
@@ -282,7 +299,7 @@ class JobID:
             except:
                 spt = spt_id2val[0]
             rep = int(result.group("rep_id"))
-            self.set_jobid_from_dict(dat, subdat, mod, spa, arg, alg, pru, pre, presz, spt, rep)
+            self.set_jobid_from_arg_list(dat, subdat, mod, spa, arg, alg, pru, pre, presz, spt, rep)
             return self.to_jobid_string()
         return None
 
@@ -476,7 +493,7 @@ class AzureUtils:
         jobid_config = JobID()
         for each_blob in container_client.list_blobs():
             if each_blob.name.startswith(root_log_path):
-                each_jobconfig = jobid_config.from_blobname(each_blob.name)
+                each_jobconfig = jobid_config.convert_blobname_to_jobid(each_blob.name)
                 is_append = False
                 if each_jobconfig:
                     if each_jobconfig.is_match(partial_jobid):
@@ -497,6 +514,9 @@ class AzureUtils:
                                                  group_attrs,
                                                  method,
                                                  earliest_time = None):
+        """
+            get the best config and best score for each job matching the partial_jobid
+        """
         matched_blob_list = self.get_blob_list_matching_partial_jobid(
             root_log_path,
             partial_jobid,
@@ -545,8 +565,8 @@ class AzureUtils:
                     = self.get_validation_metricstr(validation_metric)
             except ValueError:
                 pass
-        print(" & ".join(dataset_vallist1))
-        print(", ,".join(dataset_vallist2))
+        # print(" & ".join(dataset_vallist1))
+        # print(", ,".join(dataset_vallist2))
 
     def get_validation_metricstr(self, validation_metric):
         validation_str1 = validation_str2 = ""
