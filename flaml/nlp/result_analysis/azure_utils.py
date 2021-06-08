@@ -306,7 +306,7 @@ class JobID:
             presz = presz_id2val[int(result_grid.group("model_id"))]
             try:
                 spt = spt_id2val[int(result_grid.group("split_id"))]
-            except kEYeRROR:
+            except KeyError:
                 spt = spt_id2val[0]
             rep = int(result.group("rep_id"))
             self.set_jobid_from_arg_list(dat, subdat, mod, spa, arg, alg, pru, pre, presz, spt, rep)
