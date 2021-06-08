@@ -63,7 +63,8 @@ def rm_home_result():
 
 
 def get_best_base_config(args, jobid_config, autohf):
-    import copy, re
+    import copy
+    import re
     args_small = copy.deepcopy(args)
     args_small.algo_name = "optuna"
     args_small.search_alg_args_mode = "dft"
@@ -117,10 +118,9 @@ def search_base_and_search_lower_lr(args, jobid_config, autohf):
               jobid_config_large,
               autohf,
               azure_utils_large,
-              autohf_settings=
-              get_autohf_settings(args_large,
-                                  **{"points_to_evaluate": [best_config],
-                                     "bound": {"learning_rate": {"u": best_config["learning_rate"]}}}))
+              autohf_settings=get_autohf_settings(args_large, **{"points_to_evaluate": [best_config],
+                                                                 "bound": {"learning_rate": {
+                                                                     "u": best_config["learning_rate"]}}}))
 
 
 def search_base_and_search_around_best(args, jobid_config, autohf):
@@ -162,8 +162,7 @@ def evaluate_configs(autohf, args, ranked_all_configs):
               jobid_config,
               autohf,
               azure_utils_large,
-              autohf_settings=
-              get_autohf_settings(this_args, **{"points_to_evaluate": ranked_all_configs}))
+              autohf_settings=get_autohf_settings(this_args, **{"points_to_evaluate": ranked_all_configs}))
 
 
 def convert_config_to_different_size(origin_config, mode):
