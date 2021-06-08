@@ -67,6 +67,12 @@ def tokenize_superglue_wic(this_example,
     this_data = this_tokenizer(*data_pair, padding="max_length", max_length=kwargs["max_seq_length"], truncation=True)
     input_ids = this_data["input_ids"]
     which_sepp = 0
+
+    """
+        span_start_end: a 2x2 array:
+        * (span_start_end[0][0], span_start_end[0][1]) are the spans of the word in the first sentence
+        * (span_start_end[1][0], span_start_end[1][1]) are the spans of the word in the second sentence
+    """
     span_start_end = [[100000, 100000], [100000, 100000]]
 
     ptr_sepp = ptr_nosepp = 0
@@ -88,7 +94,7 @@ def tokenize_superglue_wic(this_example,
     while ptr_sepp < len(input_ids_sepp) and ptr_nosepp < len(input_ids) and \
             input_ids_sepp[ptr_sepp] != 0 and input_ids[ptr_nosepp] != 0:
         if input_ids_sepp[ptr_sepp] == input_ids[ptr_nosepp]:
-            ptr_sepp += 1;
+            ptr_sepp += 1
             ptr_nosepp += 1
         else:
             if not (input_ids_sepp[ptr_sepp] == sep_id
