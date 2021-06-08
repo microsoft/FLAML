@@ -2,11 +2,6 @@
 '''
 #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
 
-from flaml.nlp import AutoTransformers
-from flaml.nlp import AzureUtils, JobID
-from flaml.nlp.result_analysis.wandb_utils import WandbUtils
-from flaml.nlp.utils import load_console_args
-
 global azure_log_path
 global azure_key
 
@@ -37,6 +32,9 @@ def test_hpo():
         import ray
     except:
         return
+
+    from flaml.nlp import AutoTransformers
+    from flaml.nlp import JobID
 
     jobid_config = JobID()
     jobid_config.set_unittest_config()
