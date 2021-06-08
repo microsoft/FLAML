@@ -38,7 +38,7 @@ Tune
    :members:
 
 
-AutoTransformers
+NLP
 ------
 
 .. autoclass:: flaml.nlp.AutoTransformers
