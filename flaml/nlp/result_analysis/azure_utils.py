@@ -87,7 +87,7 @@ class JobID:
             preparing for the job ID for wandb
         """
         field_dict = self.__dict__
-        keytoval_str = "_".join([str(field_dict[key][0])
+        keytoval_str = "_".join([JobID.dataset_list_to_str(field_dict[key], key)
                                  if type(field_dict[key]) == list
                                  else str(field_dict[key])
                                  for key in field_dict.keys() if not key.endswith("_full")])
@@ -99,7 +99,7 @@ class JobID:
         """
         list_keys = list(JobID.__dataclass_fields__.keys())
         field_dict = self.__dict__
-        keytoval_str = "_".join([key + "=" + str(field_dict[key][0])
+        keytoval_str = "_".join([key + "=" + JobID.dataset_list_to_str(field_dict[key], key)
                                  if type(field_dict[key]) == list
                                  else key + "=" + str(field_dict[key])
                                  for key in list_keys if not key.endswith("_full")])
@@ -111,7 +111,7 @@ class JobID:
         """
         list_keys = list(JobID.__dataclass_fields__.keys())
         field_dict = self.__dict__  # field_dict contains fields whose values are not None
-        keytoval_str = "_".join([key + "=" + str(field_dict[key][0])
+        keytoval_str = "_".join([key + "=" + JobID.dataset_list_to_str(field_dict[key], key)
                                  if type(field_dict[key]) == list
                                  else key + "=" + str(field_dict[key])
                                  for key in list_keys if key in field_dict.keys()])
@@ -147,6 +147,14 @@ class JobID:
             return result_dict
         else:
             return None
+
+    @staticmethod
+    def dataset_list_to_str(dataset_name, key):
+        if key == "dat":
+            assert isinstance(dataset_name, list)
+            return "-".join(dataset_name)
+        else:
+            return dataset_name
 
     @staticmethod
     def set_jobid_from_arg_list(self,
@@ -187,7 +195,7 @@ class JobID:
         """
             get the full dataset name of the current JobID object
         """
-        return JobID.get_full_data_name(self.dat[0], self.subdat)
+        return JobID.get_full_data_name(JobID.dataset_list_to_str(self.dat, "dat"), self.subdat)
 
     @staticmethod
     def _extract_model_type_with_keywords_match(pre_full):
@@ -556,7 +564,7 @@ class AzureUtils:
             for each_attr in group_attrs:
                 group_val = getattr(each_jobconfig, each_attr)
                 if isinstance(group_val, list):
-                    group_attr_list.append(group_val[0])
+                    group_attr_list.append(JobID.dataset_list_to_str(group_val, each_attr))
                 else:
                     group_attr_list.append(group_val)
             group_attr_tuple = tuple(group_attr_list)

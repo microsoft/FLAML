@@ -29,22 +29,18 @@ class AutoSeqClassificationHead:
     @classmethod
     def from_model_type_and_config(cls, model_type, config):
         """
-        Instantiates one of the huggingface classes of the library---with
-        a head for sequence classification---from a configuration.
-
-        Note:
-            Loading a huggingface from its configuration file does **not** load the huggingface weights.
-            It only affects the huggingface's configuration. Use :meth:`~transformers.AutoSeqClassificationHead
-            .from_pretrained` to load the huggingface
-            weights.
+        Instantiate one of the classification head classes from the mode_type and model configuration.
 
         Args:
+            model_type:
+                A string, which desribes the model type, e.g., "electra"
             config (:class:`~transformers.PretrainedConfig`):
-                The huggingface class to instantiate is selected based on the configuration class:
-
-                List options
+                The huggingface class of the model's configuration:
 
         Examples::
+            >>> from transformers import AutoConfig
+            >>> model_config = AutoConfig.from_pretrained("google/electra-base-discriminator")
+            >>> AutoSeqClassificationHead.from_model_type_and_config("electra", model_config)
         """
         if model_type in MODEL_CLASSIFICATION_HEAD_MAPPING.keys():
             return MODEL_CLASSIFICATION_HEAD_MAPPING[model_type](config)

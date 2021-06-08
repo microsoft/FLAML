@@ -56,12 +56,37 @@ class AutoGridSearchSpace:
                                     dataset_name,
                                     subdataset_name=None,
                                     algo_mode=None):
+        """
+        Instantiate one of the classes for getting the recommended grid search space of a pre-trained LM from
+        the model type, model size type, dataset name, sub dataset name and algorithm mode
+
+        Args:
+            model_type:
+                A string variable which is the model type, e.g. "electra"
+
+            model_size_type:
+                A string variable which is the size of the model, e.g., "small"
+
+            dataset_name:
+                A string variable which is the dataset name, e.g., "glue"
+
+            subdataset_name:
+                A string variable which is the sub dataset name,e.g., "rte"
+
+            algo_mode:
+                A string variable which is the algorithm mode for grid search, e.g., "gridbert"
+
+        Example:
+            >>> AutoGridSearchSpace.from_model_and_dataset_name("electra", "small", "glue", "rte", "grid")
+
+        """
+
         if model_type in GRID_SEARCH_SPACE_MAPPING.keys():
             try:
                 this_model_recommended_space = GRID_SEARCH_SPACE_MAPPING[model_type] \
                     (model_size_type, dataset_name, subdataset_name, algo_mode)
                 return this_model_recommended_space
-            except:
+            except KeyError:
                 raise ValueError("{}, {}, {}, {} Return empty".format(
                     model_type, model_size_type, dataset_name, str(subdataset_name)))
         raise ValueError(

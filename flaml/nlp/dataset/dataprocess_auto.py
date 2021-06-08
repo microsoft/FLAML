@@ -183,6 +183,33 @@ class AutoEncodeText:
                                     dataset_name,
                                     subdataset_name=None,
                                     **kwargs):
+        """
+        Instantiate one of the input text tokenization classes from the raw data, model checkpoint path, dataset name
+        and sub dataset name. The raw data is used for creating a mapping function from the raw tokens to the
+        tokenized token ids.
+
+        Args:
+            data_raw:
+                The raw data (a datasets.Dataset object)
+
+            model_checkpoint_path:
+                A string variable which specifies the model path, e.g., "google/electra-base-discriminator"
+
+            dataset_name:
+                A string variable which is the dataset name, e.g., "glue"
+
+            subdataset_name:
+                A string variable which is the sub dataset name,e.g., "rte"
+
+            kwargs:
+                The values in kwargs of any keys will be used for the mapping function
+
+        Examples:
+            >>> from datasets import load_dataset
+            >>> data_raw = load_dataset("glue", "rte")
+            >>> AutoEncodeText.from_model_and_dataset_name(data_raw, "google/electra-base-discriminator", ["glue"], "rte")
+
+        """
         if (dataset_name, subdataset_name) in TOKENIZER_MAPPING.keys():
             try:
                 this_tokenizer = AutoTokenizer.from_pretrained(model_checkpoint_path, use_fast=True)
@@ -193,7 +220,7 @@ class AutoEncodeText:
                             dataset_name=dataset_name,
                             subdataset_name=subdataset_name,
                             **kwargs), batched=False)
-            except:
+            except KeyError:
                 raise ValueError("{}, {}, Return empty".format(dataset_name, subdataset_name))
         raise ValueError(
             "Unrecognized method {},{} for this kind of AutoGridSearchSpace: {}.\n"

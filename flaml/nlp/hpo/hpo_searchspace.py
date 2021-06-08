@@ -36,16 +36,16 @@ def bounded_gridunion(logger=None,
         else:
             lower = -100000
         original_space = sorted(gridunion_space[each_key])
-        upper_indices = [x for x in range(len(original_space)) if original_space[x] > upper]
-        if len(upper_indices) > 0:
-            upper_id = min(upper_indices[0] + 1, len(original_space))
-        else:
-            upper_id = len(original_space)
-        lower_indices = [x for x in range(len(original_space) - 1, -1, -1) if original_space[x] < lower]
-        if len(lower_indices) > 0:
-            lower_id = max(lower_indices[-1] - 1, 0)
-        else:
-            lower_id = 0
+        upper_id = len(original_space)
+        for x in range(len(original_space)):
+            if original_space[x] > upper:
+                upper_id = x
+                break
+        lower_id = 0
+        for x in range(len(original_space) - 1, -1, -1):
+            if original_space[x] < lower:
+                lower_id = x
+                break
         gridunion_space[each_key] = original_space[lower_id:upper_id]
     return gridunion_space
 
@@ -189,15 +189,45 @@ class AutoHPOSearchSpace:
     @classmethod
     def from_model_and_dataset_name(cls,
                                     logger,
-                                    hpo_searchspace_name,
+                                    hpo_searchspace_mode,
                                     model_type,
                                     model_size_type,
                                     dataset_name,
                                     subdataset_name=None,
                                     **custom_hpo_args):
-        if hpo_searchspace_name in HPO_SEARCH_SPACE_MAPPING.keys():
+        """
+        Instantiate one of the classes for getting the hpo search space from the search space name, model type,
+        model size type, dataset name and sub dataset name
+
+        Args:
+            logger:
+                Reference to the logger
+
+            hpo_searchspace_mode:
+                A string variable which is name of the hpo search space, e.g., "uni"
+
+            model_type:
+                A string variable which is the type of the model, e.g., "electra"
+
+            model_size_type:
+                A string variable which is the type of the model size, e.g., "small"
+
+            dataset_name:
+                A string variable which is the dataset name, e.g., "glue"
+
+            subdataset_name:
+                A string variable which is the sub dataset name,e.g., "rte"
+
+            custom_hpo_args:
+                Any additional keyword argument to be used for the function for the HPO search space
+
+        Example:
+            >>> AutoHPOSearchSpace.from_model_and_dataset_name(logger, "uni", "electra", "small", "glue", "rte")
+        """
+
+        if hpo_searchspace_mode in HPO_SEARCH_SPACE_MAPPING.keys():
             try:
-                hpo_space = HPO_SEARCH_SPACE_MAPPING[hpo_searchspace_name](
+                hpo_space = HPO_SEARCH_SPACE_MAPPING[hpo_searchspace_mode](
                     logger,
                     model_type,
                     model_size_type,
@@ -205,7 +235,7 @@ class AutoHPOSearchSpace:
                     subdataset_name,
                     **custom_hpo_args)
                 return hpo_space
-            except:
+            except KeyError:
                 return None
         raise ValueError(
             "Unrecognized method {},{} for this kind of AutoHPOSearchSpace: {}.\n"

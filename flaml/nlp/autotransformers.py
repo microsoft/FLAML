@@ -106,7 +106,7 @@ class AutoTransformers:
         if self.jobid_config.mod == "grid":
             search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self.jobid_config.pre,
                                                                                      self.jobid_config.presz,
-                                                                                     self.jobid_config.dat[0],
+                                                                                     self.get_full_data_name(),
                                                                                      self.jobid_config.subdat, "grid")
             search_space_dict_grid \
                 = AutoTransformers._convert_dict_to_ray_tune_space(
@@ -120,7 +120,7 @@ class AutoTransformers:
                 self.jobid_config.spa,
                 self.jobid_config.pre,
                 self.jobid_config.presz,
-                self.jobid_config.dat[0],
+                self.get_full_data_name(),
                 self.jobid_config.subdat,
                 **custom_hpo_args)
             search_space_dict_hpo = AutoTransformers._convert_dict_to_ray_tune_space(search_space_hpo_json, mode="hpo")
@@ -128,7 +128,7 @@ class AutoTransformers:
             search_space_hpo_json = AutoGridSearchSpace.from_model_and_dataset_name(
                 "bert",
                 "base",
-                self.jobid_config.dat[0],
+                self.get_full_data_name(),
                 self.jobid_config.subdat, "grid")
             search_space_dict_hpo = AutoTransformers._convert_dict_to_ray_tune_space(search_space_hpo_json, mode="grid")
 
@@ -222,7 +222,7 @@ class AutoTransformers:
             assert resplit_portion, "If split mode is 'rspt', the resplit_portion must be provided. Please " \
                                     "refer to the example in the documentation of AutoTransformers.prepare_data()"
         if self.jobid_config.subdat:
-            data_raw = load_dataset(self.jobid_config.dat[0], self.jobid_config.subdat)
+            data_raw = load_dataset(self.get_full_data_name(), self.jobid_config.subdat)
         else:
             data_raw = self._wrapper(load_dataset, *self.jobid_config.dat)
 
@@ -234,7 +234,7 @@ class AutoTransformers:
             return AutoEncodeText.from_model_and_dataset_name(
                 data_raw,
                 self.jobid_config.pre_full,
-                self.jobid_config.dat[0],
+                self.get_full_data_name(),
                 self.jobid_config.subdat,
                 **auto_tokentoids_config)
 
@@ -287,7 +287,7 @@ class AutoTransformers:
                     checkpoint_path=None,
                     per_model_config=None):
 
-        this_task = get_default_task(self.jobid_config.dat[0], self.jobid_config.subdat)
+        this_task = get_default_task(JobID.dataset_list_to_str(self.jobid_config.dat), self.jobid_config.subdat)
         if this_task == "seq-classification":
             self._num_labels = len(self.train_dataset.features["label"].names)
         elif this_task == "regression":
@@ -344,10 +344,10 @@ class AutoTransformers:
             return this_model
 
     def _get_metric_func(self):
-        if self.jobid_config.dat[0] in ("glue", "super_glue"):
-            metric = datasets.load.load_metric(self.jobid_config.dat[0], self.jobid_config.subdat)
-        elif self.jobid_config.dat[0] in ("squad", "squad_v2"):
-            metric = datasets.load.load_metric(self.jobid_config.dat[0])
+        if self.get_full_data_name() in ("glue", "super_glue"):
+            metric = datasets.load.load_metric(self.get_full_data_name(), self.jobid_config.subdat)
+        elif self.get_full_data_name() in ("squad", "squad_v2"):
+            metric = datasets.load.load_metric(self.get_full_data_name())
         else:
             metric = datasets.load.load_metric(self.metric_name)
         return metric
@@ -496,6 +496,9 @@ class AutoTransformers:
         assert len(subdirs) == 1, subdirs
         return subdirs[0]
 
+    def get_full_data_name(self):
+        return JobID.dataset_list_to_str(self.jobid_config.dat, "dat")
+
     def _save_ckpt_json(self,
                         best_ckpt):
         json.dump({"best_ckpt": best_ckpt},
@@ -523,7 +526,7 @@ class AutoTransformers:
 
     def _set_metric(self, custom_metric_name=None, custom_metric_mode_name=None):
         default_metric, default_mode, all_metrics, all_modes = get_default_and_alternative_metric(
-            self.jobid_config.dat[0],
+            self.get_full_data_name(),
             subdataset_name=self.jobid_config.subdat,
             custom_metric_name=custom_metric_name,
             custom_metric_mode_name=custom_metric_mode_name)
@@ -543,7 +546,7 @@ class AutoTransformers:
         self._all_modes = all_modes
 
     def _set_task(self):
-        self.task_name = get_default_task(self.jobid_config.dat[0], self.jobid_config.subdat)
+        self.task_name = get_default_task(self.get_full_data_name(), self.jobid_config.subdat)
 
     def fit_hf(self,
                resources_per_trial,
@@ -815,7 +818,7 @@ class AutoTransformers:
         test_dataloader = test_trainer.get_test_dataloader(self.test_dataset)
         predictions, labels, _ = test_trainer.prediction_loop(test_dataloader, description="Prediction")
         predictions = np.squeeze(predictions) \
-            if get_default_task(self.jobid_config.dat[0], self.jobid_config.subdat) == "regression" \
+            if get_default_task(self.get_full_data_name(), self.jobid_config.subdat) == "regression" \
             else np.argmax(predictions, axis=1)
         torch.cuda.empty_cache()
 
@@ -839,19 +842,19 @@ class AutoTransformers:
             Example:
                 local_archive_path = self.autohf.output_prediction(predictions,
                                       output_prediction_path= self.console_args.data_root_dir + "result/",
-                                      output_dir_name=azure_save_file_name)
+                                      output_zip_file_name=azure_save_file_name)
 
             Args:
                 predictions:
                     a list of predictions, which is the output of AutoTransformers.predict()
                 output_prediction_path:
                     output path for the prediction
-                output_dir_name:
-                    an string, which is the name of the output prediction file
+                output_zip_file_name:
+                    an string, which is the name of the output zip file
 
             Returns:
                 the path of the output .zip file
         """
-        return auto_output_prediction(self.jobid_config.dat[0], output_prediction_path,
+        return auto_output_prediction(self.get_full_data_name(), output_prediction_path,
                                       output_zip_file_name, predictions, self.train_dataset,
                                       self._dev_name, self.jobid_config.subdat)

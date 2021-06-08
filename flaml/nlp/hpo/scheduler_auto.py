@@ -27,10 +27,21 @@ class AutoScheduler:
 
     @classmethod
     def from_scheduler_name(cls, scheduler_name, **kwargs):
+        """
+        Instantiate one of the schedulers using the scheduler names
+
+        Args:
+            scheduler_name:
+                A string variable for the scheduler name
+
+        Example:
+            >>> AutoScheduler.from_scheduler_name("asha")
+        """
+
         if scheduler_name in SCHEDULER_MAPPING.keys():
             try:
                 return SCHEDULER_MAPPING[scheduler_name](**kwargs)
-            except:
+            except KeyError:
                 return None
         raise ValueError(
             "Unrecognized scheduler {} for this kind of AutoScheduler: {}.\n"

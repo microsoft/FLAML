@@ -35,6 +35,32 @@ class AutoSearchAlgorithm:
 
     @classmethod
     def from_method_name(cls, search_algo_name, search_algo_args_mode, hpo_search_space, **custom_hpo_args):
+        """
+        Instantiating one of the search algorithm classes based on the search algorithm name, search algorithm
+        argument mode, hpo search space and other keyword args
+
+        Args:
+            search_algo_name:
+                A string variable that specifies the search algorithm name, e.g., "bs"
+
+            search_algo_args_mode:
+                A string variable that specifies the mode for the search algorithm args, e.g., "dft" means
+                initializing using the default mode
+
+            hpo_search_space:
+                The hpo search space
+
+            custom_hpo_args:
+                The customized arguments for the search algorithm (specified by user)
+
+        Example:
+            >>> from flaml.nlp.hpo.hpo_searchspace import AutoHPOSearchSpace
+            >>> search_space_hpo
+                = AutoHPOSearchSpace.from_model_and_dataset_name(logger, "uni", "electra", "small", "glue", "rte")
+            >>> search_algo = AutoSearchAlgorithm.from_method_name("bs", "cus", search_space_hpo,
+                             {"points_to_evaluate": [{"learning_rate": 1e-5, "num_train_epochs": 10}])
+        """
+
         assert hpo_search_space, "hpo_search_space needs to be specified for calling AutoSearchAlgorithm.from_method_name"
         if not search_algo_name:
             search_algo_name = "grid"
@@ -70,7 +96,7 @@ class AutoSearchAlgorithm:
                     returning the hpo algorithm with the arguments
                 """
                 return SEARCH_ALGO_MAPPING[search_algo_name](**this_search_algo_kwargs)
-            except:
+            except KeyError:
                 return None
         raise ValueError(
             "Unrecognized method {} for this kind of AutoSearchAlgorithm: {}.\n"
