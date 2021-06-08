@@ -144,10 +144,6 @@ TOKENIZER_MAPPING = OrderedDict(
 
 class AutoEncodeText:
     """
-    This is a generic huggingface class that will be instantiated as one of the huggingface classes of the library
-    ---with the search space for grid search
-    ---when created with the when created with the
-    :meth:`~transformers.AutoTokenizer.from_model_and_dataset_name` class method.
 
     This class cannot be instantiated directly using ``__init__()`` (throws an error).
     """
