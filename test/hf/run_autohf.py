@@ -12,10 +12,8 @@ global azure_log_path
 global azure_key
 
 def get_resplit_portion(jobid_config):
-    if jobid_config.dat == ["glue"] and jobid_config.subdat in {"mnli", "qqp"}:
-        return {"source": ["train", "validation"], "train": [0, 0.25], "validation": [0.25, 0.275], "test": [0.275, 0.3]}
-    elif jobid_config.dat[0] in {"imdb", "dbpedia_14", "yelp_review_full"}:
-        return {"source": ["train", "test"], "train": [0, 0.05], "validation": [0.05, 0.055], "test": [0.055, 0.06]}
+    if jobid_config.dat == ["glue"] and jobid_config.subdat in {"mnli"}:
+        return {"source": ["train", "validation_matched"], "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
     else:
         return {"source": ["train", "validation"], "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
 

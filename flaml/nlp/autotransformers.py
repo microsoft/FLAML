@@ -320,7 +320,6 @@ class AutoTransformers:
 
             if is_pretrained_model_in_classification_head_list():
                 if self._num_labels != num_labels_old:
-                    model_config.num_labels = num_labels_old
                     this_model = get_this_model()
                     model_config.num_labels = self._num_labels
                     this_model.num_labels = self._num_labels

@@ -23,15 +23,14 @@ class TrainerForAutoTransformers(transformers.Trainer):
         return (self.current_optimizer, self.current_scheduler)
 
     def evaluate(self,
-                 eval_dataset= None,
-                 test_dataset=None):
+                 eval_dataset= None):
         """
-                Overriding transformers.Trainer.evaluate by saving state with save_state
+            Overriding transformers.Trainer.evaluate by saving state with save_state
 
-                Args:
-                    eval_dataset:
-                        the dataset to be evaluated
-            """
+            Args:
+                eval_dataset:
+                    the dataset to be evaluated
+        """
         import wandb
         eval_dataloader = self.get_eval_dataloader(eval_dataset)
         output = self.prediction_loop(

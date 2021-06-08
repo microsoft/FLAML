@@ -145,13 +145,14 @@ TOKENIZER_MAPPING = OrderedDict(
 class AutoEncodeText:
     """
 
-    This class cannot be instantiated directly using ``__init__()`` (throws an error).
+    This is a generic class for encoding the input text into tokens
     """
 
     def __init__(self):
         raise EnvironmentError(
-            "AutoGridSearchSpace is designed to be instantiated "
-            "using the `AutoGridSearchSpace.from_config_and_method_name(method_name)` methods."
+            "AutoEncodeText is designed to be instantiated "
+            "using the `AutoEncodeText.from_model_and_dataset_name(cls,"
+            "data_raw,model_checkpoint_path,dataset_name,subdataset_name = None,**kwargs)` methods."
         )
 
     @classmethod
