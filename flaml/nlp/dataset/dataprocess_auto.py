@@ -70,10 +70,10 @@ def tokenize_superglue_wic(this_example,
 
     """
         span_start_end: a 2x2 array:
-        * (span_start_end[0][0], span_start_end[0][1]) are the spans of the word in the first sentence
-        * (span_start_end[1][0], span_start_end[1][1]) are the spans of the word in the second sentence
+        * (span_start_end[0][0], span_start_end[0][1]) are the spans of the position of the word in the first sentence
+        * (span_start_end[1][0], span_start_end[1][1]) are the spans of the position of the word in the second sentence
     """
-    span_start_end = [[100000, 100000], [100000, 100000]]
+    span_start_end = [[-1, -1], [-1, -1]]
 
     ptr_sepp = ptr_nosepp = 0
     try:
@@ -107,7 +107,8 @@ def tokenize_superglue_wic(this_example,
             else:
                 ptr_sepp += 1
     """
-        max_word_span is set to 16 following deberta
+        max_word_span is the maximum tokens of the word
+        It is set to 16 following deberta:
         https://github.com/microsoft/DeBERTa/blob/master/DeBERTa/apps/tasks/superglue_tasks.py#L1054
     """
     max_word_span = 16
