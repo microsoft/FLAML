@@ -114,11 +114,10 @@ class AutoSearchAlgorithm:
 def get_search_algo_args_optuna(search_args_mode, hpo_search_space = None, **custom_hpo_args):
     return {}
 
-def default_search_algo_args_bs(search_args_mode, hpo_search_space, **custom_hpo_args):
+def default_search_algo_args_bs(search_args_mode, hpo_search_space = None, **custom_hpo_args):
     assert hpo_search_space, "hpo_search_space needs to be specified for calling AutoSearchAlgorithm.from_method_name"
-    assert "num_train_epochs" in hpo_search_space, "num_train_epochs must be specified in hpo_search_space" \
-                                                   "for getting the default args for BlendSearch and CFO"
-    if isinstance(hpo_search_space["num_train_epochs"], ray.tune.sample.Categorical):
+    if "num_train_epochs" in hpo_search_space and \
+            isinstance(hpo_search_space["num_train_epochs"], ray.tune.sample.Categorical):
         min_epoch = min(hpo_search_space["num_train_epochs"].categories)
     else:
         assert isinstance(hpo_search_space["num_train_epochs"], ray.tune.sample.Float)

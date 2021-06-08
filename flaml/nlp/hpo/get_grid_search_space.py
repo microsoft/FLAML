@@ -14,8 +14,8 @@ def get_space_union_and_unique(search_space_common, search_space_unique, this_ca
             this_case_tags:
                 a list, which contains the tags describing the specific condition, e.g., ["small"]
     """
-    search_space_union = copy.deepcopy(search_space_common)
-    this_search_space = copy.deepcopy(search_space_common)
+    search_space_union = search_space_common.copy()
+    this_search_space = search_space_common.copy()
     # enumerate over each case where the search space is different
     # this difference can be the dataset or model size, etc.
     is_included = False
