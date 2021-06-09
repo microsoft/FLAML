@@ -352,46 +352,6 @@ class AzureUtils:
             fout.flush()
             self.upload_local_file_to_azure(local_file_path)
 
-    def legacy_to_json(self):
-        container_client = self._init_azure_clients()
-        for old_blob in container_client.list_blobs():
-            new_jobid_str = self.jobid.legacy_old_blobname_to_new_blobname(old_blob.name)
-            if new_jobid_str:
-                self.download_azure_blob(old_blob.name)
-                with open(old_blob.name, "r") as fin:
-                    alllines = fin.readlines()
-                    wandb_group_name = alllines[0].rstrip("\n:")
-                    timestamp = re.search(
-                        r"timestamp:(?P<timestamp>.*):",
-                        alllines[1].strip("\n")).group("timestamp")
-                    duration = re.search(
-                        r"duration:(?P<duration>.*)$",
-                        alllines[3].strip("\n")).group("duration")
-                    sample_num = int(re.search(
-                        r"sample_num: (?P<sample_num>\d+)$",
-                        alllines[4].strip("\n")).group("sample_num"))
-                    validation = {"accuracy": float(re.search(
-                        "validation accuracy: (?P<validation>.*)$",
-                        alllines[2].strip("\n")).group("validation"))}
-                    test = None
-                    if len(alllines) > 6:
-                        result_test = re.search("test accuracy:(?P<test>.*)$", alllines[6].strip("\n"))
-                        if result_test:
-                            test = json.loads(result_test.group("test"))
-                    yml_file = None
-                    if len(alllines) > 8:
-                        if alllines[8].startswith("aml"):
-                            yml_file = alllines[8].strip("\n")
-                    new_json = {"wandb_group_name": wandb_group_name,
-                                "validation": validation,
-                                "test": test,
-                                "timestamp": timestamp,
-                                "duration": duration,
-                                "sample_num": sample_num,
-                                "yml_file": yml_file}
-                    full_dataset_name = self.jobid.get_jobid_full_data_name()
-                    new_blobname = os.path.join("logs_azure/", full_dataset_name, new_jobid_str + ".json")
-                    self.create_local_json_and_upload(new_json, new_blobname)
 
     def create_local_prediction_and_upload(self,
                                            local_json_file,

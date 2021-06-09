@@ -72,6 +72,9 @@ setuptools.setup(
         ],
         "vw": [
             "vowpalwabbit",
+        ],
+        "nlp": [
+            "torch"
         ]
     },
     classifiers=[

@@ -1,23 +1,9 @@
 import json
 import os
-
-import torch
-import transformers
-import wandb
+import numpy as np
+import time
 
 from .dataset.dataprocess_auto import AutoEncodeText
-import numpy as np
-
-from ray.tune import CLIReporter
-
-import time
-import ray
-import datasets
-from datasets import load_dataset
-from transformers.trainer_utils import IntervalStrategy, HPSearchBackend
-
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoConfig, TrainingArguments
-
 from .dataset.metric_auto import get_default_and_alternative_metric
 from .dataset.submission_auto import auto_output_prediction
 from .dataset.task_auto import get_default_task
@@ -30,10 +16,14 @@ from .hpo.scheduler_auto import AutoScheduler
 from .result_analysis.wandb_utils import WandbUtils
 from .result_analysis.azure_utils import JobID
 from .utils import load_console_args
-
 from .huggingface.trainer import TrainerForAutoTransformers
 
-import logging
+try:
+    import ray
+    import logging
+    import transformers
+except ImportError:
+    print("To use the nlp module in flaml, run pip install flaml[nlp]")
 
 transformers.logging.set_verbosity_error()
 logger = logging.getLogger(__name__)
@@ -201,6 +191,10 @@ class AutoTransformers:
                     the proportion for resplitting the train and dev data when split_mode="resplit".
                     If args.resplit_mode = "rspt", resplit_portion is required
             '''
+        from transformers import AutoTokenizer
+        import datasets
+        from datasets import load_dataset
+
         console_args = load_console_args(**custom_data_args)
         self._max_seq_length = max_seq_length
         self._server_name = server_name if server_name is not None else "tmdev"
@@ -279,6 +273,7 @@ class AutoTransformers:
     def _load_model(self,
                     checkpoint_path=None,
                     per_model_config=None):
+        from transformers import AutoConfig
 
         this_task = get_default_task(self.get_full_data_name(), self.jobid_config.subdat)
         if this_task == "seq-classification":
@@ -290,6 +285,7 @@ class AutoTransformers:
             checkpoint_path = self.jobid_config.pre_full
 
         def get_this_model():
+            from transformers import AutoModelForSequenceClassification
             return AutoModelForSequenceClassification.from_pretrained(checkpoint_path, config=model_config)
 
         def is_pretrained_model_in_classification_head_list():
@@ -336,6 +332,7 @@ class AutoTransformers:
             return this_model
 
     def _get_metric_func(self):
+        import datasets
         if self.get_full_data_name() in ("glue", "super_glue"):
             metric = datasets.load.load_metric(self.get_full_data_name(), self.jobid_config.subdat)
         elif self.get_full_data_name() in ("squad", "squad_v2"):
@@ -366,6 +363,7 @@ class AutoTransformers:
 
     @staticmethod
     def _separate_config(config):
+        from transformers import TrainingArguments
         training_args_config = {}
         per_model_config = {}
 
@@ -378,6 +376,9 @@ class AutoTransformers:
         return training_args_config, per_model_config
 
     def _objective(self, config, reporter, checkpoint_dir=None):
+        import wandb
+        from transformers import TrainingArguments
+
         def model_init():
             return self._load_model()
 
@@ -393,6 +394,8 @@ class AutoTransformers:
         ckpt_freq = self._compute_checkpoint_freq(
             num_train_epochs=config["num_train_epochs"],
             batch_size=config["per_device_train_batch_size"])
+
+        from transformers.trainer_utils import IntervalStrategy
 
         assert self.path_utils.ckpt_dir_per_trial
         training_args = TrainingArguments(
@@ -452,7 +455,7 @@ class AutoTransformers:
                         assert isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Categorical) or \
                                isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Float) or \
                                isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Integer), \
-                               "Every hp space must either be categorical, integer or float"
+                            "Every hp space must either be categorical, integer or float"
 
                         if isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Categorical):
                             assert each_init_config[each_hp] in self._search_space_hpo[each_hp].categories, \
@@ -460,7 +463,7 @@ class AutoTransformers:
                         else:
                             assert self._search_space_hpo[each_hp].lower <= each_init_config[each_hp] <= \
                                    self._search_space_hpo[each_hp].upper, \
-                                   "points_to_evaluate {each_hp} value must be within the search space"
+                                "points_to_evaluate {each_hp} value must be within the search space"
 
     def _get_search_algo(self,
                          search_algo_name,
@@ -549,6 +552,7 @@ class AutoTransformers:
                _fp16=True,
                **custom_hpo_args
                ):
+        from transformers import TrainingArguments
         '''Fine tuning the huggingface using HF's API Transformers.hyperparameter_search (for comparitive purpose).
            Transformers.hyperparameter_search has the following disadvantages:
              (1) it does not return tune.analysis.Analysis result, what is analysis used for
@@ -623,6 +627,7 @@ class AutoTransformers:
         self.path_utils.make_dir_per_run()
 
         start_time = time.time()
+        from transformers.trainer_utils import IntervalStrategy, HPSearchBackend
         best_run = trainer.hyperparameter_search(
             n_trials=num_samples,
             time_budget_s=time_budget,
@@ -795,6 +800,7 @@ class AutoTransformers:
             A numpy array of shape n * 1 - - each element is a predicted class
             label for an instance.
         '''
+        from transformers import TrainingArguments
         best_checkpoint = self._load_ckpt_json(ckpt_json_dir, **kwargs)
         best_model = self._load_model(checkpoint_path=best_checkpoint)
         training_args = TrainingArguments(per_device_eval_batch_size=1,
@@ -812,7 +818,6 @@ class AutoTransformers:
         predictions = np.squeeze(predictions) \
             if get_default_task(self.get_full_data_name(), self.jobid_config.subdat) == "regression" \
             else np.argmax(predictions, axis=1)
-        torch.cuda.empty_cache()
 
         if self.jobid_config.spt == "rspt":
             assert labels is not None
