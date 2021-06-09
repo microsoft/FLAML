@@ -9,6 +9,8 @@ def extract_ranked_config_score(console_args, partial_config_dict):
             for config_idx in range(len(configscorelist)):
                 avg_scores = configscorelist[config_idx][0][1]
                 top_config = configscorelist[config_idx][0][0]
+                print(avg_scores)
+                print(top_config)
                 # print(method + "," + str(each_dataset) + ",rep=" + str(config_idx))
                 # print("avg score :" + str(avg_scores))
                 # print(''.join(['{0}={1}\n'.format(key, top_config[key]) for key in sorted(top_config.keys())]))
@@ -281,7 +283,7 @@ def extract_hpo(
         overfitting_rep,
         subdat2config,
         test_scores):
-    from .azure_utils import JobID, AzureUtils
+    from .azure_utils import AzureUtils
     key2printstr = {}
     for idx in range(len(overfitting_subdat)):
         jobid_config.subdat = overfitting_subdat[idx]
