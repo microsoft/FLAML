@@ -1,13 +1,5 @@
-import copy
-import json
 import os
-
 import transformers
-transformers.logging.set_verbosity_error()
-from ray import tune
-import torch
-from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
-
 
 class TrainerForAutoTransformers(transformers.Trainer):
     """
@@ -24,16 +16,16 @@ class TrainerForAutoTransformers(transformers.Trainer):
         return (self.current_optimizer, self.current_scheduler)
 
     def evaluate(self,
-                 eval_dataset= None,
-                 test_dataset=None):
+                 eval_dataset=None):
         """
-                Overriding transformers.Trainer.evaluate by saving state with save_state
+            Overriding transformers.Trainer.evaluate by saving state with save_state
 
-                Args:
-                    eval_dataset:
-                        the dataset to be evaluated
-            """
-        import wandb
+            Args:
+                eval_dataset:
+                    the dataset to be evaluated
+        """
+        from ray import tune
+
         eval_dataloader = self.get_eval_dataloader(eval_dataset)
         output = self.prediction_loop(
             eval_dataloader, description="Evaluation")
@@ -41,30 +33,35 @@ class TrainerForAutoTransformers(transformers.Trainer):
 
         self.save_state()
 
-        output_metrics = copy.deepcopy(output.metrics)
-        for key in output.metrics.keys():
+        for key in list(output.metrics.keys()):
             if key.startswith("eval_"):
-                output_metrics[key[5:]] = output_metrics[key]
-        tune.report(**output_metrics)
+                output.metrics[key[5:]] = output.metrics[key]
+        tune.report(**output.metrics)
 
-        return output_metrics
+        return output.metrics
 
     def save_state(self):
         """
                 Overriding transformers.Trainer.save_state. It is only through saving
                 the states can best_trial.get_best_checkpoint return a non-empty value.
         """
-        with tune.checkpoint_dir(step=self.state.global_step) as checkpoint_dir:
-            self.args.output_dir = checkpoint_dir
-            # This is the directory name that Huggingface requires.
-            output_dir = os.path.join(
-                self.args.output_dir,
-                f"{PREFIX_CHECKPOINT_DIR}-{self.state.global_step}")
-            self.save_model(output_dir)
-            torch.save(self.optimizer.state_dict(),
-                       os.path.join(output_dir, "optimizer.pt"))
-            torch.save(self.lr_scheduler.state_dict(),
-                       os.path.join(output_dir, "scheduler.pt"))
+        try:
+            import torch
+            from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
+
+            with tune.checkpoint_dir(step=self.state.global_step) as checkpoint_dir:
+                self.args.output_dir = checkpoint_dir
+                # This is the directory name that Huggingface requires.
+                output_dir = os.path.join(
+                    self.args.output_dir,
+                    f"{PREFIX_CHECKPOINT_DIR}-{self.state.global_step}")
+                self.save_model(output_dir)
+                torch.save(self.optimizer.state_dict(),
+                           os.path.join(output_dir, "optimizer.pt"))
+                torch.save(self.lr_scheduler.state_dict(),
+                           os.path.join(output_dir, "scheduler.pt"))
+        except ImportError:
+            pass
 
     @staticmethod
     def convert_num_train_epochs_to_max_steps(
@@ -83,16 +80,15 @@ class TrainerForAutoTransformers(transformers.Trainer):
         return float(max_steps * per_device_train_batch_size * device_count) / num_train_examples
 
     @staticmethod
-    def convert_warmup_ratio_to_warmup_steps(warmup_ratio: float, max_steps: int):
-        return int(warmup_ratio * max_steps)
-
-    @staticmethod
     def convert_warmup_ratio_to_warmup_steps(
-            warmup_ratio: float,
-            num_train_epochs: int,
-            num_train_examples: int,
-            per_device_train_batch_size: int,
-            device_count: int):
+            warmup_ratio,
+            max_steps=None,
+            num_train_epochs=None,
+            num_train_examples=None,
+            per_device_train_batch_size=None,
+            device_count=None):
+        if max_steps:
+            return int(warmup_ratio * max_steps)
         max_steps = TrainerForAutoTransformers.convert_num_train_epochs_to_max_steps(
             num_train_epochs,
             num_train_examples,

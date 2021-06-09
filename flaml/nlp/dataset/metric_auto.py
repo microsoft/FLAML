@@ -1,6 +1,4 @@
 # https://github.com/huggingface/datasets/blob/master/metrics/glue/glue.py
-import os
-
 from collections import OrderedDict
 
 metric_mode_mapping_glue = {
@@ -8,8 +6,8 @@ metric_mode_mapping_glue = {
     "mnli": [("accuracy", "max")],
     "mrpc": [("accuracy", "max"), ("f1", "max")],
     "qnli": [("accuracy", "max")],
-    "qqp":  [("accuracy", "max"), ("f1", "max")],
-    "rte":  [("accuracy", "max")],
+    "qqp": [("accuracy", "max"), ("f1", "max")],
+    "rte": [("accuracy", "max")],
     "sst2": [("accuracy", "max")],
     "stsb": [("pearson", "max"), ("spearmanr", "max")],
     "wnli": [("accuracy", "max")]
@@ -22,8 +20,8 @@ metric_mode_mapping_super_glue = {
     "cb": [("accuracy", "max"), ("f1", "max")],
     "copa": [("accuracy", "max")],
     "rte": [("accuracy", "max")],
-    "wic":  [("accuracy", "max")],
-    "wsc":  [("accuracy", "max")],
+    "wic": [("accuracy", "max")],
+    "wsc": [("accuracy", "max")],
     "wsc.fixed": [("accuracy", "max")],
     "boolq": [("accuracy", "max")],
     "axg": [("accuracy", "max")]
@@ -43,10 +41,11 @@ METRIC_MAPPING = OrderedDict(
     ]
 )
 
+
 def get_default_and_alternative_metric(dataset_name,
-                                       subdataset_name = None,
-                                       custom_metric_name = None,
-                                       custom_metric_mode_name = None):
+                                       subdataset_name=None,
+                                       custom_metric_name=None,
+                                       custom_metric_mode_name=None):
     if dataset_name not in METRIC_MAPPING.keys():
         assert custom_metric_name and custom_metric_mode_name, \
             "The dataset is not in {}, you must explicitly specify " \
@@ -56,8 +55,9 @@ def get_default_and_alternative_metric(dataset_name,
         assert subdataset_name and subdataset_name in eval_name_mapping, \
             "dataset_name and subdataset_name not correctly specified"
         default_metric, default_mode = eval_name_mapping[subdataset_name][0]
-        all_metrics, all_mode = [x[0] for x in eval_name_mapping[subdataset_name]] \
-                                + ["loss"], [x[1] for x in eval_name_mapping[subdataset_name]] + ["min"]
+        all_metrics, all_mode \
+            = [x[0] for x in eval_name_mapping[subdataset_name]] \
+            + ["loss"], [x[1] for x in eval_name_mapping[subdataset_name]] + ["min"]
 
         return default_metric, default_mode, all_metrics, all_mode
     else:

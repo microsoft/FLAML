@@ -13,10 +13,9 @@ MODEL_CLASSIFICATION_HEAD_MAPPING = OrderedDict(
 
 class AutoSeqClassificationHead:
     """
-    This is a generic huggingface class that will be instantiated as one
-    of the huggingface classes of the library---with a head for sequence classification
-    ---when created with the when created with the
-    :meth:`~transformers.AutoSeqClassificationHead.from_config` class method.
+    This is a class for getting classification head class based on the name of the LM
+    instantiated as one of the ClassificationHead classes of the library when
+    created with the `~flaml.nlp.huggingface.AutoSeqClassificationHead.from_model_type_and_config` method.
 
     This class cannot be instantiated directly using ``__init__()`` (throws an error).
     """
@@ -24,28 +23,24 @@ class AutoSeqClassificationHead:
     def __init__(self):
         raise EnvironmentError(
             "AutoSeqClassificationHead is designed to be instantiated "
-            "using the `AutoSeqClassificationHead.from_config(config)` methods."
+            "using the `AutoSeqClassificationHead.from_model_type_and_config(cls, model_type, config)` methods."
         )
 
     @classmethod
     def from_model_type_and_config(cls, model_type, config):
         """
-        Instantiates one of the huggingface classes of the library---with
-        a head for sequence classification---from a configuration.
-
-        Note:
-            Loading a huggingface from its configuration file does **not** load the huggingface weights.
-            It only affects the huggingface's configuration. Use :meth:`~transformers.AutoSeqClassificationHead
-            .from_pretrained` to load the huggingface
-            weights.
+        Instantiate one of the classification head classes from the mode_type and model configuration.
 
         Args:
+            model_type:
+                A string, which desribes the model type, e.g., "electra"
             config (:class:`~transformers.PretrainedConfig`):
-                The huggingface class to instantiate is selected based on the configuration class:
-
-                List options
+                The huggingface class of the model's configuration:
 
         Examples::
+            >>> from transformers import AutoConfig
+            >>> model_config = AutoConfig.from_pretrained("google/electra-base-discriminator")
+            >>> AutoSeqClassificationHead.from_model_type_and_config("electra", model_config)
         """
         if model_type in MODEL_CLASSIFICATION_HEAD_MAPPING.keys():
             return MODEL_CLASSIFICATION_HEAD_MAPPING[model_type](config)
@@ -55,9 +50,3 @@ class AutoSeqClassificationHead:
                 config.__class__, cls.__name__, ", ".join(c.__name__ for c in MODEL_CLASSIFICATION_HEAD_MAPPING.keys())
             )
         )
-
-model_type_list = [
-    "bert",
-    "mobilebert",
-    "electra"
-]

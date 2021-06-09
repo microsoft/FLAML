@@ -1,5 +1,4 @@
 # https://github.com/huggingface/datasets/blob/master/metrics/glue/glue.py
-import os
 
 from collections import OrderedDict
 
@@ -8,8 +7,8 @@ task_mapping_glue = {
     "mnli": "seq-classification",
     "mrpc": "seq-classification",
     "qnli": "seq-classification",
-    "qqp":  "seq-classification",
-    "rte":  "seq-classification",
+    "qqp": "seq-classification",
+    "rte": "seq-classification",
     "sst2": "seq-classification",
     "stsb": "regression",
     "wnli": "seq-classification"
@@ -18,7 +17,7 @@ task_mapping_glue = {
 task_mapping_squad = "question-answering"
 
 task_mapping_super_glue = {
-    "wic":  "seq-classification",
+    "wic": "seq-classification",
     "rte": "seq-classification"
 }
 
@@ -30,9 +29,11 @@ TASK_MAPPING = OrderedDict(
     ]
 )
 
-def get_default_task(dataset_name, subdataset_name = None):
+
+def get_default_task(dataset_name, subdataset_name=None):
     assert dataset_name in TASK_MAPPING.keys(), "The dataset is not in {}, you must explicitly specify " \
-            "the custom_metric_name and custom_metric_mode_name".format(",".join(TASK_MAPPING.keys()))
+                                                "the custom_metric_name and custom_metric_mode_name".format(
+        ",".join(TASK_MAPPING.keys()))
     eval_name_mapping = TASK_MAPPING[dataset_name]
     if isinstance(eval_name_mapping, dict):
         assert subdataset_name and subdataset_name in eval_name_mapping, \
