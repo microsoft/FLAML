@@ -75,7 +75,9 @@ setuptools.setup(
         ],
         "nlp": [
             "ray[tune]==1.2.0",
-            "transformers"
+            "transformers==4.4.1",
+            "wandb==0.10.26",
+            "datasets==1.4.1"
         ]
     },
     classifiers=[
