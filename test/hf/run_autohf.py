@@ -146,8 +146,7 @@ def search_base_and_search_around_best(args, jobid_config, autohf):
               jobid_config_large,
               autohf,
               azure_utils_large,
-              autohf_settings=
-              get_autohf_settings(args_large, **{"points_to_evaluate": [best_config]}))
+              autohf_settings=get_autohf_settings(args_large, **{"points_to_evaluate": [best_config]}))
 
 
 def evaluate_configs(autohf, args, ranked_all_configs):

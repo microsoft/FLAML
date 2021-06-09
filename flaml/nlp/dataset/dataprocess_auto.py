@@ -7,7 +7,7 @@ from .sentence_keys_auto import get_sentence_keys
 
 def inserting_sepp(sent, start, end, this_tokenizer):
     return sent[:start].rstrip() + " " + this_tokenizer.sep_token + " " + sent[start:end] \
-        + " " + this_tokenizer.sep_token + " " + sent[end:].lstrip()
+           + " " + this_tokenizer.sep_token + " " + sent[end:].lstrip()
 
 
 def tokenize_superglue_copa(this_example,
@@ -112,9 +112,9 @@ def tokenize_superglue_wic(this_example,
     word_indices = []
     for idx1 in range(2):
         if span_start_end[idx1][1] < kwargs["max_seq_length"]:
-            first_span = [x for x in range(span_start_end[idx1][0],
-                                           span_start_end[idx1][1]) if x < kwargs["max_seq_length"]] \
-                         + [0] * (max_word_span - span_start_end[idx1][1] + span_start_end[idx1][0])
+            first_span = [x for x in range(span_start_end[idx1][0], span_start_end[idx1][1])
+                          if x < kwargs["max_seq_length"]] + [0] * (max_word_span - span_start_end[idx1][1]
+                                                                    + span_start_end[idx1][0])
             word_indices.append(first_span)
     this_data["word_spans"] = word_indices
     return this_data
