@@ -93,7 +93,7 @@ def hpo_space_gridunion_smoke_test(
             'per_device_train_batch_size': [2],
             'hidden_dropout_prob': [0.1],
             'attention_probs_dropout_prob': [0.1],
-            'num_train_epochs': [0.1]}
+            'num_train_epochs': [0.05]}
 
 
 def hpo_space_generic(logger=None,
