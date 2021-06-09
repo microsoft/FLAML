@@ -4,21 +4,6 @@ import numpy as np
 import time
 import logging
 
-from .dataset.dataprocess_auto import AutoEncodeText
-from .dataset.metric_auto import get_default_and_alternative_metric
-from .dataset.submission_auto import auto_output_prediction
-from .dataset.task_auto import get_default_task
-from .hpo.grid_searchspace_auto import AutoGridSearchSpace
-from .hpo.hpo_searchspace import AutoHPOSearchSpace
-from .huggingface.switch_head_auto import AutoSeqClassificationHead, MODEL_CLASSIFICATION_HEAD_MAPPING
-from .utils import PathUtils, _variable_override_default_alternative
-from .hpo.searchalgo_auto import AutoSearchAlgorithm
-from .hpo.scheduler_auto import AutoScheduler
-from .result_analysis.wandb_utils import WandbUtils
-from .result_analysis.azure_utils import JobID
-from .utils import load_console_args
-from .huggingface.trainer import TrainerForAutoTransformers
-
 try:
     import ray
     import transformers
@@ -88,6 +73,10 @@ class AutoTransformers:
 
     def _set_search_space(self,
                           **custom_hpo_args):
+        from .hpo.grid_searchspace_auto import AutoGridSearchSpace
+        from .hpo.hpo_searchspace import AutoHPOSearchSpace
+        from .huggingface.trainer import TrainerForAutoTransformers
+
         search_space_dict_hpo = search_space_dict_grid = None
         if self.jobid_config.mod == "grid":
             search_space_grid_json = AutoGridSearchSpace.from_model_and_dataset_name(self.jobid_config.pre,
@@ -191,9 +180,14 @@ class AutoTransformers:
                     If args.resplit_mode = "rspt", resplit_portion is required
             '''
         try:
+            from .dataset.dataprocess_auto import AutoEncodeText
             from transformers import AutoTokenizer
             import datasets
             from datasets import load_dataset
+            from .utils import PathUtils
+            from .result_analysis.wandb_utils import WandbUtils
+            from .result_analysis.azure_utils import JobID
+            from .utils import load_console_args
 
             console_args = load_console_args(**custom_data_args)
             self._max_seq_length = max_seq_length
@@ -277,6 +271,8 @@ class AutoTransformers:
                     per_model_config=None):
         try:
             from transformers import AutoConfig
+            from .dataset.task_auto import get_default_task
+            from .huggingface.switch_head_auto import AutoSeqClassificationHead, MODEL_CLASSIFICATION_HEAD_MAPPING
 
             this_task = get_default_task(self.get_full_data_name(), self.jobid_config.subdat)
             if this_task == "seq-classification":
@@ -390,6 +386,7 @@ class AutoTransformers:
         try:
             import wandb
             from transformers import TrainingArguments
+            from .huggingface.trainer import TrainerForAutoTransformers
 
             def model_init():
                 return self._load_model()
@@ -483,6 +480,8 @@ class AutoTransformers:
                          search_algo_name,
                          search_algo_args_mode,
                          **custom_hpo_args):
+        from .hpo.searchalgo_auto import AutoSearchAlgorithm
+
         if search_algo_name in ("bs", "cfo"):
             self._verify_init_config(**custom_hpo_args)
         search_algo = AutoSearchAlgorithm.from_method_name(
@@ -506,6 +505,7 @@ class AutoTransformers:
         return subdirs[0]
 
     def get_full_data_name(self):
+        from .result_analysis.azure_utils import JobID
         return JobID.dataset_list_to_str(self.jobid_config.dat, "dat")
 
     def _save_ckpt_json(self,
@@ -534,6 +534,9 @@ class AutoTransformers:
             raise err
 
     def _set_metric(self, custom_metric_name=None, custom_metric_mode_name=None):
+        from .dataset.metric_auto import get_default_and_alternative_metric
+        from .utils import _variable_override_default_alternative
+
         default_metric, default_mode, all_metrics, all_modes = get_default_and_alternative_metric(
             self.get_full_data_name(),
             subdataset_name=self.jobid_config.subdat,
@@ -555,6 +558,7 @@ class AutoTransformers:
         self._all_modes = all_modes
 
     def _set_task(self):
+        from .dataset.task_auto import get_default_task
         self.task_name = get_default_task(self.get_full_data_name(), self.jobid_config.subdat)
 
     def fit_hf(self,
@@ -568,6 +572,8 @@ class AutoTransformers:
                ):
         try:
             from transformers import TrainingArguments
+            from .huggingface.trainer import TrainerForAutoTransformers
+
             '''Fine tuning the huggingface using HF's API Transformers.hyperparameter_search (for comparitive purpose).
                Transformers.hyperparameter_search has the following disadvantages:
                  (1) it does not return tune.analysis.Analysis result, what is analysis used for
@@ -609,79 +615,78 @@ class AutoTransformers:
                        validation_metric:
                             a dict storing the validation score
                     '''
+            def model_init():
+                return self._load_model()
+
+            def ray_hp_space(trial):
+                return {
+                    "learning_rate": ray.tune.loguniform(1e-6, 1e-4),
+                    "num_train_epochs": ray.tune.choice(list(range(1, 6))),
+                    "seed": ray.tune.quniform(1, 41, 1),
+                    "per_device_train_batch_size": ray.tune.choice([4, 8, 16, 32, 64]),
+                }
+
+            self._set_metric(custom_metric_name, custom_metric_mode_name)
+            self._set_task()
+
+            training_args = TrainingArguments(
+                output_dir=self.path_utils.hpo_ckpt_path,
+                fp16=_fp16,
+            )
+            this_model = self._load_model()
+
+            trainer = TrainerForAutoTransformers(
+                this_model,
+                training_args,
+                model_init=model_init,
+                train_dataset=self.train_dataset,
+                eval_dataset=self.eval_dataset,
+                tokenizer=self._tokenizer,
+                compute_metrics=self._compute_metrics_by_dataset_name,
+            )
+            self.path_utils.make_dir_per_run()
+
+            start_time = time.time()
+            from transformers.trainer_utils import IntervalStrategy, HPSearchBackend
+            best_run = trainer.hyperparameter_search(
+                n_trials=num_samples,
+                time_budget_s=time_budget,
+                hp_space=ray_hp_space,
+                backend=HPSearchBackend.RAY,
+                resources_per_trial=resources_per_trial)
+            duration = time.time() - start_time
+            self.last_run_duration = duration
+
+            hp_dict = best_run.hyperparameters
+            hp_dict["seed"] = int(hp_dict["seed"])
+
+            best_training_args = TrainingArguments(
+                output_dir=self.path_utils.hpo_ckpt_path,
+                fp16=_fp16,
+                **hp_dict,
+            )
+
+            best_trainer = TrainerForAutoTransformers(
+                this_model,
+                best_training_args,
+                model_init=model_init,
+                train_dataset=self.train_dataset,
+                eval_dataset=self.eval_dataset,
+                tokenizer=self._tokenizer,
+                compute_metrics=self._compute_metrics_by_dataset_name,
+            )
+
+            best_model_checkpoint_path = os.path.join(self.path_utils.hpo_ckpt_path, "hpo_hf")
+            if not os.path.exists(best_model_checkpoint_path):
+                os.mkdir(best_model_checkpoint_path)
+            best_trainer.train()
+            best_trainer.save_model(best_model_checkpoint_path)
+            self._save_ckpt_json(best_model_checkpoint_path)
+            validation_metric = best_trainer.evaluate()
+
+            return validation_metric
         except ImportError:
             pass
-
-        def model_init():
-            return self._load_model()
-
-        def ray_hp_space(trial):
-            return {
-                "learning_rate": ray.tune.loguniform(1e-6, 1e-4),
-                "num_train_epochs": ray.tune.choice(list(range(1, 6))),
-                "seed": ray.tune.quniform(1, 41, 1),
-                "per_device_train_batch_size": ray.tune.choice([4, 8, 16, 32, 64]),
-            }
-
-        self._set_metric(custom_metric_name, custom_metric_mode_name)
-        self._set_task()
-
-        training_args = TrainingArguments(
-            output_dir=self.path_utils.hpo_ckpt_path,
-            fp16=_fp16,
-        )
-        this_model = self._load_model()
-
-        trainer = TrainerForAutoTransformers(
-            this_model,
-            training_args,
-            model_init=model_init,
-            train_dataset=self.train_dataset,
-            eval_dataset=self.eval_dataset,
-            tokenizer=self._tokenizer,
-            compute_metrics=self._compute_metrics_by_dataset_name,
-        )
-        self.path_utils.make_dir_per_run()
-
-        start_time = time.time()
-        from transformers.trainer_utils import IntervalStrategy, HPSearchBackend
-        best_run = trainer.hyperparameter_search(
-            n_trials=num_samples,
-            time_budget_s=time_budget,
-            hp_space=ray_hp_space,
-            backend=HPSearchBackend.RAY,
-            resources_per_trial=resources_per_trial)
-        duration = time.time() - start_time
-        self.last_run_duration = duration
-
-        hp_dict = best_run.hyperparameters
-        hp_dict["seed"] = int(hp_dict["seed"])
-
-        best_training_args = TrainingArguments(
-            output_dir=self.path_utils.hpo_ckpt_path,
-            fp16=_fp16,
-            **hp_dict,
-        )
-
-        best_trainer = TrainerForAutoTransformers(
-            this_model,
-            best_training_args,
-            model_init=model_init,
-            train_dataset=self.train_dataset,
-            eval_dataset=self.eval_dataset,
-            tokenizer=self._tokenizer,
-            compute_metrics=self._compute_metrics_by_dataset_name,
-        )
-
-        best_model_checkpoint_path = os.path.join(self.path_utils.hpo_ckpt_path, "hpo_hf")
-        if not os.path.exists(best_model_checkpoint_path):
-            os.mkdir(best_model_checkpoint_path)
-        best_trainer.train()
-        best_trainer.save_model(best_model_checkpoint_path)
-        self._save_ckpt_json(best_model_checkpoint_path)
-        validation_metric = best_trainer.evaluate()
-
-        return validation_metric
 
     def fit(self,
             num_samples,
@@ -739,6 +744,8 @@ class AutoTransformers:
 
         '''
         try:
+            from .hpo.scheduler_auto import AutoScheduler
+
             self._resources_per_trial = resources_per_trial
             self._set_metric(custom_metric_name, custom_metric_mode_name)
             self._set_task()
@@ -822,6 +829,9 @@ class AutoTransformers:
         '''
         try:
             from transformers import TrainingArguments
+            from .dataset.task_auto import get_default_task
+            from .huggingface.trainer import TrainerForAutoTransformers
+
             best_checkpoint = self._load_ckpt_json(ckpt_json_dir, **kwargs)
             best_model = self._load_model(checkpoint_path=best_checkpoint)
             training_args = TrainingArguments(per_device_eval_batch_size=1,
@@ -875,6 +885,7 @@ class AutoTransformers:
             Returns:
                 the path of the output .zip file
         """
+        from .dataset.submission_auto import auto_output_prediction
         return auto_output_prediction(self.get_full_data_name(), output_prediction_path,
                                       output_zip_file_name, predictions, self.train_dataset,
                                       self._dev_name, self.jobid_config.subdat)
