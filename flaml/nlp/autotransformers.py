@@ -112,14 +112,13 @@ class AutoTransformers:
             search_space_dict_hpo = search_space_dict_grid
         if self.jobid_config.mod != "grid" and self.jobid_config.mod != "gridbert":
             search_space_hpo_json \
-                = AutoHPOSearchSpace.from_model_and_dataset_name(
-                logger,
-                self.jobid_config.spa,
-                self.jobid_config.pre,
-                self.jobid_config.presz,
-                self.get_full_data_name(),
-                self.jobid_config.subdat,
-                **custom_hpo_args)
+                = AutoHPOSearchSpace.from_model_and_dataset_name(logger,
+                                                                 self.jobid_config.spa,
+                                                                 self.jobid_config.pre,
+                                                                 self.jobid_config.presz,
+                                                                 self.get_full_data_name(),
+                                                                 self.jobid_config.subdat,
+                                                                 **custom_hpo_args)
             search_space_dict_hpo = AutoTransformers._convert_dict_to_ray_tune_space(search_space_hpo_json, mode="hpo")
         elif self.jobid_config.mod == "gridbert":
             search_space_hpo_json = AutoGridSearchSpace.from_model_and_dataset_name(
@@ -277,8 +276,7 @@ class AutoTransformers:
                     self.test_dataset = subfold_dataset
         else:
             self.train_dataset, self.eval_dataset, self.test_dataset \
-                = data_encoded[self._train_name], data_encoded[self._dev_name], data_encoded[
-                self._test_name]
+                = data_encoded[self._train_name], data_encoded[self._dev_name], data_encoded[self._test_name]
 
     def _load_model(self,
                     checkpoint_path=None,
@@ -325,9 +323,8 @@ class AutoTransformers:
                     model_config.num_labels = self._num_labels
                     this_model.num_labels = self._num_labels
                     this_model.classifier = AutoSeqClassificationHead \
-                        .from_model_type_and_config(
-                        self.jobid_config.pre,
-                        model_config)
+                        .from_model_type_and_config(self.jobid_config.pre,
+                                                    model_config)
                 else:
                     this_model = get_this_model()
             else:
@@ -457,14 +454,14 @@ class AutoTransformers:
                         assert isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Categorical) or \
                                isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Float) or \
                                isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Integer), \
-                               "Every hp space must either be categorical, integer or float"
+                            "Every hp space must either be categorical, integer or float"
 
                         if isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Categorical):
                             assert each_init_config[each_hp] in self._search_space_hpo[each_hp].categories, \
                                 "points_to_evaluate {each_hp} value must be within the search space"
                         else:
                             assert self._search_space_hpo[each_hp].lower <= each_init_config[each_hp] <= \
-                                self._search_space_hpo[each_hp].upper, \
+                                   self._search_space_hpo[each_hp].upper, \
                                 "points_to_evaluate {each_hp} value must be within the search space"
 
     def _get_search_algo(self,

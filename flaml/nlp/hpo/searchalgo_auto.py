@@ -77,12 +77,9 @@ class AutoSearchAlgorithm:
                                        key in allowed_arguments}
 
                 """
-                 If the search_algo_args_mode is "dft", set the args to the default args, e.g., 
-                 the default args for BlendSearch is 
-                 "low_cost_partial_config": {
-                    "num_train_epochs": min_epoch,
-                    "per_device_train_batch_size": max(hpo_search_space["per_device_train_batch_size"].categories),
-                },
+                 If the search_algo_args_mode is "dft", set the args to the default args, e.g.,the default args for 
+                 BlendSearch is "low_cost_partial_config": {"num_train_epochs": min_epoch,"per_device_train_batch_size"
+                 : max(hpo_search_space["per_device_train_batch_size"].categories)},
                 """
                 if search_algo_args_mode == "dft":
                     this_search_algo_kwargs = DEFAULT_SEARCH_ALGO_ARGS_MAPPING[search_algo_name](
