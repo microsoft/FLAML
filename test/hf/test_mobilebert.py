@@ -1,7 +1,5 @@
 '''Require: pip install torch transformers datasets wandb flaml[blendsearch,ray]
 '''
-# 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
-
 global azure_log_path
 global azure_key
 
