@@ -1,13 +1,8 @@
 import re
 import pathlib
 import os
-from azure.storage.blob import BlobServiceClient, ContainerClient
-from transformers import AutoConfig
-
-from ..utils import get_wandb_azure_key
 from datetime import datetime
 from dataclasses import dataclass, field
-from ..hpo.grid_searchspace_auto import HF_MODEL_LIST
 import json
 
 
@@ -202,6 +197,7 @@ class JobID:
 
     @staticmethod
     def _extract_model_type_with_keywords_match(pre_full):
+        from ..hpo.grid_searchspace_auto import HF_MODEL_LIST
         matched_model_type = []
         for each_model_type in HF_MODEL_LIST:
             if each_model_type in pre_full:
@@ -211,13 +207,17 @@ class JobID:
 
     @staticmethod
     def extract_model_type(full_model_name):
-        model_config = AutoConfig.from_pretrained(full_model_name)
-        config_json_file = model_config.get_config_dict(full_model_name)[0]
         try:
-            model_type = config_json_file["model_type"]
-        except KeyError:
-            model_type = JobID._extract_model_type_with_keywords_match()
-        return model_type
+            from transformers import AutoConfig
+            model_config = AutoConfig.from_pretrained(full_model_name)
+            config_json_file = model_config.get_config_dict(full_model_name)[0]
+            try:
+                model_type = config_json_file["model_type"]
+            except KeyError:
+                model_type = JobID._extract_model_type_with_keywords_match()
+            return model_type
+        except ImportError:
+            pass
 
     def set_jobid_from_console_args(self, console_args):
         self.dat = console_args.dataset_subdataset_name.split(":")[0].split(",")
@@ -243,6 +243,7 @@ class AzureUtils:
                  console_args=None,
                  jobid=None,
                  autohf=None):
+        from ..utils import get_wandb_azure_key
         if root_log_path:
             self.root_log_path = root_log_path
         else:
@@ -260,17 +261,26 @@ class AzureUtils:
                + self._azure_key + ";EndpointSuffix=core.windows.net"
 
     def _init_azure_clients(self):
-        connection_string = self._get_complete_connection_string()
-        container_client = ContainerClient.from_connection_string(conn_str=connection_string,
-                                                                  container_name=self._container_name)
-        return container_client
+        try:
+            from azure.storage.blob import ContainerClient
+            connection_string = self._get_complete_connection_string()
+            container_client = ContainerClient.from_connection_string(conn_str=connection_string,
+                                                                      container_name=self._container_name)
+            return container_client
+        except ImportError:
+            pass
 
     def _init_blob_client(self,
                           local_file_path):
-        connection_string = self._get_complete_connection_string()
-        blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-        blob_client = blob_service_client.get_blob_client(container=self._container_name, blob=local_file_path)
-        return blob_client
+        try:
+            from azure.storage.blob import BlobServiceClient
+
+            connection_string = self._get_complete_connection_string()
+            blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+            blob_client = blob_service_client.get_blob_client(container=self._container_name, blob=local_file_path)
+            return blob_client
+        except ImportError:
+            pass
 
     def upload_local_file_to_azure(self, local_file_path):
         blob_client = self._init_blob_client(local_file_path)
