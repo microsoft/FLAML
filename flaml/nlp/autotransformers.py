@@ -25,7 +25,6 @@ try:
 except ImportError:
     print("To use the nlp module in flaml, run pip install flaml[nlp]")
 
-transformers.logging.set_verbosity_error()
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
     '[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s',
