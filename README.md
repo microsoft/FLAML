@@ -87,7 +87,7 @@ automl_settings = {
 X_train, y_train = load_iris(return_X_y=True)
 # Train with labeled input data
 automl.fit(X_train=X_train, y_train=y_train,
-                        **automl_settings)
+           **automl_settings)
 # Predict
 print(automl.predict_proba(X_train))
 # Export the best model
@@ -111,7 +111,7 @@ automl_settings = {
 X_train, y_train = load_boston(return_X_y=True)
 # Train with labeled input data
 automl.fit(X_train=X_train, y_train=y_train,
-                        **automl_settings)
+           **automl_settings)
 # Predict
 print(automl.predict(X_train))
 # Export the best model
@@ -180,7 +180,7 @@ If all the tests are passed, please also test run notebook/flaml_automl to make 
 * Chi Wang
 * Qingyun Wu
 
-Contributors (alphabetical order): Sebastien Bubeck, Surajit Chaudhuri, Nadiia Chepurko, Ofer Dekel, Alex Deng, Anshuman Dutt, Nicolo Fusi, Jianfeng Gao, Johannes Gehrke, Silu Huang, Dongwoo Kim, Christian Konig, John Langford, Amin Saied, Neil Tenenholtz, Markus Weimer, Haozhe Zhang, Erkang Zhu.
+Contributors (alphabetical order): Sebastien Bubeck, Surajit Chaudhuri, Nadiia Chepurko, Ofer Dekel, Alex Deng, Anshuman Dutt, Nicolo Fusi, Jianfeng Gao, Johannes Gehrke, Silu Huang, Dongwoo Kim, Christian Konig, John Langford, Xueqing Liu, Paul Mineiro, Amin Saied, Neil Tenenholtz, Olga Vrousgou, Markus Weimer, Haozhe Zhang, Erkang Zhu.
 
 ## License
 
