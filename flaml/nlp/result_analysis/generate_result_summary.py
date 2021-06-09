@@ -291,7 +291,7 @@ def extract_hpo(
         azure_utils = AzureUtils(console_args=console_args, jobid=jobid_config)
         best_config, val_score = azure_utils.get_best_perf_config(console_args, jobid_config)
         test_score = test_scores[idx]
-        key2printstr[jobid_config.subdat.upper() + "," + jobid_config.alg.upper() + "," 
+        key2printstr[jobid_config.subdat.upper() + "," + jobid_config.alg.upper() + ","
                      + jobid_config.pru + ",rep " + str(jobid_config.rep)] \
             = get_result_str(jobid_config, val_score, test_score, best_config, subdat2config, mode="hpo")
 

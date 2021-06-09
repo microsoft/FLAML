@@ -106,9 +106,7 @@ class AutoTransformers:
                                                                                      self.get_full_data_name(),
                                                                                      self.jobid_config.subdat, "grid")
             search_space_dict_grid \
-                = AutoTransformers._convert_dict_to_ray_tune_space(
-                search_space_grid_json,
-                mode="grid")
+                = AutoTransformers._convert_dict_to_ray_tune_space(search_space_grid_json, mode="grid")
             search_space_dict_hpo = search_space_dict_grid
         if self.jobid_config.mod != "grid" and self.jobid_config.mod != "gridbert":
             search_space_hpo_json \
@@ -454,7 +452,7 @@ class AutoTransformers:
                         assert isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Categorical) or \
                                isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Float) or \
                                isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Integer), \
-                            "Every hp space must either be categorical, integer or float"
+                               "Every hp space must either be categorical, integer or float"
 
                         if isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Categorical):
                             assert each_init_config[each_hp] in self._search_space_hpo[each_hp].categories, \
@@ -462,7 +460,7 @@ class AutoTransformers:
                         else:
                             assert self._search_space_hpo[each_hp].lower <= each_init_config[each_hp] <= \
                                    self._search_space_hpo[each_hp].upper, \
-                                "points_to_evaluate {each_hp} value must be within the search space"
+                                   "points_to_evaluate {each_hp} value must be within the search space"
 
     def _get_search_algo(self,
                          search_algo_name,

@@ -66,10 +66,10 @@ class AutoSearchAlgorithm:
         if search_algo_name in SEARCH_ALGO_MAPPING.keys():
             try:
                 """
-                    filtering the customized args for hpo from custom_hpo_args, keep those
-                    which are in the input variable name list of the constructor of
-                    the algorithm, remove those which does not appear in the input variables
-                    of the constructor function
+                filtering the customized args for hpo from custom_hpo_args, keep those
+                which are in the input variable name list of the constructor of
+                the algorithm, remove those which does not appear in the input variables
+                of the constructor function
                 """
                 this_search_algo_kwargs = None
                 allowed_arguments = SEARCH_ALGO_MAPPING[search_algo_name].__init__.__code__.co_varnames
@@ -77,7 +77,7 @@ class AutoSearchAlgorithm:
                                        key in allowed_arguments}
 
                 """
-                 If the search_algo_args_mode is "dft", set the args to the default args, e.g.,the default args for 
+                 If the search_algo_args_mode is "dft", set the args to the default args, e.g.,the default args for
                  BlendSearch is "low_cost_partial_config": {"num_train_epochs": min_epoch,"per_device_train_batch_size"
                  : max(hpo_search_space["per_device_train_batch_size"].categories)},
                 """

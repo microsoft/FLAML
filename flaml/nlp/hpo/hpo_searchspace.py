@@ -86,8 +86,7 @@ def hpo_space_gridunion_smoke_test(
         dataset_name=None,
         subdataset_name=None,
         **custom_hpo_args):
-    return {'learning_rate':
-                [1e-5],
+    return {'learning_rate': [1e-5],
             'weight_decay': [0.0],
             'adam_epsilon': [1e-08],
             'warmup_ratio': [0.1],

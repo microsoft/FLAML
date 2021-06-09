@@ -82,16 +82,15 @@ class TrainerForAutoTransformers(transformers.Trainer):
         return float(max_steps * per_device_train_batch_size * device_count) / num_train_examples
 
     @staticmethod
-    def convert_warmup_ratio_to_warmup_steps(warmup_ratio: float, max_steps: int):
-        return int(warmup_ratio * max_steps)
-
-    @staticmethod
     def convert_warmup_ratio_to_warmup_steps(
-            warmup_ratio: float,
-            num_train_epochs: int,
-            num_train_examples: int,
-            per_device_train_batch_size: int,
-            device_count: int):
+            warmup_ratio,
+            max_steps=None,
+            num_train_epochs=None,
+            num_train_examples=None,
+            per_device_train_batch_size=None,
+            device_count=None):
+        if max_steps:
+            return int(warmup_ratio * max_steps)
         max_steps = TrainerForAutoTransformers.convert_num_train_epochs_to_max_steps(
             num_train_epochs,
             num_train_examples,
