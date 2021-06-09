@@ -2,6 +2,7 @@ import json
 import os
 import numpy as np
 import time
+import logging
 
 from .dataset.dataprocess_auto import AutoEncodeText
 from .dataset.metric_auto import get_default_and_alternative_metric
@@ -20,7 +21,6 @@ from .huggingface.trainer import TrainerForAutoTransformers
 
 try:
     import ray
-    import logging
     import transformers
 except ImportError:
     print("To use the nlp module in flaml, run pip install flaml[nlp]")

@@ -74,7 +74,8 @@ setuptools.setup(
             "vowpalwabbit",
         ],
         "nlp": [
-            "torch"
+            "ray[tune]==1.2.0",
+            "transformers"
         ]
     },
     classifiers=[
