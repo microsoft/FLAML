@@ -65,7 +65,7 @@ def hpo_space_gridunion(logger=None,
         output_config = merge_dicts(output_config, this_config)
         default_values = {}
         """
-        adding the default configuration from transformers/training_args.py into hpo space 
+        adding the default configuration from transformers/training_args.py into hpo space
         """
         training_args = TrainingArguments(output_dir=".")
         for each_hp in output_config.keys():

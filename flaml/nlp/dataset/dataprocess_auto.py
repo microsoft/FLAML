@@ -7,7 +7,7 @@ from .sentence_keys_auto import get_sentence_keys
 
 def inserting_sepp(sent, start, end, this_tokenizer):
     return sent[:start].rstrip() + " " + this_tokenizer.sep_token + " " + sent[start:end] \
-           + " " + this_tokenizer.sep_token + " " + sent[end:].lstrip()
+     + " " + this_tokenizer.sep_token + " " + sent[end:].lstrip()
 
 
 def tokenize_superglue_copa(this_example,
