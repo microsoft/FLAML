@@ -1,14 +1,5 @@
-import copy
 import os
-
 import transformers
-
-from ray import tune
-import torch
-from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
-
-transformers.logging.set_verbosity_error()
-
 
 class TrainerForAutoTransformers(transformers.Trainer):
     """
@@ -33,7 +24,8 @@ class TrainerForAutoTransformers(transformers.Trainer):
                 eval_dataset:
                     the dataset to be evaluated
         """
-        import wandb
+        from ray import tune
+
         eval_dataloader = self.get_eval_dataloader(eval_dataset)
         output = self.prediction_loop(
             eval_dataloader, description="Evaluation")
@@ -53,17 +45,23 @@ class TrainerForAutoTransformers(transformers.Trainer):
                 Overriding transformers.Trainer.save_state. It is only through saving
                 the states can best_trial.get_best_checkpoint return a non-empty value.
         """
-        with tune.checkpoint_dir(step=self.state.global_step) as checkpoint_dir:
-            self.args.output_dir = checkpoint_dir
-            # This is the directory name that Huggingface requires.
-            output_dir = os.path.join(
-                self.args.output_dir,
-                f"{PREFIX_CHECKPOINT_DIR}-{self.state.global_step}")
-            self.save_model(output_dir)
-            torch.save(self.optimizer.state_dict(),
-                       os.path.join(output_dir, "optimizer.pt"))
-            torch.save(self.lr_scheduler.state_dict(),
-                       os.path.join(output_dir, "scheduler.pt"))
+        try:
+            import torch
+            from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
+
+            with tune.checkpoint_dir(step=self.state.global_step) as checkpoint_dir:
+                self.args.output_dir = checkpoint_dir
+                # This is the directory name that Huggingface requires.
+                output_dir = os.path.join(
+                    self.args.output_dir,
+                    f"{PREFIX_CHECKPOINT_DIR}-{self.state.global_step}")
+                self.save_model(output_dir)
+                torch.save(self.optimizer.state_dict(),
+                           os.path.join(output_dir, "optimizer.pt"))
+                torch.save(self.lr_scheduler.state_dict(),
+                           os.path.join(output_dir, "scheduler.pt"))
+        except ImportError:
+            pass
 
     @staticmethod
     def convert_num_train_epochs_to_max_steps(
