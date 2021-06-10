@@ -89,7 +89,9 @@ def get_best_base_config(args, jobid_config, autohf, wandb_utils):
     autohf.prepare_data(**preparedata_setting)
     autohf.set_metric()
 
-    best_config = azure_utils_small.get_ranked_configs_from_azure_file(autohf.metric_mode_name)[0]
+    best_config = azure_utils_small.get_config_and_score_from_partial_jobid(
+        args_small.root_log_path,
+        jobid_config_small)[0].get_best_config()
     return best_config
 
 def search_base_and_search_lower_lr(args, jobid_config, autohf, wandb_utils):
@@ -192,34 +194,19 @@ def evaluate_small_best_configs_on_large(large_args, autohf):
     jobid_config_small = convert_config_to_different_size(JobID(large_args), mode="small")
     jobid_config_small.rep = 0
     azure_utils_small = AzureUtils(console_args = None, jobid = jobid_config_small, autohf = autohf)
-    ranked_all_small_configs = azure_utils_small.get_ranked_configs_from_azure_file(autohf.metric_mode_name)
-    evaluate_configs(large_args, ranked_all_small_configs[:int(len(ranked_all_small_configs) / 2)])
+    each_config_and_score_list = azure_utils_small.get_config_and_score_from_partial_jobid(
+        large_args.root_log_path,
+        autohf.jobid_config)[0]
+    ranked_all_small_configs = each_config_and_score_list.sorted()
+    evaluate_configs(autohf,
+                     large_args,
+                     ranked_all_small_configs[:int(len(ranked_all_small_configs) / 2)])
 
 def add_dict_item_to_list(this_list, this_dict):
     is_exist = len([x for x in this_list if x == this_dict]) > 0
     if not is_exist:
         this_list.append(this_dict)
     return this_list
-
-def evaluate_large_best_configs_on_small(small_args, autohf):
-    jobid_config_large = convert_config_to_different_size(JobID(small_args), mode="large")
-    autohf.jobid_config = jobid_config_large
-    autohf.set_metric()
-    all_configs_from_large = []
-    for rep_id in range(3):
-        jobid_config_large.rep = rep_id
-        azure_utils_large = AzureUtils(console_args=small_args, jobid=jobid_config_large, autohf=autohf)
-        ranked_all_large_configs = azure_utils_large.get_ranked_configs_from_azure_file(autohf.metric_mode_name)
-        for each_config in ranked_all_large_configs:
-            all_configs_from_large = add_dict_item_to_list(all_configs_from_large, each_config)
-    jobid_config_small = convert_config_to_different_size(JobID(small_args), mode="small")
-    jobid_config_small.rep = 0
-    azure_utils_small = AzureUtils(console_args=small_args, jobid=jobid_config_small, autohf=autohf)
-    ranked_all_small_configs = azure_utils_small.get_ranked_configs_from_azure_file(autohf.metric_mode_name)
-    for each_config in ranked_all_small_configs:
-        all_configs_from_large = add_dict_item_to_list(all_configs_from_large, each_config)
-
-    evaluate_configs(autohf, small_args, list(all_configs_from_large))
 
 def _test_hpo(args,
               jobid_config,
@@ -255,10 +242,10 @@ def _test_hpo(args,
                 validation_metric.update({"test": test_metric})
 
         if analysis is not None:
-            json_log = azure_utils.extract_log_from_analysis(analysis)
+            configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
         else:
-            json_log = None
-        azure_utils.write_autohf_output(json_log = json_log,
+            configscore_list = None
+        azure_utils.write_autohf_output(configscore_list = configscore_list,
                                         valid_metric = validation_metric,
                                         predictions = predictions,
                                         duration=autohf.last_run_duration)
@@ -289,6 +276,7 @@ def _exhaustive_sweep(args,
 
     gridunion_space["learning_rate"] = [args.varying_arg1]
     gridunion_space["weight_decay"] = [args.varying_arg2]
+    gridunion_space["num_train_epochs"] = [0.5]
     _test_hpo(args,jobid_config, autohf, wandb_utils, azure_utils,
               autohf_settings,
               root_log_path = args.root_log_path,
