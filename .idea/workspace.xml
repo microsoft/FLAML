@@ -5,6 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="7f5504a5-ec11-456b-a91b-37101977d214" name="Default Changelist" comment="adding sweep">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/test/hf/run_autohf.py" beforeDir="false" afterPath="$PROJECT_DIR$/test/hf/run_autohf.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -37,7 +38,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="yml_files" />
+        <entry key="$PROJECT_DIR$" value="v0.5.2" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -84,7 +85,7 @@
       <recent name="$PROJECT_DIR$/test/hf/yaml" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.run_autohf">
+  <component name="RunManager" selected="Python.run_analysis">
     <configuration name="generate_result_summary" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="FLAML" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -122,7 +123,7 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/test/hf/run_analysis.py" />
-      <option name="PARAMETERS" value="--mode extract --azure_root_log_path logs_azure" />
+      <option name="PARAMETERS" value="--azure_root_log_path logs_seed" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="false" />
@@ -145,7 +146,7 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/test/hf/run_autohf.py" />
-      <option name="PARAMETERS" value="--dataset_subdataset_name glue:mrpc --pretrained_model_size funnel-transformer/xlarge-base:xlarge --varying_arg1 1e-5 --varying_arg2 0 --key_path &quot;../../&quot; --sample_num 1 --time_budget 100000 --root_log_path &quot;logs_seed/&quot; --resplit_mode rspt" />
+      <option name="PARAMETERS" value="--dataset_subdataset_name glue:mrpc --pretrained_model_size google/electra-base-discriminator:base --varying_arg1 1e-5 --varying_arg2 0 --key_path &quot;../../&quot; --sample_num 1 --time_budget 100 --root_log_path &quot;logs_seed/&quot; --resplit_mode rspt" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="false" />
@@ -194,19 +195,19 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.run_autohf" />
-      <item itemvalue="Python.run_analysis" />
-      <item itemvalue="Python.test_glue" />
       <item itemvalue="Python.generate_result_summary" />
+      <item itemvalue="Python.run_analysis" />
+      <item itemvalue="Python.run_autohf" />
+      <item itemvalue="Python.test_glue" />
       <item itemvalue="Python tests.pytest in test_mobilebert.py" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.run_autohf" />
         <item itemvalue="Python tests.pytest in test_mobilebert.py" />
-        <item itemvalue="Python.generate_result_summary" />
         <item itemvalue="Python.test_glue" />
+        <item itemvalue="Python.run_autohf" />
         <item itemvalue="Python.run_analysis" />
+        <item itemvalue="Python.generate_result_summary" />
       </list>
     </recent_temporary>
   </component>
@@ -643,26 +644,6 @@
           <line>1658</line>
           <option name="timeStamp" value="45" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/flaml/nlp/result_analysis/generate_result_summary.py</url>
-          <line>79</line>
-          <option name="timeStamp" value="474" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/flaml/nlp/result_analysis/azure_utils.py</url>
-          <line>569</line>
-          <option name="timeStamp" value="653" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/flaml/nlp/result_analysis/generate_result_summary.py</url>
-          <line>299</line>
-          <option name="timeStamp" value="680" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/flaml/nlp/result_analysis/azure_utils.py</url>
-          <line>352</line>
-          <option name="timeStamp" value="782" />
-        </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="jupyter-line">
           <url>notebook:///Users/xliu/Documents/xqq/Documents/work/projects/automl/FLAML/notebook/flaml_automl.ipynb</url>
           <line>39</line>
@@ -686,7 +667,7 @@
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/FLAML$tune.coverage" NAME="tune Coverage Results" MODIFIED="1615942381513" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$USER_HOME$/Library/Caches/JetBrains/PyCharm2020.3/remote_sources/1078739270/-1495276350/ray/tune" />
-    <SUITE FILE_PATH="coverage/FLAML$run_analysis.coverage" NAME="run_analysis Coverage Results" MODIFIED="1623111242507" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test/hf" />
+    <SUITE FILE_PATH="coverage/FLAML$run_analysis.coverage" NAME="run_analysis Coverage Results" MODIFIED="1623357182675" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test/hf" />
     <SUITE FILE_PATH="coverage/FLAML$test_readme_example.coverage" NAME="test_readme_example Coverage Results" MODIFIED="1623101357795" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test/hf" />
     <SUITE FILE_PATH="coverage/FLAML$run_hpo_bayes.coverage" NAME="run_hpo_bayes Coverage Results" MODIFIED="1616039066993" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test/hf" />
     <SUITE FILE_PATH="coverage/FLAML$trainer_for_autohf.coverage" NAME="trainer_for_autohf Coverage Results" MODIFIED="1616014554489" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/flaml/nlp" />
@@ -697,8 +678,8 @@
     <SUITE FILE_PATH="coverage/FLAML$utils.coverage" NAME="utils Coverage Results" MODIFIED="1620267060022" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/flaml/nlp/wandbazure" />
     <SUITE FILE_PATH="coverage/FLAML$analysis_modelsize.coverage" NAME="analysis_modelsize Coverage Results" MODIFIED="1620776048830" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/flaml/nlp/result_analysis" />
     <SUITE FILE_PATH="coverage/FLAML$searchalgo_auto.coverage" NAME="searchalgo_auto Coverage Results" MODIFIED="1616100746896" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/flaml/nlp" />
-    <SUITE FILE_PATH="coverage/FLAML$run_autohf.coverage" NAME="run_autohf Coverage Results" MODIFIED="1623297502432" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test/hf" />
-    <SUITE FILE_PATH="coverage/FLAML$add_filetag.coverage" NAME="add_filetag Coverage Results" MODIFIED="1623298691650" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/FLAML$run_autohf.coverage" NAME="run_autohf Coverage Results" MODIFIED="1623356943435" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test/hf" />
+    <SUITE FILE_PATH="coverage/FLAML$add_filetag.coverage" NAME="add_filetag Coverage Results" MODIFIED="1623357366859" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/FLAML$plot_curve.coverage" NAME="plot_curve Coverage Results" MODIFIED="1620084023059" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/flaml/nlp/plot" />
     <SUITE FILE_PATH="coverage/FLAML$test_autohf.coverage" NAME="test_autohf Coverage Results" MODIFIED="1617467524860" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test/hf" />
     <SUITE FILE_PATH="coverage/FLAML$pytest_in_test_autohf_py.coverage" NAME="pytest in test_autohf.py Coverage Results" MODIFIED="1616363219637" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test/hf" />

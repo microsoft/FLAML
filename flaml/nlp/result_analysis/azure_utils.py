@@ -6,6 +6,54 @@ from dataclasses import dataclass, field
 import json
 
 
+class ConfigScore:
+
+    trial_id: str = field(default=None)
+    start_time: float = field(default=None)
+    last_update_time: float = field(default=None)
+    config: dict = field(default=None)
+    metric_score: dict = field(default=None)
+    time_stamp: float = field(default=None)
+
+    def __init__(self,
+                 trial_id:str=None,
+                 start_time:float=None,
+                 last_update_time:float=None,
+                 config:dict=None,
+                 metric_score:dict=None,
+                 time_stamp:float=None
+                 ):
+        self.trial_id = trial_id
+        self.start_time = start_time
+        self.last_update_time = last_update_time
+        self.config = config
+        self.metric_score = metric_score
+        self.time_stamp = time_stamp
+
+
+class ConfigScoreList:
+
+    def __init__(self,
+                 config_score_list: [ConfigScore],
+                 jobid_config = None,
+                 blob_file = None,
+                 ):
+        self._config_score_list = config_score_list
+        self._blob_file = blob_file
+        self._jobid_config = jobid_config
+
+    def sorted(self, sort_method):
+        if sort_method == "unsorted":
+            self._config_score_list = self._config_score_list
+        elif sort_method == "sort_time":
+            self._config_score_list = sorted(self._config_score_list, key=lambda x: x[2], reverse=False)
+        else:
+            self._config_score_list = sorted(self._config_score_list, key=lambda x: x[1], reverse=True)
+
+    def get_best_config(self,
+                        metric_mode="max"):
+        return max(self._config_score_list, key=lambda x: getattr(x, "metric_score")[metric_mode])
+
 @dataclass
 class JobID:
     dat: list = field(default=None)
@@ -160,20 +208,18 @@ class JobID:
             return None
 
     @staticmethod
-    def dataset_list_to_str(dataset_name, key = "dat"):
+    def dataset_list_to_str(dataset_name, key="dat"):
         if isinstance(dataset_name, list):
             return "-".join(dataset_name)
         else:
             return dataset_name
 
-    @staticmethod
     def set_jobid_from_arg_list(self,
                                 **jobid_list
                                 ):
         """
             set the jobid from a dict object
         """
-
         for key in jobid_list.keys():
             assert key in JobID.__dataclass_fields__.keys()
             setattr(self, key, jobid_list[key])
@@ -192,7 +238,7 @@ class JobID:
             return None
 
     @staticmethod
-    def get_full_data_name(dataset_name:list or str, subdataset_name=None):
+    def get_full_data_name(dataset_name: list or str, subdataset_name=None):
         """
             convert a dataset name and sub dataset name to a full dataset name
         """
@@ -251,6 +297,7 @@ class JobID:
         self.sdhf = console_args.seed_transformers
         self.var1 = console_args.varying_arg1
         self.var2 = console_args.varying_arg2
+
 
 class AzureUtils:
 
@@ -317,12 +364,12 @@ class AzureUtils:
         local_file_path = self.generate_local_json_path()
         self.create_local_json_and_upload(result_json, local_file_path)
 
-    def extract_log_from_analysis(self,
-                                  analysis):
+    def extract_configscore_list_from_analysis(self,
+                                               analysis):
         """
             Extracting a json object for storing the key information returned from tune.run
         """
-        json_log = []
+        configscore_list = []
         for each_trial in analysis.trials:
             trial_id = each_trial.trial_id
             start_time = each_trial.start_time
@@ -331,18 +378,19 @@ class AzureUtils:
             try:
                 metric_score = each_trial.metric_analysis["eval_" + analysis.default_metric]
                 time_stamp = each_trial.metric_analysis['timestamp']
-                json_log.append({"trial_id": trial_id,
-                                 "start_time": start_time,
-                                 "last_update_time": last_update_time,
-                                 "config": config,
-                                 "metric_score": metric_score,
-                                 "time_stamp": time_stamp})
+                configscore_list.append(ConfigScore(
+                                 trial_id= trial_id,
+                                 start_time =start_time,
+                                 last_update_time=last_update_time,
+                                 config = config,
+                                 metric_score =metric_score,
+                                 time_stamp =time_stamp))
             except KeyError:
                 pass
-        return json_log
+        return configscore_list
 
     def write_autohf_output(self,
-                            json_log=None,
+                            configscore_list=None,
                             valid_metric=None,
                             predictions=None,
                             duration=None):
@@ -351,8 +399,8 @@ class AzureUtils:
         """
         local_file_path = self.generate_local_json_path()
         output_json = {}
-        if json_log:
-            output_json["val_log"] = json_log
+        if configscore_list:
+            output_json["val_log"] = [configscore.__dict__ for configscore in configscore_list]
         if valid_metric:
             output_json["valid_metric"] = valid_metric
         if duration:
@@ -378,7 +426,6 @@ class AzureUtils:
             fout.flush()
             self.upload_local_file_to_azure(local_file_path)
 
-
     def create_local_prediction_and_upload(self,
                                            local_json_file,
                                            predictions):
@@ -391,39 +438,18 @@ class AzureUtils:
                                                            output_zip_file_name=azure_save_file_name)
         self.upload_local_file_to_azure(local_archive_path)
 
-    def get_ranked_configs(self, metric_mode):
-        """
-            extract the configs (ranked in descebding order by the score) for the azure file of the current object
-            (defined by self.jobid_config)
-        """
-        azure_file_path = self.generate_local_json_path()
-        self.download_azure_blob(azure_file_path)
-
-        json_log = json.load(open(azure_file_path, "r"))
-        assert "val_log" in json_log
-
-        trialid_to_score = {}
-        trialid_to_config = {}
-
-        for each_entry in json_log["val_log"]:
-            trial_id = each_entry["trial_id"]
-            config = each_entry["config"]
-            this_score = each_entry["metric_score"][metric_mode]
-            trialid_to_config[trial_id] = config
-            trialid_to_score[trial_id] = this_score
-
-        sorted_trialid_to_score = sorted(trialid_to_score.items(), key=lambda x: x[1], reverse=True)
-        return [trialid_to_config[entry[0]] for entry in sorted_trialid_to_score]
-
     @staticmethod
-    def is_after_earliest_time(this_blob, earliest_time):
+    def is_after_earliest_time(this_blob, earliest_time: (float, float, float)):
         import pytz
         utc = pytz.UTC
         if this_blob.last_modified >= utc.localize(datetime(earliest_time[0], earliest_time[1], earliest_time[2])):
             return True
         return False
 
-    def get_blob_list_matching_partial_jobid(self, root_log_path, partial_jobid, earliest_time=None):
+    def get_blob_list_matching_partial_jobid(self,
+                                             root_log_path,
+                                             partial_jobid,
+                                             earliest_time:(float,float,float)=None):
         """
             get all blobs whose jobid configs match the partial_jobid
         """
@@ -443,141 +469,61 @@ class AzureUtils:
                         blob_list.append((each_jobconfig, each_blob))
         return blob_list
 
-    @staticmethod
-    def extract_config_and_score(blobname):
-        data_json = json.load(open(blobname, "r"))
-        return [(x['config'], x['metric_score']["max"], x['start_time']) for x in data_json['val_log']]
-
     def get_config_and_score_from_partial_jobid(self,
-                                                root_log_path,
-                                                partial_jobid,
-                                                group_attrs,
-                                                method,
-                                                earliest_time=None):
+                                                root_log_path:str,
+                                                partial_jobid:JobID,
+                                                earliest_time:(float,float,float)=None):
         """
-            get the best config and best score for each job matching the partial_jobid
-        """
+           Extract the config and score list from a partial config id
+
+           Args:
+               root_log_path:
+                   The root log path in azure blob storage, e.g., "logs_seed/"
+
+               partial_jobid:
+                   The partial jobid for matching the blob list
+
+               earliest_time (optional):
+                   The earliest starting time for any matched blob, for filtering out out-dated jobs,
+                   format: (YYYY, MM, DD)
+
+           Return:
+               a ConfigScore list object which stores the config and scores list for each matched blob lists
+
+       """
+        assert isinstance(root_log_path, str), "root_log_path must be of type str"
+        assert isinstance(partial_jobid, JobID), "partial_jobid must be of type JobID"
+        if earliest_time:
+            assert isinstance(earliest_time, tuple), "earliest_time must be a tuple of (YYYY, MM, DD)"
+
         matched_blob_list = self.get_blob_list_matching_partial_jobid(
             root_log_path,
             partial_jobid,
             earliest_time=earliest_time)
-        group_dict = {}
-        for (each_jobconfig, each_blob) in matched_blob_list:
-            self.download_azure_blob(each_blob.name)
-            config_and_score = AzureUtils.extract_config_and_score(each_blob.name)
-            if method == "unsorted":
-                sorted_config_and_score = config_and_score
-            elif method == "sort_time":
-                sorted_config_and_score = sorted(config_and_score, key=lambda x: x[2], reverse=False)
-            else:
-                sorted_config_and_score = sorted(config_and_score, key=lambda x: x[1], reverse=True)
-            group_attr_list = []
-            for each_attr in group_attrs:
-                group_val = getattr(each_jobconfig, each_attr)
-                if isinstance(group_val, list):
-                    group_attr_list.append(JobID.dataset_list_to_str(group_val))
-                else:
-                    group_attr_list.append(group_val)
-            group_attr_tuple = tuple(group_attr_list)
-            group_dict.setdefault(group_attr_tuple, [])
-            group_dict[group_attr_tuple].append([(config, score, each_blob.name)
-                                                 for (config, score, ts) in sorted_config_and_score])
-        return group_dict
+        return self.get_config_and_score_from_matched_blob_list(matched_blob_list,
+                                                                earliest_time)
 
-    def get_validation_perf(self, console_args=None, partial_jobid_config=None):
+    def get_config_and_score_from_matched_blob_list(self,
+                                                matched_blob_list,
+                                                earliest_time:(float,float,float)=None):
         """
-            get the validation score for all blobs matching the partial_jobid_config
-        """
-        if partial_jobid_config.pre == "electra":
-            dataset_namelist = ["wnli", "rte", "mrpc", "cola", "stsb", "sst2", "qnli", "mnli"]
-        else:
-            dataset_namelist = ["wnli", "rte", "mrpc", "cola", "stsb", "sst2"]
-        dataset_vallist1 = [0] * len(dataset_namelist)
-        dataset_vallist2 = [0] * len(dataset_namelist)
+            Extract the config and score list of one or multiple blobs
 
-        matched_blob_list = self.get_blob_list_matching_partial_jobid(console_args.azure_root_log_path,
-                                                                      partial_jobid_config)
+            Args:
+                matched_blob_list:
+                    matched blob list
+
+            Return:
+                a ConfigScore list object which stores the config and scores list for each matched blob lists
+
+        """
+        matched_config_score_lists = []
         for (each_jobconfig, each_blob) in matched_blob_list:
-            subdat_name = each_jobconfig.subdat
             self.download_azure_blob(each_blob.name)
             data_json = json.load(open(each_blob.name, "r"))
-            print(len(data_json["val_log"]))
-            validation_metric = data_json['valid_metric']
-            try:
-                dataset_idx = dataset_namelist.index(subdat_name)
-                dataset_vallist1[dataset_idx], dataset_vallist2[dataset_idx] \
-                    = self.get_validation_metricstr(validation_metric)
-            except ValueError:
-                pass
-        # print(" & ".join(dataset_vallist1))
-        # print(", ,".join(dataset_vallist2))
-
-    def get_validation_metricstr(self, validation_metric):
-        """
-            get a string representing validations for pasting to Google spreadsheet
-        """
-        validation_str1 = validation_str2 = ""
-        is_first = True
-        for key in ["f1", "accuracy", "pearson", "spearmanr", "matthews_correlation"]:
-            if "eval_" + key in validation_metric.keys():
-                if is_first:
-                    validation_str1 += str("%.1f" % (validation_metric["eval_" + key] * 100))
-                    validation_str2 += str(validation_metric["eval_" + key] * 100)
-                    is_first = False
-                else:
-                    validation_str1 += "/" + str("%.1f" % (validation_metric["eval_" + key] * 100))
-                    validation_str2 += "," + str(validation_metric["eval_" + key] * 100)
-        return validation_str1, validation_str2
-
-    def get_test_perf(self, partial_jobid_config=None, result_root_dir=None):
-        """
-            get the test scores for all blobs matching the partial_jobid_config
-        """
-        import shutil
-        from flaml.nlp.dataset.submission_auto import file_name_mapping_glue, output_blank_tsv
-        matched_blob_list = self.get_blob_list_matching_partial_jobid("data/", partial_jobid_config)
-        partial_jobid_str = partial_jobid_config.to_partial_jobid_string()
-        output_dir = os.path.join(result_root_dir, partial_jobid_str)
-        if os.path.exists(output_dir):
-            assert os.path.isdir(output_dir)
-        else:
-            os.mkdir(output_dir)
-        output_blank_tsv(output_dir)
-
-        for (each_jobconfig, each_blob) in matched_blob_list:
-            subdat_name = each_jobconfig.subdat
-            self.download_azure_blob(each_blob.name)
-            import zipfile
-            if os.path.exists(each_blob.name[:-4]):
-                assert os.path.isdir(each_blob.name[:-4])
-            else:
-                os.mkdir(each_blob.name[:-4])
-            with zipfile.ZipFile(each_blob.name, 'r') as zip_ref:
-                zip_ref.extractall(each_blob.name[:-4])
-            src = os.path.join(each_blob.name[:-4], file_name_mapping_glue[subdat_name][0])
-            dst = os.path.join(output_dir, file_name_mapping_glue[subdat_name][0])
-            shutil.copy(src, dst)
-        shutil.make_archive(os.path.join(output_dir), 'zip', output_dir)
-
-    def get_best_perf_config(self, console_args, jobid_config):
-        """
-            get the config of the best performed trial
-        """
-        matched_blob_list = self.get_blob_list_matching_partial_jobid(console_args.azure_root_log_path, jobid_config)
-        try:
-            assert len(matched_blob_list) == 1
-        except AssertionError:
-            import pdb
-            pdb.set_trace()
-
-        each_jobconfig, each_blob = matched_blob_list[0]
-        self.download_azure_blob(each_blob.name)
-        data_json = json.load(open(each_blob.name, "r"))
-
-        sorted_entries = sorted(data_json['val_log'], key=lambda x: x['metric_score']['max'], reverse=True)
-        best_config = sorted_entries[0]['config']
-        if jobid_config.subdat != "mrpc":
-            best_score = sorted_entries[0]['metric_score']['max']
-        else:
-            best_score = (data_json["valid_metric"]["eval_f1"], data_json["valid_metric"]["eval_accuracy"])
-        return best_config, best_score
+            each_config_and_score_list = ConfigScoreList(
+                jobid_config=each_jobconfig,
+                blob_file=each_blob,
+                config_score_list=[ConfigScore(**each_dict) for each_dict in data_json['val_log']])
+            matched_config_score_lists.append(each_config_and_score_list)
+        return matched_config_score_lists
