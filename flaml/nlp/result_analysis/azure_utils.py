@@ -56,6 +56,7 @@ class ConfigScoreList:
 
 @dataclass
 class JobID:
+    from typing import Optional
     dat: list = field(default=None)
     subdat: str = field(default=None)
     mod: str = field(default=None)
@@ -70,8 +71,8 @@ class JobID:
     rep: int = field(default=0)
     sddt: int = field(default=None)
     sdhf: int = field(default=None)
-    var1: float = field(default=None)
-    var2: float = field(default=None)
+    var1: Optional[float] = field(default=None)
+    var2: Optional[float] = field(default=None)
 
     def __init__(self,
                  console_args=None):
@@ -96,6 +97,8 @@ class JobID:
         self.rep = 0
         self.sddt = 43
         self.sdhf = 42
+        self.var1 = None
+        self.var2 = None
 
     def is_match(self, partial_jobid):
         """
@@ -298,7 +301,6 @@ class JobID:
         self.var1 = console_args.varying_arg1
         self.var2 = console_args.varying_arg2
 
-
 class AzureUtils:
 
     def __init__(self,
@@ -405,8 +407,11 @@ class AzureUtils:
             output_json["valid_metric"] = valid_metric
         if duration:
             output_json["duration"] = duration
-        if len(output_json) > 0:
-            self.create_local_json_and_upload(output_json, local_file_path)
+        try:
+            if len(output_json) > 0:
+                self.create_local_json_and_upload(output_json, local_file_path)
+        except AttributeError:
+            pass
         if predictions is not None:
             self.create_local_prediction_and_upload(local_file_path, predictions)
 
@@ -433,8 +438,14 @@ class AzureUtils:
             store predictions (a .zip file) locally and upload
         """
         azure_save_file_name = local_json_file.split("/")[-1][:-5]
+        try:
+            output_dir = self.console_args.data_root_dir
+        except AttributeError:
+            from ..utils import load_console_args
+            console_args = load_console_args()
+            output_dir = getattr(console_args, "data_root_dir")
         local_archive_path = self.autohf.output_prediction(predictions,
-                                                           output_prediction_path=self.console_args.data_root_dir + "result/",
+                                                           output_prediction_path=output_dir + "result/",
                                                            output_zip_file_name=azure_save_file_name)
         self.upload_local_file_to_azure(local_archive_path)
 
