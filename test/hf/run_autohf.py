@@ -260,7 +260,6 @@ def _exhaustive_sweep(args,
               wandb_utils,
               azure_utils = None,
               autohf_settings = None,):
-    import flaml
     from flaml.nlp import AutoHPOSearchSpace
     args.space_mode =jobid_config.spa = "cus"
     args.algo_mode = jobid_config.mod = "grid"
@@ -276,7 +275,6 @@ def _exhaustive_sweep(args,
 
     gridunion_space["learning_rate"] = [args.varying_arg1]
     gridunion_space["weight_decay"] = [args.varying_arg2]
-    gridunion_space["num_train_epochs"] = [0.5]
     _test_hpo(args,jobid_config, autohf, wandb_utils, azure_utils,
               autohf_settings,
               root_log_path = args.root_log_path,
