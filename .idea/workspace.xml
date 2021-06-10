@@ -4,21 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7f5504a5-ec11-456b-a91b-37101977d214" name="Default Changelist" comment="bo/cfo for large model">
+    <list default="true" id="7f5504a5-ec11-456b-a91b-37101977d214" name="Default Changelist" comment="adding sweep">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flaml/nlp/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/flaml/nlp/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flaml/nlp/autotransformers.py" beforeDir="false" afterPath="$PROJECT_DIR$/flaml/nlp/autotransformers.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flaml/nlp/dataset/dataprocess_auto.py" beforeDir="false" afterPath="$PROJECT_DIR$/flaml/nlp/dataset/dataprocess_auto.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flaml/nlp/dataset/metric_auto.py" beforeDir="false" afterPath="$PROJECT_DIR$/flaml/nlp/dataset/metric_auto.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flaml/nlp/dataset/submission_auto.py" beforeDir="false" afterPath="$PROJECT_DIR$/flaml/nlp/dataset/submission_auto.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flaml/nlp/dataset/task_auto.py" beforeDir="false" afterPath="$PROJECT_DIR$/flaml/nlp/dataset/task_auto.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flaml/nlp/hpo/get_grid_search_space.py" beforeDir="false" afterPath="$PROJECT_DIR$/flaml/nlp/hpo/get_grid_search_space.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flaml/nlp/hpo/grid_searchspace_auto.py" beforeDir="false" afterPath="$PROJECT_DIR$/flaml/nlp/hpo/grid_searchspace_auto.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flaml/nlp/hpo/hpo_searchspace.py" beforeDir="false" afterPath="$PROJECT_DIR$/flaml/nlp/hpo/hpo_searchspace.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flaml/nlp/hpo/searchalgo_auto.py" beforeDir="false" afterPath="$PROJECT_DIR$/flaml/nlp/hpo/searchalgo_auto.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flaml/nlp/huggingface/trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/flaml/nlp/huggingface/trainer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flaml/nlp/result_analysis/azure_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/flaml/nlp/result_analysis/azure_utils.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flaml/nlp/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/flaml/nlp/utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/test/hf/run_autohf.py" beforeDir="false" afterPath="$PROJECT_DIR$/test/hf/run_autohf.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -51,7 +38,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="v0.5.2" />
+        <entry key="$PROJECT_DIR$" value="yml_files" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -76,6 +63,7 @@
   <component name="PropertiesComponent">
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="TODO_SCOPE" value="All Places" />
     <property name="WebServerToolWindowFactoryState" value="true" />
     <property name="credentialsType com.jetbrains.python.remote.PyCreateRemoteInterpreterDialog$PyCreateRemoteSdkForm" value="Web Deployment" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/wo_filetag" />
@@ -258,20 +246,6 @@
       <workItem from="1621369933440" duration="319220000" />
       <workItem from="1622852961857" duration="1241000" />
       <workItem from="1622854232232" duration="11774000" />
-    </task>
-    <task id="LOCAL-00431" summary="fixed run_autohf.py">
-      <created>1622242846242</created>
-      <option name="number" value="00431" />
-      <option name="presentableId" value="LOCAL-00431" />
-      <option name="project" value="LOCAL" />
-      <updated>1622242846242</updated>
-    </task>
-    <task id="LOCAL-00432" summary="fixed run_autohf.py">
-      <created>1622242985131</created>
-      <option name="number" value="00432" />
-      <option name="presentableId" value="LOCAL-00432" />
-      <option name="project" value="LOCAL" />
-      <updated>1622242985131</updated>
     </task>
     <task id="LOCAL-00433" summary="fixed run_autohf.py">
       <created>1622243723282</created>
@@ -602,7 +576,21 @@
       <option name="project" value="LOCAL" />
       <updated>1622918705084</updated>
     </task>
-    <option name="localTasksCounter" value="480" />
+    <task id="LOCAL-00480" summary="adding sweep">
+      <created>1623298165208</created>
+      <option name="number" value="00480" />
+      <option name="presentableId" value="LOCAL-00480" />
+      <option name="project" value="LOCAL" />
+      <updated>1623298165208</updated>
+    </task>
+    <task id="LOCAL-00481" summary="adding sweep">
+      <created>1623298174580</created>
+      <option name="number" value="00481" />
+      <option name="presentableId" value="LOCAL-00481" />
+      <option name="project" value="LOCAL" />
+      <updated>1623298174580</updated>
+    </task>
+    <option name="localTasksCounter" value="482" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -621,7 +609,6 @@
     <option name="oldMeFiltersMigrated" value="true" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="adding large model yml" />
     <MESSAGE value="add large models 3 hrs" />
     <MESSAGE value="16 gpus" />
     <MESSAGE value="3 hours" />
@@ -646,7 +633,8 @@
     <MESSAGE value="fixed spearmanr" />
     <MESSAGE value="remove sst2 roberta" />
     <MESSAGE value="bo/cfo for large model" />
-    <option name="LAST_COMMIT_MESSAGE" value="bo/cfo for large model" />
+    <MESSAGE value="adding sweep" />
+    <option name="LAST_COMMIT_MESSAGE" value="adding sweep" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -711,7 +699,7 @@
     <SUITE FILE_PATH="coverage/FLAML$analysis_modelsize.coverage" NAME="analysis_modelsize Coverage Results" MODIFIED="1620776048830" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/flaml/nlp/result_analysis" />
     <SUITE FILE_PATH="coverage/FLAML$searchalgo_auto.coverage" NAME="searchalgo_auto Coverage Results" MODIFIED="1616100746896" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/flaml/nlp" />
     <SUITE FILE_PATH="coverage/FLAML$add_filetag.coverage" NAME="add_filetag Coverage Results" MODIFIED="1622913952792" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/FLAML$run_autohf.coverage" NAME="run_autohf Coverage Results" MODIFIED="1623297150924" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test/hf" />
+    <SUITE FILE_PATH="coverage/FLAML$run_autohf.coverage" NAME="run_autohf Coverage Results" MODIFIED="1623297502432" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test/hf" />
     <SUITE FILE_PATH="coverage/FLAML$plot_curve.coverage" NAME="plot_curve Coverage Results" MODIFIED="1620084023059" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/flaml/nlp/plot" />
     <SUITE FILE_PATH="coverage/FLAML$test_autohf.coverage" NAME="test_autohf Coverage Results" MODIFIED="1617467524860" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test/hf" />
     <SUITE FILE_PATH="coverage/FLAML$pytest_in_test_autohf_py.coverage" NAME="pytest in test_autohf.py Coverage Results" MODIFIED="1616363219637" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test/hf" />

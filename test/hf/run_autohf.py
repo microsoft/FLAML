@@ -4,6 +4,7 @@
 import os
 import shutil
 
+import flaml
 from flaml.nlp import AutoTransformers
 from flaml.nlp import AzureUtils, JobID
 from flaml.nlp.result_analysis.wandb_utils import WandbUtils
@@ -272,6 +273,7 @@ def _exhaustive_sweep(args,
               wandb_utils,
               azure_utils = None,
               autohf_settings = None,):
+    import flaml
     from flaml.nlp import AutoHPOSearchSpace
     args.space_mode =jobid_config.spa = "cus"
     args.algo_mode = jobid_config.mod = "grid"
