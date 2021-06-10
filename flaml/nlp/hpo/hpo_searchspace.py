@@ -1,7 +1,4 @@
 from collections import OrderedDict
-
-from ..huggingface.trainer import TrainerForAutoTransformers
-from ray import tune
 from transformers import TrainingArguments
 
 from .grid_searchspace_auto import AutoGridSearchSpace
