@@ -178,7 +178,7 @@ class AutoEncodeText:
     def from_model_and_dataset_name(cls,
                                     data_raw,
                                     model_checkpoint_path,
-                                    dataset_name,
+                                    dataset_name_list:list=None,
                                     subdataset_name=None,
                                     **kwargs):
         """
@@ -208,6 +208,8 @@ class AutoEncodeText:
             >>> AutoEncodeText.from_model_and_dataset_name(data_raw, "google/electra-base-discriminator", ["glue"], "rte")
 
         """
+        from ..result_analysis.azure_utils import JobID
+        dataset_name = JobID.dataset_list_to_str(dataset_name_list)
         if (dataset_name, subdataset_name) in TOKENIZER_MAPPING.keys():
             this_tokenizer = AutoTokenizer.from_pretrained(model_checkpoint_path, use_fast=True)
             token_func = TOKENIZER_MAPPING[(dataset_name, subdataset_name)]

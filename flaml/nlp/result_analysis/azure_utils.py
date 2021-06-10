@@ -22,6 +22,8 @@ class JobID:
     rep: int = field(default=0)
     sddt: int = field(default=None)
     sdhf: int = field(default=None)
+    var1: float = field(default=None)
+    var2: float = field(default=None)
 
     def __init__(self,
                  console_args=None):
@@ -85,7 +87,7 @@ class JobID:
             preparing for the job ID for wandb
         """
         field_dict = self.__dict__
-        keytoval_str = "_".join([JobID.dataset_list_to_str(field_dict[key], key)
+        keytoval_str = "_".join([JobID.dataset_list_to_str(field_dict[key])
                                  if type(field_dict[key]) == list
                                  else str(field_dict[key])
                                  for key in field_dict.keys() if not key.endswith("_full")])
@@ -97,7 +99,7 @@ class JobID:
         """
         list_keys = list(JobID.__dataclass_fields__.keys())
         field_dict = self.__dict__
-        keytoval_str = "_".join([key + "=" + JobID.dataset_list_to_str(field_dict[key], key)
+        keytoval_str = "_".join([key + "=" + JobID.dataset_list_to_str(field_dict[key])
                                  if type(field_dict[key]) == list
                                  else key + "=" + str(field_dict[key])
                                  for key in list_keys if not key.endswith("_full")])
@@ -109,7 +111,7 @@ class JobID:
         """
         list_keys = list(JobID.__dataclass_fields__.keys())
         field_dict = self.__dict__  # field_dict contains fields whose values are not None
-        keytoval_str = "_".join([key + "=" + JobID.dataset_list_to_str(field_dict[key], key)
+        keytoval_str = "_".join([key + "=" + JobID.dataset_list_to_str(field_dict[key])
                                  if type(field_dict[key]) == list
                                  else key + "=" + str(field_dict[key])
                                  for key in list_keys if key in field_dict.keys()])
@@ -126,9 +128,20 @@ class JobID:
                                    pre = 'funnel', presz = 'xlarge', spt = 'rspt',
                                    rep = 0, sddt = 43, sdhf = 42)
         """
-        field_keys = [key for key in
-                      list(JobID.__dataclass_fields__.keys()) if not key.endswith("_full")]
-        regex_expression = ".*" + "_".join([key + "=(?P<" + key + ">.*)" for key in field_keys]) + ".(json|zip)"
+        field_keys = [key for key in list(JobID.__dataclass_fields__.keys()) if not key.endswith("_full")]
+        regex_expression = ".*"
+        is_first = True
+        for key in field_keys:
+            if is_first:
+                prefix = ""
+                is_first = False
+            else:
+                prefix = "_"
+            if key.startswith("sd") or key.startswith("var"):
+                regex_expression += "(" + prefix + key + "=(?P<" + key + ">.*))?"
+            else:
+                regex_expression += prefix + key + "=(?P<" + key + ">.*)"
+        regex_expression += ".(json|zip)"
         result = re.search(regex_expression, keytoval_str)
         if result:
             result_dict = {}
@@ -138,7 +151,7 @@ class JobID:
                 elif key == "rep":
                     try:
                         result_dict[key] = int(result.group(key))
-                    except IndexError:
+                    except:
                         result_dict[key] = -1
                 else:
                     result_dict[key] = result.group(key)
@@ -147,9 +160,8 @@ class JobID:
             return None
 
     @staticmethod
-    def dataset_list_to_str(dataset_name, key):
-        if key == "dat":
-            assert isinstance(dataset_name, list)
+    def dataset_list_to_str(dataset_name, key = "dat"):
+        if isinstance(dataset_name, list):
             return "-".join(dataset_name)
         else:
             return dataset_name
@@ -180,11 +192,14 @@ class JobID:
             return None
 
     @staticmethod
-    def get_full_data_name(dataset_name, subdataset_name=None):
+    def get_full_data_name(dataset_name:list or str, subdataset_name=None):
         """
             convert a dataset name and sub dataset name to a full dataset name
         """
-        full_dataset_name = dataset_name
+        if isinstance(dataset_name, list):
+            full_dataset_name = JobID.dataset_list_to_str(dataset_name)
+        else:
+            full_dataset_name = dataset_name
         if subdataset_name:
             full_dataset_name = full_dataset_name + "_" + subdataset_name
         return full_dataset_name
@@ -193,7 +208,7 @@ class JobID:
         """
             get the full dataset name of the current JobID object
         """
-        return JobID.get_full_data_name(JobID.dataset_list_to_str(self.dat, "dat"), self.subdat)
+        return JobID.get_full_data_name(JobID.dataset_list_to_str(self.dat), self.subdat)
 
     @staticmethod
     def _extract_model_type_with_keywords_match(pre_full):
@@ -234,7 +249,8 @@ class JobID:
         self.rep = console_args.rep_id
         self.sddt = console_args.seed_data
         self.sdhf = console_args.seed_transformers
-
+        self.var1 = console_args.varying_arg1
+        self.var2 = console_args.varying_arg2
 
 class AzureUtils:
 
@@ -459,7 +475,7 @@ class AzureUtils:
             for each_attr in group_attrs:
                 group_val = getattr(each_jobconfig, each_attr)
                 if isinstance(group_val, list):
-                    group_attr_list.append(JobID.dataset_list_to_str(group_val, each_attr))
+                    group_attr_list.append(JobID.dataset_list_to_str(group_val))
                 else:
                     group_attr_list.append(group_val)
             group_attr_tuple = tuple(group_attr_list)

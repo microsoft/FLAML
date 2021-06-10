@@ -42,10 +42,12 @@ METRIC_MAPPING = OrderedDict(
 )
 
 
-def get_default_and_alternative_metric(dataset_name,
+def get_default_and_alternative_metric(dataset_name_list: list,
                                        subdataset_name=None,
                                        custom_metric_name=None,
                                        custom_metric_mode_name=None):
+    from ..result_analysis.azure_utils import JobID
+    dataset_name = JobID.dataset_list_to_str(dataset_name_list)
     if dataset_name not in METRIC_MAPPING.keys():
         assert custom_metric_name and custom_metric_mode_name, \
             "The dataset is not in {}, you must explicitly specify " \

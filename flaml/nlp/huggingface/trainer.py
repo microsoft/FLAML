@@ -48,6 +48,7 @@ class TrainerForAutoTransformers(transformers.Trainer):
         try:
             import torch
             from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
+            from ray import tune
 
             with tune.checkpoint_dir(step=self.state.global_step) as checkpoint_dir:
                 self.args.output_dir = checkpoint_dir
@@ -109,11 +110,3 @@ class TrainerForAutoTransformers(transformers.Trainer):
             per_device_train_batch_size,
             device_count)
         return float(warmup_steps / max_steps)
-
-    @staticmethod
-    def resolve_hp_conflict(search_space_dict):
-        if "max_steps" in search_space_dict and "num_train_epochs" in search_space_dict:
-            del search_space_dict["num_train_epochs"]
-        if "warmup_ratio" in search_space_dict and "warmup_steps" in search_space_dict:
-            del search_space_dict["warmup_ratio"]
-        return search_space_dict

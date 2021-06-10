@@ -27,7 +27,7 @@ def load_console_args(**custom_data_args):
     arg_parser.add_argument('--server_name', type=str, help='server name', required=False,
                             choices=["tmdev", "dgx", "azureml"], default="tmdev")
     arg_parser.add_argument('--algo_mode', type=str, help='hpo or grid search', required=False,
-                            choices=["grid", "gridbert", "hpo", "hfhpo", "list_s", "list", "bestnn"], default="hpo")
+                            choices=["grid", "hpo", "hfhpo"], default="hpo")
     arg_parser.add_argument('--data_root_dir', type=str, help='data dir', required=False, default="data/")
     arg_parser.add_argument('--dataset_subdataset_name', type=dataset_subdataset_name_format_check,
                             help='dataset and subdataset name', required=False, default=None)
@@ -56,6 +56,8 @@ def load_console_args(**custom_data_args):
     arg_parser.add_argument('--round_idx', type=int, help='round idx for acl experiments', required=False, default=0)
     arg_parser.add_argument('--seed_data', type=int, help='seed of data shuffling', required=False, default=43)
     arg_parser.add_argument('--seed_transformers', type=int, help='seed of transformers', required=False, default=42)
+    arg_parser.add_argument('--varying_arg1', type=float, help='arg to vary', required=False)
+    arg_parser.add_argument('--varying_arg2', type=float, help='arg to vary', required=False)
     args, unknown = arg_parser.parse_known_args()
 
     for each_key in custom_data_args.keys():

@@ -92,13 +92,15 @@ OUTPUT_PREDICTION_MAPPING = OrderedDict(
 )
 
 
-def auto_output_prediction(dataset_name,
+def auto_output_prediction(dataset_name_list: list,
                            output_path,
                            output_dir_name,
                            predictions,
                            train_data,
                            dev_name,
                            subset_name):
+    from ..result_analysis.azure_utils import JobID
+    dataset_name = JobID.dataset_list_to_str(dataset_name_list)
     if dataset_name in OUTPUT_PREDICTION_MAPPING.keys():
         return OUTPUT_PREDICTION_MAPPING[dataset_name](output_path,
                                                        output_dir_name,

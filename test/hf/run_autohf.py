@@ -226,16 +226,19 @@ def _test_hpo(args,
               wandb_utils,
               azure_utils = None,
               autohf_settings = None,
+              root_log_path = None,
+              **custom_hpo_args
               ):
     try:
         if not azure_utils:
-            azure_utils = AzureUtils(console_args=args, jobid= jobid_config, autohf=autohf)
+            azure_utils = AzureUtils(root_log_path= root_log_path,
+                                     console_args=args, jobid= jobid_config, autohf=autohf)
         preparedata_setting = get_preparedata_setting(args, jobid_config, wandb_utils)
         autohf.prepare_data(**preparedata_setting)
 
         analysis = validation_metric = test_metric = None
         if not autohf_settings:
-            autohf_settings = get_autohf_settings(args)
+            autohf_settings = get_autohf_settings(args, **custom_hpo_args)
         if args.algo_mode != "hfhpo":
             validation_metric, analysis = autohf.fit(**autohf_settings,)
         else:
@@ -263,6 +266,32 @@ def _test_hpo(args,
         azure_utils.write_exception()
     rm_home_result()
 
+def _exhaustive_sweep(args,
+              jobid_config,
+              autohf,
+              wandb_utils,
+              azure_utils = None,
+              autohf_settings = None,):
+    from flaml.nlp import AutoHPOSearchSpace
+    args.space_mode =jobid_config.spa = "cus"
+    args.algo_mode = jobid_config.mod = "grid"
+    args.algo_name = jobid_config.alg = "grid"
+
+    gridunion_space = AutoHPOSearchSpace.from_model_and_dataset_name(
+        "uni",
+        jobid_config.pre,
+        jobid_config.presz,
+        jobid_config.dat,
+        jobid_config.subdat
+    )
+
+    gridunion_space["learning_rate"] = [args.varying_arg1]
+    gridunion_space["weight_decay"] = [args.varying_arg2]
+    _test_hpo(args,jobid_config, autohf, wandb_utils, azure_utils,
+              autohf_settings,
+              root_log_path = args.root_log_path,
+              **{"hpo_space": gridunion_space})
+
 if __name__ == "__main__":
     args = load_console_args()
 
@@ -271,11 +300,12 @@ if __name__ == "__main__":
     wandb_utils = WandbUtils(is_wandb_on= False, console_args=args, jobid_config=jobid_config)
     wandb_utils.set_wandb_per_run()
 
-    if args.algo_mode in ("hpo", "hfhpo", "grid", "gridbert"):
-        _test_hpo(args, jobid_config, autohf, wandb_utils)
-    elif args.algo_mode == "bestnn":
-        search_base_and_search_lower_lr(args, jobid_config, autohf, wandb_utils)
-    elif args.algo_mode == "list":
-        evaluate_small_best_configs_on_large(args, autohf)
-    elif args.algo_mode == "list_s":
-        evaluate_large_best_configs_on_small(args, autohf)
+    #_test_hpo(args, jobid_config, autohf, wandb_utils)
+
+    # search_base_and_search_lower_lr(args, jobid_config, autohf, wandb_utils)
+
+    # evaluate_small_best_configs_on_large(args, autohf)
+
+    # evaluate_large_best_configs_on_small(args, autohf)
+
+    _exhaustive_sweep(args, jobid_config, autohf, wandb_utils)
