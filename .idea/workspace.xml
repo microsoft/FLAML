@@ -215,11 +215,11 @@
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.run_autohf" />
         <item itemvalue="Python tests.pytest in test_mobilebert.py" />
         <item itemvalue="Python.generate_result_summary" />
         <item itemvalue="Python.test_glue" />
         <item itemvalue="Python.run_analysis" />
+        <item itemvalue="Python.run_autohf" />
       </list>
     </recent_temporary>
   </component>
