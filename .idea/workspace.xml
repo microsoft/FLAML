@@ -195,10 +195,10 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.run_autohf" />
-      <item itemvalue="Python.run_analysis" />
-      <item itemvalue="Python.test_glue" />
       <item itemvalue="Python.generate_result_summary" />
+      <item itemvalue="Python.run_analysis" />
+      <item itemvalue="Python.run_autohf" />
+      <item itemvalue="Python.test_glue" />
       <item itemvalue="Python tests.pytest in test_mobilebert.py" />
     </list>
     <recent_temporary>
