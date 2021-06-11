@@ -457,7 +457,7 @@ class AzureUtils:
             return True
         return False
 
-    def get_blob_list_matching_partial_jobid(self,
+    def get_configblob_from_partial_jobid(self,
                                              root_log_path,
                                              partial_jobid,
                                              earliest_time:(float,float,float)=None):
@@ -466,10 +466,9 @@ class AzureUtils:
         """
         blob_list = []
         container_client = self._init_azure_clients()
-        jobid_config = JobID()
         for each_blob in container_client.list_blobs():
             if each_blob.name.startswith(root_log_path):
-                each_jobconfig = jobid_config.convert_blobname_to_jobid(each_blob.name)
+                each_jobconfig = JobID.convert_blobname_to_jobid(each_blob.name)
                 is_append = False
                 if each_jobconfig:
                     if each_jobconfig.is_match(partial_jobid):

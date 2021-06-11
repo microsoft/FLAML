@@ -9,12 +9,6 @@ class TrainerForAutoTransformers(transformers.Trainer):
             huggingface (:class:`~transformers.PreTrainedModel` or :obj:`torch.nn.Module`, `optional`):
     """
 
-    def get_optimizers(
-            self, num_training_steps
-    ):
-        self.current_optimizer, self.current_scheduler = super().get_optimizers(num_training_steps)
-        return (self.current_optimizer, self.current_scheduler)
-
     def evaluate(self,
                  eval_dataset=None):
         """

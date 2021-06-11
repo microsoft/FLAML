@@ -6,7 +6,9 @@ from .get_grid_search_space import \
      get_roberta_space,
      get_funnel_space,
      get_deberta_space,
-     get_albert_space
+     get_albert_space,
+     get_longformer_space,
+     get_mobilebert_space
      )
 
 GRID_SEARCH_SPACE_MAPPING = OrderedDict(
@@ -17,6 +19,8 @@ GRID_SEARCH_SPACE_MAPPING = OrderedDict(
         ("funnel", get_funnel_space),
         ("deberta", get_deberta_space),
         ("albert", get_albert_space),
+        ("mobilebert", get_mobilebert_space),
+        ("longformer", get_longformer_space)
     ]
 )
 

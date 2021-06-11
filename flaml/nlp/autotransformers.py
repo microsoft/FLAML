@@ -614,7 +614,7 @@ class AutoTransformers:
             best_run = trainer.hyperparameter_search(
                 n_trials=num_samples,
                 time_budget_s=time_budget,
-                hp_space=ray_hp_space,
+                #hp_space=ray_hp_space,
                 backend=HPSearchBackend.RAY,
                 resources_per_trial=resources_per_trial)
             duration = time.time() - start_time
