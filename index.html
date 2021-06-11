@@ -90,6 +90,7 @@
 <li><a class="reference internal" href="#">FLAML API Documentation</a><ul>
 <li><a class="reference internal" href="#automl">AutoML</a></li>
 <li><a class="reference internal" href="#tune">Tune</a></li>
+<li><a class="reference internal" href="#online-automl">Online AutoML</a></li>
 <li><a class="reference internal" href="#nlp">NLP</a></li>
 </ul>
 </li>
@@ -808,6 +809,58 @@ unsuccessful, e.g. when the search space has already been set.
 2. same resource, move from the incumbent to a random direction
 3. same resource, move from the incumbent to the opposite direction
 #TODO: better decouple FLOW2 config suggestion and stepsize update</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="online-automl">
+<h2>Online AutoML<a class="headerlink" href="#online-automl" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="flaml.AutoVW">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">flaml.</span></span><span class="sig-name descname"><span class="pre">AutoVW</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_live_model_num</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">search_space</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">init_config</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_resource_lease</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">automl_runner_args</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scheduler_args</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_select_policy</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'threshold_loss_ucb'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'mae_clipped'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_seed</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_selection_mode</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'min'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cb_coef</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/onlineml/autovw.html#AutoVW"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.AutoVW" title="Permalink to this definition">¶</a></dt>
+<dd><p>The AutoML class</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.AutoVW.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_sample</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/onlineml/autovw.html#AutoVW.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.AutoVW.predict" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.AutoVW.learn">
+<span class="sig-name descname"><span class="pre">learn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_sample</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/onlineml/autovw.html#AutoVW.learn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.AutoVW.learn" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.AutoVW.AUTO">
+<span class="sig-name descname"><span class="pre">AUTO</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flaml.AutoVW.AUTO" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.AutoVW.get_ns_feature_dim_from_vw_example">
+<em class="property"><span class="pre">static</span> </em><span class="sig-name descname"><span class="pre">get_ns_feature_dim_from_vw_example</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vw_example</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">dict</span><a class="reference internal" href="_modules/flaml/onlineml/autovw.html#AutoVW.get_ns_feature_dim_from_vw_example"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.AutoVW.get_ns_feature_dim_from_vw_example" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get a dictionary of feature dimensionality for each namespace singleton</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="id0">
+<span class="sig-name descname"><span class="pre">learn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_sample</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/onlineml/autovw.html#AutoVW.learn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id0" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform one online learning step with the given data sample</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>data_sample</strong> (<em>vw_example</em>) – one data sample on which the model gets updated</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="id1">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_sample</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/onlineml/autovw.html#AutoVW.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id1" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict on the input example (e.g., vw example)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>data_sample</strong> (<em>vw_example</em>) – </p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
