@@ -47,6 +47,6 @@ class AutoSeqClassificationHead:
         raise ValueError(
             "Unrecognized configuration class {} for class {}.\n"
             "Model type should be one of {}.".format(
-                config.__class__, cls.__name__, ", ".join(c for c in MODEL_CLASSIFICATION_HEAD_MAPPING.keys())
+                config.__class__, cls.__name__, ", ".join(MODEL_CLASSIFICATION_HEAD_MAPPING.keys())
             )
         )
