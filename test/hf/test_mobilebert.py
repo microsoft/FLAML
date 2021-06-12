@@ -38,6 +38,7 @@ def test_hpo():
     from flaml.nlp import AutoTransformers
     from flaml.nlp import JobID
     from flaml.nlp import AzureUtils
+    import azure
 
     jobid_config = JobID()
     jobid_config.set_unittest_config()
@@ -46,6 +47,7 @@ def test_hpo():
     azure_utils = AzureUtils(root_log_path="logs_test/",
                              jobid=jobid_config, autohf=autohf)
     azure_utils._azure_key = "test"
+    azure_utils._container_name = "test"
 
     preparedata_setting = get_preparedata_setting(jobid_config)
     autohf.prepare_data(**preparedata_setting)
@@ -58,11 +60,14 @@ def test_hpo():
     if test_metric:
         validation_metric.update({"test": test_metric})
 
-    configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
-    azure_utils.write_autohf_output(configscore_list=configscore_list,
-                                    valid_metric=validation_metric,
-                                    predictions=predictions,
-                                    duration=autohf.last_run_duration)
+    try:
+        configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
+        azure_utils.write_autohf_output(configscore_list=configscore_list,
+                                        valid_metric=validation_metric,
+                                        predictions=predictions,
+                                        duration=autohf.last_run_duration)
+    except azure.core.exceptions.HttpResponseError:
+        print("HTTP connection to azure fails")
 
     jobid_config.mod = "grid"
     autohf = AutoTransformers()
