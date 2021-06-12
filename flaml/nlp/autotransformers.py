@@ -84,7 +84,7 @@ class AutoTransformers:
                                                                  self.jobid_config.dat,
                                                                  self.jobid_config.subdat,
                                                                  **custom_hpo_args)
-        self._search_space_hpo = AutoTransformers._convert_dict_to_ray_tune_space(search_space_hpo_json,mode=self.jobid_config.mod)
+        self._search_space_hpo = AutoTransformers._convert_dict_to_ray_tune_space(search_space_hpo_json, mode=self.jobid_config.mod)
 
     def _wrapper(self, func, *args):  # with star
         return func(*args)
