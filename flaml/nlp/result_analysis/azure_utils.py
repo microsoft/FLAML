@@ -271,17 +271,14 @@ class JobID:
 
     @staticmethod
     def extract_model_type(full_model_name):
+        from transformers import AutoConfig
+        model_config = AutoConfig.from_pretrained(full_model_name)
+        config_json_file = model_config.get_config_dict(full_model_name)[0]
         try:
-            from transformers import AutoConfig
-            model_config = AutoConfig.from_pretrained(full_model_name)
-            config_json_file = model_config.get_config_dict(full_model_name)[0]
-            try:
-                model_type = config_json_file["model_type"]
-            except KeyError:
-                model_type = JobID._extract_model_type_with_keywords_match(full_model_name)
-            return model_type
-        except ImportError:
-            pass
+            model_type = config_json_file["model_type"]
+        except KeyError:
+            model_type = JobID._extract_model_type_with_keywords_match(full_model_name)
+        return model_type
 
     def set_jobid_from_console_args(self, console_args):
         self.dat = console_args.dataset_subdataset_name.split(":")[0].split(",")
@@ -326,26 +323,20 @@ class AzureUtils:
                + self._azure_key + ";EndpointSuffix=core.windows.net"
 
     def _init_azure_clients(self):
-        try:
-            from azure.storage.blob import ContainerClient
-            connection_string = self._get_complete_connection_string()
-            container_client = ContainerClient.from_connection_string(conn_str=connection_string,
-                                                                      container_name=self._container_name)
-            return container_client
-        except ImportError:
-            pass
+        from azure.storage.blob import ContainerClient
+        connection_string = self._get_complete_connection_string()
+        container_client = ContainerClient.from_connection_string(conn_str=connection_string,
+                                                                  container_name=self._container_name)
+        return container_client
 
     def _init_blob_client(self,
                           local_file_path):
-        try:
-            from azure.storage.blob import BlobServiceClient
+        from azure.storage.blob import BlobServiceClient
 
-            connection_string = self._get_complete_connection_string()
-            blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-            blob_client = blob_service_client.get_blob_client(container=self._container_name, blob=local_file_path)
-            return blob_client
-        except ImportError:
-            pass
+        connection_string = self._get_complete_connection_string()
+        blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        blob_client = blob_service_client.get_blob_client(container=self._container_name, blob=local_file_path)
+        return blob_client
 
     def upload_local_file_to_azure(self, local_file_path):
         blob_client = self._init_blob_client(local_file_path)
