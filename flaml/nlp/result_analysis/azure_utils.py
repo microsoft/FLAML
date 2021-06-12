@@ -36,7 +36,7 @@ class ConfigScore:
 class ConfigScoreList:
 
     def __init__(self,
-                 config_score_list: [ConfigScore],
+                 config_score_list: typing.List[ConfigScore],
                  jobid_config = None,
                  blob_file = None,
                  ):
