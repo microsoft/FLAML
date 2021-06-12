@@ -27,7 +27,7 @@ def model_init():
     from flaml.nlp import AutoTransformers
     autohf = AutoTransformers()
     AzureUtils(root_log_path="logs_test/",
-                             jobid=jobid_config, autohf=autohf)
+               jobid=jobid_config, autohf=autohf)
 
     preparedata_setting = get_preparedata_setting(jobid_config)
     autohf.prepare_data(**preparedata_setting)
@@ -52,11 +52,6 @@ def test_dataprocess():
     """
     test to increase the coverage for flaml.nlp.dataprocess_auto
     """
-    try:
-        import ray
-    except ImportError:
-        return
-
     from flaml.nlp import AutoTransformers
     from flaml.nlp import JobID
     from flaml.nlp import AzureUtils
@@ -79,7 +74,7 @@ def test_dataprocess():
 
         try:
             AzureUtils(root_log_path="logs_test/",
-                                     jobid=jobid_config, autohf=autohf)
+                       jobid=jobid_config, autohf=autohf)
 
             preparedata_setting = get_preparedata_setting(jobid_config)
             autohf.prepare_data(**preparedata_setting)
@@ -115,17 +110,12 @@ def test_hpo_space():
         elif jobid_config.spa == "buni":
             best_config = {"learning_rate": 1e-5}
             custom_hpo_args = {"points_to_evaluate": [best_config],
-                               "bound": {"learning_rate":
-                                             {"u": best_config["learning_rate"]}}}
+                               "bound": {"learning_rate": {"u": best_config["learning_rate"]}}}
         else:
             custom_hpo_args = {}
 
-        AutoHPOSearchSpace.from_model_and_dataset_name(jobid_config.spa,
-                                                             jobid_config.pre,
-                                                             jobid_config.presz,
-                                                             jobid_config.dat,
-                                                             jobid_config.subdat,
-                                                             **custom_hpo_args)
+        AutoHPOSearchSpace.from_model_and_dataset_name(jobid_config.spa, jobid_config.pre, jobid_config.presz,
+                                                       jobid_config.dat, jobid_config.subdat, **custom_hpo_args)
 
 
 def test_trainer():
@@ -205,6 +195,7 @@ if __name__ == "__main__":
         import ray
     except ImportError:
         import sys
+
         sys.exit(1)
 
     test_wandb_utils()
