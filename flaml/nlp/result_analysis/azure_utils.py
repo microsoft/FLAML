@@ -278,7 +278,7 @@ class JobID:
             try:
                 model_type = config_json_file["model_type"]
             except KeyError:
-                model_type = JobID._extract_model_type_with_keywords_match()
+                model_type = JobID._extract_model_type_with_keywords_match(full_model_name)
             return model_type
         except ImportError:
             pass
@@ -506,7 +506,7 @@ class AzureUtils:
         if earliest_time:
             assert isinstance(earliest_time, tuple), "earliest_time must be a tuple of (YYYY, MM, DD)"
 
-        matched_blob_list = self.get_blob_list_matching_partial_jobid(
+        matched_blob_list = self.get_configblob_from_partial_jobid(
             root_log_path,
             partial_jobid,
             earliest_time=earliest_time)
