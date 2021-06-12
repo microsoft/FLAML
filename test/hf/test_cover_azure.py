@@ -115,6 +115,12 @@ def test_azureutils():
 
 
 if __name__ == "__main__":
+    try:
+        import ray
+    except ImportError:
+        import sys
+        sys.exit(1)
+
     test_get_configblob_from_partial_jobid()
     test_jobid()
     test_azureutils()

@@ -204,6 +204,12 @@ def test_wandb_utils():
 
 
 if __name__ == "__main__":
+    try:
+        import ray
+    except ImportError:
+        import sys
+        sys.exit(1)
+
     test_wandb_utils()
     test_dataprocess()
     test_gridsearch_space()
