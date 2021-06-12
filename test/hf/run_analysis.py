@@ -1,6 +1,5 @@
 '''Require: pip install torch transformers datasets wandb flaml[blendsearch,ray]
 '''
-# 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
 import argparse, os
 import subprocess
 from flaml.nlp.result_analysis.azure_utils import JobID
@@ -170,9 +169,8 @@ def analyze_exhaustive_sweep(console_args):
         matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
             "logs_seed/",
             partial_jobid_config)
-        merged_config_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
-                                              for x in config_score_list._config_score_list])
-        stop = 0
+        ConfigScoreList([x for config_score_list in matched_config_score_lists
+                         for x in config_score_list._config_score_list])
 
 
 def create_partial_config_bestnn():

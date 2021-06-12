@@ -1,6 +1,7 @@
 import os
 import transformers
 
+
 class TrainerForAutoTransformers(transformers.Trainer):
     """
         Overriding transformers.Trainer.

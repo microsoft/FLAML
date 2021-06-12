@@ -433,7 +433,7 @@ class AutoTransformers:
                         assert isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Categorical) or \
                                isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Float) or \
                                isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Integer), \
-                            "Every hp space must either be categorical, integer or float"
+                               "Every hp space must either be categorical, integer or float"
 
                         if isinstance(self._search_space_hpo[each_hp], ray.tune.sample.Categorical):
                             assert each_init_config[each_hp] in self._search_space_hpo[each_hp].categories, \
@@ -441,7 +441,7 @@ class AutoTransformers:
                         else:
                             assert self._search_space_hpo[each_hp].lower <= each_init_config[each_hp] <= \
                                    self._search_space_hpo[each_hp].upper, \
-                                "points_to_evaluate {each_hp} value must be within the search space"
+                                   "points_to_evaluate {each_hp} value must be within the search space"
 
     def _get_search_algo(self,
                          search_algo_name,
@@ -540,8 +540,8 @@ class AutoTransformers:
 
         '''Fine tuning the huggingface using HF's API Transformers.hyperparameter_search (for comparitive purpose).
                Transformers.hyperparameter_search has the following disadvantages:
-                 (1) it does not return tune.analysis.Analysis result, what is analysis used for
-                 (2) it is inconvenient to develop on top of Transformers.hyperparameter_search, whose trainable function,
+            (1) it does not return tune.analysis.Analysis result, what is analysis used for
+            (2) it is inconvenient to develop on top of Transformers.hyperparameter_search, whose trainable function,
                  search space, etc. are defined inside of Transformers.hyperparameter_search.
     
                     An example:

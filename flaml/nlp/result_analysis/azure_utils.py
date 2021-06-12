@@ -205,7 +205,7 @@ class JobID:
                 elif key == "rep":
                     try:
                         result_dict[key] = int(result.group(key))
-                    except:
+                    except IndexError:
                         result_dict[key] = -1
                 else:
                     result_dict[key] = result.group(key)
