@@ -99,7 +99,7 @@ class AutoSearchAlgorithm:
         raise ValueError(
             "Unrecognized method {} for this kind of AutoSearchAlgorithm: {}.\n"
             "Method name should be one of {}.".format(
-                search_algo_name, cls.__name__, ", ".join(c for c in SEARCH_ALGO_MAPPING.keys())
+                search_algo_name, cls.__name__, ", ".join(SEARCH_ALGO_MAPPING.keys())
             )
         )
 
