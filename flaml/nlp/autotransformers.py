@@ -84,12 +84,16 @@ class AutoTransformers:
                                                                  self.jobid_config.dat,
                                                                  self.jobid_config.subdat,
                                                                  **custom_hpo_args)
-        self._search_space_hpo = AutoTransformers._convert_dict_to_ray_tune_space(search_space_hpo_json,mode=self.jobid_config.mod)
+        self._search_space_hpo = AutoTransformers._convert_dict_to_ray_tune_space(
+            search_space_hpo_json,
+            mode=self.jobid_config.mod)
 
-    def _wrapper(self, func, *args):  # with star
+    @staticmethod
+    def _wrapper(func, *args):  # with star
         return func(*args)
 
-    def _get_split_name(self, data_raw, fold_name=None):
+    @staticmethod
+    def _get_split_name(data_raw, fold_name=None):
         if fold_name:
             return fold_name
         fold_keys = data_raw.keys()
@@ -99,7 +103,7 @@ class AutoTransformers:
             for each_split_name in {"train", "validation", "test"}:
                 assert not (each_key.startswith(each_split_name) and each_key != each_split_name), \
                     "Dataset split must be within {}, must be explicitly specified in dataset_config, e.g.," \
-                    "'fold_name': ['train', 'validation_matched', 'test_matched']. Please refer to the example in the " \
+                    "'fold_name': ['train', 'validation_matched', 'test_matched']. Please refer to the example in the" \
                     "documentation of AutoTransformers.prepare_data()".format(",".join(fold_keys))
         return "train", "validation", "test"
 
@@ -129,19 +133,21 @@ class AutoTransformers:
 
             Args:
                 server_name:
-                    a string variable, which can be tmdev or azureml
+                    A string variable, which can be tmdev or azureml
                 data_root_path:
-                    the root path for storing the checkpoints and output results, e.g., "data/"
+                    The root path for storing the checkpoints and output results, e.g., "data/"
                 jobid_config:
-                    a JobID object describing the profile of job
+                    A JobID object describing the profile of job
                 wandb_utils:
-                    a WandbUtils object for wandb operations
+                    A WandbUtils object for wandb operations
                 max_seq_length (optional):
-                    max_seq_lckpt_per_epochength for the huggingface, this hyperparameter must be specified
+                    Max_seq_lckpt_per_epochength for the huggingface, this hyperparameter must be specified
                     at the data processing step
                 resplit_portion:
-                    the proportion for resplitting the train and dev data when split_mode="resplit".
+                    The proportion for resplitting the train and dev data when split_mode="resplit".
                     If args.resplit_mode = "rspt", resplit_portion is required
+                is_wandb_on:
+                    A boolean variable indicating whether wandb is used
             '''
         from .dataset.dataprocess_auto import AutoEncodeText
         from transformers import AutoTokenizer
@@ -173,9 +179,11 @@ class AutoTransformers:
             data_raw = load_dataset(JobID.dataset_list_to_str(self.jobid_config.dat),
                                     self.jobid_config.subdat)
         else:
-            data_raw = self._wrapper(load_dataset, *self.jobid_config.dat)
+            data_raw = AutoTransformers._wrapper(load_dataset, *self.jobid_config.dat)
 
-        self._train_name, self._dev_name, self._test_name = self._get_split_name(data_raw, fold_name=fold_name)
+        self._train_name, self._dev_name, self._test_name = AutoTransformers._get_split_name(
+            data_raw,
+            fold_name=fold_name)
         auto_tokentoids_config = {"max_seq_length": self._max_seq_length}
         self._tokenizer = AutoTokenizer.from_pretrained(self.jobid_config.pre_full, use_fast=True)
 
@@ -230,7 +238,7 @@ class AutoTransformers:
                     self.test_dataset = subfold_dataset
         else:
             self.train_dataset, self.eval_dataset, self.test_dataset \
-            = data_encoded[self._train_name], data_encoded[self._dev_name], data_encoded[self._test_name]
+                = data_encoded[self._train_name], data_encoded[self._dev_name], data_encoded[self._test_name]
 
     def _load_model(self,
                     checkpoint_path=None,
@@ -292,7 +300,8 @@ class AutoTransformers:
             this_model.resize_token_embeddings(len(self._tokenizer))
             return this_model
         elif this_task == "regression":
-            model_config = _set_model_config(checkpoint_path, per_model_config, 1)
+            model_config_num_labels = 1
+            model_config = _set_model_config()
             this_model = get_this_model()
             return this_model
 

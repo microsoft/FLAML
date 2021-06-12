@@ -42,7 +42,7 @@ def test_hpo():
     jobid_config.set_unittest_config()
     autohf = AutoTransformers()
 
-    azure_utils = AzureUtils(root_log_path= "logs_test/",
+    azure_utils = AzureUtils(root_log_path="logs_test/",
                              jobid=jobid_config, autohf=autohf)
 
     preparedata_setting = get_preparedata_setting(jobid_config)
@@ -63,7 +63,6 @@ def test_hpo():
                                         duration=autohf.last_run_duration)
     except AttributeError:
         pass
-
 
 
 if __name__ == "__main__":
