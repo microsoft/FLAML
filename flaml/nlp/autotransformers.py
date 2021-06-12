@@ -661,6 +661,7 @@ class AutoTransformers:
             fp16=True,
             verbose=1,
             resources_per_trial=None,
+            ray_local_mode=False,
             **custom_hpo_args):
         '''Fine tuning the huggingface using the hpo setting
 
@@ -694,6 +695,8 @@ class AutoTransformers:
                 messages
             fp16:
                 boolean, default = True | whether to use fp16
+            ray_local_mode:
+                boolean, default = False | whether to use the local mode (debugging mode) for ray tune.run
             custom_hpo_args:
                 The additional keyword arguments, e.g.,
                 custom_hpo_args = {"points_to_evaluate": [{
@@ -713,7 +716,7 @@ class AutoTransformers:
         self._set_metric(custom_metric_name, custom_metric_mode_name)
         self._set_task()
         self._fp16 = fp16
-        ray.init()
+        ray.init(local_mode=ray_local_mode)
         self._set_search_space(**custom_hpo_args)
 
         search_algo = self._get_search_algo(self.jobid_config.alg, self.jobid_config.arg, **custom_hpo_args)

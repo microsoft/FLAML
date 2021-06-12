@@ -24,6 +24,7 @@ def get_autohf_settings():
                        "time_budget": 100000,
                        "ckpt_per_epoch": 1,
                        "fp16": False,
+                       "ray_local_mode": True
                        }
     return autohf_settings
 
@@ -49,6 +50,7 @@ def test_hpo():
     autohf.prepare_data(**preparedata_setting)
 
     autohf_settings = get_autohf_settings()
+    autohf_settings["points_to_evaluate"] = [{"learning_rate": 2e-5}]
     validation_metric, analysis = autohf.fit(**autohf_settings)
 
     predictions, test_metric = autohf.predict()
@@ -64,6 +66,13 @@ def test_hpo():
     except AttributeError:
         pass
 
+    jobid_config.mod = "grid"
+    autohf = AutoTransformers()
+    azure_utils = AzureUtils(root_log_path="logs_test/",
+                             jobid=jobid_config, autohf=autohf)
+
+    preparedata_setting = get_preparedata_setting(jobid_config)
+    autohf.prepare_data(**preparedata_setting)
 
 if __name__ == "__main__":
     test_hpo()

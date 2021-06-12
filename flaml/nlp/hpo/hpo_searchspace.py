@@ -1,11 +1,12 @@
 from collections import OrderedDict
 from .grid_searchspace_auto import AutoGridSearchSpace
 
+
 def hpo_space_custom(model_type=None,
-                      model_size_type=None,
-                      dataset_name_list:list=None,
-                      subdataset_name=None,
-                      algo_mode=None,
+                     model_size_type=None,
+                     dataset_name_list: list = None,
+                     subdataset_name=None,
+                     algo_mode=None,
                      **custom_hpo_args):
     """
     The 5 arguments here cannot be deleted, they need to be kept consistent with
@@ -15,9 +16,10 @@ def hpo_space_custom(model_type=None,
     custom_search_space = custom_hpo_args["hpo_space"]
     return custom_search_space
 
+
 def bounded_gridunion(model_type=None,
                       model_size_type=None,
-                      dataset_name_list:list=None,
+                      dataset_name_list: list = None,
                       subdataset_name=None,
                       algo_mode=None,
                       **custom_hpo_args):
@@ -53,7 +55,7 @@ def bounded_gridunion(model_type=None,
 
 def hpo_space_gridunion(model_type=None,
                         model_size_type=None,
-                        dataset_name_list:list=None,
+                        dataset_name_list: list = None,
                         subdataset_name=None,
                         algo_mode=None,
                         **custom_hpo_args):
@@ -84,23 +86,22 @@ def hpo_space_gridunion(model_type=None,
 def hpo_space_gridunion_smoke_test(
         model_type=None,
         model_size_type=None,
-        dataset_name_list:list=None,
+        dataset_name_list: list = None,
         subdataset_name=None,
         algo_mode=None,
         **custom_hpo_args):
-    return {'learning_rate': [1e-5],
-            'weight_decay': [0.0],
-            'adam_epsilon': [1e-08],
-            'warmup_ratio': [0.1],
-            'per_device_train_batch_size': [2],
-            'hidden_dropout_prob': [0.1],
-            'attention_probs_dropout_prob': [0.1],
-            'num_train_epochs': [0.05]}
+    return {
+        "learning_rate": {"l": 1e-6, "u": 1e-3, "space": "log"},
+        "num_train_epochs": [0.01],
+        "per_device_train_batch_size": [2],
+        "warmup_ratio": {"l": 0.0, "u": 0.3, "space": "linear"},
+        "weight_decay": {"l": 0.0, "u": 0.3, "space": "linear"}
+    }
 
 
 def hpo_space_generic(model_type=None,
                       model_size_type=None,
-                      dataset_name_list:list=None,
+                      dataset_name_list: list = None,
                       subdataset_name=None,
                       algo_mode=None,
                       **custom_hpo_args):
@@ -116,7 +117,7 @@ def hpo_space_generic(model_type=None,
 
 def hpo_space_generic_grid(model_type=None,
                            model_size_type=None,
-                           dataset_name_list:list=None,
+                           dataset_name_list: list = None,
                            subdataset_name=None,
                            algo_mode=None,
                            **custom_hpo_args):
@@ -132,7 +133,7 @@ def hpo_space_generic_grid(model_type=None,
 
 def hpo_space_small(model_type=None,
                     model_size_type=None,
-                    dataset_name_list:list=None,
+                    dataset_name_list: list = None,
                     subdataset_name=None,
                     algo_mode=None,
                     **custom_hpo_args):
@@ -159,18 +160,20 @@ def hpo_space_small(model_type=None,
 
     return output_config
 
+
 def hpo_space_grid(model_type=None,
-                    model_size_type=None,
-                    dataset_name_list:list=None,
-                    subdataset_name=None,
-                    algo_mode=None,
-                    **custom_hpo_args):
+                   model_size_type=None,
+                   dataset_name_list: list = None,
+                   subdataset_name=None,
+                   algo_mode=None,
+                   **custom_hpo_args):
     return AutoGridSearchSpace.from_model_and_dataset_name(model_type,
                                                            model_size_type,
                                                            dataset_name_list,
                                                            subdataset_name,
                                                            algo_mode
                                                            )
+
 
 HPO_SEARCH_SPACE_MAPPING = OrderedDict(
     [
@@ -205,7 +208,7 @@ class AutoHPOSearchSpace:
                                     hpo_searchspace_mode,
                                     model_type,
                                     model_size_type,
-                                    dataset_name_list:list=None,
+                                    dataset_name_list: list = None,
                                     subdataset_name=None,
                                     algo_mode=None,
                                     **custom_hpo_args):

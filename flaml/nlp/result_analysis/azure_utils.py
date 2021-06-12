@@ -44,13 +44,14 @@ class ConfigScoreList:
         self._blob_file = blob_file
         self._jobid_config = jobid_config
 
-    def sorted(self, sort_method):
+    def sorted(self, sort_method="unsorted", metric_mode="max"):
         if sort_method == "unsorted":
             self._config_score_list = self._config_score_list
         elif sort_method == "sort_time":
-            self._config_score_list = sorted(self._config_score_list, key=lambda x: x[2], reverse=False)
+            self._config_score_list = sorted(self._config_score_list, key=lambda x: x.start_time, reverse=False)
         else:
-            self._config_score_list = sorted(self._config_score_list, key=lambda x: x[1], reverse=True)
+            self._config_score_list = sorted(self._config_score_list,
+                                             key=lambda x: getattr(x, "metric_score")[metric_mode], reverse=True)
 
     def get_best_config(self,
                         metric_mode="max"):
@@ -89,7 +90,7 @@ class JobID:
         self.subdat = "mrpc"
         self.mod = "hpo"
         self.spa = "uni_test"
-        self.arg = "dft"
+        self.arg = "cus"
         self.alg = "bs"
         self.pru = "None"
         self.pre_full = "google/mobilebert-uncased"
@@ -351,13 +352,6 @@ class AzureUtils:
             parents=True, exist_ok=True)
         with open(blobname, "wb") as fout:
             fout.write(blob_client.download_blob().readall())
-
-    def write_exception(self):
-        result_json = {
-            "timestamp": datetime.now(),
-        }
-        local_file_path = self.generate_local_json_path()
-        self.create_local_json_and_upload(result_json, local_file_path)
 
     def extract_configscore_list_from_analysis(self,
                                                analysis):
