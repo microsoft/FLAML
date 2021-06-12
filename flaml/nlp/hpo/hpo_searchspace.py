@@ -236,7 +236,7 @@ class AutoHPOSearchSpace:
                 Any additional keyword argument to be used for the function for the HPO search space
 
         Example:
-            >>> AutoHPOSearchSpace.from_model_and_dataset_name("uni", "electra", "small", "glue", "rte", "hpo")
+            >>> AutoHPOSearchSpace.from_model_and_dataset_name("uni", "electra", "small", ["glue"], "rte", "hpo")
         """
 
         if hpo_searchspace_mode in HPO_SEARCH_SPACE_MAPPING.keys():
@@ -252,6 +252,6 @@ class AutoHPOSearchSpace:
             "Unrecognized method {},{} for this kind of AutoHPOSearchSpace: {}.\n"
             "Method name should be one of {}.".format(
                 hpo_searchspace_mode, dataset_name_list, cls.__name__,
-                ", ".join(c.__name__ for c in HPO_SEARCH_SPACE_MAPPING.keys())
+                ", ".join(c for c in HPO_SEARCH_SPACE_MAPPING.keys())
             )
         )

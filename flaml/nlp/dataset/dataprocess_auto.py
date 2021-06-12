@@ -222,6 +222,6 @@ class AutoEncodeText:
         raise ValueError(
             "Unrecognized method {},{} for this kind of AutoGridSearchSpace: {}.\n"
             "Method name should be one of {}.".format(
-                dataset_name, subdataset_name, cls.__name__, ", ".join(c.__name__ for c in TOKENIZER_MAPPING.keys())
+                dataset_name, subdataset_name, cls.__name__, ", ".join(c[0] for c in TOKENIZER_MAPPING.keys())
             )
         )

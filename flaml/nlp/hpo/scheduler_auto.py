@@ -46,6 +46,6 @@ class AutoScheduler:
         raise ValueError(
             "Unrecognized scheduler {} for this kind of AutoScheduler: {}.\n"
             "Scheduler name should be one of {}.".format(
-                scheduler_name, cls.__name__, ", ".join(c.__name__ for c in SCHEDULER_MAPPING.keys())
+                scheduler_name, cls.__name__, ", ".join(c for c in SCHEDULER_MAPPING.keys())
             )
         )

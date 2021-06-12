@@ -153,12 +153,12 @@ def test_switch_head():
             classifier = AutoSeqClassificationHead \
                 .from_model_type_and_config(jobid_config.pre,
                                             model_config)
-        except AttributeError:
+        except ValueError:
             pass
 
 if __name__ == "__main__":
-    test_dataprocess()
-    test_gridsearch_space()
-    test_hpo_space()
-    test_trainer()
+    #test_dataprocess()
+    #test_gridsearch_space()
+    #test_hpo_space()
+    #test_trainer()
     test_switch_head()

@@ -81,7 +81,7 @@ class AutoGridSearchSpace:
                 A string variable which is the algorithm mode for grid search, e.g., "gridbert"
 
         Example:
-            >>> AutoGridSearchSpace.from_model_and_dataset_name("electra", "small", "glue", "rte", "grid")
+            >>> AutoGridSearchSpace.from_model_and_dataset_name("electra", "small", ["glue"], "rte", "grid")
 
         """
 
@@ -92,6 +92,6 @@ class AutoGridSearchSpace:
         raise ValueError(
             "Unrecognized method {},{} for this kind of AutoGridSearchSpace: {}.\n"
             "Method name should be one of {}.".format(
-                model_type, dataset_name_list, cls.__name__, ", ".join(c.__name__ for c in GRID_SEARCH_SPACE_MAPPING.keys())
+                model_type, dataset_name_list, cls.__name__, ", ".join(c for c in GRID_SEARCH_SPACE_MAPPING.keys())
             )
         )

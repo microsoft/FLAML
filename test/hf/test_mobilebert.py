@@ -37,34 +37,29 @@ def test_hpo():
     from flaml.nlp import AutoTransformers
     from flaml.nlp import JobID
     from flaml.nlp import AzureUtils
-    from flaml.nlp.utils import load_console_args
 
     jobid_config = JobID()
     jobid_config.set_unittest_config()
     autohf = AutoTransformers()
 
-    try:
-        azure_utils = AzureUtils(root_log_path= "logs_test/",
-                                 jobid=jobid_config, autohf=autohf)
+    azure_utils = AzureUtils(root_log_path= "logs_test/",
+                             jobid=jobid_config, autohf=autohf)
 
-        preparedata_setting = get_preparedata_setting(jobid_config)
-        autohf.prepare_data(**preparedata_setting)
+    preparedata_setting = get_preparedata_setting(jobid_config)
+    autohf.prepare_data(**preparedata_setting)
 
-        autohf_settings = get_autohf_settings()
-        validation_metric, analysis = autohf.fit(**autohf_settings)
+    autohf_settings = get_autohf_settings()
+    validation_metric, analysis = autohf.fit(**autohf_settings)
 
-        predictions, test_metric = autohf.predict()
-        if test_metric:
-            validation_metric.update({"test": test_metric})
-        configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
-        azure_utils.write_autohf_output(configscore_list=configscore_list,
-                                        valid_metric=validation_metric,
-                                        predictions=predictions,
-                                        duration=autohf.last_run_duration)
+    predictions, test_metric = autohf.predict()
+    if test_metric:
+        validation_metric.update({"test": test_metric})
+    configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
+    azure_utils.write_autohf_output(configscore_list=configscore_list,
+                                    valid_metric=validation_metric,
+                                    predictions=predictions,
+                                    duration=autohf.last_run_duration)
 
-    except Exception as err:
-        print(err)
-        pass
 
 
 if __name__ == "__main__":

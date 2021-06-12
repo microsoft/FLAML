@@ -55,7 +55,7 @@ class AutoSearchAlgorithm:
 
         Example:
         >>> from flaml.nlp.hpo.hpo_searchspace import AutoHPOSearchSpace
-        >>> search_space_hpo=AutoHPOSearchSpace.from_model_and_dataset_name(logger, "uni", "electra", "small", "glue", "rte")
+        >>> search_space_hpo=AutoHPOSearchSpace.from_model_and_dataset_name("uni", "electra", "small", ["glue"], "rte")
         >>> search_algo = AutoSearchAlgorithm.from_method_name("bs", "cus", search_space_hpo,
                          {"points_to_evaluate": [{"learning_rate": 1e-5, "num_train_epochs": 10}])
         """
@@ -99,7 +99,7 @@ class AutoSearchAlgorithm:
         raise ValueError(
             "Unrecognized method {} for this kind of AutoSearchAlgorithm: {}.\n"
             "Method name should be one of {}.".format(
-                search_algo_name, cls.__name__, ", ".join(c.__name__ for c in SEARCH_ALGO_MAPPING.keys())
+                search_algo_name, cls.__name__, ", ".join(c for c in SEARCH_ALGO_MAPPING.keys())
             )
         )
 

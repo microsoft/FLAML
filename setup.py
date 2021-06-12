@@ -74,8 +74,8 @@ setuptools.setup(
             "vowpalwabbit",
         ],
         "nlp": [
-            "ray[tune]==1.2.0",
-            "transformers==4.4.1",
+            "ray[tune]>=1.2.0",
+            "transformers",
             "wandb==0.10.26",
             "datasets==1.4.1",
             "azure-storage-blob",
