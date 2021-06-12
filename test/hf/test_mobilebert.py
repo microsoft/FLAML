@@ -67,7 +67,7 @@ def test_hpo():
                                         predictions=predictions,
                                         duration=autohf.last_run_duration)
     except azure.core.exceptions.HttpResponseError:
-        print("HTTP connection to azure fails")
+        print("HTTP connection to azure fails, maybe a wrong key?")
 
     jobid_config.mod = "grid"
     autohf = AutoTransformers()

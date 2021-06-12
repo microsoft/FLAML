@@ -1,7 +1,7 @@
 '''Require: pip install torch transformers datasets wandb flaml[blendsearch,ray]
 '''
-#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
-import argparse,os
+# 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
+import argparse, os
 import subprocess
 from flaml.nlp.result_analysis.azure_utils import JobID
 
@@ -89,8 +89,8 @@ def compare_small_vs_large(console_args):
     partial_jobid_config.presz = "base"
 
     small_dataset2configscorelist = azure_utils.get_config_and_score_from_partial_jobid(
-                                    console_args.azure_root_log_path,
-                                    partial_jobid_config)
+        console_args.azure_root_log_path,
+        partial_jobid_config)
 
     small_mergedconfiglist = merge_configscore_list(small_dataset2configscorelist)
 
@@ -101,8 +101,8 @@ def compare_small_vs_large(console_args):
     partial_jobid_config.presz = "large"
 
     large_dataset2configscorelist = azure_utils.get_config_and_score_from_partial_jobid(
-                                    console_args.azure_root_log_path,
-                                    partial_jobid_config)
+        console_args.azure_root_log_path,
+        partial_jobid_config)
 
     large_mergedconfiglist = merge_configscore_list(large_dataset2configscorelist)
 
@@ -123,6 +123,7 @@ def compare_small_vs_large(console_args):
             for each_val in each_tuple:
                 print(each_val, end=", ")
             print(small_score, is_in_large, sep=",")
+
 
 def print_sorted_configs(console_args,
                          sort_method):
@@ -154,6 +155,7 @@ def print_sorted_configs(console_args,
             print()
             count += 1
 
+
 def analyze_exhaustive_sweep(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils, ConfigScoreList
     partial_jobid_config = JobID()
@@ -169,7 +171,7 @@ def analyze_exhaustive_sweep(console_args):
             "logs_seed/",
             partial_jobid_config)
         merged_config_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
-                              for x in config_score_list._config_score_list])
+                                              for x in config_score_list._config_score_list])
         stop = 0
 
 
@@ -209,12 +211,14 @@ def create_partial_config_bestnn():
 
     return jobid_config
 
+
 def create_partial_config_list():
     jobid_config = JobID()
     jobid_config.mod = "list"
     jobid_config.spa = "uni"
     jobid_config.presz = "xlarge"
     return jobid_config
+
 
 def create_partial_config_hpo():
     jobid_config = JobID()
@@ -227,9 +231,10 @@ def create_partial_config_hpo():
 
     return jobid_config
 
+
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('--key_path', type=str, help='key path', required=False, default = "../../")
+    arg_parser.add_argument('--key_path', type=str, help='key path', required=False, default="../../")
     arg_parser.add_argument('--azure_root_log_path', type=str,
                             help='root log path of blob storage', required=True, default="logs_azure/")
     args = arg_parser.parse_args()

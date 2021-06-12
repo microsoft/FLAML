@@ -26,7 +26,7 @@ def model_init():
     jobid_config.set_unittest_config()
     from flaml.nlp import AutoTransformers
     autohf = AutoTransformers()
-    azure_utils = AzureUtils(root_log_path="logs_test/",
+    AzureUtils(root_log_path="logs_test/",
                              jobid=jobid_config, autohf=autohf)
 
     preparedata_setting = get_preparedata_setting(jobid_config)
@@ -78,7 +78,7 @@ def test_dataprocess():
         jobid_config.subdat = subdat
 
         try:
-            azure_utils = AzureUtils(root_log_path="logs_test/",
+            AzureUtils(root_log_path="logs_test/",
                                      jobid=jobid_config, autohf=autohf)
 
             preparedata_setting = get_preparedata_setting(jobid_config)
@@ -120,8 +120,7 @@ def test_hpo_space():
         else:
             custom_hpo_args = {}
 
-        search_space_hpo_json \
-            = AutoHPOSearchSpace.from_model_and_dataset_name(jobid_config.spa,
+        AutoHPOSearchSpace.from_model_and_dataset_name(jobid_config.spa,
                                                              jobid_config.pre,
                                                              jobid_config.presz,
                                                              jobid_config.dat,
@@ -173,7 +172,7 @@ def test_switch_head():
     for model in list(MODEL_CLASSIFICATION_HEAD_MAPPING.keys()) + ["bert"]:
         try:
             jobid_config.pre = model
-            classifier = AutoSeqClassificationHead \
+            AutoSeqClassificationHead \
                 .from_model_type_and_config(jobid_config.pre,
                                             model_config)
         except ValueError:
@@ -182,11 +181,9 @@ def test_switch_head():
 
 def test_wandb_utils():
     from flaml.nlp.result_analysis.wandb_utils import WandbUtils
-    from flaml.nlp.result_analysis.azure_utils import AzureUtils, JobID
-    from flaml.nlp import AutoTransformers
+    from flaml.nlp.result_analysis.azure_utils import JobID
     import os
 
-    autohf = AutoTransformers()
     args = get_console_args()
     args.key_path = "."
     jobid_config = JobID(args)
