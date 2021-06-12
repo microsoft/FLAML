@@ -52,6 +52,11 @@ def test_dataprocess():
     """
     test to increase the coverage for flaml.nlp.dataprocess_auto
     """
+    try:
+        import ray
+    except ImportError:
+        return
+
     from flaml.nlp import AutoTransformers
     from flaml.nlp import JobID
     from flaml.nlp import AzureUtils
@@ -84,6 +89,11 @@ def test_dataprocess():
 
 
 def test_gridsearch_space():
+    try:
+        import ray
+    except ImportError:
+        return
+
     from flaml.nlp.hpo.grid_searchspace_auto import GRID_SEARCH_SPACE_MAPPING, AutoGridSearchSpace
     from flaml.nlp.result_analysis.azure_utils import JobID
     jobid_config = JobID()
@@ -98,6 +108,11 @@ def test_gridsearch_space():
 
 
 def test_hpo_space():
+    try:
+        import ray
+    except ImportError:
+        return
+
     from flaml.nlp.hpo.hpo_searchspace import AutoHPOSearchSpace, HPO_SEARCH_SPACE_MAPPING
     from flaml.nlp.result_analysis.azure_utils import JobID
     jobid_config = JobID()
@@ -119,6 +134,11 @@ def test_hpo_space():
 
 
 def test_trainer():
+    try:
+        import ray
+    except ImportError:
+        return
+
     num_train_epochs = 3
     num_train_examples = 100
     per_device_train_batch_size = 32
@@ -149,6 +169,11 @@ def test_trainer():
 
 
 def test_switch_head():
+    try:
+        import ray
+    except ImportError:
+        return
+
     from flaml.nlp.huggingface.switch_head_auto import AutoSeqClassificationHead, MODEL_CLASSIFICATION_HEAD_MAPPING
     from flaml.nlp.result_analysis.azure_utils import JobID
     jobid_config = JobID()
@@ -170,6 +195,11 @@ def test_switch_head():
 
 
 def test_wandb_utils():
+    try:
+        import ray
+    except ImportError:
+        return
+
     from flaml.nlp.result_analysis.wandb_utils import WandbUtils
     from flaml.nlp.result_analysis.azure_utils import JobID
     import os
@@ -191,13 +221,6 @@ def test_wandb_utils():
 
 
 if __name__ == "__main__":
-    try:
-        import ray
-    except ImportError:
-        import sys
-
-        sys.exit(1)
-
     test_wandb_utils()
     test_dataprocess()
     test_gridsearch_space()

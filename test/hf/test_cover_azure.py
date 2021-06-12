@@ -30,6 +30,11 @@ def get_console_args():
 
 
 def test_get_configblob_from_partial_jobid():
+    try:
+        import ray
+    except ImportError:
+        return
+
     from flaml.nlp.result_analysis.azure_utils import JobID
     each_blob_name = "dat=glue_subdat=cola_mod=grid_spa=cus_arg=dft_alg=grid" \
                      "_pru=None_pre=deberta_presz=large_spt=rspt_rep=0_sddt=43" \
@@ -55,6 +60,11 @@ def test_get_configblob_from_partial_jobid():
 
 
 def test_jobid():
+    try:
+        import ray
+    except ImportError:
+        return
+
     from flaml.nlp.result_analysis.azure_utils import JobID
     args = get_console_args()
 
@@ -69,6 +79,11 @@ def test_jobid():
 
 
 def test_azureutils():
+    try:
+        import ray
+    except ImportError:
+        return
+
     from flaml.nlp.result_analysis.azure_utils import AzureUtils, ConfigScore, JobID, ConfigScoreList
     from flaml.nlp import AutoTransformers
     import azure
@@ -115,12 +130,6 @@ def test_azureutils():
 
 
 if __name__ == "__main__":
-    try:
-        import ray
-    except ImportError:
-        import sys
-        sys.exit(1)
-
     test_get_configblob_from_partial_jobid()
     test_jobid()
     test_azureutils()
