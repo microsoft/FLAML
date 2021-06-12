@@ -392,11 +392,15 @@ class AutoTransformers:
         """
             create a wandb run. If os.environ["WANDB_MODE"] == "offline", run = None
         """
-        run = self.wandb_utils.set_wandb_per_trial()
+
         if self.wandb_utils:
+            run = self.wandb_utils.set_wandb_per_trial()
             import wandb
             for each_hp in config:
                 wandb.log({each_hp: config[each_hp]})
+        else:
+            run = None
+
         trainer.train()
         trainer.evaluate(self.eval_dataset)
         """

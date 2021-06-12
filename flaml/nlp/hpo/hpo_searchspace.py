@@ -1,8 +1,5 @@
 from collections import OrderedDict
-from transformers import TrainingArguments
-
 from .grid_searchspace_auto import AutoGridSearchSpace
-
 
 def hpo_space_custom(model_type=None,
                       model_size_type=None,
@@ -71,6 +68,7 @@ def hpo_space_gridunion(model_type=None,
         """
         adding the default configuration from transformers/training_args.py into hpo space
         """
+        from transformers import TrainingArguments
         training_args = TrainingArguments(output_dir=".")
         for each_hp in output_config.keys():
             try:

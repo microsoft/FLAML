@@ -54,11 +54,15 @@ def test_hpo():
     predictions, test_metric = autohf.predict()
     if test_metric:
         validation_metric.update({"test": test_metric})
-    configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
-    azure_utils.write_autohf_output(configscore_list=configscore_list,
-                                    valid_metric=validation_metric,
-                                    predictions=predictions,
-                                    duration=autohf.last_run_duration)
+
+    try:
+        configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
+        azure_utils.write_autohf_output(configscore_list=configscore_list,
+                                        valid_metric=validation_metric,
+                                        predictions=predictions,
+                                        duration=autohf.last_run_duration)
+    except AttributeError:
+        pass
 
 
 
