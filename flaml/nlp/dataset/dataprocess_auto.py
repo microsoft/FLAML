@@ -178,7 +178,7 @@ class AutoEncodeText:
     def from_model_and_dataset_name(cls,
                                     data_raw,
                                     model_checkpoint_path,
-                                    dataset_name_list:list=None,
+                                    dataset_name_list: list = None,
                                     subdataset_name=None,
                                     **kwargs):
         """
@@ -193,8 +193,8 @@ class AutoEncodeText:
             model_checkpoint_path:
                 A string variable which specifies the model path, e.g., "google/electra-base-discriminator"
 
-            dataset_name:
-                A string variable which is the dataset name, e.g., "glue"
+            dataset_name_list:
+                A list which is the dataset name, e.g., ["glue"]
 
             subdataset_name:
                 A string variable which is the sub dataset name,e.g., "rte"

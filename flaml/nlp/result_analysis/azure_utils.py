@@ -9,7 +9,6 @@ from typing import Union
 
 
 class ConfigScore:
-
     trial_id: str = field(default=None)
     start_time: float = field(default=None)
     last_update_time: float = field(default=None)
@@ -18,12 +17,12 @@ class ConfigScore:
     time_stamp: float = field(default=None)
 
     def __init__(self,
-                 trial_id:str=None,
-                 start_time:float=None,
-                 last_update_time:float=None,
-                 config:dict=None,
-                 metric_score:dict=None,
-                 time_stamp:float=None
+                 trial_id: str = None,
+                 start_time: float = None,
+                 last_update_time: float = None,
+                 config: dict = None,
+                 metric_score: dict = None,
+                 time_stamp: float = None
                  ):
         self.trial_id = trial_id
         self.start_time = start_time
@@ -37,8 +36,8 @@ class ConfigScoreList:
 
     def __init__(self,
                  config_score_list: typing.List[ConfigScore],
-                 jobid_config = None,
-                 blob_file = None,
+                 jobid_config=None,
+                 blob_file=None,
                  ):
         self._config_score_list = config_score_list
         self._blob_file = blob_file
@@ -56,6 +55,7 @@ class ConfigScoreList:
     def get_best_config(self,
                         metric_mode="max"):
         return max(self._config_score_list, key=lambda x: getattr(x, "metric_score")[metric_mode])
+
 
 @dataclass
 class JobID:
@@ -301,6 +301,7 @@ class JobID:
         self.var1 = console_args.varying_arg1
         self.var2 = console_args.varying_arg2
 
+
 class AzureUtils:
 
     def __init__(self,
@@ -368,12 +369,12 @@ class AzureUtils:
                 metric_score = each_trial.metric_analysis["eval_" + analysis.default_metric]
                 time_stamp = each_trial.metric_analysis['timestamp']
                 configscore_list.append(ConfigScore(
-                                 trial_id= trial_id,
-                                 start_time =start_time,
-                                 last_update_time=last_update_time,
-                                 config = config,
-                                 metric_score =metric_score,
-                                 time_stamp =time_stamp))
+                    trial_id=trial_id,
+                    start_time=start_time,
+                    last_update_time=last_update_time,
+                    config=config,
+                    metric_score=metric_score,
+                    time_stamp=time_stamp))
             except KeyError:
                 pass
         return configscore_list
@@ -445,9 +446,9 @@ class AzureUtils:
         return False
 
     def get_configblob_from_partial_jobid(self,
-                                             root_log_path,
-                                             partial_jobid,
-                                             earliest_time:typing.Tuple[int, int, int]=None):
+                                          root_log_path,
+                                          partial_jobid,
+                                          earliest_time: typing.Tuple[int, int, int] = None):
         """
             get all blobs whose jobid configs match the partial_jobid
         """
@@ -467,9 +468,9 @@ class AzureUtils:
         return blob_list
 
     def get_config_and_score_from_partial_jobid(self,
-                                                root_log_path:str,
-                                                partial_jobid:JobID,
-                                                earliest_time:typing.Tuple[int, int, int]=None):
+                                                root_log_path: str,
+                                                partial_jobid: JobID,
+                                                earliest_time: typing.Tuple[int, int, int] = None):
         """
            Extract the config and score list from a partial config id
 
@@ -501,8 +502,8 @@ class AzureUtils:
                                                                 earliest_time)
 
     def get_config_and_score_from_matched_blob_list(self,
-                                                matched_blob_list,
-                                                earliest_time:typing.Tuple[int, int, int]=None):
+                                                    matched_blob_list,
+                                                    earliest_time: typing.Tuple[int, int, int] = None):
         """
             Extract the config and score list of one or multiple blobs
 
