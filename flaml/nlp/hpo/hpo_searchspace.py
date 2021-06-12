@@ -200,7 +200,7 @@ class AutoHPOSearchSpace:
         raise EnvironmentError(
             "AutoHPOSearchSpace is designed to be instantiated "
             "using the `AutoHPOSearchSpace.from_config_and_method_name(cls, hpo_searchspace_name,"
-            "model_type,model_size_type,dataset_name,subdataset_name = None,**custom_hpo_args)` methods."
+            "model_type,model_size_type,dataset_name,subdataset_name=None,**custom_hpo_args)` methods."
         )
 
     @classmethod
