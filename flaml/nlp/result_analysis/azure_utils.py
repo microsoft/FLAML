@@ -332,7 +332,7 @@ class AzureUtils:
                + self._azure_key + ";EndpointSuffix=core.windows.net"
 
     def _init_azure_clients(self):
-        import azure
+        from azure.core.exceptions import HttpResponseError
         from azure.storage.blob import ContainerClient
         connection_string = self._get_complete_connection_string()
         try:
@@ -343,7 +343,7 @@ class AzureUtils:
             except ValueError:
                 print("Container name not specified")
                 return None
-        except azure.core.exceptions.ClientAuthenticationError:
+        except HttpResponseError:
             print("Azure client authentication error, maybe a wrong key?")
 
     def _init_blob_client(self,
@@ -360,17 +360,22 @@ class AzureUtils:
             return None
 
     def upload_local_file_to_azure(self, local_file_path):
-        blob_client = self._init_blob_client(local_file_path)
-        if blob_client:
-            with open(local_file_path, "rb") as fin:
-                blob_client.upload_blob(fin, overwrite=True)
+        import azure
+        try:
+            blob_client = self._init_blob_client(local_file_path)
+            if blob_client:
+                with open(local_file_path, "rb") as fin:
+                    blob_client.upload_blob(fin, overwrite=True)
+        except azure.core.exceptions.HttpResponseError:
+            print("Cannot upload blob due to {}".format("azure.core.exceptions.HttpResponseError"))
 
     def download_azure_blob(self, blobname):
         blob_client = self._init_blob_client(blobname)
-        pathlib.Path(re.search("(?P<parent_path>^.*)/[^/]+$", blobname).group("parent_path")).mkdir(
-            parents=True, exist_ok=True)
-        with open(blobname, "wb") as fout:
-            fout.write(blob_client.download_blob().readall())
+        if blob_client:
+            pathlib.Path(re.search("(?P<parent_path>^.*)/[^/]+$", blobname).group("parent_path")).mkdir(
+                parents=True, exist_ok=True)
+            with open(blobname, "wb") as fout:
+                fout.write(blob_client.download_blob().readall())
 
     def extract_configscore_list_from_analysis(self,
                                                analysis):
@@ -386,15 +391,19 @@ class AzureUtils:
             try:
                 metric_score = each_trial.metric_analysis["eval_" + analysis.default_metric]
                 time_stamp = each_trial.metric_analysis['timestamp']
-                configscore_list.append(ConfigScore(
-                    trial_id=trial_id,
-                    start_time=start_time,
-                    last_update_time=last_update_time,
-                    config=config,
-                    metric_score=metric_score,
-                    time_stamp=time_stamp))
             except KeyError:
-                pass
+                print("KeyError, {} does not contain the key {} or {}".format("each_trial.metric_analysis",
+                                                                              "eval_" + analysis.default_metric,
+                                                                              "timestamp"))
+                metric_score = 0
+                time_stamp = 0
+            configscore_list.append(ConfigScore(
+                trial_id=trial_id,
+                start_time=start_time,
+                last_update_time=last_update_time,
+                config=config,
+                metric_score=metric_score,
+                time_stamp=time_stamp))
         return configscore_list
 
     def write_autohf_output(self,
@@ -413,10 +422,14 @@ class AzureUtils:
             output_json["valid_metric"] = valid_metric
         if duration:
             output_json["duration"] = duration
-        if len(output_json) > 0:
-            self.create_local_json_and_upload(output_json, local_file_path)
-        if predictions is not None:
-            self.create_local_prediction_and_upload(local_file_path, predictions)
+        import azure
+        try:
+            if len(output_json) > 0:
+                self.create_local_json_and_upload(output_json, local_file_path)
+            if predictions is not None:
+                self.create_local_prediction_and_upload(local_file_path, predictions)
+        except azure.core.exceptions.HttpResponseError:
+            stop = 0
 
     def generate_local_json_path(self):
         """
