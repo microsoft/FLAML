@@ -37,7 +37,7 @@ def merge_configscore_list(small_dataset2configscorelist):
         merged_configscore_list = {}
         for rep_id in range(len(each_configscore_list)):
             for each_configscore_entry in each_configscore_list[rep_id]:
-                is_exist = False
+                exists = False
                 for configscore in merged_configscore_list.keys():
                     if configscore[0] == each_configscore_entry[0]:
                         is_exist = True
