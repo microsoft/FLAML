@@ -40,9 +40,9 @@ def merge_configscore_list(small_dataset2configscorelist):
                 exists = False
                 for configscore in merged_configscore_list.keys():
                     if configscore[0] == each_configscore_entry[0]:
-                        is_exist = True
+                        exists = True
                         break
-                if is_exist is False:
+                if exists is False:
                     merged_configscore_list[dict2tuple(each_configscore_entry[0])] = each_configscore_entry[1]
         dataset2merged_configscorelist[dataset] = merged_configscore_list
     return dataset2merged_configscorelist
