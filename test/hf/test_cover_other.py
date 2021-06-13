@@ -5,6 +5,7 @@
 from transformers import AutoConfig
 from flaml.nlp.huggingface.trainer import TrainerForAutoTransformers
 
+
 def get_console_args():
     from flaml.nlp.utils import load_console_args
     args = load_console_args()
