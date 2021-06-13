@@ -1,3 +1,7 @@
+"""
+    test suites for covering azure_utils.py
+"""
+
 def get_preparedata_setting(jobid_config):
     preparedata_setting = {
         "server_name": "tmdev",

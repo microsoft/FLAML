@@ -38,7 +38,7 @@ class AutoScheduler:
             >>> AutoScheduler.from_scheduler_name("asha")
         """
         if scheduler_name in SCHEDULER_MAPPING.keys():
-            if SCHEDULER_MAPPING[scheduler_name] == "None":
+            if SCHEDULER_MAPPING[scheduler_name] is None:
                 return None
             return SCHEDULER_MAPPING[scheduler_name](**kwargs)
         raise ValueError(
