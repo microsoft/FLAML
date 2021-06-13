@@ -95,7 +95,7 @@ def test_azureutils():
     azureutils = AzureUtils(console_args=args, jobid=jobid_config, autohf=autohf)
 
     azureutils.autohf = autohf
-    azureutils.root_log_path = "data/"
+    azureutils.root_log_path = "logs_azure/"
 
     preparedata_setting = get_preparedata_setting(jobid_config)
     autohf.prepare_data(**preparedata_setting)
