@@ -220,7 +220,13 @@ class AutoHPOSearchSpace:
         Args:
 
             hpo_searchspace_mode:
-                A string variable which is name of the hpo search space, e.g., "uni"
+                A string variable which is the mode of the hpo search space, it must be chosen from the following options:
+                    - uni: the union of BERT, RoBERTa and Electra's grid configs
+                    - grid: the recommended grid config of the LM specified in jobconfig.pre
+                    - gnr: the generic continuous search space
+                    - uni_test: the search space for smoke test
+                    - cus: user customized search space, specified in the "hpo_space" argument in AutoTransformers.fit
+                    - buni: bounded grid union search space
 
             model_type:
                 A string variable which is the type of the model, e.g., "electra"

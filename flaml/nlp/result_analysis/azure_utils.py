@@ -207,10 +207,10 @@ class JobID:
                         try:
                             result_dict[key] = int(result.group(key))
                         except IndexError:
-                            print("No such group")
+                            print("No group {} in the regex result".format(key))
                             result_dict[key] = -1
                     except ValueError:
-                        print("Cannot parse integer")
+                        print("Cannot parse integer {}".format(result.group(key)))
                         result_dict[key] = -1
                 else:
                     result_dict[key] = result.group(key)
@@ -340,7 +340,7 @@ class AzureUtils:
                                                                       container_name=self._container_name)
             return container_client
         except ValueError:
-            print("Container name not specified")
+            print("_container_name is unspecified or wrongly specified, please specify _container_name in AzureUtils")
             return None
 
     def _init_blob_client(self,
@@ -353,7 +353,7 @@ class AzureUtils:
             blob_client = blob_service_client.get_blob_client(container=self._container_name, blob=local_file_path)
             return blob_client
         except ValueError:
-            print("Container name or local_file_path are incorrect")
+            print("_container_name is unspecified or wrongly specified, please specify _container_name in AzureUtils")
             return None
 
     def upload_local_file_to_azure(self, local_file_path):

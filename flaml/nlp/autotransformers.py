@@ -800,8 +800,8 @@ class AutoTransformers:
         if self.jobid_config.spt == "ori":
             try:
                 self.test_dataset.remove_columns_("label")
+                logger.info("Removed the label column from test data")
             except ValueError:
-                print("No such label in column")
                 pass
 
         test_dataloader = test_trainer.get_test_dataloader(self.test_dataset)
