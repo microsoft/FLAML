@@ -543,42 +543,39 @@ class AutoTransformers:
             (1) it does not return tune.analysis.Analysis result, what is analysis used for
             (2) it is inconvenient to develop on top of Transformers.hyperparameter_search, whose trainable function,
                  search space, etc. are defined inside of Transformers.hyperparameter_search.
-    
-                    An example:
-                        autohf_settings = {"resources_per_trial": {"cpu": 1},
-                                   "num_samples": 1,
-                                   "time_budget": 100000,
-                                   "ckpt_per_epoch": 1,
-                                   "fp16": False,
-                                  }
-                        validation_metric, analysis = autohf.fit(**autohf_settings,)
-    
-                    Args:
-                        resources_per_trial:
-                            A dict showing the resources used by each trial,
-                            e.g., {"gpu": 4, "cpu": 4}
-                        num_samples:
-                            An int variable of the maximum number of trials
-                        time_budget:
-                            An int variable of the maximum time budget
-                        custom_metric_name:
-                            A string of the dataset name or a function,
-                            e.g., 'accuracy', 'f1', 'loss',
-                        custom_metric_mode_name:
-                            A string of the mode name,
-                            e.g., "max", "min", "last", "all"
-                        fp16:
-                            boolean, default = True | whether to use fp16
-                        custom_hpo_args:
-                            The additional keyword arguments, e.g.,
-                            custom_hpo_args = {"points_to_evaluate": [{
-                                       "num_train_epochs": 1,
-                                       "per_device_train_batch_size": 128, }]}
-    
-                    Returns:
-                       validation_metric:
-                            a dict storing the validation score
-                    '''
+               An example:
+            autohf_settings = {"resources_per_trial": {"cpu": 1},
+                       "num_samples": 1,
+                       "time_budget": 100000,
+                       "ckpt_per_epoch": 1,
+                       "fp16": False,
+                      }
+            validation_metric, analysis = autohf.fit(**autohf_settings,)
+            Args:
+                resources_per_trial:
+                    A dict showing the resources used by each trial,
+                    e.g., {"gpu": 4, "cpu": 4}
+                num_samples:
+                    An int variable of the maximum number of trials
+                time_budget:
+                    An int variable of the maximum time budget
+                custom_metric_name:
+                    A string of the dataset name or a function,
+                    e.g., 'accuracy', 'f1', 'loss',
+                custom_metric_mode_name:
+                    A string of the mode name,
+                    e.g., "max", "min", "last", "all"
+                fp16:
+                    boolean, default = True | whether to use fp16
+                custom_hpo_args:
+                    The additional keyword arguments, e.g.,
+                    custom_hpo_args = {"points_to_evaluate": [{
+                               "num_train_epochs": 1,
+                               "per_device_train_batch_size": 128, }]}
+            Returns:
+               validation_metric:
+                    a dict storing the validation score
+            '''
 
         def model_init():
             return self._load_model()

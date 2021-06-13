@@ -192,9 +192,9 @@ class JobID:
             else:
                 prefix = "_"
             if key.startswith("sd") or key.startswith("var"):
-                regex_expression += "(" + prefix + key + "=(?P<" + key + ">.*))?"
+                regex_expression += "(" + prefix + key + "=(?P<" + key + ">[^_]*))?"
             else:
-                regex_expression += prefix + key + "=(?P<" + key + ">.*)"
+                regex_expression += prefix + key + "=(?P<" + key + ">[^_]*)"
         regex_expression += ".(json|zip)"
         result = re.search(regex_expression, keytoval_str)
         if result:

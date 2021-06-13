@@ -57,7 +57,7 @@ class AutoGridSearchSpace:
     def from_model_and_dataset_name(cls,
                                     model_type,
                                     model_size_type,
-                                    dataset_name_list:list=None,
+                                    dataset_name_list: list = None,
                                     subdataset_name=None,
                                     algo_mode=None):
         """
@@ -71,7 +71,7 @@ class AutoGridSearchSpace:
             model_size_type:
                 A string variable which is the size of the model, e.g., "small"
 
-            dataset_name:
+            dataset_name_list:
                 A string variable which is the dataset name, e.g., "glue"
 
             subdataset_name:

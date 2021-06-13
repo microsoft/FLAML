@@ -124,10 +124,8 @@ def search_base_and_search_lower_lr(args, jobid_config, autohf, wandb_utils):
               autohf,
               wandb_utils,
               azure_utils_large,
-              autohf_settings=
-              get_autohf_settings(args_large,
-                                  **{"points_to_evaluate": [best_config],
-                                     "bound": {"learning_rate": {"u": best_config["learning_rate"]}}}))
+              autohf_settings=get_autohf_settings(args_large, **{"points_to_evaluate": [best_config], "bound":
+                  {"learning_rate": {"u": best_config["learning_rate"]}}}))
 
 
 def search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils):
@@ -170,7 +168,7 @@ def evaluate_configs(autohf, args, ranked_all_configs):
               autohf,
               wandb_utils,
               azure_utils_large,
-              autohf_settings= get_autohf_settings(this_args, **{"points_to_evaluate": ranked_all_configs}))
+              autohf_settings=get_autohf_settings(this_args, **{"points_to_evaluate": ranked_all_configs}))
 
 
 def convert_config_to_different_size(origin_config, mode):
