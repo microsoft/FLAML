@@ -332,15 +332,19 @@ class AzureUtils:
                + self._azure_key + ";EndpointSuffix=core.windows.net"
 
     def _init_azure_clients(self):
+        import azure
         from azure.storage.blob import ContainerClient
         connection_string = self._get_complete_connection_string()
         try:
-            container_client = ContainerClient.from_connection_string(conn_str=connection_string,
-                                                                  container_name=self._container_name)
-            return container_client
-        except ValueError:
-            print("Container name not specified")
-            return None
+            try:
+                container_client = ContainerClient.from_connection_string(conn_str=connection_string,
+                                                                      container_name=self._container_name)
+                return container_client
+            except ValueError:
+                print("Container name not specified")
+                return None
+        except azure.core.exceptions.ClientAuthenticationError:
+            print("Azure client authentication error, maybe a wrong key?")
 
     def _init_blob_client(self,
                           local_file_path):
@@ -409,11 +413,8 @@ class AzureUtils:
             output_json["valid_metric"] = valid_metric
         if duration:
             output_json["duration"] = duration
-        try:
-            if len(output_json) > 0:
-                self.create_local_json_and_upload(output_json, local_file_path)
-        except AttributeError:
-            pass
+        if len(output_json) > 0:
+            self.create_local_json_and_upload(output_json, local_file_path)
         if predictions is not None:
             self.create_local_prediction_and_upload(local_file_path, predictions)
 
