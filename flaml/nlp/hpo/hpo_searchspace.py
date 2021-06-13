@@ -76,7 +76,7 @@ def hpo_space_gridunion(model_type=None,
             try:
                 default_values[each_hp] = [getattr(training_args, each_hp)]
             except AttributeError:
-                print("training args does not contain {}, passed".format(each_hp))
+                print("training args do not contain {}, passed".format(each_hp))
 
         output_config = merge_dicts(output_config, default_values)
 
