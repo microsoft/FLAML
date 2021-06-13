@@ -591,7 +591,7 @@ class AutoML:
             self.data_size_full = self._state.data_size + X_val.shape[0]
         self._state.X_train, self._state.y_train, self._state.X_val, \
             self._state.y_val = (X_train, y_train, X_val, y_val)
-        if self._state.groups is not None:
+        if hasattr(self._state, 'groups') and self._state.groups is not None:
             logger.info("Using GroupKFold")
             assert len(self._state.groups) == y_train_all.size, \
                 "the length of groups must match the number of examples"
