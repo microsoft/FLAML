@@ -92,6 +92,6 @@ class AutoGridSearchSpace:
         raise ValueError(
             "Unrecognized method {},{} for this kind of AutoGridSearchSpace: {}.\n"
             "Method name should be one of {}.".format(
-                model_type, dataset_name_list, cls.__name__, ", ".join(c for c in GRID_SEARCH_SPACE_MAPPING.keys())
+                model_type, dataset_name_list, cls.__name__, ", ".join(GRID_SEARCH_SPACE_MAPPING.keys())
             )
         )
