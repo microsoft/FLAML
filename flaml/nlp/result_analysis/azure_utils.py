@@ -204,8 +204,13 @@ class JobID:
                     result_dict[key] = [result.group(key)]
                 elif key == "rep":
                     try:
-                        result_dict[key] = int(result.group(key))
-                    except IndexError:
+                        try:
+                            result_dict[key] = int(result.group(key))
+                        except IndexError:
+                            print("No such group")
+                            result_dict[key] = -1
+                    except ValueError:
+                        print("Cannot parse integer")
                         result_dict[key] = -1
                 else:
                     result_dict[key] = result.group(key)
@@ -329,9 +334,13 @@ class AzureUtils:
     def _init_azure_clients(self):
         from azure.storage.blob import ContainerClient
         connection_string = self._get_complete_connection_string()
-        container_client = ContainerClient.from_connection_string(conn_str=connection_string,
+        try:
+            container_client = ContainerClient.from_connection_string(conn_str=connection_string,
                                                                   container_name=self._container_name)
-        return container_client
+            return container_client
+        except ValueError:
+            print("Container name not specified")
+            return None
 
     def _init_blob_client(self,
                           local_file_path):
@@ -339,13 +348,18 @@ class AzureUtils:
 
         connection_string = self._get_complete_connection_string()
         blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-        blob_client = blob_service_client.get_blob_client(container=self._container_name, blob=local_file_path)
-        return blob_client
+        try:
+            blob_client = blob_service_client.get_blob_client(container=self._container_name, blob=local_file_path)
+            return blob_client
+        except ValueError:
+            print("Container name or local_file_path are incorrect")
+            return None
 
     def upload_local_file_to_azure(self, local_file_path):
         blob_client = self._init_blob_client(local_file_path)
-        with open(local_file_path, "rb") as fin:
-            blob_client.upload_blob(fin, overwrite=True)
+        if blob_client:
+            with open(local_file_path, "rb") as fin:
+                blob_client.upload_blob(fin, overwrite=True)
 
     def download_azure_blob(self, blobname):
         blob_client = self._init_blob_client(blobname)
@@ -454,17 +468,18 @@ class AzureUtils:
         """
         blob_list = []
         container_client = self._init_azure_clients()
-        for each_blob in container_client.list_blobs():
-            if each_blob.name.startswith(root_log_path):
-                each_jobconfig = JobID.convert_blobname_to_jobid(each_blob.name)
-                is_append = False
-                if each_jobconfig:
-                    if each_jobconfig.is_match(partial_jobid):
-                        is_append = True
-                    if earliest_time and not AzureUtils.is_after_earliest_time(each_blob, earliest_time):
-                        is_append = False
-                    if is_append:
-                        blob_list.append((each_jobconfig, each_blob))
+        if container_client:
+            for each_blob in container_client.list_blobs():
+                if each_blob.name.startswith(root_log_path):
+                    each_jobconfig = JobID.convert_blobname_to_jobid(each_blob.name)
+                    is_append = False
+                    if each_jobconfig:
+                        if each_jobconfig.is_match(partial_jobid):
+                            is_append = True
+                        if earliest_time and not AzureUtils.is_after_earliest_time(each_blob, earliest_time):
+                            is_append = False
+                        if is_append:
+                            blob_list.append((each_jobconfig, each_blob))
         return blob_list
 
     def get_config_and_score_from_partial_jobid(self,

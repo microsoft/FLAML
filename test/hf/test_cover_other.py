@@ -77,15 +77,11 @@ def test_dataprocess():
         jobid_config.dat = dat.split(",")
         jobid_config.subdat = subdat
 
-        try:
-            AzureUtils(root_log_path="logs_test/",
-                       jobid=jobid_config, autohf=autohf)
+        AzureUtils(root_log_path="logs_test/",
+                   jobid=jobid_config, autohf=autohf)
 
-            preparedata_setting = get_preparedata_setting(jobid_config)
-            autohf.prepare_data(**preparedata_setting)
-        except Exception as err:
-            print(err)
-            pass
+        preparedata_setting = get_preparedata_setting(jobid_config)
+        autohf.prepare_data(**preparedata_setting)
 
 
 def test_gridsearch_space():
@@ -184,14 +180,11 @@ def test_switch_head():
         checkpoint_path,
         num_labels=AutoConfig.from_pretrained(checkpoint_path).num_labels)
 
-    for model in list(MODEL_CLASSIFICATION_HEAD_MAPPING.keys()) + ["bert"]:
-        try:
-            jobid_config.pre = model
-            AutoSeqClassificationHead \
-                .from_model_type_and_config(jobid_config.pre,
-                                            model_config)
-        except ValueError:
-            pass
+    for model in list(MODEL_CLASSIFICATION_HEAD_MAPPING.keys()):
+        jobid_config.pre = model
+        AutoSeqClassificationHead \
+            .from_model_type_and_config(jobid_config.pre,
+                                        model_config)
 
 
 def test_wandb_utils():
@@ -208,11 +201,7 @@ def test_wandb_utils():
     args.key_path = "."
     jobid_config = JobID(args)
 
-    try:
-        wandb_utils = WandbUtils(is_wandb_on=True, console_args=args, jobid_config=jobid_config)
-    except FileNotFoundError:
-        wandb_utils = WandbUtils(is_wandb_on=False, console_args=args, jobid_config=jobid_config)
-        pass
+    wandb_utils = WandbUtils(is_wandb_on=True, console_args=args, jobid_config=jobid_config)
     os.environ["WANDB_MODE"] = "online"
     wandb_utils.wandb_group_name = "test"
     wandb_utils.set_wandb_per_trial()

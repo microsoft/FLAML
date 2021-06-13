@@ -86,24 +86,16 @@ def test_azureutils():
 
     from flaml.nlp.result_analysis.azure_utils import AzureUtils, ConfigScore, JobID, ConfigScoreList
     from flaml.nlp import AutoTransformers
-    import azure
-    azureutils = AzureUtils()
 
     args = get_console_args()
     args.key_path = "."
     jobid_config = JobID(args)
     autohf = AutoTransformers()
 
-    try:
-        azureutils = AzureUtils(console_args=args, jobid=jobid_config, autohf=autohf)
-    except FileNotFoundError:
-        pass
+    azureutils = AzureUtils(console_args=args, jobid=jobid_config, autohf=autohf)
 
     azureutils.autohf = autohf
     azureutils.root_log_path = "data/"
-    azureutils.jobid = jobid_config
-    azureutils._azure_key = "test"
-    azureutils._container_name = "test"
 
     preparedata_setting = get_preparedata_setting(jobid_config)
     autohf.prepare_data(**preparedata_setting)
@@ -115,18 +107,12 @@ def test_azureutils():
         configscore_list.sorted(each_method)
     configscore_list.get_best_config()
 
-    try:
-        azureutils.write_autohf_output(configscore_list=[each_configscore],
-                                       valid_metric={},
-                                       predictions=[],
-                                       duration=0)
-    except azure.core.exceptions.HttpResponseError:
-        pass
+    azureutils.write_autohf_output(configscore_list=[each_configscore],
+                                   valid_metric={},
+                                   predictions=[],
+                                   duration=0)
 
-    try:
-        azureutils.get_config_and_score_from_partial_jobid(root_log_path="data/", partial_jobid=jobid_config)
-    except azure.core.exceptions.ClientAuthenticationError:
-        pass
+    azureutils.get_config_and_score_from_partial_jobid(root_log_path="data/", partial_jobid=jobid_config)
 
 
 if __name__ == "__main__":

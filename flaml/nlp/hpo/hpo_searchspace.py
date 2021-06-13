@@ -253,6 +253,6 @@ class AutoHPOSearchSpace:
             "Unrecognized method {},{} for this kind of AutoHPOSearchSpace: {}.\n"
             "Method name should be one of {}.".format(
                 hpo_searchspace_mode, dataset_name_list, cls.__name__,
-                ", ".join(c for c in HPO_SEARCH_SPACE_MAPPING.keys())
+                ", ".join(HPO_SEARCH_SPACE_MAPPING.keys())
             )
         )

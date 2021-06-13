@@ -3,7 +3,6 @@
 import os
 import shutil
 
-import flaml
 from flaml.nlp import AutoTransformers
 from flaml.nlp import AzureUtils, JobID
 from flaml.nlp.result_analysis.wandb_utils import WandbUtils
@@ -125,7 +124,7 @@ def search_base_and_search_lower_lr(args, jobid_config, autohf, wandb_utils):
               wandb_utils,
               azure_utils_large,
               autohf_settings=get_autohf_settings(args_large, **{"points_to_evaluate": [best_config], "bound":
-                  {"learning_rate": {"u": best_config["learning_rate"]}}}))
+                                                  {"learning_rate": {"u": best_config["learning_rate"]}}}))
 
 
 def search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils):
