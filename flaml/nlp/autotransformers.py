@@ -154,12 +154,19 @@ class AutoTransformers:
         from datasets import load_dataset
         from .utils import PathUtils
         from .result_analysis.azure_utils import JobID
-        from .utils import load_console_args
+        from .utils import load_dft_args
 
-        console_args = load_console_args(**custom_data_args)
         self._max_seq_length = max_seq_length
         self._server_name = server_name if server_name is not None else "tmdev"
-        self.jobid_config = jobid_config if jobid_config is not None else JobID(console_args)
+        """
+            loading the jobid config from console args
+        """
+        console_args = load_dft_args()
+        self.jobid_config = JobID(console_args)
+        if jobid_config:
+            self.jobid_config = jobid_config
+        if len(custom_data_args) > 0:
+            self.jobid_config.set_jobid_from_console_args(console_args=custom_data_args)
         if is_wandb_on:
             from .result_analysis.wandb_utils import WandbUtils
             self.wandb_utils = WandbUtils(is_wandb_on=is_wandb_on,
@@ -707,6 +714,13 @@ class AutoTransformers:
 
         '''
         from .hpo.scheduler_auto import AutoScheduler
+
+        """
+            Specify the other parse of jobid configs from custom_hpo_args, e.g., if the search algorithm was not 
+            specified previously, can specify the algorithm here
+        """
+        if len(custom_hpo_args) > 0:
+            self.jobid_config.set_jobid_from_console_args(console_args=custom_hpo_args)
 
         self._resources_per_trial = resources_per_trial
         self._set_metric(custom_metric_name, custom_metric_mode_name)

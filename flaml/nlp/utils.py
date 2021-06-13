@@ -22,7 +22,7 @@ def pretrained_model_size_format_check(val_str):
     return val_str
 
 
-def load_console_args(**custom_data_args):
+def load_dft_args():
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('--server_name', type=str, help='server name', required=False,
                             choices=["tmdev", "dgx", "azureml"], default="tmdev")
@@ -32,7 +32,7 @@ def load_console_args(**custom_data_args):
     arg_parser.add_argument('--dataset_subdataset_name', type=dataset_subdataset_name_format_check,
                             help='dataset and subdataset name', required=False, default=None)
     arg_parser.add_argument('--space_mode', type=str, help='space mode', required=False,
-                            choices=["gnr", "uni", "uni_test", "cus", "buni"], default="uni")
+                            choices=["grid", "gnr", "uni", "uni_test", "cus", "buni"], default="uni")
     arg_parser.add_argument('--search_alg_args_mode', type=str, help='search algorithm args mode', required=False,
                             choices=["dft", "exp", "cus"], default="dft")
     arg_parser.add_argument('--algo_name', type=str, help='algorithm', required=False,
@@ -59,15 +59,6 @@ def load_console_args(**custom_data_args):
     arg_parser.add_argument('--varying_arg1', type=float, help='arg to vary', required=False)
     arg_parser.add_argument('--varying_arg2', type=float, help='arg to vary', required=False)
     args, unknown = arg_parser.parse_known_args()
-
-    for each_key in custom_data_args.keys():
-        if args.__contains__(each_key):
-            try:
-                check_key_format_func = globals()[each_key + "_format_check"]
-                check_key_format_func(custom_data_args[each_key])
-            except KeyError:
-                print("No {} in global functions".format(each_key + "_format_check"))
-            setattr(args, each_key, custom_data_args[each_key])
     return args
 
 

@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 import json
 import typing
 from typing import Union
+import argparse
 
 
 class ConfigScore:
@@ -234,6 +235,8 @@ class JobID:
         for key in jobid_list.keys():
             assert key in JobID.__dataclass_fields__.keys()
             setattr(self, key, jobid_list[key])
+        if self.mod == "grid":
+            self.alg = "grid"
 
     @staticmethod
     def convert_blobname_to_jobid(blobname):
@@ -289,23 +292,51 @@ class JobID:
             model_type = JobID._extract_model_type_with_keywords_match(full_model_name)
         return model_type
 
-    def set_jobid_from_console_args(self, console_args):
-        self.dat = console_args.dataset_subdataset_name.split(":")[0].split(",")
-        self.subdat = console_args.dataset_subdataset_name.split(":")[1]
-        self.mod = console_args.algo_mode
-        self.spa = console_args.space_mode
-        self.arg = console_args.search_alg_args_mode
-        self.alg = console_args.algo_name
-        self.pru = console_args.pruner
-        self.pre_full = console_args.pretrained_model_size.split(":")[0]
-        self.pre = JobID.extract_model_type(self.pre_full)
-        self.presz = console_args.pretrained_model_size.split(":")[1]
-        self.spt = console_args.resplit_mode
-        self.rep = console_args.rep_id
-        self.sddt = console_args.seed_data
-        self.sdhf = console_args.seed_transformers
-        self.var1 = console_args.varying_arg1
-        self.var2 = console_args.varying_arg2
+    @staticmethod
+    def get_attrval_from_arg_or_dict(console_args: Union[argparse.ArgumentParser, dict], each_key):
+        if type(console_args) == argparse.Namespace:
+            return getattr(console_args, each_key)
+        else:
+            return console_args[each_key]
+
+    def set_jobid_from_console_args(self, console_args: Union[argparse.ArgumentParser, dict]):
+        console_to_jobid_key_mapping = {
+            "pretrained_model_size": "pre",
+            "dataset_subdataset_name": "dat",
+            "algo_mode": "mod",
+            "space_mode": "spa",
+            "search_alg_args_mode": "arg",
+            "algo_name": "alg",
+            "pruner": "pru",
+            "resplit_mode": "spt",
+            "rep_id": "rep",
+            "seed_data": "sddt",
+            "seed_transformers": "sdhf",
+            "varying_arg1": "var1",
+            "varying_arg2": "var2"
+        }
+        for each_key in console_to_jobid_key_mapping.keys():
+            try:
+                try:
+                    if each_key == "dataset_subdataset_name":
+                        self.dat = JobID.get_attrval_from_arg_or_dict(console_args, each_key).split(":")[0].split(",")
+                        self.subdat = JobID.get_attrval_from_arg_or_dict(console_args, each_key).split(":")[1]
+                    elif each_key == "pretrained_model_size":
+                        self.pre_full = JobID.get_attrval_from_arg_or_dict(console_args, each_key).split(":")[0]
+                        self.pre = JobID.extract_model_type(self.pre_full)
+                        self.presz = JobID.get_attrval_from_arg_or_dict(console_args, each_key).split(":")[1]
+                    else:
+                        jobid_key = console_to_jobid_key_mapping[each_key]
+                        attrval = JobID.get_attrval_from_arg_or_dict(console_args, each_key)
+                        setattr(self, jobid_key, attrval)
+                except AttributeError:
+                    print("console_args has no attribute {}, continue".format(each_key))
+                    continue
+            except KeyError:
+                print("console_args has no attribute {}, continue".format(each_key))
+                continue
+        if self.mod == "grid":
+            self.alg = "grid"
 
 
 class AzureUtils:
