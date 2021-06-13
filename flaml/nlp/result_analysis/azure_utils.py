@@ -285,6 +285,7 @@ class JobID:
         try:
             model_type = config_json_file["model_type"]
         except KeyError:
+            print("config_json_file does not contain model_type, re-extracting with keywords matching")
             model_type = JobID._extract_model_type_with_keywords_match(full_model_name)
         return model_type
 
@@ -449,6 +450,7 @@ class AzureUtils:
         try:
             output_dir = self.console_args.data_root_dir
         except AttributeError:
+            print("console_args does not contain data_root_dir, loading the default value")
             from ..utils import load_console_args
             console_args = load_console_args()
             output_dir = getattr(console_args, "data_root_dir")

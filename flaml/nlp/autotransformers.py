@@ -801,6 +801,7 @@ class AutoTransformers:
             try:
                 self.test_dataset.remove_columns_("label")
             except ValueError:
+                print("No such label in column")
                 pass
 
         test_dataloader = test_trainer.get_test_dataloader(self.test_dataset)

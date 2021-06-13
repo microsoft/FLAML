@@ -37,12 +37,10 @@ class AutoScheduler:
         Example:
             >>> AutoScheduler.from_scheduler_name("asha")
         """
-
         if scheduler_name in SCHEDULER_MAPPING.keys():
-            try:
-                return SCHEDULER_MAPPING[scheduler_name](**kwargs)
-            except TypeError:
+            if SCHEDULER_MAPPING[scheduler_name] == "None":
                 return None
+            return SCHEDULER_MAPPING[scheduler_name](**kwargs)
         raise ValueError(
             "Unrecognized scheduler {} for this kind of AutoScheduler: {}.\n"
             "Scheduler name should be one of {}.".format(

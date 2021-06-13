@@ -66,6 +66,7 @@ def load_console_args(**custom_data_args):
                 check_key_format_func = globals()[each_key + "_format_check"]
                 check_key_format_func(custom_data_args[each_key])
             except KeyError:
+                print("No {} in global functions".format(each_key + "_format_check"))
                 pass
             setattr(args, each_key, custom_data_args[each_key])
     return args
