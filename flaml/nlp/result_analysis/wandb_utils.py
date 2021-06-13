@@ -61,12 +61,16 @@ class WandbUtils:
     def set_wandb_per_run(self):
         os.environ["WANDB_RUN_GROUP"] = self.jobid_config.to_wandb_string() + wandb.util.generate_id()
         self.wandb_group_name = os.environ["WANDB_RUN_GROUP"]
-        if os.environ["WANDB_MODE"] == "online":
-            os.environ["WANDB_SILENT"] = "false"
-            return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
-                              group=os.environ["WANDB_RUN_GROUP"],
-                              settings=wandb.Settings(
-                                  _disable_stats=True),
-                              reinit=False)
-        else:
+        try:
+            if os.environ["WANDB_MODE"] == "online":
+                os.environ["WANDB_SILENT"] = "false"
+                return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
+                                  group=os.environ["WANDB_RUN_GROUP"],
+                                  settings=wandb.Settings(
+                                      _disable_stats=True),
+                                  reinit=False)
+            else:
+                return None
+        except wandb.errors.UsageError:
+            print("wandb api key is not configured, returning None")
             return None
