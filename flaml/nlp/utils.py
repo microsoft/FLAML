@@ -79,7 +79,7 @@ def get_wandb_azure_key(key_path):
         azure_container_name = key_json["container_name"]
         return wandb_key, azure_key, azure_container_name
     except FileNotFoundError:
-        print("File not found for key.json")
+        print("File not found for key.json under", key_path)
         return "", "", ""
 
 
