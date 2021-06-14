@@ -4,8 +4,7 @@ import os
 from datetime import datetime
 from dataclasses import dataclass, field
 import json
-import typing
-from typing import Union, List, Union, Optional
+from typing import Tuple, List, Union, Optional
 import argparse
 
 
