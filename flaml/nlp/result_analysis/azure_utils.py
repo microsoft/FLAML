@@ -4,12 +4,7 @@ import os
 from datetime import datetime
 from dataclasses import dataclass, field
 import json
-<<<<<<< HEAD
 from typing import Tuple, List, Union, Optional
-=======
-import typing
-from typing import Union
->>>>>>> 1bf48f4a80a7e8c2f6d78f735a91641559ee9a1d
 import argparse
 
 
@@ -40,11 +35,7 @@ class ConfigScore:
 class ConfigScoreList:
 
     def __init__(self,
-<<<<<<< HEAD
                  config_score_list: List[ConfigScore],
-=======
-                 config_score_list: typing.List[ConfigScore],
->>>>>>> 1bf48f4a80a7e8c2f6d78f735a91641559ee9a1d
                  jobid_config=None,
                  blob_file=None,
                  ):
@@ -68,7 +59,6 @@ class ConfigScoreList:
 
 @dataclass
 class JobID:
-    from typing import Optional
     dat: list = field(default=None)
     subdat: str = field(default=None)
     mod: str = field(default=None)
@@ -328,19 +318,11 @@ class JobID:
             try:
                 try:
                     if each_key == "dataset_subdataset_name":
-<<<<<<< HEAD
                         dataset_subdataset_name_format_check(getattr(console_args, each_key))
                         self.dat = JobID.get_attrval_from_arg_or_dict(console_args, each_key).split(":")[0].split(",")
                         self.subdat = JobID.get_attrval_from_arg_or_dict(console_args, each_key).split(":")[1]
                     elif each_key == "pretrained_model_size":
                         pretrained_model_size_format_check(getattr(console_args, each_key))
-=======
-                        dataset_subdataset_name_format_check(JobID.get_attrval_from_arg_or_dict(console_args, each_key))
-                        self.dat = JobID.get_attrval_from_arg_or_dict(console_args, each_key).split(":")[0].split(",")
-                        self.subdat = JobID.get_attrval_from_arg_or_dict(console_args, each_key).split(":")[1]
-                    elif each_key == "pretrained_model_size":
-                        pretrained_model_size_format_check(JobID.get_attrval_from_arg_or_dict(console_args, each_key))
->>>>>>> 1bf48f4a80a7e8c2f6d78f735a91641559ee9a1d
                         self.pre_full = JobID.get_attrval_from_arg_or_dict(console_args, each_key).split(":")[0]
                         self.pre = JobID.extract_model_type(self.pre_full)
                         self.presz = JobID.get_attrval_from_arg_or_dict(console_args, each_key).split(":")[1]
@@ -382,17 +364,10 @@ class AzureUtils:
     def _get_complete_connection_string(self):
         try:
             return "DefaultEndpointsProtocol=https;AccountName=docws5141197765;AccountKey=" \
-<<<<<<< HEAD
                 + self._azure_key + ";EndpointSuffix=core.windows.net"
         except AttributeError:
             return "DefaultEndpointsProtocol=https;AccountName=docws5141197765;AccountKey=" \
                 ";EndpointSuffix=core.windows.net"
-=======
-               + self._azure_key + ";EndpointSuffix=core.windows.net"
-        except AttributeError:
-            return "DefaultEndpointsProtocol=https;AccountName=docws5141197765;AccountKey=" \
-                   ";EndpointSuffix=core.windows.net"
->>>>>>> 1bf48f4a80a7e8c2f6d78f735a91641559ee9a1d
 
     def _init_azure_clients(self):
         try:
@@ -533,11 +508,7 @@ class AzureUtils:
         self.upload_local_file_to_azure(local_archive_path)
 
     @staticmethod
-<<<<<<< HEAD
     def is_after_earliest_time(this_blob, earliest_time: Tuple[int, int, int]):
-=======
-    def is_after_earliest_time(this_blob, earliest_time: typing.Tuple[int, int, int]):
->>>>>>> 1bf48f4a80a7e8c2f6d78f735a91641559ee9a1d
         import pytz
         utc = pytz.UTC
         if this_blob.last_modified >= utc.localize(datetime(earliest_time[0], earliest_time[1], earliest_time[2])):
@@ -547,11 +518,7 @@ class AzureUtils:
     def get_configblob_from_partial_jobid(self,
                                           root_log_path,
                                           partial_jobid,
-<<<<<<< HEAD
                                           earliest_time: Tuple[int, int, int] = None):
-=======
-                                          earliest_time: typing.Tuple[int, int, int] = None):
->>>>>>> 1bf48f4a80a7e8c2f6d78f735a91641559ee9a1d
         """
             get all blobs whose jobid configs match the partial_jobid
         """
@@ -574,11 +541,7 @@ class AzureUtils:
     def get_config_and_score_from_partial_jobid(self,
                                                 root_log_path: str,
                                                 partial_jobid: JobID,
-<<<<<<< HEAD
                                                 earliest_time: Tuple[int, int, int] = None):
-=======
-                                                earliest_time: typing.Tuple[int, int, int] = None):
->>>>>>> 1bf48f4a80a7e8c2f6d78f735a91641559ee9a1d
         """
            Extract the config and score list from a partial config id
 
@@ -611,11 +574,7 @@ class AzureUtils:
 
     def get_config_and_score_from_matched_blob_list(self,
                                                     matched_blob_list,
-<<<<<<< HEAD
                                                     earliest_time: Tuple[int, int, int] = None):
-=======
-                                                    earliest_time: typing.Tuple[int, int, int] = None):
->>>>>>> 1bf48f4a80a7e8c2f6d78f735a91641559ee9a1d
         """
             Extract the config and score list of one or multiple blobs
 

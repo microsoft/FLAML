@@ -44,7 +44,6 @@ class WandbUtils:
             import wandb
             try:
                 if os.environ["WANDB_MODE"] == "online":
-<<<<<<< HEAD
                     os.environ["WANDB_SILENT"] = "false"
                     return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
                                       group=self.wandb_group_name,
@@ -52,15 +51,6 @@ class WandbUtils:
                                       settings=wandb.Settings(
                                           _disable_stats=True),
                                       reinit=False)
-=======
-                        os.environ["WANDB_SILENT"] = "false"
-                        return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
-                                          group=self.wandb_group_name,
-                                          name=str(WandbUtils._get_next_trial_ids()),
-                                          settings=wandb.Settings(
-                                              _disable_stats=True),
-                                          reinit=False)
->>>>>>> 1bf48f4a80a7e8c2f6d78f735a91641559ee9a1d
                 else:
                     return None
             except wandb.errors.UsageError as err:
