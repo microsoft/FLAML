@@ -300,6 +300,7 @@ class JobID:
             return console_args[each_key]
 
     def set_jobid_from_console_args(self, console_args: Union[argparse.ArgumentParser, dict]):
+        from ..utils import pretrained_model_size_format_check, dataset_subdataset_name_format_check
         console_to_jobid_key_mapping = {
             "pretrained_model_size": "pre",
             "dataset_subdataset_name": "dat",
@@ -319,9 +320,11 @@ class JobID:
             try:
                 try:
                     if each_key == "dataset_subdataset_name":
+                        dataset_subdataset_name_format_check(getattr(console_args, each_key))
                         self.dat = JobID.get_attrval_from_arg_or_dict(console_args, each_key).split(":")[0].split(",")
                         self.subdat = JobID.get_attrval_from_arg_or_dict(console_args, each_key).split(":")[1]
                     elif each_key == "pretrained_model_size":
+                        pretrained_model_size_format_check(getattr(console_args, each_key))
                         self.pre_full = JobID.get_attrval_from_arg_or_dict(console_args, each_key).split(":")[0]
                         self.pre = JobID.extract_model_type(self.pre_full)
                         self.presz = JobID.get_attrval_from_arg_or_dict(console_args, each_key).split(":")[1]
@@ -376,7 +379,8 @@ class AzureUtils:
                                                                       container_name=self._container_name)
             return container_client
         except ValueError:
-            print("_container_name is unspecified or wrongly specified, please specify _container_name in AzureUtils")
+            print("AzureUtils._container_name is specified as: {}, "
+                  "please correctly specify AzureUtils._container_name".format(self._container_name))
             return None
 
     def _init_blob_client(self,

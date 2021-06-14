@@ -71,6 +71,6 @@ class WandbUtils:
                                   reinit=False)
             else:
                 return None
-        except wandb.errors.UsageError:
-            print("wandb.errors.UsageError: wandb api key is not configured, returning None")
+        except wandb.errors.UsageError as err:
+            print(err)
             return None

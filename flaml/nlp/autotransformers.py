@@ -103,7 +103,7 @@ class AutoTransformers:
             for each_split_name in {"train", "validation", "test"}:
                 assert not (each_key.startswith(each_split_name) and each_key != each_split_name), \
                     "Dataset split must be within {}, must be explicitly specified in dataset_config, e.g.," \
-                    "'fold_name': ['train', 'validation_matched', 'test_matched']. Please refer to the example in the" \
+                    "'fold_name': ['train','validation_matched','test_matched']. Please refer to the example in the " \
                     "documentation of AutoTransformers.prepare_data()".format(",".join(fold_keys))
         return "train", "validation", "test"
 
@@ -544,6 +544,7 @@ class AutoTransformers:
                ):
         from transformers import TrainingArguments
         from .huggingface.trainer import TrainerForAutoTransformers
+        from transformers.trainer_utils import HPSearchBackend
 
         '''Fine tuning the huggingface using HF's API Transformers.hyperparameter_search (for comparitive purpose).
                Transformers.hyperparameter_search has the following disadvantages:
@@ -616,7 +617,6 @@ class AutoTransformers:
         self.path_utils.make_dir_per_run()
 
         start_time = time.time()
-        from transformers.trainer_utils import IntervalStrategy, HPSearchBackend
         best_run = trainer.hyperparameter_search(
             n_trials=num_samples,
             time_budget_s=time_budget,
@@ -812,11 +812,9 @@ class AutoTransformers:
         test_trainer = TrainerForAutoTransformers(best_model, training_args)
 
         if self.jobid_config.spt == "ori":
-            try:
+            if "label" in self.test_dataset.keys():
                 self.test_dataset.remove_columns_("label")
-                logger.info("Removed the label column from test data")
-            except ValueError:
-                pass
+                print("Cleaning the existing label column from test data")
 
         test_dataloader = test_trainer.get_test_dataloader(self.test_dataset)
         predictions, labels, _ = test_trainer.prediction_loop(test_dataloader, description="Prediction")
