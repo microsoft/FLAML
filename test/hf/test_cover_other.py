@@ -7,8 +7,8 @@ from flaml.nlp.huggingface.trainer import TrainerForAutoTransformers
 
 
 def get_console_args():
-    from flaml.nlp.utils import load_console_args
-    args = load_console_args()
+    from flaml.nlp.utils import load_dft_args
+    args = load_dft_args()
     args.dataset_subdataset_name = "glue:mrpc"
     args.algo_mode = "hpo"
     args.space_mode = "uni"
@@ -29,8 +29,7 @@ def model_init():
     jobid_config.set_unittest_config()
     from flaml.nlp import AutoTransformers
     autohf = AutoTransformers()
-    AzureUtils(root_log_path="logs_test/",
-               jobid=jobid_config, autohf=autohf)
+    AzureUtils(root_log_path="logs_test/", autohf=autohf)
 
     preparedata_setting = get_preparedata_setting(jobid_config)
     autohf.prepare_data(**preparedata_setting)
@@ -80,8 +79,7 @@ def test_dataprocess():
         jobid_config.dat = dat.split(",")
         jobid_config.subdat = subdat
 
-        AzureUtils(root_log_path="logs_test/",
-                   jobid=jobid_config, autohf=autohf)
+        AzureUtils(root_log_path="logs_test/", autohf=autohf)
 
         preparedata_setting = get_preparedata_setting(jobid_config)
         autohf.prepare_data(**preparedata_setting)

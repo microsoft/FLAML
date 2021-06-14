@@ -344,24 +344,29 @@ class AzureUtils:
     def __init__(self,
                  root_log_path=None,
                  console_args=None,
-                 jobid=None,
                  autohf=None):
         from ..utils import get_wandb_azure_key
         if root_log_path:
             self.root_log_path = root_log_path
         else:
             self.root_log_path = "logs_azure"
-        self.jobid = jobid
+        self.jobid = autohf.jobid_config
         self.console_args = console_args
         self.autohf = autohf
         if console_args:
             wandb_key, azure_key, container_name = get_wandb_azure_key(console_args.key_path)
             self._container_name = container_name
             self._azure_key = azure_key
+        else:
+            self._container_name = self._azure_key = ""
 
     def _get_complete_connection_string(self):
-        return "DefaultEndpointsProtocol=https;AccountName=docws5141197765;AccountKey=" \
+        try:
+            return "DefaultEndpointsProtocol=https;AccountName=docws5141197765;AccountKey=" \
                + self._azure_key + ";EndpointSuffix=core.windows.net"
+        except AttributeError:
+            return "DefaultEndpointsProtocol=https;AccountName=docws5141197765;AccountKey=" \
+                   ";EndpointSuffix=core.windows.net"
 
     def _init_azure_clients(self):
         from azure.storage.blob import ContainerClient
@@ -482,8 +487,8 @@ class AzureUtils:
             output_dir = self.console_args.data_root_dir
         except AttributeError:
             print("console_args does not contain data_root_dir, loading the default value")
-            from ..utils import load_console_args
-            console_args = load_console_args()
+            from ..utils import load_dft_args
+            console_args = load_dft_args()
             output_dir = getattr(console_args, "data_root_dir")
         local_archive_path = self.autohf.output_prediction(predictions,
                                                            output_prediction_path=output_dir + "result/",

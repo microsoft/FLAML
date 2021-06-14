@@ -6,7 +6,7 @@ import shutil
 from flaml.nlp import AutoTransformers
 from flaml.nlp import AzureUtils, JobID
 from flaml.nlp.result_analysis.wandb_utils import WandbUtils
-from flaml.nlp.utils import load_console_args
+from flaml.nlp.utils import load_dft_args
 
 global azure_log_path
 global azure_key
@@ -226,9 +226,6 @@ def _test_hpo(args,
               root_log_path=None,
               **custom_hpo_args
               ):
-    if not azure_utils:
-        azure_utils = AzureUtils(root_log_path=root_log_path,
-                                 console_args=args, jobid=jobid_config, autohf=autohf)
     preparedata_setting = get_preparedata_setting(args, jobid_config, wandb_utils)
     autohf.prepare_data(**preparedata_setting)
 
@@ -248,6 +245,10 @@ def _test_hpo(args,
         predictions = None
         if test_metric:
             validation_metric.update({"test": test_metric})
+
+    if not azure_utils:
+        azure_utils = AzureUtils(root_log_path=root_log_path,
+                                 console_args=args, autohf=autohf)
 
     if analysis is not None:
         configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
@@ -288,7 +289,7 @@ def _exhaustive_sweep(args,
 
 
 if __name__ == "__main__":
-    args = load_console_args()
+    args = load_dft_args()
 
     jobid_config = JobID(args)
     autohf = AutoTransformers()

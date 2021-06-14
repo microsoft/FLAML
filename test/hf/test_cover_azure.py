@@ -18,8 +18,8 @@ def get_preparedata_setting(jobid_config):
 
 
 def get_console_args():
-    from flaml.nlp.utils import load_console_args
-    args = load_console_args()
+    from flaml.nlp.utils import load_dft_args
+    args = load_dft_args()
     args.dataset_subdataset_name = "glue:mrpc"
     args.algo_mode = "hpo"
     args.space_mode = "uni"
@@ -97,7 +97,7 @@ def test_azureutils():
     jobid_config = JobID(args)
     autohf = AutoTransformers()
 
-    azureutils = AzureUtils(console_args=args, jobid=jobid_config, autohf=autohf)
+    azureutils = AzureUtils(console_args=args, autohf=autohf)
 
     azureutils.autohf = autohf
     azureutils.root_log_path = "logs_azure/"

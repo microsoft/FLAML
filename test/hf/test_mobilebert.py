@@ -67,8 +67,7 @@ def test_hpo():
 
     jobid_config.mod = "grid"
     autohf = AutoTransformers()
-    AzureUtils(root_log_path="logs_test/",
-                             jobid=jobid_config, autohf=autohf)
+    AzureUtils(root_log_path="logs_test/", autohf=autohf)
 
     preparedata_setting = get_preparedata_setting(jobid_config)
     autohf.prepare_data(**preparedata_setting)
