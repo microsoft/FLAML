@@ -98,11 +98,6 @@ def test_azureutils():
     autohf = AutoTransformers()
     autohf.jobid_config = jobid_config
 
-    azureutils = AzureUtils(console_args=args, autohf=autohf)
-
-    azureutils.autohf = autohf
-    azureutils.root_log_path = "logs_azure/"
-
     preparedata_setting = get_preparedata_setting(jobid_config)
     autohf.prepare_data(**preparedata_setting)
 
@@ -112,6 +107,10 @@ def test_azureutils():
     for each_method in ["unsorted", "sort_time", "sort_accuracy"]:
         configscore_list.sorted(each_method)
     configscore_list.get_best_config()
+
+    azureutils = AzureUtils(console_args=args, autohf=autohf)
+    azureutils.autohf = autohf
+    azureutils.root_log_path = "logs_azure/"
 
     azureutils.write_autohf_output(configscore_list=[each_configscore],
                                    valid_metric={},

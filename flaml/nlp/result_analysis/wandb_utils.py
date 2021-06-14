@@ -3,6 +3,7 @@ import subprocess
 import hashlib
 from time import time
 
+
 class WandbUtils:
 
     # Documentation on the wandb setting:
@@ -23,7 +24,7 @@ class WandbUtils:
     # https://docs.ray.io/en/master/tune/tutorials/tune-wandb.html
 
     def __init__(self,
-                 is_wandb_on=None,
+                 is_wandb_on=False,
                  console_args=None,
                  jobid_config=None):
         if is_wandb_on:
@@ -40,20 +41,23 @@ class WandbUtils:
     def set_wandb_per_trial(self):
         print("before wandb.init\n\n\n")
         try:
-            if os.environ["WANDB_MODE"] == "online":
-                import wandb
-                os.environ["WANDB_SILENT"] = "false"
-                return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
-                                  group=self.wandb_group_name,
-                                  name=str(WandbUtils._get_next_trial_ids()),
-                                  settings=wandb.Settings(
-                                      _disable_stats=True),
-                                  reinit=False)
-            else:
+            import wandb
+            try:
+                if os.environ["WANDB_MODE"] == "online":
+                        os.environ["WANDB_SILENT"] = "false"
+                        return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
+                                          group=self.wandb_group_name,
+                                          name=str(WandbUtils._get_next_trial_ids()),
+                                          settings=wandb.Settings(
+                                              _disable_stats=True),
+                                          reinit=False)
+                else:
+                    return None
+            except wandb.errors.UsageError as err:
+                print(err)
                 return None
-        except wandb.errors.UsageError as err:
-            print(err)
-            return None
+        except ImportError:
+            print("To use the wandb component in flaml.nlp, run pip install wandb==0.10.26")
 
     @staticmethod
     def _get_next_trial_ids():
@@ -62,19 +66,22 @@ class WandbUtils:
         return "trial_" + hash.hexdigest()[:3]
 
     def set_wandb_per_run(self):
-        os.environ["WANDB_RUN_GROUP"] = self.jobid_config.to_wandb_string() + wandb.util.generate_id()
-        self.wandb_group_name = os.environ["WANDB_RUN_GROUP"]
         try:
-            if os.environ["WANDB_MODE"] == "online":
-                import wandb
-                os.environ["WANDB_SILENT"] = "false"
-                return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
-                                  group=os.environ["WANDB_RUN_GROUP"],
-                                  settings=wandb.Settings(
-                                      _disable_stats=True),
-                                  reinit=False)
-            else:
+            import wandb
+            os.environ["WANDB_RUN_GROUP"] = self.jobid_config.to_wandb_string() + wandb.util.generate_id()
+            self.wandb_group_name = os.environ["WANDB_RUN_GROUP"]
+            try:
+                if os.environ["WANDB_MODE"] == "online":
+                    os.environ["WANDB_SILENT"] = "false"
+                    return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
+                                      group=os.environ["WANDB_RUN_GROUP"],
+                                      settings=wandb.Settings(
+                                          _disable_stats=True),
+                                      reinit=False)
+                else:
+                    return None
+            except wandb.errors.UsageError as err:
+                print(err)
                 return None
-        except wandb.errors.UsageError as err:
-            print(err)
-            return None
+        except ImportError:
+            print("To use the wandb component in flaml.nlp, run pip install wandb==0.10.26")
