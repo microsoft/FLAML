@@ -365,8 +365,8 @@ class AzureUtils:
 
     def _get_complete_connection_string(self):
         try:
-            return "DefaultEndpointsProtocol=https;AccountName=docws5141197765;AccountKey=" \
-               + self._azure_key + ";EndpointSuffix=core.windows.net"
+            return "DefaultEndpointsProtocol=https;AccountName=docws5141197765;AccountKey=" + self._azure_key \
+                    + ";EndpointSuffix=core.windows.net"
         except AttributeError:
             return "DefaultEndpointsProtocol=https;AccountName=docws5141197765;AccountKey=" \
                    ";EndpointSuffix=core.windows.net"
