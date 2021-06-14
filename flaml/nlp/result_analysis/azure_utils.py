@@ -5,7 +5,7 @@ from datetime import datetime
 from dataclasses import dataclass, field
 import json
 import typing
-from typing import Union
+from typing import Union, List, Union, Optional
 import argparse
 
 
@@ -36,7 +36,7 @@ class ConfigScore:
 class ConfigScoreList:
 
     def __init__(self,
-                 config_score_list: typing.List[ConfigScore],
+                 config_score_list: List[ConfigScore],
                  jobid_config=None,
                  blob_file=None,
                  ):
@@ -60,7 +60,6 @@ class ConfigScoreList:
 
 @dataclass
 class JobID:
-    from typing import Optional
     dat: list = field(default=None)
     subdat: str = field(default=None)
     mod: str = field(default=None)
@@ -510,7 +509,7 @@ class AzureUtils:
         self.upload_local_file_to_azure(local_archive_path)
 
     @staticmethod
-    def is_after_earliest_time(this_blob, earliest_time: typing.Tuple[int, int, int]):
+    def is_after_earliest_time(this_blob, earliest_time: Tuple[int, int, int]):
         import pytz
         utc = pytz.UTC
         if this_blob.last_modified >= utc.localize(datetime(earliest_time[0], earliest_time[1], earliest_time[2])):
@@ -520,7 +519,7 @@ class AzureUtils:
     def get_configblob_from_partial_jobid(self,
                                           root_log_path,
                                           partial_jobid,
-                                          earliest_time: typing.Tuple[int, int, int] = None):
+                                          earliest_time: Tuple[int, int, int] = None):
         """
             get all blobs whose jobid configs match the partial_jobid
         """
@@ -543,7 +542,7 @@ class AzureUtils:
     def get_config_and_score_from_partial_jobid(self,
                                                 root_log_path: str,
                                                 partial_jobid: JobID,
-                                                earliest_time: typing.Tuple[int, int, int] = None):
+                                                earliest_time: Tuple[int, int, int] = None):
         """
            Extract the config and score list from a partial config id
 
@@ -576,7 +575,7 @@ class AzureUtils:
 
     def get_config_and_score_from_matched_blob_list(self,
                                                     matched_blob_list,
-                                                    earliest_time: typing.Tuple[int, int, int] = None):
+                                                    earliest_time: Tuple[int, int, int] = None):
         """
             Extract the config and score list of one or multiple blobs
 
