@@ -711,7 +711,7 @@ class AutoTransformers:
         from .hpo.scheduler_auto import AutoScheduler
 
         """
-         Specify the other parse of jobid configs from custom_hpo_args, e.g., if the search algorithm was not specified 
+         Specify the other parse of jobid configs from custom_hpo_args, e.g., if the search algorithm was not specified
          previously, can specify the algorithm here
         """
         if len(custom_hpo_args) > 0:
