@@ -11,7 +11,7 @@ def get_console_args():
     args = load_dft_args()
     args.dataset_subdataset_name = "glue:mrpc"
     args.algo_mode = "hpo"
-    args.space_mode = "uni"
+    args.space_mode = "gridunion"
     args.search_alg_args_mode = "dft"
     args.algo_name = "bs"
     args.pruner = "None"
@@ -115,7 +115,7 @@ def test_hpo_space():
         jobid_config.spa = spa
         if jobid_config.spa == "cus":
             custom_hpo_args = {"hpo_space": {"learning_rate": [1e-5]}}
-        elif jobid_config.spa == "buni":
+        elif jobid_config.spa == "bgridunion":
             best_config = {"learning_rate": 1e-5}
             custom_hpo_args = {"points_to_evaluate": [best_config],
                                "bound": {"learning_rate": {"u": best_config["learning_rate"]}}}

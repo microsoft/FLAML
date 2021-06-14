@@ -32,7 +32,8 @@ def load_dft_args():
     arg_parser.add_argument('--dataset_subdataset_name', type=dataset_subdataset_name_format_check,
                             help='dataset and subdataset name', required=False, default=None)
     arg_parser.add_argument('--space_mode', type=str, help='space mode', required=False,
-                            choices=["grid", "gnr", "uni", "uni_test", "cus", "buni"], default="uni")
+                            choices=["grid", "generic", "gridunion", "smoke_test", "cus", "bgridunion"],
+                            default="gridunion")
     arg_parser.add_argument('--search_alg_args_mode', type=str, help='search algorithm args mode', required=False,
                             choices=["dft", "exp", "cus"], default="dft")
     arg_parser.add_argument('--algo_name', type=str, help='algorithm', required=False,
@@ -56,8 +57,10 @@ def load_dft_args():
     arg_parser.add_argument('--round_idx', type=int, help='round idx for acl experiments', required=False, default=0)
     arg_parser.add_argument('--seed_data', type=int, help='seed of data shuffling', required=False, default=43)
     arg_parser.add_argument('--seed_transformers', type=int, help='seed of transformers', required=False, default=42)
-    arg_parser.add_argument('--optarg1', type=float, help='place holder for optional arg', required=False)
-    arg_parser.add_argument('--optarg2', type=float, help='place holder for optional arg', required=False)
+    arg_parser.add_argument('--learning_rate', type=float, help='optional argument for some experiment, '
+                            'can be removed', required=False)
+    arg_parser.add_argument('--num_train_epochs', type=float, help='optional argument for some experiment, '
+                            'can be removed', required=False)
     args, unknown = arg_parser.parse_known_args()
     return args
 

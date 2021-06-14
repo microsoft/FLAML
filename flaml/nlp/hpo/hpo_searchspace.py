@@ -24,7 +24,7 @@ def bounded_gridunion(model_type=None,
                       algo_mode=None,
                       **custom_hpo_args):
     assert "bound" in custom_hpo_args
-    gridunion_space = HPO_SEARCH_SPACE_MAPPING["uni"](model_type,
+    gridunion_space = HPO_SEARCH_SPACE_MAPPING["gridunion"](model_type,
                                                       model_size_type,
                                                       dataset_name_list,
                                                       subdataset_name,
@@ -178,11 +178,11 @@ def hpo_space_grid(model_type=None,
 HPO_SEARCH_SPACE_MAPPING = OrderedDict(
     [
         ("grid", hpo_space_grid),
-        ("uni", hpo_space_gridunion),
-        ("gnr", hpo_space_generic),
-        ("uni_test", hpo_space_gridunion_smoke_test),
+        ("gridunion", hpo_space_gridunion),
+        ("generic", hpo_space_generic),
+        ("smoke_test", hpo_space_gridunion_smoke_test),
         ("cus", hpo_space_custom),
-        ("buni", bounded_gridunion),
+        ("bgridunion", bounded_gridunion),
     ]
 )
 
@@ -220,12 +220,12 @@ class AutoHPOSearchSpace:
 
             hpo_searchspace_mode:
                 A string variable which is the mode of the hpo search space, it must be chosen from the following options:
-                    - uni: the union of BERT, RoBERTa and Electra's grid configs
+                    - gridunion: the union of BERT, RoBERTa and Electra's grid configs
                     - grid: the recommended grid config of the LM specified in jobconfig.pre
-                    - gnr: the generic continuous search space
-                    - uni_test: the search space for smoke test
+                    - generic: the generic continuous search space
+                    - smoke_test: the search space for smoke test
                     - cus: user customized search space, specified in the "hpo_space" argument in AutoTransformers.fit
-                    - buni: bounded grid union search space
+                    - bgridunion: bounded grid union search space
 
             model_type:
                 A string variable which is the type of the model, e.g., "electra"
@@ -243,7 +243,7 @@ class AutoHPOSearchSpace:
                 Any additional keyword argument to be used for the function for the HPO search space
 
         Example:
-            >>> AutoHPOSearchSpace.from_model_and_dataset_name("uni", "electra", "small", ["glue"], "rte", "hpo")
+            >>> AutoHPOSearchSpace.from_model_and_dataset_name("gridunion", "electra", "small", ["glue"], "rte", "hpo")
         """
 
         if hpo_searchspace_mode in HPO_SEARCH_SPACE_MAPPING.keys():
