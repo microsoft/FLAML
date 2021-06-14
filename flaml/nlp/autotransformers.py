@@ -6,11 +6,15 @@ import logging
 
 try:
     import ray
-    import transformers
+    from transformers import TrainingArguments
     import datasets
     import torch
 except ImportError:
     print("To use the nlp component in flaml, run pip install flaml[nlp]")
+
+from .dataset.task_auto import get_default_task
+from .result_analysis.azure_utils import JobID
+from .huggingface.trainer import TrainerForAutoTransformers
 
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
@@ -153,7 +157,6 @@ class AutoTransformers:
         from transformers import AutoTokenizer
         from datasets import load_dataset
         from .utils import PathUtils
-        from .result_analysis.azure_utils import JobID
         from .utils import load_dft_args
 
         self._max_seq_length = max_seq_length
@@ -250,7 +253,6 @@ class AutoTransformers:
                     checkpoint_path=None,
                     per_model_config=None):
         from transformers import AutoConfig
-        from .dataset.task_auto import get_default_task
         from .huggingface.switch_head_auto import AutoSeqClassificationHead, MODEL_CLASSIFICATION_HEAD_MAPPING
 
         this_task = get_default_task(self.jobid_config.dat,
@@ -312,7 +314,6 @@ class AutoTransformers:
             return this_model
 
     def _get_metric_func(self):
-        from .result_analysis.azure_utils import JobID
         data_name = JobID.dataset_list_to_str(self.jobid_config.dat)
         if data_name in ("glue", "super_glue"):
             metric = datasets.load.load_metric(data_name, self.jobid_config.subdat)
@@ -344,7 +345,7 @@ class AutoTransformers:
 
     @staticmethod
     def _separate_config(config):
-        from transformers import TrainingArguments
+
         training_args_config = {}
         per_model_config = {}
 
@@ -357,13 +358,12 @@ class AutoTransformers:
         return training_args_config, per_model_config
 
     def _objective(self, config, reporter, checkpoint_dir=None):
-        from transformers import TrainingArguments
-        from .huggingface.trainer import TrainerForAutoTransformers
+        from transformers import IntervalStrategy
+
+        from transformers.trainer_utils import set_seed
 
         def model_init():
             return self._load_model()
-
-        from transformers.trainer_utils import set_seed
         set_seed(config["seed"])
 
         training_args_config, per_model_config = AutoTransformers._separate_config(config)
@@ -375,8 +375,6 @@ class AutoTransformers:
         ckpt_freq = self._compute_checkpoint_freq(
             num_train_epochs=config["num_train_epochs"],
             batch_size=config["per_device_train_batch_size"])
-
-        from transformers.trainer_utils import IntervalStrategy
 
         assert self.path_utils.ckpt_dir_per_trial
         training_args = TrainingArguments(
@@ -529,7 +527,6 @@ class AutoTransformers:
         self._all_modes = all_modes
 
     def _set_task(self):
-        from .dataset.task_auto import get_default_task
         self.task_name = get_default_task(self.jobid_config.dat,
                                           self.jobid_config.subdat)
 
@@ -542,8 +539,6 @@ class AutoTransformers:
                _fp16=True,
                **custom_hpo_args
                ):
-        from transformers import TrainingArguments
-        from .huggingface.trainer import TrainerForAutoTransformers
         from transformers.trainer_utils import HPSearchBackend
 
         '''Fine tuning the huggingface using HF's API Transformers.hyperparameter_search (for comparitive purpose).
@@ -801,10 +796,6 @@ class AutoTransformers:
             A numpy array of shape n * 1 - - each element is a predicted class
             label for an instance.
         '''
-        from transformers import TrainingArguments
-        from .dataset.task_auto import get_default_task
-        from .huggingface.trainer import TrainerForAutoTransformers
-
         best_checkpoint = self._load_ckpt_json(ckpt_json_dir, **kwargs)
         best_model = self._load_model(checkpoint_path=best_checkpoint)
         training_args = TrainingArguments(per_device_eval_batch_size=1,

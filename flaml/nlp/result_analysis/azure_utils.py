@@ -372,39 +372,49 @@ class AzureUtils:
                    ";EndpointSuffix=core.windows.net"
 
     def _init_azure_clients(self):
-        from azure.storage.blob import ContainerClient
-        connection_string = self._get_complete_connection_string()
         try:
-            container_client = ContainerClient.from_connection_string(conn_str=connection_string,
-                                                                      container_name=self._container_name)
-            return container_client
-        except ValueError:
-            print("AzureUtils._container_name is specified as: {}, "
-                  "please correctly specify AzureUtils._container_name".format(self._container_name))
-            return None
+            from azure.storage.blob import ContainerClient
+            connection_string = self._get_complete_connection_string()
+            try:
+                container_client = ContainerClient.from_connection_string(conn_str=connection_string,
+                                                                          container_name=self._container_name)
+                return container_client
+            except ValueError:
+                print("AzureUtils._container_name is specified as: {}, "
+                      "please correctly specify AzureUtils._container_name".format(self._container_name))
+                return None
+        except ImportError:
+            print("To use the azure storage component in flaml.nlp, run pip install azure-storage-blob")
 
     def _init_blob_client(self,
                           local_file_path):
-        from azure.storage.blob import BlobServiceClient
-
-        connection_string = self._get_complete_connection_string()
-        blob_service_client = BlobServiceClient.from_connection_string(connection_string)
         try:
-            blob_client = blob_service_client.get_blob_client(container=self._container_name, blob=local_file_path)
-            return blob_client
-        except ValueError:
-            print("_container_name is unspecified or wrongly specified, please specify _container_name in AzureUtils")
-            return None
+            from azure.storage.blob import BlobServiceClient
+
+            connection_string = self._get_complete_connection_string()
+            blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+            try:
+                blob_client = blob_service_client.get_blob_client(container=self._container_name, blob=local_file_path)
+                return blob_client
+            except ValueError:
+                print("_container_name is unspecified or wrongly specified, please specify _container_name in AzureUtils")
+                return None
+        except ImportError:
+            print("To use the azure storage component in flaml.nlp, run pip install azure-storage-blob")
 
     def upload_local_file_to_azure(self, local_file_path):
-        import azure
         try:
-            blob_client = self._init_blob_client(local_file_path)
-            if blob_client:
-                with open(local_file_path, "rb") as fin:
-                    blob_client.upload_blob(fin, overwrite=True)
-        except azure.core.exceptions.HttpResponseError:
-            print("Cannot upload blob due to {}".format("azure.core.exceptions.HttpResponseError"))
+            from azure.core.exceptions import HttpResponseError
+            try:
+                blob_client = self._init_blob_client(local_file_path)
+                if blob_client:
+                    with open(local_file_path, "rb") as fin:
+                        blob_client.upload_blob(fin, overwrite=True)
+            except HttpResponseError as err:
+                print("Cannot upload blob due to {}: {}".format("azure.core.exceptions.HttpResponseError",
+                      err))
+        except ImportError:
+            print("To use the azure storage component in flaml.nlp, run pip install azure-storage-blob")
 
     def download_azure_blob(self, blobname):
         blob_client = self._init_blob_client(blobname)

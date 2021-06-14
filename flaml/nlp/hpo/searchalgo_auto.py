@@ -3,6 +3,7 @@ from collections import OrderedDict
 
 import ray
 from ray.tune.suggest.optuna import OptunaSearch
+
 from flaml import CFO, BlendSearch
 
 SEARCH_ALGO_MAPPING = OrderedDict(

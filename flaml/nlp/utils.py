@@ -8,14 +8,14 @@ from dataclasses import dataclass, field
 
 def dataset_subdataset_name_format_check(val_str):
     regex = re.compile(r"^[^:]*:[^:]*$")
-    if not regex.match(val_str):
+    if (val_str is not None) and (not regex.match(val_str)):
         raise argparse.ArgumentTypeError("dataset_subdataset_name must be in the format {data_name}:{subdata_name}")
     return val_str
 
 
 def pretrained_model_size_format_check(val_str):
     regex = re.compile(r"^[^:]*:(small|base|large|xlarge)")
-    if not regex.match(val_str):
+    if (val_str is not None) and (not regex.search(val_str)):
         raise argparse.ArgumentTypeError("pretrained_model_size must be in the format {model_name}:{model_size},"
                                          "where {model_name} is the name from huggingface.co/models, {model_size}"
                                          "is chosen from small, base, large, xlarge")

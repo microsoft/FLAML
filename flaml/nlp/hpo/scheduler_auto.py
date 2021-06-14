@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from ray.tune.schedulers import ASHAScheduler, HyperBandScheduler, MedianStoppingRule
+from ray.tune.schedulers import ASHAScheduler, HyperBandScheduler
 
 SCHEDULER_MAPPING = OrderedDict(
     [

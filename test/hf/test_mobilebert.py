@@ -43,11 +43,6 @@ def test_hpo():
     jobid_config.set_unittest_config()
     autohf = AutoTransformers()
 
-    azure_utils = AzureUtils(root_log_path="logs_test/",
-                             jobid=jobid_config, autohf=autohf)
-    azure_utils._azure_key = "test"
-    azure_utils._container_name = "test"
-
     preparedata_setting = get_preparedata_setting(jobid_config)
     autohf.prepare_data(**preparedata_setting)
 
@@ -59,6 +54,10 @@ def test_hpo():
     if test_metric:
         validation_metric.update({"test": test_metric})
 
+    azure_utils = AzureUtils(root_log_path="logs_test/", autohf=autohf)
+    azure_utils._azure_key = "test"
+    azure_utils._container_name = "test"
+
     configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
     azure_utils.write_autohf_output(configscore_list=configscore_list,
                                     valid_metric=validation_metric,
@@ -67,7 +66,6 @@ def test_hpo():
 
     jobid_config.mod = "grid"
     autohf = AutoTransformers()
-    AzureUtils(root_log_path="logs_test/", autohf=autohf)
 
     preparedata_setting = get_preparedata_setting(jobid_config)
     autohf.prepare_data(**preparedata_setting)

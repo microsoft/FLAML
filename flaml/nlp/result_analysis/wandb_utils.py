@@ -1,10 +1,7 @@
 import os
-from ..utils import get_wandb_azure_key
 import subprocess
-import wandb
 import hashlib
 from time import time
-
 
 class WandbUtils:
 
@@ -30,6 +27,7 @@ class WandbUtils:
                  console_args=None,
                  jobid_config=None):
         if is_wandb_on:
+            from ..utils import get_wandb_azure_key
             wandb_key, azure_key, container_name = get_wandb_azure_key(console_args.key_path)
             if wandb_key != "":
                 subprocess.run(["wandb", "login", "--relogin", wandb_key])
@@ -41,15 +39,20 @@ class WandbUtils:
 
     def set_wandb_per_trial(self):
         print("before wandb.init\n\n\n")
-        if os.environ["WANDB_MODE"] == "online":
-            os.environ["WANDB_SILENT"] = "false"
-            return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
-                              group=self.wandb_group_name,
-                              name=str(WandbUtils._get_next_trial_ids()),
-                              settings=wandb.Settings(
-                                  _disable_stats=True),
-                              reinit=False)
-        else:
+        try:
+            if os.environ["WANDB_MODE"] == "online":
+                import wandb
+                os.environ["WANDB_SILENT"] = "false"
+                return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
+                                  group=self.wandb_group_name,
+                                  name=str(WandbUtils._get_next_trial_ids()),
+                                  settings=wandb.Settings(
+                                      _disable_stats=True),
+                                  reinit=False)
+            else:
+                return None
+        except wandb.errors.UsageError as err:
+            print(err)
             return None
 
     @staticmethod
@@ -63,6 +66,7 @@ class WandbUtils:
         self.wandb_group_name = os.environ["WANDB_RUN_GROUP"]
         try:
             if os.environ["WANDB_MODE"] == "online":
+                import wandb
                 os.environ["WANDB_SILENT"] = "false"
                 return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
                                   group=os.environ["WANDB_RUN_GROUP"],

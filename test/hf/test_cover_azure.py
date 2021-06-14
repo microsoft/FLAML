@@ -96,6 +96,7 @@ def test_azureutils():
     args.key_path = "."
     jobid_config = JobID(args)
     autohf = AutoTransformers()
+    autohf.jobid_config = jobid_config
 
     azureutils = AzureUtils(console_args=args, autohf=autohf)
 

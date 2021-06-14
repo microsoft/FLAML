@@ -1,5 +1,4 @@
 # lookup table for the grid configs in each pre-trained language huggingface for different tasks
-import copy
 
 
 def get_space_union_and_unique(search_space_common,

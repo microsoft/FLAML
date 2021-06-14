@@ -76,9 +76,7 @@ setuptools.setup(
         "nlp": [
             "ray[tune]>=1.2.0",
             "transformers",
-            "wandb==0.10.26",
             "datasets==1.4",
-            "azure-storage-blob",
             "torch"
         ]
     },

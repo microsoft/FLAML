@@ -24,12 +24,11 @@ def get_console_args():
 
 
 def model_init():
-    from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import JobID
     jobid_config = JobID()
     jobid_config.set_unittest_config()
     from flaml.nlp import AutoTransformers
     autohf = AutoTransformers()
-    AzureUtils(root_log_path="logs_test/", autohf=autohf)
 
     preparedata_setting = get_preparedata_setting(jobid_config)
     autohf.prepare_data(**preparedata_setting)
@@ -61,7 +60,6 @@ def test_dataprocess():
 
     from flaml.nlp import AutoTransformers
     from flaml.nlp import JobID
-    from flaml.nlp import AzureUtils
     from flaml.nlp.dataset.dataprocess_auto import TOKENIZER_MAPPING
 
     jobid_config = JobID()
@@ -78,8 +76,6 @@ def test_dataprocess():
         print("loading dataset for {}, {}".format(dat, subdat))
         jobid_config.dat = dat.split(",")
         jobid_config.subdat = subdat
-
-        AzureUtils(root_log_path="logs_test/", autohf=autohf)
 
         preparedata_setting = get_preparedata_setting(jobid_config)
         autohf.prepare_data(**preparedata_setting)
