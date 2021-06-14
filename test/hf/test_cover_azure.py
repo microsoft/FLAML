@@ -22,7 +22,7 @@ def get_console_args():
     args = load_dft_args()
     args.dataset_subdataset_name = "glue:mrpc"
     args.algo_mode = "hpo"
-    args.space_mode = "gridunion"
+    args.space_mode = "uni"
     args.search_alg_args_mode = "dft"
     args.algo_name = "bs"
     args.pruner = "None"
