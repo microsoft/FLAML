@@ -10,7 +10,7 @@ try:
     import datasets
     import torch
 except ImportError:
-    print("To use the nlp module in flaml, run pip install flaml[nlp]")
+    print("To use the nlp component in flaml, run pip install flaml[nlp]")
 
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
