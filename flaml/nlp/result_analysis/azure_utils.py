@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from dataclasses import dataclass, field
 import json
-from typing import Union, Tuple
+from typing import Union, Tuple, List, Optional
 import argparse
 
 
@@ -35,7 +35,7 @@ class ConfigScore:
 class ConfigScoreList:
 
     def __init__(self,
-                 config_score_list: typing.List[ConfigScore],
+                 config_score_list: List[ConfigScore],
                  jobid_config=None,
                  blob_file=None,
                  ):
@@ -59,7 +59,6 @@ class ConfigScoreList:
 
 @dataclass
 class JobID:
-    from typing import Optional
     dat: list = field(default=None)
     subdat: str = field(default=None)
     mod: str = field(default=None)
