@@ -513,6 +513,10 @@ class AutoML:
                     X_train_all, y_train_all,
                     self._state.fit_kwargs['sample_weight'],
                     random_state=RANDOM_SEED)
+        elif hasattr(self._state, 'groups') and self._state.groups is not None:
+            X_train_all, y_train_all, self._state.groups = shuffle(
+                X_train_all, y_train_all, self._state.groups,
+                random_state=RANDOM_SEED)
         else:
             X_train_all, y_train_all = shuffle(
                 X_train_all, y_train_all, random_state=RANDOM_SEED)
