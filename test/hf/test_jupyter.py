@@ -11,12 +11,22 @@ def _test_jupyter():
     autohf.prepare_data(**preparedata_setting)
 
     autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
-                       "num_samples": 1,
-                       "time_budget": 100000,  # unlimited time budget
+                       "num_samples": -1,
+                       "time_budget": 600,  # unlimited time budget
                        "ckpt_per_epoch": 5,
                        "fp16": True,
-                       "algo_mode": "grid",  # set the search algorithm to grid search
-                       "space_mode": "grid", # set the search space to the recommended grid space
+                       "algo_mode": "hpo",  # set the search algorithm to grid search
+                       "algo_name": "rs",
+                       "space_mode": "cus",  # set the search space to the recommended grid space
+                       "hpo_space": {
+                           "learning_rate": {"l": 3e-5, "u": 1.5e-5, "space": "log"},
+                           "warmup_ratio": {"l": 0, "u": 0.2, "space": "linear"},
+                           "num_train_epochs": [3],
+                           "per_device_train_batch_size": [16, 32, 64],
+                           "weight_decay": {"l": 0.0, "u": 0.3, "space": "linear"},
+                           "attention_probs_dropout_prob": {"l": 0, "u": 0.2, "space": "linear"},
+                           "hidden_dropout_prob": {"l": 0, "u": 0.2, "space": "linear"}
+                       }
                        }
     validation_metric, analysis = autohf.fit(**autohf_settings, )
 
