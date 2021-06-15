@@ -1,5 +1,4 @@
 # lookup table for the grid configs in each pre-trained language huggingface for different tasks
-import copy
 
 
 def get_space_union_and_unique(search_space_common,
@@ -39,7 +38,7 @@ def get_space_union_and_unique(search_space_common,
 
 
 def get_deberta_space(model_size_type=None,
-                      dataset_name_list:list=None,
+                      dataset_name_list: list = None,
                       subdataset_name=None,
                       algo_mode=None):
     """
@@ -66,7 +65,7 @@ def get_deberta_space(model_size_type=None,
 
 
 def get_longformer_space(model_size_type=None,
-                         dataset_name_list:list=None,
+                         dataset_name_list: list = None,
                          subdataset_name=None,
                          algo_mode=None):
     """
@@ -76,7 +75,7 @@ def get_longformer_space(model_size_type=None,
 
 
 def get_funnel_space(model_size_type=None,
-                     dataset_name_list:list=None,
+                     dataset_name_list: list = None,
                      subdataset_name=None,
                      algo_mode=None):
     """
@@ -161,7 +160,7 @@ def get_funnel_space(model_size_type=None,
 
 
 def get_bert_space(model_size_type=None,
-                   dataset_name_list:list=None,
+                   dataset_name_list: list = None,
                    subdataset_name=None,
                    algo_mode=None):
     """
@@ -212,7 +211,7 @@ def get_bert_space(model_size_type=None,
 
 
 def get_roberta_space(model_size_type=None,
-                      dataset_name_list:list=None,
+                      dataset_name_list: list = None,
                       subdataset_name=None,
                       algo_mode=None):
     # RoBERTa: A Robustly Optimized BERT Pretraining Approach
@@ -252,7 +251,7 @@ def get_roberta_space(model_size_type=None,
 
 
 def get_electra_space(model_size_type=None,
-                      dataset_name_list:list=None,
+                      dataset_name_list: list = None,
                       subdataset_name=None,
                       algo_mode=None):
     """
@@ -314,7 +313,7 @@ def get_electra_space(model_size_type=None,
 
 
 def get_mobilebert_space(model_size_type=None,
-                         dataset_name_list:list=None,
+                         dataset_name_list: list = None,
                          subdataset_name=None,
                          algo_mode=None):
     """
@@ -334,7 +333,7 @@ def get_mobilebert_space(model_size_type=None,
 
 
 def get_albert_space(model_size_type=None,
-                     dataset_name_list:list=None,
+                     dataset_name_list: list = None,
                      subdataset_name=None,
                      algo_mode=None):
     """

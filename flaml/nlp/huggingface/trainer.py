@@ -1,6 +1,7 @@
 import os
 import transformers
 
+
 class TrainerForAutoTransformers(transformers.Trainer):
     """
         Overriding transformers.Trainer.
@@ -8,12 +9,6 @@ class TrainerForAutoTransformers(transformers.Trainer):
         Args:
             huggingface (:class:`~transformers.PreTrainedModel` or :obj:`torch.nn.Module`, `optional`):
     """
-
-    def get_optimizers(
-            self, num_training_steps
-    ):
-        self.current_optimizer, self.current_scheduler = super().get_optimizers(num_training_steps)
-        return (self.current_optimizer, self.current_scheduler)
 
     def evaluate(self,
                  eval_dataset=None):
@@ -45,24 +40,21 @@ class TrainerForAutoTransformers(transformers.Trainer):
                 Overriding transformers.Trainer.save_state. It is only through saving
                 the states can best_trial.get_best_checkpoint return a non-empty value.
         """
-        try:
-            import torch
-            from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
-            from ray import tune
+        import torch
+        from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
+        from ray import tune
 
-            with tune.checkpoint_dir(step=self.state.global_step) as checkpoint_dir:
-                self.args.output_dir = checkpoint_dir
-                # This is the directory name that Huggingface requires.
-                output_dir = os.path.join(
-                    self.args.output_dir,
-                    f"{PREFIX_CHECKPOINT_DIR}-{self.state.global_step}")
-                self.save_model(output_dir)
-                torch.save(self.optimizer.state_dict(),
-                           os.path.join(output_dir, "optimizer.pt"))
-                torch.save(self.lr_scheduler.state_dict(),
-                           os.path.join(output_dir, "scheduler.pt"))
-        except ImportError:
-            pass
+        with tune.checkpoint_dir(step=self.state.global_step) as checkpoint_dir:
+            self.args.output_dir = checkpoint_dir
+            # This is the directory name that Huggingface requires.
+            output_dir = os.path.join(
+                self.args.output_dir,
+                f"{PREFIX_CHECKPOINT_DIR}-{self.state.global_step}")
+            self.save_model(output_dir)
+            torch.save(self.optimizer.state_dict(),
+                       os.path.join(output_dir, "optimizer.pt"))
+            torch.save(self.lr_scheduler.state_dict(),
+                       os.path.join(output_dir, "scheduler.pt"))
 
     @staticmethod
     def convert_num_train_epochs_to_max_steps(

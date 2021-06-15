@@ -1,5 +1,6 @@
 # https://github.com/huggingface/datasets/blob/master/metrics/glue/glue.py
 from collections import OrderedDict
+import typing
 
 metric_mode_mapping_glue = {
     "cola": [("matthews_correlation", "max")],
@@ -42,7 +43,7 @@ METRIC_MAPPING = OrderedDict(
 )
 
 
-def get_default_and_alternative_metric(dataset_name_list: list,
+def get_default_and_alternative_metric(dataset_name_list: typing.List,
                                        subdataset_name=None,
                                        custom_metric_name=None,
                                        custom_metric_mode_name=None):

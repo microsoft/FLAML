@@ -6,7 +6,9 @@ from .get_grid_search_space import \
      get_roberta_space,
      get_funnel_space,
      get_deberta_space,
-     get_albert_space
+     get_albert_space,
+     get_longformer_space,
+     get_mobilebert_space
      )
 
 GRID_SEARCH_SPACE_MAPPING = OrderedDict(
@@ -17,6 +19,8 @@ GRID_SEARCH_SPACE_MAPPING = OrderedDict(
         ("funnel", get_funnel_space),
         ("deberta", get_deberta_space),
         ("albert", get_albert_space),
+        ("mobilebert", get_mobilebert_space),
+        ("longformer", get_longformer_space)
     ]
 )
 
@@ -53,7 +57,7 @@ class AutoGridSearchSpace:
     def from_model_and_dataset_name(cls,
                                     model_type,
                                     model_size_type,
-                                    dataset_name_list:list=None,
+                                    dataset_name_list: list = None,
                                     subdataset_name=None,
                                     algo_mode=None):
         """
@@ -67,7 +71,7 @@ class AutoGridSearchSpace:
             model_size_type:
                 A string variable which is the size of the model, e.g., "small"
 
-            dataset_name:
+            dataset_name_list:
                 A string variable which is the dataset name, e.g., "glue"
 
             subdataset_name:
@@ -77,7 +81,7 @@ class AutoGridSearchSpace:
                 A string variable which is the algorithm mode for grid search, e.g., "gridbert"
 
         Example:
-            >>> AutoGridSearchSpace.from_model_and_dataset_name("electra", "small", "glue", "rte", "grid")
+            >>> AutoGridSearchSpace.from_model_and_dataset_name("electra", "small", ["glue"], "rte", "grid")
 
         """
 
@@ -88,6 +92,6 @@ class AutoGridSearchSpace:
         raise ValueError(
             "Unrecognized method {},{} for this kind of AutoGridSearchSpace: {}.\n"
             "Method name should be one of {}.".format(
-                model_type, dataset_name_list, cls.__name__, ", ".join(c.__name__ for c in GRID_SEARCH_SPACE_MAPPING.keys())
+                model_type, dataset_name_list, cls.__name__, ", ".join(GRID_SEARCH_SPACE_MAPPING.keys())
             )
         )
