@@ -190,7 +190,8 @@ def test_wandb_utils():
     except ImportError:
         return
 
-    from flaml.nlp import WandbUtils, JobID
+    from flaml.nlp.result_analysis.wandb_utils import WandbUtils
+    from flaml.nlp import JobID
     import os
 
     args = get_console_args()
