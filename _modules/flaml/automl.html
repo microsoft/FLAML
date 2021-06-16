@@ -162,7 +162,7 @@
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">scipy.sparse</span> <span class="kn">import</span> <span class="n">issparse</span>
 <span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">train_test_split</span><span class="p">,</span> <span class="n">RepeatedStratifiedKFold</span><span class="p">,</span> \
-    <span class="n">RepeatedKFold</span>
+    <span class="n">RepeatedKFold</span><span class="p">,</span> <span class="n">GroupKFold</span>
 <span class="kn">from</span> <span class="nn">sklearn.utils</span> <span class="kn">import</span> <span class="n">shuffle</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">import</span> <span class="nn">os</span>
@@ -666,6 +666,10 @@
                     <span class="n">X_train_all</span><span class="p">,</span> <span class="n">y_train_all</span><span class="p">,</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s1">&#39;sample_weight&#39;</span><span class="p">],</span>
                     <span class="n">random_state</span><span class="o">=</span><span class="n">RANDOM_SEED</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="p">,</span> <span class="s1">&#39;groups&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">groups</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">X_train_all</span><span class="p">,</span> <span class="n">y_train_all</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">groups</span> <span class="o">=</span> <span class="n">shuffle</span><span class="p">(</span>
+                <span class="n">X_train_all</span><span class="p">,</span> <span class="n">y_train_all</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">groups</span><span class="p">,</span>
+                <span class="n">random_state</span><span class="o">=</span><span class="n">RANDOM_SEED</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">X_train_all</span><span class="p">,</span> <span class="n">y_train_all</span> <span class="o">=</span> <span class="n">shuffle</span><span class="p">(</span>
                 <span class="n">X_train_all</span><span class="p">,</span> <span class="n">y_train_all</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="n">RANDOM_SEED</span><span class="p">)</span>
@@ -676,7 +680,10 @@
 
         <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span> <span class="o">=</span> <span class="n">X_train_all</span><span class="p">,</span> <span class="n">y_train_all</span>
         <span class="k">if</span> <span class="n">X_val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># if eval_method = holdout, make holdout data</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">!=</span> <span class="s1">&#39;regression&#39;</span> <span class="ow">and</span> <span class="n">eval_method</span> <span class="o">==</span> <span class="s1">&#39;holdout&#39;</span><span class="p">:</span>
+                <span class="c1"># for classification, make sure the labels are complete in both</span>
+                <span class="c1"># training and validation data</span>
                 <span class="n">label_set</span><span class="p">,</span> <span class="n">first</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">y_train_all</span><span class="p">,</span> <span class="n">return_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
                 <span class="n">rest</span> <span class="o">=</span> <span class="p">[]</span>
                 <span class="n">last</span> <span class="o">=</span> <span class="mi">0</span>
@@ -718,10 +725,6 @@
                 <span class="n">X_val</span> <span class="o">=</span> <span class="n">concat</span><span class="p">(</span><span class="n">X_first</span><span class="p">,</span> <span class="n">X_val</span><span class="p">)</span>
                 <span class="n">y_val</span> <span class="o">=</span> <span class="n">concat</span><span class="p">(</span><span class="n">label_set</span><span class="p">,</span> <span class="n">y_val</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_df</span> <span class="k">else</span> \
                     <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">label_set</span><span class="p">,</span> <span class="n">y_val</span><span class="p">])</span>
-                <span class="n">_</span><span class="p">,</span> <span class="n">y_train_counts_elements</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">y_train</span><span class="p">,</span>
-                                                       <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-                <span class="n">_</span><span class="p">,</span> <span class="n">y_val_counts_elements</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">y_val</span><span class="p">,</span>
-                                                     <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="k">elif</span> <span class="n">eval_method</span> <span class="o">==</span> <span class="s1">&#39;holdout&#39;</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s1">&#39;regression&#39;</span><span class="p">:</span>
                 <span class="k">if</span> <span class="s1">&#39;sample_weight&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">:</span>
                     <span class="n">X_train</span><span class="p">,</span> <span class="n">X_val</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">y_val</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span>
@@ -745,7 +748,15 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">data_size_full</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">data_size</span> <span class="o">+</span> <span class="n">X_val</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">X_train</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">y_train</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">X_val</span><span class="p">,</span> \
             <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">y_val</span> <span class="o">=</span> <span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">X_val</span><span class="p">,</span> <span class="n">y_val</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="o">==</span> <span class="s2">&quot;stratified&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="p">,</span> <span class="s1">&#39;groups&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">groups</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using GroupKFold&quot;</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">groups</span><span class="p">)</span> <span class="o">==</span> <span class="n">y_train_all</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> \
+                <span class="s2">&quot;the length of groups must match the number of examples&quot;</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">groups</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="n">n_splits</span><span class="p">,</span> \
+                <span class="s2">&quot;the number of groups must be equal or larger than n_splits&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">kf</span> <span class="o">=</span> <span class="n">GroupKFold</span><span class="p">(</span><span class="n">n_splits</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">kf</span><span class="o">.</span><span class="n">groups</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">groups</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="o">==</span> <span class="s2">&quot;stratified&quot;</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using StratifiedKFold&quot;</span><span class="p">)</span>
             <span class="k">assert</span> <span class="n">y_train_all</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;=</span> <span class="n">n_splits</span><span class="p">,</span> <span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">n_splits</span><span class="si">}</span><span class="s2">-fold cross validation&quot;</span>
@@ -944,11 +955,12 @@
             <span class="n">X_val</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">y_val</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">sample_weight_val</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">groups</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
             <span class="n">retrain_full</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="n">split_type</span><span class="o">=</span><span class="s2">&quot;stratified&quot;</span><span class="p">,</span>
             <span class="n">learner_selector</span><span class="o">=</span><span class="s1">&#39;sample&#39;</span><span class="p">,</span>
             <span class="n">hpo_method</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-            <span class="n">verbose</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
             <span class="o">**</span><span class="n">fit_kwargs</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;Find a model for a given task</span>
 
@@ -1006,10 +1018,12 @@
 <span class="sd">            log_training_metric: A boolean of whether to log the training</span>
 <span class="sd">                metric for each model.</span>
 <span class="sd">            mem_thres: A float of the memory size constraint in bytes</span>
-<span class="sd">            X_val: None | a numpy array or a pandas dataframe of validation data</span>
-<span class="sd">            y_val: None | a numpy array or a pandas series of validation labels</span>
-<span class="sd">            sample_weight_val: None | a numpy array of the sample weight of</span>
+<span class="sd">            X_val: None or a numpy array or a pandas dataframe of validation data</span>
+<span class="sd">            y_val: None or a numpy array or a pandas series of validation labels</span>
+<span class="sd">            sample_weight_val: None or a numpy array of the sample weight of</span>
 <span class="sd">                validation data</span>
+<span class="sd">            groups: None or an array-like of shape (n,) | Group labels for the</span>
+<span class="sd">                samples used while splitting the dataset into train/valid set</span>
 <span class="sd">            verbose: int, default=1 | Controls the verbosity, higher means more</span>
 <span class="sd">                messages</span>
 <span class="sd">            **fit_kwargs: Other key word arguments to pass to fit() function of</span>
@@ -1020,6 +1034,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">log_training_metric</span> <span class="o">=</span> <span class="n">log_training_metric</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span> <span class="o">=</span> <span class="n">fit_kwargs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">weight_val</span> <span class="o">=</span> <span class="n">sample_weight_val</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">groups</span> <span class="o">=</span> <span class="n">groups</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_data</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">dataframe</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">X_val</span><span class="p">,</span> <span class="n">y_val</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># key: estimator name; value: SearchState</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_random</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="n">RANDOM_SEED</span><span class="p">)</span>
