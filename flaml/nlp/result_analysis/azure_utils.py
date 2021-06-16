@@ -347,13 +347,19 @@ class AzureUtils:
     def __init__(self,
                  root_log_path=None,
                  console_args=None,
-                 autohf=None):
+                 autohf=None,
+                 jobid_config=None):
         from ..utils import get_wandb_azure_key
         if root_log_path:
             self.root_log_path = root_log_path
         else:
-            self.root_log_path = "logs_azure"
-        self.jobid = autohf.jobid_config
+            self.root_log_path = "logs_azure/"
+        if autohf is not None:
+            self.jobid = autohf.jobid_config
+        else:
+            assert jobid_config is not None, "jobid_config must be passed either through autohf.jobid_config" \
+                                             " or jobid_config"
+            self.jobid = jobid_config
         self.console_args = console_args
         self.autohf = autohf
         if console_args:
