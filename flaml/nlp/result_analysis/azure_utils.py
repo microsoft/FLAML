@@ -478,7 +478,7 @@ class AzureUtils:
                 azure_container_name = key_json["container_name"]
                 return azure_key, azure_container_name
             except FileNotFoundError:
-                print("Your output will not be synced to azure because azure key and container name are not specified")
+                print("Your output will not be synced to azure because key.json is not found under key_path")
                 return "", ""
         except KeyError:
             print("Your output will not be synced to azure because azure key and container name are not specified")
