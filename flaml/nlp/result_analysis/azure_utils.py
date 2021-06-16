@@ -55,8 +55,7 @@ class ConfigScoreList:
 
     def get_best_config(self,
                         metric_mode="max"):
-        return max(self._config_score_list, key=lambda x: getattr(x, "metric_score")
-        [metric_mode])
+        return max(self._config_score_list, key=lambda x: getattr(x, "metric_score")[metric_mode])
 
 
 @dataclass
