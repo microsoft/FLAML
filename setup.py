@@ -78,6 +78,12 @@ setuptools.setup(
             "transformers",
             "datasets==1.4.1",
             "torch"
+        ],
+        "acl2021": [
+            "ray[tune]>=1.2.0",
+            "transformers==3.4.0",
+            "datasets==1.4.1",
+            "torch"
         ]
     },
     classifiers=[

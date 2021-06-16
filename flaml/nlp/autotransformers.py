@@ -358,8 +358,6 @@ class AutoTransformers:
         return training_args_config, per_model_config
 
     def _objective(self, config, reporter, checkpoint_dir=None):
-        from transformers import IntervalStrategy
-
         from transformers.trainer_utils import set_seed
 
         def model_init():
@@ -377,17 +375,33 @@ class AutoTransformers:
             batch_size=config["per_device_train_batch_size"])
 
         assert self.path_utils.ckpt_dir_per_trial
-        training_args = TrainingArguments(
-            output_dir=self.path_utils.ckpt_dir_per_trial,
-            do_eval=False,
-            per_device_eval_batch_size=32,
-            eval_steps=ckpt_freq,
-            evaluation_strategy=IntervalStrategy.STEPS,
-            save_steps=ckpt_freq,
-            save_total_limit=0,
-            fp16=self._fp16,
-            **training_args_config,
-        )
+
+        import transformers
+        if transformers.__version__.startswith("3"):
+            training_args = TrainingArguments(
+                output_dir=self.path_utils.ckpt_dir_per_trial,
+                do_eval=True,
+                per_device_eval_batch_size=32,
+                eval_steps=ckpt_freq,
+                evaluate_during_training=True,
+                save_steps=ckpt_freq,
+                save_total_limit=0,
+                fp16=self._fp16,
+                **training_args_config,
+            )
+        else:
+            from transformers import IntervalStrategy
+            training_args = TrainingArguments(
+                output_dir=self.path_utils.ckpt_dir_per_trial,
+                do_eval=True,
+                per_device_eval_batch_size=32,
+                eval_steps=ckpt_freq,
+                evaluation_strategy=IntervalStrategy.STEPS,
+                save_steps=ckpt_freq,
+                save_total_limit=0,
+                fp16=self._fp16,
+                **training_args_config,
+            )
 
         trainer = TrainerForAutoTransformers(
             this_model,
