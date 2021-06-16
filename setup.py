@@ -78,7 +78,7 @@ setuptools.setup(
             "transformers",
             "datasets==1.4.1",
             "torch"
-        ],
+        ]
     },
     classifiers=[
         "Programming Language :: Python :: 3",
