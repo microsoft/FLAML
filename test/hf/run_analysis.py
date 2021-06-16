@@ -158,18 +158,41 @@ def analyze_exhaustive_sweep(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils, ConfigScoreList
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "grid"
-    partial_jobid_config.pre = "electra"
-    partial_jobid_config.presz = "base"
+    partial_jobid_config.pre = "funnel"
+    partial_jobid_config.presz = "xlarge"
 
-    azure_utils = AzureUtils(root_log_path= console_args.azure_root_log_path, console_args=console_args)
+    azure_utils = AzureUtils(root_log_path= console_args.azure_root_log_path,
+                             console_args=console_args,
+                             jobid_config=partial_jobid_config)
 
-    for subdat in ["mrpc"]:
+    for subdat in ["cola"]:
         partial_jobid_config.subdat = subdat
         matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
             "logs_seed/",
             partial_jobid_config)
-        ConfigScoreList([x for config_score_list in matched_config_score_lists
-                         for x in config_score_list._config_score_list])
+        merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
+                                             for x in config_score_list._config_score_list])
+        sorted_merged_list = sorted(merged_list._config_score_list, key = lambda x:x.metric_score["max"], reverse=True)[:30]
+
+        import math
+        hp2avg_pearsonr = {}
+        hp2avg_pearsonp = {}
+
+        metric_scores = [x.metric_score['max'] for x in sorted_merged_list]
+        for each_hp in ["learning_rate", "per_device_train_batch_size", "num_train_epochs", "warmup_ratio", "weight_decay", "adam_epsilon"]:
+            hp_val = [x.config[each_hp] for x in sorted_merged_list]
+            from scipy.stats import pearsonr
+            pearsonr, pearsonp = pearsonr(hp_val, metric_scores)
+            hp2avg_pearsonr.setdefault(each_hp, [])
+            hp2avg_pearsonr[each_hp].append(pearsonr)
+            hp2avg_pearsonp.setdefault(each_hp, [])
+            hp2avg_pearsonp[each_hp].append(math.log(pearsonp))
+
+        for each_hp in hp2avg_pearsonr.keys():
+            import numpy
+            print(each_hp)
+            print(numpy.mean(hp2avg_pearsonr[each_hp]))
+            print(numpy.mean(hp2avg_pearsonp[each_hp]))
 
 
 def create_partial_config_bestnn():
