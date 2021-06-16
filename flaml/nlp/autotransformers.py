@@ -6,6 +6,7 @@ import logging
 
 try:
     import ray
+    import transformers
     from transformers import TrainingArguments
     import datasets
     import torch
@@ -376,7 +377,6 @@ class AutoTransformers:
 
         assert self.path_utils.ckpt_dir_per_trial
 
-        import transformers
         if transformers.__version__.startswith("3"):
             training_args = TrainingArguments(
                 output_dir=self.path_utils.ckpt_dir_per_trial,
@@ -671,7 +671,8 @@ class AutoTransformers:
             custom_metric_mode_name=None,
             ckpt_per_epoch=1,
             fp16=True,
-            verbose=1,
+            ray_verbose=1,
+            transformers_verbose=transformers.logging.INFO,
             resources_per_trial=None,
             ray_local_mode=False,
             **custom_hpo_args):
@@ -702,8 +703,10 @@ class AutoTransformers:
                 e.g., "max", "min", "last", "all"
             ckpt_per_epoch:
                 An integer value of number of checkpoints per epoch, default = 1
-            verbose:
-                int, default=1 | Controls the verbosity, higher means more
+            ray_verbose:
+                int, default=1 | verbosit of ray,
+            transformers_verbose:
+                int, default=3 | verrbosity of transformers, 0: 3:
                 messages
             fp16:
                 boolean, default = True | whether to use fp16
@@ -723,6 +726,7 @@ class AutoTransformers:
 
         '''
         from .hpo.scheduler_auto import AutoScheduler
+        transformers.logging.set_verbosity(transformers_verbose)
 
         """
          Specify the other parse of jobid configs from custom_hpo_args, e.g., if the search algorithm was not specified
@@ -745,8 +749,8 @@ class AutoTransformers:
 
         logger.addHandler(logging.FileHandler(os.path.join(self.path_utils.log_dir_per_run, 'tune.log')))
         old_level = logger.getEffectiveLevel()
-        self._verbose = verbose
-        if verbose == 0:
+        self._verbose = ray_verbose
+        if ray_verbose == 0:
             logger.setLevel(logging.WARNING)
 
         assert self.path_utils.ckpt_dir_per_run
@@ -762,7 +766,7 @@ class AutoTransformers:
             name="ray_result",
             resources_per_trial=resources_per_trial,
             config=tune_config,
-            verbose=verbose,
+            verbose=ray_verbose,
             local_dir=self.path_utils.ckpt_dir_per_run,
             num_samples=num_samples,
             time_budget_s=time_budget,
