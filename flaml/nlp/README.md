@@ -1,4 +1,6 @@
-How to use AutoTransformers:
+AutoTransformers is an AutoML library for fine-tuning pre-trained language models based on the transformers library. 
+
+An example of using AutoTransformers:
 
 ```python
 from flaml.nlp.autotransformers import AutoTransformers
@@ -30,3 +32,4 @@ The current use cases that are supported:
 The use cases that can be supported in future:
 1. HPO fine-tuning for text generation;
 2. HPO fine-tuning for question answering;
+
