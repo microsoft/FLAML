@@ -1,4 +1,4 @@
-AutoTransformers is an AutoML library for fine-tuning pre-trained language models based on the transformers library. 
+AutoTransformers is an AutoML class for fine-tuning pre-trained language models based on the transformers library. 
 
 An example of using AutoTransformers:
 
