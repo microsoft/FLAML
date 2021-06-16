@@ -138,7 +138,7 @@ def print_sorted_configs(console_args,
     for each_rep in range(3):
         jobid_config.rep = console_args.rep_id = each_rep
         jobid_config.subdat = subdat_list[each_rep]
-        azure_utils = AzureUtils(console_args=console_args, jobid=jobid_config)
+        azure_utils = AzureUtils(console_args=console_args)
 
         matched_config_score_lists = \
             azure_utils.get_config_and_score_from_partial_jobid(
@@ -161,7 +161,7 @@ def analyze_exhaustive_sweep(console_args):
     partial_jobid_config.pre = "electra"
     partial_jobid_config.presz = "base"
 
-    azure_utils = AzureUtils(console_args=console_args, jobid=partial_jobid_config)
+    azure_utils = AzureUtils(root_log_path= console_args.azure_root_log_path, console_args=console_args)
 
     for subdat in ["mrpc"]:
         partial_jobid_config.subdat = subdat
