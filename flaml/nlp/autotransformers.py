@@ -360,6 +360,7 @@ class AutoTransformers:
 
     def _objective(self, config, reporter, checkpoint_dir=None):
         from transformers.trainer_utils import set_seed
+        self._set_transformers_verbosity(self._transformers_verbose)
 
         def model_init():
             return self._load_model()
@@ -664,6 +665,18 @@ class AutoTransformers:
 
         return validation_metric
 
+    def _set_transformers_verbosity(self, transformers_verbose):
+        if transformers_verbose == transformers.logging.ERROR:
+            transformers.logging.set_verbosity_error()
+        elif transformers_verbose == transformers.logging.WARNING:
+            transformers.logging.set_verbosity_warning()
+        elif transformers_verbose == transformers.logging.INFO:
+            transformers.logging.set_verbosity_info()
+        elif transformers_verbose == transformers.logging.DEBUG:
+            transformers.logging.set_verbosity_debug()
+        else:
+            raise Exception("transformers_verbose must be set to ERROR, WARNING, INFO or DEBUG")
+
     def fit(self,
             num_samples,
             time_budget,
@@ -706,8 +719,9 @@ class AutoTransformers:
             ray_verbose:
                 int, default=1 | verbosit of ray,
             transformers_verbose:
-                int, default=3 | verrbosity of transformers, 0: 3:
-                messages
+                int, default=transformers.logging.INFO | verbosity of transformers, must be chosen from one of
+                transformers.logging.ERROR, transformers.logging.INFO, transformers.logging.WARNING,
+                or transformers.logging.DEBUG
             fp16:
                 boolean, default = True | whether to use fp16
             ray_local_mode:
@@ -726,7 +740,7 @@ class AutoTransformers:
 
         '''
         from .hpo.scheduler_auto import AutoScheduler
-        transformers.logging.set_verbosity(transformers_verbose)
+        self._transformers_verbose = transformers_verbose
 
         """
          Specify the other parse of jobid configs from custom_hpo_args, e.g., if the search algorithm was not specified
@@ -776,7 +790,7 @@ class AutoTransformers:
         )
         duration = time.time() - start_time
         self.last_run_duration = duration
-        logger.info("Total running time: {} seconds".format(duration))
+        print("Total running time: {} seconds".format(duration))
 
         ray.shutdown()
 
@@ -792,7 +806,7 @@ class AutoTransformers:
 
         self._save_ckpt_json(best_ckpt)
 
-        if verbose == 0:
+        if ray_verbose == 0:
             logger.setLevel(old_level)
 
         return validation_metric, analysis

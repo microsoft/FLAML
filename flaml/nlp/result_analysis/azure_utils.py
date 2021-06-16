@@ -346,10 +346,66 @@ class AzureUtils:
 
     def __init__(self,
                  root_log_path=None,
-                 console_args=None,
+                 azure_key_path=None,
+                 data_root_dir=None,
                  autohf=None,
                  jobid_config=None):
-        from ..utils import get_wandb_azure_key
+        ''' This class is for storing the output files (logs, predictions) for AutoTransformers. To use azure storage
+            blob, you can specify a key and upload the output files to azure. For example, when running jobs
+            in a cluster, this class can help you manage all the output files in the same place. If a key is not
+            specified, you can still save your output files locally.
+
+            Examples:
+
+                Using AzureUtils with autohf:
+
+                    validation_metric, analysis = autohf.fit(**autohf_settings)
+                    predictions, test_metric = autohf.predict()
+
+                    azure_utils = AzureUtils(root_log_path="logs_test/",
+                                             autohf=autohf,
+                                             azure_key_path="../../")  #storing the key information in a file in azure_key_path
+
+                    azure_utils.write_autohf_output(valid_metric=validation_metric,
+                                                    predictions=predictions,
+                                                    duration=autohf.last_run_duration)
+
+                Using AzureUtils without autohf:
+
+
+
+            Args:
+                root_log_path:
+                    The local root log folder name, e.g., root_log_path="logs_test/" will create a directory
+                    "logs_test/" locally
+
+                azure_key_path:
+                    The path for storing the azure keys. The azure key, and container name are stored in a local file
+                    azure_key_path/key.json. The key_path.json file should look like this:
+
+                    {
+                        "container_name": "container_name",
+                        "azure_key": "azure_key",
+                    }
+
+                    To find out the container name and azure key of your blob, please refer to:
+                    https://docs.microsoft.com/en-us/azure/storage/blobs/storage-quickstart-blobs-portal
+
+                    If the container name and azure key are not specified, the output will only be saved locally,
+                    not synced to azure blob.
+
+                data_root_dir:
+                    The directory for outputing the predictions, e.g., packing the predictions into a .zip file for
+                    uploading to the glue website
+
+                autohf:
+                    The AutoTransformers object, which contains the output of an HPO run. AzureUtils will save the
+                    output (analysis results, predictions) from AzureTransformers.
+
+                jobid_config:
+                    This argument will only be used if autohf is not specified. jobid_config specifies the jobid config
+                    to be analyzed, e.g.,
+        '''
         if root_log_path:
             self.root_log_path = root_log_path
         else:
@@ -360,14 +416,29 @@ class AzureUtils:
             assert jobid_config is not None, "jobid_config must be passed either through autohf.jobid_config" \
                                              " or jobid_config"
             self.jobid = jobid_config
-        self.console_args = console_args
+        self.data_root_dir = data_root_dir
         self.autohf = autohf
-        if console_args:
-            wandb_key, azure_key, container_name = get_wandb_azure_key(console_args.key_path)
+        if azure_key_path:
+            azure_key, container_name = AzureUtils.get_azure_key(azure_key_path)
             self._container_name = container_name
             self._azure_key = azure_key
         else:
             self._container_name = self._azure_key = ""
+
+    @staticmethod
+    def get_azure_key(key_path):
+        try:
+            try:
+                key_json = json.load(open(os.path.join(key_path, "key.json"), "r"))
+                azure_key = key_json["azure_key"]
+                azure_container_name = key_json["container_name"]
+                return azure_key, azure_container_name
+            except FileNotFoundError:
+                print("Your output will not be synced to azure because azure key and container name are not specified")
+                return "", ""
+        except KeyError:
+            print("Your output will not be synced to azure because azure key and container name are not specified")
+            return "", ""
 
     def _get_complete_connection_string(self):
         try:
@@ -380,6 +451,10 @@ class AzureUtils:
     def _init_azure_clients(self):
         try:
             from azure.storage.blob import ContainerClient
+        except ImportError:
+            print("You have not installed azure-storage-blob, your output will not be synced to azure blob storage,"
+                  "To sync your result, please install azure using pip install azure-storage-blob, store your "
+                  "azure key and container name in a local file and pass the ")
             connection_string = self._get_complete_connection_string()
             try:
                 container_client = ContainerClient.from_connection_string(conn_str=connection_string,
@@ -390,7 +465,7 @@ class AzureUtils:
                       "please correctly specify AzureUtils._container_name".format(self._container_name))
                 return None
         except ImportError:
-            print("To use the azure storage component in flaml.nlp, run pip install azure-storage-blob")
+            print("You have not installed azure-storage-blob, ")
 
     def _init_blob_client(self,
                           local_file_path):
@@ -403,7 +478,8 @@ class AzureUtils:
                 blob_client = blob_service_client.get_blob_client(container=self._container_name, blob=local_file_path)
                 return blob_client
             except ValueError:
-                print("_container_name is unspecified or wrongly specified, please specify _container_name in AzureUtils")
+                print("_container_name is unspecified or wrongly specified, "
+                      "please specify _container_name in AzureUtils")
                 return None
         except ImportError:
             print("To use the azure storage component in flaml.nlp, run pip install azure-storage-blob")
@@ -504,7 +580,7 @@ class AzureUtils:
         """
         azure_save_file_name = local_json_file.split("/")[-1][:-5]
         try:
-            output_dir = self.console_args.data_root_dir
+            output_dir = self.data_root_dir
         except AttributeError:
             print("console_args does not contain data_root_dir, loading the default value")
             from ..utils import load_dft_args
