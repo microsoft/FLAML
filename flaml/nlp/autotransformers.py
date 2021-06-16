@@ -678,7 +678,7 @@ class AutoTransformers:
             ckpt_per_epoch=1,
             fp16=True,
             ray_verbose=1,
-            transformers_verbose=1,
+            transformers_verbose=10,
             resources_per_trial=None,
             ray_local_mode=False,
             **custom_hpo_args):
