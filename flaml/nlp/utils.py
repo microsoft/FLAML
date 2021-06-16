@@ -91,7 +91,7 @@ def _variable_override_default_alternative(obj_ref, var_name, default_value, all
     else:
         setattr(obj_ref, var_name, default_value)
         print("The value for {} is not specified, setting it to the default value {}. "
-                       "Alternatively, you can set it to {}".format(var_name, default_value, ",".join(all_values)))
+              "Alternatively, you can set it to {}".format(var_name, default_value, ",".join(all_values)))
 
 
 @dataclass
