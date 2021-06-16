@@ -56,11 +56,43 @@ class ConfigScoreList:
     def get_best_config(self,
                         metric_mode="max"):
         return max(self._config_score_list, key=lambda x: getattr(x, "metric_score")
-                   [metric_mode])
+        [metric_mode])
 
 
 @dataclass
 class JobID:
+    """
+        The class for specifying the config of a job, includes the following fields:
+
+        dat:
+            A list which is the dataset name
+        subdat:
+            A string which is the sub dataset name
+        mod:
+            A string which is the module, e.g., "grid", "hpo"
+        spa:
+            A string which is the space mode, e.g., "uni", "gnr"
+        arg:
+            A string which is the mode for setting the input argument of a search algorithm, e.g., "cus", "dft"
+        alg:
+            A string which is the search algorithm name
+        pru:
+            A string which is the scheduler name
+        pre_full:
+            A string which is the full name of the pretrained language model
+        pre:
+            A string which is the abbreviation of the pretrained language model
+        presz:
+            A string which is the size of the pretrained language model
+        spt:
+            A string which is the resplit mode, e.g., "ori", "rspt"
+        rep:
+            An integer which is the repetition id
+        sddt:
+            An integer which is the seed for data shuffling in the resplit mode
+        sdhf:
+            An integer which is the seed for transformers
+    """
     dat: list = field(default=None)
     subdat: str = field(default=None)
     mod: str = field(default=None)
@@ -350,29 +382,42 @@ class AzureUtils:
                  data_root_dir=None,
                  autohf=None,
                  jobid_config=None):
-        ''' This class is for storing the output files (logs, predictions) for AutoTransformers. To use azure storage
-            blob, you can specify a key and upload the output files to azure. For example, when running jobs
-            in a cluster, this class can help you manage all the output files in the same place. If a key is not
-            specified, you can still save your output files locally.
+        ''' This class is for saving the output files (logs, predictions) for HPO, uploading it to an azure storage
+            blob, and performing analysis on the saved blobs. To use the cloud storage, you need to specify a key
+            and upload the output files to azure. For example, when running jobs in a cluster, this class can
+            help you store all the output files in the same place. If a key is not specified, this class will help you
+            save the files locally but not uploading to the cloud. After the outputs are uploaded, you can use this
+            class to perform analysis on the uploaded blob files.
 
             Examples:
 
-                Using AzureUtils with autohf:
+                Example 1 (saving and uploading):
 
-                    validation_metric, analysis = autohf.fit(**autohf_settings)
+                    validation_metric, analysis = autohf.fit(**autohf_settings) # running HPO
                     predictions, test_metric = autohf.predict()
 
                     azure_utils = AzureUtils(root_log_path="logs_test/",
                                              autohf=autohf,
-                                             azure_key_path="../../")  #storing the key information in a file in azure_key_path
+                                             azure_key_path="../../")
+                                             # passing the azure blob key from key.json under azure_key_path
 
                     azure_utils.write_autohf_output(valid_metric=validation_metric,
                                                     predictions=predictions,
                                                     duration=autohf.last_run_duration)
+                                    # uploading the output to azure cloud, which can be used for analysis afterwards
 
-                Using AzureUtils without autohf:
+                Example 2 (analysis):
 
+                        jobid_config = JobID()
+                        jobid_config.mod = "grid"
+                        jobid_config.pre = "funnel"
+                        jobid_config.presz = "xlarge"
 
+                        azure_utils = AzureUtils(root_log_path= "logs_test/",
+                                                 azure_key_path = "../../",
+                                                 jobid_config=jobid_config)
+
+                        # continue analyzing all files in azure blob that matches jobid_config
 
             Args:
                 root_log_path:
@@ -403,8 +448,8 @@ class AzureUtils:
                     output (analysis results, predictions) from AzureTransformers.
 
                 jobid_config:
-                    This argument will only be used if autohf is not specified. jobid_config specifies the jobid config
-                    to be analyzed, e.g.,
+                    The jobid config for analysis. jobid_config specifies the jobid config of azure blob files
+                    to be analyzed, if autohf is specified, jobid_config will be overwritten by autohf.jobid_config
         '''
         if root_log_path:
             self.root_log_path = root_log_path
@@ -443,29 +488,24 @@ class AzureUtils:
     def _get_complete_connection_string(self):
         try:
             return "DefaultEndpointsProtocol=https;AccountName=docws5141197765;AccountKey=" \
-                + self._azure_key + ";EndpointSuffix=core.windows.net"
+                   + self._azure_key + ";EndpointSuffix=core.windows.net"
         except AttributeError:
             return "DefaultEndpointsProtocol=https;AccountName=docws5141197765;AccountKey=" \
-                ";EndpointSuffix=core.windows.net"
+                   ";EndpointSuffix=core.windows.net"
 
     def _init_azure_clients(self):
         try:
             from azure.storage.blob import ContainerClient
-        except ImportError:
-            print("You have not installed azure-storage-blob, your output will not be synced to azure blob storage,"
-                  "To sync your result, please install azure using pip install azure-storage-blob, store your "
-                  "azure key and container name in a local file and pass the ")
             connection_string = self._get_complete_connection_string()
             try:
                 container_client = ContainerClient.from_connection_string(conn_str=connection_string,
                                                                           container_name=self._container_name)
                 return container_client
             except ValueError:
-                print("AzureUtils._container_name is specified as: {}, "
-                      "please correctly specify AzureUtils._container_name".format(self._container_name))
+                print("Your output will not be synced to azure because azure key and container name are not specified")
                 return None
         except ImportError:
-            print("You have not installed azure-storage-blob, ")
+            print("Your output will not be synced to azure because azure key and container name are not specified")
 
     def _init_blob_client(self,
                           local_file_path):
@@ -478,11 +518,10 @@ class AzureUtils:
                 blob_client = blob_service_client.get_blob_client(container=self._container_name, blob=local_file_path)
                 return blob_client
             except ValueError:
-                print("_container_name is unspecified or wrongly specified, "
-                      "please specify _container_name in AzureUtils")
+                print("Your output will not be synced to azure because azure key and container name are not specified")
                 return None
         except ImportError:
-            print("To use the azure storage component in flaml.nlp, run pip install azure-storage-blob")
+            print("Your output will not be synced to azure because azure-blob-storage is not installed")
 
     def upload_local_file_to_azure(self, local_file_path):
         try:
@@ -494,9 +533,9 @@ class AzureUtils:
                         blob_client.upload_blob(fin, overwrite=True)
             except HttpResponseError as err:
                 print("Cannot upload blob due to {}: {}".format("azure.core.exceptions.HttpResponseError",
-                      err))
+                                                                err))
         except ImportError:
-            print("To use the azure storage component in flaml.nlp, run pip install azure-storage-blob")
+            print("Your output will not be synced to azure because azure-blob-storage is not installed")
 
     def download_azure_blob(self, blobname):
         blob_client = self._init_blob_client(blobname)
@@ -579,13 +618,14 @@ class AzureUtils:
             store predictions (a .zip file) locally and upload
         """
         azure_save_file_name = local_json_file.split("/")[-1][:-5]
-        try:
-            output_dir = self.data_root_dir
-        except AttributeError:
-            print("console_args does not contain data_root_dir, loading the default value")
+        if self.data_root_dir is None:
             from ..utils import load_dft_args
             console_args = load_dft_args()
             output_dir = getattr(console_args, "data_root_dir")
+            print("The path for saving the prediction .zip file is not specified, "
+                  "setting to {} by default".format(output_dir))
+        else:
+            output_dir = self.data_root_dir
         local_archive_path = self.autohf.output_prediction(predictions,
                                                            output_prediction_path=output_dir + "result/",
                                                            output_zip_file_name=azure_save_file_name)

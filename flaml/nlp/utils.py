@@ -79,7 +79,7 @@ def _check_dict_keys_overlaps(dict1: dict, dict2: dict):
     return len(dict1_keys.intersection(dict2_keys)) > 0
 
 
-def _variable_override_default_alternative(logger, obj_ref, var_name, default_value, all_values, overriding_value=None):
+def _variable_override_default_alternative(obj_ref, var_name, default_value, all_values, overriding_value=None):
     """
         Setting the value of var. If overriding_value is specified, var is set to overriding_value;
         If overriding_value is not specified, var is set to default_value meanwhile showing all_values
@@ -87,10 +87,10 @@ def _variable_override_default_alternative(logger, obj_ref, var_name, default_va
     assert isinstance(all_values, list)
     if overriding_value:
         setattr(obj_ref, var_name, overriding_value)
-        logger.warning("The value for {} is specified as {}".format(var_name, overriding_value))
+        print("The value for {} is specified as {}".format(var_name, overriding_value))
     else:
         setattr(obj_ref, var_name, default_value)
-        logger.warning("The value for {} is not specified, setting it to the default value {}. "
+        print("The value for {} is not specified, setting it to the default value {}. "
                        "Alternatively, you can set it to {}".format(var_name, default_value, ",".join(all_values)))
 
 

@@ -17,11 +17,6 @@ from .dataset.task_auto import get_default_task
 from .result_analysis.azure_utils import JobID
 from .huggingface.trainer import TrainerForAutoTransformers
 
-logger = logging.getLogger(__name__)
-logger_formatter = logging.Formatter(
-    '[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s',
-    '%m-%d %H:%M:%S')
-
 task_list = [
     "seq-classification",
     "regression",
@@ -413,7 +408,6 @@ class AutoTransformers:
             tokenizer=self._tokenizer,
             compute_metrics=self._compute_metrics_by_dataset_name,
         )
-        trainer.logger = logger
         trainer.trial_id = reporter.trial_id
 
         """
@@ -513,7 +507,7 @@ class AutoTransformers:
             ckpt_json = json.load(open(ckpt_dir))
             return ckpt_json["best_ckpt"]
         except FileNotFoundError as err:
-            logger.error("Saved checkpoint not found. Please make sure checkpoint is stored under {}".format(ckpt_dir))
+            print("Saved checkpoint not found. Please make sure checkpoint is stored under {}".format(ckpt_dir))
             raise err
 
     def _set_metric(self, custom_metric_name=None, custom_metric_mode_name=None):
@@ -526,14 +520,12 @@ class AutoTransformers:
                 subdataset_name=self.jobid_config.subdat,
                 custom_metric_name=custom_metric_name,
                 custom_metric_mode_name=custom_metric_mode_name)
-        _variable_override_default_alternative(logger,
-                                               self,
+        _variable_override_default_alternative(self,
                                                "metric_name",
                                                default_metric,
                                                all_metrics,
                                                custom_metric_name)
-        _variable_override_default_alternative(logger,
-                                               self,
+        _variable_override_default_alternative(self,
                                                "metric_mode_name",
                                                default_mode,
                                                all_modes,
@@ -635,6 +627,7 @@ class AutoTransformers:
             resources_per_trial=resources_per_trial)
         duration = time.time() - start_time
         self.last_run_duration = duration
+        print("Total running time: {} seconds".format(duration))
 
         hp_dict = best_run.hyperparameters
         hp_dict["seed"] = int(hp_dict["seed"])
@@ -761,12 +754,6 @@ class AutoTransformers:
         self.ckpt_per_epoch = ckpt_per_epoch
         self.path_utils.make_dir_per_run()
 
-        logger.addHandler(logging.FileHandler(os.path.join(self.path_utils.log_dir_per_run, 'tune.log')))
-        old_level = logger.getEffectiveLevel()
-        self._verbose = ray_verbose
-        if ray_verbose == 0:
-            logger.setLevel(logging.WARNING)
-
         assert self.path_utils.ckpt_dir_per_run
         start_time = time.time()
 
@@ -805,9 +792,6 @@ class AutoTransformers:
         best_ckpt = AutoTransformers._recover_checkpoint(get_best_ckpt)
 
         self._save_ckpt_json(best_ckpt)
-
-        if ray_verbose == 0:
-            logger.setLevel(old_level)
 
         return validation_metric, analysis
 
