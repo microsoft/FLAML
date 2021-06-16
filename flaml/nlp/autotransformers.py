@@ -169,7 +169,7 @@ class AutoTransformers:
         if is_wandb_on:
             from .result_analysis.wandb_utils import WandbUtils
             self.wandb_utils = WandbUtils(is_wandb_on=is_wandb_on,
-                                          console_args=console_args,
+                                          wandb_key_path=console_args.key_path,
                                           jobid_config=self.jobid_config)
             self.wandb_utils.set_wandb_per_run()
         else:
