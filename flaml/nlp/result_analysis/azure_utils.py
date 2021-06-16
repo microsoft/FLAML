@@ -504,7 +504,7 @@ class AzureUtils:
                 print("Your output will not be synced to azure because azure key and container name are not specified")
                 return None
         except ImportError:
-            print("Your output will not be synced to azure because azure key and container name are not specified")
+            print("Your output will not be synced to azure because azure-blob-storage is not installed")
 
     def _init_blob_client(self,
                           local_file_path):
