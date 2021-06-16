@@ -47,10 +47,10 @@ class WandbUtils:
                 return wandb_key
             except FileNotFoundError:
                 print("Cannot use wandb module because key.json is not found under key_path")
-                return "", ""
+                return ""
         except KeyError:
             print("Cannot use wandb module because wandb key is not specified")
-            return "", ""
+            return ""
 
     def set_wandb_per_trial(self):
         print("before wandb.init\n\n\n")
