@@ -353,7 +353,7 @@ class AzureUtils:
         if root_log_path:
             self.root_log_path = root_log_path
         else:
-            self.root_log_path = "logs_azure"
+            self.root_log_path = "logs_azure/"
         if autohf is not None:
             self.jobid = autohf.jobid_config
         else:
