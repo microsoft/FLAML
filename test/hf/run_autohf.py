@@ -88,10 +88,7 @@ def get_best_base_config(args, jobid_config, autohf, wandb_utils):
         jobid_config_small.presz = "small"
     jobid_config_small.pre_full = re.sub("(xlarge|large|intermediate)", jobid_config_small.presz,
                                          jobid_config_small.pre_full)
-    azure_utils_small = AzureUtils(
-        console_args=args_small,
-        jobid=jobid_config_small,
-        autohf=autohf)
+    azure_utils_small = AzureUtils(root_log_path=args.root_log_path, azure_key_path=args.key_path, autohf=autohf)
     preparedata_setting = get_preparedata_setting(args, jobid_config, wandb_utils)
     autohf.prepare_data(**preparedata_setting)
     autohf.set_metric()
@@ -116,7 +113,7 @@ def search_base_and_search_lower_lr(args, jobid_config, autohf, wandb_utils):
     jobid_config_large = JobID(args_large)
     jobid_config_large.presz = jobid_config.presz
     jobid_config_large.pre_full = jobid_config.pre_full
-    azure_utils_large = AzureUtils(console_args=args_large, jobid=jobid_config_large, autohf=autohf)
+    azure_utils_large = AzureUtils(root_log_path=args.root_log_path, azure_key_path=args.key_path, autohf=autohf)
 
     _test_hpo(args_large,
               jobid_config_large,
@@ -144,7 +141,7 @@ def search_base_and_search_around_best(args, jobid_config, autohf, wandb_utils):
     jobid_config_large = JobID(args_large)
     jobid_config_large.presz = jobid_config.presz
     jobid_config_large.pre_full = jobid_config.pre_full
-    azure_utils_large = AzureUtils(console_args=args_large, jobid=jobid_config_large, autohf=autohf)
+    azure_utils_large = AzureUtils(root_log_path=args.root_log_path, azure_key_path=args.key_path, autohf=autohf)
 
     _test_hpo(args_large,
               jobid_config_large,
@@ -161,7 +158,7 @@ def evaluate_configs(autohf, args, ranked_all_configs):
     this_args.sample_num = int(len(ranked_all_configs))
     this_args.search_alg_args_mode = "cus"
     jobid_config = JobID(this_args)
-    azure_utils_large = AzureUtils(console_args=this_args, jobid=jobid_config, autohf=autohf)
+    azure_utils_large = AzureUtils(root_log_path=args.root_log_path, azure_key_path=args.key_path, autohf=autohf)
     _test_hpo(this_args,
               jobid_config,
               autohf,
@@ -200,7 +197,7 @@ def convert_config_to_different_size(origin_config, mode):
 def evaluate_small_best_configs_on_large(large_args, autohf):
     jobid_config_small = convert_config_to_different_size(JobID(large_args), mode="small")
     jobid_config_small.rep = 0
-    azure_utils_small = AzureUtils(console_args=None, jobid=jobid_config_small, autohf=autohf)
+    azure_utils_small = AzureUtils(root_log_path=args.root_log_path, azure_key_path=args.key_path, autohf=autohf)
     each_config_and_score_list = azure_utils_small.get_config_and_score_from_partial_jobid(
         large_args.root_log_path,
         autohf.jobid_config)[0]
@@ -248,7 +245,8 @@ def _test_hpo(args,
 
     if not azure_utils:
         azure_utils = AzureUtils(root_log_path=root_log_path,
-                                 console_args=args, autohf=autohf)
+                                 azure_key_path=args.key_path,
+                                 autohf=autohf)
 
     if analysis is not None:
         configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
@@ -267,7 +265,7 @@ def _exhaustive_sweep(args,
                       wandb_utils,
                       azure_utils=None,
                       autohf_settings=None, ):
-    from flaml.nlp import AutoHPOSearchSpace
+    from flaml.nlp.hpo.hpo_searchspace import AutoHPOSearchSpace
     args.space_mode = jobid_config.spa = "cus"
     args.algo_mode = jobid_config.mod = "grid"
     args.algo_name = jobid_config.alg = "grid"
@@ -293,10 +291,10 @@ if __name__ == "__main__":
 
     jobid_config = JobID(args)
     autohf = AutoTransformers()
-    wandb_utils = WandbUtils(is_wandb_on=False, console_args=args, jobid_config=jobid_config)
+    wandb_utils = WandbUtils(is_wandb_on=False, wandb_key_path=args.key_path, jobid_config=jobid_config)
     wandb_utils.set_wandb_per_run()
 
-    # _test_hpo(args, jobid_config, autohf, wandb_utils)
+    _test_hpo(args, jobid_config, autohf, wandb_utils)
 
     # search_base_and_search_lower_lr(args, jobid_config, autohf, wandb_utils)
 
@@ -304,4 +302,4 @@ if __name__ == "__main__":
 
     # evaluate_large_best_configs_on_small(args, autohf)
 
-    _exhaustive_sweep(args, jobid_config, autohf, wandb_utils)
+    #_exhaustive_sweep(args, jobid_config, autohf, wandb_utils)
