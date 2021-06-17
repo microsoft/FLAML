@@ -220,7 +220,6 @@ def _test_hpo(args,
               wandb_utils,
               azure_utils=None,
               autohf_settings=None,
-              root_log_path=None,
               **custom_hpo_args
               ):
     preparedata_setting = get_preparedata_setting(args, jobid_config, wandb_utils)
@@ -244,7 +243,7 @@ def _test_hpo(args,
             validation_metric.update({"test": test_metric})
 
     if not azure_utils:
-        azure_utils = AzureUtils(root_log_path=root_log_path,
+        azure_utils = AzureUtils(root_log_path=args.root_log_path,
                                  azure_key_path=args.key_path,
                                  autohf=autohf)
 
