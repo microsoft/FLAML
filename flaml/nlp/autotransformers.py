@@ -401,7 +401,7 @@ class AutoTransformers:
 
         trainer = TrainerForAutoTransformers(
             this_model,
-            training_args,
+            args=training_args,
             model_init=model_init,
             train_dataset=self.train_dataset,
             eval_dataset=self.eval_dataset,

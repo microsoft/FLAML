@@ -46,6 +46,7 @@ def get_autohf_settings(args, **custom_args):
                        "num_samples": args.sample_num,
                        "time_budget": args.time_budget,
                        "ckpt_per_epoch": 1,
+                       "ray_local_mode": True
                        }
     for other_attr in ["ds_config", "rep_id"]:
         if hasattr(args, other_attr):
@@ -293,7 +294,7 @@ if __name__ == "__main__":
     wandb_utils = WandbUtils(is_wandb_on=False, wandb_key_path=args.key_path, jobid_config=jobid_config)
     wandb_utils.set_wandb_per_run()
 
-    #_test_hpo(args, jobid_config, autohf, wandb_utils)
+    _test_hpo(args, jobid_config, autohf, wandb_utils)
 
     # search_base_and_search_lower_lr(args, jobid_config, autohf, wandb_utils)
 
@@ -301,4 +302,4 @@ if __name__ == "__main__":
 
     # evaluate_large_best_configs_on_small(args, autohf)
 
-    _exhaustive_sweep(args, jobid_config, autohf, wandb_utils)
+    #_exhaustive_sweep(args, jobid_config, autohf, wandb_utils)
