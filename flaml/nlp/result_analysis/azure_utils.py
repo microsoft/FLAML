@@ -344,8 +344,8 @@ class JobID:
             "rep_id": "rep",
             "seed_data": "sddt",
             "seed_transformers": "sdhf",
-            "learning_rate": "var1",
-            "weight_decay": "var2"
+            "varying_arg1": "var1",
+            "varying_arg2": "var2"
         }
         for each_key in console_to_jobid_key_mapping.keys():
             try:

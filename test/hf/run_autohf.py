@@ -278,8 +278,8 @@ def _exhaustive_sweep(args,
         jobid_config.subdat
     )
 
-    gridunion_space["learning_rate"] = [args.learning_rate]
-    gridunion_space["weight_decay"] = [args.weight_decay]
+    gridunion_space["varying_arg1"] = [args.varying_arg1]
+    gridunion_space["varying_arg2"] = [args.varying_arg2]
     _test_hpo(args, jobid_config, autohf, wandb_utils, azure_utils,
               autohf_settings,
               root_log_path=args.root_log_path,
