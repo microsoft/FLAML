@@ -376,6 +376,7 @@ class AutoTransformers:
         if transformers.__version__.startswith("3"):
             training_args = TrainingArguments(
                 output_dir=self.path_utils.ckpt_dir_per_trial,
+                do_train=True,
                 do_eval=True,
                 per_device_eval_batch_size=32,
                 eval_steps=ckpt_freq,
@@ -389,6 +390,7 @@ class AutoTransformers:
             from transformers import IntervalStrategy
             training_args = TrainingArguments(
                 output_dir=self.path_utils.ckpt_dir_per_trial,
+                do_train=True,
                 do_eval=True,
                 per_device_eval_batch_size=32,
                 eval_steps=ckpt_freq,
