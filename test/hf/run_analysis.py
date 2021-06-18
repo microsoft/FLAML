@@ -153,6 +153,7 @@ def print_sorted_configs(console_args,
             print()
             count += 1
 
+
 def analyze_exhaustive_sweep(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils, ConfigScoreList
     partial_jobid_config = JobID()
@@ -160,29 +161,30 @@ def analyze_exhaustive_sweep(console_args):
     partial_jobid_config.pre = "funnel"
     partial_jobid_config.presz = "xlarge"
 
-    azure_utils = AzureUtils(root_log_path= console_args.azure_root_log_path,
+    azure_utils = AzureUtils(root_log_path=console_args.azure_root_log_path,
                              azure_key_path=console_args.key_path,
                              jobid_config=partial_jobid_config)
 
-    import random
     for subdat in ["cola"]:
         partial_jobid_config.subdat = subdat
         matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
-            "logs_seed/",
+            console_args.azure_root_log_path,
             partial_jobid_config)
         merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
-                                             for x in config_score_list._config_score_list])
+                                       for x in config_score_list._config_score_list])
         hp2avg_pearsonr = {}
         hp2avg_pearsonp = {}
         import math
 
         for rep in range(1):
-            #sorted_merged_list = random.sample(merged_list._config_score_list, 36)
-            sorted_merged_list = sorted(merged_list._config_score_list, key = lambda x:x.metric_score["max"], reverse=True)[:36]
+            # sorted_merged_list = random.sample(merged_list._config_score_list, 36)
+            sorted_merged_list = sorted(merged_list._config_score_list, key=lambda x: x.metric_score["max"],
+                                        reverse=True)[:36]
             print(sorted_merged_list[0].config["learning_rate"])
 
             metric_scores = [x.metric_score['max'] for x in sorted_merged_list]
-            for each_hp in ["learning_rate", "per_device_train_batch_size", "num_train_epochs", "warmup_ratio", "weight_decay", "adam_epsilon"]:
+            for each_hp in ["learning_rate", "per_device_train_batch_size", "num_train_epochs", "warmup_ratio",
+                            "weight_decay", "adam_epsilon"]:
                 hp_val = [x.config[each_hp] for x in sorted_merged_list]
                 from scipy.stats import pearsonr
                 pearsonr, pearsonp = pearsonr(hp_val, metric_scores)
@@ -197,6 +199,62 @@ def analyze_exhaustive_sweep(console_args):
             print(numpy.mean(hp2avg_pearsonr[each_hp]))
             print(math.exp(numpy.mean(hp2avg_pearsonp[each_hp])))
 
+def get_distribution_from_list(sorted_merged_list, each_hp):
+    hp2count = {}
+    totalcount = 0
+    for each_config in sorted_merged_list:
+        hp_val = each_config.config[each_hp]
+        hp2count.setdefault(hp_val, 0)
+        hp2count[hp_val] += 1
+        totalcount +=1
+
+    sorted_hp_vals = []
+    for each_hp in sorted(hp2count.keys()):
+        sorted_hp_vals.append(float(hp2count[each_hp]) / totalcount)
+    return sorted_hp_vals
+
+def compute_kl_div(pk, qk):
+    import math
+    return sum(pk[i] * math.log2(pk[i]/qk[i]) for i in range(len(pk)))
+
+def analyze_small_large(console_args):
+    from flaml.nlp.result_analysis.azure_utils import JobID, ConfigScoreList
+    from flaml.nlp import AzureUtils
+    partial_jobid_config = JobID()
+    partial_jobid_config.mod = "grid"
+    partial_jobid_config.pre = "deberta"
+    partial_jobid_config.subdat = "cola"
+
+    hp2sz2distribution = {}
+    presz_sizes = ["large", "base"]
+    all_hps = ["learning_rate", "per_device_train_batch_size", "num_train_epochs", "warmup_ratio", "weight_decay", "adam_epsilon"]
+
+    for presz in presz_sizes:
+        partial_jobid_config.presz = presz
+        azure_utils = AzureUtils(root_log_path=console_args.azure_root_log_path,
+                                 azure_key_path=console_args.key_path,
+                                 jobid_config=partial_jobid_config)
+        matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
+                console_args.azure_root_log_path,
+                partial_jobid_config)
+        merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
+                                       for x in config_score_list._config_score_list])
+        sorted_merged_list = sorted(merged_list._config_score_list, key=lambda x: x.metric_score["max"],
+                                    reverse=True)[:36]
+        for each_hp in all_hps:
+            this_distribution = get_distribution_from_list(sorted_merged_list, each_hp)
+            hp2sz2distribution.setdefault(each_hp, {})
+            hp2sz2distribution[each_hp][presz] = this_distribution
+
+    for each_hp in all_hps:
+        large_distribtion = hp2sz2distribution[each_hp][presz_sizes[0]]
+        small_distribution = hp2sz2distribution[each_hp][presz_sizes[1]]
+        kl_div_small_large = compute_kl_div(small_distribution, large_distribtion)
+        uniform_distribution = [1.0 / len(large_distribtion) for x in range(len(large_distribtion))]
+        kl_div_uniform_large = compute_kl_div(uniform_distribution, large_distribtion)
+        print(each_hp)
+        print(kl_div_small_large)
+        print(kl_div_uniform_large)
 
 def create_partial_config_bestnn():
     jobid_config = JobID()
@@ -263,4 +321,4 @@ if __name__ == "__main__":
     args = arg_parser.parse_args()
 
     partial_config_large = create_partial_config_hpo()
-    analyze_exhaustive_sweep(console_args=args)
+    analyze_small_large(console_args=args)
