@@ -46,7 +46,6 @@ def get_autohf_settings(args, **custom_args):
                        "num_samples": args.sample_num,
                        "time_budget": args.time_budget,
                        "ckpt_per_epoch": 1,
-                       "ray_local_mode": True
                        }
     for other_attr in ["ds_config", "rep_id"]:
         if hasattr(args, other_attr):
