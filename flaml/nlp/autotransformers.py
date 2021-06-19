@@ -2,20 +2,17 @@ import json
 import os
 import numpy as np
 import time
-import logging
 
 try:
     import ray
     import transformers
     from transformers import TrainingArguments
     import datasets
-    import torch
+    from .dataset.task_auto import get_default_task
+    from .result_analysis.azure_utils import JobID
+    from .huggingface.trainer import TrainerForAutoTransformers
 except ImportError:
     print("To use the nlp component in flaml, run pip install flaml[nlp]")
-
-from .dataset.task_auto import get_default_task
-from .result_analysis.azure_utils import JobID
-from .huggingface.trainer import TrainerForAutoTransformers
 
 task_list = [
     "seq-classification",
@@ -116,20 +113,18 @@ class AutoTransformers:
                      fold_name=None,
                      resplit_portion=None,
                      **custom_data_args):
-        '''Prepare data
+        """Prepare data
 
-            An example:
+            Example:
 
-                preparedata_setting = {
-                "server_name": "tmdev",
-                "data_root_path": "data/",
-                "max_seq_length": 128,
-                "jobid_config": jobid_config,
-                "wandb_utils": wandb_utils,
-                "resplit_portion": {"source": ["train", "validation"],
-                "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
-                }
-                autohf.prepare_data(**preparedata_setting)
+                .. code-block:: python
+
+                    preparedata_setting = {"server_name": "tmdev", "data_root_path": "data/", "max_seq_length": 128,
+                                               "jobid_config": jobid_config, "wandb_utils": wandb_utils,
+                                               "resplit_portion": {"source": ["train", "validation"],
+                                               "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}}
+
+                    autohf.prepare_data(**preparedata_setting)
 
             Args:
                 server_name:
@@ -148,7 +143,7 @@ class AutoTransformers:
                     If args.resplit_mode = "rspt", resplit_portion is required
                 is_wandb_on:
                     A boolean variable indicating whether wandb is used
-            '''
+        """
         from .dataset.dataprocess_auto import AutoEncodeText
         from transformers import AutoTokenizer
         from datasets import load_dataset
@@ -354,81 +349,85 @@ class AutoTransformers:
         return training_args_config, per_model_config
 
     def _objective(self, config, reporter, checkpoint_dir=None):
-        from transformers.trainer_utils import set_seed
-        self._set_transformers_verbosity(self._transformers_verbose)
+        try:
+            import transformers
+            from transformers.trainer_utils import set_seed
+            self._set_transformers_verbosity(self._transformers_verbose)
 
-        def model_init():
-            return self._load_model()
-        set_seed(config["seed"])
+            def model_init():
+                return self._load_model()
+            set_seed(config["seed"])
 
-        training_args_config, per_model_config = AutoTransformers._separate_config(config)
-        this_model = self._load_model(per_model_config=per_model_config)
+            training_args_config, per_model_config = AutoTransformers._separate_config(config)
+            this_model = self._load_model(per_model_config=per_model_config)
 
-        trial_id = reporter.trial_id
-        self.path_utils.make_dir_per_trial(trial_id)
+            trial_id = reporter.trial_id
+            self.path_utils.make_dir_per_trial(trial_id)
 
-        ckpt_freq = self._compute_checkpoint_freq(
-            num_train_epochs=config["num_train_epochs"],
-            batch_size=config["per_device_train_batch_size"])
+            ckpt_freq = self._compute_checkpoint_freq(
+                num_train_epochs=config["num_train_epochs"],
+                batch_size=config["per_device_train_batch_size"])
 
-        assert self.path_utils.ckpt_dir_per_trial
+            assert self.path_utils.ckpt_dir_per_trial
 
-        if transformers.__version__.startswith("3"):
-            training_args = TrainingArguments(
-                output_dir=self.path_utils.ckpt_dir_per_trial,
-                do_eval=True,
-                per_device_eval_batch_size=32,
-                eval_steps=ckpt_freq,
-                evaluate_during_training=True,
-                save_steps=ckpt_freq,
-                save_total_limit=0,
-                fp16=self._fp16,
-                **training_args_config,
+            if transformers.__version__.startswith("3"):
+                training_args = TrainingArguments(
+                    output_dir=self.path_utils.ckpt_dir_per_trial,
+                    do_eval=True,
+                    per_device_eval_batch_size=32,
+                    eval_steps=ckpt_freq,
+                    evaluate_during_training=True,
+                    save_steps=ckpt_freq,
+                    save_total_limit=0,
+                    fp16=self._fp16,
+                    **training_args_config,
+                )
+            else:
+                from transformers import IntervalStrategy
+                training_args = TrainingArguments(
+                    output_dir=self.path_utils.ckpt_dir_per_trial,
+                    do_eval=True,
+                    per_device_eval_batch_size=32,
+                    eval_steps=ckpt_freq,
+                    evaluation_strategy=IntervalStrategy.STEPS,
+                    save_steps=ckpt_freq,
+                    save_total_limit=0,
+                    fp16=self._fp16,
+                    **training_args_config,
+                )
+
+            trainer = TrainerForAutoTransformers(
+                model=this_model,
+                args=training_args,
+                model_init=model_init,
+                train_dataset=self.train_dataset,
+                eval_dataset=self.eval_dataset,
+                tokenizer=self._tokenizer,
+                compute_metrics=self._compute_metrics_by_dataset_name,
             )
-        else:
-            from transformers import IntervalStrategy
-            training_args = TrainingArguments(
-                output_dir=self.path_utils.ckpt_dir_per_trial,
-                do_eval=True,
-                per_device_eval_batch_size=32,
-                eval_steps=ckpt_freq,
-                evaluation_strategy=IntervalStrategy.STEPS,
-                save_steps=ckpt_freq,
-                save_total_limit=0,
-                fp16=self._fp16,
-                **training_args_config,
-            )
+            trainer.trial_id = reporter.trial_id
 
-        trainer = TrainerForAutoTransformers(
-            model=this_model,
-            args=training_args,
-            model_init=model_init,
-            train_dataset=self.train_dataset,
-            eval_dataset=self.eval_dataset,
-            tokenizer=self._tokenizer,
-            compute_metrics=self._compute_metrics_by_dataset_name,
-        )
-        trainer.trial_id = reporter.trial_id
+            """
+                create a wandb run. If os.environ["WANDB_MODE"] == "offline", run = None
+            """
 
-        """
-            create a wandb run. If os.environ["WANDB_MODE"] == "offline", run = None
-        """
+            if self.wandb_utils:
+                run = self.wandb_utils.set_wandb_per_trial()
+                import wandb
+                for each_hp in config:
+                    wandb.log({each_hp: config[each_hp]})
+            else:
+                run = None
 
-        if self.wandb_utils:
-            run = self.wandb_utils.set_wandb_per_trial()
-            import wandb
-            for each_hp in config:
-                wandb.log({each_hp: config[each_hp]})
-        else:
-            run = None
-
-        trainer.train()
-        trainer.evaluate(self.eval_dataset)
-        """
-            If a wandb run was created, close the run after train and evaluate finish
-        """
-        if run:
-            run.finish()
+            trainer.train()
+            trainer.evaluate(self.eval_dataset)
+            """
+                If a wandb run was created, close the run after train and evaluate finish
+            """
+            if run:
+                run.finish()
+        except ImportError:
+            print("To use the nlp component in flaml, run pip install flaml[nlp]")
 
     def _verify_init_config(self,
                             **custom_hpo_args):
@@ -546,129 +545,137 @@ class AutoTransformers:
                _fp16=True,
                **custom_hpo_args
                ):
-        from transformers.trainer_utils import HPSearchBackend
+        try:
+            import transformers
+            from transformers.trainer_utils import HPSearchBackend
 
-        '''Fine tuning the huggingface using HF's API Transformers.hyperparameter_search (for comparitive purpose).
-               Transformers.hyperparameter_search has the following disadvantages:
-            (1) it does not return tune.analysis.Analysis result, what is analysis used for
-            (2) it is inconvenient to develop on top of Transformers.hyperparameter_search, whose trainable function,
-                 search space, etc. are defined inside of Transformers.hyperparameter_search.
-               An example:
-            autohf_settings = {"resources_per_trial": {"cpu": 1},
-                       "num_samples": 1,
-                       "time_budget": 100000,
-                       "ckpt_per_epoch": 1,
-                       "fp16": False,
-                      }
-            validation_metric, analysis = autohf.fit(**autohf_settings,)
-            Args:
-                resources_per_trial:
-                    A dict showing the resources used by each trial,
-                    e.g., {"gpu": 4, "cpu": 4}
-                num_samples:
-                    An int variable of the maximum number of trials
-                time_budget:
-                    An int variable of the maximum time budget
-                custom_metric_name:
-                    A string of the dataset name or a function,
-                    e.g., 'accuracy', 'f1', 'loss',
-                custom_metric_mode_name:
-                    A string of the mode name,
-                    e.g., "max", "min", "last", "all"
-                fp16:
-                    boolean, default = True | whether to use fp16
-                custom_hpo_args:
-                    The additional keyword arguments, e.g.,
-                    custom_hpo_args = {"points_to_evaluate": [{
-                               "num_train_epochs": 1,
-                               "per_device_train_batch_size": 128, }]}
-            Returns:
-               validation_metric:
-                    a dict storing the validation score
-            '''
+            '''Fine tuning the huggingface using HF's API Transformers.hyperparameter_search (for comparitive purpose).
+                   Transformers.hyperparameter_search has the following disadvantages:
+                (1) it does not return tune.analysis.Analysis result, what is analysis used for
+                (2) it is inconvenient to develop on top of Transformers.hyperparameter_search, whose trainable function,
+                     search space, etc. are defined inside of Transformers.hyperparameter_search.
+                   An example:
+                autohf_settings = {"resources_per_trial": {"cpu": 1},
+                           "num_samples": 1,
+                           "time_budget": 100000,
+                           "ckpt_per_epoch": 1,
+                           "fp16": False,
+                          }
+                validation_metric, analysis = autohf.fit(**autohf_settings,)
+                Args:
+                    resources_per_trial:
+                        A dict showing the resources used by each trial,
+                        e.g., {"gpu": 4, "cpu": 4}
+                    num_samples:
+                        An int variable of the maximum number of trials
+                    time_budget:
+                        An int variable of the maximum time budget
+                    custom_metric_name:
+                        A string of the dataset name or a function,
+                        e.g., 'accuracy', 'f1', 'loss',
+                    custom_metric_mode_name:
+                        A string of the mode name,
+                        e.g., "max", "min", "last", "all"
+                    fp16:
+                        boolean, default = True | whether to use fp16
+                    custom_hpo_args:
+                        The additional keyword arguments, e.g.,
+                        custom_hpo_args = {"points_to_evaluate": [{
+                                   "num_train_epochs": 1,
+                                   "per_device_train_batch_size": 128, }]}
+                Returns:
+                   validation_metric:
+                        a dict storing the validation score
+                '''
 
-        def model_init():
-            return self._load_model()
+            def model_init():
+                return self._load_model()
 
-        def ray_hp_space(trial):
-            return {
-                "learning_rate": ray.tune.loguniform(1e-6, 1e-4),
-                "num_train_epochs": ray.tune.choice(list(range(1, 6))),
-                "seed": ray.tune.quniform(1, 41, 1),
-                "per_device_train_batch_size": ray.tune.choice([4, 8, 16, 32, 64]),
-            }
+            def ray_hp_space(trial):
+                return {
+                    "learning_rate": ray.tune.loguniform(1e-6, 1e-4),
+                    "num_train_epochs": ray.tune.choice(list(range(1, 6))),
+                    "seed": ray.tune.quniform(1, 41, 1),
+                    "per_device_train_batch_size": ray.tune.choice([4, 8, 16, 32, 64]),
+                }
 
-        self._set_metric(custom_metric_name, custom_metric_mode_name)
-        self._set_task()
+            self._set_metric(custom_metric_name, custom_metric_mode_name)
+            self._set_task()
 
-        training_args = TrainingArguments(
-            output_dir=self.path_utils.hpo_ckpt_path,
-            fp16=_fp16,
-        )
-        this_model = self._load_model()
+            training_args = TrainingArguments(
+                output_dir=self.path_utils.hpo_ckpt_path,
+                fp16=_fp16,
+            )
+            this_model = self._load_model()
 
-        trainer = TrainerForAutoTransformers(
-            this_model,
-            training_args,
-            model_init=model_init,
-            train_dataset=self.train_dataset,
-            eval_dataset=self.eval_dataset,
-            tokenizer=self._tokenizer,
-            compute_metrics=self._compute_metrics_by_dataset_name,
-        )
-        self.path_utils.make_dir_per_run()
+            trainer = TrainerForAutoTransformers(
+                this_model,
+                training_args,
+                model_init=model_init,
+                train_dataset=self.train_dataset,
+                eval_dataset=self.eval_dataset,
+                tokenizer=self._tokenizer,
+                compute_metrics=self._compute_metrics_by_dataset_name,
+            )
+            self.path_utils.make_dir_per_run()
 
-        start_time = time.time()
-        best_run = trainer.hyperparameter_search(
-            n_trials=num_samples,
-            time_budget_s=time_budget,
-            # hp_space=ray_hp_space,
-            backend=HPSearchBackend.RAY,
-            resources_per_trial=resources_per_trial)
-        duration = time.time() - start_time
-        self.last_run_duration = duration
-        print("Total running time: {} seconds".format(duration))
+            start_time = time.time()
+            best_run = trainer.hyperparameter_search(
+                n_trials=num_samples,
+                time_budget_s=time_budget,
+                # hp_space=ray_hp_space,
+                backend=HPSearchBackend.RAY,
+                resources_per_trial=resources_per_trial)
+            duration = time.time() - start_time
+            self.last_run_duration = duration
+            print("Total running time: {} seconds".format(duration))
 
-        hp_dict = best_run.hyperparameters
-        hp_dict["seed"] = int(hp_dict["seed"])
+            hp_dict = best_run.hyperparameters
+            hp_dict["seed"] = int(hp_dict["seed"])
 
-        best_training_args = TrainingArguments(
-            output_dir=self.path_utils.hpo_ckpt_path,
-            fp16=_fp16,
-            **hp_dict,
-        )
+            best_training_args = TrainingArguments(
+                output_dir=self.path_utils.hpo_ckpt_path,
+                fp16=_fp16,
+                **hp_dict,
+            )
 
-        best_trainer = TrainerForAutoTransformers(
-            this_model,
-            best_training_args,
-            model_init=model_init,
-            train_dataset=self.train_dataset,
-            eval_dataset=self.eval_dataset,
-            tokenizer=self._tokenizer,
-            compute_metrics=self._compute_metrics_by_dataset_name,
-        )
+            best_trainer = TrainerForAutoTransformers(
+                this_model,
+                best_training_args,
+                model_init=model_init,
+                train_dataset=self.train_dataset,
+                eval_dataset=self.eval_dataset,
+                tokenizer=self._tokenizer,
+                compute_metrics=self._compute_metrics_by_dataset_name,
+            )
 
-        best_model_checkpoint_path = os.path.join(self.path_utils.hpo_ckpt_path, "hpo_hf")
-        if not os.path.exists(best_model_checkpoint_path):
-            os.mkdir(best_model_checkpoint_path)
-        best_trainer.train()
-        best_trainer.save_model(best_model_checkpoint_path)
-        self._save_ckpt_json(best_model_checkpoint_path)
-        validation_metric = best_trainer.evaluate()
+            best_model_checkpoint_path = os.path.join(self.path_utils.hpo_ckpt_path, "hpo_hf")
+            if not os.path.exists(best_model_checkpoint_path):
+                os.mkdir(best_model_checkpoint_path)
+            best_trainer.train()
+            best_trainer.save_model(best_model_checkpoint_path)
+            self._save_ckpt_json(best_model_checkpoint_path)
+            validation_metric = best_trainer.evaluate()
 
-        return validation_metric
+            return validation_metric
+        except ImportError:
+            print("To use the nlp component in flaml, run pip install flaml[nlp]")
 
     def _set_transformers_verbosity(self, transformers_verbose):
-        if transformers_verbose == transformers.logging.ERROR:
-            transformers.logging.set_verbosity_error()
-        elif transformers_verbose == transformers.logging.WARNING:
-            transformers.logging.set_verbosity_warning()
-        elif transformers_verbose == transformers.logging.INFO:
-            transformers.logging.set_verbosity_info()
-        elif transformers_verbose == transformers.logging.DEBUG:
-            transformers.logging.set_verbosity_debug()
-        else:
-            raise Exception("transformers_verbose must be set to ERROR, WARNING, INFO or DEBUG")
+        try:
+            import transformers
+            if transformers_verbose == transformers.logging.ERROR:
+                transformers.logging.set_verbosity_error()
+            elif transformers_verbose == transformers.logging.WARNING:
+                transformers.logging.set_verbosity_warning()
+            elif transformers_verbose == transformers.logging.INFO:
+                transformers.logging.set_verbosity_info()
+            elif transformers_verbose == transformers.logging.DEBUG:
+                transformers.logging.set_verbosity_debug()
+            else:
+                raise Exception("transformers_verbose must be set to ERROR, WARNING, INFO or DEBUG")
+        except ImportError:
+            print("To use the nlp component in flaml, run pip install flaml[nlp]")
 
     def fit(self,
             num_samples,
@@ -682,16 +689,20 @@ class AutoTransformers:
             resources_per_trial=None,
             ray_local_mode=False,
             **custom_hpo_args):
-        '''Fine tuning the huggingface using the hpo setting
+        """Fine tuning the huggingface using the hpo setting
 
-        An example:
-            autohf_settings = {"resources_per_trial": {"cpu": 1},
-                       "num_samples": 1,
-                       "time_budget": 100000,
-                       "ckpt_per_epoch": 1,
-                       "fp16": False,
-                      }
-            validation_metric, analysis = autohf.fit(**autohf_settings)
+        Example:
+
+            .. code-block:: python
+
+                autohf_settings = {"resources_per_trial": {"cpu": 1},
+                           "num_samples": 1,
+                           "time_budget": 100000,
+                           "ckpt_per_epoch": 1,
+                           "fp16": False,
+                          }
+
+                validation_metric, analysis = autohf.fit(**autohf_settings)
 
         Args:
             resources_per_trial:
@@ -710,28 +721,25 @@ class AutoTransformers:
             ckpt_per_epoch:
                 An integer value of number of checkpoints per epoch, default = 1
             ray_verbose:
-                int, default=1 | verbosit of ray,
+                An integer, default=1 | verbosit of ray,
             transformers_verbose:
-                int, default=transformers.logging.INFO | verbosity of transformers, must be chosen from one of
+                An integer, default=transformers.logging.INFO | verbosity of transformers, must be chosen from one of
                 transformers.logging.ERROR, transformers.logging.INFO, transformers.logging.WARNING,
                 or transformers.logging.DEBUG
             fp16:
-                boolean, default = True | whether to use fp16
+                A boolean, default = True | whether to use fp16
             ray_local_mode:
-                boolean, default = False | whether to use the local mode (debugging mode) for ray tune.run
+                A boolean, default = False | whether to use the local mode (debugging mode) for ray tune.run
             custom_hpo_args:
-                The additional keyword arguments, e.g.,
-                custom_hpo_args = {"points_to_evaluate": [{
-                           "num_train_epochs": 1,
-                           "per_device_train_batch_size": 128, }]}
+                The additional keyword arguments, e.g., custom_hpo_args = {"points_to_evaluate": [{
+                "num_train_epochs": 1, "per_device_train_batch_size": 128, }]}
 
         Returns:
-           validation_metric:
-                a dict storing the validation score
-           analysis:
-                a ray.tune.analysis.Analysis object storing the analysis results from tune.run
 
-        '''
+            validation_metric: A dict storing the validation score
+
+            analysis: A ray.tune.analysis.Analysis object storing the analysis results from tune.run
+        """
         from .hpo.scheduler_auto import AutoScheduler
         self._transformers_verbose = transformers_verbose
 
@@ -854,14 +862,14 @@ class AutoTransformers:
 
             Args:
                 predictions:
-                    a list of predictions, which is the output of AutoTransformers.predict()
+                    A list of predictions, which is the output of AutoTransformers.predict()
                 output_prediction_path:
-                    output path for the prediction
+                    Output path for the prediction
                 output_zip_file_name:
-                    an string, which is the name of the output zip file
+                    An string, which is the name of the output zip file
 
             Returns:
-                the path of the output .zip file
+                The path of the output .zip file
         """
         from .dataset.submission_auto import auto_output_prediction
         return auto_output_prediction(self.jobid_config.dat,
