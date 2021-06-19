@@ -349,7 +349,6 @@ class AutoTransformers:
         return training_args_config, per_model_config
 
     def _objective(self, config, reporter, checkpoint_dir=None):
-        import transformers
         from transformers.trainer_utils import set_seed
         self._set_transformers_verbosity(self._transformers_verbose)
 
