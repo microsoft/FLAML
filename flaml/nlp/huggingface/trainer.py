@@ -4,12 +4,6 @@ try:
     import transformers
 
     class TrainerForAutoTransformers(transformers.Trainer):
-        """
-            Overriding transformers.Trainer.
-
-            Args:
-                huggingface (:class:`~transformers.PreTrainedModel` or :obj:`torch.nn.Module`, `optional`):
-        """
 
         def evaluate(self,
                      eval_dataset=None):
