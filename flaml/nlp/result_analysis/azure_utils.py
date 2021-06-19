@@ -106,8 +106,8 @@ class JobID:
     rep: int = field(default=0)
     sddt: int = field(default=None)
     sdhf: int = field(default=None)
-    var1: float = field(default=None)
-    var2: float = field(default=None)
+    var1: Optional[float] = field(default=None)
+    var2: Optional[float] = field(default=None)
 
     def __init__(self,
                  console_args=None):
@@ -132,6 +132,8 @@ class JobID:
         self.rep = 0
         self.sddt = 43
         self.sdhf = 42
+        self.var1 = None
+        self.var2 = None
 
     def is_match(self, partial_jobid):
         """
