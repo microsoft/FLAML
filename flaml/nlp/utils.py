@@ -96,6 +96,7 @@ def _variable_override_default_alternative(obj_ref, var_name, default_value, all
 class PathUtils:
     hpo_ckpt_path: str = field(metadata={"help": "the directory for hpo output"})
     hpo_result_path: str = field(metadata={"help": "the directory for hpo result"})
+    hpo_model_path: str = field(metadata={"help": "the directory for hpo result"})
     hpo_log_path: str = field(metadata={"help": "the directory for log"})
     hpo_config_path: str = field(metadata={"help": "the directory for log"})
 
@@ -110,9 +111,10 @@ class PathUtils:
                  ):
         self.jobid_config = jobid_config
         self.hpo_data_root_path = hpo_data_root_path
-        self.hpo_ckpt_path = os.path.join(hpo_data_root_path, "checkpoint")
-        self.hpo_result_path = os.path.join(hpo_data_root_path, "result")
-        self.hpo_log_path = self.hpo_result_path
+        self.hpo_ckpt_path = os.path.abspath(os.path.join(hpo_data_root_path, "checkpoint"))
+        self.hpo_result_path = os.path.abspath(os.path.join(hpo_data_root_path, "result"))
+        self.hpo_model_path = os.path.abspath(os.path.join(hpo_data_root_path, "models"))
+        self.hpo_log_path = os.path.abspath(self.hpo_result_path)
 
     @staticmethod
     def init_and_make_one_dir(dir_path):
