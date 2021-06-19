@@ -56,10 +56,8 @@ def load_dft_args():
     arg_parser.add_argument('--round_idx', type=int, help='round idx for acl experiments', required=False, default=0)
     arg_parser.add_argument('--seed_data', type=int, help='seed of data shuffling', required=False, default=43)
     arg_parser.add_argument('--seed_transformers', type=int, help='seed of transformers', required=False, default=42)
-    arg_parser.add_argument('--varying_arg1', type=float, help='optional arg learning_rate', required=False)
-    arg_parser.add_argument('--varying_arg2', type=float, help='optional arg weight_decay', required=False)
-    args, unknown = arg_parser.parse_known_args()
-    return args
+    console_args, unknown = arg_parser.parse_known_args()
+    return console_args
 
 
 def merge_dicts(dict1, dict2):
@@ -98,6 +96,7 @@ def _variable_override_default_alternative(obj_ref, var_name, default_value, all
 class PathUtils:
     hpo_ckpt_path: str = field(metadata={"help": "the directory for hpo output"})
     hpo_result_path: str = field(metadata={"help": "the directory for hpo result"})
+    hpo_model_path: str = field(metadata={"help": "the directory for hpo result"})
     hpo_log_path: str = field(metadata={"help": "the directory for log"})
     hpo_config_path: str = field(metadata={"help": "the directory for log"})
 
@@ -112,9 +111,10 @@ class PathUtils:
                  ):
         self.jobid_config = jobid_config
         self.hpo_data_root_path = hpo_data_root_path
-        self.hpo_ckpt_path = os.path.join(hpo_data_root_path, "checkpoint")
-        self.hpo_result_path = os.path.join(hpo_data_root_path, "result")
-        self.hpo_log_path = self.hpo_result_path
+        self.hpo_ckpt_path = os.path.abspath(os.path.join(hpo_data_root_path, "checkpoint"))
+        self.hpo_result_path = os.path.abspath(os.path.join(hpo_data_root_path, "result"))
+        self.hpo_model_path = os.path.abspath(os.path.join(hpo_data_root_path, "models"))
+        self.hpo_log_path = os.path.abspath(self.hpo_result_path)
 
     @staticmethod
     def init_and_make_one_dir(dir_path):
