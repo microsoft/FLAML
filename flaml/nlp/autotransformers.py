@@ -245,16 +245,6 @@ class AutoTransformers:
             self.train_dataset, self.eval_dataset, self.test_dataset \
                 = data_encoded[self._train_name], data_encoded[self._dev_name], data_encoded[self._test_name]
 
-    def download_model(self):
-        import subprocess
-        import shutil
-        src_url = "https://huggingface.co/" + self.jobid_config.pre_full
-        dst_path = os.path.join(self.path_utils.hpo_model_path,
-                                self.jobid_config.pre_full)
-        if os.path.exists(dst_path):
-            shutil.rmtree(dst_path)
-        subprocess.run(["git", "clone", src_url, dst_path])
-
     def _load_model(self,
                     checkpoint_path=None,
                     per_model_config=None):
@@ -269,8 +259,7 @@ class AutoTransformers:
             self._num_labels = 1
 
         if not checkpoint_path:
-            checkpoint_path = os.path.join(self.path_utils.hpo_model_path,
-                                           self.jobid_config.pre_full)
+            checkpoint_path = self.jobid_config.pre_full
 
         def get_this_model():
             from transformers import AutoModelForSequenceClassification
@@ -373,9 +362,7 @@ class AutoTransformers:
         set_seed(config["seed"])
 
         training_args_config, per_model_config = AutoTransformers._separate_config(config)
-        this_model = self._load_model(per_model_config=per_model_config, checkpoint_path=
-                                      os.path.join(self.path_utils.hpo_model_path,
-                                                   self.jobid_config.pre_full))
+        this_model = self._load_model(per_model_config=per_model_config)
 
         trial_id = reporter.trial_id
         self.path_utils.make_dir_per_trial(trial_id)
@@ -661,8 +648,7 @@ class AutoTransformers:
             compute_metrics=self._compute_metrics_by_dataset_name,
         )
 
-        best_model_checkpoint_path = os.path.join(self.path_utils.hpo_ckpt_path,
-                                                  "hpo_hf")
+        best_model_checkpoint_path = os.path.join(self.path_utils.hpo_ckpt_path, "hpo_hf")
         if not os.path.exists(best_model_checkpoint_path):
             os.mkdir(best_model_checkpoint_path)
         best_trainer.train()
@@ -746,7 +732,6 @@ class AutoTransformers:
                 a ray.tune.analysis.Analysis object storing the analysis results from tune.run
 
         '''
-        from urllib.error import HTTPError
         from .hpo.scheduler_auto import AutoScheduler
         self._transformers_verbose = transformers_verbose
 
@@ -763,11 +748,6 @@ class AutoTransformers:
         self._fp16 = fp16
         ray.init(local_mode=ray_local_mode)
         self._set_search_space(**custom_hpo_args)
-        try:
-            self.download_model()
-        except HTTPError as err:
-            print(err)
-            return None, None
 
         search_algo = self._get_search_algo(self.jobid_config.alg, self.jobid_config.arg, **custom_hpo_args)
         scheduler = AutoScheduler.from_scheduler_name(self.jobid_config.pru)
