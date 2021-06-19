@@ -349,85 +349,82 @@ class AutoTransformers:
         return training_args_config, per_model_config
 
     def _objective(self, config, reporter, checkpoint_dir=None):
-        try:
-            import transformers
-            from transformers.trainer_utils import set_seed
-            self._set_transformers_verbosity(self._transformers_verbose)
+        import transformers
+        from transformers.trainer_utils import set_seed
+        self._set_transformers_verbosity(self._transformers_verbose)
 
-            def model_init():
-                return self._load_model()
-            set_seed(config["seed"])
+        def model_init():
+            return self._load_model()
+        set_seed(config["seed"])
 
-            training_args_config, per_model_config = AutoTransformers._separate_config(config)
-            this_model = self._load_model(per_model_config=per_model_config)
+        training_args_config, per_model_config = AutoTransformers._separate_config(config)
+        this_model = self._load_model(per_model_config=per_model_config)
 
-            trial_id = reporter.trial_id
-            self.path_utils.make_dir_per_trial(trial_id)
+        trial_id = reporter.trial_id
+        self.path_utils.make_dir_per_trial(trial_id)
 
-            ckpt_freq = self._compute_checkpoint_freq(
-                num_train_epochs=config["num_train_epochs"],
-                batch_size=config["per_device_train_batch_size"])
+        ckpt_freq = self._compute_checkpoint_freq(
+            num_train_epochs=config["num_train_epochs"],
+            batch_size=config["per_device_train_batch_size"])
 
-            assert self.path_utils.ckpt_dir_per_trial
+        assert self.path_utils.ckpt_dir_per_trial
 
-            if transformers.__version__.startswith("3"):
-                training_args = TrainingArguments(
-                    output_dir=self.path_utils.ckpt_dir_per_trial,
-                    do_eval=True,
-                    per_device_eval_batch_size=32,
-                    eval_steps=ckpt_freq,
-                    evaluate_during_training=True,
-                    save_steps=ckpt_freq,
-                    save_total_limit=0,
-                    fp16=self._fp16,
-                    **training_args_config,
-                )
-            else:
-                from transformers import IntervalStrategy
-                training_args = TrainingArguments(
-                    output_dir=self.path_utils.ckpt_dir_per_trial,
-                    do_eval=True,
-                    per_device_eval_batch_size=32,
-                    eval_steps=ckpt_freq,
-                    evaluation_strategy=IntervalStrategy.STEPS,
-                    save_steps=ckpt_freq,
-                    save_total_limit=0,
-                    fp16=self._fp16,
-                    **training_args_config,
-                )
-
-            trainer = TrainerForAutoTransformers(
-                model=this_model,
-                args=training_args,
-                model_init=model_init,
-                train_dataset=self.train_dataset,
-                eval_dataset=self.eval_dataset,
-                tokenizer=self._tokenizer,
-                compute_metrics=self._compute_metrics_by_dataset_name,
+        if transformers.__version__.startswith("3"):
+            training_args = TrainingArguments(
+                output_dir=self.path_utils.ckpt_dir_per_trial,
+                do_eval=True,
+                per_device_eval_batch_size=32,
+                eval_steps=ckpt_freq,
+                evaluate_during_training=True,
+                save_steps=ckpt_freq,
+                save_total_limit=0,
+                fp16=self._fp16,
+                **training_args_config,
             )
-            trainer.trial_id = reporter.trial_id
+        else:
+            from transformers import IntervalStrategy
+            training_args = TrainingArguments(
+                output_dir=self.path_utils.ckpt_dir_per_trial,
+                do_eval=True,
+                per_device_eval_batch_size=32,
+                eval_steps=ckpt_freq,
+                evaluation_strategy=IntervalStrategy.STEPS,
+                save_steps=ckpt_freq,
+                save_total_limit=0,
+                fp16=self._fp16,
+                **training_args_config,
+            )
 
-            """
-                create a wandb run. If os.environ["WANDB_MODE"] == "offline", run = None
-            """
+        trainer = TrainerForAutoTransformers(
+            model=this_model,
+            args=training_args,
+            model_init=model_init,
+            train_dataset=self.train_dataset,
+            eval_dataset=self.eval_dataset,
+            tokenizer=self._tokenizer,
+            compute_metrics=self._compute_metrics_by_dataset_name,
+        )
+        trainer.trial_id = reporter.trial_id
 
-            if self.wandb_utils:
-                run = self.wandb_utils.set_wandb_per_trial()
-                import wandb
-                for each_hp in config:
-                    wandb.log({each_hp: config[each_hp]})
-            else:
-                run = None
+        """
+            create a wandb run. If os.environ["WANDB_MODE"] == "offline", run = None
+        """
 
-            trainer.train()
-            trainer.evaluate(self.eval_dataset)
-            """
-                If a wandb run was created, close the run after train and evaluate finish
-            """
-            if run:
-                run.finish()
-        except ImportError:
-            print("To use the nlp component in flaml, run pip install flaml[nlp]")
+        if self.wandb_utils:
+            run = self.wandb_utils.set_wandb_per_trial()
+            import wandb
+            for each_hp in config:
+                wandb.log({each_hp: config[each_hp]})
+        else:
+            run = None
+
+        trainer.train()
+        trainer.evaluate(self.eval_dataset)
+        """
+            If a wandb run was created, close the run after train and evaluate finish
+        """
+        if run:
+            run.finish()
 
     def _verify_init_config(self,
                             **custom_hpo_args):
