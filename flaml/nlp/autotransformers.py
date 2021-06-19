@@ -248,7 +248,7 @@ class AutoTransformers:
     def _download_model(self):
         import subprocess
         src_url = "https://huggingface.co/" + self.jobid_config.pre_full
-        dst_path = os.path.join(os.path.abspath(self.path_utils.hpo_model_path),
+        dst_path = os.path.join(self.path_utils.hpo_model_path,
                                 self.jobid_config.pre_full)
         subprocess.run(["git", "clone", src_url, dst_path])
 
