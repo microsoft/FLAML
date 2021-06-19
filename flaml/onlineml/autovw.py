@@ -11,8 +11,12 @@ logger = logging.getLogger(__name__)
 
 class AutoVW:
     """The AutoML class
+
+    Methods:
+        predict(data_sample)
+        learn(data_sample)
+        AUTO
     """
-    
     WARMSTART_NUM = 100
     AUTOMATIC = '_auto'
     VW_INTERACTION_ARG_NAME = 'interactions'
