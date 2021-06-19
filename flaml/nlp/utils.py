@@ -56,6 +56,10 @@ def load_dft_args():
     arg_parser.add_argument('--round_idx', type=int, help='round idx for acl experiments', required=False, default=0)
     arg_parser.add_argument('--seed_data', type=int, help='seed of data shuffling', required=False, default=43)
     arg_parser.add_argument('--seed_transformers', type=int, help='seed of transformers', required=False, default=42)
+    arg_parser.add_argument('--varying_arg1', type=float, help='optional varying arg1 for exhaustive sweep',
+                            required=False)
+    arg_parser.add_argument('--varying_arg2', type=float, help='optional varying arg2 for exhaustive sweep',
+                            required=False)
     console_args, unknown = arg_parser.parse_known_args()
     return console_args
 
