@@ -305,18 +305,15 @@ class JobID:
 
     @staticmethod
     def extract_model_type(full_model_name):
+        from transformers import AutoConfig
+        model_config = AutoConfig.from_pretrained(full_model_name)
+        config_json_file = model_config.get_config_dict(full_model_name)[0]
         try:
-            from transformers import AutoConfig
-            model_config = AutoConfig.from_pretrained(full_model_name)
-            config_json_file = model_config.get_config_dict(full_model_name)[0]
-            try:
-                model_type = config_json_file["model_type"]
-            except KeyError:
-                print("config_json_file does not contain model_type, re-extracting with keywords matching")
-                model_type = JobID._extract_model_type_with_keywords_match(full_model_name)
-            return model_type
-        except ImportError:
-            print("To use the nlp component in flaml, run pip install flaml[nlp]")
+            model_type = config_json_file["model_type"]
+        except KeyError:
+            print("config_json_file does not contain model_type, re-extracting with keywords matching")
+            model_type = JobID._extract_model_type_with_keywords_match(full_model_name)
+        return model_type
 
     @staticmethod
     def get_attrval_from_arg_or_dict(console_args: Union[argparse.ArgumentParser, dict], each_key):
