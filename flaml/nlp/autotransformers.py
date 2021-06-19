@@ -245,7 +245,7 @@ class AutoTransformers:
             self.train_dataset, self.eval_dataset, self.test_dataset \
                 = data_encoded[self._train_name], data_encoded[self._dev_name], data_encoded[self._test_name]
 
-    def _download_model(self):
+    def download_model(self):
         import subprocess
         src_url = "https://huggingface.co/" + self.jobid_config.pre_full
         dst_path = os.path.join(self.path_utils.hpo_model_path,
@@ -761,7 +761,7 @@ class AutoTransformers:
         ray.init(local_mode=ray_local_mode)
         self._set_search_space(**custom_hpo_args)
         try:
-            self._download_model()
+            self.download_model()
         except HTTPError as err:
             print(err)
             return None, None

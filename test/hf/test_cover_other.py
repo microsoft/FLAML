@@ -32,6 +32,7 @@ def model_init():
 
     preparedata_setting = get_preparedata_setting(jobid_config)
     autohf.prepare_data(**preparedata_setting)
+    autohf.download_model()
     return autohf._load_model()
 
 
