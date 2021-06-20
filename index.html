@@ -485,18 +485,13 @@ three choices of ‘tree_method’ is 1, 1 and 2 respectively</p>
 <li><p><strong>mode</strong> – A string in [‘min’, ‘max’] to specify the objective as
 minimization or maximization.</p></li>
 <li><p><strong>time_budget_s</strong> – A float of the time budget in seconds.</p></li>
-<li><p><strong>prune_attr</strong> – <p>A string of the attribute used for pruning.
+<li><p><strong>prune_attr</strong> – A string of the attribute used for pruning.
 Not necessarily in space.
-When prune_attr is in space, it is a hyperparameter, e.g.,</p>
-<blockquote>
-<div><p>’n_iters’, and the best value is unknown.</p>
-</div></blockquote>
-<dl class="simple">
-<dt>When prune_attr is not in space, it is a resource dimension,</dt><dd><p>e.g., ‘sample_size’, and the peak performance is assumed
-to be at the max_resource.</p>
-</dd>
-</dl>
-</p></li>
+When prune_attr is in space, it is a hyperparameter, e.g.,
+‘n_iters’, and the best value is unknown.
+When prune_attr is not in space, it is a resource dimension,
+e.g., ‘sample_size’, and the peak performance is assumed
+to be at the max_resource.</p></li>
 <li><p><strong>min_resource</strong> – A float of the minimal resource to use for the
 prune_attr; only valid if prune_attr is not in space.</p></li>
 <li><p><strong>max_resource</strong> – A float of the maximal resource to use for the
@@ -592,101 +587,19 @@ results.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="flaml.BlendSearch.on_trial_result">
 <span class="sig-name descname"><span class="pre">on_trial_result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trial_id</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">result</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Dict</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/searcher/blendsearch.html#BlendSearch.on_trial_result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.BlendSearch.on_trial_result" title="Permalink to this definition">¶</a></dt>
-<dd><p>Optional notification for result during training.
-Note that by default, the result dict may include NaNs or
-may not include the optimization metric. It is up to the
-subclass implementation to preprocess the result to
-avoid breaking the optimization process.
-:param trial_id: A unique string ID for the trial.
-:type trial_id: str
-:param result: Dictionary of metrics for current training progress.</p>
-<blockquote>
-<div><p>Note that the result dict may include NaNs or
-may not include the optimization metric. It is up to the
-subclass implementation to preprocess the result to
-avoid breaking the optimization process.</p>
-</div></blockquote>
-<dl class="field-list simple">
-</dl>
+<dd><p>receive intermediate result</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="flaml.BlendSearch.restore">
 <span class="sig-name descname"><span class="pre">restore</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">checkpoint_path</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/searcher/blendsearch.html#BlendSearch.restore"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.BlendSearch.restore" title="Permalink to this definition">¶</a></dt>
-<dd><p>Restore state for this search algorithm
-:param checkpoint_path: File where the search algorithm</p>
-<blockquote>
-<div><p>state is saved. This path should be the same
-as the one provided to “save”.</p>
-</div></blockquote>
-<dl class="field-list simple">
-</dl>
-<p>Example:
-.. code-block:: python</p>
-<blockquote>
-<div><p>search_alg.save(“./my_favorite_path.pkl”)
-search_alg2 = Searcher(…)
-search_alg2 = ConcurrencyLimiter(search_alg2, 1)
-search_alg2.restore(checkpoint_path)
-tune.run(cost, num_samples=5, search_alg=search_alg2)</p>
-</div></blockquote>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="flaml.BlendSearch.restore_from_dir">
-<span class="sig-name descname"><span class="pre">restore_from_dir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">checkpoint_dir</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/searcher/blendsearch.html#BlendSearch.restore_from_dir"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.BlendSearch.restore_from_dir" title="Permalink to this definition">¶</a></dt>
-<dd><p>Restores the state of a searcher from a given checkpoint_dir.
-Typically, you should use this function to restore from an
-experiment directory such as <cite>~/ray_results/trainable</cite>.
-.. code-block:: python</p>
-<blockquote>
-<div><dl class="simple">
-<dt>experiment_1 = tune.run(</dt><dd><p>cost,
-num_samples=5,
-search_alg=search_alg,
-verbose=0,
-name=self.experiment_name,
-local_dir=”~/my_results”)</p>
-</dd>
-</dl>
-<p>search_alg2 = Searcher()
-search_alg2.restore_from_dir(</p>
-<blockquote>
-<div><p>os.path.join(“~/my_results”, self.experiment_name)</p>
-</div></blockquote>
-</div></blockquote>
+<dd><p>restore states from checkpoint</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="flaml.BlendSearch.save">
 <span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">checkpoint_path</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/searcher/blendsearch.html#BlendSearch.save"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.BlendSearch.save" title="Permalink to this definition">¶</a></dt>
-<dd><p>Save state to path for this search algorithm.
-:param checkpoint_path: File where the search algorithm</p>
-<blockquote>
-<div><p>state is saved. This path should be used later when
-restoring from file.</p>
-</div></blockquote>
-<dl class="field-list simple">
-</dl>
-<p>Example:
-.. code-block:: python</p>
-<blockquote>
-<div><p>search_alg = Searcher(…)
-analysis = tune.run(</p>
-<blockquote>
-<div><p>cost,
-num_samples=5,
-search_alg=search_alg,
-name=self.experiment_name,
-local_dir=self.tmpdir)</p>
-</div></blockquote>
-<p>search_alg.save(“./my_favorite_path.pkl”)</p>
-</div></blockquote>
-<div class="versionchanged">
-<p><span class="versionmodified changed">Changed in version 0.8.7: </span>Save is automatically called by <cite>tune.run</cite>. You can use
-<cite>restore_from_dir</cite> to restore from an experiment directory
-such as <cite>~/ray_results/trainable</cite>.</p>
-</div>
+<dd><p>save states to a checkpoint path</p>
 </dd></dl>
 
 <dl class="py method">
@@ -823,29 +736,14 @@ unsuccessful, e.g. when the search space has already been set.
 <em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">flaml.</span></span><span class="sig-name descname"><span class="pre">AutoVW</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_live_model_num</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">search_space</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">init_config</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_resource_lease</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">automl_runner_args</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scheduler_args</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_select_policy</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'threshold_loss_ucb'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'mae_clipped'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_seed</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_selection_mode</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'min'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cb_coef</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/onlineml/autovw.html#AutoVW"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.AutoVW" title="Permalink to this definition">¶</a></dt>
 <dd><p>The AutoML class</p>
 <dl class="py method">
-<dt class="sig sig-object py" id="flaml.AutoVW.predict">
-<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_sample</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/onlineml/autovw.html#AutoVW.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.AutoVW.predict" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="flaml.AutoVW.learn">
-<span class="sig-name descname"><span class="pre">learn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_sample</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/onlineml/autovw.html#AutoVW.learn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.AutoVW.learn" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="flaml.AutoVW.AUTO">
-<span class="sig-name descname"><span class="pre">AUTO</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#flaml.AutoVW.AUTO" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
 <dt class="sig sig-object py" id="flaml.AutoVW.get_ns_feature_dim_from_vw_example">
 <em class="property"><span class="pre">static</span> </em><span class="sig-name descname"><span class="pre">get_ns_feature_dim_from_vw_example</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vw_example</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">dict</span><a class="reference internal" href="_modules/flaml/onlineml/autovw.html#AutoVW.get_ns_feature_dim_from_vw_example"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.AutoVW.get_ns_feature_dim_from_vw_example" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get a dictionary of feature dimensionality for each namespace singleton</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="id0">
-<span class="sig-name descname"><span class="pre">learn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_sample</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/onlineml/autovw.html#AutoVW.learn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id0" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="flaml.AutoVW.learn">
+<span class="sig-name descname"><span class="pre">learn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_sample</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/onlineml/autovw.html#AutoVW.learn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.AutoVW.learn" title="Permalink to this definition">¶</a></dt>
 <dd><p>Perform one online learning step with the given data sample</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -855,8 +753,8 @@ unsuccessful, e.g. when the search space has already been set.
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="id1">
-<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_sample</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/onlineml/autovw.html#AutoVW.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id1" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="flaml.AutoVW.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_sample</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/onlineml/autovw.html#AutoVW.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.AutoVW.predict" title="Permalink to this definition">¶</a></dt>
 <dd><p>Predict on the input example (e.g., vw example)</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -870,6 +768,334 @@ unsuccessful, e.g. when the search space has already been set.
 </div>
 <div class="section" id="nlp">
 <h2>NLP<a class="headerlink" href="#nlp" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="flaml.nlp.AutoTransformers">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">flaml.nlp.</span></span><span class="sig-name descname"><span class="pre">AutoTransformers</span></span><a class="reference internal" href="_modules/flaml/nlp/autotransformers.html#AutoTransformers"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.AutoTransformers" title="Permalink to this definition">¶</a></dt>
+<dd><p>The AutoTransformers class</p>
+<p class="rubric">Example</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">autohf</span> <span class="o">=</span> <span class="n">AutoTransformers</span><span class="p">()</span>
+<span class="n">autohf_settings</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;resources_per_trial&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;cpu&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+           <span class="s2">&quot;num_samples&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+           <span class="s2">&quot;time_budget&quot;</span><span class="p">:</span> <span class="mi">100000</span><span class="p">,</span>
+           <span class="s2">&quot;ckpt_per_epoch&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+           <span class="s2">&quot;fp16&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+          <span class="p">}</span>
+
+<span class="n">validation_metric</span><span class="p">,</span> <span class="n">analysis</span> <span class="o">=</span> <span class="n">autohf</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="o">**</span><span class="n">autohf_settings</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.AutoTransformers.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_samples</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_budget</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">custom_metric_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">custom_metric_mode_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ckpt_per_epoch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fp16</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ray_verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transformers_verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resources_per_trial</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ray_local_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">custom_hpo_args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/autotransformers.html#AutoTransformers.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.AutoTransformers.fit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fine tuning the huggingface using the hpo setting</p>
+<p class="rubric">Example</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">autohf_settings</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;resources_per_trial&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;cpu&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+           <span class="s2">&quot;num_samples&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+           <span class="s2">&quot;time_budget&quot;</span><span class="p">:</span> <span class="mi">100000</span><span class="p">,</span>
+           <span class="s2">&quot;ckpt_per_epoch&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+           <span class="s2">&quot;fp16&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+          <span class="p">}</span>
+
+<span class="n">validation_metric</span><span class="p">,</span> <span class="n">analysis</span> <span class="o">=</span> <span class="n">autohf</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="o">**</span><span class="n">autohf_settings</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>resources_per_trial</strong> – A dict showing the resources used by each trial,
+e.g., {“gpu”: 4, “cpu”: 4}</p></li>
+<li><p><strong>num_samples</strong> – An int variable of the maximum number of trials</p></li>
+<li><p><strong>time_budget</strong> – An int variable of the maximum time budget</p></li>
+<li><p><strong>custom_metric_name</strong> – A string of the dataset name or a function,
+e.g., ‘accuracy’, ‘f1’, ‘loss’</p></li>
+<li><p><strong>custom_metric_mode_name</strong> – A string of the mode name,
+e.g., “max”, “min”, “last”, “all”</p></li>
+<li><p><strong>ckpt_per_epoch</strong> – An integer value of number of checkpoints per epoch, default = 1</p></li>
+<li><p><strong>ray_verbose</strong> – An integer, default=1 | verbosit of ray,</p></li>
+<li><p><strong>transformers_verbose</strong> – An integer, default=transformers.logging.INFO | verbosity of transformers, must be chosen from one of
+transformers.logging.ERROR, transformers.logging.INFO, transformers.logging.WARNING,
+or transformers.logging.DEBUG</p></li>
+<li><p><strong>fp16</strong> – A boolean, default = True | whether to use fp16</p></li>
+<li><p><strong>ray_local_mode</strong> – A boolean, default = False | whether to use the local mode (debugging mode) for ray tune.run</p></li>
+<li><p><strong>custom_hpo_args</strong> – The additional keyword arguments, e.g., custom_hpo_args = {“points_to_evaluate”: [{
+“num_train_epochs”: 1, “per_device_train_batch_size”: 128, }]}</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>A dict storing the validation score</p>
+<p>analysis: A ray.tune.analysis.Analysis object storing the analysis results from tune.run</p>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>validation_metric</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.AutoTransformers.output_prediction">
+<span class="sig-name descname"><span class="pre">output_prediction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">predictions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_prediction_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_zip_file_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/autotransformers.html#AutoTransformers.output_prediction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.AutoTransformers.output_prediction" title="Permalink to this definition">¶</a></dt>
+<dd><p>When using the original GLUE split, output the prediction on test data,
+and prepare the .zip file for submission</p>
+<p class="rubric">Example</p>
+<dl class="simple">
+<dt>local_archive_path = self.autohf.output_prediction(predictions,</dt><dd><p>output_prediction_path= self.console_args.data_root_dir + “result/”,
+output_zip_file_name=azure_save_file_name)</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>predictions</strong> – A list of predictions, which is the output of AutoTransformers.predict()</p></li>
+<li><p><strong>output_prediction_path</strong> – Output path for the prediction</p></li>
+<li><p><strong>output_zip_file_name</strong> – An string, which is the name of the output zip file</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The path of the output .zip file</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.AutoTransformers.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ckpt_json_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/autotransformers.html#AutoTransformers.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.AutoTransformers.predict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict label for test data.</p>
+<dl class="simple">
+<dt>An example:</dt><dd><p>predictions, test_metric = autohf.predict()</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>ckpt_json_dir</strong> – the checkpoint for the fine-tuned huggingface if you wish to override
+the saved checkpoint in the training stage under self.path_utils._result_dir_per_run</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A numpy array of shape n * 1 - - each element is a predicted class
+label for an instance.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.AutoTransformers.prepare_data">
+<span class="sig-name descname"><span class="pre">prepare_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_root_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobid_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_wandb_on</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">server_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_seq_length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">128</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fold_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resplit_portion</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">custom_data_args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/autotransformers.html#AutoTransformers.prepare_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.AutoTransformers.prepare_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prepare data</p>
+<p class="rubric">Example</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">preparedata_setting</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;server_name&quot;</span><span class="p">:</span> <span class="s2">&quot;tmdev&quot;</span><span class="p">,</span> <span class="s2">&quot;data_root_path&quot;</span><span class="p">:</span> <span class="s2">&quot;data/&quot;</span><span class="p">,</span> <span class="s2">&quot;max_seq_length&quot;</span><span class="p">:</span> <span class="mi">128</span><span class="p">,</span>
+                           <span class="s2">&quot;jobid_config&quot;</span><span class="p">:</span> <span class="n">jobid_config</span><span class="p">,</span> <span class="s2">&quot;wandb_utils&quot;</span><span class="p">:</span> <span class="n">wandb_utils</span><span class="p">,</span>
+                           <span class="s2">&quot;resplit_portion&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="s2">&quot;validation&quot;</span><span class="p">],</span>
+                           <span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">],</span> <span class="s2">&quot;validation&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.8</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">],</span> <span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]}}</span>
+
+<span class="n">autohf</span><span class="o">.</span><span class="n">prepare_data</span><span class="p">(</span><span class="o">**</span><span class="n">preparedata_setting</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>server_name</strong> – A string variable, which can be tmdev or azureml</p></li>
+<li><p><strong>data_root_path</strong> – The root path for storing the checkpoints and output results, e.g., “data/”</p></li>
+<li><p><strong>jobid_config</strong> – A JobID object describing the profile of job</p></li>
+<li><p><strong>wandb_utils</strong> – A WandbUtils object for wandb operations</p></li>
+<li><p><strong>max_seq_length</strong> (<em>optional</em>) – Max_seq_lckpt_per_epochength for the huggingface, this hyperparameter must be specified
+at the data processing step</p></li>
+<li><p><strong>resplit_portion</strong> – The proportion for resplitting the train and dev data when split_mode=”resplit”.
+If args.resplit_mode = “rspt”, resplit_portion is required</p></li>
+<li><p><strong>is_wandb_on</strong> – A boolean variable indicating whether wandb is used</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="flaml.nlp.AzureUtils">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">flaml.nlp.</span></span><span class="sig-name descname"><span class="pre">AzureUtils</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root_log_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">azure_key_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_root_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">autohf</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobid_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/result_analysis/azure_utils.html#AzureUtils"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.AzureUtils" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.AzureUtils.create_local_prediction_and_upload">
+<span class="sig-name descname"><span class="pre">create_local_prediction_and_upload</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">local_json_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">predictions</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/result_analysis/azure_utils.html#AzureUtils.create_local_prediction_and_upload"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.AzureUtils.create_local_prediction_and_upload" title="Permalink to this definition">¶</a></dt>
+<dd><p>Store predictions (a .zip file) locally and upload</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.AzureUtils.extract_configscore_list_from_analysis">
+<span class="sig-name descname"><span class="pre">extract_configscore_list_from_analysis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">analysis</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/result_analysis/azure_utils.html#AzureUtils.extract_configscore_list_from_analysis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.AzureUtils.extract_configscore_list_from_analysis" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extracting a json object for storing the key information returned from tune.run</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.AzureUtils.generate_local_json_path">
+<span class="sig-name descname"><span class="pre">generate_local_json_path</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/result_analysis/azure_utils.html#AzureUtils.generate_local_json_path"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.AzureUtils.generate_local_json_path" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a path string for storing the json file locally</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.AzureUtils.get_config_and_score_from_matched_blob_list">
+<span class="sig-name descname"><span class="pre">get_config_and_score_from_matched_blob_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">matched_blob_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">earliest_time</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span> </span><span class="pre">int</span><span class="p"><span class="pre">,</span> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/result_analysis/azure_utils.html#AzureUtils.get_config_and_score_from_matched_blob_list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.AzureUtils.get_config_and_score_from_matched_blob_list" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extract the config and score list of one or multiple blobs</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>matched_blob_list</strong> – matched blob list</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>a ConfigScore list object which stores the config and scores list for each matched blob lists</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.AzureUtils.get_config_and_score_from_partial_jobid">
+<span class="sig-name descname"><span class="pre">get_config_and_score_from_partial_jobid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root_log_path</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">partial_jobid</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference internal" href="#flaml.nlp.JobID" title="flaml.nlp.result_analysis.azure_utils.JobID"><span class="pre">flaml.nlp.result_analysis.azure_utils.JobID</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">earliest_time</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span> </span><span class="pre">int</span><span class="p"><span class="pre">,</span> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/result_analysis/azure_utils.html#AzureUtils.get_config_and_score_from_partial_jobid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.AzureUtils.get_config_and_score_from_partial_jobid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extract the config and score list from a partial config id</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>root_log_path</strong> – The root log path in azure blob storage, e.g., “logs_seed/”</p></li>
+<li><p><strong>partial_jobid</strong> – The partial jobid for matching the blob list</p></li>
+<li><p><strong>earliest_time</strong> (<em>optional</em>) – The earliest starting time for any matched blob, for filtering out out-dated jobs,
+format: (YYYY, MM, DD)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>a ConfigScore list object which stores the config and scores list for each matched blob lists</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.AzureUtils.get_configblob_from_partial_jobid">
+<span class="sig-name descname"><span class="pre">get_configblob_from_partial_jobid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root_log_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">partial_jobid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">earliest_time</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span> </span><span class="pre">int</span><span class="p"><span class="pre">,</span> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/result_analysis/azure_utils.html#AzureUtils.get_configblob_from_partial_jobid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.AzureUtils.get_configblob_from_partial_jobid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get all blobs whose jobid configs match the partial_jobid</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.AzureUtils.write_autohf_output">
+<span class="sig-name descname"><span class="pre">write_autohf_output</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">configscore_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">valid_metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">predictions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">duration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/result_analysis/azure_utils.html#AzureUtils.write_autohf_output"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.AzureUtils.write_autohf_output" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write the key info from a job and upload to azure blob storage</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="flaml.nlp.JobID">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">flaml.nlp.</span></span><span class="sig-name descname"><span class="pre">JobID</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">console_args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/result_analysis/azure_utils.html#JobID"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.JobID" title="Permalink to this definition">¶</a></dt>
+<dd><p>The class for specifying the config of a job, includes the following fields:</p>
+<dl class="simple">
+<dt>dat:</dt><dd><p>A list which is the dataset name</p>
+</dd>
+<dt>subdat:</dt><dd><p>A string which is the sub dataset name</p>
+</dd>
+<dt>mod:</dt><dd><p>A string which is the module, e.g., “grid”, “hpo”</p>
+</dd>
+<dt>spa:</dt><dd><p>A string which is the space mode, e.g., “uni”, “gnr”</p>
+</dd>
+<dt>arg:</dt><dd><p>A string which is the mode for setting the input argument of a search algorithm, e.g., “cus”, “dft”</p>
+</dd>
+<dt>alg:</dt><dd><p>A string which is the search algorithm name</p>
+</dd>
+<dt>pru:</dt><dd><p>A string which is the scheduler name</p>
+</dd>
+<dt>pre_full:</dt><dd><p>A string which is the full name of the pretrained language model</p>
+</dd>
+<dt>pre:</dt><dd><p>A string which is the abbreviation of the pretrained language model</p>
+</dd>
+<dt>presz:</dt><dd><p>A string which is the size of the pretrained language model</p>
+</dd>
+<dt>spt:</dt><dd><p>A string which is the resplit mode, e.g., “ori”, “rspt”</p>
+</dd>
+<dt>rep:</dt><dd><p>An integer which is the repetition id</p>
+</dd>
+<dt>sddt:</dt><dd><p>An integer which is the seed for data shuffling in the resplit mode</p>
+</dd>
+<dt>sdhf:</dt><dd><p>An integer which is the seed for transformers</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.JobID.blobname_to_jobid_dict">
+<em class="property"><span class="pre">static</span> </em><span class="sig-name descname"><span class="pre">blobname_to_jobid_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keytoval_str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/result_analysis/azure_utils.html#JobID.blobname_to_jobid_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.JobID.blobname_to_jobid_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converting an azure blobname to a JobID config,
+e.g., blobname = “dat=glue_subdat=cola_mod=bestnn_spa=buni_arg=cus_
+alg=bs_pru=None_pre=funnel_presz=xlarge_spt=rspt_rep=0.json”</p>
+<dl class="simple">
+<dt>the converted jobid dict = {dat = [‘glue’], subdat = ‘cola’, mod = ‘bestnn’,</dt><dd><p>spa = ‘buni’, arg = ‘cus’, alg = ‘bs’, pru = ‘None’,
+pre = ‘funnel’, presz = ‘xlarge’, spt = ‘rspt’,
+rep = 0, sddt = 43, sdhf = 42)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.JobID.convert_blobname_to_jobid">
+<em class="property"><span class="pre">static</span> </em><span class="sig-name descname"><span class="pre">convert_blobname_to_jobid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">blobname</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/result_analysis/azure_utils.html#JobID.convert_blobname_to_jobid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.JobID.convert_blobname_to_jobid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converting a blobname string to a JobID object</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.JobID.get_full_data_name">
+<em class="property"><span class="pre">static</span> </em><span class="sig-name descname"><span class="pre">get_full_data_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset_name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">,</span> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdataset_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/result_analysis/azure_utils.html#JobID.get_full_data_name"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.JobID.get_full_data_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert a dataset name and sub dataset name to a full dataset name</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.JobID.get_jobid_full_data_name">
+<span class="sig-name descname"><span class="pre">get_jobid_full_data_name</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/result_analysis/azure_utils.html#JobID.get_jobid_full_data_name"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.JobID.get_jobid_full_data_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the full dataset name of the current JobID object</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.JobID.is_match">
+<span class="sig-name descname"><span class="pre">is_match</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">partial_jobid</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/result_analysis/azure_utils.html#JobID.is_match"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.JobID.is_match" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a boolean variable whether the current object matches the partial jobid defined in partial_jobid.</p>
+<p class="rubric">Example</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>   <span class="bp">self</span> <span class="o">=</span> <span class="n">JobID</span><span class="p">(</span><span class="n">dat</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;glue&#39;</span><span class="p">],</span> <span class="n">subdat</span> <span class="o">=</span> <span class="s1">&#39;cola&#39;</span><span class="p">,</span> <span class="n">mod</span> <span class="o">=</span> <span class="s1">&#39;bestnn&#39;</span><span class="p">,</span> <span class="n">spa</span> <span class="o">=</span> <span class="s1">&#39;buni&#39;</span><span class="p">,</span> <span class="n">arg</span> <span class="o">=</span> <span class="s1">&#39;cus&#39;</span><span class="p">,</span> <span class="n">alg</span> <span class="o">=</span> <span class="s1">&#39;bs&#39;</span><span class="p">,</span>
+                <span class="n">pru</span> <span class="o">=</span> <span class="s1">&#39;None&#39;</span><span class="p">,</span> <span class="n">pre</span> <span class="o">=</span> <span class="s1">&#39;funnel&#39;</span><span class="p">,</span> <span class="n">presz</span> <span class="o">=</span> <span class="s1">&#39;xlarge&#39;</span><span class="p">,</span> <span class="n">spt</span> <span class="o">=</span> <span class="s1">&#39;rspt&#39;</span><span class="p">,</span> <span class="n">rep</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">sddt</span> <span class="o">=</span> <span class="mi">43</span><span class="p">,</span> <span class="n">sdhf</span> <span class="o">=</span> <span class="mi">42</span><span class="p">)</span>
+
+   <span class="n">partial_jobid1</span> <span class="o">=</span> <span class="n">JobID</span><span class="p">(</span><span class="n">dat</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;glue&#39;</span><span class="p">],</span>
+                          <span class="n">subdat</span> <span class="o">=</span> <span class="s1">&#39;cola&#39;</span><span class="p">,</span>
+                          <span class="n">mod</span> <span class="o">=</span> <span class="s1">&#39;hpo&#39;</span><span class="p">)</span>
+
+   <span class="n">partial_jobid2</span> <span class="o">=</span> <span class="n">JobID</span><span class="p">(</span><span class="n">dat</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;glue&#39;</span><span class="p">],</span>
+                          <span class="n">subdat</span> <span class="o">=</span> <span class="s1">&#39;cola&#39;</span><span class="p">,</span>
+                          <span class="n">mod</span> <span class="o">=</span> <span class="s1">&#39;bestnn&#39;</span><span class="p">)</span>
+
+<span class="k">return</span> <span class="kc">False</span> <span class="k">for</span> <span class="n">partial_jobid1</span> <span class="ow">and</span> <span class="kc">True</span> <span class="k">for</span> <span class="n">partial_jobid2</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.JobID.set_jobid_from_arg_list">
+<span class="sig-name descname"><span class="pre">set_jobid_from_arg_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">jobid_list</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/result_analysis/azure_utils.html#JobID.set_jobid_from_arg_list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.JobID.set_jobid_from_arg_list" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the jobid from a dict object</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.JobID.set_unittest_config">
+<span class="sig-name descname"><span class="pre">set_unittest_config</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/result_analysis/azure_utils.html#JobID.set_unittest_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.JobID.set_unittest_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>set the JobID config for unit test</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.JobID.to_jobid_string">
+<span class="sig-name descname"><span class="pre">to_jobid_string</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/result_analysis/azure_utils.html#JobID.to_jobid_string"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.JobID.to_jobid_string" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert the current JobID into a blob name string which contains all the fields</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.JobID.to_partial_jobid_string">
+<span class="sig-name descname"><span class="pre">to_partial_jobid_string</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/result_analysis/azure_utils.html#JobID.to_partial_jobid_string"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.JobID.to_partial_jobid_string" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert the current JobID into a blob name string which only contains the fields whose values are not “None”</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flaml.nlp.JobID.to_wandb_string">
+<span class="sig-name descname"><span class="pre">to_wandb_string</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/nlp/result_analysis/azure_utils.html#JobID.to_wandb_string"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.nlp.JobID.to_wandb_string" title="Permalink to this definition">¶</a></dt>
+<dd><p>Preparing for the job ID for wandb</p>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 </div>
 

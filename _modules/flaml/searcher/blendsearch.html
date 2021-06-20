@@ -342,11 +342,15 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraint_penalty</span> <span class="o">=</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="BlendSearch.save"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.save">[docs]</a>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">checkpoint_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39; save states to a checkpoint path</span>
+<span class="sd">        &#39;&#39;&#39;</span>
         <span class="n">save_object</span> <span class="o">=</span> <span class="bp">self</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">checkpoint_path</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">outputFile</span><span class="p">:</span>
             <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">save_object</span><span class="p">,</span> <span class="n">outputFile</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="BlendSearch.restore"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.restore">[docs]</a>    <span class="k">def</span> <span class="nf">restore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">checkpoint_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39; restore states from checkpoint</span>
+<span class="sd">        &#39;&#39;&#39;</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">checkpoint_path</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">inputFile</span><span class="p">:</span>
             <span class="n">state</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">inputFile</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_metric_target</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">_metric_target</span>
@@ -372,9 +376,6 @@
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">metric_target</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_target</span>
-
-<div class="viewcode-block" id="BlendSearch.restore_from_dir"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.restore_from_dir">[docs]</a>    <span class="k">def</span> <span class="nf">restore_from_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">checkpoint_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-        <span class="nb">super</span><span class="o">.</span><span class="n">restore_from_dir</span><span class="p">(</span><span class="n">checkpoint_dir</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="BlendSearch.on_trial_complete"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.on_trial_complete">[docs]</a>    <span class="k">def</span> <span class="nf">on_trial_complete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                           <span class="n">error</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
@@ -506,6 +507,8 @@
         <span class="k">return</span> <span class="kc">False</span>
 
 <div class="viewcode-block" id="BlendSearch.on_trial_result"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.on_trial_result">[docs]</a>    <span class="k">def</span> <span class="nf">on_trial_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">Dict</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39; receive intermediate result</span>
+<span class="sd">        &#39;&#39;&#39;</span>
         <span class="k">if</span> <span class="n">trial_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="p">:</span>
             <span class="k">return</span>
         <span class="n">thread_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span>
