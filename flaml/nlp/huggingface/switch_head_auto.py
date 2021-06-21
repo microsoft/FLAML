@@ -1,7 +1,13 @@
 from collections import OrderedDict
 
-from transformers.models.electra.modeling_electra import ElectraClassificationHead
-from transformers.models.roberta.modeling_roberta import RobertaClassificationHead
+import transformers
+
+if transformers.__version__.startswith("3"):
+    from transformers.modeling_electra import ElectraClassificationHead
+    from transformers.modeling_roberta import RobertaClassificationHead
+else:
+    from transformers.models.electra.modeling_electra import ElectraClassificationHead
+    from transformers.models.roberta.modeling_roberta import RobertaClassificationHead
 
 MODEL_CLASSIFICATION_HEAD_MAPPING = OrderedDict(
     [
@@ -45,8 +51,8 @@ class AutoSeqClassificationHead:
         if model_type in MODEL_CLASSIFICATION_HEAD_MAPPING.keys():
             return MODEL_CLASSIFICATION_HEAD_MAPPING[model_type](config)
         raise ValueError(
-            "Unrecognized configuration class {} for this kind of AutoModel: {}.\n"
+            "Unrecognized configuration class {} for class {}.\n"
             "Model type should be one of {}.".format(
-                config.__class__, cls.__name__, ", ".join(c.__name__ for c in MODEL_CLASSIFICATION_HEAD_MAPPING.keys())
+                config.__class__, cls.__name__, ", ".join(MODEL_CLASSIFICATION_HEAD_MAPPING.keys())
             )
         )

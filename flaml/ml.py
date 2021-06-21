@@ -9,7 +9,7 @@ import pandas as pd
 from sklearn.metrics import mean_squared_error, r2_score, roc_auc_score, \
     accuracy_score, mean_absolute_error, log_loss, average_precision_score, \
     f1_score
-from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn.model_selection import RepeatedStratifiedKFold, GroupKFold
 from .model import (
     XGBoostEstimator, XGBoostSklearnEstimator, RandomForestEstimator,
     LGBMEstimator, LRL1Classifier, LRL2Classifier, CatBoostEstimator,
@@ -194,6 +194,8 @@ def evaluate_model_CV(
 
     if isinstance(kf, RepeatedStratifiedKFold):
         kf = kf.split(X_train_split, y_train_split)
+    elif isinstance(kf, GroupKFold):
+        kf = kf.split(X_train_split, y_train_split, kf.groups)
     else:
         kf = kf.split(X_train_split)
     rng = np.random.RandomState(2020)
@@ -231,7 +233,10 @@ def evaluate_model_CV(
         valid_fold_num += 1
         total_val_loss += val_loss_i
         if train_loss is not False:
-            if total_train_loss != 0:
+            if isinstance(total_train_loss, list):
+                total_train_loss = [
+                    total_train_loss[i] + v for i, v in enumerate(train_loss_i)]
+            elif total_train_loss != 0:
                 total_train_loss += train_loss_i
             else:
                 total_train_loss = train_loss_i
@@ -244,7 +249,10 @@ def evaluate_model_CV(
             break
     val_loss = np.max(val_loss_list)
     if train_loss is not False:
-        train_loss = total_train_loss / n
+        if isinstance(total_train_loss, list):
+            train_loss = [v / n for v in total_train_loss]
+        else:
+            train_loss = total_train_loss / n
     budget -= time.time() - start_time
     if val_loss < best_val_loss and budget > budget_per_train:
         estimator.cleanup()

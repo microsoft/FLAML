@@ -1,9 +1,8 @@
 import os
-from ..utils import get_wandb_azure_key
 import subprocess
-import wandb
 import hashlib
 from time import time
+import json
 
 
 class WandbUtils:
@@ -26,30 +25,53 @@ class WandbUtils:
     # https://docs.ray.io/en/master/tune/tutorials/tune-wandb.html
 
     def __init__(self,
-                 is_wandb_on=None,
-                 console_args=None,
+                 is_wandb_on=False,
+                 wandb_key_path=None,
                  jobid_config=None):
         if is_wandb_on:
-            wandb_key, azure_key, container_name = get_wandb_azure_key(console_args.key_path)
-            subprocess.run(["wandb", "login", "--relogin", wandb_key])
+            wandb_key = WandbUtils.get_wandb_key(wandb_key_path)
+            if wandb_key != "":
+                subprocess.run(["wandb", "login", "--relogin", wandb_key])
             os.environ["WANDB_API_KEY"] = wandb_key
             os.environ["WANDB_MODE"] = "online"
         else:
             os.environ["WANDB_MODE"] = "disabled"
         self.jobid_config = jobid_config
 
+    @staticmethod
+    def get_wandb_key(key_path):
+        try:
+            try:
+                key_json = json.load(open(os.path.join(key_path, "key.json"), "r"))
+                wandb_key = key_json["wandb_key"]
+                return wandb_key
+            except FileNotFoundError:
+                print("Cannot use wandb module because key.json is not found under key_path")
+                return ""
+        except KeyError:
+            print("Cannot use wandb module because wandb key is not specified")
+            return ""
+
     def set_wandb_per_trial(self):
         print("before wandb.init\n\n\n")
-        if os.environ["WANDB_MODE"] == "online":
-            os.environ["WANDB_SILENT"] = "false"
-            return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
-                              group=self.wandb_group_name,
-                              name=str(WandbUtils._get_next_trial_ids()),
-                              settings=wandb.Settings(
-                                  _disable_stats=True),
-                              reinit=False)
-        else:
-            return None
+        try:
+            import wandb
+            try:
+                if os.environ["WANDB_MODE"] == "online":
+                    os.environ["WANDB_SILENT"] = "false"
+                    return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
+                                      group=self.wandb_group_name,
+                                      name=str(WandbUtils._get_next_trial_ids()),
+                                      settings=wandb.Settings(
+                                          _disable_stats=True),
+                                      reinit=False)
+                else:
+                    return None
+            except wandb.errors.UsageError as err:
+                print(err)
+                return None
+        except ImportError:
+            print("Cannot use wandb module because wandb is not installed, run pip install wandb==0.10.26")
 
     @staticmethod
     def _get_next_trial_ids():
@@ -58,14 +80,22 @@ class WandbUtils:
         return "trial_" + hash.hexdigest()[:3]
 
     def set_wandb_per_run(self):
-        os.environ["WANDB_RUN_GROUP"] = self.jobid_config.to_wandb_string() + wandb.util.generate_id()
-        self.wandb_group_name = os.environ["WANDB_RUN_GROUP"]
-        if os.environ["WANDB_MODE"] == "online":
-            os.environ["WANDB_SILENT"] = "false"
-            return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
-                              group=os.environ["WANDB_RUN_GROUP"],
-                              settings=wandb.Settings(
-                                  _disable_stats=True),
-                              reinit=False)
-        else:
-            return None
+        try:
+            import wandb
+            os.environ["WANDB_RUN_GROUP"] = self.jobid_config.to_wandb_string() + wandb.util.generate_id()
+            self.wandb_group_name = os.environ["WANDB_RUN_GROUP"]
+            try:
+                if os.environ["WANDB_MODE"] == "online":
+                    os.environ["WANDB_SILENT"] = "false"
+                    return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
+                                      group=os.environ["WANDB_RUN_GROUP"],
+                                      settings=wandb.Settings(
+                                          _disable_stats=True),
+                                      reinit=False)
+                else:
+                    return None
+            except wandb.errors.UsageError as err:
+                print(err)
+                return None
+        except ImportError:
+            print("Cannot use wandb module because wandb is not installed, run pip install wandb==0.10.26")

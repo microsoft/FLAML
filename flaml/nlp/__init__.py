@@ -1,2 +1,2 @@
-from flaml.nlp.autotransformers import AutoTransformers
-from flaml.nlp.result_analysis.azure_utils import AzureUtils, JobID
+from .autotransformers import AutoTransformers
+from .result_analysis.azure_utils import AzureUtils, JobID

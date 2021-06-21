@@ -1,28 +1,12 @@
-import copy
 import os
 
-import transformers
-
-from ray import tune
-import torch
-from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
-
-transformers.logging.set_verbosity_error()
+try:
+    from transformers import Trainer as TFTrainer
+except ImportError:
+    TFTrainer = object
 
 
-class TrainerForAutoTransformers(transformers.Trainer):
-    """
-        Overriding transformers.Trainer.
-
-        Args:
-            huggingface (:class:`~transformers.PreTrainedModel` or :obj:`torch.nn.Module`, `optional`):
-    """
-
-    def get_optimizers(
-            self, num_training_steps
-    ):
-        self.current_optimizer, self.current_scheduler = super().get_optimizers(num_training_steps)
-        return (self.current_optimizer, self.current_scheduler)
+class TrainerForAutoTransformers(TFTrainer):
 
     def evaluate(self,
                  eval_dataset=None):
@@ -33,7 +17,8 @@ class TrainerForAutoTransformers(transformers.Trainer):
                 eval_dataset:
                     the dataset to be evaluated
         """
-        import wandb
+        from ray import tune
+
         eval_dataloader = self.get_eval_dataloader(eval_dataset)
         output = self.prediction_loop(
             eval_dataloader, description="Evaluation")
@@ -53,6 +38,10 @@ class TrainerForAutoTransformers(transformers.Trainer):
                 Overriding transformers.Trainer.save_state. It is only through saving
                 the states can best_trial.get_best_checkpoint return a non-empty value.
         """
+        import torch
+        from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
+        from ray import tune
+
         with tune.checkpoint_dir(step=self.state.global_step) as checkpoint_dir:
             self.args.output_dir = checkpoint_dir
             # This is the directory name that Huggingface requires.
@@ -111,11 +100,3 @@ class TrainerForAutoTransformers(transformers.Trainer):
             per_device_train_batch_size,
             device_count)
         return float(warmup_steps / max_steps)
-
-    @staticmethod
-    def resolve_hp_conflict(search_space_dict):
-        if "max_steps" in search_space_dict and "num_train_epochs" in search_space_dict:
-            del search_space_dict["num_train_epochs"]
-        if "warmup_ratio" in search_space_dict and "warmup_steps" in search_space_dict:
-            del search_space_dict["warmup_ratio"]
-        return search_space_dict
