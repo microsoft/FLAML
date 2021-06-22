@@ -217,16 +217,54 @@ def compute_kl_div(pk, qk):
     import math
     return sum(pk[i] * math.log2(pk[i]/qk[i]) for i in range(len(pk)))
 
-def analyze_small_large(console_args):
+def output_csv(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID, ConfigScoreList
     from flaml.nlp import AzureUtils
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "grid"
     partial_jobid_config.pre = "deberta"
+    partial_jobid_config.subdat = "mrpc"
+    presz_sizes = ["large"]
+    all_hps = ["learning_rate", "per_device_train_batch_size", "num_train_epochs", "warmup_ratio", "weight_decay",
+               "adam_epsilon"]
+
+    for presz in presz_sizes:
+        partial_jobid_config.presz = presz
+        azure_utils = AzureUtils(root_log_path=console_args.azure_root_log_path,
+                                 azure_key_path=console_args.key_path,
+                                 jobid_config=partial_jobid_config)
+        matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
+            console_args.azure_root_log_path,
+            partial_jobid_config)
+        merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
+                                       for x in config_score_list._config_score_list])
+        lr2score = {}
+        with open(presz + ".csv", "w") as fout:
+            for each_hp in all_hps:
+                fout.write(each_hp + ",")
+            fout.write("performance\n")
+            for x in merged_list._config_score_list:
+                lr2score.setdefault(x.config["learning_rate"], [])
+                lr2score[x.config["learning_rate"]].append(x.metric_score['max'])
+                for each_hp in all_hps:
+                    fout.write(str(x.config[each_hp]) + ",")
+                fout.write(str(x.metric_score["max"]) + "\n")
+        import numpy as np
+        for each_lr in lr2score.keys():
+            print(each_lr)
+            print(np.mean(lr2score[each_lr]))
+        stop = 0
+
+def analyze_small_large(console_args):
+    from flaml.nlp.result_analysis.azure_utils import JobID, ConfigScoreList
+    from flaml.nlp import AzureUtils
+    partial_jobid_config = JobID()
+    partial_jobid_config.mod = "grid"
+    partial_jobid_config.pre = "funnel"
     partial_jobid_config.subdat = "cola"
 
     hp2sz2distribution = {}
-    presz_sizes = ["large", "base"]
+    presz_sizes = ["xlarge", "small"]
     all_hps = ["learning_rate", "per_device_train_batch_size", "num_train_epochs", "warmup_ratio", "weight_decay", "adam_epsilon"]
 
     for presz in presz_sizes:
@@ -321,4 +359,4 @@ if __name__ == "__main__":
     args = arg_parser.parse_args()
 
     partial_config_large = create_partial_config_hpo()
-    analyze_small_large(console_args=args)
+    output_csv(console_args=args)
