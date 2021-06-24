@@ -124,8 +124,14 @@ class SearchThread:
         if not self._search_alg:
             return
         if not hasattr(self._search_alg, '_ot_trials') or (
-                trial_id in self._search_alg._ot_trials):
-            self._search_alg.on_trial_result(trial_id, result)
+           trial_id in self._search_alg._ot_trials):
+            try:
+                self._search_alg.on_trial_result(trial_id, result)
+            except RuntimeError as e:
+                # rs is used in place of optuna sometimes
+                if not str(e).endswith(
+                   "has already finished and can not be updated."):
+                    raise e
         if self.cost_attr in result and self.cost_last < result[self.cost_attr]:
             self.cost_last = result[self.cost_attr]
             # self._update_speed()
