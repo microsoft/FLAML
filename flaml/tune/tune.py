@@ -333,4 +333,6 @@ def run(training_function,
                 else:
                     tune.report(_metric=result)
             _runner.stop_trial(trial_to_run)
+    if verbose > 0:
+        logger.handlers.clear()
     return ExperimentAnalysis(_runner.get_trials(), metric=metric, mode=mode)
