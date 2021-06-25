@@ -525,7 +525,6 @@
             <span class="n">choice</span><span class="p">,</span> <span class="n">backup</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_thread</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">choice</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># timeout</span>
                 <span class="k">return</span> <span class="kc">None</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_use_rs</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="n">choice</span><span class="p">]</span><span class="o">.</span><span class="n">suggest</span><span class="p">(</span><span class="n">trial_id</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">choice</span> <span class="ow">and</span> <span class="n">config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="c1"># local search thread finishes</span>
@@ -539,18 +538,16 @@
                 <span class="k">if</span> <span class="n">choice</span><span class="p">:</span>
                     <span class="k">return</span> <span class="kc">None</span>
                 <span class="c1"># use rs when BO fails to suggest a config</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_use_rs</span> <span class="o">=</span> <span class="kc">True</span>
                 <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">generated</span> <span class="ow">in</span> <span class="n">generate_variants</span><span class="p">({</span><span class="s1">&#39;config&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">space</span><span class="p">}):</span>
                     <span class="n">config</span> <span class="o">=</span> <span class="n">generated</span><span class="p">[</span><span class="s1">&#39;config&#39;</span><span class="p">]</span>
                     <span class="k">break</span>  <span class="c1"># get one random config</span>
-                <span class="n">skip</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_should_skip</span><span class="p">(</span><span class="n">choice</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+                <span class="n">skip</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_should_skip</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">skip</span><span class="p">:</span>
                     <span class="k">return</span> <span class="kc">None</span>
             <span class="k">if</span> <span class="n">choice</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_valid</span><span class="p">(</span><span class="n">config</span><span class="p">):</span>
                 <span class="c1"># LS or valid or no backup choice</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">choice</span>
             <span class="k">else</span><span class="p">:</span>  <span class="c1"># invalid config proposed by GS</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_use_rs</span> <span class="o">=</span> <span class="kc">False</span>
                 <span class="k">if</span> <span class="n">choice</span> <span class="o">==</span> <span class="n">backup</span><span class="p">:</span>
                     <span class="c1"># use CFO&#39;s init point</span>
                     <span class="n">init_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">init_config</span>
@@ -592,6 +589,7 @@
                 <span class="k">return</span> <span class="kc">None</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_init_used</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">running</span> <span class="o">+=</span> <span class="mi">1</span>
         <span class="k">return</span> <span class="n">config</span></div>
 
     <span class="k">def</span> <span class="nf">_should_skip</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">choice</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
@@ -615,16 +613,16 @@
                     <span class="p">}</span>
                     <span class="n">exists</span> <span class="o">=</span> <span class="kc">True</span>
                     <span class="k">break</span>
-        <span class="k">if</span> <span class="n">exists</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_use_rs</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">exists</span><span class="p">:</span>  <span class="c1"># suggested before</span>
+            <span class="k">if</span> <span class="n">choice</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># not fallback to rs</span>
                 <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">config_signature</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">result</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">result</span><span class="p">:</span>  <span class="c1"># finished</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="n">choice</span><span class="p">]</span><span class="o">.</span><span class="n">on_trial_complete</span><span class="p">(</span>
                         <span class="n">trial_id</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
                     <span class="k">if</span> <span class="n">choice</span><span class="p">:</span>
                         <span class="c1"># local search thread</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">_clean</span><span class="p">(</span><span class="n">choice</span><span class="p">)</span>
-                <span class="c1"># else:</span>
+                <span class="c1"># else:     # running</span>
                 <span class="c1">#     # tell the thread there is an error</span>
                 <span class="c1">#     self._search_thread_pool[choice].on_trial_complete(</span>
                 <span class="c1">#         trial_id, {}, error=True)</span>
