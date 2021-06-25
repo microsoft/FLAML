@@ -460,16 +460,16 @@ class BlendSearch(Searcher):
                     }
                     exists = True
                     break
-        if exists:
+        if exists:  # suggested before
             if choice >= 0:  # not fallback to rs
                 result = self._result.get(config_signature)
-                if result:
+                if result:  # finished
                     self._search_thread_pool[choice].on_trial_complete(
                         trial_id, result, error=False)
                     if choice:
                         # local search thread
                         self._clean(choice)
-                # else:
+                # else:     # running
                 #     # tell the thread there is an error
                 #     self._search_thread_pool[choice].on_trial_complete(
                 #         trial_id, {}, error=True)
