@@ -56,6 +56,7 @@ setuptools.setup(
             "torch==1.8.1",
             "datasets==1.4.1",
             "azure-storage-blob"
+            "tensorflow"
         ],
         "blendsearch": [
             "optuna==2.3.0"
