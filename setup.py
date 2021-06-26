@@ -55,7 +55,7 @@ setuptools.setup(
             "wandb==0.10.26",
             "torch==1.8.1",
             "datasets==1.4.1",
-            "azure-storage-blob"
+            "azure-storage-blob",
             "tensorflow"
         ],
         "blendsearch": [
