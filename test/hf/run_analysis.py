@@ -260,11 +260,11 @@ def analyze_small_large(console_args):
     from flaml.nlp import AzureUtils
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "grid"
-    partial_jobid_config.pre = "funnel"
+    partial_jobid_config.pre = "deberta"
     partial_jobid_config.subdat = "cola"
 
     hp2sz2distribution = {}
-    presz_sizes = ["xlarge", "small"]
+    presz_sizes = ["large", "base"]
     all_hps = ["learning_rate", "per_device_train_batch_size", "num_train_epochs", "warmup_ratio", "weight_decay", "adam_epsilon"]
 
     for presz in presz_sizes:
@@ -276,8 +276,8 @@ def analyze_small_large(console_args):
                 console_args.azure_root_log_path,
                 partial_jobid_config)
         merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
-                                       for x in config_score_list._config_score_list])
-        sorted_merged_list = sorted(merged_list._config_score_list, key=lambda x: x.metric_score["max"],
+                                       for x in config_score_list._config_score_list])._config_score_list
+        sorted_merged_list = sorted(merged_list, key=lambda x: x.metric_score["max"],
                                     reverse=True)[:36]
         for each_hp in all_hps:
             this_distribution = get_distribution_from_list(sorted_merged_list, each_hp)
@@ -359,4 +359,4 @@ if __name__ == "__main__":
     args = arg_parser.parse_args()
 
     partial_config_large = create_partial_config_hpo()
-    output_csv(console_args=args)
+    analyze_small_large(console_args=args)
