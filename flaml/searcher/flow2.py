@@ -318,7 +318,7 @@ class FLOW2(Searcher):
                                     key] else (self.incumbent[
                                         key] + 1) % self._unordered_cat_hp[key]
                         else:
-                            config_norm[key] = 0
+                            config_norm[key] = 0.5
                         continue
                     # Uniform/LogUniform/Normal/Base
                     sampler = domain.get_sampler()
@@ -365,7 +365,8 @@ class FLOW2(Searcher):
                             config_denorm[key] = l[min(n - 1, int(np.floor(value * n)))]
                         else:
                             assert key in self.incumbent
-                            if round(value) == self.incumbent[key]:
+                            n = self._unordered_cat_hp[key]
+                            if np.floor(value * n) == np.floor(self.incumbent[key] * n):
                                 config_denorm[key] = self.best_config[key]
                             else:  # ****random value each time!****
                                 config_denorm[key] = self._random.choice(
