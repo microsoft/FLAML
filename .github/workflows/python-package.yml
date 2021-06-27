@@ -42,7 +42,7 @@ jobs:
         if: matrix.os == 'macOS-latest' || matrix.os == 'ubuntu-latest'
         run: |
           pip install -e .[ray]
-          pip install tensorboardX<=2.2
+          pip install 'tensorboardX<=2.2'
       - name: Lint with flake8
         run: |
           # stop the build if there are Python syntax errors or undefined names
