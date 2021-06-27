@@ -190,7 +190,7 @@ class FLOW2(Searcher):
         # record intermediate trial cost
         self._trial_cost = {}
         self._same = False  # whether the proposedd config is the same as best_config
-        self._init_phrase = True  # initial phase to increase initial stepsize
+        self._init_phase = True  # initial phase to increase initial stepsize
 
     @property
     def step_lower_bound(self) -> float:
@@ -541,7 +541,7 @@ class FLOW2(Searcher):
         self._proposed_by[trial_id] = self.incumbent
         self._configs[trial_id] = (config, self.step)
         self._num_proposedby_incumbent += 1
-        if self._init_phrase:
+        if self._init_phase:
             if self._direction_tried is None:
                 if self._same:
                     # check if the new config is different from self.best_config
@@ -567,7 +567,7 @@ class FLOW2(Searcher):
                 not self._resource or self._resource == self.max_resource):
             # check stuck condition if using max resource
             self._num_proposedby_incumbent -= 2
-            self._init_phrase = False
+            self._init_phase = False
             if self.step >= self.step_lower_bound:
                 # decrease step size
                 self._oldK = self._K if self._K else self._iter_best_config

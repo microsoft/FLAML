@@ -277,7 +277,9 @@ class BlendSearch(Searcher):
                     self._search_thread_pool[self._thread_count] = SearchThread(
                         self._ls.mode,
                         self._ls.create(
-                            config, objective, cost=result[self.cost_attr])
+                            config, objective,
+                            cost=result.get(self.cost_attr, 1)),
+                        self.cost_attr
                     )
                     thread_id = self._thread_count
                     self._thread_count += 1
