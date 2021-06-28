@@ -189,9 +189,10 @@ class FLOW2(Searcher):
         self._reset_times = 0
         # record intermediate trial cost
         self._trial_cost = {}
-        self._same = False  # whether the proposedd config is the same as best_config
+        self._same = False  # whether the proposed config is the same as best_config
         self._init_phase = True  # initial phase to increase initial stepsize
-        self._trunc = 0
+        self._trunc = 0     # no truncation by default. when > 0, it means how many
+                            # non-zero dimensions to keep in the random unit vector
 
     @property
     def step_lower_bound(self) -> float:
@@ -501,7 +502,7 @@ class FLOW2(Searcher):
             # record the cost in case it is pruned and cost info is lost
             self._trial_cost[trial_id] = cost
 
-    def rand_vector_unit_sphere(self, dim, trunc=1) -> np.ndarray:
+    def rand_vector_unit_sphere(self, dim, trunc=0) -> np.ndarray:
         vec = self._random.normal(0, 1, dim)
         if 0 < trunc < dim:
             vec[np.abs(vec).argsort()[:dim - trunc]] = 0
