@@ -316,10 +316,11 @@ class FLOW2(Searcher):
                             l, d = self._ordered_choice_hp[key]
                             config_norm[key] = (d[value] + 0.5) / len(l)
                         elif key in self.incumbent:
+                            d = self._unordered_cat_hp[key]
                             config_norm[key] = self.incumbent[
                                 key] if value == self.best_config[
                                     key] else (self.incumbent[
-                                        key] + 1) % self._unordered_cat_hp[key]
+                                        key] + 1.0 / d) % 1
                         else:
                             config_norm[key] = 0.5
                         continue
