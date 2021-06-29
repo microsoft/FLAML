@@ -191,8 +191,9 @@ class FLOW2(Searcher):
         self._trial_cost = {}
         self._same = False  # whether the proposed config is the same as best_config
         self._init_phase = True  # initial phase to increase initial stepsize
-        self._trunc = 0     # no truncation by default. when > 0, it means how many
-                            # non-zero dimensions to keep in the random unit vector
+        self._trunc = 0
+        # no truncation by default. when > 0, it means how many
+        # non-zero dimensions to keep in the random unit vector
 
     @property
     def step_lower_bound(self) -> float:
@@ -316,11 +317,11 @@ class FLOW2(Searcher):
                             l, d = self._ordered_choice_hp[key]
                             config_norm[key] = (d[value] + 0.5) / len(l)
                         elif key in self.incumbent:
-                            d = self._unordered_cat_hp[key]
                             config_norm[key] = self.incumbent[
                                 key] if value == self.best_config[
-                                    key] else (self.incumbent[
-                                        key] + 1.0 / d) % 1
+                                    key] else (
+                                        self.incumbent[key]
+                                        + 1.0 / self._unordered_cat_hp[key]) % 1
                         else:
                             config_norm[key] = 0.5
                         continue
