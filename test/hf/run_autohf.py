@@ -264,8 +264,9 @@ def _exhaustive_sweep(console_args,
         jobid_config.subdat
     )
 
-    gridunion_space["varying_arg1"] = [console_args.varying_arg1]
-    gridunion_space["varying_arg2"] = [console_args.varying_arg2]
+    gridunion_space["learning_rate"] = [console_args.varying_arg1]
+    gridunion_space["weight_decay"] = [console_args.varying_arg2]
+    gridunion_space["num_train_epochs"] = [6, 8]
     _test_hpo(console_args, jobid_config, autohf, wandb_utils, azure_utils,
               autohf_settings,
               root_log_path=console_args.root_log_path,
@@ -280,7 +281,7 @@ if __name__ == "__main__":
     wandb_utils = WandbUtils(is_wandb_on=False, wandb_key_path=console_args.key_path, jobid_config=jobid_config)
     wandb_utils.set_wandb_per_run()
 
-    _test_hpo(console_args, jobid_config, autohf, wandb_utils)
+    #_test_hpo(console_args, jobid_config, autohf, wandb_utils)
 
     # search_base_and_search_lower_lr(console_args, jobid_config, autohf, wandb_utils)
 
@@ -288,4 +289,4 @@ if __name__ == "__main__":
 
     # evaluate_large_best_configs_on_small(console_args, autohf)
 
-    #_exhaustive_sweep(console_args, jobid_config, autohf, wandb_utils)
+    _exhaustive_sweep(console_args, jobid_config, autohf, wandb_utils)
