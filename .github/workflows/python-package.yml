@@ -39,7 +39,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .[test]
       - name: If linux or mac, install ray
-        if: matrix.os == 'macOS-latest' || matrix.os == 'ubuntu-latest' && matrix.python-version != '3.9'
+        if: (matrix.os == 'macOS-latest' || matrix.os == 'ubuntu-latest') && matrix.python-version != '3.9'
         run: |
           pip install -e .[ray]
           pip install 'tensorboardX<=2.2'
