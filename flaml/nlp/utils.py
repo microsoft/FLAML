@@ -50,7 +50,6 @@ def load_dft_args():
                             choices=["rspt", "ori"], default="ori")
     arg_parser.add_argument('--ds_config', type=str, help='deep speed config file path',
                             required=False, default=None)
-    arg_parser.add_argument('--yml_file', type=str, help='yml file path', required=False, default="test.yml")
     arg_parser.add_argument('--key_path', type=str, help='path for key.json', required=False, default=None)
     arg_parser.add_argument('--root_log_path', type=str, help='root path for log', required=False, default="logs_azure")
     arg_parser.add_argument('--round_idx', type=int, help='round idx for acl experiments', required=False, default=0)
