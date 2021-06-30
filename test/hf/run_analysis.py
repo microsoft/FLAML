@@ -330,6 +330,31 @@ def create_partial_config_bestnn():
 
     return jobid_config
 
+def compare_batchsize(console_args):
+    from flaml.nlp.result_analysis.azure_utils import JobID, ConfigScoreList
+    from flaml.nlp import AzureUtils
+    partial_jobid_config = JobID()
+    partial_jobid_config.mod = "grid"
+    partial_jobid_config.pre = "funnel"
+    partial_jobid_config.subdat = "cola"
+    partial_jobid_config.presz = "small"
+
+    for each_root_log_path in ["logs_seed/", "logs_seed2/"]:
+        azure_utils = AzureUtils(root_log_path=each_root_log_path,
+                                 azure_key_path=console_args.key_path,
+                                 jobid_config=partial_jobid_config)
+        matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
+                root_log_path=each_root_log_path,
+                partial_jobid=partial_jobid_config)
+        merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
+                                       for x in config_score_list._config_score_list])._config_score_list
+        id_and_score_list = [(x, merged_list[x].metric_score["max"]) for x in range(len(merged_list))]
+        sorted_id_and_score_list = sorted(id_and_score_list, key=lambda x:x[1], reverse=True)
+        top1_idx = sorted_id_and_score_list[0][0]
+        print("num of samples:", len(merged_list))
+        print("max score is {} with epoch={}".format(sorted_id_and_score_list[0][1], merged_list[top1_idx].config["num_train_epochs"]))
+        stop = 0
+
 
 def create_partial_config_list():
     jobid_config = JobID()
@@ -359,4 +384,5 @@ if __name__ == "__main__":
     args = arg_parser.parse_args()
 
     partial_config_large = create_partial_config_hpo()
-    analyze_small_large(console_args=args)
+    #analyze_small_large(console_args=args)
+    compare_batchsize(console_args=args)

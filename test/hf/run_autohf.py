@@ -266,7 +266,6 @@ def _exhaustive_sweep(console_args,
 
     gridunion_space["learning_rate"] = [console_args.learning_rate]
     gridunion_space["weight_decay"] = [console_args.weight_decay]
-    gridunion_space["num_train_epochs"] = [6, 8]
     _test_hpo(console_args, jobid_config, autohf, wandb_utils, azure_utils,
               autohf_settings,
               root_log_path=console_args.root_log_path,
