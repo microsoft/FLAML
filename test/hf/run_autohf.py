@@ -280,7 +280,7 @@ if __name__ == "__main__":
     wandb_utils = WandbUtils(is_wandb_on=False, wandb_key_path=console_args.key_path, jobid_config=jobid_config)
     wandb_utils.set_wandb_per_run()
 
-    #_test_hpo(console_args, jobid_config, autohf, wandb_utils)
+    _test_hpo(console_args, jobid_config, autohf, wandb_utils)
 
     # search_base_and_search_lower_lr(console_args, jobid_config, autohf, wandb_utils)
 
@@ -288,4 +288,4 @@ if __name__ == "__main__":
 
     # evaluate_large_best_configs_on_small(console_args, autohf)
 
-    _exhaustive_sweep(console_args, jobid_config, autohf, wandb_utils)
+    #_exhaustive_sweep(console_args, jobid_config, autohf, wandb_utils)
