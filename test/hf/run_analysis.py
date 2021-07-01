@@ -365,7 +365,7 @@ def compare_learningrate(console_args):
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "grid"
     partial_jobid_config.pre = "deberta"
-    partial_jobid_config.subdat = "cola"
+    partial_jobid_config.subdat = "mrpc"
     partial_jobid_config.presz = "base"
 
     each_root_log_path = "logs_seed/"
@@ -377,13 +377,15 @@ def compare_learningrate(console_args):
         partial_jobid=partial_jobid_config)
     merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
                                    for x in config_score_list._config_score_list])._config_score_list
-    merged_list_1 = [x for x in merged_list if x.config["learning_rate"] in (1e-5, 2e-5, 3e-5)]
-    merged_list_2 = [x for x in merged_list if x.config["learning_rate"] not in (1e-5, 2e-5, 3e-5)]
+    merged_list_1 = [x for x in merged_list if x.config["weight_decay"] in (0.0, 0.1)
+                     and x.config["learning_rate"] in (1e-5, 2e-5, 3e-5)]
+    merged_list_2 = [x for x in merged_list if x.config["weight_decay"] not in (0.0, 0.1)
+                     and x.config["learning_rate"] in (1e-5, 2e-5, 3e-5)]
 
     if len(merged_list_1) > 0:
-        get_score_and_config(merged_list_1, "learning_rate")
+        get_score_and_config(merged_list_1, "weight_decay")
     if len(merged_list_2) > 0:
-        get_score_and_config(merged_list_2, "learning_rate")
+        get_score_and_config(merged_list_2, "weight_decay")
 
     stop = 0
 
