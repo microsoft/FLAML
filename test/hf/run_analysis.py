@@ -377,8 +377,8 @@ def compare_learningrate(console_args):
         partial_jobid=partial_jobid_config)
     merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
                                    for x in config_score_list._config_score_list])._config_score_list
-    merged_list_1 = [x for x in merged_list if x.config["learning_rate"] >= 1e-5]
-    merged_list_2 = [x for x in merged_list if x.config["learning_rate"] < 1e-5]
+    merged_list_1 = [x for x in merged_list if x.config["learning_rate"] in (1e-5, 2e-5, 3e-5)]
+    merged_list_2 = [x for x in merged_list if x.config["learning_rate"] not in (1e-5, 2e-5, 3e-5)]
 
     if len(merged_list_1) > 0:
         get_score_and_config(merged_list_1, "learning_rate")
