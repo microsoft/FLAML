@@ -683,6 +683,7 @@ class AutoTransformers:
             transformers_verbose=10,
             resources_per_trial=None,
             ray_local_mode=False,
+            keep_checkpoints_num=1,
             **custom_hpo_args):
         '''Fine tuning the huggingface using the hpo setting
 
@@ -721,6 +722,8 @@ class AutoTransformers:
                 boolean, default = True | whether to use fp16
             ray_local_mode:
                 boolean, default = False | whether to use the local mode (debugging mode) for ray tune.run
+            keep_checkpoints_num:
+                int, default = 1 | the number of checkpoints to keep for ray tune.run
             custom_hpo_args:
                 The additional keyword arguments, e.g.,
                 custom_hpo_args = {"points_to_evaluate": [{
@@ -773,7 +776,7 @@ class AutoTransformers:
             local_dir=self.path_utils.ckpt_dir_per_run,
             num_samples=num_samples,
             time_budget_s=time_budget,
-            keep_checkpoints_num=1,
+            keep_checkpoints_num=keep_checkpoints_num,
             scheduler=scheduler,
             search_alg=search_algo,
         )
