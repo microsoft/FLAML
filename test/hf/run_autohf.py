@@ -212,7 +212,7 @@ def _test_hpo(console_args,
     preparedata_setting = get_preparedata_setting(console_args, jobid_config, wandb_utils)
     autohf.prepare_data(**preparedata_setting)
 
-    analysis = validation_metric = test_metric = None
+    analysis = validation_metric = None
     if not autohf_settings:
         autohf_settings = get_autohf_settings(console_args, **custom_hpo_args)
     if console_args.algo_mode != "hfhpo":
@@ -220,14 +220,9 @@ def _test_hpo(console_args,
     else:
         autohf.fit_hf(**autohf_settings)
 
-    if jobid_config.spt == "ori":
-        predictions, test_metric = autohf.predict()
-        if validation_metric:
-            test_metric.update({"validation": validation_metric})
-    else:
-        predictions = None
-        if test_metric:
-            validation_metric.update({"test": test_metric})
+    predictions, test_metric = autohf.predict()
+    if test_metric:
+        validation_metric.update({"test": test_metric})
 
     if not azure_utils:
         azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
