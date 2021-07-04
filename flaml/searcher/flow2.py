@@ -295,6 +295,7 @@ class FLOW2(Searcher):
             self.resource_multiple_factor, self._seed + 1)
         flow2.best_obj = obj * self.metric_op  # minimize internally
         flow2.cost_incumbent = cost
+        self._seed += 1
         return flow2
 
     def normalize(self, config) -> Dict:
