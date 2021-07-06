@@ -1134,15 +1134,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_retrained_config</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">est_retrain_time</span> <span class="o">=</span> <span class="n">next_trial_time</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">best_config_sig</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="c1"># use ConcurrencyLimiter to limit the amount of concurrency when</span>
-        <span class="c1"># using a search algorithm</span>
         <span class="n">better</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># whether we find a better model in one trial</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensemble</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">best_model</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="kn">from</span> <span class="nn">ray.tune.suggest</span> <span class="kn">import</span> <span class="n">ConcurrencyLimiter</span>
-        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-            <span class="kn">from</span> <span class="nn">.searcher.suggestion</span> <span class="kn">import</span> <span class="n">ConcurrencyLimiter</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hpo_method</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;cfo&#39;</span><span class="p">,</span> <span class="s1">&#39;grid&#39;</span><span class="p">):</span>
             <span class="kn">from</span> <span class="nn">flaml</span> <span class="kn">import</span> <span class="n">CFO</span> <span class="k">as</span> <span class="n">SearchAlgo</span>
         <span class="k">elif</span> <span class="s1">&#39;optuna&#39;</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hpo_method</span><span class="p">:</span>
@@ -1215,12 +1209,11 @@
                         <span class="n">metric</span><span class="o">=</span><span class="s1">&#39;val_loss&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;min&#39;</span><span class="p">,</span> <span class="n">space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
                         <span class="n">points_to_evaluate</span><span class="o">=</span><span class="n">points_to_evaluate</span><span class="p">,</span>
                     <span class="p">)</span>
-                <span class="n">search_state</span><span class="o">.</span><span class="n">search_alg</span> <span class="o">=</span> <span class="n">ConcurrencyLimiter</span><span class="p">(</span><span class="n">algo</span><span class="p">,</span>
-                                                             <span class="n">max_concurrent</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">search_state</span><span class="o">.</span><span class="n">search_alg</span> <span class="o">=</span> <span class="n">algo</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">search_space</span> <span class="o">=</span> <span class="kc">None</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hpo_method</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;bs&#39;</span><span class="p">,</span> <span class="s1">&#39;cfo&#39;</span><span class="p">):</span>
-                    <span class="n">search_state</span><span class="o">.</span><span class="n">search_alg</span><span class="o">.</span><span class="n">searcher</span><span class="o">.</span><span class="n">set_search_properties</span><span class="p">(</span>
+                    <span class="n">search_state</span><span class="o">.</span><span class="n">search_alg</span><span class="o">.</span><span class="n">set_search_properties</span><span class="p">(</span>
                         <span class="n">config</span><span class="o">=</span><span class="p">{</span>
                             <span class="s1">&#39;metric_target&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">best_loss</span><span class="p">,</span>
                         <span class="p">},</span>

@@ -170,7 +170,7 @@
     <span class="kn">from</span> <span class="nn">.suggestion</span> <span class="kn">import</span> <span class="n">OptunaSearch</span> <span class="k">as</span> <span class="n">GlobalSearch</span>
     <span class="kn">from</span> <span class="nn">.variant_generator</span> <span class="kn">import</span> <span class="n">generate_variants</span>
 <span class="kn">from</span> <span class="nn">.search_thread</span> <span class="kn">import</span> <span class="n">SearchThread</span>
-<span class="kn">from</span> <span class="nn">.flow2</span> <span class="kn">import</span> <span class="n">FLOW2</span> <span class="k">as</span> <span class="n">LocalSearch</span>
+<span class="kn">from</span> <span class="nn">.flow2</span> <span class="kn">import</span> <span class="n">FLOW2</span>
 
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -183,6 +183,7 @@
     <span class="n">cost_attr</span> <span class="o">=</span> <span class="s2">&quot;time_total_s&quot;</span>  <span class="c1"># cost attribute in result</span>
     <span class="n">lagrange</span> <span class="o">=</span> <span class="s1">&#39;_lagrange&#39;</span>      <span class="c1"># suffix for lagrange-modified metric</span>
     <span class="n">penalty</span> <span class="o">=</span> <span class="mf">1e+10</span>             <span class="c1"># penalty term for constraints</span>
+    <span class="n">LocalSearch</span> <span class="o">=</span> <span class="n">FLOW2</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
                  <span class="n">metric</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -284,7 +285,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span> <span class="o">=</span> <span class="n">GlobalSearch</span><span class="p">(</span><span class="n">space</span><span class="o">=</span><span class="n">space</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span> <span class="o">=</span> <span class="n">LocalSearch</span><span class="p">(</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">LocalSearch</span><span class="p">(</span>
             <span class="n">init_config</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">cat_hp_cost</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span>
             <span class="n">prune_attr</span><span class="p">,</span> <span class="n">min_resource</span><span class="p">,</span> <span class="n">max_resource</span><span class="p">,</span> <span class="n">reduction_factor</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_init_search</span><span class="p">()</span>
@@ -430,7 +431,9 @@
                     <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_thread_count</span><span class="p">]</span> <span class="o">=</span> <span class="n">SearchThread</span><span class="p">(</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
-                            <span class="n">config</span><span class="p">,</span> <span class="n">objective</span><span class="p">,</span> <span class="n">cost</span><span class="o">=</span><span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cost_attr</span><span class="p">])</span>
+                            <span class="n">config</span><span class="p">,</span> <span class="n">objective</span><span class="p">,</span>
+                            <span class="n">cost</span><span class="o">=</span><span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cost_attr</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">cost_attr</span>
                     <span class="p">)</span>
                     <span class="n">thread_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_thread_count</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_thread_count</span> <span class="o">+=</span> <span class="mi">1</span>
