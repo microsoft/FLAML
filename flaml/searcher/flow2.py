@@ -534,7 +534,7 @@ class FLOW2(Searcher):
             config[self.prune_attr] = self._resource
             self._direction_tried = None
             self._configs[trial_id] = (config, self.step)
-            return config
+            return unflatten_dict(config)
         self._num_allowed4incumbent -= 1
         move = self.incumbent.copy()
         if self._direction_tried is not None:
@@ -553,7 +553,7 @@ class FLOW2(Searcher):
         self._proposed_by[trial_id] = self.incumbent
         self._configs[trial_id] = (config, self.step)
         self._num_proposedby_incumbent += 1
-        best_config = flatten_dict(self.best_config)
+        best_config = self.best_config
         if self._init_phase:
             if self._direction_tried is None:
                 if self._same:
