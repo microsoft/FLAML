@@ -26,7 +26,6 @@ class FLOW2(Searcher):
 
     STEPSIZE = 0.1
     STEP_LOWER_BOUND = 0.0001
-    cost_attr = 'time_total_s'
 
     def __init__(self,
                  init_config: dict,
@@ -38,6 +37,7 @@ class FLOW2(Searcher):
                  min_resource: Optional[float] = None,
                  max_resource: Optional[float] = None,
                  resource_multiple_factor: Optional[float] = 4,
+                 cost_attr: Optional[str] = 'time_total_s',
                  seed: Optional[int] = 20):
         '''Constructor
 
@@ -292,7 +292,7 @@ class FLOW2(Searcher):
             init_config, self.metric, self.mode, self._cat_hp_cost,
             unflatten_dict(self.space), self.prune_attr,
             self.min_resource, self.max_resource,
-            self.resource_multiple_factor, self._seed + 1)
+            self.resource_multiple_factor, self.cost_attr, self._seed + 1)
         flow2.best_obj = obj * self.metric_op  # minimize internally
         flow2.cost_incumbent = cost
         self._seed += 1
@@ -534,7 +534,7 @@ class FLOW2(Searcher):
             config[self.prune_attr] = self._resource
             self._direction_tried = None
             self._configs[trial_id] = (config, self.step)
-            return config
+            return unflatten_dict(config)
         self._num_allowed4incumbent -= 1
         move = self.incumbent.copy()
         if self._direction_tried is not None:
@@ -553,7 +553,7 @@ class FLOW2(Searcher):
         self._proposed_by[trial_id] = self.incumbent
         self._configs[trial_id] = (config, self.step)
         self._num_proposedby_incumbent += 1
-        best_config = flatten_dict(self.best_config)
+        best_config = self.best_config
         if self._init_phase:
             if self._direction_tried is None:
                 if self._same:
