@@ -152,7 +152,7 @@ class BaseEstimator:
         return {}
 
     @classmethod
-    def size(cls, config):
+    def size(cls, config: dict) -> float:
         '''[optional method] memory size of the estimator in bytes
 
         Args:
@@ -165,7 +165,7 @@ class BaseEstimator:
         return 1.0
 
     @classmethod
-    def cost_relative2lgbm(cls):
+    def cost_relative2lgbm(cls) -> float:
         '''[optional method] relative cost compared to lightgbm'''
         return 1.0
 
@@ -173,6 +173,19 @@ class BaseEstimator:
     def init(cls):
         '''[optional method] initialize the class'''
         pass
+
+    @classmethod
+    def train_time(cls, config: dict) -> float:
+        '''[optional method] training time of the estimator in seconds
+
+        Args:
+            config - the dict of the hyperparameter config
+
+        Returns:
+            A float of the estimated training time required by the estimator to
+            train the given config
+        '''
+        return 0.0
 
 
 class SKLearnEstimator(BaseEstimator):
