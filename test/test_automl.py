@@ -138,8 +138,8 @@ class TestAutoML(unittest.TestCase):
                            learner_class=MyRegularizedGreedyForest)
         X_train, y_train = load_wine(return_X_y=True)
         settings = {
-            "time_budget": 10,  # total running time in seconds
-            "estimator_list": ['RGF', 'lgbm', 'rf', 'xgboost'],
+            "time_budget": 5,  # total running time in seconds
+            "estimator_list": ['rf', 'xgboost', 'catboost'],
             "task": 'classification',  # task type
             "sample": True,  # whether to subsample training data
             "log_file_name": "test/wine.log",
