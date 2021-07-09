@@ -174,19 +174,6 @@ class BaseEstimator:
         '''[optional method] initialize the class'''
         pass
 
-    @classmethod
-    def train_time(cls, config: dict) -> float:
-        '''[optional method] training time of the estimator in seconds
-
-        Args:
-            config - the dict of the hyperparameter config
-
-        Returns:
-            A float of the estimated training time required by the estimator to
-            train the given config
-        '''
-        return 0.0
-
 
 class SKLearnEstimator(BaseEstimator):
 
