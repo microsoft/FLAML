@@ -243,8 +243,8 @@ def train_cv(batch_dict):
     autohf.train_dataset = batch_dict["train"]
     autohf.eval_dataset = batch_dict["eval"]
     autohf_settings = batch_dict["autohf_settings"]
-    azure_utils = batch_dict["azure_utils"]
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(idx % 4)
+    #azure_utils = batch_dict["azure_utils"]
+    #os.environ["CUDA_VISIBLE_DEVICES"] = str(idx % 4)
     validation_metric, analysis = autohf.fit(**autohf_settings)
     # json.dump(validation_metric, open("tmp_" + str(idx) + ".json", "w"))
     # azure_utils.write_autohf_output(valid_metric=validation_metric,
@@ -294,8 +294,7 @@ def _test_hpo(console_args,
         cv_k = len(autohf.train_datasets)
         batches = [{"idx": i, "train": autohf.train_datasets[i],
                     "eval": autohf.eval_datasets[i],
-                    "autohf_settings": autohf_settings,
-                    "azure_utils": azure_utils} for i in range(cv_k)]
+                    "autohf_settings": autohf_settings} for i in range(cv_k)]
         validation_metrics = []
         # with multiprocessing.Pool(processes=5) as p:
         #     for idx, validation_metric in p.imap_unordered(train_cv, batches):
