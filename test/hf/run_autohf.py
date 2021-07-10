@@ -2,6 +2,8 @@
 '''
 import os
 import shutil
+import multiprocessing
+import torch
 
 from flaml.nlp import AutoTransformers
 from flaml.nlp import AzureUtils, JobID
@@ -22,7 +24,7 @@ def get_resplit_portion(jobid_config):
         return {"source": ["train", "validation"], "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
 
 
-def get_preparedata_setting(console_args, jobid_config, wandb_utils):
+def get_preparedata_setting(console_args, jobid_config, wandb_utils, **custom_args):
     preparedata_setting = {
         "server_name": console_args.server_name,
         "data_root_path": console_args.data_root_dir,
@@ -30,7 +32,7 @@ def get_preparedata_setting(console_args, jobid_config, wandb_utils):
         "jobid_config": jobid_config,
         "wandb_utils": wandb_utils
     }
-    if jobid_config.spt == 'rspt':
+    if jobid_config.spt in ('rspt', 'cv'):
         preparedata_setting["resplit_portion"] = get_resplit_portion(jobid_config)
     if ("albert" == jobid_config.pre and jobid_config.dat == ["squad"]) or \
             ("funnel" in jobid_config.pre and jobid_config.dat[0] in {"imdb", "yelp_review_full", "yelp_polarity",
@@ -38,6 +40,7 @@ def get_preparedata_setting(console_args, jobid_config, wandb_utils):
         preparedata_setting["max_seq_length"] = 512
     if jobid_config.dat[0] == "glue" and jobid_config.subdat == "mnli":
         preparedata_setting["fold_name"] = ['train', 'validation_matched', 'test_matched']
+    preparedata_setting.update(custom_args)
     return preparedata_setting
 
 
@@ -158,13 +161,41 @@ def evaluate_configs(autohf, console_args, ranked_all_configs):
     this_args.sample_num = int(len(ranked_all_configs))
     this_args.search_alg_args_mode = "cus"
     jobid_config = JobID(this_args)
-    azure_utils_large = AzureUtils(root_log_path=console_args.root_log_path, azure_key_path=console_args.key_path, autohf=autohf)
+    azure_utils_large = AzureUtils(
+                         root_log_path=console_args.root_log_path,
+                         azure_key_path=console_args.key_path, autohf=autohf)
     _test_hpo(this_args,
               jobid_config,
               autohf,
               wandb_utils,
               azure_utils_large,
               autohf_settings=get_autohf_settings(this_args, **{"points_to_evaluate": ranked_all_configs}))
+
+def evaluate_configs_cv(autohf, console_args, constraint_dict):
+    import copy
+    from run_analysis import get_exhaustive_sweep_result
+
+    partial_jobid_config = JobID(console_args)
+    setattr(partial_jobid_config, "var1", set(constraint_dict["var1"]))
+    setattr(partial_jobid_config, "var2", set(constraint_dict["var2"]))
+    top1_score, top1_config = get_exhaustive_sweep_result(console_args, "logs_seed/", partial_jobid_config)
+    # top1_config = {"learning_rate": 1e-5, "per_device_train_batch_size": 2,
+    #                "num_train_epochs": 0.01, "warmup_ratio": 0.1, "weight_decay": 0.0}
+    this_args = copy.deepcopy(console_args)
+    autohf.jobid_config = partial_jobid_config
+    azure_utils_large = AzureUtils(
+        root_log_path=console_args.root_log_path,
+        azure_key_path=console_args.key_path, autohf=autohf)
+    custom_args = {
+        "foldnum": 5
+    }
+    _test_hpo(this_args,
+              partial_jobid_config,
+              autohf,
+              wandb_utils,
+              azure_utils_large,
+              autohf_settings=get_autohf_settings(this_args, **{"points_to_evaluate": [top1_config]}),
+              **custom_args)
 
 
 def convert_config_to_different_size(origin_config, mode):
@@ -200,6 +231,18 @@ def add_dict_item_to_list(this_list, this_dict):
         this_list.append(this_dict)
     return this_list
 
+def train_cv(batch_dict):
+    idx = batch_dict["idx"]
+    autohf.train_dataset = batch_dict["train"]
+    autohf.eval_dataset = batch_dict["eval"]
+    autohf_settings = batch_dict["autohf_settings"]
+    azure_utils = batch_dict["azure_utils"]
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(idx % 4)
+    validation_metric, analysis = autohf.fit(**autohf_settings)
+    # json.dump(validation_metric, open("tmp_" + str(idx) + ".json", "w"))
+    # azure_utils.write_autohf_output(valid_metric=validation_metric,
+    #                                 local_file_path=)
+    return idx, validation_metric
 
 def _test_hpo(console_args,
               jobid_config,
@@ -207,36 +250,54 @@ def _test_hpo(console_args,
               wandb_utils,
               azure_utils=None,
               autohf_settings=None,
-              **custom_hpo_args
+              **custom_args
               ):
-    preparedata_setting = get_preparedata_setting(console_args, jobid_config, wandb_utils)
+    preparedata_setting = get_preparedata_setting(console_args, jobid_config, wandb_utils, **custom_args)
     autohf.prepare_data(**preparedata_setting)
 
     analysis = validation_metric = None
     if not autohf_settings:
-        autohf_settings = get_autohf_settings(console_args, **custom_hpo_args)
-    if console_args.algo_mode != "hfhpo":
-        validation_metric, analysis = autohf.fit(**autohf_settings, )
+        autohf_settings = get_autohf_settings(console_args, **custom_args)
+
+    if jobid_config.spt != "cv":
+        if console_args.algo_mode != "hfhpo":
+            validation_metric, analysis = autohf.fit(**autohf_settings)
+        else:
+            autohf.fit_hf(**autohf_settings)
+        predictions, test_metric = autohf.predict()
+        if test_metric:
+            validation_metric.update({"test": test_metric})
+
+        if not azure_utils:
+            azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
+                                     azure_key_path=console_args.key_path,
+                                     autohf=autohf)
+
+        if analysis is not None:
+            configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
+        else:
+            configscore_list = None
+        azure_utils.write_autohf_output(configscore_list=configscore_list,
+                                        valid_metric=validation_metric,
+                                        predictions=predictions,
+                                        duration=autohf.last_run_duration)
     else:
-        autohf.fit_hf(**autohf_settings)
+        import multiprocessing
+        import json
+        cv_k = len(autohf.train_datasets)
+        batches = [{"idx": i, "train": autohf.train_datasets[i],
+                    "eval": autohf.eval_datasets[i],
+                    "autohf_settings": autohf_settings,
+                    "azure_utils": azure_utils} for i in range(cv_k)]
+        validation_metrics = []
+        # with multiprocessing.Pool(processes=5) as p:
+        #     for idx, validation_metric in p.imap_unordered(train_cv, batches):
+        #         validation_metrics.append(validation_metric)
+        for idx in range(len(batches)):
+            idx, validation_metric = train_cv(batches[idx])
+            validation_metrics.append(validation_metric)
+        azure_utils.write_autohf_output(valid_metric=validation_metrics)
 
-    predictions, test_metric = autohf.predict()
-    if test_metric:
-        validation_metric.update({"test": test_metric})
-
-    if not azure_utils:
-        azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
-                                 azure_key_path=console_args.key_path,
-                                 autohf=autohf)
-
-    if analysis is not None:
-        configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
-    else:
-        configscore_list = None
-    azure_utils.write_autohf_output(configscore_list=configscore_list,
-                                    valid_metric=validation_metric,
-                                    predictions=predictions,
-                                    duration=autohf.last_run_duration)
     rm_home_result()
 
 
@@ -283,4 +344,6 @@ if __name__ == "__main__":
 
     # evaluate_large_best_configs_on_small(console_args, autohf)
 
-    _exhaustive_sweep(console_args, jobid_config, autohf, wandb_utils)
+    #_exhaustive_sweep(console_args, jobid_config, autohf, wandb_utils)
+
+    evaluate_configs_cv(autohf, console_args, {"var1": ["1e-05", "2e-05", "3e-05"], "var2": ["0.0", "0.1"]})

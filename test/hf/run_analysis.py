@@ -330,43 +330,35 @@ def create_partial_config_bestnn():
 
     return jobid_config
 
-def compare_batchsize(console_args):
-    from flaml.nlp.result_analysis.azure_utils import JobID, ConfigScoreList
+def get_exhaustive_sweep_result(console_args, each_root_log_path, partial_jobid_config):
+    from flaml.nlp.result_analysis.azure_utils import ConfigScoreList
     from flaml.nlp import AzureUtils
-    partial_jobid_config = JobID()
-    partial_jobid_config.mod = "grid"
-    partial_jobid_config.pre = "deberta"
-    partial_jobid_config.subdat = "cola"
-    partial_jobid_config.presz = "base"
+    azure_utils = AzureUtils(root_log_path=each_root_log_path,
+                             azure_key_path=console_args.key_path,
+                             jobid_config=partial_jobid_config)
+    matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
+            root_log_path=each_root_log_path,
+            partial_jobid=partial_jobid_config)
+    merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
+                                   for x in config_score_list._config_score_list])._config_score_list
+    return get_top1_score_and_config(merged_list)
 
-    for each_root_log_path in ["logs_seed/", "logs_seed2/"]:
-        azure_utils = AzureUtils(root_log_path=each_root_log_path,
-                                 azure_key_path=console_args.key_path,
-                                 jobid_config=partial_jobid_config)
-        matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
-                root_log_path=each_root_log_path,
-                partial_jobid=partial_jobid_config)
-        merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
-                                       for x in config_score_list._config_score_list])._config_score_list
-        get_score_and_config([x for x in merged_list if x.config['learning_rate'] >= 1e-5], "num_train_epochs")
-        stop = 0
-
-def get_score_and_config(merged_list, hp_name):
+def get_top1_score_and_config(merged_list):
     id_and_score_list = [(x, merged_list[x].metric_score["max"]) for x in range(len(merged_list))]
     sorted_id_and_score_list = sorted(id_and_score_list, key=lambda x: x[1], reverse=True)
+    top1_score = sorted_id_and_score_list[0][1]
     top1_idx = sorted_id_and_score_list[0][0]
-    print("num of samples:", len(merged_list))
-    print("max score is {} with epoch={}".format(sorted_id_and_score_list[0][1],
-                                                 merged_list[top1_idx].config[hp_name]))
+    top1_config = merged_list[top1_idx].config
+    return top1_score, top1_config
 
 def compare_learningrate(console_args):
-    from flaml.nlp.result_analysis.azure_utils import JobID, ConfigScoreList
+    from flaml.nlp.result_analysis.azure_utils import JobID
     from flaml.nlp import AzureUtils
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "grid"
-    partial_jobid_config.pre = "deberta"
+    partial_jobid_config.pre = "funnel"
     partial_jobid_config.subdat = "mrpc"
-    partial_jobid_config.presz = "base"
+    partial_jobid_config.presz = "small"
 
     each_root_log_path = "logs_seed/"
     azure_utils = AzureUtils(root_log_path=each_root_log_path,
@@ -375,20 +367,33 @@ def compare_learningrate(console_args):
     matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
         root_log_path=each_root_log_path,
         partial_jobid=partial_jobid_config)
-    merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
-                                   for x in config_score_list._config_score_list])._config_score_list
-    merged_list_1 = [x for x in merged_list if x.config["weight_decay"] in (0.0, 0.1)
-                     and x.config["learning_rate"] in (1e-5, 2e-5, 3e-5)]
-    merged_list_2 = [x for x in merged_list if x.config["weight_decay"] not in (0.0, 0.1)
-                     and x.config["learning_rate"] in (1e-5, 2e-5, 3e-5)]
+    #split_configscorelist(matched_config_score_lists)
+    get_val_test_scores(matched_config_score_lists,
+                        "accuracy" if partial_jobid_config.subdat != "cola" else "matthews_correlation")
 
-    if len(merged_list_1) > 0:
-        get_score_and_config(merged_list_1, "weight_decay")
-    if len(merged_list_2) > 0:
-        get_score_and_config(merged_list_2, "weight_decay")
+def get_val_test_scores(matched_config_score_lists, metric_name):
+    val_scores = []
+    test_scores = []
+    weight_decays = []
+    for configscore_list in matched_config_score_lists:
+        if configscore_list._test_metric:
+            best_config = configscore_list.get_best_config()
+            weight_decay = best_config.config['weight_decay']
+            weight_decays.append(weight_decay)
+            val_scores.append(best_config.metric_score['max'])
+            test_scores.append(configscore_list._test_metric[metric_name])
+    wd2best = {}
+    for idx in range(len(test_scores)):
+        wd = weight_decays[idx]
+        try:
+            best_config = wd2best[wd]
+            if val_scores[idx] > best_config[0]:
+                best_config = [val_scores[idx], test_scores[idx]]
+        except KeyError:
+            best_config = [val_scores[idx], test_scores[idx]]
+        wd2best[wd] = best_config
 
     stop = 0
-
 
 def create_partial_config_list():
     jobid_config = JobID()

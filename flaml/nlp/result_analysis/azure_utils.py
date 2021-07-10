@@ -38,10 +38,12 @@ class ConfigScoreList:
                  config_score_list: List[ConfigScore],
                  jobid_config=None,
                  blob_file=None,
+                 test_metric=None,
                  ):
         self._config_score_list = config_score_list
         self._blob_file = blob_file
         self._jobid_config = jobid_config
+        self._test_metric = test_metric
 
     def sorted(self, sort_method="unsorted", metric_mode="max"):
         if sort_method == "unsorted":
@@ -106,8 +108,8 @@ class JobID:
     rep: int = field(default=0)
     sddt: int = field(default=None)
     sdhf: int = field(default=None)
-    var1: Optional[float] = field(default=None)
-    var2: Optional[float] = field(default=None)
+    var1: Optional[set] = field(default=None)
+    var2: Optional[set] = field(default=None)
 
     def __init__(self,
                  console_args=None):
@@ -164,8 +166,13 @@ class JobID:
         for key, val in partial_jobid.__dict__.items():
             if val is None:
                 continue
-            if getattr(self, key) != val:
-                is_not_match = True
+            if isinstance(val, set):
+                is_subset = len(getattr(self, key).difference(val)) == 0
+                if is_subset is False:
+                    is_not_match = True
+            else:
+                if getattr(self, key) != val:
+                    is_not_match = True
         return not is_not_match
 
     def to_wandb_string(self):
@@ -187,7 +194,11 @@ class JobID:
         field_dict = self.__dict__
         keytoval_str = "_".join([key + "=" + JobID.dataset_list_to_str(field_dict[key])
                                  if type(field_dict[key]) == list
-                                 else key + "=" + str(field_dict[key])
+                                 else
+                                 key + "=" + JobID.set_to_str(field_dict[key])
+                                 if type(field_dict[key]) == set
+                                 else
+                                 key + "=" + str(field_dict[key])
                                  for key in list_keys if not key.endswith("_full")])
         return keytoval_str
 
@@ -199,6 +210,9 @@ class JobID:
         field_dict = self.__dict__  # field_dict contains fields whose values are not None
         keytoval_str = "_".join([key + "=" + JobID.dataset_list_to_str(field_dict[key])
                                  if type(field_dict[key]) == list
+                                 else
+                                 key + "=" + JobID.set_to_str(field_dict[key])
+                                 if type(field_dict[key]) == set
                                  else key + "=" + str(field_dict[key])
                                  for key in list_keys if key in field_dict.keys()])
         return keytoval_str
@@ -234,6 +248,8 @@ class JobID:
             for key in field_keys:
                 if key == "dat":
                     result_dict[key] = [result.group(key)]
+                elif key in ("var1", "var2"):
+                    result_dict[key] = set([result.group(key)])
                 elif key == "rep":
                     try:
                         try:
@@ -256,6 +272,10 @@ class JobID:
             return "-".join(dataset_name)
         else:
             return dataset_name
+
+    @staticmethod
+    def set_to_str(value_set):
+        return sorted(list(value_set))[0]
 
     def set_jobid_from_arg_list(self,
                                 **jobid_list
@@ -577,11 +597,13 @@ class AzureUtils:
                             configscore_list=None,
                             valid_metric=None,
                             predictions=None,
-                            duration=None):
+                            duration=None,
+                            local_file_path=None):
         """
             write the key info from a job and upload to azure blob storage
         """
-        local_file_path = self.generate_local_json_path()
+        if local_file_path is None:
+            local_file_path = self.generate_local_json_path()
         output_json = {}
         if configscore_list:
             output_json["val_log"] = [configscore.__dict__ for configscore in configscore_list]
@@ -713,9 +735,14 @@ class AzureUtils:
         for (each_jobconfig, each_blob) in matched_blob_list:
             self.download_azure_blob(each_blob.name)
             data_json = json.load(open(each_blob.name, "r"))
+            try:
+                test_metric = data_json["valid_metric"]['test']
+            except KeyError:
+                test_metric = None
             each_config_and_score_list = ConfigScoreList(
                 jobid_config=each_jobconfig,
                 blob_file=each_blob,
-                config_score_list=[ConfigScore(**each_dict) for each_dict in data_json['val_log']])
+                config_score_list=[ConfigScore(**each_dict) for each_dict in data_json['val_log']],
+                test_metric=test_metric)
             matched_config_score_lists.append(each_config_and_score_list)
         return matched_config_score_lists

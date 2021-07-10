@@ -107,6 +107,24 @@ class AutoTransformers:
                     "documentation of AutoTransformers.prepare_data()".format(",".join(fold_keys))
         return "train", "validation", "test"
 
+    def _get_targetfold_start_end(self,
+                                  concatenated_data=None,
+                                  resplit_portion_key=None):
+        def crange(start_pos, end_pos, len):
+            assert start_pos <= len and end_pos <= len, "start and end portion must be within 1.0"
+            if start_pos <= end_pos:
+                return range(start_pos, end_pos)
+            else:
+                return [x for x in range(end_pos, len)] + [x for x in range(0, start_pos)]
+
+        data_len = len(concatenated_data)
+        target_fold_start, target_fold_end = \
+            int(resplit_portion_key[0] * data_len), \
+            int(resplit_portion_key[1] * data_len)
+        subfold_dataset = concatenated_data.select(
+            [x for x in crange(target_fold_start, target_fold_end, data_len)]).flatten_indices()
+        return subfold_dataset
+
     def prepare_data(self,
                      data_root_path,
                      jobid_config=None,
@@ -212,7 +230,7 @@ class AutoTransformers:
         self._max_seq_length = int((self._max_seq_length + 15) / 16) * 16
         data_encoded = autoencodetext_from_model_and_dataset_name()
 
-        if self.jobid_config.spt == "rspt":
+        if self.jobid_config.spt in ("rspt", "cv"):
             all_folds_from_source = []
             assert "source" in resplit_portion.keys(), "Must specify the source for resplitting the dataset in" \
                                                        "resplit_portion, which is a list of folder names, e.g., " \
@@ -223,24 +241,44 @@ class AutoTransformers:
                 this_fold_dataset = data_encoded[each_fold_name]
                 all_folds_from_source.append(this_fold_dataset)
 
-            merged_folds_from_source = datasets.concatenate_datasets(all_folds_from_source)
-            merged_folds_from_source = merged_folds_from_source.shuffle(seed=self.jobid_config.sddt)
+            merged_folds = datasets.concatenate_datasets(all_folds_from_source)
+            merged_folds = merged_folds.shuffle(seed=self.jobid_config.sddt)
 
             assert "train" in resplit_portion.keys() and "validation" in resplit_portion.keys() \
                    and "test" in resplit_portion.keys(), "train, validation, test must exist in resplit_portion"
 
-            for key in ["train", "validation", "test"]:
-                target_fold_start, target_fold_end = \
-                    int(resplit_portion[key][0] * len(merged_folds_from_source)), \
-                    int(resplit_portion[key][1] * len(merged_folds_from_source))
-                subfold_dataset = merged_folds_from_source.select(
-                    [x for x in range(target_fold_start, target_fold_end)]).flatten_indices()
-                if key == "train":
-                    self.train_dataset = subfold_dataset
-                elif key == "validation":
-                    self.eval_dataset = subfold_dataset
-                else:
-                    self.test_dataset = subfold_dataset
+            if self.jobid_config.spt == "rspt":
+                for key in ["train", "validation", "test"]:
+                    subfold_dataset = self._get_targetfold_start_end(concatenated_data=merged_folds,
+                                                                     resplit_portion_key=resplit_portion[key])
+                    if key == "train":
+                        self.train_dataset = subfold_dataset
+                    elif key == "validation":
+                        self.eval_dataset = subfold_dataset
+                    else:
+                        self.test_dataset = subfold_dataset
+            else:
+                assert "foldnum" in custom_data_args, "if the split mode is cross validation, foldnum must be" \
+                                                      "specified"
+                def get_cv_split_points(lower_bound, upper_bound, idx, k):
+                    return (upper_bound - lower_bound) / k * idx + lower_bound, \
+                           (upper_bound - lower_bound) / k * (idx + 1) + lower_bound
+
+                self.test_dataset = self._get_targetfold_start_end(concatenated_data=merged_folds,
+                                                                   resplit_portion_key=resplit_portion["test"])
+                train_val_lower = min(resplit_portion["train"][0], resplit_portion["validation"][0])
+                train_val_upper = min(resplit_portion["train"][1], resplit_portion["validation"][1])
+                cv_k = custom_data_args["foldnum"]
+                self.eval_datasets = []
+                self.train_datasets = []
+                for idx in range(cv_k):
+                    this_fold_lower, this_fold_upper = get_cv_split_points(
+                                                       train_val_lower,
+                                                       train_val_upper, idx, cv_k)
+                    self.eval_datasets.append(self._get_targetfold_start_end(concatenated_data=merged_folds,
+                                              resplit_portion_key=[this_fold_lower, this_fold_upper]))
+                    self.train_datasets.append(self._get_targetfold_start_end(concatenated_data=merged_folds,
+                                               resplit_portion_key=[this_fold_upper, this_fold_lower]))
         else:
             self.train_dataset, self.eval_dataset, self.test_dataset \
                 = data_encoded[self._train_name], data_encoded[self._dev_name], data_encoded[self._test_name]
@@ -437,10 +475,12 @@ class AutoTransformers:
         for key in custom_hpo_args.keys():
             if key == "points_to_evaluate":
                 for each_init_config in custom_hpo_args[key]:
-                    for each_hp in each_init_config.keys():
-                        assert each_hp in self._search_space_hpo.keys(), \
-                            "points_to_evaluate hp must be within the search space"
+                    for each_hp in list(each_init_config.keys()):
+                        if each_hp not in self._search_space_hpo.keys():
+                            del each_init_config[each_hp]
+                        print("{} is not in the search space, deleting from init config".format(each_hp))
 
+                    for each_hp in list(each_init_config.keys()):
                         assert isinstance(each_init_config[each_hp], int) or \
                                isinstance(each_init_config[each_hp], float) or \
                                isinstance(each_init_config[each_hp], str) or \

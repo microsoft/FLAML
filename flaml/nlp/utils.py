@@ -47,7 +47,7 @@ def load_dft_args():
     arg_parser.add_argument('--rep_id', type=int, help='rep id', required=False, default=0)
     arg_parser.add_argument('--azure_key', type=str, help='azure key', required=False, default=None)
     arg_parser.add_argument('--resplit_mode', type=str, help='resplit mode', required=False,
-                            choices=["rspt", "ori"], default="ori")
+                            choices=["rspt", "ori", "cv"], default="ori")
     arg_parser.add_argument('--ds_config', type=str, help='deep speed config file path',
                             required=False, default=None)
     arg_parser.add_argument('--key_path', type=str, help='path for key.json', required=False, default=None)
