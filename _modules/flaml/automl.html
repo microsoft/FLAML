@@ -315,7 +315,6 @@
     <span class="k">def</span> <span class="nf">_compute_with_config_base</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
                                   <span class="n">estimator</span><span class="p">,</span>
                                   <span class="n">config_w_resource</span><span class="p">):</span>
-        <span class="n">compute_start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
         <span class="k">if</span> <span class="s1">&#39;FLAML_sample_size&#39;</span> <span class="ow">in</span> <span class="n">config_w_resource</span><span class="p">:</span>
             <span class="n">sample_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">config_w_resource</span><span class="p">[</span><span class="s1">&#39;FLAML_sample_size&#39;</span><span class="p">])</span>
         <span class="k">else</span><span class="p">:</span>
@@ -334,14 +333,14 @@
         <span class="n">budget</span> <span class="o">=</span> <span class="n">time_left</span> <span class="k">if</span> <span class="n">sample_size</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_size</span> <span class="k">else</span> \
             <span class="n">time_left</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">sample_size</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_size</span>
 
-        <span class="n">trained_estimator</span><span class="p">,</span> <span class="n">val_loss</span><span class="p">,</span> <span class="n">train_loss</span><span class="p">,</span> <span class="n">time2eval</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> \
+        <span class="n">trained_estimator</span><span class="p">,</span> <span class="n">val_loss</span><span class="p">,</span> <span class="n">train_loss</span><span class="p">,</span> <span class="n">time2eval</span><span class="p">,</span> <span class="n">pred_time</span> <span class="o">=</span> \
             <span class="n">compute_estimator</span><span class="p">(</span>
                 <span class="n">sampled_X_train</span><span class="p">,</span>
                 <span class="n">sampled_y_train</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">X_val</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">y_val</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">weight_val</span><span class="p">,</span>
-                <span class="n">budget</span><span class="p">,</span>
+                <span class="nb">min</span><span class="p">(</span><span class="n">budget</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_time_limit</span><span class="p">),</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">kf</span><span class="p">,</span>
                 <span class="n">config</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">task</span><span class="p">,</span>
@@ -354,7 +353,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">log_training_metric</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">)</span>
         <span class="n">result</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s1">&#39;total_time&#39;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">compute_start_time</span><span class="p">,</span>
+            <span class="s1">&#39;pred_time&#39;</span><span class="p">:</span> <span class="n">pred_time</span><span class="p">,</span>
             <span class="s1">&#39;time2eval&#39;</span><span class="p">:</span> <span class="n">time2eval</span><span class="p">,</span>
             <span class="s1">&#39;train_loss&#39;</span><span class="p">:</span> <span class="n">train_loss</span><span class="p">,</span>
             <span class="s1">&#39;val_loss&#39;</span><span class="p">:</span> <span class="n">val_loss</span><span class="p">,</span>
@@ -952,6 +951,8 @@
             <span class="n">n_splits</span><span class="o">=</span><span class="n">N_SPLITS</span><span class="p">,</span>
             <span class="n">log_training_metric</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
             <span class="n">mem_thres</span><span class="o">=</span><span class="n">MEM_THRES</span><span class="p">,</span>
+            <span class="n">pred_time_limit</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span>
+            <span class="n">train_time_limit</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span>
             <span class="n">X_val</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">y_val</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">sample_weight_val</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -966,7 +967,7 @@
 
 <span class="sd">        Args:</span>
 <span class="sd">            X_train: A numpy array or a pandas dataframe of training data in</span>
-<span class="sd">             shape (n, m)</span>
+<span class="sd">                shape (n, m)</span>
 <span class="sd">            y_train: A numpy array or a pandas series of labels in shape (n,)</span>
 <span class="sd">            dataframe: A dataframe of training data including label column</span>
 <span class="sd">            label: A str of the label column name</span>
@@ -988,7 +989,7 @@
 <span class="sd">                        return metric_to_minimize, metrics_to_log</span>
 
 <span class="sd">                which returns a float number as the minimization objective,</span>
-<span class="sd">                and a tuple of floats as the metrics to log</span>
+<span class="sd">                and a tuple of floats or a dictionary as the metrics to log</span>
 <span class="sd">            task: A string of the task type, e.g.,</span>
 <span class="sd">                &#39;classification&#39;, &#39;regression&#39;</span>
 <span class="sd">            n_jobs: An integer of the number of threads for training</span>
@@ -1018,6 +1019,8 @@
 <span class="sd">            log_training_metric: A boolean of whether to log the training</span>
 <span class="sd">                metric for each model.</span>
 <span class="sd">            mem_thres: A float of the memory size constraint in bytes</span>
+<span class="sd">            pred_time_limit: A float of the prediction latency constraint in seconds</span>
+<span class="sd">            train_time_limit: A float of the training time constraint in seconds</span>
 <span class="sd">            X_val: None or a numpy array or a pandas dataframe of validation data</span>
 <span class="sd">            y_val: None or a numpy array or a pandas series of validation labels</span>
 <span class="sd">            sample_weight_val: None or a numpy array of the sample weight of</span>
@@ -1108,6 +1111,8 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_ensemble</span> <span class="o">=</span> <span class="n">ensemble</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_max_iter</span> <span class="o">=</span> <span class="n">max_iter</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_mem_thres</span> <span class="o">=</span> <span class="n">mem_thres</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pred_time_limit</span> <span class="o">=</span> <span class="n">pred_time_limit</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">train_time_limit</span> <span class="o">=</span> <span class="n">train_time_limit</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_log_type</span> <span class="o">=</span> <span class="n">log_type</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">split_ratio</span> <span class="o">=</span> <span class="n">split_ratio</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_save_model_history</span> <span class="o">=</span> <span class="n">model_history</span>
@@ -1200,6 +1205,10 @@
                     <span class="n">points_to_evaluate</span> <span class="o">=</span> <span class="p">[</span><span class="n">search_state</span><span class="o">.</span><span class="n">init_config</span><span class="p">]</span>
                     <span class="n">low_cost_partial_config</span> <span class="o">=</span> <span class="n">search_state</span><span class="o">.</span><span class="n">low_cost_partial_config</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hpo_method</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;bs&#39;</span><span class="p">,</span> <span class="s1">&#39;cfo&#39;</span><span class="p">,</span> <span class="s1">&#39;grid&#39;</span><span class="p">):</span>
+                    <span class="n">metric_constraints</span> <span class="o">=</span> <span class="p">[]</span>
+                    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pred_time_limit</span><span class="p">):</span>
+                        <span class="n">metric_constraints</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="p">(</span><span class="s1">&#39;pred_time&#39;</span><span class="p">,</span> <span class="s1">&#39;&lt;=&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pred_time_limit</span><span class="p">))</span>
                     <span class="n">algo</span> <span class="o">=</span> <span class="n">SearchAlgo</span><span class="p">(</span>
                         <span class="n">metric</span><span class="o">=</span><span class="s1">&#39;val_loss&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;min&#39;</span><span class="p">,</span> <span class="n">space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
                         <span class="n">points_to_evaluate</span><span class="o">=</span><span class="n">points_to_evaluate</span><span class="p">,</span>
@@ -1208,7 +1217,10 @@
                         <span class="n">prune_attr</span><span class="o">=</span><span class="n">prune_attr</span><span class="p">,</span>
                         <span class="n">min_resource</span><span class="o">=</span><span class="n">min_resource</span><span class="p">,</span>
                         <span class="n">max_resource</span><span class="o">=</span><span class="n">max_resource</span><span class="p">,</span>
-                        <span class="n">config_constraints</span><span class="o">=</span><span class="p">[(</span><span class="n">learner_class</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="s1">&#39;&lt;=&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mem_thres</span><span class="p">)]</span>
+                        <span class="n">config_constraints</span><span class="o">=</span><span class="p">[</span>
+                            <span class="p">(</span><span class="n">learner_class</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="s1">&#39;&lt;=&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mem_thres</span><span class="p">)</span>
+                        <span class="p">],</span>
+                        <span class="n">metric_constraints</span><span class="o">=</span><span class="n">metric_constraints</span><span class="p">,</span>
                     <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">algo</span> <span class="o">=</span> <span class="n">SearchAlgo</span><span class="p">(</span>
@@ -1230,7 +1242,7 @@
             <span class="n">analysis</span> <span class="o">=</span> <span class="n">tune</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
                 <span class="n">search_state</span><span class="o">.</span><span class="n">training_function</span><span class="p">,</span>
                 <span class="n">search_alg</span><span class="o">=</span><span class="n">search_state</span><span class="o">.</span><span class="n">search_alg</span><span class="p">,</span>
-                <span class="n">time_budget_s</span><span class="o">=</span><span class="n">budget_left</span><span class="p">,</span>
+                <span class="n">time_budget_s</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="n">budget_left</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">train_time_limit</span><span class="p">),</span>
                 <span class="n">verbose</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">verbose</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
                 <span class="n">use_ray</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
             <span class="n">time_used</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_run_time</span>
