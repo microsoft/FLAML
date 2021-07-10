@@ -175,14 +175,21 @@ def evaluate_configs_cv(autohf, console_args):
     import copy
     from run_analysis import get_exhaustive_sweep_result
 
-    partial_jobid_config = JobID(console_args)
-    setattr(partial_jobid_config, "var1", set(console_args.learning_rate))
-    setattr(partial_jobid_config, "var2", set(console_args.weight_decay))
-    top1_score, top1_config = get_exhaustive_sweep_result(console_args, "logs_seed/", partial_jobid_config)
+    cv_jobid_config = JobID(console_args)
+    sweep_jobid_config = JobID()
+    sweep_jobid_config.mod = "grid"
+    sweep_jobid_config.pre = cv_jobid_config.pre
+    sweep_jobid_config.presz = cv_jobid_config.presz
+    sweep_jobid_config.dat = cv_jobid_config.dat
+    sweep_jobid_config.subdat = cv_jobid_config.subdat
+
+    setattr(sweep_jobid_config, "var1", set(console_args.learning_rate))
+    setattr(sweep_jobid_config, "var2", set(console_args.weight_decay))
+    top1_score, top1_config = get_exhaustive_sweep_result(console_args, "logs_seed/", sweep_jobid_config)
     # top1_config = {"learning_rate": 1e-5, "per_device_train_batch_size": 2,
     #                "num_train_epochs": 0.01, "warmup_ratio": 0.1, "weight_decay": 0.0}
     this_args = copy.deepcopy(console_args)
-    autohf.jobid_config = partial_jobid_config
+    autohf.jobid_config = cv_jobid_config
     azure_utils_large = AzureUtils(
         root_log_path=console_args.root_log_path,
         azure_key_path=console_args.key_path, autohf=autohf)
@@ -190,7 +197,7 @@ def evaluate_configs_cv(autohf, console_args):
         "foldnum": 5
     }
     _test_hpo(this_args,
-              partial_jobid_config,
+              cv_jobid_config,
               autohf,
               wandb_utils,
               azure_utils_large,
