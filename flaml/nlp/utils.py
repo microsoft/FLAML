@@ -13,15 +13,6 @@ def dataset_subdataset_name_format_check(val_str):
     return val_str
 
 
-def pretrained_model_size_format_check(val_str):
-    regex = re.compile(r"^[^:]*:(small|base|large|xlarge)")
-    if (val_str is not None) and (not regex.search(val_str)):
-        raise argparse.ArgumentTypeError("pretrained_model_size must be in the format {model_name}:{model_size},"
-                                         "where {model_name} is the name from huggingface.co/models, {model_size}"
-                                         "is chosen from small, base, large, xlarge")
-    return val_str
-
-
 def load_dft_args():
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('--server_name', type=str, help='server name', required=False,
@@ -39,8 +30,8 @@ def load_dft_args():
                             choices=["bs", "optuna", "cfo", "rs"], default="bs")
     arg_parser.add_argument('--pruner', type=str, help='pruner', required=False,
                             choices=["asha", "None"], default="None")
-    arg_parser.add_argument('--pretrained_model_size', type=pretrained_model_size_format_check,
-                            help='pretrained model', required=False, default=None)
+    arg_parser.add_argument('--pretrained_model_size', nargs=2, default=[],
+                            help='pretrained model', required=False)
     arg_parser.add_argument('--sample_num', type=int, help='sample num', required=False, default=None)
     arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False, default=None)
     arg_parser.add_argument('--time_as_grid', type=int, help='time as grid search', required=False, default=None)
@@ -55,8 +46,10 @@ def load_dft_args():
     arg_parser.add_argument('--round_idx', type=int, help='round idx for acl experiments', required=False, default=0)
     arg_parser.add_argument('--seed_data', type=int, help='seed of data shuffling', required=False, default=43)
     arg_parser.add_argument('--seed_transformers', type=int, help='seed of transformers', required=False, default=42)
-    arg_parser.add_argument('--learning_rate', type=float, help='optional arg learning_rate', required=False)
-    arg_parser.add_argument('--weight_decay', type=float, help='optional arg weight_decay', required=False)
+    arg_parser.add_argument('--learning_rate', nargs='+', default=[],
+                            help='optional arg learning_rate', required=False)
+    arg_parser.add_argument('--weight_decay', nargs='+', default=[],
+                            help='optional arg weight_decay', required=False)
     args, unknown = arg_parser.parse_known_args()
     return args
 

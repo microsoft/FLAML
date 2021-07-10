@@ -351,7 +351,7 @@ class JobID:
             return console_args[each_key]
 
     def set_jobid_from_console_args(self, console_args: Union[argparse.ArgumentParser, dict]):
-        from ..utils import pretrained_model_size_format_check, dataset_subdataset_name_format_check
+        from ..utils import dataset_subdataset_name_format_check
         console_to_jobid_key_mapping = {
             "pretrained_model_size": "pre",
             "dataset_subdataset_name": "dat",
@@ -375,10 +375,9 @@ class JobID:
                         self.dat = JobID.get_attrval_from_arg_or_dict(console_args, each_key).split(":")[0].split(",")
                         self.subdat = JobID.get_attrval_from_arg_or_dict(console_args, each_key).split(":")[1]
                     elif each_key == "pretrained_model_size":
-                        pretrained_model_size_format_check(JobID.get_attrval_from_arg_or_dict(console_args, each_key))
-                        self.pre_full = JobID.get_attrval_from_arg_or_dict(console_args, each_key).split(":")[0]
+                        self.pre_full = JobID.get_attrval_from_arg_or_dict(console_args, each_key)[0]
                         self.pre = JobID.extract_model_type(self.pre_full)
-                        self.presz = JobID.get_attrval_from_arg_or_dict(console_args, each_key).split(":")[1]
+                        self.presz = JobID.get_attrval_from_arg_or_dict(console_args, each_key)[1]
                     else:
                         jobid_key = console_to_jobid_key_mapping[each_key]
                         attrval = JobID.get_attrval_from_arg_or_dict(console_args, each_key)

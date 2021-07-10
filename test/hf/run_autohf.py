@@ -171,13 +171,13 @@ def evaluate_configs(autohf, console_args, ranked_all_configs):
               azure_utils_large,
               autohf_settings=get_autohf_settings(this_args, **{"points_to_evaluate": ranked_all_configs}))
 
-def evaluate_configs_cv(autohf, console_args, constraint_dict):
+def evaluate_configs_cv(autohf, console_args):
     import copy
     from run_analysis import get_exhaustive_sweep_result
 
     partial_jobid_config = JobID(console_args)
-    setattr(partial_jobid_config, "var1", set(constraint_dict["var1"]))
-    setattr(partial_jobid_config, "var2", set(constraint_dict["var2"]))
+    setattr(partial_jobid_config, "var1", set(console_args.learning_rate))
+    setattr(partial_jobid_config, "var2", set(console_args.weight_decay))
     top1_score, top1_config = get_exhaustive_sweep_result(console_args, "logs_seed/", partial_jobid_config)
     # top1_config = {"learning_rate": 1e-5, "per_device_train_batch_size": 2,
     #                "num_train_epochs": 0.01, "warmup_ratio": 0.1, "weight_decay": 0.0}
@@ -346,4 +346,5 @@ if __name__ == "__main__":
 
     #_exhaustive_sweep(console_args, jobid_config, autohf, wandb_utils)
 
-    evaluate_configs_cv(autohf, console_args, {"var1": ["1e-05", "2e-05", "3e-05"], "var2": ["0.0", "0.1"]})
+
+    evaluate_configs_cv(autohf, console_args)
