@@ -2,7 +2,6 @@
 '''
 import os
 import shutil
-import multiprocessing
 import torch
 
 from flaml.nlp import AutoTransformers
@@ -288,7 +287,6 @@ def _test_hpo(console_args,
                                         predictions=predictions,
                                         duration=autohf.last_run_duration)
     else:
-        import multiprocessing
         import json
         import copy
         cv_k = len(autohf.train_datasets)
