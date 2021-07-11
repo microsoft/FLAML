@@ -353,7 +353,7 @@ if __name__ == "__main__":
 
     # evaluate_large_best_configs_on_small(console_args, autohf)
 
-    _exhaustive_sweep(console_args, jobid_config, autohf, wandb_utils)
+    #_exhaustive_sweep(console_args, jobid_config, autohf, wandb_utils)
 
 
-    #evaluate_configs_cv(autohf, console_args)
+    evaluate_configs_cv(autohf, console_args)
