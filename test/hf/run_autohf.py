@@ -2,7 +2,7 @@
 '''
 import os
 import shutil
-import torch
+import numpy
 
 from flaml.nlp import AutoTransformers
 from flaml.nlp import AzureUtils, JobID
