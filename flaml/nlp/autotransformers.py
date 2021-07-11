@@ -109,20 +109,23 @@ class AutoTransformers:
 
     def _get_targetfold_start_end(self,
                                   concatenated_data=None,
-                                  resplit_portion_key=None):
-        def crange(start_pos, end_pos, len):
-            assert start_pos <= len and end_pos <= len, "start and end portion must be within 1.0"
+                                  resplit_portion_key=None,
+                                  lower_bound_portion=0.0,
+                                  upper_bound_portion=1.0):
+        def crange(start_pos, end_pos, lower_bound, upper_bound):
+            assert start_pos >= lower_bound and end_pos <= upper_bound, "start and end portion must be within 1.0"
             if start_pos <= end_pos:
                 return range(start_pos, end_pos)
             else:
-                return [x for x in range(end_pos, len)] + [x for x in range(0, start_pos)]
+                return [x for x in range(start_pos, upper_bound)] + [x for x in range(lower_bound, end_pos)]
 
         data_len = len(concatenated_data)
         target_fold_start, target_fold_end = \
             int(resplit_portion_key[0] * data_len), \
             int(resplit_portion_key[1] * data_len)
+        lower_bound, upper_bound = int(lower_bound_portion * data_len), int(upper_bound_portion * data_len)
         subfold_dataset = concatenated_data.select(
-            [x for x in crange(target_fold_start, target_fold_end, data_len)]).flatten_indices()
+            [x for x in crange(target_fold_start, target_fold_end, lower_bound, upper_bound)]).flatten_indices()
         return subfold_dataset
 
     def prepare_data(self,
@@ -267,7 +270,7 @@ class AutoTransformers:
                 self.test_dataset = self._get_targetfold_start_end(concatenated_data=merged_folds,
                                                                    resplit_portion_key=resplit_portion["test"])
                 train_val_lower = min(resplit_portion["train"][0], resplit_portion["validation"][0])
-                train_val_upper = min(resplit_portion["train"][1], resplit_portion["validation"][1])
+                train_val_upper = max(resplit_portion["train"][1], resplit_portion["validation"][1])
                 cv_k = custom_data_args["foldnum"]
                 self.eval_datasets = []
                 self.train_datasets = []
@@ -275,10 +278,17 @@ class AutoTransformers:
                     this_fold_lower, this_fold_upper = get_cv_split_points(
                                                        train_val_lower,
                                                        train_val_upper, idx, cv_k)
-                    self.eval_datasets.append(self._get_targetfold_start_end(concatenated_data=merged_folds,
-                                              resplit_portion_key=[this_fold_lower, this_fold_upper]))
-                    self.train_datasets.append(self._get_targetfold_start_end(concatenated_data=merged_folds,
-                                               resplit_portion_key=[this_fold_upper, this_fold_lower]))
+                    self.eval_datasets.append(self._get_targetfold_start_end(
+                                                   concatenated_data=merged_folds,
+                                                   resplit_portion_key=[this_fold_lower, this_fold_upper],
+                                                   lower_bound_portion=train_val_lower,
+                                                   upper_bound_portion=train_val_upper))
+                    self.train_datasets.append(self._get_targetfold_start_end(
+                                               concatenated_data=merged_folds,
+                                               resplit_portion_key=[this_fold_upper, this_fold_lower],
+                                               lower_bound_portion=train_val_lower,
+                                               upper_bound_portion=train_val_upper))
+                    stop = 0
         else:
             self.train_dataset, self.eval_dataset, self.test_dataset \
                 = data_encoded[self._train_name], data_encoded[self._dev_name], data_encoded[self._test_name]

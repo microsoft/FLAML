@@ -238,13 +238,12 @@ def add_dict_item_to_list(this_list, this_dict):
         this_list.append(this_dict)
     return this_list
 
-def train_cv(batch_dict):
-    idx = batch_dict["idx"]
-    autohf.train_dataset = batch_dict["train"]
-    autohf.eval_dataset = batch_dict["eval"]
-    autohf_settings = batch_dict["autohf_settings"]
+def train_cv(idx, train_dataset, eval_dataset, autohf_settings):
     #azure_utils = batch_dict["azure_utils"]
     #os.environ["CUDA_VISIBLE_DEVICES"] = str(idx % 4)
+    os.environ['MKL_THREADING_LAYER'] = 'GNU'
+    autohf.train_dataset = train_dataset
+    autohf.eval_dataset = eval_dataset
     validation_metric, analysis = autohf.fit(**autohf_settings)
     # json.dump(validation_metric, open("tmp_" + str(idx) + ".json", "w"))
     # azure_utils.write_autohf_output(valid_metric=validation_metric,
@@ -291,16 +290,20 @@ def _test_hpo(console_args,
     else:
         import multiprocessing
         import json
+        import copy
         cv_k = len(autohf.train_datasets)
-        batches = [{"idx": i, "train": autohf.train_datasets[i],
-                    "eval": autohf.eval_datasets[i],
-                    "autohf_settings": autohf_settings} for i in range(cv_k)]
         validation_metrics = []
         # with multiprocessing.Pool(processes=5) as p:
         #     for idx, validation_metric in p.imap_unordered(train_cv, batches):
         #         validation_metrics.append(validation_metric)
-        for idx in range(len(batches)):
-            idx, validation_metric = train_cv(batches[idx])
+        autohf_settings_copies = []
+        for idx in range(cv_k):
+            autohf_settings_copies.append(copy.deepcopy(autohf_settings))
+        for idx in range(0, cv_k):
+            idx, validation_metric = train_cv(idx,
+                                              train_dataset=autohf.train_datasets[idx],
+                                              eval_dataset=autohf.eval_datasets[idx],
+                                              autohf_settings=autohf_settings_copies[idx])
             validation_metrics.append(validation_metric)
         azure_utils.write_autohf_output(valid_metric=validation_metrics)
 
