@@ -505,6 +505,7 @@ class AutoTransformers:
                             assert each_init_config[each_hp] in self._search_space_hpo[each_hp].categories, \
                                 "points_to_evaluate {each_hp} value must be within the search space"
                         else:
+                            stop = 0
                             assert self._search_space_hpo[each_hp].lower <= each_init_config[each_hp] <= \
                                    self._search_space_hpo[each_hp].upper, \
                                    "points_to_evaluate {each_hp} value must be within the search space"
