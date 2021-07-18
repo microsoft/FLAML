@@ -155,20 +155,18 @@ def search_base_and_search_around_best(console_args, jobid_config, autohf, wandb
 
 def evaluate_configs(autohf, console_args, ranked_all_configs):
     import copy
-    this_args = copy.deepcopy(console_args)
-    this_args.time_budget = 100000
-    this_args.sample_num = int(len(ranked_all_configs))
-    this_args.search_alg_args_mode = "cus"
-    jobid_config = JobID(this_args)
+    jobid_config = JobID(console_args)
+    autohf.jobid_config = jobid_config
     azure_utils_large = AzureUtils(
                          root_log_path=console_args.root_log_path,
-                         azure_key_path=console_args.key_path, autohf=autohf)
-    _test_hpo(this_args,
+                         azure_key_path=console_args.key_path,
+                         autohf=autohf)
+    _test_hpo(console_args,
               jobid_config,
               autohf,
               wandb_utils,
               azure_utils_large,
-              autohf_settings=get_autohf_settings(this_args, **{"points_to_evaluate": ranked_all_configs}))
+              autohf_settings=get_autohf_settings(console_args, **{"points_to_evaluate": ranked_all_configs}))
 
 def evaluate_configs_cv(autohf, console_args):
     import copy
@@ -354,4 +352,8 @@ if __name__ == "__main__":
     #_exhaustive_sweep(console_args, jobid_config, autohf, wandb_utils)
 
 
-    evaluate_configs_cv(autohf, console_args)
+    #evaluate_configs_cv(autohf, console_args)
+
+    evaluate_configs(autohf, console_args, [{"learning_rate": 1e-05, "per_device_train_batch_size": 32,
+                                             "num_train_epochs": 3, "warmup_ratio": 0.0,
+                                             "weight_decay": 0.0, "adam_epsilon": 1e-8}])

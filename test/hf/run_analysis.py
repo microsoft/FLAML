@@ -351,6 +351,31 @@ def get_top1_score_and_config(merged_list):
     top1_config = merged_list[top1_idx].config
     return top1_score, top1_config
 
+def print_crossvalidation_result(console_args):
+    from flaml.nlp.result_analysis.azure_utils import JobID
+    from flaml.nlp import AzureUtils
+    import json
+    import numpy as np
+    partial_jobid_config = JobID()
+    partial_jobid_config.mod = "hpo"
+    partial_jobid_config.pre = "funnel"
+    partial_jobid_config.subdat = "cola"
+    partial_jobid_config.presz = "small"
+
+    each_root_log_path = "logs_cv/"
+    azure_utils = AzureUtils(root_log_path=each_root_log_path,
+                             azure_key_path=console_args.key_path,
+                             jobid_config=partial_jobid_config)
+    matched_blob_list = azure_utils.get_configblob_from_partial_jobid(
+        each_root_log_path,
+        partial_jobid_config,)
+    for (each_jobconfig, each_blob) in matched_blob_list:
+        azure_utils.download_azure_blob(each_blob.name)
+        data_json = json.load(open(each_blob.name, "r"))
+        avg_acc = np.mean([x["eval_matthews_correlation"] for x in data_json['valid_metric']])
+        print(each_blob.name, avg_acc)
+    stop = 0
+
 def compare_learningrate(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID
     from flaml.nlp import AzureUtils
@@ -424,4 +449,5 @@ if __name__ == "__main__":
 
     partial_config_large = create_partial_config_hpo()
     #analyze_small_large(console_args=args)
-    compare_learningrate(console_args=args)
+    #compare_learningrate(console_args=args)
+    print_crossvalidation_result(console_args=args)
