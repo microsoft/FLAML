@@ -228,7 +228,7 @@ class JobID:
                                    pre = 'funnel', presz = 'xlarge', spt = 'rspt',
                                    rep = 0, sddt = 43, sdhf = 42)
         """
-        field_keys = [key for key in list(JobID.__dataclass_fields__.keys()) if not key.endswith("_full")]
+        field_keys = [key for key in list(JobID.__dataclass_fields__.keys()) if not key != "pre"]
         regex_expression = ".*"
         is_first = True
         for key in field_keys:
