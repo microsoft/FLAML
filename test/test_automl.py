@@ -155,11 +155,12 @@ class TestAutoML(unittest.TestCase):
         self.test_classification(True)
 
     def test_custom_metric(self):
-        data, target = load_iris()
+        df, y = load_iris(return_X_y=True, as_frame=True)
+        df['label'] = y
         automl_experiment = AutoML()
         automl_settings = {
-            "dataframe": data,
-            "label": target,
+            "dataframe": df,
+            "label": 'label',
             "time_budget": 5,
             'eval_method': 'cv',
             "metric": custom_metric,
@@ -169,7 +170,7 @@ class TestAutoML(unittest.TestCase):
             'log_type': 'all',
             "n_jobs": 1,
             "model_history": True,
-            "sample_weight": np.ones(len(data)),
+            "sample_weight": np.ones(len(y)),
             "pred_time_limit": 1e-5,
         }
         automl_experiment.fit(**automl_settings)
