@@ -192,13 +192,10 @@ class JobID:
         """
         list_keys = list(JobID.__dataclass_fields__.keys())
         field_dict = self.__dict__
-        keytoval_str = "_".join([key + "=" + str(field_dict[key].replace("_", "-"))
-                                 if key in ("dat", "subdat")
-                                 else
-                                 key + "=" + str(field_dict[key].replace("/", "-"))
+        keytoval_str = "_".join([key + "=" + str(field_dict[key].replace("/", "-"))
                                  if key == "pre_full"
                                  else
-                                 key + "=" + JobID.dataset_list_to_str(field_dict[key])
+                                 key + "=" + JobID.dataset_list_to_str_for_output(field_dict[key])
                                  if type(field_dict[key]) == list
                                  else
                                  key + "=" + JobID.set_to_str(field_dict[key])
@@ -278,6 +275,13 @@ class JobID:
             return "-".join(dataset_name)
         else:
             return dataset_name
+
+    @staticmethod
+    def dataset_list_to_str_for_output(dataset_name, key="dat"):
+        if isinstance(dataset_name, list):
+            return "-".join([x.replace("_", "-") for x in dataset_name])
+        else:
+            return dataset_name.replace("_", "-")
 
     @staticmethod
     def set_to_str(value_set):
