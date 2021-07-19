@@ -288,7 +288,6 @@ class AutoTransformers:
                                                resplit_portion_key=[this_fold_upper, this_fold_lower],
                                                lower_bound_portion=train_val_lower,
                                                upper_bound_portion=train_val_upper))
-                    stop = 0
         else:
             self.train_dataset, self.eval_dataset, self.test_dataset \
                 = data_encoded[self._train_name], data_encoded[self._dev_name], data_encoded[self._test_name]
@@ -921,9 +920,10 @@ class AutoTransformers:
         """
         from .dataset.submission_auto import auto_output_prediction
         return auto_output_prediction(self.jobid_config.dat,
-                                      output_prediction_path,
-                                      output_zip_file_name,
-                                      predictions,
-                                      self.train_dataset,
-                                      self._dev_name,
-                                      self.jobid_config.subdat)
+                                          output_prediction_path,
+                                          output_zip_file_name,
+                                          predictions,
+                                          self.train_dataset,
+                                          self._dev_name,
+                                          self.jobid_config.subdat)
+

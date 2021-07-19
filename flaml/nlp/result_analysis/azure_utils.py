@@ -183,7 +183,7 @@ class JobID:
         keytoval_str = "_".join([JobID.dataset_list_to_str(field_dict[key])
                                  if type(field_dict[key]) == list
                                  else str(field_dict[key])
-                                 for key in field_dict.keys() if not key != "pre"])
+                                 for key in field_dict.keys() if key != "pre"])
         return keytoval_str
 
     def to_jobid_string(self):
@@ -231,7 +231,7 @@ class JobID:
                                    pre = 'funnel', presz = 'xlarge', spt = 'rspt',
                                    rep = 0, sddt = 43, sdhf = 42)
         """
-        field_keys = [key for key in list(JobID.__dataclass_fields__.keys()) if not key != "pre"]
+        field_keys = [key for key in list(JobID.__dataclass_fields__.keys()) if key != "pre"]
         regex_expression = ".*"
         is_first = True
         for key in field_keys:
@@ -652,7 +652,8 @@ class AzureUtils:
         local_archive_path = self.autohf.output_prediction(predictions,
                                                            output_prediction_path=output_dir + "result/",
                                                            output_zip_file_name=azure_save_file_name)
-        self.upload_local_file_to_azure(local_archive_path)
+        if local_archive_path is not None:
+            self.upload_local_file_to_azure(local_archive_path)
 
     @staticmethod
     def is_after_earliest_time(this_blob, earliest_time: Tuple[int, int, int]):

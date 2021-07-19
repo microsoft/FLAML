@@ -30,14 +30,20 @@ metric_mode_mapping_super_glue = {
 
 metric_mode_mapping_imdb = [("accuracy", "max")]
 
+metric_mode_mapping_dbpedia = [("accuracy", "max")]
+
 metric_mode_mapping_yelp = [("accuracy", "max")]
+
+metric_mode_mapping_hate_offensive = [("accuracy", "max")]
 
 METRIC_MAPPING = OrderedDict(
     [
         ("squad", metric_mode_mapping_squad),
         ("glue", metric_mode_mapping_glue),
+        ("hate_offensive", metric_mode_mapping_hate_offensive),
         ("super_glue", metric_mode_mapping_super_glue),
         ("imdb", metric_mode_mapping_imdb),
+        ("dbpedia_14", metric_mode_mapping_dbpedia),
         ("yelp_review_full", metric_mode_mapping_yelp)
     ]
 )

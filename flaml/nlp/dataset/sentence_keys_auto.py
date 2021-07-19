@@ -16,6 +16,9 @@ sentence_keys_super_glue = {
     "wsc": ["text"]
 }
 
+sentence_keys_hate_offensive = ["tweet"]
+
+sentence_keys_dbpedia_14 = ["content"]
 
 def get_sentence_keys(dataset_name, subdataset_name=None):
     eval_name_mapping = globals()["sentence_keys_" + dataset_name]

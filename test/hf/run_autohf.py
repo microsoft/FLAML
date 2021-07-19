@@ -19,6 +19,8 @@ def get_resplit_portion(jobid_config):
                 "test": [0.275, 0.3]}
     elif jobid_config.dat[0] in {"imdb", "dbpedia_14", "yelp_review_full"}:
         return {"source": ["train", "test"], "train": [0, 0.05], "validation": [0.05, 0.055], "test": [0.055, 0.06]}
+    elif jobid_config.dat[0] in {"hate_offensive"}:
+        return {"source": ["train"], "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
     else:
         return {"source": ["train", "validation"], "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
 

@@ -110,11 +110,7 @@ def auto_output_prediction(dataset_name_list: list,
                                                        dev_name,
                                                        subset_name)
     else:
-        raise ValueError(
-            "Unrecognized dataset {}. \n"
-            "Should be one of {}.".format(dataset_name, ", ".join(c.__name__ for c in OUTPUT_PREDICTION_MAPPING.keys())
-                                          )
-        )
+        return None
 
 
 def output_blank_tsv(output_dir):
