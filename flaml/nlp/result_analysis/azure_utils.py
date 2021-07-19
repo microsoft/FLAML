@@ -192,7 +192,10 @@ class JobID:
         """
         list_keys = list(JobID.__dataclass_fields__.keys())
         field_dict = self.__dict__
-        keytoval_str = "_".join([key + "=" + str(field_dict[key].replace("/", "-"))
+        keytoval_str = "_".join([key + "=" + str(field_dict[key].replace("_", "-"))
+                                 if key in ("dat", "subdat")
+                                 else
+                                 key + "=" + str(field_dict[key].replace("/", "-"))
                                  if key == "pre_full"
                                  else
                                  key + "=" + JobID.dataset_list_to_str(field_dict[key])
@@ -241,9 +244,9 @@ class JobID:
             else:
                 prefix = "_"
             if key.startswith("sd") or key.startswith("var"):
-                regex_expression += "(" + prefix + key + "=(?P<" + key + ">[^_]*))?"
+                regex_expression += "(" + prefix + key + "=(?P<" + key + ">.*))?"
             else:
-                regex_expression += prefix + key + "=(?P<" + key + ">[^_]*)"
+                regex_expression += prefix + key + "=(?P<" + key + ">.*)"
         regex_expression += ".(json|zip)"
         result = re.search(regex_expression, keytoval_str)
         if result:
