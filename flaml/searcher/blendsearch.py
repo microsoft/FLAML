@@ -486,7 +486,8 @@ class BlendSearch(Searcher):
         min_eci = self._deadline - time.time()
         if min_eci <= 0:
             # return -1, -1
-            min_eci = np.inf    # keep proposing new configs
+            # keep proposing new configs assuming no budget left
+            min_eci = 0
         max_speed = 0
         for thread in self._search_thread_pool.values():
             if thread.speed > max_speed:
