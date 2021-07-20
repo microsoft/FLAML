@@ -26,6 +26,8 @@ sentence_keys_yelp_review_full = ["text"]
 
 sentence_keys_yelp_polarity = ["text"]
 
+sentence_keys_amazon_polarity = ["content"]
+
 def get_sentence_keys(dataset_name, subdataset_name=None):
     eval_name_mapping = globals()["sentence_keys_" + dataset_name]
     if isinstance(eval_name_mapping, dict):
