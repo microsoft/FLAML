@@ -358,7 +358,7 @@ def print_modelhub_result(console_args):
     import re
     import numpy as np
     partial_jobid_config = JobID()
-    partial_jobid_config.dat = "hate_offensive"
+    partial_jobid_config.dat = ["dbpedia-14"]
     each_root_log_path = "logs_modelhub/"
     azure_utils = AzureUtils(root_log_path=each_root_log_path,
                              azure_key_path=console_args.key_path,
