@@ -359,6 +359,7 @@ def print_modelhub_result(console_args):
     import numpy as np
     partial_jobid_config = JobID()
     partial_jobid_config.dat = ["dbpedia-14"]
+    partial_jobid_config.sdhf = '42'
     each_root_log_path = "logs_modelhub/"
     azure_utils = AzureUtils(root_log_path=each_root_log_path,
                              azure_key_path=console_args.key_path,
@@ -371,9 +372,8 @@ def print_modelhub_result(console_args):
         data_json = json.load(open(each_blob.name, "r"))
         valid_acc = data_json['valid_metric']["eval_accuracy"]
         test_acc = data_json['valid_metric']["test"]["accuracy"]
-        print(re.search(".*pre_full=(?P<pre_full>[^_]+)_.*", each_blob.name).group("pre_full"))
-        print(valid_acc)
-        print(test_acc)
+        model = re.search(".*pre_full=(?P<pre_full>[^_]+)_.*", each_blob.name).group("pre_full")
+        print("{},{},{}".format(model, valid_acc, test_acc))
         stop = 0
     stop = 0
 
