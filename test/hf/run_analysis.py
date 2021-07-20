@@ -358,8 +358,8 @@ def print_modelhub_result(console_args):
     import re
     import numpy as np
     partial_jobid_config = JobID()
-    partial_jobid_config.dat = ["dbpedia-14"]
-    partial_jobid_config.sdhf = '42'
+    partial_jobid_config.dat = ["hate-offensive"]
+    #partial_jobid_config.subdat = "sst2"
     each_root_log_path = "logs_modelhub/"
     azure_utils = AzureUtils(root_log_path=each_root_log_path,
                              azure_key_path=console_args.key_path,
@@ -367,15 +367,20 @@ def print_modelhub_result(console_args):
     matched_blob_list = azure_utils.get_configblob_from_partial_jobid(
         each_root_log_path,
         partial_jobid_config, )
+    valid2str = []
     for (each_jobconfig, each_blob) in matched_blob_list:
         azure_utils.download_azure_blob(each_blob.name)
         data_json = json.load(open(each_blob.name, "r"))
         valid_acc = data_json['valid_metric']["eval_accuracy"]
         test_acc = data_json['valid_metric']["test"]["accuracy"]
-        model = re.search(".*pre_full=(?P<pre_full>[^_]+)_.*", each_blob.name).group("pre_full")
-        print("{},{},{}".format(model, valid_acc, test_acc))
-        stop = 0
-    stop = 0
+        match_result = re.search(".*pre_full=(?P<pre_full>[^_]+)_.*sdhf=(?P<seed>[^_]+)_.*", each_blob.name)
+        this_str = "{},".format(partial_jobid_config.dat[0].replace("glue", "sst2")) + match_result.group("seed")
+        this_str += ",1.00E-05,32,3,0,0,1.00E-08," \
+                    + "{},{},{}".format(match_result.group("pre_full"), valid_acc, test_acc)
+        valid2str.append((valid_acc, this_str))
+    sorted_valid2str = sorted(valid2str, key = lambda x:x[0], reverse=True)
+    for (valid, this_str) in sorted_valid2str:
+        print(this_str)
 
 def print_crossvalidation_result(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID

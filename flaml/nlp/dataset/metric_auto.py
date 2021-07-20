@@ -44,7 +44,9 @@ METRIC_MAPPING = OrderedDict(
         ("super_glue", metric_mode_mapping_super_glue),
         ("imdb", metric_mode_mapping_imdb),
         ("dbpedia_14", metric_mode_mapping_dbpedia),
-        ("yelp_review_full", metric_mode_mapping_yelp)
+        ("yelp_review_full", metric_mode_mapping_yelp),
+        ("amazon_polarity", metric_mode_mapping_yelp),
+        ("yelp_polarity", metric_mode_mapping_yelp)
     ]
 )
 

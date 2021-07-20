@@ -146,6 +146,10 @@ TOKENIZER_MAPPING = OrderedDict(
     [
         (("hate_offensive", ""), tokenize_glue),
         (("dbpedia_14", ""), tokenize_glue),
+        (("imdb", ""), tokenize_glue),
+        (("yelp_review_full", ""), tokenize_glue),
+        (("amazon_polarity", ""), tokenize_glue),
+        (("yelp_polarity", ""), tokenize_glue),
         (("glue", "rte"), tokenize_glue),
         (("glue", "mrpc"), tokenize_glue),
         (("glue", "cola"), tokenize_glue),
