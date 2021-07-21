@@ -45,6 +45,7 @@ METRIC_MAPPING = OrderedDict(
         ("imdb", metric_mode_mapping_imdb),
         ("dbpedia_14", metric_mode_mapping_dbpedia),
         ("yelp_review_full", metric_mode_mapping_yelp),
+        ("amazon_reviews_multi", metric_mode_mapping_yelp),
         ("amazon_polarity", metric_mode_mapping_yelp),
         ("yelp_polarity", metric_mode_mapping_yelp)
     ]

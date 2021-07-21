@@ -149,6 +149,7 @@ TOKENIZER_MAPPING = OrderedDict(
         (("imdb", ""), tokenize_glue),
         (("yelp_review_full", ""), tokenize_glue),
         (("amazon_polarity", ""), tokenize_glue),
+        (("amazon_reviews_multi", ""), tokenize_glue),
         (("yelp_polarity", ""), tokenize_glue),
         (("glue", "rte"), tokenize_glue),
         (("glue", "mrpc"), tokenize_glue),

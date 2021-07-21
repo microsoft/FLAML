@@ -358,7 +358,7 @@ def print_modelhub_result(console_args):
     import re
     import numpy as np
     partial_jobid_config = JobID()
-    partial_jobid_config.dat = ["imdb"]
+    partial_jobid_config.dat = ["yelp-review-full"]
     #partial_jobid_config.subdat = "sst2"
     each_root_log_path = "logs_modelhub/"
     azure_utils = AzureUtils(root_log_path=each_root_log_path,

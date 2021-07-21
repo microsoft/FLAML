@@ -27,8 +27,6 @@ task_mapping_super_glue = {
 
 task_mapping_imdb = "seq-classification"
 
-task_mapping_yelp_review_full = "seq-classification"
-
 TASK_MAPPING = OrderedDict(
     [
         ("squad", task_mapping_squad),
@@ -37,9 +35,10 @@ TASK_MAPPING = OrderedDict(
         ("imdb", task_mapping_imdb),
         ("super_glue", task_mapping_super_glue),
         ("hate_offensive", task_mapping_hate_offensive),
-        ("yelp_review_full", task_mapping_yelp_review_full),
-        ("amazon_polarity", task_mapping_yelp_review_full),
-        ("yelp_polarity", task_mapping_yelp_review_full)
+        ("yelp_review_full", "regression"),
+        ("amazon_polarity", task_mapping_imdb),
+        ("amazon_reviews_multi", "regression"),
+        ("yelp_polarity", task_mapping_imdb)
     ]
 )
 
