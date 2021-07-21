@@ -358,8 +358,9 @@ def print_modelhub_result(console_args):
     import re
     import numpy as np
     partial_jobid_config = JobID()
-    partial_jobid_config.dat = ["yelp-review-full"]
+    partial_jobid_config.dat = ["hate-offensive"]
     #partial_jobid_config.subdat = "sst2"
+    partial_jobid_config.presz = "small"
     each_root_log_path = "logs_modelhub/"
     azure_utils = AzureUtils(root_log_path=each_root_log_path,
                              azure_key_path=console_args.key_path,
@@ -470,6 +471,16 @@ def create_partial_config_hpo():
 
     return jobid_config
 
+def randomly_sample_gridunion():
+    space = [('learning_rate', [2e-05, 4e-05, 0.00015, 1e-05, 0.0001, 3e-05, 5e-05]),
+             ('per_device_train_batch_size', [32, 8, 16]),
+             ('num_train_epochs', [10, 3]),
+             ('warmup_ratio', [0.06, 0.0, 0.1]),
+             ('weight_decay', [0.1, 0.0]),
+             ('adam_epsilon', [1e-08, 1e-06])]
+    import random
+    for (each_hp, each_space) in space:
+        print(each_hp, random.choice(each_space))
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
@@ -482,4 +493,5 @@ if __name__ == "__main__":
     #analyze_small_large(console_args=args)
     #compare_learningrate(console_args=args)
     #print_crossvalidation_result(console_args=args)
-    print_modelhub_result(console_args=args)
+    #print_modelhub_result(console_args=args)
+    randomly_sample_gridunion()

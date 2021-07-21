@@ -358,6 +358,6 @@ if __name__ == "__main__":
 
     #evaluate_configs_cv(autohf, console_args)
 
-    evaluate_configs(autohf, console_args, [{"learning_rate": 1e-05, "per_device_train_batch_size": 32,
-                                             "num_train_epochs": 3, "warmup_ratio": 0.0,
-                                             "weight_decay": 0.0, "adam_epsilon": 1e-8}])
+    evaluate_configs(autohf, console_args, [{"learning_rate": 3e-05, "per_device_train_batch_size": 16,
+                                             "num_train_epochs": 10, "warmup_ratio": 0.0,
+                                             "weight_decay": 0.1, "adam_epsilon": 1e-6}])
