@@ -208,7 +208,7 @@
 <span class="sd">        analysis = tune.run(</span>
 <span class="sd">            compute_with_config,</span>
 <span class="sd">            config={</span>
-<span class="sd">                &#39;x&#39;: tune.qloguniform(lower=1, upper=1000000, q=1),</span>
+<span class="sd">                &#39;x&#39;: tune.lograndint(lower=1, upper=1000000),</span>
 <span class="sd">                &#39;y&#39;: tune.randint(lower=1, upper=1000000)</span>
 <span class="sd">            },</span>
 <span class="sd">            metric=&#39;metric2minimize&#39;, mode=&#39;min&#39;,</span>
@@ -295,7 +295,7 @@
 <span class="sd">        analysis = tune.run(</span>
 <span class="sd">            compute_with_config,</span>
 <span class="sd">            config={</span>
-<span class="sd">                &#39;x&#39;: tune.qloguniform(lower=1, upper=1000000, q=1),</span>
+<span class="sd">                &#39;x&#39;: tune.lograndint(lower=1, upper=1000000),</span>
 <span class="sd">                &#39;y&#39;: tune.randint(lower=1, upper=1000000)</span>
 <span class="sd">            },</span>
 <span class="sd">            metric=&#39;metric2minimize&#39;, mode=&#39;min&#39;,</span>
