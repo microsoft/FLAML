@@ -358,7 +358,7 @@ if __name__ == "__main__":
 
     #evaluate_configs_cv(autohf, console_args)
 
-    if console_args.root_log_path == "logs_modelhub/hp1/":
+    if "hp1" in console_args.root_log_path:
         evaluate_configs(autohf, console_args, [{"learning_rate": 3e-05, "per_device_train_batch_size": 16,
                                              "num_train_epochs": 10, "warmup_ratio": 0.0,
                                              "weight_decay": 0.1, "adam_epsilon": 1e-6, "seed": 42}])
