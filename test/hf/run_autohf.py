@@ -52,6 +52,7 @@ def get_autohf_settings(console_args, **custom_args):
                        "num_samples": console_args.sample_num,
                        "time_budget": console_args.time_budget,
                        "ckpt_per_epoch": 1,
+                      # "ray_local_mode": True
                        }
     for other_attr in ["ds_config", "rep_id"]:
         if hasattr(console_args, other_attr):
@@ -359,10 +360,12 @@ if __name__ == "__main__":
     #evaluate_configs_cv(autohf, console_args)
 
     if "hp1" in console_args.root_log_path:
+        console_args.seed_transformers = 42
         evaluate_configs(autohf, console_args, [{"learning_rate": 3e-05, "per_device_train_batch_size": 16,
                                              "num_train_epochs": 10, "warmup_ratio": 0.0,
-                                             "weight_decay": 0.1, "adam_epsilon": 1e-6, "seed": 42}])
+                                             "weight_decay": 0.1, "adam_epsilon": 1e-6}])
     else:
+        console_args.seed_transformers = 41
         evaluate_configs(autohf, console_args, [{"learning_rate": 1e-05, "per_device_train_batch_size": 32,
                                              "num_train_epochs": 3, "warmup_ratio": 0.0,
-                                             "weight_decay": 0.0, "adam_epsilon": 1e-8, "seed": 41}])
+                                             "weight_decay": 0.0, "adam_epsilon": 1e-8}])
