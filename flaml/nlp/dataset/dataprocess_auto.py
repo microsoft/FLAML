@@ -144,7 +144,7 @@ def tokenize_glue(this_example,
 
 TOKENIZER_MAPPING = OrderedDict(
     [
-        (("hate_offensive", ""), tokenize_glue),
+        (("hate_speech18", ""), tokenize_glue),
         (("dbpedia_14", ""), tokenize_glue),
         (("imdb", ""), tokenize_glue),
         (("yelp_review_full", ""), tokenize_glue),

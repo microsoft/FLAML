@@ -16,7 +16,7 @@ sentence_keys_super_glue = {
     "wsc": ["text"]
 }
 
-sentence_keys_hate_offensive = ["tweet"]
+sentence_keys_hate_speech18 = ["text"]
 
 sentence_keys_dbpedia_14 = ["content"]
 

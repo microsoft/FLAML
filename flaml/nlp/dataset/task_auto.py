@@ -14,7 +14,7 @@ task_mapping_glue = {
     "wnli": "seq-classification"
 }
 
-task_mapping_hate_offensive = "seq-classification"
+task_mapping_hate_speech18 = "seq-classification"
 
 task_mapping_squad = "question-answering"
 
@@ -34,7 +34,7 @@ TASK_MAPPING = OrderedDict(
         ("dbpedia_14", task_mapping_dbpedia),
         ("imdb", task_mapping_imdb),
         ("super_glue", task_mapping_super_glue),
-        ("hate_offensive", task_mapping_hate_offensive),
+        ("hate_speech18", task_mapping_hate_speech18),
         ("yelp_review_full", "regression"),
         ("amazon_polarity", task_mapping_imdb),
         ("amazon_reviews_multi", "regression"),
