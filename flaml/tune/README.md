@@ -44,7 +44,7 @@ print(analysis.best_config) # the best config
 * Example for using ray tune's API:
 
 ```python
-# require (ray tune needs optuna==2.8.0): pip install ray[tune] optuna==2.8.0
+# require: pip install flaml[blendsearch,ray]
 from ray import tune as raytune
 from flaml import CFO, BlendSearch
 import time
