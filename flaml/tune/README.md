@@ -82,18 +82,6 @@ search_alg_blendsearch = BlendSearch(metric="metric",
 # configure the 'time_budget_s' for BlendSearch accordingly as follows such that BlendSearch is aware of the time budget. This step is not needed when BlendSearch is used as the search_alg in flaml.tune as it is already done automatically in flaml.
 search_alg_blendsearch.set_search_properties(config={"time_budget_s": time_budget_s})
 
-# set up CFO
-search_alg_cfo = CFO(low_cost_partial_config=low_cost_partial_config)
-
-# set up BlendSearch. 
-search_alg_blendsearch = BlendSearch(metric="metric",
-            mode="min",
-            space=config_search_space,
-            low_cost_partial_config=low_cost_partial_config)
-# NOTE that when using BlendSearch as a search_alg in ray tune, you need to
-# configure the 'time_budget_s' for BlendSearch accordingly as follows such that BlendSearch is aware of the time budget. This step is not needed when BlendSearch is used as the search_alg in flaml.tune as it is already done automatically in flaml.
-search_alg_blendsearch.set_search_properties(config={"time_budget_s": time_budget_s})
-
 analysis = raytune.run(
     evaluate_config,    # the function to evaluate a config
     config=config_search_space,
