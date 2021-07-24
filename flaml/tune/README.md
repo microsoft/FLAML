@@ -60,6 +60,9 @@ def evaluate_config(config):
     # use tune.report to report the metric to optimize    
     tune.report(metric=metric) 
 
+# provide a time budget (in seconds) for the tuning process
+time_budget_s=60
+
 # set up CFO
 search_alg_cfo = CFO(low_cost_partial_config=[{'x':1}])
 
@@ -78,7 +81,7 @@ analysis = raytune.run(
     metric='metric',    # the name of the metric used for optimization
     mode='min',         # the optimization mode, 'min' or 'max'
     num_samples=-1,    # the maximal number of configs to try, -1 means infinite
-    time_budget_s=60,   # the time budget in seconds
+    time_budget_s=time_budget_s,   # the time budget in seconds
     local_dir='logs/',  # the local directory to store logs
     search_alg=search_alg_blendsearch # or search_alg_cfo
     )
