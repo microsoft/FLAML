@@ -73,6 +73,7 @@ class FLOW2(Searcher):
                 prune_attr; only valid if prune_attr is not in space.
             resource_multiple_factor: A float of the multiplicative factor
                 used for increasing resource.
+            cost_attr: A string of the attribute used for cost.
             seed: An integer of the random seed.
         '''
         if mode:
@@ -98,6 +99,7 @@ class FLOW2(Searcher):
         self.prune_attr = prune_attr
         self.min_resource = min_resource
         self.resource_multiple_factor = resource_multiple_factor or 4
+        self.cost_attr = cost_attr
         self.max_resource = max_resource
         self._resource = None
         self._step_lb = np.Inf

@@ -42,6 +42,7 @@ class BaseEstimator:
         self._task = task
         if '_estimator_type' in params:
             self._estimator_type = params['_estimator_type']
+            del self.params['_estimator_type']
         else:
             self._estimator_type = "regressor" if task == 'regression' \
                 else "classifier"
@@ -152,7 +153,7 @@ class BaseEstimator:
         return {}
 
     @classmethod
-    def size(cls, config):
+    def size(cls, config: dict) -> float:
         '''[optional method] memory size of the estimator in bytes
 
         Args:
@@ -165,7 +166,7 @@ class BaseEstimator:
         return 1.0
 
     @classmethod
-    def cost_relative2lgbm(cls):
+    def cost_relative2lgbm(cls) -> float:
         '''[optional method] relative cost compared to lightgbm'''
         return 1.0
 
@@ -195,17 +196,17 @@ class LGBMEstimator(BaseEstimator):
         upper = min(32768, int(data_size))
         return {
             'n_estimators': {
-                'domain': tune.qloguniform(lower=4, upper=upper, q=1),
+                'domain': tune.lograndint(lower=4, upper=upper),
                 'init_value': 4,
                 'low_cost_init_value': 4,
             },
             'num_leaves': {
-                'domain': tune.qloguniform(lower=4, upper=upper, q=1),
+                'domain': tune.lograndint(lower=4, upper=upper),
                 'init_value': 4,
                 'low_cost_init_value': 4,
             },
             'min_child_samples': {
-                'domain': tune.qloguniform(lower=2, upper=2**7, q=1),
+                'domain': tune.lograndint(lower=2, upper=2**7),
                 'init_value': 20,
             },
             'learning_rate': {
@@ -217,7 +218,7 @@ class LGBMEstimator(BaseEstimator):
                 'init_value': 1.0,
             },
             'log_max_bin': {
-                'domain': tune.qloguniform(lower=3, upper=10, q=1),
+                'domain': tune.lograndint(lower=3, upper=10),
                 'init_value': 8,
             },
             'colsample_bytree': {
@@ -314,12 +315,12 @@ class XGBoostEstimator(SKLearnEstimator):
         upper = min(32768, int(data_size))
         return {
             'n_estimators': {
-                'domain': tune.qloguniform(lower=4, upper=upper, q=1),
+                'domain': tune.lograndint(lower=4, upper=upper),
                 'init_value': 4,
                 'low_cost_init_value': 4,
             },
             'max_leaves': {
-                'domain': tune.qloguniform(lower=4, upper=upper, q=1),
+                'domain': tune.lograndint(lower=4, upper=upper),
                 'init_value': 4,
                 'low_cost_init_value': 4,
             },
@@ -445,7 +446,8 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         **params
     ):
         super().__init__(task, **params)
-        self.params = params
+        del self.params['objective']
+        del self.params['max_bin']
         self.params.update({
             "n_estimators": int(round(n_estimators)),
             'max_leaves': int(round(max_leaves)),
@@ -485,7 +487,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         upper = min(2048, int(data_size))
         space = {
             'n_estimators': {
-                'domain': tune.qloguniform(lower=4, upper=upper, q=1),
+                'domain': tune.lograndint(lower=4, upper=upper),
                 'init_value': 4,
                 'low_cost_init_value': 4,
             },
@@ -514,7 +516,8 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         n_estimators=4, max_features=1.0, criterion='gini', **params
     ):
         super().__init__(task, **params)
-        self.params = params
+        del self.params['objective']
+        del self.params['max_bin']
         self.params.update({
             "n_estimators": int(round(n_estimators)),
             "n_jobs": n_jobs,
@@ -525,8 +528,6 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         else:
             self.estimator_class = RandomForestClassifier
             self.params['criterion'] = criterion
-        self._time_per_iter = None
-        self._train_size = 0
 
     def get_params(self, deep=False):
         params = super().get_params()
@@ -620,7 +621,7 @@ class CatBoostEstimator(BaseEstimator):
         upper = max(min(round(1500000 / data_size), 150), 11)
         return {
             'early_stopping_rounds': {
-                'domain': tune.qloguniform(lower=10, upper=upper, q=1),
+                'domain': tune.lograndint(lower=10, upper=upper),
                 'init_value': 10,
                 'low_cost_init_value': 10,
             },
@@ -747,7 +748,7 @@ class KNeighborsEstimator(BaseEstimator):
         upper = min(512, int(data_size / 2))
         return {
             'n_neighbors': {
-                'domain': tune.qloguniform(lower=1, upper=upper, q=1),
+                'domain': tune.lograndint(lower=1, upper=upper),
                 'init_value': 5,
                 'low_cost_init_value': 1,
             },
@@ -761,7 +762,6 @@ class KNeighborsEstimator(BaseEstimator):
         self, task='binary:logistic', n_jobs=1, n_neighbors=5, **params
     ):
         super().__init__(task, **params)
-        self.params = params
         self.params.update({
             'n_neighbors': int(round(n_neighbors)),
             'weights': params.get('weights', 'distance'),
