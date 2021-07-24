@@ -60,6 +60,15 @@ def evaluate_config(config):
     # use tune.report to report the metric to optimize    
     tune.report(metric=metric) 
 
+# set up CFO
+search_alg_cfo = CFO(low_cost_partial_config=[{'x':1}])
+
+# set up BlendSearch. 
+search_alg_blendsearch = BlendSearch(low_cost_partial_config=[{'x':1}])
+# NOTE that when using BlendSearch as a search_alg in ray tune, you need to
+# configure the 'time_budget_s' for BlendSearch accordingly as follows such that BlendSearch is aware of the time budget. This step is not needed when BlendSearch is used as the search_alg in flaml.tune as it is already done automatically in flaml.
+search_alg_blendsearch.set_search_properties(config={"time_budget_s": time_budget_s})
+
 analysis = raytune.run(
     evaluate_config,    # the function to evaluate a config
     config={
@@ -71,7 +80,7 @@ analysis = raytune.run(
     num_samples=-1,    # the maximal number of configs to try, -1 means infinite
     time_budget_s=60,   # the time budget in seconds
     local_dir='logs/',  # the local directory to store logs
-    search_alg=CFO(low_cost_partial_config=[{'x':1}]) # or BlendSearch
+    search_alg=search_alg_blendsearch # or search_alg_cfo
     )
 
 print(analysis.best_trial.last_result)  # the best trial's result
