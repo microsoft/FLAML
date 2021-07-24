@@ -549,7 +549,7 @@ class AzureUtils:
                 print("Your output will not be synced to azure because azure key and container name are not specified")
                 return None
         except ImportError:
-            print("Your output will not be synced to azure because azure-blob-storage is not installed")
+            print("Your output will not be synced to azure because azure-storage-blob is not installed")
 
     def upload_local_file_to_azure(self, local_file_path):
         try:

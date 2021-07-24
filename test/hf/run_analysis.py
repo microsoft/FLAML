@@ -351,37 +351,95 @@ def get_top1_score_and_config(merged_list):
     top1_config = merged_list[top1_idx].config
     return top1_score, top1_config
 
+def load_modelinfo():
+    from pandas import read_csv
+    modelinfo = read_csv("modelinfo.csv", delimiter=",")
+    model2size = {}
+
+    for idx in range(len(modelinfo)):
+        model_name = modelinfo["model name"][idx].replace("/", "-")
+        model_size = modelinfo["Size number"][idx]
+        model_unit = modelinfo["Size unit"][idx]
+        if model_unit == "GB":
+            model_size *= 1000
+        model2size[model_name] = model_size
+    return model2size
+
 def print_modelhub_result(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID
     from flaml.nlp import AzureUtils
     import json
     import re
-    import numpy as np
-    partial_jobid_config = JobID()
-    partial_jobid_config.dat = ["hate-offensive"]
-    #partial_jobid_config.subdat = "sst2"
-    partial_jobid_config.presz = "small"
-    each_root_log_path = "logs_modelhub/"
-    azure_utils = AzureUtils(root_log_path=each_root_log_path,
+
+    model2size = load_modelinfo()
+    model2config2score = {}
+
+    for each_dat in ["glue", "yelp-polarity", "imdb"]:
+        for model_config in ["hp1", "hp2"]:
+            partial_jobid_config = JobID()
+            partial_jobid_config.dat = [each_dat]
+            #partial_jobid_config.presz = presz
+            if each_dat == "glue":
+                partial_jobid_config.subdat = "sst2"
+            each_root_log_path = "logs_modelhub/" + model_config + "/"
+            azure_utils = AzureUtils(root_log_path=each_root_log_path,
                              azure_key_path=console_args.key_path,
                              jobid_config=partial_jobid_config)
-    matched_blob_list = azure_utils.get_configblob_from_partial_jobid(
-        each_root_log_path,
-        partial_jobid_config, )
-    valid2str = []
-    for (each_jobconfig, each_blob) in matched_blob_list:
-        azure_utils.download_azure_blob(each_blob.name)
-        data_json = json.load(open(each_blob.name, "r"))
-        valid_acc = data_json['valid_metric']["eval_accuracy"]
-        test_acc = data_json['valid_metric']["test"]["accuracy"]
-        match_result = re.search(".*pre_full=(?P<pre_full>[^_]+)_.*sdhf=(?P<seed>[^_]+)_.*", each_blob.name)
-        this_str = "{},".format(partial_jobid_config.dat[0].replace("glue", "sst2")) + match_result.group("seed")
-        this_str += ",1.00E-05,32,3,0,0,1.00E-08," \
-                    + "{},{},{}".format(match_result.group("pre_full"), valid_acc, test_acc)
-        valid2str.append((valid_acc, this_str))
-    sorted_valid2str = sorted(valid2str, key = lambda x:x[0], reverse=True)
-    for (valid, this_str) in sorted_valid2str:
-        print(this_str)
+            matched_blob_list = azure_utils.get_configblob_from_partial_jobid(
+                each_root_log_path,
+                partial_jobid_config, )
+            for (each_jobconfig, each_blob) in matched_blob_list:
+                azure_utils.download_azure_blob(each_blob.name)
+                data_json = json.load(open(each_blob.name, "r"))
+                valid_acc = data_json['valid_metric']["eval_accuracy"]
+                test_acc = data_json['valid_metric']["test"]["accuracy"]
+                match_result = re.search(".*pre_full=(?P<pre_full>[^_]+)_.*sdhf=(?P<seed>[^_]+)_.*", each_blob.name)
+                this_model_name = match_result.group("pre_full")
+                this_config = each_dat + "_" + model_config
+                model2config2score.setdefault(this_model_name, {})
+                model2config2score[this_model_name][this_config] = valid_acc
+
+    sorted_models = sorted([x for x in model2config2score.keys() if x in model2size]) # and model2size[x] > 100])
+
+    for each_config in sorted(model2config2score[sorted_models[0]]):
+        for each_model in sorted_models:
+            print(model2config2score[each_model][each_config], end = ",")
+        print()
+
+    dominated_model_list = set([])
+    for idx1 in range(len(sorted_models) - 1):
+        for idx2 in range(idx1 + 1, len(sorted_models)):
+            model1 = sorted_models[idx1].replace("/", "-")
+            model2 = sorted_models[idx2].replace("/", "-")
+            model1_size = model2size[model1]
+            model2_size = model2size[model2]
+            is_dominating1 = is_dominating(model2config2score[model1], model2config2score[model2])
+            is_dominating2 = is_dominating(model2config2score[model2], model2config2score[model1])
+            if is_dominating1 is True and model1_size <= model2_size:
+                dominated_model_list.add(model2)
+            if is_dominating2 is True and model2_size <= model1_size:
+                dominated_model_list.add(model1)
+    dominating_list = [x for x in sorted_models if x not in dominated_model_list]
+    for idx1 in range(len(dominating_list)):
+        for idx2 in range(len(dominating_list)):
+            model1 = dominating_list[idx1]
+            model2 = dominating_list[idx2]
+            is_dominating1 = is_dominating(model2config2score[model1], model2config2score[model2])
+            if idx1 == idx2:
+                is_dominating1 = 0
+            print(int(is_dominating1), end=",")
+        print()
+    stop = 0
+
+def is_dominating(config2score1, config2score2):
+    is_larger = True
+    for key in config2score1.keys():
+        try:
+            if config2score1[key] < config2score2[key] / 1.01:
+                is_larger = False
+        except KeyError:
+            pass
+    return is_larger
 
 def print_crossvalidation_result(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID
@@ -493,5 +551,5 @@ if __name__ == "__main__":
     #analyze_small_large(console_args=args)
     #compare_learningrate(console_args=args)
     #print_crossvalidation_result(console_args=args)
-    #print_modelhub_result(console_args=args)
-    randomly_sample_gridunion()
+    print_modelhub_result(console_args=args)
+    #randomly_sample_gridunion()

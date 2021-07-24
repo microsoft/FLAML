@@ -27,6 +27,8 @@ task_mapping_super_glue = {
 
 task_mapping_imdb = "seq-classification"
 
+task_mapping_sentiment140 = "regression"
+
 TASK_MAPPING = OrderedDict(
     [
         ("squad", task_mapping_squad),
@@ -35,6 +37,7 @@ TASK_MAPPING = OrderedDict(
         ("imdb", task_mapping_imdb),
         ("super_glue", task_mapping_super_glue),
         ("hate_speech18", task_mapping_hate_speech18),
+        ("sentiment140", "regression"),
         ("yelp_review_full", "regression"),
         ("amazon_polarity", task_mapping_imdb),
         ("amazon_reviews_multi", "regression"),
