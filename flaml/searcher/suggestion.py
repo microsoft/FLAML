@@ -48,12 +48,6 @@ UNDEFINED_METRIC_MODE = str(
     "or pass them to `tune.run()`.")
 
 
-_logged = set()
-_disabled = False
-_periodic_log = False
-_last_logged = 0.0
-
-
 class Searcher:
     """Abstract class for wrapping suggesting algorithms.
     Custom algorithms can extend this class easily by overriding the
@@ -344,17 +338,6 @@ except ImportError:
     ot = None
     OptunaTrialState = None
     BaseSampler = None
-
-
-class _Param:
-    def __getattr__(self, item):
-        def _inner(*args, **kwargs):
-            return (item, args, kwargs)
-
-        return _inner
-
-
-param = _Param()
 
 
 # (Optional) Default (anonymous) metric when using tune.report(x)
