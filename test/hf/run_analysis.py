@@ -403,6 +403,7 @@ def print_modelhub_result(console_args):
 
     for each_config in sorted(model2config2score[sorted_models[0]]):
         for each_model in sorted_models:
+            if each_model == "lordtt13-COVID-SciBERT": continue
             print(model2config2score[each_model][each_config], end = ",")
         print()
 
