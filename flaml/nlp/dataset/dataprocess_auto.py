@@ -184,7 +184,7 @@ class AutoEncodeText:
 
     @classmethod
     def from_model_and_dataset_name(cls,
-                                    data_raw,
+                                    subfold_dataset,
                                     model_checkpoint_path,
                                     dataset_name_list: list = None,
                                     subdataset_name=None,
@@ -221,7 +221,7 @@ class AutoEncodeText:
         if (dataset_name, subdataset_name) in TOKENIZER_MAPPING.keys():
             this_tokenizer = AutoTokenizer.from_pretrained(model_checkpoint_path, use_fast=True)
             token_func = TOKENIZER_MAPPING[(dataset_name, subdataset_name)]
-            return data_raw.map(
+            return subfold_dataset.map(
                 partial(token_func,
                         this_tokenizer=this_tokenizer,
                         dataset_name=dataset_name,

@@ -107,6 +107,19 @@ class AutoTransformers:
                     "documentation of AutoTransformers.prepare_data()".format(",".join(fold_keys))
         return "train", "validation", "test"
 
+    def _get_start_end_bound(self,
+                            concatenated_data=None,
+                            resplit_portion_key=None,
+                            lower_bound_portion=0.0,
+                            upper_bound_portion=1.0
+                            ):
+        data_len = len(concatenated_data)
+        target_fold_start, target_fold_end = \
+            int(resplit_portion_key[0] * data_len), \
+            int(resplit_portion_key[1] * data_len)
+        lower_bound, upper_bound = int(lower_bound_portion * data_len), int(upper_bound_portion * data_len)
+        return target_fold_start, target_fold_end, lower_bound, upper_bound
+
     def _get_targetfold_start_end(self,
                                   concatenated_data=None,
                                   resplit_portion_key=None,
@@ -118,12 +131,10 @@ class AutoTransformers:
                 return range(start_pos, end_pos)
             else:
                 return [x for x in range(start_pos, upper_bound)] + [x for x in range(lower_bound, end_pos)]
-
-        data_len = len(concatenated_data)
-        target_fold_start, target_fold_end = \
-            int(resplit_portion_key[0] * data_len), \
-            int(resplit_portion_key[1] * data_len)
-        lower_bound, upper_bound = int(lower_bound_portion * data_len), int(upper_bound_portion * data_len)
+        target_fold_start, target_fold_end, lower_bound, upper_bound = self._get_start_end_bound(concatenated_data,
+                                                                                                 resplit_portion_key,
+                                                                                                 lower_bound_portion,
+                                                                                                 upper_bound_portion)
         subfold_dataset = concatenated_data.select(
             [x for x in crange(target_fold_start, target_fold_end, lower_bound, upper_bound)]).flatten_indices()
         return subfold_dataset
@@ -210,28 +221,17 @@ class AutoTransformers:
         self._train_name, self._dev_name, self._test_name = AutoTransformers._get_split_name(
             data_raw,
             fold_name=fold_name)
-        auto_tokentoids_config = {"max_seq_length": self._max_seq_length}
+
         self._tokenizer = AutoTokenizer.from_pretrained(self.jobid_config.pre_full, use_fast=True)
 
         def autoencodetext_from_model_and_dataset_name():
+            auto_tokentoids_config = {"max_seq_length": self._max_seq_length}
             return AutoEncodeText.from_model_and_dataset_name(
-                data_raw,
+                subfold_dataset,
                 self.jobid_config.pre_full,
                 self.jobid_config.dat,
                 self.jobid_config.subdat,
                 **auto_tokentoids_config)
-
-        data_encoded = autoencodetext_from_model_and_dataset_name()
-        self._max_seq_length = 0
-        """
-            Update the max_seq_length to the minimum of the actual max seq length and the user defined max_seq_length
-        """
-        for each_fold in data_encoded.keys():
-            self._max_seq_length = max(self._max_seq_length,
-                                       max([sum(data_encoded[each_fold][x]['attention_mask']) for x in
-                                            range(len(data_encoded[each_fold]))]))
-        self._max_seq_length = int((self._max_seq_length + 15) / 16) * 16
-        data_encoded = autoencodetext_from_model_and_dataset_name()
 
         if self.jobid_config.spt in ("rspt", "cv"):
             all_folds_from_source = []
@@ -241,7 +241,7 @@ class AutoTransformers:
 
             source_fold_names = resplit_portion['source']
             for each_fold_name in source_fold_names:
-                this_fold_dataset = data_encoded[each_fold_name]
+                this_fold_dataset = data_raw[each_fold_name]
                 all_folds_from_source.append(this_fold_dataset)
 
             merged_folds = datasets.concatenate_datasets(all_folds_from_source)
@@ -251,24 +251,32 @@ class AutoTransformers:
                    and "test" in resplit_portion.keys(), "train, validation, test must exist in resplit_portion"
 
             if self.jobid_config.spt == "rspt":
+                _max_seq_length = 0
                 for key in ["train", "validation", "test"]:
                     subfold_dataset = self._get_targetfold_start_end(concatenated_data=merged_folds,
                                                                      resplit_portion_key=resplit_portion[key])
+                    this_encoded_data = autoencodetext_from_model_and_dataset_name()
                     if key == "train":
-                        self.train_dataset = subfold_dataset
+                        self.train_dataset = this_encoded_data
                     elif key == "validation":
-                        self.eval_dataset = subfold_dataset
+                        self.eval_dataset = this_encoded_data
                     else:
-                        self.test_dataset = subfold_dataset
+                        self.test_dataset = this_encoded_data
+                    _max_seq_length = max(_max_seq_length,
+                                               max([sum(this_encoded_data[x]['attention_mask']) for x in
+                                                    range(len(this_encoded_data))]))
+                self._max_seq_length = int((_max_seq_length + 15) / 16) * 16
             else:
                 assert "foldnum" in custom_data_args, "if the split mode is cross validation, foldnum must be" \
                                                       "specified"
+
                 def get_cv_split_points(lower_bound, upper_bound, idx, k):
                     return (upper_bound - lower_bound) / k * idx + lower_bound, \
                            (upper_bound - lower_bound) / k * (idx + 1) + lower_bound
 
-                self.test_dataset = self._get_targetfold_start_end(concatenated_data=merged_folds,
+                subfold_dataset = self._get_targetfold_start_end(concatenated_data=merged_folds,
                                                                    resplit_portion_key=resplit_portion["test"])
+                self.test_dataset = autoencodetext_from_model_and_dataset_name()
                 train_val_lower = min(resplit_portion["train"][0], resplit_portion["validation"][0])
                 train_val_upper = max(resplit_portion["train"][1], resplit_portion["validation"][1])
                 cv_k = custom_data_args["foldnum"]
@@ -278,19 +286,25 @@ class AutoTransformers:
                     this_fold_lower, this_fold_upper = get_cv_split_points(
                                                        train_val_lower,
                                                        train_val_upper, idx, cv_k)
-                    self.eval_datasets.append(self._get_targetfold_start_end(
+                    subfold_dataset = self._get_targetfold_start_end(
                                                    concatenated_data=merged_folds,
                                                    resplit_portion_key=[this_fold_lower, this_fold_upper],
                                                    lower_bound_portion=train_val_lower,
-                                                   upper_bound_portion=train_val_upper))
-                    self.train_datasets.append(self._get_targetfold_start_end(
+                                                   upper_bound_portion=train_val_upper)
+                    self.eval_datasets.append(autoencodetext_from_model_and_dataset_name())
+                    subfold_dataset = self._get_targetfold_start_end(
                                                concatenated_data=merged_folds,
                                                resplit_portion_key=[this_fold_upper, this_fold_lower],
                                                lower_bound_portion=train_val_lower,
-                                               upper_bound_portion=train_val_upper))
+                                               upper_bound_portion=train_val_upper)
+                    self.train_datasets.append(autoencodetext_from_model_and_dataset_name())
         else:
-            self.train_dataset, self.eval_dataset, self.test_dataset \
-                = data_encoded[self._train_name], data_encoded[self._dev_name], data_encoded[self._test_name]
+            subfold_dataset = data_raw[self._train_name]
+            self.train_dataset = autoencodetext_from_model_and_dataset_name()
+            subfold_dataset = data_raw[self._dev_name]
+            self.eval_dataset = autoencodetext_from_model_and_dataset_name()
+            subfold_dataset = data_raw[self._test_name]
+            self.test_dataset = autoencodetext_from_model_and_dataset_name()
 
     def _load_model(self,
                     checkpoint_path=None,
