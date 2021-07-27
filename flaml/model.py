@@ -4,6 +4,7 @@
 '''
 
 import numpy as np
+from pandas.core.algorithms import isin
 import xgboost as xgb
 import time
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
@@ -186,6 +187,12 @@ class SKLearnEstimator(BaseEstimator):
             X = X.copy()
             cat_columns = X.select_dtypes(include=['category']).columns
             X[cat_columns] = X[cat_columns].apply(lambda x: x.cat.codes)
+        elif X.dtype.kind not in 'buif':
+            X = pd.DataFrame(X)
+            for col in X.columns:
+                if isinstance(X[col][0], str):
+                    X[col] = X[col].astype('category').cat.codes
+            X = X.to_numpy()
         return X
 
 
@@ -785,4 +792,12 @@ class KNeighborsEstimator(BaseEstimator):
                 raise ValueError(
                     "kneighbor requires at least one numeric feature")
             X = X.drop(cat_columns, axis=1)
+        elif X.dtype.kind not in 'buif':
+            X = pd.DataFrame(X)
+            cat_columns = []
+            for col in X.columns:
+                if isinstance(X[col][0], str):
+                    cat_columns.append(col)
+            X = X.drop(cat_columns, axis=1)
+            X = X.to_numpy()
         return X
