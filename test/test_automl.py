@@ -162,10 +162,10 @@ class TestAutoML(unittest.TestCase):
         y = pd.Series([0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1])
 
         automl_settings = {
-            "time_budget": 2,
+            "time_budget": 3,
             "task": 'classification',
             "n_jobs": 1,
-            "estimator_list": ['xgboost', 'kneighbor'],
+            "estimator_list": ['xgboost', 'catboost', 'kneighbor'],
             "eval_method": "cv",
             "n_splits": 3,
             "metric": "accuracy",
