@@ -374,7 +374,7 @@ def print_modelhub_result(console_args):
     model2size = load_modelinfo()
     model2config2score = {}
 
-    for each_dat in ["glue", "yelp-polarity", "imdb"]:
+    for each_dat in ["glue", "yelp-polarity", "imdb", "amazon-polarity"]:
         for model_config in ["hp1", "hp2"]:
             partial_jobid_config = JobID()
             partial_jobid_config.dat = [each_dat]
@@ -401,11 +401,18 @@ def print_modelhub_result(console_args):
 
     sorted_models = sorted([x for x in model2config2score.keys() if x in model2size]) # and model2size[x] > 100])
 
-    for each_config in sorted(model2config2score[sorted_models[0]]):
-        for each_model in sorted_models:
-            if each_model == "lordtt13-COVID-SciBERT": continue
-            print(model2config2score[each_model][each_config], end = ",")
-        print()
+    for each_dat in ["glue", "yelp-polarity", "imdb", "amazon-polarity"]:
+        for model_config in ["hp1", "hp2"]:
+            each_config = each_dat + "_" + model_config
+            #print(each_config)
+            for each_model in sorted_models:
+                if each_model == "lordtt13-COVID-SciBERT": continue
+                try:
+                    this_score = model2config2score[each_model][each_config]
+                except KeyError:
+                    this_score = ""
+                print(this_score, end = ",")
+            print()
 
     dominated_model_list = set([])
     for idx1 in range(len(sorted_models) - 1):
