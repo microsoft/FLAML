@@ -188,6 +188,7 @@ class SKLearnEstimator(BaseEstimator):
             cat_columns = X.select_dtypes(include=['category']).columns
             X[cat_columns] = X[cat_columns].apply(lambda x: x.cat.codes)
         elif isinstance(X, np.ndarray) and X.dtype.kind not in 'buif':
+            # numpy array is not of numeric dtype
             X = pd.DataFrame(X)
             for col in X.columns:
                 if isinstance(X[col][0], str):
@@ -793,6 +794,7 @@ class KNeighborsEstimator(BaseEstimator):
                     "kneighbor requires at least one numeric feature")
             X = X.drop(cat_columns, axis=1)
         elif X.dtype.kind not in 'buif':
+            # drop categocial columns if any
             X = pd.DataFrame(X)
             cat_columns = []
             for col in X.columns:
