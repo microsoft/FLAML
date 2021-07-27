@@ -525,7 +525,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
             "n_estimators": int(round(n_estimators)),
             "n_jobs": n_jobs,
             'max_features': float(max_features),
-            "max_leaf_nodes": int(round(max_leaves)),
+            "max_leaf_nodes": params.get('max_leaf_nodes', int(round(max_leaves))),
         })
         if 'regression' in task:
             self.estimator_class = RandomForestRegressor
