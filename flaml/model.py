@@ -4,7 +4,6 @@
 '''
 
 import numpy as np
-from pandas.core.algorithms import isin
 import xgboost as xgb
 import time
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
@@ -793,7 +792,7 @@ class KNeighborsEstimator(BaseEstimator):
                 raise ValueError(
                     "kneighbor requires at least one numeric feature")
             X = X.drop(cat_columns, axis=1)
-        elif X.dtype.kind not in 'buif':
+        elif isinstance(X, np.ndarray) and X.dtype.kind not in 'buif':
             # drop categocial columns if any
             X = pd.DataFrame(X)
             cat_columns = []
