@@ -187,7 +187,7 @@ class SKLearnEstimator(BaseEstimator):
             X = X.copy()
             cat_columns = X.select_dtypes(include=['category']).columns
             X[cat_columns] = X[cat_columns].apply(lambda x: x.cat.codes)
-        elif X.dtype.kind not in 'buif':
+        elif isinstance(X, np.ndarray) and X.dtype.kind not in 'buif':
             X = pd.DataFrame(X)
             for col in X.columns:
                 if isinstance(X[col][0], str):
