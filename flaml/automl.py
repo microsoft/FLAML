@@ -333,6 +333,12 @@ class AutoML:
         return self._search_states[self._best_estimator].best_config
 
     @property
+    def estimators_best_config(self):
+        '''A dictionary of all estimators' best configuration.'''
+        return {e: e_search_state.best_config for (e, e_search_state) in \
+                self._search_states.items()}
+
+    @property
     def best_loss(self):
         '''A float of the best loss found
         '''
