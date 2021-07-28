@@ -400,6 +400,7 @@ def print_modelhub_result(console_args):
                 model2config2score[this_model_name][this_config] = valid_acc
 
     sorted_models = sorted([x for x in model2config2score.keys() if x in model2size]) # and model2size[x] > 100])
+    config2best = {}
 
     for each_dat in ["glue", "yelp-polarity", "imdb", "amazon-polarity"]:
         for model_config in ["hp1", "hp2"]:
@@ -409,10 +410,26 @@ def print_modelhub_result(console_args):
                 if each_model == "lordtt13-COVID-SciBERT": continue
                 try:
                     this_score = model2config2score[each_model][each_config]
+                    if model2size[each_model] < 45:
+                        config2best.setdefault(each_config, -1)
+                        config2best[each_config] = max(config2best[each_config], this_score)
                 except KeyError:
                     this_score = ""
                 print(this_score, end = ",")
             print()
+
+    model2regret = {}
+    import numpy as np
+    for each_model in model2config2score.keys():
+        if each_model in model2size and model2size[each_model] < 315:
+            for each_config in model2config2score[each_model]:
+                try:
+                    this_score = model2config2score[each_model][each_config]
+                    model2regret.setdefault(each_model, [])
+                    model2regret[each_model].append(config2best[each_config] - this_score)
+                except KeyError:
+                    pass
+    sorted_model2regret = sorted(model2regret.items(), key = lambda x: np.mean(x[1]), reverse=False)
 
     dominated_model_list = set([])
     for idx1 in range(len(sorted_models) - 1):
