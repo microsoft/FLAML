@@ -48,7 +48,7 @@ class SearchState:
         return max(self.time_best_found - self.time_best_found_old,
                    self.total_time_used - self.time_best_found)
 
-    def __init__(self, learner_class, data_size, task):
+    def __init__(self, learner_class, data_size, task, starting_point={}):
         self.init_eci = learner_class.cost_relative2lgbm()
         self._search_space_domain = {}
         self.init_config = {}
@@ -67,6 +67,10 @@ class SearchState:
                     'low_cost_init_value']
             if 'cat_hp_cost' in space:
                 self.cat_hp_cost[name] = space['cat_hp_cost']
+            # if a starting point is provided, set the init config to be
+            # the starting point provided
+            if name in starting_point:
+                self.init_config[name] = starting_point[name]
         self._hp_names = list(self._search_space_domain.keys())
         self.search_alg = None
         self.best_loss = self.best_loss_old = np.inf
@@ -811,6 +815,7 @@ class AutoML:
             split_type="stratified",
             learner_selector='sample',
             hpo_method=None,
+            starting_point={},
             **fit_kwargs):
         '''Find a model for a given task
 
@@ -878,6 +883,15 @@ class AutoML:
                 samples used while splitting the dataset into train/valid set
             verbose: int, default=1 | Controls the verbosity, higher means more
                 messages
+            retrain_full: 
+            split_type: A string to specify the type of the split method
+            learner_selector: a string specifyingthe learner selector
+            hpo_method: A string to specify the hpo method used. 
+                Can be None or one of ['bs', 'cfo', 'grid']
+            starting_point: A dictionary to specify the starting hyperparameter
+                config for the estimators.
+                Keys are the name of the estimators, and values are the starting
+                hyperparamter configurations for the corresponding estimators.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such sample_weight
         '''
@@ -949,6 +963,7 @@ class AutoML:
             self._search_states[estimator_name] = SearchState(
                 learner_class=estimator_class,
                 data_size=self._state.data_size, task=self._state.task,
+                starting_point=starting_point
             )
         logger.info("List of ML learners in AutoML Run: {}".format(
             estimator_list))
