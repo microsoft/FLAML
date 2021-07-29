@@ -973,7 +973,6 @@ class AutoML:
                 data_size=self._state.data_size, task=self._state.task,
                 starting_point=starting_points[estimator_name] if estimator_name in starting_points else {},
             )
-            print('self._search_states[estimator_name]', self._search_states[estimator_name].init_config)
         logger.info("List of ML learners in AutoML Run: {}".format(
             estimator_list))
         self._hpo_method = hpo_method or 'cfo'
