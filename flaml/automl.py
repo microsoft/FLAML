@@ -48,7 +48,7 @@ class SearchState:
         return max(self.time_best_found - self.time_best_found_old,
                    self.total_time_used - self.time_best_found)
 
-    def __init__(self, learner_class, data_size, task, starting_point):
+    def __init__(self, learner_class, data_size, task, starting_point=None):
         self.init_eci = learner_class.cost_relative2lgbm()
         self._search_space_domain = {}
         self.init_config = {}
