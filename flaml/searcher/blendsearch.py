@@ -148,27 +148,38 @@ class BlendSearch(Searcher):
                               metric: Optional[str] = None,
                               mode: Optional[str] = None,
                               config: Optional[Dict] = None) -> bool:
+        metric_changed = mode_changed = False
+        if metric and self._metric != metric:
+            metric_changed = True
+            self._metric = metric
+            if self._metric_constraints:
+                # metric modified by lagrange
+                metric += self.lagrange
+                # TODO: don't change metric for global search methods that
+                # can handle constraints already
+        if mode and self._mode != mode:
+            mode_changed = True
+            self._mode = mode
         if not self._ls.space:
-            if metric:
-                self._metric = metric
-                if self._metric_constraints:
-                    # metric modified by lagrange
-                    metric += self.lagrange
-                    # TODO: don't change metric for global search methods that
-                    # can handle constraints already
-            if mode:
-                self._mode = mode
+            # the search space can be set only once
             self._ls.set_search_properties(metric, mode, config)
             if self._gs is not None:
                 self._gs.set_search_properties(metric, mode, config)
             self._init_search()
-        if 'time_budget_s' in config:
-            time_budget_s = config['time_budget_s']
-            if time_budget_s is not None:
-                self._deadline = time_budget_s + time.time()
-                SearchThread.set_eps(time_budget_s)
-        if 'metric_target' in config:
-            self._metric_target = config.get('metric_target')
+        elif metric_changed or mode_changed:
+            # reset search when metric or mode changed
+            self._ls.set_search_properties(metric, mode)
+            if self._gs is not None:
+                self._gs.set_search_properties(metric, mode)
+            self._init_search()
+        if config:
+            if 'time_budget_s' in config:
+                time_budget_s = config['time_budget_s']
+                if time_budget_s is not None:
+                    self._deadline = time_budget_s + time.time()
+                    SearchThread.set_eps(time_budget_s)
+            if 'metric_target' in config:
+                self._metric_target = config.get('metric_target')
         return True
 
     def _init_search(self):
@@ -676,11 +687,11 @@ class CFO(BlendSearchTuner):
         # Number of threads is 1 or 2. Thread 0 is a vacuous thread
         assert len(self._search_thread_pool) < 3, len(self._search_thread_pool)
         if len(self._search_thread_pool) < 2:
-            # When a local converges, the number of threads is 1
+            # When a local thread converges, the number of threads is 1
             # Need to restart
             self._init_used = False
-        if self._candidate_start_points is not None and self._points_to_evaluate:
-            self._candidate_start_points[trial_id] = None
+            if self._candidate_start_points is not None and self._points_to_evaluate:
+                self._candidate_start_points[trial_id] = None
         return super().suggest(trial_id)
 
     def _select_thread(self) -> Tuple:
