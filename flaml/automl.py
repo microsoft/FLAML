@@ -48,7 +48,7 @@ class SearchState:
         return max(self.time_best_found - self.time_best_found_old,
                    self.total_time_used - self.time_best_found)
 
-    def __init__(self, learner_class, data_size, task, starting_point={}):
+    def __init__(self, learner_class, data_size, task, starting_point):
         self.init_eci = learner_class.cost_relative2lgbm()
         self._search_space_domain = {}
         self.init_config = {}
@@ -69,10 +69,12 @@ class SearchState:
                 self.cat_hp_cost[name] = space['cat_hp_cost']
             # if a starting point is provided, set the init config to be
             # the starting point provided
-            if name in starting_point:
+            if starting_point is not None and name in starting_point.keys() and \
+               starting_point[name] is not None:
                 self.init_config[name] = starting_point[name]
         self._hp_names = list(self._search_space_domain.keys())
         self.search_alg = None
+        self.best_config = None
         self.best_loss = self.best_loss_old = np.inf
         self.total_time_used = 0
         self.total_iter = 0
@@ -335,7 +337,7 @@ class AutoML:
     @property
     def estimators_best_config(self):
         '''A dictionary of all estimators' best configuration.'''
-        return {e: e_search_state.best_config for (e, e_search_state) in \
+        return {e: e_search_state.best_config for (e, e_search_state) in
                 self._search_states.items()}
 
     @property
@@ -821,7 +823,7 @@ class AutoML:
             split_type="stratified",
             learner_selector='sample',
             hpo_method=None,
-            starting_point={},
+            starting_points={},
             **fit_kwargs):
         '''Find a model for a given task
 
@@ -894,7 +896,7 @@ class AutoML:
             learner_selector: a string specifyingthe learner selector
             hpo_method: A string to specify the hpo method used. 
                 Can be None or one of ['bs', 'cfo', 'grid']
-            starting_point: A dictionary to specify the starting hyperparameter
+            starting_points: A dictionary to specify the starting hyperparameter
                 config for the estimators.
                 Keys are the name of the estimators, and values are the starting
                 hyperparamter configurations for the corresponding estimators.
@@ -969,8 +971,9 @@ class AutoML:
             self._search_states[estimator_name] = SearchState(
                 learner_class=estimator_class,
                 data_size=self._state.data_size, task=self._state.task,
-                starting_point=starting_point
+                starting_point=starting_points[estimator_name] if estimator_name in starting_points else {},
             )
+            print('self._search_states[estimator_name]', self._search_states[estimator_name].init_config)
         logger.info("List of ML learners in AutoML Run: {}".format(
             estimator_list))
         self._hpo_method = hpo_method or 'cfo'
