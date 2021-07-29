@@ -24,7 +24,7 @@ def get_resplit_portion(jobid_config):
     elif jobid_config.dat[0] in {"yelp_polarity"}:
         return {"source": ["train"], "train": [0, 0.005], "validation": [0.05, 0.055], "test": [0.055, 0.06]}
     elif jobid_config.dat[0] in {"amazon_polarity"}:
-        return {"source": ["train"], "train": [0, 0.01], "validation": [0.01, 0.011], "test": [0.011, 0.012]}
+        return {"source": ["train"], "train": [0.1, 0.2], "validation": [0.01, 0.011], "test": [0.011, 0.012]}
     else:
         return {"source": ["train", "validation"], "train": [0, 0.08], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
 
