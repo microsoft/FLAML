@@ -886,15 +886,15 @@ class AutoML:
             X_val: None or a numpy array or a pandas dataframe of validation data
             y_val: None or a numpy array or a pandas series of validation labels
             sample_weight_val: None or a numpy array of the sample weight of
-                validation data
+                validation data.
             groups: None or an array-like of shape (n,) | Group labels for the
                 samples used while splitting the dataset into train/valid set
             verbose: int, default=1 | Controls the verbosity, higher means more
-                messages
-            retrain_full: 
+                messages.
+            retrain_full: A bool to specify whether to retrain on the full dataset.
             split_type: A string to specify the type of the split method
             learner_selector: a string specifyingthe learner selector
-            hpo_method: A string to specify the hpo method used. 
+            hpo_method: A string to specify the hpo method used.
                 Can be None or one of ['bs', 'cfo', 'grid']
             starting_points: A dictionary to specify the starting hyperparameter
                 config for the estimators.
