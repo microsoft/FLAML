@@ -161,6 +161,8 @@ def training_log_writer(filename: str):
         w = TrainingLogWriter(filename)
         w.open()
         yield w
+    except FileNotFoundError:
+        raise IOError("File not found.")
     finally:
         w.close()
 
@@ -171,5 +173,7 @@ def training_log_reader(filename: str):
         r = TrainingLogReader(filename)
         r.open()
         yield r
+    except FileNotFoundError:
+        raise IOError("File not found.")
     finally:
         r.close()
