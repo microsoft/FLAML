@@ -402,7 +402,7 @@ def print_modelhub_result(console_args):
     sorted_models = sorted([x for x in model2config2score.keys() if x in model2size]) # and model2size[x] > 100])
     config2best = {}
 
-    for each_dat in ["glue", "yelp-polarity", "imdb", "amazon-polarity"]:
+    for each_dat in ["glue", "yelp-polarity"]: #, "imdb", "amazon-polarity"]:
         for model_config in ["hp1", "hp2"]:
             each_config = each_dat + "_" + model_config
             #print(each_config)
