@@ -420,8 +420,13 @@
             <span class="n">reduction_factor</span><span class="o">=</span><span class="n">reduction_factor</span><span class="p">,</span>
             <span class="n">config_constraints</span><span class="o">=</span><span class="n">config_constraints</span><span class="p">,</span>
             <span class="n">metric_constraints</span><span class="o">=</span><span class="n">metric_constraints</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">search_alg</span><span class="o">.</span><span class="n">set_search_properties</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">metric</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">mode</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">metric</span> <span class="o">=</span> <span class="n">metric</span> <span class="ow">or</span> <span class="n">search_alg</span><span class="o">.</span><span class="n">metric</span>
+            <span class="n">mode</span> <span class="o">=</span> <span class="n">mode</span> <span class="ow">or</span> <span class="n">search_alg</span><span class="o">.</span><span class="n">mode</span>
     <span class="k">if</span> <span class="n">time_budget_s</span><span class="p">:</span>
-        <span class="n">search_alg</span><span class="o">.</span><span class="n">set_search_properties</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="p">{</span>
+        <span class="n">search_alg</span><span class="o">.</span><span class="n">set_search_properties</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="p">{</span>
             <span class="s1">&#39;time_budget_s&#39;</span><span class="p">:</span> <span class="n">time_budget_s</span><span class="p">})</span>
     <span class="n">scheduler</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="n">report_intermediate_result</span><span class="p">:</span>

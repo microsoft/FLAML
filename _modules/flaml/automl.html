@@ -201,7 +201,7 @@
         <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_best_found</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_best_found_old</span><span class="p">,</span>
                    <span class="bp">self</span><span class="o">.</span><span class="n">total_time_used</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_best_found</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">learner_class</span><span class="p">,</span> <span class="n">data_size</span><span class="p">,</span> <span class="n">task</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">learner_class</span><span class="p">,</span> <span class="n">data_size</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="n">starting_point</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">init_eci</span> <span class="o">=</span> <span class="n">learner_class</span><span class="o">.</span><span class="n">cost_relative2lgbm</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_search_space_domain</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">init_config</span> <span class="o">=</span> <span class="p">{}</span>
@@ -220,8 +220,13 @@
                     <span class="s1">&#39;low_cost_init_value&#39;</span><span class="p">]</span>
             <span class="k">if</span> <span class="s1">&#39;cat_hp_cost&#39;</span> <span class="ow">in</span> <span class="n">space</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">cat_hp_cost</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">space</span><span class="p">[</span><span class="s1">&#39;cat_hp_cost&#39;</span><span class="p">]</span>
+            <span class="c1"># if a starting point is provided, set the init config to be</span>
+            <span class="c1"># the starting point provided</span>
+            <span class="k">if</span> <span class="n">starting_point</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">starting_point</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">init_config</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">starting_point</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_hp_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_search_space_domain</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">search_alg</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">best_config</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">best_loss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_loss_old</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">total_time_used</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">total_iter</span> <span class="o">=</span> <span class="mi">0</span>
@@ -480,6 +485,12 @@
     <span class="k">def</span> <span class="nf">best_config</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;A dictionary of the best configuration.&#39;&#39;&#39;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_best_estimator</span><span class="p">]</span><span class="o">.</span><span class="n">best_config</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">best_config_per_estimator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;A dictionary of all estimators&#39; best configuration.&#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">e</span><span class="p">:</span> <span class="n">e_search_state</span><span class="o">.</span><span class="n">best_config</span> <span class="k">for</span> <span class="n">e</span><span class="p">,</span> <span class="n">e_search_state</span> <span class="ow">in</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">best_loss</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -964,6 +975,7 @@
             <span class="n">split_type</span><span class="o">=</span><span class="s2">&quot;stratified&quot;</span><span class="p">,</span>
             <span class="n">learner_selector</span><span class="o">=</span><span class="s1">&#39;sample&#39;</span><span class="p">,</span>
             <span class="n">hpo_method</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">starting_points</span><span class="o">=</span><span class="p">{},</span>
             <span class="o">**</span><span class="n">fit_kwargs</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;Find a model for a given task</span>
 
@@ -1026,11 +1038,15 @@
 <span class="sd">            X_val: None or a numpy array or a pandas dataframe of validation data</span>
 <span class="sd">            y_val: None or a numpy array or a pandas series of validation labels</span>
 <span class="sd">            sample_weight_val: None or a numpy array of the sample weight of</span>
-<span class="sd">                validation data</span>
+<span class="sd">                validation data.</span>
 <span class="sd">            groups: None or an array-like of shape (n,) | Group labels for the</span>
 <span class="sd">                samples used while splitting the dataset into train/valid set</span>
 <span class="sd">            verbose: int, default=1 | Controls the verbosity, higher means more</span>
-<span class="sd">                messages</span>
+<span class="sd">                messages.</span>
+<span class="sd">            starting_points: A dictionary to specify the starting hyperparameter</span>
+<span class="sd">                config for the estimators.</span>
+<span class="sd">                Keys are the name of the estimators, and values are the starting</span>
+<span class="sd">                hyperparamter configurations for the corresponding estimators.</span>
 <span class="sd">            **fit_kwargs: Other key word arguments to pass to fit() function of</span>
 <span class="sd">                the searched learners, such sample_weight</span>
 <span class="sd">        &#39;&#39;&#39;</span>
@@ -1102,6 +1118,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="p">[</span><span class="n">estimator_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">SearchState</span><span class="p">(</span>
                 <span class="n">learner_class</span><span class="o">=</span><span class="n">estimator_class</span><span class="p">,</span>
                 <span class="n">data_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">data_size</span><span class="p">,</span> <span class="n">task</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span><span class="p">,</span>
+                <span class="n">starting_point</span><span class="o">=</span><span class="n">starting_points</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">estimator_name</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;List of ML learners in AutoML Run: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
             <span class="n">estimator_list</span><span class="p">))</span>
