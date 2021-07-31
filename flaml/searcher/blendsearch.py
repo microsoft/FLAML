@@ -298,8 +298,10 @@ class BlendSearch(Searcher):
                     thread_id = self._thread_count
                     self._started_from_given = self._candidate_start_points \
                         and trial_id in self._candidate_start_points
-                    if not self._started_from_given:
-                        self._started_from_low_cost = True                    
+                    if self._started_from_given:
+                        del self._candidate_start_points[trial_id]
+                    else:
+                        self._started_from_low_cost = True
                     self._create_thread(config, result)
                 elif thread_id and not self._metric_constraint_satisfied:
                     # no point has been found to satisfy metric constraint
@@ -368,12 +370,13 @@ class BlendSearch(Searcher):
                 if not self._started_from_given:
                     # remove start points whose perf is worse than the converged
                     obj = self._search_thread_pool[thread_id].obj_best1
-                    worse = [(id, r[self._ls.metric])
-                            for id, r in self._candidate_start_points.items()
-                            if r and r[self._ls.metric] * self._ls.metric_op >= obj]
+                    worse = [
+                        trial_id
+                        for trial_id, r in self._candidate_start_points.items()
+                        if r and r[self._ls.metric] * self._ls.metric_op >= obj]
                     # logger.info(f"remove candidate start points {worse} than {obj}")
-                    for id in worse:
-                        del self._candidate_start_points[id[0]]
+                    for trial_id in worse:
+                        del self._candidate_start_points[trial_id]
                 if self._candidate_start_points and self._started_from_low_cost:
                     create_new = True
         for id in todelete:
@@ -386,8 +389,8 @@ class BlendSearch(Searcher):
         best_trial_id = None
         obj_best = None
         for trial_id, r in self._candidate_start_points.items():
-            if r and (best_trial_id is None or r[
-            self._ls.metric] * self._ls.metric_op < obj_best):
+            if r and (best_trial_id is None
+                      or r[self._ls.metric] * self._ls.metric_op < obj_best):
                 best_trial_id = trial_id
                 obj_best = r[self._ls.metric] * self._ls.metric_op
         if best_trial_id:
@@ -488,6 +491,8 @@ class BlendSearch(Searcher):
                 self._gs_admissible_max.update(self._ls_bound_max)
             self._result[self._ls.config_signature(config)] = {}
         else:  # use init config
+            if self._candidate_start_points is not None and self._points_to_evaluate:
+                self._candidate_start_points[trial_id] = None
             init_config = self._points_to_evaluate.pop(
                 0) if self._points_to_evaluate else self._ls.init_config
             config = self._ls.complete_config(
@@ -690,8 +695,6 @@ class CFO(BlendSearchTuner):
             # When a local thread converges, the number of threads is 1
             # Need to restart
             self._init_used = False
-            if self._candidate_start_points is not None and self._points_to_evaluate:
-                self._candidate_start_points[trial_id] = None
         return super().suggest(trial_id)
 
     def _select_thread(self) -> Tuple:
@@ -704,6 +707,8 @@ class CFO(BlendSearchTuner):
         '''
         if self._points_to_evaluate:
             # still evaluating user-specified init points
+            # we evaluate all candidate start points before we 
+            # create the first local search thread
             return False
         if len(self._search_thread_pool) == 2:
             return False
@@ -722,10 +727,7 @@ class CFO(BlendSearchTuner):
         if self._candidate_start_points \
            and trial_id in self._candidate_start_points:
             # the trial is a candidate start point
-            if len(self._search_thread_pool) == 2:
-                # ls thread created from this candidate start point
-                del self._candidate_start_points[trial_id]
-            else:
+            if len(self._search_thread_pool) < 2:
                 self._candidate_start_points[trial_id] = result
                 if self._points_to_evaluate:
                     return
