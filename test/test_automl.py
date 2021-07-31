@@ -154,10 +154,10 @@ class TestAutoML(unittest.TestCase):
     def test_preprocess(self):
         automl = AutoML()
         X = pd.DataFrame({
-        'f1': [1, -2, 3, -4, 5, -6, -7, 8, -9, -10, -11, -12, -13, -14],
-        'f2': [3., 16., 10., 12., 3., 14., 11., 12., 5., 14., 20., 16., 15., 11.,],
-        'f3': ['a', 'b', 'a', 'c', 'c', 'b', 'b', 'b', 'b', 'a', 'b', 'e', 'e', 'a'],
-        'f4': [True, True, False, True, True, False, False, False, True, True, False, False, True, True],
+            'f1': [1, -2, 3, -4, 5, -6, -7, 8, -9, -10, -11, -12, -13, -14],
+            'f2': [3., 16., 10., 12., 3., 14., 11., 12., 5., 14., 20., 16., 15., 11.],
+            'f3': ['a', 'b', 'a', 'c', 'c', 'b', 'b', 'b', 'b', 'a', 'b', 'e', 'e', 'a'],
+            'f4': [True, True, False, True, True, False, False, False, True, True, False, False, True, True],
         })
         y = pd.Series([0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1])
 
