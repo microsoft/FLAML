@@ -337,7 +337,8 @@ class AutoML:
     @property
     def estimators_best_config(self):
         '''A dictionary of all estimators' best configuration.'''
-        return {e: e_search_state.best_config for (e, e_search_state) in
+        return {e: e_search_state.best_config for e, e_search_state in
+
                 self._search_states.items()}
 
     @property
