@@ -375,7 +375,7 @@ def print_modelhub_result(console_args):
     model2config2score = {}
 
     for each_dat in ["glue", "yelp-polarity", "imdb", "amazon-polarity"]:
-        for model_config in ["hp1", "hp2"]:
+        for model_config in ["hp1", "hp2", "hp1_trainsize", "hp2_trainsize"]:
             partial_jobid_config = JobID()
             partial_jobid_config.dat = [each_dat]
             #partial_jobid_config.presz = presz
@@ -402,8 +402,11 @@ def print_modelhub_result(console_args):
     sorted_models = sorted([x for x in model2config2score.keys() if x in model2size]) # and model2size[x] > 100])
     config2best = {}
 
-    for each_dat in ["glue", "yelp-polarity"]: #, "imdb", "amazon-polarity"]:
-        for model_config in ["hp1", "hp2"]:
+    for each_dat in ["glue", "yelp-polarity", "imdb", "amazon-polarity"]:
+        model_configs = ["hp1", "hp2", "hp1_trainsize", "hp2_trainsize"]
+        if each_dat not in ["glue", "yelp-polarity"]:
+            model_configs = ["hp1", "hp2"]
+        for model_config in model_configs:
             each_config = each_dat + "_" + model_config
             #print(each_config)
             for each_model in sorted_models:
