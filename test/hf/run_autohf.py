@@ -15,9 +15,9 @@ global azure_key
 
 def get_resplit_portion(jobid_config, console_args):
     assert len(console_args.split_portion) == 6
-    train_split = console_args.split_portion[0:2]
-    validation_split = console_args.split_portion[2:4]
-    test_split = console_args.split_portion[4:6]
+    train_split = [float(x) for x in console_args.split_portion[0:2]]
+    validation_split = [float(x) for x in console_args.split_portion[2:4]]
+    test_split = [float(x) for x in console_args.split_portion[4:6]]
     return {"source": console_args.source_fold, "train": train_split, "validation": validation_split, "test": test_split}
     # if jobid_config.dat == ["glue"] and jobid_config.subdat in {"mnli", "qqp"}:
     #     return {"source": ["train", "validation"], "train": [0, 0.25], "validation": [0.25, 0.275],
