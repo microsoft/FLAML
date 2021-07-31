@@ -179,7 +179,7 @@ def test_nested():
         tune.report(obj=obj, ab=config["cost_related"]["a"] * config["b"])
 
     analysis = tune.run(
-        simple_func,        
+        simple_func,
         search_alg=CFO(
             space=search_space, metric="obj", mode="min",
             low_cost_partial_config={
