@@ -707,7 +707,7 @@ class CFO(BlendSearchTuner):
         '''
         if self._points_to_evaluate:
             # still evaluating user-specified init points
-            # we evaluate all candidate start points before we 
+            # we evaluate all candidate start points before we
             # create the first local search thread
             return False
         if len(self._search_thread_pool) == 2:
