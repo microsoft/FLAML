@@ -966,7 +966,8 @@ class AutoML:
             self._search_states[estimator_name] = SearchState(
                 learner_class=estimator_class,
                 data_size=self._state.data_size, task=self._state.task,
-                starting_point=starting_points[estimator_name] if estimator_name in starting_points else {},
+                starting_point=starting_points.get(estimator_name),
+
             )
         logger.info("List of ML learners in AutoML Run: {}".format(
             estimator_list))
