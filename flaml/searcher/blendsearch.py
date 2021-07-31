@@ -727,8 +727,6 @@ class CFO(BlendSearchTuner):
         if self._candidate_start_points \
            and trial_id in self._candidate_start_points:
             # the trial is a candidate start point
-            if len(self._search_thread_pool) < 2:
-                self._candidate_start_points[trial_id] = result
-                if self._points_to_evaluate:
-                    return
+            self._candidate_start_points[trial_id] = result
+            if len(self._search_thread_pool) < 2 and not self._points_to_evaluate:
                 self._create_thread_from_best_candidate()
