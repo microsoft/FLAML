@@ -292,7 +292,7 @@ class BlendSearch(Searcher):
                 objective = result[self._ls.metric]
                 if (objective - self._metric_target) * self._ls.metric_op < 0:
                     self._metric_target = objective
-                if not thread_id and metric_constraint_satisfied \
+                if thread_id == 0 and metric_constraint_satisfied \
                    and self._create_condition(result):
                     # thread creator
                     thread_id = self._thread_count
