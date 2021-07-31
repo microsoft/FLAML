@@ -69,8 +69,7 @@ class SearchState:
                 self.cat_hp_cost[name] = space['cat_hp_cost']
             # if a starting point is provided, set the init config to be
             # the starting point provided
-            if starting_point is not None and name in starting_point.keys() and \
-               starting_point[name] is not None:
+            if starting_point is not None and starting_point.get(name) is not None:
                 self.init_config[name] = starting_point[name]
         self._hp_names = list(self._search_space_domain.keys())
         self.search_alg = None
@@ -335,7 +334,7 @@ class AutoML:
         return self._search_states[self._best_estimator].best_config
 
     @property
-    def estimators_best_config(self):
+    def best_config_per_estimator(self):
         '''A dictionary of all estimators' best configuration.'''
         return {e: e_search_state.best_config for e, e_search_state in
 
@@ -892,11 +891,6 @@ class AutoML:
                 samples used while splitting the dataset into train/valid set
             verbose: int, default=1 | Controls the verbosity, higher means more
                 messages.
-            retrain_full: A bool to specify whether to retrain on the full dataset.
-            split_type: A string to specify the type of the split method
-            learner_selector: a string specifyingthe learner selector
-            hpo_method: A string to specify the hpo method used.
-                Can be None or one of ['bs', 'cfo', 'grid']
             starting_points: A dictionary to specify the starting hyperparameter
                 config for the estimators.
                 Keys are the name of the estimators, and values are the starting

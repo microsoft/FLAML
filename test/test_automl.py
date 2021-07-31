@@ -479,7 +479,7 @@ class TestAutoML(unittest.TestCase):
     def test_fit_w_starting_point(self, as_frame=True):
         automl_experiment = AutoML()
         automl_settings = {
-            "time_budget": 20,
+            "time_budget": 3,
             "metric": 'accuracy',
             "task": 'classification',
             "log_file_name": "test/iris.log",
@@ -500,10 +500,10 @@ class TestAutoML(unittest.TestCase):
         print('Best accuracy on validation data: {0:.4g}'.format(automl_val_accuracy))
         print('Training duration of best run: {0:.4g} s'.format(automl_experiment.best_config_train_time))
 
-        starting_points = automl_experiment.estimators_best_config
+        starting_points = automl_experiment.best_config_per_estimator
         print('starting_points', starting_points)
         automl_settings_resume = {
-            "time_budget": 10,
+            "time_budget": 2,
             "metric": 'accuracy',
             "task": 'classification',
             "log_file_name": "test/iris_resume.log",
