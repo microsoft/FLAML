@@ -50,6 +50,10 @@ def load_dft_args():
                             help='optional arg learning_rate', required=False)
     arg_parser.add_argument('--weight_decay', nargs='+', default=[],
                             help='optional arg weight_decay', required=False)
+    arg_parser.add_argument('--source_fold', nargs='+', default=[],
+                            help='source fold for resplit', required=False)
+    arg_parser.add_argument('--split_portion', nargs='+', default=[],
+                            help='resplit portion', required=False)
     args, unknown = arg_parser.parse_known_args()
     return args
 

@@ -13,21 +13,12 @@ global azure_log_path
 global azure_key
 
 
-def get_resplit_portion(jobid_config):
-    if jobid_config.dat == ["glue"] and jobid_config.subdat in {"mnli", "qqp"}:
-        return {"source": ["train", "validation"], "train": [0, 0.25], "validation": [0.25, 0.275],
-                "test": [0.275, 0.3]}
-    elif jobid_config.dat[0] in {"imdb", "dbpedia_14", "yelp_review_full", "amazon_reviews_multi"}:
-        return {"source": ["train", "test"], "train": [0.5, 1.0], "validation": [0.05, 0.055], "test": [0.055, 0.06]}
-    elif jobid_config.dat[0] in {"hate_speech18"}:
-        return {"source": ["train"], "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
-    elif jobid_config.dat[0] in {"yelp_polarity"}:
-        return {"source": ["train"], "train": [0, 0.05], "validation": [0.05, 0.055], "test": [0.055, 0.06]}
-    elif jobid_config.dat[0] in {"amazon_polarity"}:
-        return {"source": ["train"], "train": [0.1, 0.2], "validation": [0.01, 0.011], "test": [0.011, 0.012]}
-    else:
-        return {"source": ["train", "validation"], "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
-
+def get_resplit_portion(jobid_config, console_args):
+    assert len(console_args.split_portion) == 6
+    train_split = console_args.split_portion[0:2]
+    validation_split = console_args.split_portion[2:4]
+    test_split = console_args.split_portion[4:6]
+    return {"source": console_args.source_fold, "train": train_split, "validation": validation_split, "test": test_split}
 
 def get_preparedata_setting(console_args, jobid_config, wandb_utils, **custom_args):
     preparedata_setting = {
@@ -38,7 +29,7 @@ def get_preparedata_setting(console_args, jobid_config, wandb_utils, **custom_ar
         "wandb_utils": wandb_utils
     }
     if jobid_config.spt in ('rspt', 'cv'):
-        preparedata_setting["resplit_portion"] = get_resplit_portion(jobid_config)
+        preparedata_setting["resplit_portion"] = get_resplit_portion(jobid_config, console_args)
     if ("albert" == jobid_config.pre and jobid_config.dat == ["squad"]) or \
             ("funnel" in jobid_config.pre and jobid_config.dat[0] in {"imdb", "yelp_reviews_full", "yelp_polarity",
                                                                       "amazon_polarity", "amazon_review_multi"}):
