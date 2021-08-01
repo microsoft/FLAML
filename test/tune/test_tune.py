@@ -1,5 +1,6 @@
 '''Require: pip install flaml[test,ray]
 '''
+from flaml.searcher.blendsearch import BlendSearch
 import time
 import os
 from sklearn.model_selection import train_test_split
@@ -198,6 +199,28 @@ def test_nested():
     best_trial = analysis.get_best_trial()
     logger.info(f"CFO best config: {best_trial.config}")
     logger.info(f"CFO best result: {best_trial.last_result}")
+
+    analysis = tune.run(
+        simple_func,
+        search_alg=BlendSearch(
+            experimental=True,
+            space=search_space, metric="obj", mode="min",
+            low_cost_partial_config={
+                "cost_related": {"a": 1}
+            },
+            points_to_evaluate=[
+                {"b": .99, "cost_related": {"a": 3}},
+                {"b": .99, "cost_related": {"a": 2}},
+                {"cost_related": {"a": 8}}
+            ],
+            metric_constraints=[("ab", "<=", 4)]),
+        local_dir='logs/',
+        num_samples=-1,
+        time_budget_s=.1)
+
+    best_trial = analysis.get_best_trial()
+    logger.info(f"BlendSearch exp best config: {best_trial.config}")
+    logger.info(f"BlendSearch exp best result: {best_trial.last_result}")
 
     analysis = tune.run(
         simple_func,
