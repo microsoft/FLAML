@@ -40,7 +40,7 @@ def test_simple(method=None):
         "n_jobs": 1,
         "hpo_method": method,
         "log_type": "all",
-        "time_budget": 3
+        "time_budget": 1
     }
     from sklearn.externals._arff import ArffException
     try:
@@ -51,6 +51,21 @@ def test_simple(method=None):
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.33, random_state=42)
     automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
+    print(automl.estimator_list)
+    print(automl.search_space)
+    print(automl.points_to_evalaute)
+    config = automl.best_config.copy()
+    config['learner'] = automl.best_estimator
+    automl.trainable(config)
+    from flaml import tune
+    analysis = tune.run(
+        automl.trainable, automl.search_space, metric='val_loss',
+        low_cost_partial_config=automl.low_cost_partial_config,
+        points_to_evaluate=automl.points_to_evalaute,
+        prune_attr=automl.prune_attr,
+        min_resource=automl.min_resource,
+        max_resource=automl.max_resource)
+    print(analysis.trials[-1])
 
 
 def _test_optuna():

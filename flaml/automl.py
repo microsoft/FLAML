@@ -4,6 +4,7 @@
  * project root for license information.
 '''
 import time
+from typing import Callable, Optional
 import warnings
 from functools import partial
 import numpy as np
@@ -789,6 +790,114 @@ class AutoML:
             return 'cv'
         else:
             return 'holdout'
+
+    @property
+    def search_space(self) -> dict:
+        '''Search space
+        Must be called after fit(...) (use max_iter=0 to prevent actual fitting)
+
+        Returns:
+            A dict of the search space
+        '''
+        estimator_list = self.estimator_list
+        if len(estimator_list) == 1:
+            estimator = estimator_list[0]
+            space = self._search_states[estimator].search_space.copy()
+            space['learner'] = estimator
+            return space
+        choices = []
+        for estimator in estimator_list:
+            space = self._search_states[estimator].search_space.copy()
+            space['learner'] = estimator
+            choices.append(space)
+        return {self._state.task: tune.choice(choices)}
+
+    @property
+    def low_cost_partial_config(self) -> dict:
+        '''Low cost partial config
+
+        Returns:
+            A dict. Each key is a tuple of a single integer corresponding
+            to the learner's index in estimator_list. Each value is its
+            corresponding low_cost_partial_config
+        '''
+        if len(self.estimator_list) == 1:
+            estimator = self.estimator_list[0]
+            c = self._search_states[estimator].low_cost_partial_config
+            c['learner'] = estimator
+            return c
+        else:
+            config = {}
+            for i, estimator in enumerate(self.estimator_list):
+                c = self._search_states[estimator].low_cost_partial_config
+                c['learner'] = estimator
+                config[(i, )] = c
+        return config
+
+    @property
+    def points_to_evalaute(self) -> dict:
+        '''Initial points to evaluate
+
+        Returns:
+            A list of dicts. Each dict is the initial point for each learner
+        '''
+        points = []
+        for estimator in self.estimator_list:
+            config = self._search_states[estimator].init_config
+            config['learner'] = estimator
+            points.append(config)
+        return points
+
+    @property
+    def prune_attr(self) -> Optional[str]:
+        '''Attribute for pruning
+
+        Returns:
+            A string for the sample size attribute or None
+        '''
+        return 'FLAML_sample_size' if self._sample else None
+
+    @property
+    def min_resource(self) -> Optional[float]:
+        '''Attribute for pruning
+
+        Returns:
+            A float for the minimal sample size or None
+        '''
+        return MIN_SAMPLE_TRAIN if self._sample else None
+
+    @property
+    def max_resource(self) -> Optional[float]:
+        '''Attribute for pruning
+
+        Returns:
+            A float for the maximal sample size or None
+        '''
+        return self._state.data_size if self._sample else None
+
+    @property
+    def trainable(self) -> Callable[[dict], Optional[float]]:
+        '''Training function
+
+        Returns:
+            A function that evaluates each config and returns the loss
+        '''
+        self._state.time_from_start = 0
+        for estimator in self.estimator_list:
+            search_state = self._search_states[estimator]
+            if not hasattr(search_state, 'training_function'):
+                search_state.training_function = partial(
+                    AutoMLState._compute_with_config_base,
+                    self._state, estimator)
+        states = self._search_states
+
+        def train(config: dict):
+            estimator = config['learner']
+            config = config.copy()
+            del config['learner']
+            states[estimator].training_function(config)
+
+        return train
 
     def fit(self,
             X_train=None,
