@@ -292,7 +292,7 @@ class FLOW2(Searcher):
     def create(self, init_config: Dict, obj: float, cost: float) -> Searcher:
         flatten_config = flatten_dict(init_config)
         # use the subspace where the init_config is located
-        space = {k: self.space[k] for k in flatten_config}
+        space = {k: self.space[k] for k in flatten_config if k in self.space}
         flow2 = self.__class__(
             init_config, self.metric, self.mode, self._cat_hp_cost,
             unflatten_dict(space), self.prune_attr,
