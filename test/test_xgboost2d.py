@@ -62,10 +62,13 @@ def test_simple(method=None):
         automl.trainable, automl.search_space, metric='val_loss',
         low_cost_partial_config=automl.low_cost_partial_config,
         points_to_evaluate=automl.points_to_evalaute,
+        cat_hp_cost=automl.cat_hp_cost,
         prune_attr=automl.prune_attr,
         min_resource=automl.min_resource,
         max_resource=automl.max_resource,
-        config_constraints=[(automl.size, '<=', automl._mem_thres)])
+        time_budget_s=automl._state.time_budget,
+        config_constraints=[(automl.size, '<=', automl._mem_thres)],
+        metric_constraints=automl.metric_constraints)
     print(analysis.trials[-1])
 
 

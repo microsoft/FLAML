@@ -832,8 +832,33 @@ class AutoML:
             return c
         else:
             configs = []
-            for i, estimator in enumerate(self.estimator_list):
+            for estimator in self.estimator_list:
                 c = self._search_states[estimator].low_cost_partial_config
+                configs.append(c)
+            config = {'ml': configs}
+        return config
+
+    @property
+    def cat_hp_cost(self) -> dict:
+        '''Categorical hyperparameter cost
+
+        Returns:
+            A dict.
+            (a) if there is only one estimator in estimator_list, each key is a
+            hyperparameter name
+            (b) otherwise, it is a nested dict with 'ml' as the key, and
+            a list of the cat_hp_cost's as the value, corresponding
+            to each learner's cat_hp_cost
+
+        '''
+        if len(self.estimator_list) == 1:
+            estimator = self.estimator_list[0]
+            c = self._search_states[estimator].cat_hp_cost
+            return c
+        else:
+            configs = []
+            for estimator in self.estimator_list:
+                c = self._search_states[estimator].cat_hp_cost
                 configs.append(c)
             config = {'ml': configs}
         return config
@@ -924,6 +949,19 @@ class AutoML:
             return learner_class.size(config)
 
         return size_func
+
+    @property
+    def metric_constraints(self) -> list:
+        '''Metric constraints
+
+        Returns:
+            A list of the metric constraints
+        '''
+        constraints = []
+        if np.isfinite(self._pred_time_limit):
+            constraints.append(
+                ('pred_time', '<=', self._pred_time_limit))
+        return constraints
 
     def fit(self,
             X_train=None,
@@ -1207,10 +1245,6 @@ class AutoML:
                     points_to_evaluate = [search_state.init_config]
                     low_cost_partial_config = search_state.low_cost_partial_config
                 if self._hpo_method in ('bs', 'cfo', 'grid'):
-                    metric_constraints = []
-                    if np.isfinite(self._pred_time_limit):
-                        metric_constraints.append(
-                            ('pred_time', '<=', self._pred_time_limit))
                     algo = SearchAlgo(
                         metric='val_loss', mode='min', space=search_space,
                         points_to_evaluate=points_to_evaluate,
@@ -1222,7 +1256,7 @@ class AutoML:
                         config_constraints=[
                             (learner_class.size, '<=', self._mem_thres)
                         ],
-                        metric_constraints=metric_constraints,
+                        metric_constraints=self.metric_constraints,
                     )
                 else:
                     algo = SearchAlgo(
