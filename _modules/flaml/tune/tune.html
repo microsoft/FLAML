@@ -487,9 +487,9 @@
             <span class="n">result</span> <span class="o">=</span> <span class="n">training_function</span><span class="p">(</span><span class="n">trial_to_run</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-                    <span class="n">tune</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="o">**</span><span class="n">result</span><span class="p">)</span>
+                    <span class="n">report</span><span class="p">(</span><span class="o">**</span><span class="n">result</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">tune</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="n">_metric</span><span class="o">=</span><span class="n">result</span><span class="p">)</span>
+                    <span class="n">report</span><span class="p">(</span><span class="n">_metric</span><span class="o">=</span><span class="n">result</span><span class="p">)</span>
             <span class="n">_runner</span><span class="o">.</span><span class="n">stop_trial</span><span class="p">(</span><span class="n">trial_to_run</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">verbose</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">handlers</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
