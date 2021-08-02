@@ -2,7 +2,7 @@
 try:
     from ray.tune import sample
 except ImportError:
-    from .tune import sample
+    from . import sample
 from typing import Dict, Optional, Any
 import logging
 
@@ -25,6 +25,7 @@ def define_by_run_func(
             config[key] = domain
             continue
         sampler = domain.get_sampler()
+        quantize = None
         if isinstance(sampler, sample.Quantized):
             quantize = sampler.q
             sampler = sampler.sampler
@@ -67,11 +68,11 @@ def define_by_run_func(
                     key += f":{index}"
                     # the suffix needs to be removed from the final config
                     config[key] = define_by_run_func(trial, choice, key)
-
-        raise ValueError(
-            "Optuna search does not support parameters of type "
-            "`{}` with samplers of type `{}`".format(
-                type(domain).__name__,
-                type(domain.sampler).__name__))
+        else:
+            raise ValueError(
+                "Optuna search does not support parameters of type "
+                "`{}` with samplers of type `{}`".format(
+                    type(domain).__name__,
+                    type(domain.sampler).__name__))
     # Return all constants in a dictionary.
     return config

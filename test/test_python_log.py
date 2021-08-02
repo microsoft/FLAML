@@ -45,6 +45,10 @@ class TestLogging(unittest.TestCase):
             logger.info(automl.search_space)
             logger.info(automl.low_cost_partial_config)
             logger.info(automl.points_to_evalaute)
+            import optuna as ot
+            study = ot.create_study()
+            from flaml.tune.space import define_by_run_func
+            logger.info(define_by_run_func(study.ask(), automl.search_space))
             config = automl.best_config.copy()
             config['learner'] = automl.best_estimator
             automl.trainable(config)
