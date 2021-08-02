@@ -810,28 +810,31 @@ class AutoML:
             space = self._search_states[estimator].search_space.copy()
             space['learner'] = estimator
             choices.append(space)
-        return {self._state.task: tune.choice(choices)}
+        return {'ml': tune.choice(choices)}
 
     @property
     def low_cost_partial_config(self) -> dict:
         '''Low cost partial config
 
         Returns:
-            A dict. Each key is a tuple of a single integer corresponding
-            to the learner's index in estimator_list. Each value is its
-            corresponding low_cost_partial_config
+            A dict. 
+            (a) if there is only one estimator in estimator_list, each key is a
+            hyperparameter name
+            (b) otherwise, it is a nested dict with 'ml' as the key, and
+            a list of the low_cost_partial_configs as the value, corresponding
+            to each learner's low_cost_partial_config
+
         '''
         if len(self.estimator_list) == 1:
             estimator = self.estimator_list[0]
             c = self._search_states[estimator].low_cost_partial_config
-            c['learner'] = estimator
             return c
         else:
-            config = {}
+            configs = []
             for i, estimator in enumerate(self.estimator_list):
                 c = self._search_states[estimator].low_cost_partial_config
-                c['learner'] = estimator
-                config[(i, )] = c
+                configs.append(c)
+            config = {'ml': configs}
         return config
 
     @property
@@ -845,7 +848,10 @@ class AutoML:
         for estimator in self.estimator_list:
             config = self._search_states[estimator].init_config
             config['learner'] = estimator
-            points.append(config)
+            if len(self.estimator_list) > 1:
+                points.append({'ml': config})
+            else:
+                points.append(config)
         return points
 
     @property
@@ -892,8 +898,11 @@ class AutoML:
         states = self._search_states
 
         def train(config: dict):
+            sample_size = config.get('FLAML_sample_size')
+            config = config.get('ml', config).copy()
+            if sample_size:
+                config['FLAML_sample_size'] = sample_size
             estimator = config['learner']
-            config = config.copy()
             del config['learner']
             states[estimator].training_function(config)
 

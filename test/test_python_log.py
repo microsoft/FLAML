@@ -43,6 +43,8 @@ class TestLogging(unittest.TestCase):
                        X_val=X_train[n:], y_val=y_train[n:],
                        **automl_settings)
             logger.info(automl.search_space)
+            logger.info(automl.low_cost_partial_config)
+            logger.info(automl.points_to_evalaute)
             config = automl.best_config.copy()
             config['learner'] = automl.best_estimator
             automl.trainable(config)
