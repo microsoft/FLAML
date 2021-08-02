@@ -818,7 +818,7 @@ class AutoML:
         '''Low cost partial config
 
         Returns:
-            A dict. 
+            A dict.
             (a) if there is only one estimator in estimator_list, each key is a
             hyperparameter name
             (b) otherwise, it is a nested dict with 'ml' as the key, and
@@ -908,6 +908,22 @@ class AutoML:
             states[estimator].training_function(config)
 
         return train
+
+    @property
+    def size(self) -> Callable[[dict], float]:
+        '''Size function
+
+        Returns:
+            A function that returns the mem size in bytes for a config
+        '''
+
+        def size_func(config: dict) -> float:
+            config = config.get('ml', config).copy
+            estimator = config['learner']
+            learner_class = self._state.learner_classes.get(estimator)
+            return learner_class.size(config)
+
+        return size_func
 
     def fit(self,
             X_train=None,
@@ -1092,7 +1108,7 @@ class AutoML:
         with training_log_writer(log_file_name) as save_helper:
             self._training_log = save_helper
             self._state.time_budget = time_budget
-            self.estimator_list = estimator_list
+            self.estimator_list = self._active_estimators = estimator_list
             self._ensemble = ensemble
             self._max_iter = max_iter
             self._mem_thres = mem_thres
@@ -1147,9 +1163,9 @@ class AutoML:
 
         for self._track_iter in range(self._max_iter):
             if self._estimator_index is None:
-                estimator = self.estimator_list[0]
+                estimator = self._active_estimators[0]
             else:
-                estimator = self._select_estimator(self.estimator_list)
+                estimator = self._select_estimator(self._active_estimators)
                 if not estimator:
                     break
             logger.info(
@@ -1317,7 +1333,7 @@ class AutoML:
             else:
                 logger.info(f"no enough budget for learner {estimator}")
                 if self._estimator_index is not None:
-                    self.estimator_list.remove(estimator)
+                    self._active_estimators.remove(estimator)
                     self._estimator_index -= 1
             if self._retrain_full and best_config_sig and not better and (
                 self._search_states[
@@ -1336,7 +1352,7 @@ class AutoML:
                 est_retrain_time = 0
             self._state.time_from_start = time.time() - self._start_time_flag
             if (self._state.time_from_start >= self._state.time_budget
-                    or not self.estimator_list):
+                    or not self._active_estimators):
                 break
             if self._ensemble and self._best_estimator:
                 time_left = self._state.time_budget - self._state.time_from_start

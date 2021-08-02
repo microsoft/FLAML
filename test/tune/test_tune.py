@@ -244,8 +244,8 @@ def test_run_training_function_return_value():
     from flaml import tune
 
     # Test dict return value
-    def evaluate_config_dict(config):
-        metric = (round(config['x'])-85000)**2 - config['x']/config['y']
+    def evaluate_config_dict(config): 
+        metric = (round(config['x']) - 85000)**2 - config['x'] / config['y']
         return {"metric": metric}
 
     tune.run(
@@ -259,7 +259,7 @@ def test_run_training_function_return_value():
 
     # Test scalar return value
     def evaluate_config_scalar(config):
-        metric = (round(config['x'])-85000)**2 - config['x']/config['y']
+        metric = (round(config['x']) - 85000)**2 - config['x'] / config['y']
         return metric
 
     tune.run(

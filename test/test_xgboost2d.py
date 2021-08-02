@@ -19,11 +19,11 @@ class XGBoost2D(XGBoostSklearnEstimator):
         return {
             'n_estimators': {
                 'domain': tune.lograndint(lower=4, upper=upper),
-                'init_value': 4,
+                'low_cost_init_value': 4,
             },
             'max_leaves': {
                 'domain': tune.lograndint(lower=4, upper=upper),
-                'init_value': 4,
+                'low_cost_init_value': 4,
             },
         }
 
@@ -64,7 +64,8 @@ def test_simple(method=None):
         points_to_evaluate=automl.points_to_evalaute,
         prune_attr=automl.prune_attr,
         min_resource=automl.min_resource,
-        max_resource=automl.max_resource)
+        max_resource=automl.max_resource,
+        config_constraints=[(automl.size, '<=', automl._mem_thres)])
     print(analysis.trials[-1])
 
 
