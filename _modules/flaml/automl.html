@@ -157,6 +157,7 @@
 <span class="sd"> * project root for license information.</span>
 <span class="sd">&#39;&#39;&#39;</span>
 <span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Optional</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
@@ -365,10 +366,11 @@
             <span class="s1">&#39;val_loss&#39;</span><span class="p">:</span> <span class="n">val_loss</span><span class="p">,</span>
             <span class="s1">&#39;trained_estimator&#39;</span><span class="p">:</span> <span class="n">trained_estimator</span>
         <span class="p">}</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">devnull</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">,</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">redirect_stdout</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
-            <span class="n">tune</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="o">**</span><span class="n">result</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">sampled_weight</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s1">&#39;sample_weight&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">weight</span>
+        <span class="c1"># with open(os.devnull, &quot;w&quot;) as f, contextlib.redirect_stdout(f):</span>
+        <span class="c1">#     tune.report(**result)</span>
+        <span class="k">return</span> <span class="n">result</span>
 
     <span class="k">def</span> <span class="nf">_train_with_config</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">estimator</span><span class="p">,</span> <span class="n">config_w_resource</span><span class="p">,</span> <span class="n">sample_size</span><span class="o">=</span><span class="kc">None</span>
@@ -943,6 +945,177 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="s1">&#39;holdout&#39;</span>
 
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">search_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="sd">&#39;&#39;&#39;Search space</span>
+<span class="sd">        Must be called after fit(...) (use max_iter=0 to prevent actual fitting)</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A dict of the search space</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">estimator_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">estimator_list</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">estimator</span> <span class="o">=</span> <span class="n">estimator_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="p">[</span><span class="n">estimator</span><span class="p">]</span><span class="o">.</span><span class="n">search_space</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">space</span><span class="p">[</span><span class="s1">&#39;learner&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">estimator</span>
+            <span class="k">return</span> <span class="n">space</span>
+        <span class="n">choices</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">estimator</span> <span class="ow">in</span> <span class="n">estimator_list</span><span class="p">:</span>
+            <span class="n">space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="p">[</span><span class="n">estimator</span><span class="p">]</span><span class="o">.</span><span class="n">search_space</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">space</span><span class="p">[</span><span class="s1">&#39;learner&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">estimator</span>
+            <span class="n">choices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">space</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;ml&#39;</span><span class="p">:</span> <span class="n">tune</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">choices</span><span class="p">)}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">low_cost_partial_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="sd">&#39;&#39;&#39;Low cost partial config</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A dict.</span>
+<span class="sd">            (a) if there is only one estimator in estimator_list, each key is a</span>
+<span class="sd">            hyperparameter name</span>
+<span class="sd">            (b) otherwise, it is a nested dict with &#39;ml&#39; as the key, and</span>
+<span class="sd">            a list of the low_cost_partial_configs as the value, corresponding</span>
+<span class="sd">            to each learner&#39;s low_cost_partial_config</span>
+
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">estimator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="p">[</span><span class="n">estimator</span><span class="p">]</span><span class="o">.</span><span class="n">low_cost_partial_config</span>
+            <span class="k">return</span> <span class="n">c</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">configs</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">estimator</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span><span class="p">:</span>
+                <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="p">[</span><span class="n">estimator</span><span class="p">]</span><span class="o">.</span><span class="n">low_cost_partial_config</span>
+                <span class="n">configs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+            <span class="n">config</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;ml&#39;</span><span class="p">:</span> <span class="n">configs</span><span class="p">}</span>
+        <span class="k">return</span> <span class="n">config</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">cat_hp_cost</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="sd">&#39;&#39;&#39;Categorical hyperparameter cost</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A dict.</span>
+<span class="sd">            (a) if there is only one estimator in estimator_list, each key is a</span>
+<span class="sd">            hyperparameter name</span>
+<span class="sd">            (b) otherwise, it is a nested dict with &#39;ml&#39; as the key, and</span>
+<span class="sd">            a list of the cat_hp_cost&#39;s as the value, corresponding</span>
+<span class="sd">            to each learner&#39;s cat_hp_cost</span>
+
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">estimator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="p">[</span><span class="n">estimator</span><span class="p">]</span><span class="o">.</span><span class="n">cat_hp_cost</span>
+            <span class="k">return</span> <span class="n">c</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">configs</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">estimator</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span><span class="p">:</span>
+                <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="p">[</span><span class="n">estimator</span><span class="p">]</span><span class="o">.</span><span class="n">cat_hp_cost</span>
+                <span class="n">configs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+            <span class="n">config</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;ml&#39;</span><span class="p">:</span> <span class="n">configs</span><span class="p">}</span>
+        <span class="k">return</span> <span class="n">config</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">points_to_evalaute</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="sd">&#39;&#39;&#39;Initial points to evaluate</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A list of dicts. Each dict is the initial point for each learner</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">estimator</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span><span class="p">:</span>
+            <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="p">[</span><span class="n">estimator</span><span class="p">]</span><span class="o">.</span><span class="n">init_config</span>
+            <span class="n">config</span><span class="p">[</span><span class="s1">&#39;learner&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">estimator</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">points</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">&#39;ml&#39;</span><span class="p">:</span> <span class="n">config</span><span class="p">})</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">points</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">prune_attr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">&#39;&#39;&#39;Attribute for pruning</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A string for the sample size attribute or None</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="s1">&#39;FLAML_sample_size&#39;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">min_resource</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+        <span class="sd">&#39;&#39;&#39;Attribute for pruning</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A float for the minimal sample size or None</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="n">MIN_SAMPLE_TRAIN</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">max_resource</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+        <span class="sd">&#39;&#39;&#39;Attribute for pruning</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A float for the maximal sample size or None</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">data_size</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">trainable</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">dict</span><span class="p">],</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]]:</span>
+        <span class="sd">&#39;&#39;&#39;Training function</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A function that evaluates each config and returns the loss</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">time_from_start</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">estimator</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span><span class="p">:</span>
+            <span class="n">search_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="p">[</span><span class="n">estimator</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">search_state</span><span class="p">,</span> <span class="s1">&#39;training_function&#39;</span><span class="p">):</span>
+                <span class="n">search_state</span><span class="o">.</span><span class="n">training_function</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span>
+                    <span class="n">AutoMLState</span><span class="o">.</span><span class="n">_compute_with_config_base</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="p">,</span> <span class="n">estimator</span><span class="p">)</span>
+        <span class="n">states</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span>
+
+        <span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">sample_size</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;FLAML_sample_size&#39;</span><span class="p">)</span>
+            <span class="n">config</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;ml&#39;</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">sample_size</span><span class="p">:</span>
+                <span class="n">config</span><span class="p">[</span><span class="s1">&#39;FLAML_sample_size&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sample_size</span>
+            <span class="n">estimator</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;learner&#39;</span><span class="p">]</span>
+            <span class="k">del</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;learner&#39;</span><span class="p">]</span>
+            <span class="n">states</span><span class="p">[</span><span class="n">estimator</span><span class="p">]</span><span class="o">.</span><span class="n">training_function</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">train</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">dict</span><span class="p">],</span> <span class="nb">float</span><span class="p">]:</span>
+        <span class="sd">&#39;&#39;&#39;Size function</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A function that returns the mem size in bytes for a config</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="k">def</span> <span class="nf">size_func</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+            <span class="n">config</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;ml&#39;</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span>
+            <span class="n">estimator</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;learner&#39;</span><span class="p">]</span>
+            <span class="n">learner_class</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">learner_classes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">estimator</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">learner_class</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">size_func</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">metric_constraints</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+        <span class="sd">&#39;&#39;&#39;Metric constraints</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A list of the metric constraints</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">constraints</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pred_time_limit</span><span class="p">):</span>
+            <span class="n">constraints</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">(</span><span class="s1">&#39;pred_time&#39;</span><span class="p">,</span> <span class="s1">&#39;&lt;=&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pred_time_limit</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">constraints</span>
+
 <div class="viewcode-block" id="AutoML.fit"><a class="viewcode-back" href="../../index.html#flaml.AutoML.fit">[docs]</a>    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
             <span class="n">X_train</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">y_train</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -1122,11 +1295,12 @@
             <span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;List of ML learners in AutoML Run: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
             <span class="n">estimator_list</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span> <span class="o">=</span> <span class="n">estimator_list</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_hpo_method</span> <span class="o">=</span> <span class="n">hpo_method</span> <span class="ow">or</span> <span class="s1">&#39;cfo&#39;</span>
         <span class="k">with</span> <span class="n">training_log_writer</span><span class="p">(</span><span class="n">log_file_name</span><span class="p">)</span> <span class="k">as</span> <span class="n">save_helper</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_training_log</span> <span class="o">=</span> <span class="n">save_helper</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">time_budget</span> <span class="o">=</span> <span class="n">time_budget</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span> <span class="o">=</span> <span class="n">estimator_list</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_active_estimators</span> <span class="o">=</span> <span class="n">estimator_list</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_ensemble</span> <span class="o">=</span> <span class="n">ensemble</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_max_iter</span> <span class="o">=</span> <span class="n">max_iter</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_mem_thres</span> <span class="o">=</span> <span class="n">mem_thres</span>
@@ -1181,9 +1355,9 @@
 
         <span class="k">for</span> <span class="bp">self</span><span class="o">.</span><span class="n">_track_iter</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_iter</span><span class="p">):</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_estimator_index</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">estimator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">estimator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_estimators</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">estimator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_estimator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span><span class="p">)</span>
+                <span class="n">estimator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_estimator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_estimators</span><span class="p">)</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">estimator</span><span class="p">:</span>
                     <span class="k">break</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
@@ -1224,10 +1398,6 @@
                     <span class="n">points_to_evaluate</span> <span class="o">=</span> <span class="p">[</span><span class="n">search_state</span><span class="o">.</span><span class="n">init_config</span><span class="p">]</span>
                     <span class="n">low_cost_partial_config</span> <span class="o">=</span> <span class="n">search_state</span><span class="o">.</span><span class="n">low_cost_partial_config</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hpo_method</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;bs&#39;</span><span class="p">,</span> <span class="s1">&#39;cfo&#39;</span><span class="p">,</span> <span class="s1">&#39;grid&#39;</span><span class="p">):</span>
-                    <span class="n">metric_constraints</span> <span class="o">=</span> <span class="p">[]</span>
-                    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pred_time_limit</span><span class="p">):</span>
-                        <span class="n">metric_constraints</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                            <span class="p">(</span><span class="s1">&#39;pred_time&#39;</span><span class="p">,</span> <span class="s1">&#39;&lt;=&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pred_time_limit</span><span class="p">))</span>
                     <span class="n">algo</span> <span class="o">=</span> <span class="n">SearchAlgo</span><span class="p">(</span>
                         <span class="n">metric</span><span class="o">=</span><span class="s1">&#39;val_loss&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;min&#39;</span><span class="p">,</span> <span class="n">space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
                         <span class="n">points_to_evaluate</span><span class="o">=</span><span class="n">points_to_evaluate</span><span class="p">,</span>
@@ -1239,7 +1409,7 @@
                         <span class="n">config_constraints</span><span class="o">=</span><span class="p">[</span>
                             <span class="p">(</span><span class="n">learner_class</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="s1">&#39;&lt;=&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mem_thres</span><span class="p">)</span>
                         <span class="p">],</span>
-                        <span class="n">metric_constraints</span><span class="o">=</span><span class="n">metric_constraints</span><span class="p">,</span>
+                        <span class="n">metric_constraints</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_constraints</span><span class="p">,</span>
                     <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">algo</span> <span class="o">=</span> <span class="n">SearchAlgo</span><span class="p">(</span>
@@ -1351,7 +1521,7 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;no enough budget for learner </span><span class="si">{</span><span class="n">estimator</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_estimator_index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">estimator</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_active_estimators</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">estimator</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_estimator_index</span> <span class="o">-=</span> <span class="mi">1</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_retrain_full</span> <span class="ow">and</span> <span class="n">best_config_sig</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">better</span> <span class="ow">and</span> <span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="p">[</span>
@@ -1370,7 +1540,7 @@
                 <span class="n">est_retrain_time</span> <span class="o">=</span> <span class="mi">0</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">time_from_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_time_flag</span>
             <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">time_from_start</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">time_budget</span>
-                    <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span><span class="p">):</span>
+                    <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_estimators</span><span class="p">):</span>
                 <span class="k">break</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensemble</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_best_estimator</span><span class="p">:</span>
                 <span class="n">time_left</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">time_budget</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">time_from_start</span>

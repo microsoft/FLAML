@@ -608,6 +608,9 @@
     <span class="k">def</span> <span class="nf">_get_search_algo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
                          <span class="n">search_algo_name</span><span class="p">,</span>
                          <span class="n">search_algo_args_mode</span><span class="p">,</span>
+                         <span class="n">time_budget</span><span class="p">,</span>
+                         <span class="n">metric_name</span><span class="p">,</span>
+                         <span class="n">metric_mode_name</span><span class="p">,</span>
                          <span class="o">**</span><span class="n">custom_hpo_args</span><span class="p">):</span>
         <span class="kn">from</span> <span class="nn">.hpo.searchalgo_auto</span> <span class="kn">import</span> <span class="n">AutoSearchAlgorithm</span>
 
@@ -617,6 +620,9 @@
             <span class="n">search_algo_name</span><span class="p">,</span>
             <span class="n">search_algo_args_mode</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_search_space_hpo</span><span class="p">,</span>
+            <span class="n">time_budget</span><span class="p">,</span>
+            <span class="n">metric_name</span><span class="p">,</span>
+            <span class="n">metric_mode_name</span><span class="p">,</span>
             <span class="o">**</span><span class="n">custom_hpo_args</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">search_algo</span>
 
@@ -898,7 +904,12 @@
         <span class="n">ray</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">local_mode</span><span class="o">=</span><span class="n">ray_local_mode</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_search_space</span><span class="p">(</span><span class="o">**</span><span class="n">custom_hpo_args</span><span class="p">)</span>
 
-        <span class="n">search_algo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_search_algo</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">jobid_config</span><span class="o">.</span><span class="n">alg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobid_config</span><span class="o">.</span><span class="n">arg</span><span class="p">,</span> <span class="o">**</span><span class="n">custom_hpo_args</span><span class="p">)</span>
+        <span class="n">search_algo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_search_algo</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">jobid_config</span><span class="o">.</span><span class="n">alg</span><span class="p">,</span>
+                                            <span class="bp">self</span><span class="o">.</span><span class="n">jobid_config</span><span class="o">.</span><span class="n">arg</span><span class="p">,</span>
+                                            <span class="n">time_budget</span><span class="p">,</span>
+                                            <span class="bp">self</span><span class="o">.</span><span class="n">metric_name</span><span class="p">,</span>
+                                            <span class="bp">self</span><span class="o">.</span><span class="n">metric_mode_name</span><span class="p">,</span>
+                                            <span class="o">**</span><span class="n">custom_hpo_args</span><span class="p">)</span>
         <span class="n">scheduler</span> <span class="o">=</span> <span class="n">AutoScheduler</span><span class="o">.</span><span class="n">from_scheduler_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">jobid_config</span><span class="o">.</span><span class="n">pru</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ckpt_per_epoch</span> <span class="o">=</span> <span class="n">ckpt_per_epoch</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">path_utils</span><span class="o">.</span><span class="n">make_dir_per_run</span><span class="p">()</span>

@@ -165,10 +165,11 @@
     <span class="kn">from</span> <span class="nn">ray.tune.suggest</span> <span class="kn">import</span> <span class="n">Searcher</span>
     <span class="kn">from</span> <span class="nn">ray.tune.suggest.optuna</span> <span class="kn">import</span> <span class="n">OptunaSearch</span> <span class="k">as</span> <span class="n">GlobalSearch</span>
     <span class="kn">from</span> <span class="nn">ray.tune.suggest.variant_generator</span> <span class="kn">import</span> <span class="n">generate_variants</span>
+    <span class="kn">from</span> <span class="nn">ray.tune.utils.util</span> <span class="kn">import</span> <span class="n">flatten_dict</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
     <span class="kn">from</span> <span class="nn">.suggestion</span> <span class="kn">import</span> <span class="n">Searcher</span>
     <span class="kn">from</span> <span class="nn">.suggestion</span> <span class="kn">import</span> <span class="n">OptunaSearch</span> <span class="k">as</span> <span class="n">GlobalSearch</span>
-    <span class="kn">from</span> <span class="nn">.variant_generator</span> <span class="kn">import</span> <span class="n">generate_variants</span>
+    <span class="kn">from</span> <span class="nn">.variant_generator</span> <span class="kn">import</span> <span class="n">generate_variants</span><span class="p">,</span> <span class="n">flatten_dict</span>
 <span class="kn">from</span> <span class="nn">.search_thread</span> <span class="kn">import</span> <span class="n">SearchThread</span>
 <span class="kn">from</span> <span class="nn">.flow2</span> <span class="kn">import</span> <span class="n">FLOW2</span>
 
@@ -201,7 +202,8 @@
                      <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">dict</span><span class="p">],</span> <span class="nb">float</span><span class="p">],</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                  <span class="n">metric_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
                      <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-                 <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">20</span><span class="p">):</span>
+                 <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
+                 <span class="n">experimental</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;Constructor</span>
 
 <span class="sd">        Args:</span>
@@ -259,6 +261,7 @@
 <span class="sd">            metric_constraints: A list of metric constraints to be satisfied.</span>
 <span class="sd">                e.g., `[&#39;precision&#39;, &#39;&gt;=&#39;, 0.9]`</span>
 <span class="sd">            seed: An integer of the random seed.</span>
+<span class="sd">            experimental: A bool of whether to use experimental features.</span>
 <span class="sd">        &#39;&#39;&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span> <span class="o">=</span> <span class="n">metric</span><span class="p">,</span> <span class="n">mode</span>
         <span class="n">init_config</span> <span class="o">=</span> <span class="n">low_cost_partial_config</span> <span class="ow">or</span> <span class="p">{}</span>
@@ -280,11 +283,20 @@
         <span class="k">elif</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;__name__&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="o">!=</span> <span class="s1">&#39;CFO&#39;</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">gs_seed</span> <span class="o">=</span> <span class="n">seed</span> <span class="o">-</span> <span class="mi">10</span> <span class="k">if</span> <span class="p">(</span><span class="n">seed</span> <span class="o">-</span> <span class="mi">10</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">seed</span> <span class="o">-</span> <span class="mi">11</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">32</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span> <span class="o">=</span> <span class="n">GlobalSearch</span><span class="p">(</span><span class="n">space</span><span class="o">=</span><span class="n">space</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">gs_seed</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">experimental</span><span class="p">:</span>
+                    <span class="kn">import</span> <span class="nn">optuna</span> <span class="k">as</span> <span class="nn">ot</span>
+                    <span class="n">sampler</span> <span class="o">=</span> <span class="n">ot</span><span class="o">.</span><span class="n">samplers</span><span class="o">.</span><span class="n">TPESampler</span><span class="p">(</span>
+                        <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span> <span class="n">multivariate</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">sampler</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span> <span class="o">=</span> <span class="n">GlobalSearch</span><span class="p">(</span>
+                    <span class="n">space</span><span class="o">=</span><span class="n">space</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">gs_seed</span><span class="p">,</span>
+                    <span class="n">sampler</span><span class="o">=</span><span class="n">sampler</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span> <span class="o">=</span> <span class="n">GlobalSearch</span><span class="p">(</span><span class="n">space</span><span class="o">=</span><span class="n">space</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_experimental</span> <span class="o">=</span> <span class="n">experimental</span>
         <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;__name__&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;CFO&#39;</span> <span class="ow">and</span> <span class="n">points_to_evaluate</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span>
            <span class="n">points_to_evaluate</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="c1"># use the best config in points_to_evaluate as the start point</span>
@@ -445,8 +457,14 @@
                 <span class="n">objective</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">metric</span><span class="p">]</span>
                 <span class="k">if</span> <span class="p">(</span><span class="n">objective</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_target</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">metric_op</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_metric_target</span> <span class="o">=</span> <span class="n">objective</span>
-                <span class="k">if</span> <span class="n">thread_id</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">metric_constraint_satisfied</span> \
-                   <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_condition</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">thread_id</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraint_satisfied</span><span class="p">:</span>
+                        <span class="c1"># no point has been found to satisfy metric constraint</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_expand_admissible_region</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_experimental</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span><span class="o">.</span><span class="n">add_evaluated_point</span><span class="p">(</span><span class="n">flatten_dict</span><span class="p">(</span><span class="n">config</span><span class="p">),</span> <span class="n">objective</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">metric_constraint_satisfied</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_condition</span><span class="p">(</span>
+                        <span class="n">result</span><span class="p">):</span>
                     <span class="c1"># thread creator</span>
                     <span class="n">thread_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_thread_count</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_started_from_given</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_candidate_start_points</span> \
@@ -456,9 +474,6 @@
                     <span class="k">else</span><span class="p">:</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">_started_from_low_cost</span> <span class="o">=</span> <span class="kc">True</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_create_thread</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
-                <span class="k">elif</span> <span class="n">thread_id</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraint_satisfied</span><span class="p">:</span>
-                    <span class="c1"># no point has been found to satisfy metric constraint</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_expand_admissible_region</span><span class="p">()</span>
                 <span class="c1"># reset admissible region to ls bounding box</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_min</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_max</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">)</span>
