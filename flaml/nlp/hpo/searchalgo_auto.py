@@ -161,22 +161,6 @@ def default_search_algo_args_bs(search_args_mode,
     return default_search_algo_args
 
 
-def default_search_algo_args_skopt(hpo_search_space=None):
-    return {}
-
-
-def default_search_algo_args_dragonfly(hpo_search_space=None):
-    return {}
-
-
-def default_search_algo_args_nevergrad(hpo_search_space=None):
-    return {}
-
-
-def default_search_algo_args_hyperopt(hpo_search_space=None):
-    return {}
-
-
 def default_search_algo_args_grid_search(search_args_mode,
                                          metric_name,
                                          metric_mode_name,
