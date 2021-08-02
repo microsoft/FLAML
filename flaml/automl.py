@@ -213,10 +213,11 @@ class AutoMLState:
             'val_loss': val_loss,
             'trained_estimator': trained_estimator
         }
-        with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
-            tune.report(**result)
         if sampled_weight is not None:
             self.fit_kwargs['sample_weight'] = weight
+        # with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
+        #     tune.report(**result)
+        return result
 
     def _train_with_config(
         self, estimator, config_w_resource, sample_size=None

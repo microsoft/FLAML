@@ -51,7 +51,7 @@ class TestLogging(unittest.TestCase):
             logger.info(define_by_run_func(study.ask(), automl.search_space))
             config = automl.best_config.copy()
             config['learner'] = automl.best_estimator
-            automl.trainable(config)
+            automl.trainable({"ml": config})
             # Check if the log buffer is populated.
             self.assertTrue(len(buf.getvalue()) > 0)
 
