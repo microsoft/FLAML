@@ -971,7 +971,7 @@ class AutoML:
             metric='auto',
             task='classification',
             n_jobs=-1,
-            log_file_name='default.log',
+            log_file_name='flaml.log',
             estimator_list='auto',
             time_budget=60,
             max_iter=1000000,
@@ -1144,21 +1144,25 @@ class AutoML:
             estimator_list))
         self.estimator_list = estimator_list
         self._hpo_method = hpo_method or 'cfo'
-        with training_log_writer(log_file_name) as save_helper:
-            self._training_log = save_helper
-            self._state.time_budget = time_budget
-            self._active_estimators = estimator_list.copy()
-            self._ensemble = ensemble
-            self._max_iter = max_iter
-            self._mem_thres = mem_thres
-            self._pred_time_limit = pred_time_limit
-            self._state.train_time_limit = train_time_limit
-            self._log_type = log_type
-            self.split_ratio = split_ratio
-            self._save_model_history = model_history
-            self._state.n_jobs = n_jobs
+        self._state.time_budget = time_budget
+        self._active_estimators = estimator_list.copy()
+        self._ensemble = ensemble
+        self._max_iter = max_iter
+        self._mem_thres = mem_thres
+        self._pred_time_limit = pred_time_limit
+        self._state.train_time_limit = train_time_limit
+        self._log_type = log_type
+        self.split_ratio = split_ratio
+        self._save_model_history = model_history
+        self._state.n_jobs = n_jobs
+        if log_file_name:
+            with training_log_writer(log_file_name) as save_helper:
+                self._training_log = save_helper
+                self._search()
+        else:
+            self._training_log = None
             self._search()
-            logger.info("fit succeeded")
+        logger.info("fit succeeded")
         if verbose == 0:
             logger.setLevel(old_level)
 
@@ -1323,17 +1327,18 @@ class AutoML:
                     better = True
                     next_trial_time = search_state.time2eval_best
                 if better or self._log_type == 'all':
-                    self._training_log.append(
-                        self._iter_per_learner[estimator],
-                        search_state.train_loss,
-                        search_state.trial_time,
-                        self._state.time_from_start,
-                        search_state.val_loss,
-                        search_state.config,
-                        search_state.best_loss,
-                        search_state.best_config,
-                        estimator,
-                        search_state.sample_size)
+                    if self._training_log:
+                        self._training_log.append(
+                            self._iter_per_learner[estimator],
+                            search_state.train_loss,
+                            search_state.trial_time,
+                            self._state.time_from_start,
+                            search_state.val_loss,
+                            search_state.config,
+                            search_state.best_loss,
+                            search_state.best_config,
+                            estimator,
+                            search_state.sample_size)
                     if mlflow is not None and mlflow.active_run():
                         with mlflow.start_run(nested=True):
                             mlflow.log_metric('iter_counter',
@@ -1396,7 +1401,8 @@ class AutoML:
                 if time_left < time_ensemble < 2 * time_left:
                     break
         # Add a checkpoint for the current best config to the log.
-        self._training_log.checkpoint()
+        if self._training_log:
+            self._training_log.checkpoint()
         if self._best_estimator:
             self._selected = self._search_states[self._best_estimator]
             self._trained_estimator = self._selected.trained_estimator
