@@ -19,6 +19,7 @@ except ImportError:
     from .variant_generator import generate_variants, flatten_dict
 from .search_thread import SearchThread
 from .flow2 import FLOW2
+from ..tune.space import exclusive_to_inclusive
 
 import logging
 logger = logging.getLogger(__name__)
@@ -151,6 +152,9 @@ class BlendSearch(Searcher):
             self._started_from_low_cost = not low_cost_partial_config
         else:
             self._candidate_start_points = None
+        if space:
+            # the upper bound of randint and lograndint is exclusive
+            space = exclusive_to_inclusive(space)
         self._ls = self.LocalSearch(
             init_config, metric, mode, cat_hp_cost, space, prune_attr,
             min_resource, max_resource, reduction_factor, self.cost_attr, seed)

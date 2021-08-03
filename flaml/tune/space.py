@@ -50,12 +50,16 @@ def define_by_run_func(
         elif isinstance(domain, sample.Integer):
             if isinstance(sampler, sample.LogUniform):
                 trial.suggest_int(
-                    key, domain.lower, domain.upper, step=quantize or 1, log=True)
+                    key, domain.lower,
+                    domain.upper - int(bool(not quantize)),
+                    step=quantize or 1, log=True)
             elif isinstance(sampler, sample.Uniform):
                 # Upper bound should be inclusive for quantization and
                 # exclusive otherwise
                 trial.suggest_int(
-                    key, domain.lower, domain.upper, step=quantize or 1)
+                    key, domain.lower,
+                    domain.upper - int(bool(not quantize)),
+                    step=quantize or 1)
         elif isinstance(domain, sample.Categorical):
             if isinstance(sampler, sample.Uniform):
                 if not hasattr(domain, 'choices'):
@@ -76,3 +80,27 @@ def define_by_run_func(
                     type(domain.sampler).__name__))
     # Return all constants in a dictionary.
     return config
+
+
+def exclusive_to_inclusive(space: Dict) -> Dict:
+    """Change the upper bound from exclusive to inclusive.
+
+    Returns:
+        A copied dict with modified upper bound.
+    """
+    space = space.copy()
+    for key in space:
+        domain = space[key]
+        if not isinstance(domain, sample.Domain):
+            continue
+        sampler = domain.get_sampler()
+        if isinstance(sampler, sample.Quantized):
+            continue
+        if isinstance(domain, sample.Integer):
+            if isinstance(sampler, sample.LogUniform):
+                space[key] = sample.lograndint(
+                    domain.lower, domain.upper - 1, sampler.base)
+            elif isinstance(sampler, sample.Uniform):
+                space[key] = sample.randint(
+                    domain.lower, domain.upper - 1)
+    return space
