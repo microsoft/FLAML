@@ -404,7 +404,7 @@ def print_modelhub_result(console_args):
 
     for each_dat in ["glue", "yelp-polarity", "imdb", "amazon-polarity"]:
         model_configs = ["hp1", "hp2", "hp1_trainsize", "hp2_trainsize"]
-        if each_dat not in ["glue", "yelp-polarity", "imdb"]:
+        if each_dat not in ["glue", "yelp-polarity"]:
             model_configs = ["hp1", "hp2"]
         for model_config in model_configs:
             each_config = each_dat + "_" + model_config
