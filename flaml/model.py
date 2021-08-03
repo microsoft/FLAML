@@ -213,7 +213,7 @@ class LGBMEstimator(BaseEstimator):
                 'low_cost_init_value': 4,
             },
             'min_child_samples': {
-                'domain': tune.lograndint(lower=2, upper=2**7),
+                'domain': tune.lograndint(lower=2, upper=2**7 + 1),
                 'init_value': 20,
             },
             'learning_rate': {
@@ -225,7 +225,7 @@ class LGBMEstimator(BaseEstimator):
                 'init_value': 1.0,
             },
             'log_max_bin': {
-                'domain': tune.lograndint(lower=3, upper=10),
+                'domain': tune.lograndint(lower=3, upper=11),
                 'init_value': 8,
             },
             'colsample_bytree': {
@@ -629,7 +629,7 @@ class CatBoostEstimator(BaseEstimator):
 
     @classmethod
     def search_space(cls, data_size, **params):
-        upper = max(min(round(1500000 / data_size), 150), 11)
+        upper = max(min(round(1500000 / data_size), 150), 12)
         return {
             'early_stopping_rounds': {
                 'domain': tune.lograndint(lower=10, upper=upper),

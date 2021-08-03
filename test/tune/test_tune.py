@@ -168,7 +168,7 @@ def test_nested():
     search_space = {
         # test nested search space
         "cost_related": {
-            "a": tune.randint(1, 8),
+            "a": tune.randint(1, 9),
         },
         "b": tune.uniform(0.5, 1.0),
     }
