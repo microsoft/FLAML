@@ -71,16 +71,20 @@ config_search_space = {
 low_cost_partial_config={'x':1}
 
 # set up CFO
-search_alg_cfo = CFO(low_cost_partial_config=low_cost_partial_config)
+cfo = CFO(low_cost_partial_config=low_cost_partial_config)
 
-# set up BlendSearch. 
-search_alg_blendsearch = BlendSearch(metric="metric",
-            mode="min",
-            space=config_search_space,
-            low_cost_partial_config=low_cost_partial_config)
-# NOTE that when using BlendSearch as a search_alg in ray tune, you need to
-# configure the 'time_budget_s' for BlendSearch accordingly as follows such that BlendSearch is aware of the time budget. This step is not needed when BlendSearch is used as the search_alg in flaml.tune as it is already done automatically in flaml.
-search_alg_blendsearch.set_search_properties(config={"time_budget_s": time_budget_s})
+# set up BlendSearch
+blendsearch = BlendSearch(
+    metric="metric", mode="min",
+    space=config_search_space,
+    low_cost_partial_config=low_cost_partial_config)
+# NOTE: when using BlendSearch as a search_alg in ray tune, you need to
+# configure the 'time_budget_s' for BlendSearch accordingly as follows such that
+# BlendSearch is aware of the time budget. This step is not needed when
+# BlendSearch is used as the search_alg in flaml.tune as it is already done
+# automatically in flaml. Also, this step needs to be done after the search
+# space is passed to BlendSearch and before raytune.run.
+blendsearch.set_search_properties(config={"time_budget_s": time_budget_s})
 
 analysis = raytune.run(
     evaluate_config,    # the function to evaluate a config
@@ -90,11 +94,11 @@ analysis = raytune.run(
     num_samples=-1,    # the maximal number of configs to try, -1 means infinite
     time_budget_s=time_budget_s,   # the time budget in seconds
     local_dir='logs/',  # the local directory to store logs
-    search_alg=search_alg_blendsearch # or search_alg_cfo
+    search_alg=blendsearch  # or cfo
     )
 
 print(analysis.best_trial.last_result)  # the best trial's result
-print(analysis.best_config) # the best config
+print(analysis.best_config)  # the best config
 ```
 
 * Example for using NNI: An example of using BlendSearch with NNI can be seen in [test](https://github.com/microsoft/FLAML/tree/main/test/nni). CFO can be used as well in a similar manner. To run the example, first make sure you have [NNI](https://nni.readthedocs.io/en/stable/) installed, then run:
@@ -129,7 +133,7 @@ FLOW<sup>2</sup> only requires pairwise comparisons between function values to p
 1. It is applicable to general black-box functions with a good convergence rate in terms of loss.
 3. It provides theoretical guarantees on the total evaluation cost incurred.
 
-The GIFs attached below demostrates an example search trajectory of FLOW<sup>2</sup> shown in the loss and evaluation cost (i.e., the training time ) space respectively. From the demonstration, we can see that (1) FLOW<sup>2</sup> can quickly move toward the low-loss region, showing good convergence property and (2) FLOW<sup>2</sup> tends to avoid exploring the high-cost region until necessary.
+The GIFs attached below demonstrate an example search trajectory of FLOW<sup>2</sup> shown in the loss and evaluation cost (i.e., the training time ) space respectively. From the demonstration, we can see that (1) FLOW<sup>2</sup> can quickly move toward the low-loss region, showing good convergence property and (2) FLOW<sup>2</sup> tends to avoid exploring the high-cost region until necessary.
 
 <p align="center">
     <img align="center", src="https://github.com/microsoft/FLAML/blob/main/docs/images/heatmap_loss_cfo_12s.gif"  width=360>  <img align="center", src="https://github.com/microsoft/FLAML/blob/main/docs/images/heatmap_cost_cfo_12s.gif"  width=360> 
