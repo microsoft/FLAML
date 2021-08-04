@@ -43,6 +43,10 @@ def test_automl(budget=5, dataset_format='dataframe'):
     print(automl.min_resource)
 
 
+def test_automl_array():
+    test_automl(5, 'array')
+
+
 def test_mlflow():
     import subprocess
     import sys
@@ -66,9 +70,6 @@ def test_mlflow():
         '''The main flaml automl API'''
         automl.fit(X_train=X_train, y_train=y_train, **settings)
     # subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "mlflow"])
-
-
-test_automl(5, 'array')
 
 
 if __name__ == "__main__":
