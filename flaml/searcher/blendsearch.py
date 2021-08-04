@@ -236,29 +236,7 @@ class BlendSearch(Searcher):
         '''
         with open(checkpoint_path, "rb") as inputFile:
             state = pickle.load(inputFile)
-        self._metric_target = state._metric_target
-        self._search_thread_pool = state._search_thread_pool
-        self._thread_count = state._thread_count
-        self._init_used = state._init_used
-        self._trial_proposed_by = state._trial_proposed_by
-        self._ls_bound_min = state._ls_bound_min
-        self._ls_bound_max = state._ls_bound_max
-        self._gs_admissible_min = state._gs_admissible_min
-        self._gs_admissible_max = state._gs_admissible_max
-        self._result = state._result
-        self._deadline = state._deadline
-        self._metric, self._mode = state._metric, state._mode
-        self._points_to_evaluate = state._points_to_evaluate
-        self._gs = state._gs
-        self._ls = state._ls
-        self._config_constraints = state._config_constraints
-        self._metric_constraints = state._metric_constraints
-        self._metric_constraint_satisfied = state._metric_constraint_satisfied
-        self._metric_constraint_penalty = state._metric_constraint_penalty
-        self._candidate_start_points = state._candidate_start_points
-        if self._candidate_start_points:
-            self._started_from_given = state._started_from_given
-            self._started_from_low_cost = state._started_from_low_cost
+        self.__dict__ = state.__dict__
 
     @property
     def metric_target(self):
