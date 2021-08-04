@@ -104,3 +104,38 @@ def exclusive_to_inclusive(space: Dict) -> Dict:
                 space[key] = sample.randint(
                     domain.lower, domain.upper - 1)
     return space
+
+
+def add_cost_to_space(space: Dict, low_cost_point: Dict, choice_cost: Dict):
+    """Update the space in place by adding low_cost_point and choice_cost
+    """
+    for key in space:
+        domain = space[key]
+        if not isinstance(domain, sample.Domain):
+            continue
+        low_cost = low_cost_point.get(key)
+        choice_cost_list = choice_cost.get(key)
+        if isinstance(domain, sample.Categorical):
+            for i, cat in enumerate(domain.categories):
+                if isinstance(cat, dict):
+                    if isinstance(low_cost, list):
+                        low_cost_dict = low_cost[i]
+                    else:
+                        low_cost_dict = {}
+                    if choice_cost_list:
+                        choice_cost_dict = choice_cost_list[i]
+                    else:
+                        choice_cost_dict = {}
+                    if low_cost_dict or choice_cost_dict:
+                        add_cost_to_space(cat, low_cost_dict, choice_cost_dict)
+            if choice_cost_list:
+                if len(choice_cost_list) == len(domain.categories):
+                    domain.choice_cost = choice_cost_list
+                else:
+                    domain.choice_cost = choice_cost_list[-1]
+            if isinstance(low_cost, list) and low_cost not in domain.categories:
+                domain.low_cost_point = low_cost[-1]
+                return
+        if low_cost:
+            domain.low_cost_point = low_cost
+

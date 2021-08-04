@@ -13,8 +13,6 @@ from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold, \
     RepeatedKFold, GroupKFold
 from sklearn.utils import shuffle
 import pandas as pd
-import os
-import contextlib
 
 from .ml import compute_estimator, train_estimator, get_estimator_class, \
     get_classification_objective
@@ -835,6 +833,9 @@ class AutoML:
             for estimator in self.estimator_list:
                 c = self._search_states[estimator].low_cost_partial_config
                 configs.append(c)
+            configs.append(np.argmin([
+                self._state.learner_classes.get(estimator).cost_relative2lgbm()
+                for estimator in self.estimator_list]))
             config = {'ml': configs}
         return config
 
@@ -860,6 +861,9 @@ class AutoML:
             for estimator in self.estimator_list:
                 c = self._search_states[estimator].cat_hp_cost
                 configs.append(c)
+            configs.append([
+                self._state.learner_classes.get(estimator).cost_relative2lgbm()
+                for estimator in self.estimator_list])
             config = {'ml': configs}
         return config
 
