@@ -28,8 +28,8 @@ def load_openml_dataset(dataset_id, data_dir=None, random_state=0,
     Returns:
         X_train: Training data
         X_test:  Test data
-        y_train: A series of labels for training data
-        y_test:  A series of labels for test data
+        y_train: A series or array of labels for training data
+        y_test:  A series or array of labels for test data
     '''
     import os
     import openml
