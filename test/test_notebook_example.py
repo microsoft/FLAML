@@ -1,6 +1,7 @@
-def test_automl(budget=5):
+def test_automl(budget=5, dataset_format='dataframe'):
     from flaml.data import load_openml_dataset
-    X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=1169, data_dir='test/')
+    X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=1169, data_dir='test/',
+                                                           dataset_format=dataset_format)
     ''' import AutoML class from flaml package '''
     from flaml import AutoML
     automl = AutoML()
@@ -65,6 +66,9 @@ def test_mlflow():
         '''The main flaml automl API'''
         automl.fit(X_train=X_train, y_train=y_train, **settings)
     # subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "mlflow"])
+
+
+test_automl(5, 'array')
 
 
 if __name__ == "__main__":
