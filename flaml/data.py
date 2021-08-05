@@ -24,7 +24,7 @@ def load_openml_dataset(dataset_id, data_dir=None, random_state=0,
         dataset_format: A string specifying the format of returned dataset. Default is 'dataframe'.
             Can choose from ['dataframe', 'array'].
             If 'dataframe', the returned dataset will be a Pandas DataFrame.
-            If 'array', the returned dataset will be a NumPy array or a SciPy sparse matrix.     
+            If 'array', the returned dataset will be a NumPy array or a SciPy sparse matrix.
     Returns:
         X_train: Training data
         X_test:  Test data
