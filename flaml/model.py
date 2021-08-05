@@ -10,12 +10,20 @@ from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.ensemble import ExtraTreesRegressor, ExtraTreesClassifier
 from sklearn.linear_model import LogisticRegression
 from lightgbm import LGBMClassifier, LGBMRegressor
+from prophet import Prophet
+import statsmodels.api as sm
+from statsmodels.tsa.arima.model import ARIMA as ARIMA_estimator
+from statsmodels.tsa.statespace.sarimax import SARIMAX as SARIMAX_estimator
 from scipy.sparse import issparse
 import pandas as pd
 from . import tune
+import warnings
 
 import logging
+
 logger = logging.getLogger(__name__)
+
+warnings.filterwarnings("ignore")
 
 
 class BaseEstimator:
@@ -44,8 +52,14 @@ class BaseEstimator:
             self._estimator_type = params['_estimator_type']
             del self.params['_estimator_type']
         else:
-            self._estimator_type = "regressor" if task == 'regression' \
-                else "classifier"
+            if task == 'regression':
+                self._estimator_type = "regressor"
+            elif task == 'classification':
+                self._estimator_type = "classifier"
+            elif task == 'forecast':
+                self._estimator_type = "forecaster"
+            # self._estimator_type = "regressor" if task == 'regression' \
+            #     else "classifier"
 
     def get_params(self, deep=False):
         params = self.params.copy()
@@ -206,7 +220,7 @@ class LGBMEstimator(BaseEstimator):
                 'low_cost_init_value': 4,
             },
             'min_child_samples': {
-                'domain': tune.qloguniform(lower=2, upper=2**7, q=1),
+                'domain': tune.qloguniform(lower=2, upper=2 ** 7, q=1),
                 'init_value': 20,
             },
             'learning_rate': {
@@ -289,11 +303,11 @@ class LGBMEstimator(BaseEstimator):
             self.params["n_estimators"] = 4
             self._t2 = self._fit(X_train, y_train, **kwargs)
             self._time_per_iter = (self._t2 - self._t1) / (
-                self.params["n_estimators"] - 1) if self._t2 > self._t1 \
+                    self.params["n_estimators"] - 1) if self._t2 > self._t1 \
                 else self._t1 if self._t1 else 0.001
             self._train_size = X_train.shape[0]
             if self._t1 + self._t2 >= budget or n_iter == self.params[
-                    "n_estimators"]:
+                "n_estimators"]:
                 self.params["n_estimators"] = n_iter
                 return time.time() - start_time
         if budget is not None:
@@ -363,10 +377,10 @@ class XGBoostEstimator(SKLearnEstimator):
         return 1.6
 
     def __init__(
-        self, task='regression', all_thread=False, n_jobs=1,
-        n_estimators=4, max_leaves=4, subsample=1.0, min_child_weight=1,
-        learning_rate=0.1, reg_lambda=1.0, reg_alpha=0.0, colsample_bylevel=1.0,
-        colsample_bytree=1.0, tree_method='auto', **params
+            self, task='regression', all_thread=False, n_jobs=1,
+            n_estimators=4, max_leaves=4, subsample=1.0, min_child_weight=1,
+            learning_rate=0.1, reg_lambda=1.0, reg_alpha=0.0, colsample_bylevel=1.0,
+            colsample_bytree=1.0, tree_method='auto', **params
     ):
         super().__init__(task, **params)
         self._n_estimators = int(round(n_estimators))
@@ -439,11 +453,11 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         return XGBoostEstimator.cost_relative2lgbm()
 
     def __init__(
-        self, task='binary:logistic', n_jobs=1,
-        n_estimators=4, max_leaves=4, subsample=1.0,
-        min_child_weight=1, learning_rate=0.1, reg_lambda=1.0, reg_alpha=0.0,
-        colsample_bylevel=1.0, colsample_bytree=1.0, tree_method='hist',
-        **params
+            self, task='binary:logistic', n_jobs=1,
+            n_estimators=4, max_leaves=4, subsample=1.0,
+            min_child_weight=1, learning_rate=0.1, reg_lambda=1.0, reg_alpha=0.0,
+            colsample_bylevel=1.0, colsample_bytree=1.0, tree_method='hist',
+            **params
     ):
         super().__init__(task, **params)
         del self.params['objective']
@@ -512,8 +526,8 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         return 2.0
 
     def __init__(
-        self, task='binary:logistic', n_jobs=1,
-        n_estimators=4, max_features=1.0, criterion='gini', **params
+            self, task='binary:logistic', n_jobs=1,
+            n_estimators=4, max_features=1.0, criterion='gini', **params
     ):
         super().__init__(task, **params)
         del self.params['objective']
@@ -564,8 +578,8 @@ class LRL1Classifier(SKLearnEstimator):
         return 160
 
     def __init__(
-        self, task='binary:logistic', n_jobs=1, tol=0.0001, C=1.0,
-        **params
+            self, task='binary:logistic', n_jobs=1, tol=0.0001, C=1.0,
+            **params
     ):
         super().__init__(task, **params)
         self.params.update({
@@ -593,8 +607,8 @@ class LRL2Classifier(SKLearnEstimator):
         return 25
 
     def __init__(
-        self, task='binary:logistic', n_jobs=1, tol=0.0001, C=1.0,
-        **params
+            self, task='binary:logistic', n_jobs=1, tol=0.0001, C=1.0,
+            **params
     ):
         super().__init__(task, **params)
         self.params.update({
@@ -612,7 +626,6 @@ class LRL2Classifier(SKLearnEstimator):
 
 
 class CatBoostEstimator(BaseEstimator):
-
     _time_per_iter = None
     _train_size = 0
 
@@ -647,8 +660,8 @@ class CatBoostEstimator(BaseEstimator):
         CatBoostEstimator._train_size = 0
 
     def __init__(
-        self, task='binary:logistic', n_jobs=1,
-        n_estimators=8192, learning_rate=0.1, early_stopping_rounds=4, **params
+            self, task='binary:logistic', n_jobs=1,
+            n_estimators=8192, learning_rate=0.1, early_stopping_rounds=4, **params
     ):
         super().__init__(task, **params)
         self.params.update({
@@ -698,13 +711,13 @@ class CatBoostEstimator(BaseEstimator):
                 CatBoostEstimator._smallmodel.fit(
                     X_train, y_train, cat_features=cat_features, **kwargs)
                 CatBoostEstimator._time_per_iter = (
-                    time.time() - start_time - CatBoostEstimator._t1) / (
-                        self.params["n_estimators"] - 1)
+                                                           time.time() - start_time - CatBoostEstimator._t1) / (
+                                                           self.params["n_estimators"] - 1)
                 if CatBoostEstimator._time_per_iter <= 0:
                     CatBoostEstimator._time_per_iter = CatBoostEstimator._t1
                 CatBoostEstimator._train_size = len(y_train)
                 if time.time() - start_time >= budget or n_iter == self.params[
-                        "n_estimators"]:
+                    "n_estimators"]:
                     self.params["n_estimators"] = n_iter
                     self._model = CatBoostEstimator._smallmodel
                     return time.time() - start_time
@@ -730,7 +743,7 @@ class CatBoostEstimator(BaseEstimator):
                     eval_set=Pool(
                         data=X_train[n:], label=y_train[n:],
                         cat_features=cat_features),
-                    **kwargs)   # model.get_best_iteration()
+                    **kwargs)  # model.get_best_iteration()
                 if weight is not None:
                     kwargs['sample_weight'] = weight
                 self._model = model
@@ -759,7 +772,7 @@ class KNeighborsEstimator(BaseEstimator):
         return 30
 
     def __init__(
-        self, task='binary:logistic', n_jobs=1, n_neighbors=5, **params
+            self, task='binary:logistic', n_jobs=1, n_neighbors=5, **params
     ):
         super().__init__(task, **params)
         self.params.update({
@@ -782,3 +795,215 @@ class KNeighborsEstimator(BaseEstimator):
                     "kneighbor requires at least one numeric feature")
             X = X.drop(cat_columns, axis=1)
         return X
+
+
+class FBProphet(BaseEstimator):
+    @classmethod
+    def search_space(cls, **params):
+        space = {
+            'changepoint_prior_scale': {
+                'domain': tune.loguniform(lower=0.001, upper=1000),
+                'init_value': 0.01,
+                'low_cost_init_value': 0.001,
+            },
+            'seasonality_prior_scale': {
+                'domain': tune.loguniform(lower=0.01, upper=100),
+                'init_value': 0.01,
+            },
+            'holidays_prior_scale': {
+                'domain': tune.loguniform(lower=0.01, upper=100),
+                'init_value': 0.01,
+            },
+            'seasonality_mode': {
+                'domain': tune.choice(['additive', 'multiplicative']),
+                'init_value': 'additive',
+            }
+        }
+        return space
+
+    def fit(self, X_train, y_train, budget=None, **kwargs):
+        y_train = pd.DataFrame(y_train, columns=['y'])
+        train_df = X_train.join(y_train)
+
+        if ('ds' not in train_df) or ('y' not in train_df):
+            raise ValueError(
+                'Dataframe for training forecast model must have columns "ds" and "y" with the dates and '
+                'values respectively.'
+            )
+
+        if 'n_jobs' in self.params:
+            self.params.pop('n_jobs')
+
+        current_time = time.time()
+        model = Prophet(**self.params).fit(train_df)
+        train_time = time.time() - current_time
+        self._model = model
+        return train_time
+
+    def predict(self, X_test, freq=None):
+        if self._model is not None:
+            if isinstance(X_test, int) and freq is not None:
+                print('prophet forecasting using number of periods and freq')
+                future = self._model.make_future_dataframe(periods=X_test, freq=freq)
+                forecast = self._model.predict(future)
+            elif isinstance(X_test, pd.DataFrame):
+                forecast = self._model.predict(X_test)
+            else:
+                raise ValueError(
+                    "either X_train(pd.Dataframe with dates for predictions, column ds) or X_train(int number of periods)+freq are required")
+            return forecast['yhat']
+        else:
+            return np.ones(X_test.shape[0])
+
+
+class ARIMA(BaseEstimator):
+    @classmethod
+    def search_space(cls, **params):
+        space = {
+            'p': {
+                'domain': tune.quniform(lower=0, upper=10, q=1),
+                'init_value': 2,
+                'low_cost_init_value': 0,
+            },
+            'd': {
+                'domain': tune.quniform(lower=0, upper=10, q=1),
+                'init_value': 2,
+                'low_cost_init_value': 0,
+            },
+            'q': {
+                'domain': tune.quniform(lower=0, upper=10, q=1),
+                'init_value': 2,
+                'low_cost_init_value': 0,
+            }
+        }
+        return space
+
+    def fit(self, X_train, y_train, budget=None, **kwargs):
+        y_train = pd.DataFrame(y_train, columns=['y'])
+        train_df = X_train.join(y_train)
+
+        if ('ds' not in train_df) or ('y' not in train_df):
+            raise ValueError(
+                'Dataframe for training forecast model must have columns "ds" and "y" with the dates and '
+                'values respectively.'
+            )
+
+        train_df.index = pd.to_datetime(train_df['ds'])
+        train_df = train_df.drop('ds', axis=1)
+
+        if 'n_jobs' in self.params:
+            self.params.pop('n_jobs')
+
+        current_time = time.time()
+
+        model = ARIMA_estimator(train_df,
+                                order=(self.params['p'], self.params['d'], self.params['q']),
+                                enforce_stationarity=False,
+                                enforce_invertibility=False)
+
+        model = model.fit()
+        train_time = time.time() - current_time
+        self._model = model
+        return train_time
+
+    def predict(self, X_test, freq=None):
+        if self._model is not None:
+            if isinstance(X_test, int) and freq is not None:
+                print('arima forecasting using number of periods and freq')
+                forecast = self._model.forecast(steps=X_test).to_frame().reset_index()
+            elif isinstance(X_test, pd.DataFrame):
+                start_date = X_test.iloc[0, 0]
+                end_date = X_test.iloc[-1, 0]
+                forecast = self._model.predict(start=start_date, end=end_date)
+            else:
+                raise ValueError(
+                    "either X_train(pd.Dataframe with dates for predictions, column ds) or X_train(int number of periods)+freq are required")
+            return forecast
+        else:
+            return np.ones(X_test.shape[0])
+
+
+class SARIMAX(BaseEstimator):
+    @classmethod
+    def search_space(cls, **params):
+        space = {
+            'p': {
+                'domain': tune.quniform(lower=0, upper=10, q=1),
+                'init_value': 2,
+                'low_cost_init_value': 0,
+            },
+            'd': {
+                'domain': tune.quniform(lower=0, upper=10, q=1),
+                'init_value': 2,
+                'low_cost_init_value': 0,
+            },
+            'q': {
+                'domain': tune.quniform(lower=0, upper=10, q=1),
+                'init_value': 2,
+                'low_cost_init_value': 0,
+            },
+            'P': {
+                'domain': tune.quniform(lower=0, upper=10, q=1),
+                'init_value': 1,
+                'low_cost_init_value': 0,
+            },
+            'D': {
+                'domain': tune.quniform(lower=0, upper=10, q=1),
+                'init_value': 1,
+                'low_cost_init_value': 0,
+            },
+            'Q': {
+                'domain': tune.quniform(lower=0, upper=10, q=1),
+                'init_value': 1,
+                'low_cost_init_value': 0,
+            },
+            's': {
+                'domain': tune.choice([1, 4, 6, 12]),
+                'init_value': 12,
+            }
+        }
+        return space
+
+    def fit(self, X_train, y_train, budget=None, **kwargs):
+        y_train = pd.DataFrame(y_train, columns=['y'])
+        train_df = X_train.join(y_train)
+
+        if ('ds' not in train_df) or ('y' not in train_df):
+            raise ValueError(
+                'Dataframe for training forecast model must have columns "ds" and "y" with the dates and '
+                'values respectively.'
+            )
+
+        train_df.index = pd.to_datetime(train_df['ds'])
+        train_df = train_df.drop('ds', axis=1)
+
+        if 'n_jobs' in self.params:
+            self.params.pop('n_jobs')
+
+        current_time = time.time()
+
+        model = SARIMAX_estimator(train_df,
+                                  order=(self.params['p'], self.params['d'], self.params['q']),
+                                  enforce_stationarity=False,
+                                  enforce_invertibility=False)
+
+        model = model.fit()
+        train_time = time.time() - current_time
+        self._model = model
+        return train_time
+
+    def predict(self, X_test, freq=None):
+        if self._model is not None:
+            if isinstance(X_test, int) and freq is not None:
+                print('sarimax forecasting using number of periods and freq')
+                forecast = self._model.forecast(steps=X_test).to_frame().reset_index()
+            elif isinstance(X_test, pd.DataFrame):
+                start_date = X_test.iloc[0, 0]
+                end_date = X_test.iloc[-1, 0]
+                forecast = self._model.predict(start=start_date, end=end_date)
+            else:
+                raise ValueError(
+                    "either X_train(pd.Dataframe with dates for predictions, column ds) or X_train(int number of periods)+freq are required")
+            return forecast
+        else:
+            return np.ones(X_test.shape[0])

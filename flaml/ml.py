@@ -9,12 +9,12 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error, r2_score, roc_auc_score, \
     accuracy_score, mean_absolute_error, log_loss, average_precision_score, \
-    f1_score
-from sklearn.model_selection import RepeatedStratifiedKFold, GroupKFold
+    f1_score, mean_absolute_percentage_error
+from sklearn.model_selection import RepeatedStratifiedKFold, GroupKFold, TimeSeriesSplit
 from .model import (
     XGBoostEstimator, XGBoostSklearnEstimator, RandomForestEstimator,
     LGBMEstimator, LRL1Classifier, LRL2Classifier, CatBoostEstimator,
-    ExtraTreeEstimator, KNeighborsEstimator)
+    ExtraTreeEstimator, KNeighborsEstimator, FBProphet, ARIMA, SARIMAX)
 
 import logging
 logger = logging.getLogger(__name__)
@@ -42,6 +42,12 @@ def get_estimator_class(task, estimator_name):
         estimator_class = ExtraTreeEstimator
     elif 'kneighbor' in estimator_name:
         estimator_class = KNeighborsEstimator
+    elif 'prophet' in estimator_name:
+        estimator_class = FBProphet
+    elif estimator_name == 'arima':
+        estimator_class = ARIMA
+    elif estimator_name == 'sarimax':
+        estimator_class = SARIMAX
     else:
         raise ValueError(
             estimator_name + ' is not a built-in learner. '
@@ -89,6 +95,9 @@ def sklearn_metric_loss_score(
     elif 'log_loss' in metric_name:
         score = log_loss(
             y_true, y_predict, labels=labels, sample_weight=sample_weight)
+    elif 'mape' in metric_name:
+        score = mean_absolute_percentage_error(
+            y_true, y_predict)
     elif 'micro_f1' in metric_name:
         score = 1 - f1_score(
             y_true, y_predict, sample_weight=sample_weight, average='micro')
@@ -104,7 +113,7 @@ def sklearn_metric_loss_score(
         raise ValueError(
             metric_name + ' is not a built-in metric, '
             'currently built-in metrics are: '
-            'r2, rmse, mae, mse, accuracy, roc_auc, log_loss, f1, micro_f1, macro_f1, ap. '
+            'r2, rmse, mae, mse, accuracy, roc_auc, log_loss, mape, f1, micro_f1, macro_f1, ap. '
             'please pass a customized metric function to AutoML.fit(metric=func)')
     return score
 
@@ -194,15 +203,19 @@ def evaluate_model_CV(
     valid_fold_num = total_fold_num = 0
     n = kf.get_n_splits()
     X_train_split, y_train_split = X_train_all, y_train_all
-    if task == 'regression':
-        labels = None
-    else:
+    if task == 'classification':
         labels = np.unique(y_train_all)
+    else:
+        labels = None
 
     if isinstance(kf, RepeatedStratifiedKFold):
         kf = kf.split(X_train_split, y_train_split)
     elif isinstance(kf, GroupKFold):
         kf = kf.split(X_train_split, y_train_split, kf.groups)
+    elif isinstance(kf, TimeSeriesSplit):
+        y_train_all = pd.DataFrame(y_train_all, columns=['y'])
+        train = X_train_all.join(y_train_all)
+        kf = kf.split(train)
     else:
         kf = kf.split(X_train_split)
     rng = np.random.RandomState(2020)
@@ -214,7 +227,8 @@ def evaluate_model_CV(
     else:
         weight = weight_val = None
     for train_index, val_index in kf:
-        train_index = rng.permutation(train_index)
+        if task != 'forecast':
+            train_index = rng.permutation(train_index)
         if isinstance(X_train_all, pd.DataFrame):
             X_train, X_val = X_train_split.iloc[
                 train_index], X_train_split.iloc[val_index]
