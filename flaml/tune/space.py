@@ -4,6 +4,7 @@ try:
 except ImportError:
     from . import sample
 from typing import Dict, Optional, Any
+import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)
@@ -126,13 +127,25 @@ def add_cost_to_space(space: Dict, low_cost_point: Dict, choice_cost: Dict):
                         choice_cost_dict = choice_cost_list[i]
                     else:
                         choice_cost_dict = {}
-                    if low_cost_dict or choice_cost_dict:
-                        add_cost_to_space(cat, low_cost_dict, choice_cost_dict)
+                    add_cost_to_space(cat, low_cost_dict, choice_cost_dict)
             if choice_cost_list:
                 if len(choice_cost_list) == len(domain.categories):
                     domain.choice_cost = choice_cost_list
                 else:
                     domain.choice_cost = choice_cost_list[-1]
+                # sort the choices by cost
+                cost = np.array(domain.choice_cost)
+                ind = np.argsort(cost)
+                domain.categories = np.array(domain.categories)[ind].tolist()
+                domain.choice_cost = cost[ind]
+                domain.ordered = True
+            elif all(isinstance(x, int) or isinstance(x, float)
+                     for x in domain.categories):
+                # sort the choices by value
+                domain.categories.sort()
+                domain.ordered = True
+            else:
+                domain.ordered = False
             if isinstance(low_cost, list) and low_cost not in domain.categories:
                 domain.low_cost_point = low_cost[-1]
                 return

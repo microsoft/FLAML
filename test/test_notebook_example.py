@@ -44,7 +44,11 @@ def test_automl(budget=5, dataset_format='dataframe'):
 
 
 def test_automl_array():
-    test_automl(5, 'array')
+    from openml.exceptions import OpenMLServerException
+    try:
+        test_automl(5, 'array')
+    except OpenMLServerException:
+        print("OpenMLServerException raised")
 
 
 def test_mlflow():

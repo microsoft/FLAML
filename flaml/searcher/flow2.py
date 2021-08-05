@@ -31,7 +31,6 @@ class FLOW2(Searcher):
                  init_config: dict,
                  metric: Optional[str] = None,
                  mode: Optional[str] = None,
-                 cat_hp_cost: Optional[dict] = None,
                  space: Optional[dict] = None,
                  prune_attr: Optional[str] = None,
                  min_resource: Optional[float] = None,
@@ -95,7 +94,6 @@ class FLOW2(Searcher):
         self._seed = seed
         self.init_config = init_config
         self.best_config = flatten_dict(init_config)
-        self.cat_hp_cost = cat_hp_cost
         self.prune_attr = prune_attr
         self.min_resource = min_resource
         self.resource_multiple_factor = resource_multiple_factor or 4
@@ -112,14 +110,14 @@ class FLOW2(Searcher):
         # choices of numeric values. integer encoding.
         # value: (ordered list of choices,
         #  dict from choice to index in the ordered list)
-        self._ordered_choice_hp = {}
-        # choices with given cost. integer encoding.
-        # value: (array of choices ordered by cost,
-        #  dict from choice to index in the ordered array)
-        self._ordered_cat_hp = {}
-        # unordered choices. value: cardinality
+        # self._ordered_choice_hp = {}
+        # # choices with given cost. integer encoding.
+        # # value: (array of choices ordered by cost,
+        # #  dict from choice to index in the ordered array)
+        # self._ordered_cat_hp = {}
+        # # unordered choices. value: cardinality
         self._unordered_cat_hp = {}
-        self._cat_hp_cost = {}
+        # self._cat_hp_cost = {}
         for key, domain in self.space.items():
             assert not (isinstance(domain, dict) and 'grid_search' in domain), \
                 f"{key}'s domain is grid search, not supported in FLOW^2."
@@ -136,26 +134,26 @@ class FLOW2(Searcher):
                 elif isinstance(domain, sample.Integer) and str(sampler) == 'Uniform':
                     self._step_lb = min(
                         self._step_lb, 1.0 / (domain.upper - domain.lower))
-                if isinstance(domain, sample.Categorical):
-                    cat_hp_cost = self.cat_hp_cost
-                    if cat_hp_cost and key in cat_hp_cost:
-                        cost = np.array(cat_hp_cost[key])
-                        ind = np.argsort(cost)
-                        ordered = np.array(domain.categories)[ind]
-                        cost = self._cat_hp_cost[key] = cost[ind]
-                        d = {}
-                        for i, choice in enumerate(ordered):
-                            d[choice] = i
-                        self._ordered_cat_hp[key] = (ordered, d)
-                    elif all(isinstance(x, int) or isinstance(x, float)
-                             for x in domain.categories):
-                        ordered = sorted(domain.categories)
-                        d = {}
-                        for i, choice in enumerate(ordered):
-                            d[choice] = i
-                        self._ordered_choice_hp[key] = (ordered, d)
-                    else:
-                        self._unordered_cat_hp[key] = len(domain.categories)
+                if isinstance(domain, sample.Categorical) and not domain.ordered:
+                #     cat_hp_cost = self.cat_hp_cost
+                #     if cat_hp_cost and key in cat_hp_cost:
+                #         cost = np.array(cat_hp_cost[key])
+                #         ind = np.argsort(cost)
+                #         ordered = np.array(domain.categories)[ind]
+                #         cost = self._cat_hp_cost[key] = cost[ind]
+                #         d = {}
+                #         for i, choice in enumerate(ordered):
+                #             d[choice] = i
+                #         self._ordered_cat_hp[key] = (ordered, d)
+                #     elif all(isinstance(x, int) or isinstance(x, float)
+                #              for x in domain.categories):
+                #         ordered = sorted(domain.categories)
+                #         d = {}
+                #         for i, choice in enumerate(ordered):
+                #             d[choice] = i
+                #         self._ordered_choice_hp[key] = (ordered, d)
+                #     else:
+                    self._unordered_cat_hp[key] = len(domain.categories)
                 if str(sampler) != 'Normal':
                     self._bounded_keys.append(key)
         self._space_keys = list(self.space.keys())
@@ -255,22 +253,25 @@ class FLOW2(Searcher):
             normalized = self.normalize(partial_config)
             for key in normalized:
                 # don't change unordered cat choice
-                if key not in self._unordered_cat_hp:
-                    if upper and lower:
-                        up, low = upper[key], lower[key]
-                        gauss_std = up - low or self.STEPSIZE
-                        # allowed bound
-                        up += self.STEPSIZE
-                        low -= self.STEPSIZE
-                    elif key in self._bounded_keys:
-                        up, low, gauss_std = 1, 0, 1.0
-                    else:
-                        up, low, gauss_std = np.Inf, -np.Inf, 1.0
-                    if key in self._bounded_keys:
-                        up = min(up, 1)
-                        low = max(low, 0)
-                    delta = self.rand_vector_gaussian(1, gauss_std)[0]
-                    normalized[key] = max(low, min(up, normalized[key] + delta))
+                if key in self._unordered_cat_hp:
+                # domain = self.space.get(key)
+                # if hasattr(domain, 'ordered') and not domain.ordered:
+                    continue
+                if upper and lower:
+                    up, low = upper[key], lower[key]
+                    gauss_std = up - low or self.STEPSIZE
+                    # allowed bound
+                    up += self.STEPSIZE
+                    low -= self.STEPSIZE
+                elif key in self._bounded_keys:
+                    up, low, gauss_std = 1, 0, 1.0
+                else:
+                    up, low, gauss_std = np.Inf, -np.Inf, 1.0
+                if key in self._bounded_keys:
+                    up = min(up, 1)
+                    low = max(low, 0)
+                delta = self.rand_vector_gaussian(1, gauss_std)[0]
+                normalized[key] = max(low, min(up, normalized[key] + delta))
             # use best config for unordered cat choice
             config = self.denormalize(normalized)
         else:
@@ -294,7 +295,7 @@ class FLOW2(Searcher):
         # use the subspace where the init_config is located
         space = {k: self.space[k] for k in flatten_config if k in self.space}
         flow2 = self.__class__(
-            init_config, self.metric, self.mode, self._cat_hp_cost,
+            init_config, self.metric, self.mode,
             unflatten_dict(space), self.prune_attr,
             self.min_resource, self.max_resource,
             self.resource_multiple_factor, self.cost_attr, self._seed + 1)
@@ -316,18 +317,20 @@ class FLOW2(Searcher):
                 else:
                     if isinstance(domain, sample.Categorical):
                         # normalize categorical
-                        if key in self._ordered_cat_hp:
-                            l, d = self._ordered_cat_hp[key]
-                            config_norm[key] = (d[value] + 0.5) / len(l)
-                        elif key in self._ordered_choice_hp:
-                            l, d = self._ordered_choice_hp[key]
-                            config_norm[key] = (d[value] + 0.5) / len(l)
+                        l = len(domain.categories)
+                        if domain.ordered:
+                            config_norm[key] = (
+                                domain.categories.index(value) + 0.5) / l
+                        # if key in self._ordered_cat_hp:
+                        #     l, d = self._ordered_cat_hp[key]
+                        #     config_norm[key] = (d[value] + 0.5) / len(l)
+                        # elif key in self._ordered_choice_hp:
+                        #     l, d = self._ordered_choice_hp[key]
+                        #     config_norm[key] = (d[value] + 0.5) / len(l)
                         elif key in self.incumbent:
                             config_norm[key] = self.incumbent[
                                 key] if value == self.best_config[
-                                    key] else (
-                                        self.incumbent[key]
-                                        + 1.0 / self._unordered_cat_hp[key]) % 1
+                                    key] else (self.incumbent[key] + 1 / l) % 1
                         else:
                             config_norm[key] = 0.5
                         continue
@@ -366,17 +369,21 @@ class FLOW2(Searcher):
                 else:
                     if isinstance(domain, sample.Categorical):
                         # denormalize categorical
-                        if key in self._ordered_cat_hp:
-                            l, _ = self._ordered_cat_hp[key]
-                            n = len(l)
-                            config_denorm[key] = l[min(n - 1, int(np.floor(value * n)))]
-                        elif key in self._ordered_choice_hp:
-                            l, _ = self._ordered_choice_hp[key]
-                            n = len(l)
-                            config_denorm[key] = l[min(n - 1, int(np.floor(value * n)))]
+                        n = len(domain.categories)
+                        if domain.ordered:
+                            config_denorm[key] = domain.categories[
+                                min(n - 1, int(np.floor(value * n)))]
+                        # if key in self._ordered_cat_hp:
+                        #     l, _ = self._ordered_cat_hp[key]
+                        #     n = len(l)
+                        #     config_denorm[key] = l[min(n - 1, int(np.floor(value * n)))]
+                        # elif key in self._ordered_choice_hp:
+                        #     l, _ = self._ordered_choice_hp[key]
+                        #     n = len(l)
+                        #     config_denorm[key] = l[min(n - 1, int(np.floor(value * n)))]
                         else:
                             assert key in self.incumbent
-                            n = self._unordered_cat_hp[key]
+                            # n = self._unordered_cat_hp[key]
                             if np.floor(value * n) == np.floor(self.incumbent[key] * n):
                                 config_denorm[key] = self.best_config[key]
                             else:  # ****random value each time!****
