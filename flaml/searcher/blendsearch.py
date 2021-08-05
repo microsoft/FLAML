@@ -126,6 +126,8 @@ class BlendSearch(Searcher):
         if self._metric_constraints:
             # metric modified by lagrange
             metric += self.lagrange
+        if space:
+            add_cost_to_space(space, init_config, cat_hp_cost or {})
         if global_search_alg is not None:
             self._gs = global_search_alg
         elif getattr(self, '__name__', None) != 'CFO':
@@ -155,9 +157,8 @@ class BlendSearch(Searcher):
         if space:
             # the upper bound of randint and lograndint is exclusive
             space = exclusive_to_inclusive(space)
-            add_cost_to_space(space, init_config, cat_hp_cost or {})
         self._ls = self.LocalSearch(
-            init_config, metric, mode, cat_hp_cost, space, prune_attr,
+            init_config, metric, mode, space, prune_attr,
             min_resource, max_resource, reduction_factor, self.cost_attr, seed)
         self._init_search()
 
