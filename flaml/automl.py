@@ -1169,8 +1169,10 @@ class AutoML:
             self._search()
         logger.info("fit succeeded")
         logger.info(f"Time taken to find the best model: {self._time_taken_best_iter}")
-        if self._time_taken_best_iter >= time_budget * 0.7 and not all(self._ever_converged_per_learner.values()):
-            logger.warn("Time taken to find the best model is larger than 0.7 of the provided time budget and not all estimators converged.")
+        if self._time_taken_best_iter >= time_budget * 0.7 and not \
+           all(self._ever_converged_per_learner.values()):
+            logger.warn("Time taken to find the best model is larger than 0.7 of the \
+                         provided time budget and not all estimators converged.")
             logger.warn("Consider increasing the time budget.")
         if verbose == 0:
             logger.setLevel(old_level)
@@ -1389,7 +1391,8 @@ class AutoML:
                     self._ever_converged_per_learner[estimator] = searcher.is_ls_ever_converged
                 if all(self._ever_converged_per_learner.values()) and \
                    self._state.time_from_start > warn_threshold * self._time_taken_best_iter:
-                    logger.warn("All estimator local search has converged at least once, and the total search time exceeds {} times the time taken to find the best model.")
+                    logger.warn(f"All estimator local search has converged at least once, and the total \
+                                  search time exceeds {warn_threshold} times the time taken to find the best model.")
                     self._warn_count += 1
             else:
                 logger.info(f"no enough budget for learner {estimator}")
