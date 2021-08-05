@@ -127,8 +127,7 @@ def add_cost_to_space(space: Dict, low_cost_point: Dict, choice_cost: Dict):
                         choice_cost_dict = choice_cost_list[i]
                     else:
                         choice_cost_dict = {}
-                    if low_cost_dict or choice_cost_dict:
-                        add_cost_to_space(cat, low_cost_dict, choice_cost_dict)
+                    add_cost_to_space(cat, low_cost_dict, choice_cost_dict)
             if choice_cost_list:
                 if len(choice_cost_list) == len(domain.categories):
                     domain.choice_cost = choice_cost_list

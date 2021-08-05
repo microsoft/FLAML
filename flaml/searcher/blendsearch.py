@@ -126,8 +126,9 @@ class BlendSearch(Searcher):
         if self._metric_constraints:
             # metric modified by lagrange
             metric += self.lagrange
+        self._cat_hp_cost = cat_hp_cost or {}
         if space:
-            add_cost_to_space(space, init_config, cat_hp_cost or {})
+            add_cost_to_space(space, init_config, self._cat_hp_cost)
         if global_search_alg is not None:
             self._gs = global_search_alg
         elif getattr(self, '__name__', None) != 'CFO':
@@ -180,9 +181,13 @@ class BlendSearch(Searcher):
             self._mode = mode
         if not self._ls.space:
             # the search space can be set only once
-            self._ls.set_search_properties(metric, mode, config)
             if self._gs is not None:
                 self._gs.set_search_properties(metric, mode, config)
+            if config:
+                add_cost_to_space(
+                    config, self._ls.init_config, self._cat_hp_cost)
+                config = exclusive_to_inclusive(config)
+            self._ls.set_search_properties(metric, mode, config)
             self._init_search()
         elif metric_changed or mode_changed:
             # reset search when metric or mode changed
