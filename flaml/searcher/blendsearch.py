@@ -159,6 +159,7 @@ class BlendSearch(Searcher):
         self._ls = self.LocalSearch(
             init_config, metric, mode, cat_hp_cost, space, prune_attr,
             min_resource, max_resource, reduction_factor, self.cost_attr, seed)
+        self._is_ls_ever_converged = False
         self._init_search()
 
     def set_search_properties(self,
@@ -259,10 +260,15 @@ class BlendSearch(Searcher):
         if self._candidate_start_points:
             self._started_from_given = state._started_from_given
             self._started_from_low_cost = state._started_from_low_cost
+        # TODO: should we also restore self._ls_ever_converged
 
     @property
     def metric_target(self):
         return self._metric_target
+
+    @property
+    def is_ls_ever_converged(self):
+        return self._is_ls_ever_converged
 
     def on_trial_complete(self, trial_id: str, result: Optional[Dict] = None,
                           error: bool = False):
@@ -384,6 +390,7 @@ class BlendSearch(Searcher):
                     break
         create_new = False
         if self._search_thread_pool[thread_id].converged:
+            self._is_ls_ever_converged = True
             todelete.add(thread_id)
             self._expand_admissible_region()
             if self._candidate_start_points:

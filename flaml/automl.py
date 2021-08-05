@@ -54,6 +54,7 @@ class SearchState:
         self.low_cost_partial_config = {}
         self.cat_hp_cost = {}
         self.data_size = data_size
+        self.ls_ever_converged = False
         search_space = learner_class.search_space(
             data_size=data_size, task=task)
         for name, space in search_space.items():
@@ -1167,6 +1168,10 @@ class AutoML:
             self._training_log = None
             self._search()
         logger.info("fit succeeded")
+        logger.info(f"Time taken to find the best model: {self._time_taken_best_iter}")
+        if self._time_taken_best_iter >= time_budget * 0.7 and not all(self._ever_converged_per_learner.values()):
+            logger.warn("Time taken to find the best model is larger than 0.7 of the provided time budget and not all estimators converged.")
+            logger.warn("Consider increasing the time budget.")
         if verbose == 0:
             logger.setLevel(old_level)
 
@@ -1177,14 +1182,17 @@ class AutoML:
         self._state.time_from_start = 0
         self._estimator_index = None
         self._best_iteration = 0
+        self._time_taken_best_iter = 0
         self._model_history = {}
         self._config_history = {}
         self._max_iter_per_learner = 1000000  # TODO
         self._iter_per_learner = dict([(e, 0) for e in self.estimator_list])
+        self._ever_converged_per_learner = dict([(e, False) for e in self.estimator_list])
         self._fullsize_reached = False
         self._trained_estimator = None
         self._best_estimator = None
         self._retrained_config = {}
+        self._warn_count = 0
         est_retrain_time = next_trial_time = 0
         best_config_sig = None
         # use ConcurrencyLimiter to limit the amount of concurrency when
@@ -1328,6 +1336,7 @@ class AutoML:
                         self._trained_estimator = None
                     self._trained_estimator = search_state.trained_estimator
                     self._best_iteration = self._track_iter
+                    self._time_taken_best_iter = self._state.time_from_start
                     better = True
                     next_trial_time = search_state.time2eval_best
                 if better or self._log_type == 'all':
@@ -1374,6 +1383,14 @@ class AutoML:
                         search_state.best_loss,
                         self._best_estimator,
                         self._state.best_loss))
+                warn_threshold = 10**self._warn_count
+                searcher = search_state.search_alg.searcher
+                if searcher.is_ls_ever_converged and not self._ever_converged_per_learner[estimator]:
+                    self._ever_converged_per_learner[estimator] = searcher.is_ls_ever_converged
+                if all(self._ever_converged_per_learner.values()) and \
+                   self._state.time_from_start > warn_threshold * self._time_taken_best_iter:
+                    logger.warn("All estimator local search has converged at least once, and the total search time exceeds {} times the time taken to find the best model.")
+                    self._warn_count += 1
             else:
                 logger.info(f"no enough budget for learner {estimator}")
                 if self._estimator_index is not None:
