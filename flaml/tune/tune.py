@@ -55,7 +55,7 @@ def report(_metric=None, **kwargs):
         analysis = tune.run(
             compute_with_config,
             config={
-                'x': tune.qloguniform(lower=1, upper=1000000, q=1),
+                'x': tune.lograndint(lower=1, upper=1000000),
                 'y': tune.randint(lower=1, upper=1000000)
             },
             metric='metric2minimize', mode='min',
@@ -142,7 +142,7 @@ def run(training_function,
         analysis = tune.run(
             compute_with_config,
             config={
-                'x': tune.qloguniform(lower=1, upper=1000000, q=1),
+                'x': tune.lograndint(lower=1, upper=1000000),
                 'y': tune.randint(lower=1, upper=1000000)
             },
             metric='metric2minimize', mode='min',
@@ -267,8 +267,13 @@ def run(training_function,
             reduction_factor=reduction_factor,
             config_constraints=config_constraints,
             metric_constraints=metric_constraints)
+    else:
+        search_alg.set_search_properties(metric, mode, config)
+        if metric is None or mode is None:
+            metric = metric or search_alg.metric
+            mode = mode or search_alg.mode
     if time_budget_s:
-        search_alg.set_search_properties(metric, mode, config={
+        search_alg.set_search_properties(None, None, config={
             'time_budget_s': time_budget_s})
     scheduler = None
     if report_intermediate_result:
@@ -329,9 +334,9 @@ def run(training_function,
             result = training_function(trial_to_run.config)
             if result is not None:
                 if isinstance(result, dict):
-                    tune.report(**result)
+                    report(**result)
                 else:
-                    tune.report(_metric=result)
+                    report(_metric=result)
             _runner.stop_trial(trial_to_run)
     if verbose > 0:
         logger.handlers.clear()
