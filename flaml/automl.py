@@ -934,8 +934,9 @@ class AutoML:
             if sample_size:
                 config['FLAML_sample_size'] = sample_size
             estimator = config['learner']
-            del config['learner']
-            states[estimator].training_function(config)
+            del config['learner']            
+            result = states[estimator].training_function(config)
+            return result
 
         return train
 
@@ -948,7 +949,7 @@ class AutoML:
         '''
 
         def size_func(config: dict) -> float:
-            config = config.get('ml', config).copy
+            config = config.get('ml', config)
             estimator = config['learner']
             learner_class = self._state.learner_classes.get(estimator)
             return learner_class.size(config)

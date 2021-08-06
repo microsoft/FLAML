@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE file in the
  * project root for license information.
 '''
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 import numpy as np
 try:
     from ray.tune.suggest import Searcher
@@ -128,10 +128,8 @@ class FLOW2(Searcher):
                     self._unordered_cat_hp[key] = len(domain.categories)
                 if str(sampler) != 'Normal':
                     self._bounded_keys.append(key)
-        self._space_keys = list(self.space.keys())
         if (self.prune_attr and self.prune_attr not in self.space
                 and self.max_resource):
-            self._space_keys.append(self.prune_attr)
             self.min_resource = self.min_resource or self._min_resource()
             self._resource = self._round(self.min_resource)
         else:
@@ -216,7 +214,7 @@ class FLOW2(Searcher):
     def complete_config(
         self, partial_config: Dict,
         lower: Optional[Dict] = None, upper: Optional[Dict] = None
-    ) -> Dict:
+    ) -> Tuple[Dict, Dict]:
         ''' generate a complete config from the partial config input
         add minimal resource to config if available
         '''
@@ -247,8 +245,8 @@ class FLOW2(Searcher):
         # else:
         #     # first time init_config, or other configs, take as is
         #     config = partial_config.copy()
-        config = complete_config(partial_config, self.space, self, disturb,
-                                 lower, upper)
+        config, space = complete_config(
+            partial_config, self.space, self, disturb, lower, upper)
         if partial_config == self.init_config:
             self._reset_times += 1
         # config = flatten_dict(config)
@@ -260,7 +258,7 @@ class FLOW2(Searcher):
         #     break
         if self._resource:
             config[self.prune_attr] = self.min_resource
-        return config
+        return config, space
 
     def create(self, init_config: Dict, obj: float, cost: float, space: Dict
               ) -> Searcher:
@@ -270,7 +268,7 @@ class FLOW2(Searcher):
         # space = {k: self.space[k] for k in flatten_config if k in self.space}
         flow2 = self.__class__(
             init_config, self.metric, self.mode,
-            flatten_dict(space, True), self.prune_attr,
+            flatten_dict(space, prevent_delimiter=True), self.prune_attr,
             self.min_resource, self.max_resource,
             self.resource_multiple_factor, self.cost_attr, self._seed + 1)
         flow2.best_obj = obj * self.metric_op  # minimize internally
@@ -509,26 +507,27 @@ class FLOW2(Searcher):
         '''
         return self._num_allowed4incumbent > 0
 
-    def config_signature(self, config) -> tuple:
+    def config_signature(self, config, space: Dict = None) -> tuple:
         ''' return the signature tuple of a config
         '''
         config = flatten_dict(config)
+        if space:
+            space = flatten_dict(space)
+        else:
+            space = self.space
         value_list = []
-        for key in self._space_keys:
-            if key in config:
-                value = config[key]
-                if key == self.prune_attr:
-                    value_list.append(value)
-                # else key must be in self.space
-                # get rid of list type or constant,
-                # e.g., "eval_metric": ["logloss", "error"]
-                elif callable(getattr(self.space[key], 'sample', None)):
-                    if isinstance(self.space[key], sample.Integer):
-                        value_list.append(int(round(value)))
-                    else:
-                        value_list.append(value)
+        for key in sorted(config.keys()):
+            value = config[key]
+            if key == self.prune_attr:
+                value_list.append(value)
+            # else key must be in self.space
+            # get rid of list type or constant,
+            # e.g., "eval_metric": ["logloss", "error"]
+            elif callable(getattr(space[key], 'sample', None)):
+                if isinstance(space[key], sample.Integer):
+                    value_list.append(int(round(value)))
             else:
-                value_list.append(None)
+                value_list.append(value)
         return tuple(value_list)
 
     @property

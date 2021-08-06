@@ -154,18 +154,29 @@ def add_cost_to_space(space: Dict, low_cost_point: Dict, choice_cost: Dict):
                 # sort the choices by cost
                 cost = np.array(domain.choice_cost)
                 ind = np.argsort(cost)
-                domain.categories = np.array(domain.categories)[ind].tolist()
+                domain.categories = [domain.categories[i] for i in ind]
                 domain.choice_cost = cost[ind]
+                domain.const = [domain.const[i] for i in ind]
                 domain.ordered = True
             elif all(isinstance(x, int) or isinstance(x, float)
                      for x in domain.categories):
                 # sort the choices by value
-                domain.categories.sort()
+                ind = np.argsort(domain.categories)
+                domain.categories = [domain.categories[i] for i in ind]
                 domain.ordered = True
             else:
                 domain.ordered = False
-            if isinstance(low_cost, list) and low_cost not in domain.categories:
-                domain.low_cost_point = low_cost[-1]
+            if low_cost and low_cost not in domain.categories:
+                assert isinstance(low_cost, list), \
+                    f"low cost {low_cost} not in domain {domain.categories}"
+                if domain.ordered:
+                    sorted_points = [low_cost[i] for i in ind]
+                    for i, point in enumerate(sorted_points):
+                        low_cost[i] = point
+                if len(low_cost) > len(domain.categories):
+                    if domain.ordered:
+                        low_cost[-1] = int(np.where(ind == low_cost[-1])[0])
+                    domain.low_cost_point = low_cost[-1]
                 return
         if low_cost:
             domain.low_cost_point = low_cost
@@ -191,7 +202,7 @@ def normalize(
             continue
         # domain: sample.Categorical/Integer/Float/Function
         if isinstance(domain, sample.Categorical):
-            # value is either one category or the low_cost_point list
+            # value is either one category, or the low_cost_point list
             if value not in domain.categories:
                 # nested, low_cost_point list
                 if recursive:
@@ -201,9 +212,12 @@ def normalize(
                             value[i], cat, reference_config[key][i], {}))
                 else:
                     norm = None
-                if len(value) > len(domain.categories):
+                if isinstance(value, list) and len(value) > len(
+                   domain.categories):
                     # low_cost_point list
-                    config[key] = value = domain.categories[value[-1]]
+                    index = value[-1]
+                    config[key] = value[index]
+                    value = domain.categories[index]
                 else:
                     continue
             # normalize categorical
@@ -304,15 +318,23 @@ def denormalize(
 def indexof(domain: Dict, config: Dict) -> int:
     '''find the index of config in domain.categories
     '''
+    index = config.get('_choice_')
+    if index is not None:
+        return index
     if config in domain.categories:
         return domain.categories.index(config)
+    # print(config)
     for i, cat in enumerate(domain.categories):
+        # print(cat)
         if not isinstance(cat, dict):
             continue
+        # print(len(cat), len(config))
         if len(cat) != len(config):
             continue
+        # print(cat.keys())
         if not set(cat.keys()).issubset(set(config.keys())):
             continue
+        # print(domain.const[i])
         if all(config[key] == value for key, value in domain.const[i].items()):
             return i
     return None
@@ -322,11 +344,14 @@ def complete_config(
     partial_config: Dict, space: Dict, flow2, disturb: bool = False,
     lower: Optional[Dict] = None, upper: Optional[Dict] = None
 ) -> Tuple[Dict, Dict]:
-    '''Complete partial config in space    
+    '''Complete partial config in space
+
+    Returns:
+        config, space
     '''
     config = partial_config.copy()
+    normalized = normalize(config, space, config, {})
     if disturb:
-        normalized = normalize(config, space, config, {})
         for key in normalized:
             domain = space.get(key)
             if getattr(domain, 'ordered', True) == False:
@@ -347,7 +372,7 @@ def complete_config(
                 low = max(low, 0)
             delta = flow2.rand_vector_gaussian(1, gauss_std)[0]
             normalized[key] = max(low, min(up, normalized[key] + delta))
-        config = denormalize(normalized, space, config, normalized)
+    config = denormalize(normalized, space, config, normalized, flow2._random)
     for key, value in space.items():
         if key not in config:
             config[key] = value
@@ -356,21 +381,23 @@ def complete_config(
         break
     subspace = {}
     for key, domain in space.items():
-        if isinstance(domain, sample.Categorical):
-            value = config[key]
-            if isinstance(value, dict):
-                # nested space
-                index = indexof(domain, value)
-                points = partial_config.get(key)
-                if isinstance(points, list):     # low cost point list
-                    point = points[index]
-                else:
-                    point = {}
-                config[key], subspace[key] = complete_config(
-                    point, value, flow2, disturb,
-                    lower and lower[key][index], upper and upper[key][index]
-                )
-                continue
+        value = config[key]
+        if isinstance(domain, sample.Categorical) and isinstance(value, dict):
+            # nested space
+            index = indexof(domain, value)
+            # point = partial_config.get(key)
+            # if isinstance(point, list):     # low cost point list
+            #     point = point[index]
+            # else:
+            #     point = {}
+            config[key], subspace[key] = complete_config(
+                value, domain.categories[index], flow2, disturb,
+                lower and lower[key][index], upper and upper[key][index]
+            )
+            assert '_choice_' not in subspace[key], \
+                "_choice_ is a reserved key for hierarchical search space"
+            subspace[key]['_choice_'] = index
+            continue
         subspace[key] = domain
     return config, subspace
 

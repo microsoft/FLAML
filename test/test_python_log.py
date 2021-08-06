@@ -54,7 +54,7 @@ class TestLogging(unittest.TestCase):
                 automl.search_space, automl.low_cost_partial_config,
                 automl.cat_hp_cost
             )
-            logger.info(automl.search_space)
+            logger.info(automl.search_space["ml"].categories)
             config = automl.best_config.copy()
             config['learner'] = automl.best_estimator
             automl.trainable({"ml": config})
@@ -71,9 +71,10 @@ class TestLogging(unittest.TestCase):
                 config_constraints=[(automl.size, '<=', automl._mem_thres)],
                 metric_constraints=automl.metric_constraints)            
             analysis = tune.run(
-                automl.trainable, search_alg=search_alg,
-                time_budget_s=automl._state.time_budget)
-            print(analysis.trials[-1])
+                automl.trainable, search_alg=search_alg,    # verbose=2,
+                time_budget_s=1, num_samples=-1)
+            print(min((trial.last_result["val_loss"], trial.last_result)
+                      for trial in analysis.trials))
             # Check if the log buffer is populated.
             self.assertTrue(len(buf.getvalue()) > 0)
 

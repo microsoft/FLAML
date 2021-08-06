@@ -54,6 +54,7 @@ class SearchThread:
         else:
             try:
                 config = self._search_alg.suggest(trial_id)
+                # TODO: post-process results and set subspace
             except FloatingPointError:
                 logger.warning(
                     'The global search method raises FloatingPointError. '
