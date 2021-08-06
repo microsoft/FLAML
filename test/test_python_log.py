@@ -58,6 +58,22 @@ class TestLogging(unittest.TestCase):
             config = automl.best_config.copy()
             config['learner'] = automl.best_estimator
             automl.trainable({"ml": config})
+            from flaml import tune, CFO
+            search_alg = CFO(
+                metric='val_loss',
+                space=automl.search_space,
+                low_cost_partial_config=automl.low_cost_partial_config,
+                points_to_evaluate=automl.points_to_evalaute,
+                cat_hp_cost=automl.cat_hp_cost,
+                prune_attr=automl.prune_attr,
+                min_resource=automl.min_resource,
+                max_resource=automl.max_resource,
+                config_constraints=[(automl.size, '<=', automl._mem_thres)],
+                metric_constraints=automl.metric_constraints)            
+            analysis = tune.run(
+                automl.trainable, search_alg=search_alg,
+                time_budget_s=automl._state.time_budget)
+            print(analysis.trials[-1])
             # Check if the log buffer is populated.
             self.assertTrue(len(buf.getvalue()) > 0)
 
