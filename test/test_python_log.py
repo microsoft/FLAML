@@ -1,3 +1,4 @@
+from flaml.tune.space import unflatten_hierarchical
 from flaml import AutoML
 from sklearn.datasets import load_boston
 import os
@@ -49,7 +50,9 @@ class TestLogging(unittest.TestCase):
             import optuna as ot
             study = ot.create_study()
             from flaml.tune.space import define_by_run_func, add_cost_to_space
-            logger.info(define_by_run_func(study.ask(), automl.search_space))
+            sample = define_by_run_func(study.ask(), automl.search_space)
+            logger.info(sample)
+            logger.info(unflatten_hierarchical(sample, automl.search_space))
             add_cost_to_space(
                 automl.search_space, automl.low_cost_partial_config,
                 automl.cat_hp_cost

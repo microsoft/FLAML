@@ -10,7 +10,7 @@ try:
 except ImportError:
     from .suggestion import Searcher
 from .flow2 import FLOW2
-from ..tune.space import add_cost_to_space
+from ..tune.space import add_cost_to_space, unflatten_hierarchical
 
 import logging
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class SearchThread:
         self.running = 0    # the number of running trials from the thread
         self.cost_attr = cost_attr
         if search_alg:
-            self.space = search_alg.space  # unflattened space
+            self.space = self._space = search_alg.space  # unflattened space
             if not isinstance(self._search_alg, FLOW2):
                 # remember const config
                 self._const = add_cost_to_space(self.space, {}, {})
@@ -60,8 +60,9 @@ class SearchThread:
         else:
             try:
                 config = self._search_alg.suggest(trial_id)
-                # TODO: post-process results and set subspace
+                # TODO: remove when define_by_run is supported
                 config.update(self._const)
+                config, self.space = unflatten_hierarchical(config, self._space)
             except FloatingPointError:
                 logger.warning(
                     'The global search method raises FloatingPointError. '

@@ -5,6 +5,7 @@ try:
 except ImportError:
     from . import sample
     from ..searcher.variant_generator import generate_variants
+from flaml.searcher.variant_generator import unflatten_dict
 from typing import Dict, Optional, Any, Tuple
 import numpy as np
 import logging
@@ -85,6 +86,27 @@ def define_by_run_func(
                     type(domain.sampler).__name__))
     # Return all constants in a dictionary.
     return config
+
+
+def unflatten_hierarchical(config: Dict, space: Dict) -> Tuple[Dict, Dict]:
+    '''unflatten hierarchical config'''
+    hier = {}
+    subspace = {}
+    for key, value in config.items():
+        if '/' in key:
+            key = key[key.rfind('/') + 1:]
+        if ':' in key:
+            pos = key.rfind(':')
+            true_key = key[:pos]
+            choice = int(key[pos + 1:])
+            hier[true_key], subspace[true_key] = unflatten_hierarchical(
+                value, space[true_key][choice])
+        else:
+            hier[key] = value
+            domain = space.get(key)
+            if domain is not None:
+                subspace[key] = domain
+    return hier, subspace
 
 
 def exclusive_to_inclusive(space: Dict) -> Dict:
