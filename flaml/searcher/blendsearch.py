@@ -18,7 +18,7 @@ except ImportError:
     from .variant_generator import flatten_dict
 from .search_thread import SearchThread
 from .flow2 import FLOW2
-from ..tune.space import add_cost_to_space, exclusive_to_inclusive, normalize
+from ..tune.space import add_cost_to_space, normalize
 
 import logging
 logger = logging.getLogger(__name__)
@@ -155,9 +155,6 @@ class BlendSearch(Searcher):
             self._started_from_low_cost = not low_cost_partial_config
         else:
             self._candidate_start_points = None
-        if space:
-            # the upper bound of randint and lograndint is exclusive
-            space = exclusive_to_inclusive(space)
         self._ls = self.LocalSearch(
             init_config, metric, mode, space, prune_attr,
             min_resource, max_resource, reduction_factor, self.cost_attr, seed)
@@ -311,8 +308,8 @@ class BlendSearch(Searcher):
                             self._ls_bound_min, self._ls_bound_max,
                             self._subspace.get(trial_id, self._ls.space))
                     if self._gs is not None and self._experimental:
-                        self._gs.add_evaluated_point(
-                            flatten_dict(config), objective)
+                        # TODO: key match for hierarchical space
+                        self._gs.add_evaluated_point(flatten_dict(config), objective)
                 elif metric_constraint_satisfied and self._create_condition(
                         result):
                     # thread creator
@@ -362,6 +359,10 @@ class BlendSearch(Searcher):
                     admissible_min[key][choice], admissible_max[key][choice],
                     space[key]
                 )
+            elif isinstance(value, dict):
+                self._update_admissible_region(
+                    value,
+                    admissible_min[key], admissible_max[key], space[key])
             else:
                 if value > admissible_max[key]:
                     admissible_max[key] = value
@@ -441,10 +442,13 @@ class BlendSearch(Searcher):
 
     def _expand_admissible_region(self, lower, upper, space):
         for key in upper:
-            if isinstance(upper[key], list):
+            ub = upper[key]
+            if isinstance(ub, list):
                 choice = space[key]['_choice_']
                 self._expand_admissible_region(
                     lower[key][choice], upper[key][choice], space[key])
+            elif isinstance(ub, dict):
+                self._expand_admissible_region(lower[key], ub, space[key])
             else:
                 upper[key] += self._ls.STEPSIZE
                 lower[key] -= self._ls.STEPSIZE
@@ -501,7 +505,8 @@ class BlendSearch(Searcher):
                 skip = self._should_skip(-1, trial_id, config, space)
                 if skip:
                     return None
-            if choice or self._valid(config):
+            if choice or self._valid(
+               config, space, self._gs_admissible_min, self._gs_admissible_max):
                 # LS or valid or no backup choice
                 self._trial_proposed_by[trial_id] = choice
             else:  # invalid config proposed by GS
@@ -636,15 +641,25 @@ class BlendSearch(Searcher):
                     backup_thread_id = thread_id
         return top_thread_id, backup_thread_id
 
-    def _valid(self, config: Dict) -> bool:
+    def _valid(self, config: Dict, space: Dict, lower: Dict, upper: Dict) -> bool:
         ''' config validator
         '''
-        normalized_config = self._ls.normalize(config)
-        for key in self._gs_admissible_min:
+        normalized_config = normalize(config, space, config, {})
+        for key, lb in lower.items():
             if key in config:
                 value = normalized_config[key]
-                if value + self._ls.STEPSIZE < self._gs_admissible_min[key] \
-                        or value > self._gs_admissible_max[key] + self._ls.STEPSIZE:
+                if isinstance(lb, list):
+                    subspace = space[key]['_choice_']
+                elif isinstance(lb, dict):
+                    subspace = space[key]
+                else:
+                    subspace = None
+                if subspace:
+                    valid = self._valid(value, subspace, lb, upper[key])
+                    if not valid:
+                        return False
+                elif value + self._ls.STEPSIZE < lower[key] \
+                     or value > upper[key] + self._ls.STEPSIZE:
                     return False
         return True
 

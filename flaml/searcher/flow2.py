@@ -90,7 +90,7 @@ class FLOW2(Searcher):
         elif mode == "min":
             self.metric_op = 1.
         self.space = space or {}
-        self._space = flatten_dict(space, prevent_delimiter=True)
+        self._space = flatten_dict(self.space, prevent_delimiter=True)
         self._random = np.random.RandomState(seed)
         self._seed = seed
         self.init_config = init_config
@@ -124,7 +124,7 @@ class FLOW2(Searcher):
                             self._step_lb, sampler.q / (domain.upper - domain.lower))
                 elif isinstance(domain, sample.Integer) and str(sampler) == 'Uniform':
                     self._step_lb = min(
-                        self._step_lb, 1.0 / (domain.upper - domain.lower))
+                        self._step_lb, 1.0 / (domain.upper - 1 - domain.lower))
                 if isinstance(domain, sample.Categorical) and not domain.ordered:
                     self._unordered_cat_hp[key] = len(domain.categories)
                 if str(sampler) != 'Normal':
@@ -185,7 +185,7 @@ class FLOW2(Searcher):
             elif isinstance(domain, sample.Integer) and str(sampler) == 'LogUniform':
                 step_lb = min(
                     step_lb, np.log(1.0 + 1.0 / self.best_config[key])
-                    / np.log(domain.upper / domain.lower))
+                    / np.log((domain.upper - 1) / domain.lower))
         if np.isinf(step_lb):
             step_lb = self.STEP_LOWER_BOUND
         else:
@@ -277,11 +277,11 @@ class FLOW2(Searcher):
         self._seed += 1
         return flow2
 
-    def normalize(self, config) -> Dict:
+    def normalize(self, config, recursive=False) -> Dict:
         ''' normalize each dimension in config to [0,1]
         '''       
         return normalize(
-            flatten_dict(config), self._space, self.best_config, self.incumbent)
+            config, self._space, self.best_config, self.incumbent, recursive)
 
     def denormalize(self, config):
         ''' denormalize each dimension in config from [0,1]

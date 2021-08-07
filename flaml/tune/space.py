@@ -109,28 +109,6 @@ def unflatten_hierarchical(config: Dict, space: Dict) -> Tuple[Dict, Dict]:
     return hier, subspace
 
 
-def exclusive_to_inclusive(space: Dict) -> Dict:
-    """Change the upper bound from exclusive to inclusive.
-
-    Returns:
-        A copied dict with modified upper bound.
-    """
-    space = space.copy()
-    for key in space:
-        domain = space[key]
-        if not isinstance(domain, sample.Domain):
-            continue
-        sampler = domain.get_sampler()
-        if isinstance(sampler, sample.Quantized):
-            continue
-        if isinstance(domain, sample.Integer):
-            if isinstance(sampler, sample.LogUniform):
-                space[key].upper -= 1
-            elif isinstance(sampler, sample.Uniform):
-                space[key].upper -= 1
-    return space
-
-
 def add_cost_to_space(space: Dict, low_cost_point: Dict, choice_cost: Dict):
     """Update the space in place by adding low_cost_point and choice_cost
     
@@ -141,7 +119,15 @@ def add_cost_to_space(space: Dict, low_cost_point: Dict, choice_cost: Dict):
     for key in space:
         domain = space[key]
         if not isinstance(domain, sample.Domain):
-            config[key] = domain
+            if isinstance(domain, dict):
+                low_cost = low_cost_point.get(key, {})
+                choice_cost_list = choice_cost.get(key, {})
+                const = add_cost_to_space(
+                    domain, low_cost, choice_cost_list)
+                if const:
+                    config[key] = const
+            else:
+                config[key] = domain
             continue
         low_cost = low_cost_point.get(key)
         choice_cost_list = choice_cost.get(key)
@@ -218,7 +204,11 @@ def normalize(
             config_norm[key] = value
             continue
         if not callable(getattr(domain, 'get_sampler', None)):
-            config_norm[key] = value
+            if recursive and isinstance(domain, dict):
+                config_norm[key] = normalize(
+                    value, domain, reference_config[key], {})
+            else:
+                config_norm[key] = value
             continue
         # domain: sample.Categorical/Integer/Float/Function
         if isinstance(domain, sample.Categorical):
@@ -259,13 +249,19 @@ def normalize(
         sampler = domain.get_sampler()
         if isinstance(sampler, sample.Quantized):
             # sampler is sample.Quantized
+            quantize = sampler.q
             sampler = sampler.get_sampler()
+        else:
+            quantize = None
         if str(sampler) == 'LogUniform':
+            upper = domain.upper - (
+                isinstance(domain, sample.Integer) & (quantize is not None))
             config_norm[key] = np.log(value / domain.lower) / np.log(
-                domain.upper / domain.lower)
+                upper / domain.lower)
         elif str(sampler) == 'Uniform':
-            config_norm[key] = (
-                value - domain.lower) / (domain.upper - domain.lower)
+            upper = domain.upper - (
+                isinstance(domain, sample.Integer) & (quantize is not None))
+            config_norm[key] = (value - domain.lower) / (upper - domain.lower)
         elif str(sampler) == 'Normal':
             # N(mean, sd) -> N(0,1)
             config_norm[key] = (value - sampler.mean) / sampler.sd
@@ -308,24 +304,30 @@ def denormalize(
                 sampler = domain.get_sampler()
                 if isinstance(sampler, sample.Quantized):
                     # sampler is sample.Quantized
+                    quantize = sample.q
                     sampler = sampler.get_sampler()
+                else:
+                    quantize = None
                 # Handle Log/Uniform
                 if str(sampler) == 'LogUniform':
+                    upper = domain.upper - (isinstance(domain, sample.Integer)
+                                            & (quantize is not None))
                     config_denorm[key] = (
-                        domain.upper / domain.lower) ** value * domain.lower
+                        upper / domain.lower) ** value * domain.lower
                 elif str(sampler) == 'Uniform':
+                    upper = domain.upper - (isinstance(domain, sample.Integer)
+                                            & (quantize is not None))
                     config_denorm[key] = value * (
-                        domain.upper - domain.lower) + domain.lower
+                        upper - domain.lower) + domain.lower
                 elif str(sampler) == 'Normal':
                     # denormalization for 'Normal'
                     config_denorm[key] = value * sampler.sd + sampler.mean
                 else:
                     config_denorm[key] = value
                 # Handle quantized
-                sampler = domain.get_sampler()
-                if isinstance(sampler, sample.Quantized):
+                if quantize is not None:
                     config_denorm[key] = np.round(
-                        np.divide(config_denorm[key], sampler.q)) * sampler.q
+                        np.divide(config_denorm[key], quantize)) * quantize
                 # Handle int (4.6 -> 5)
                 if isinstance(domain, sample.Integer):
                     config_denorm[key] = int(round(config_denorm[key]))
@@ -376,6 +378,8 @@ def complete_config(
             if getattr(domain, 'ordered', True) == False:
                 # don't change unordered cat choice
                 continue
+            if not callable(getattr(domain, 'get_sampler', None)):
+                continue
             if upper and lower:
                 up, low = upper[key], lower[key]
                 gauss_std = up - low or flow2.STEPSIZE
@@ -401,21 +405,26 @@ def complete_config(
     subspace = {}
     for key, domain in space.items():
         value = config[key]
-        if isinstance(domain, sample.Categorical) and isinstance(value, dict):
-            # nested space
-            index = indexof(domain, value)
-            # point = partial_config.get(key)
-            # if isinstance(point, list):     # low cost point list
-            #     point = point[index]
-            # else:
-            #     point = {}
-            config[key], subspace[key] = complete_config(
-                value, domain.categories[index], flow2, disturb,
-                lower and lower[key][index], upper and upper[key][index]
-            )
-            assert '_choice_' not in subspace[key], \
-                "_choice_ is a reserved key for hierarchical search space"
-            subspace[key]['_choice_'] = index
+        if isinstance(value, dict):
+            if isinstance(domain, sample.Categorical):
+                # nested space
+                index = indexof(domain, value)
+                # point = partial_config.get(key)
+                # if isinstance(point, list):     # low cost point list
+                #     point = point[index]
+                # else:
+                #     point = {}
+                config[key], subspace[key] = complete_config(
+                    value, domain.categories[index], flow2, disturb,
+                    lower and lower[key][index], upper and upper[key][index]
+                )
+                assert '_choice_' not in subspace[key], \
+                    "_choice_ is a reserved key for hierarchical search space"
+                subspace[key]['_choice_'] = index
+            else:
+                config[key], subspace[key] = complete_config(
+                    value, space[key], flow2, disturb,
+                    lower and lower[key], upper and upper[key])                
             continue
         subspace[key] = domain
     return config, subspace
