@@ -428,4 +428,3 @@ def complete_config(
             continue
         subspace[key] = domain
     return config, subspace
-
