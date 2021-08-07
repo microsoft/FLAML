@@ -10,7 +10,8 @@ try:
 except ImportError:
     from .suggestion import Searcher
 from .flow2 import FLOW2
-from ..tune.space import add_cost_to_space, unflatten_hierarchical
+from ..tune.space import (add_cost_to_space, exclusive_to_inclusive,
+                          unflatten_hierarchical)
 
 import logging
 logger = logging.getLogger(__name__)
@@ -62,7 +63,8 @@ class SearchThread:
                 config = self._search_alg.suggest(trial_id)
                 # TODO: remove when define_by_run is supported
                 config.update(self._const)
-                config, self.space = unflatten_hierarchical(config, self._space)
+                config, space = unflatten_hierarchical(config, self._space)
+                self.space = exclusive_to_inclusive(space)
             except FloatingPointError:
                 logger.warning(
                     'The global search method raises FloatingPointError. '
