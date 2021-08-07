@@ -125,11 +125,9 @@ def exclusive_to_inclusive(space: Dict) -> Dict:
             continue
         if isinstance(domain, sample.Integer):
             if isinstance(sampler, sample.LogUniform):
-                space[key] = sample.lograndint(
-                    domain.lower, domain.upper - 1, sampler.base)
+                space[key].upper -= 1
             elif isinstance(sampler, sample.Uniform):
-                space[key] = sample.randint(
-                    domain.lower, domain.upper - 1)
+                space[key].upper -= 1
     return space
 
 
@@ -224,6 +222,7 @@ def normalize(
             continue
         # domain: sample.Categorical/Integer/Float/Function
         if isinstance(domain, sample.Categorical):
+            norm = None
             # value is either one category, or the low_cost_point list
             if value not in domain.categories:
                 # nested, low_cost_point list
@@ -232,8 +231,6 @@ def normalize(
                     for i, cat in enumerate(domain.categories):
                         norm.append(normalize(
                             value[i], cat, reference_config[key][i], {}))
-                else:
-                    norm = None
                 if isinstance(value, list) and len(value) > len(
                    domain.categories):
                     # low_cost_point list
@@ -251,7 +248,7 @@ def normalize(
                     key] if value == reference_config[key] else (
                         normalized_reference_config[key] + 1 / n) % 1
             else:
-                config_norm[key] = 0.5
+                normalized = 0.5
             if norm:
                 norm.append(normalized)
             else:
