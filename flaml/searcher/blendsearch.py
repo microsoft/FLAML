@@ -144,6 +144,7 @@ class BlendSearch(Searcher):
                     sampler=sampler)
             except TypeError:
                 self._gs = GlobalSearch(space=space, metric=metric, mode=mode)
+            self._gs.space = space
         else:
             self._gs = None
         self._experimental = experimental
@@ -184,6 +185,7 @@ class BlendSearch(Searcher):
             # the search space can be set only once
             if self._gs is not None:
                 self._gs.set_search_properties(metric, mode, config)
+                self._gs.space = config
             if config:
                 add_cost_to_space(
                     config, self._ls.init_config, self._cat_hp_cost)
@@ -343,7 +345,6 @@ class BlendSearch(Searcher):
                 cost=result.get(self.cost_attr, 1), space=space),
             self.cost_attr
         )
-        thread.space = space
         self._thread_count += 1
         self._update_admissible_region(
             config, self._ls_bound_min, self._ls_bound_max, space)
@@ -527,13 +528,12 @@ class BlendSearch(Searcher):
                 self._update_admissible_region(
                     config, self._gs_admissible_min, self._gs_admissible_max,
                     space)
-                signature = self._ls.config_signature(config, space)
             else:
                 self._update_admissible_region(
                     config, self._ls_bound_min, self._ls_bound_max, space)
                 self._gs_admissible_min.update(self._ls_bound_min)
                 self._gs_admissible_max.update(self._ls_bound_max)
-                signature = self._ls.config_signature(config, space)
+            signature = self._ls.config_signature(config, space)
             self._result[signature] = {}
             self._subspace[trial_id] = space
         else:  # use init config

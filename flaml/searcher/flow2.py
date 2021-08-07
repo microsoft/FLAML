@@ -89,7 +89,8 @@ class FLOW2(Searcher):
             self.metric_op = -1.
         elif mode == "min":
             self.metric_op = 1.
-        self.space = space or {}        
+        self.space = space or {}
+        self._space = flatten_dict(space, prevent_delimiter=True)
         self._random = np.random.RandomState(seed)
         self._seed = seed
         self.init_config = init_config
@@ -108,7 +109,7 @@ class FLOW2(Searcher):
         self._tunable_keys = []
         self._bounded_keys = []
         self._unordered_cat_hp = {}
-        for key, domain in self.space.items():
+        for key, domain in self._space.items():
             assert not (isinstance(domain, dict) and 'grid_search' in domain), \
                 f"{key}'s domain is grid search, not supported in FLOW^2."
             if callable(getattr(domain, 'get_sampler', None)):
@@ -128,7 +129,7 @@ class FLOW2(Searcher):
                     self._unordered_cat_hp[key] = len(domain.categories)
                 if str(sampler) != 'Normal':
                     self._bounded_keys.append(key)
-        if (self.prune_attr and self.prune_attr not in self.space
+        if (self.prune_attr and self.prune_attr not in self._space
                 and self.max_resource):
             self.min_resource = self.min_resource or self._min_resource()
             self._resource = self._round(self.min_resource)
@@ -171,7 +172,7 @@ class FLOW2(Searcher):
         for key in self._tunable_keys:
             if key not in self.best_config:
                 continue
-            domain = self.space[key]
+            domain = self._space[key]
             sampler = domain.get_sampler()
             # the stepsize lower bound for log uniform variables depends on the
             # current config
@@ -268,9 +269,9 @@ class FLOW2(Searcher):
         # space = {k: self.space[k] for k in flatten_config if k in self.space}
         flow2 = self.__class__(
             init_config, self.metric, self.mode,
-            flatten_dict(space, prevent_delimiter=True), self.prune_attr,
+            space, self.prune_attr,
             self.min_resource, self.max_resource,
-            self.resource_multiple_factor, self.cost_attr, self._seed + 1)
+            self.resource_multiple_factor, self.cost_attr, self._seed + 1)        
         flow2.best_obj = obj * self.metric_op  # minimize internally
         flow2.cost_incumbent = cost
         self._seed += 1
@@ -280,13 +281,13 @@ class FLOW2(Searcher):
         ''' normalize each dimension in config to [0,1]
         '''       
         return normalize(
-            flatten_dict(config), self.space, self.best_config, self.incumbent)
+            flatten_dict(config), self._space, self.best_config, self.incumbent)
 
     def denormalize(self, config):
         ''' denormalize each dimension in config from [0,1]
         '''
         return denormalize(
-            config, self.space, self.best_config, self.incumbent, self._random)
+            config, self._space, self.best_config, self.incumbent, self._random)
 
     def set_search_properties(self,
                               metric: Optional[str] = None,
@@ -475,7 +476,7 @@ class FLOW2(Searcher):
             for i, key in enumerate(self._tunable_keys):
                 if self._direction_tried[i] != 0:
                     for _, generated in generate_variants({'config': {
-                        key: self.space[key]
+                        key: self._space[key]
                     }}):
                         if generated['config'][key] != best_config[key]:
                             config[key] = generated['config'][key]
@@ -514,7 +515,7 @@ class FLOW2(Searcher):
         if space:
             space = flatten_dict(space)
         else:
-            space = self.space
+            space = self._space
         value_list = []
         for key in sorted(config.keys()):
             value = config[key]

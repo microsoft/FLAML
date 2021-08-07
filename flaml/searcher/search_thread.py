@@ -10,6 +10,7 @@ try:
 except ImportError:
     from .suggestion import Searcher
 from .flow2 import FLOW2
+from ..tune.space import add_cost_to_space
 
 import logging
 logger = logging.getLogger(__name__)
@@ -41,6 +42,11 @@ class SearchThread:
         self._init_config = True
         self.running = 0    # the number of running trials from the thread
         self.cost_attr = cost_attr
+        if search_alg:
+            self.space = search_alg.space  # unflattened space
+            if not isinstance(self._search_alg, FLOW2):
+                # remember const config
+                self._const = add_cost_to_space(self.space, {}, {})
 
     @classmethod
     def set_eps(cls, time_budget_s):
@@ -55,6 +61,7 @@ class SearchThread:
             try:
                 config = self._search_alg.suggest(trial_id)
                 # TODO: post-process results and set subspace
+                config.update(self._const)
             except FloatingPointError:
                 logger.warning(
                     'The global search method raises FloatingPointError. '
