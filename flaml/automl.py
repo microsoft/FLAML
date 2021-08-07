@@ -934,7 +934,7 @@ class AutoML:
             if sample_size:
                 config['FLAML_sample_size'] = sample_size
             estimator = config['learner']
-            del config['learner']            
+            del config['learner']
             result = states[estimator].training_function(config)
             return result
 

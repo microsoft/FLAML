@@ -334,7 +334,7 @@ class BlendSearch(Searcher):
 
     def _create_thread(self, config, result, space):
         # logger.info(f"create local search thread from {config}")
-        self._search_thread_pool[self._thread_count] = thread = SearchThread(
+        self._search_thread_pool[self._thread_count] = SearchThread(
             self._ls.mode,
             self._ls.create(
                 config, result[self._ls.metric],
@@ -346,7 +346,8 @@ class BlendSearch(Searcher):
             config, self._ls_bound_min, self._ls_bound_max, space)
 
     def _update_admissible_region(
-        self, config, admissible_min, admissible_max, space: Dict = {}):
+        self, config, admissible_min, admissible_max, space: Dict = {}
+    ):
         # update admissible region
         normalized_config = normalize(config, space, config, {})
         for key in admissible_min:
@@ -398,7 +399,7 @@ class BlendSearch(Searcher):
             self._is_ls_ever_converged = True
             todelete.add(thread_id)
             self._expand_admissible_region(
-                self._ls_bound_min, self._ls_bound_max, 
+                self._ls_bound_min, self._ls_bound_max,
                 self._search_thread_pool[thread_id].space)
             if self._candidate_start_points:
                 if not self._started_from_given:
@@ -489,7 +490,7 @@ class BlendSearch(Searcher):
                 # local search thread finishes
                 if self._search_thread_pool[choice].converged:
                     self._expand_admissible_region(
-                        self._ls_bound_min, self._ls_bound_max, 
+                        self._ls_bound_min, self._ls_bound_max,
                         self._search_thread_pool[choice].space)
                     del self._search_thread_pool[choice]
                 return None
@@ -656,8 +657,8 @@ class BlendSearch(Searcher):
                     valid = self._valid(value, subspace, lb, upper[key])
                     if not valid:
                         return False
-                elif value + self._ls.STEPSIZE < lower[key] \
-                     or value > upper[key] + self._ls.STEPSIZE:
+                elif (value + self._ls.STEPSIZE < lower[key]
+                      or value > upper[key] + self._ls.STEPSIZE):
                     return False
         return True
 

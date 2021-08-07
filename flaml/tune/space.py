@@ -111,7 +111,7 @@ def unflatten_hierarchical(config: Dict, space: Dict) -> Tuple[Dict, Dict]:
 
 def add_cost_to_space(space: Dict, low_cost_point: Dict, choice_cost: Dict):
     """Update the space in place by adding low_cost_point and choice_cost
-    
+
     Returns:
         A dict with constant values.
     """
@@ -293,7 +293,7 @@ def denormalize(
                     else:
                         assert key in normalized_reference_config
                         if np.floor(value * n) == np.floor(
-                            normalized_reference_config[key] * n):
+                           normalized_reference_config[key] * n):
                             config_denorm[key] = reference_config[key]
                         else:  # ****random value each time!****
                             config_denorm[key] = random_state.choice(
@@ -304,7 +304,7 @@ def denormalize(
                 sampler = domain.get_sampler()
                 if isinstance(sampler, sample.Quantized):
                     # sampler is sample.Quantized
-                    quantize = sample.q
+                    quantize = sampler.q
                     sampler = sampler.get_sampler()
                 else:
                     quantize = None
@@ -375,7 +375,7 @@ def complete_config(
     if disturb:
         for key in normalized:
             domain = space.get(key)
-            if getattr(domain, 'ordered', True) == False:
+            if getattr(domain, 'ordered', True) is False:
                 # don't change unordered cat choice
                 continue
             if not callable(getattr(domain, 'get_sampler', None)):
@@ -424,7 +424,7 @@ def complete_config(
             else:
                 config[key], subspace[key] = complete_config(
                     value, space[key], flow2, disturb,
-                    lower and lower[key], upper and upper[key])                
+                    lower and lower[key], upper and upper[key])
             continue
         subspace[key] = domain
     return config, subspace

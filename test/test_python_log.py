@@ -72,7 +72,7 @@ class TestLogging(unittest.TestCase):
                 min_resource=automl.min_resource,
                 max_resource=automl.max_resource,
                 config_constraints=[(automl.size, '<=', automl._mem_thres)],
-                metric_constraints=automl.metric_constraints)            
+                metric_constraints=automl.metric_constraints)
             analysis = tune.run(
                 automl.trainable, search_alg=search_alg,    # verbose=2,
                 time_budget_s=1, num_samples=-1)

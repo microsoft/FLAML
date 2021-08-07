@@ -232,7 +232,7 @@ class FLOW2(Searcher):
         add minimal resource to config if available
         '''
         disturb = self._reset_times and partial_config == self.init_config
-            # not the first time to complete init_config, use random gaussian
+        # if not the first time to complete init_config, use random gaussian
         #     normalized = self.normalize(partial_config)
         #     for key in normalized:
         #         # don't change unordered cat choice
@@ -274,7 +274,7 @@ class FLOW2(Searcher):
         return config, space
 
     def create(self, init_config: Dict, obj: float, cost: float, space: Dict
-              ) -> Searcher:
+               ) -> Searcher:
         # flatten_config = flatten_dict(init_config)
         # space = subspace(self.space, init_config)
         # use the subspace where the init_config is located
@@ -283,7 +283,7 @@ class FLOW2(Searcher):
             init_config, self.metric, self.mode,
             space, self.prune_attr,
             self.min_resource, self.max_resource,
-            self.resource_multiple_factor, self.cost_attr, self._seed + 1)        
+            self.resource_multiple_factor, self.cost_attr, self._seed + 1)
         flow2.best_obj = obj * self.metric_op  # minimize internally
         flow2.cost_incumbent = cost
         self._seed += 1
@@ -291,7 +291,7 @@ class FLOW2(Searcher):
 
     def normalize(self, config, recursive=False) -> Dict:
         ''' normalize each dimension in config to [0,1]
-        '''       
+        '''
         return normalize(
             config, self._space, self.best_config, self.incumbent, recursive)
 
