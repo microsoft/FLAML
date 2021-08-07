@@ -109,6 +109,7 @@ class FLOW2(Searcher):
         self._tunable_keys = []
         self._bounded_keys = []
         self._unordered_cat_hp = {}
+        hier = False
         for key, domain in self._space.items():
             assert not (isinstance(domain, dict) and 'grid_search' in domain), \
                 f"{key}'s domain is grid search, not supported in FLOW^2."
@@ -125,14 +126,25 @@ class FLOW2(Searcher):
                 elif isinstance(domain, sample.Integer) and str(sampler) == 'Uniform':
                     self._step_lb = min(
                         self._step_lb, 1.0 / (domain.upper - 1 - domain.lower))
-                if isinstance(domain, sample.Categorical) and not domain.ordered:
-                    self._unordered_cat_hp[key] = len(domain.categories)
+                if isinstance(domain, sample.Categorical):
+                    if not domain.ordered:
+                        self._unordered_cat_hp[key] = len(domain.categories)
+                    if not hier:
+                        for cat in domain.categories:
+                            if isinstance(cat, dict):
+                                hier = True
+                                break
                 if str(sampler) != 'Normal':
                     self._bounded_keys.append(key)
+        if not hier:
+            self._space_keys = sorted(self._space.keys())
+        self._hierarchical = hier
         if (self.prune_attr and self.prune_attr not in self._space
                 and self.max_resource):
             self.min_resource = self.min_resource or self._min_resource()
             self._resource = self._round(self.min_resource)
+            if not hier:
+                self._space_keys.append(self.prune_attr)
         else:
             self._resource = None
         self.incumbent = {}
@@ -304,6 +316,7 @@ class FLOW2(Searcher):
                 self.metric_op = 1.
         if config:
             self.space = config
+            self._space = flatten_dict(self.space)
             self._init_search()
         return True
 
@@ -517,16 +530,16 @@ class FLOW2(Searcher):
         else:
             space = self._space
         value_list = []
-        for key in sorted(config.keys()):
+        keys = sorted(config.keys()) if self._hierarchical else self._space_keys
+        for key in keys:
             value = config[key]
             if key == self.prune_attr:
                 value_list.append(value)
             # else key must be in self.space
             # get rid of list type or constant,
             # e.g., "eval_metric": ["logloss", "error"]
-            elif callable(getattr(space[key], 'sample', None)):
-                if isinstance(space[key], sample.Integer):
-                    value_list.append(int(round(value)))
+            elif isinstance(space[key], sample.Integer):
+                value_list.append(int(round(value)))
             else:
                 value_list.append(value)
         return tuple(value_list)

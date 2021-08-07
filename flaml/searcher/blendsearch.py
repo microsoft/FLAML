@@ -186,7 +186,6 @@ class BlendSearch(Searcher):
             if config:
                 add_cost_to_space(
                     config, self._ls.init_config, self._cat_hp_cost)
-                config = exclusive_to_inclusive(config)
             self._ls.set_search_properties(metric, mode, config)
             self._init_search()
         elif metric_changed or mode_changed:
@@ -551,7 +550,6 @@ class BlendSearch(Searcher):
             # if "ml" in space and hasattr(space["ml"], "categories"):
             #     print(config, space["ml"].categories)
             config_signature = self._ls.config_signature(config, space)
-            # print(config_signature)
             result = self._result.get(config_signature)
             # print(result)
             if result:  # tried before
