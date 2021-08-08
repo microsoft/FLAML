@@ -1196,7 +1196,8 @@ class AutoML:
         self._trained_estimator = None
         self._best_estimator = None
         self._retrained_config = {}
-        self._warn_count = 1
+        self._warn_threshold = 10
+
         est_retrain_time = next_trial_time = 0
         best_config_sig = None
         # use ConcurrencyLimiter to limit the amount of concurrency when
