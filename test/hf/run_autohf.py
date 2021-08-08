@@ -337,8 +337,8 @@ def _exhaustive_sweep(console_args,
         jobid_config.subdat
     )
 
-    gridunion_space["learning_rate"] = [console_args.learning_rate]
-    gridunion_space["weight_decay"] = [console_args.weight_decay]
+    gridunion_space["learning_rate"] = [float(x) for x in console_args.learning_rate]
+    gridunion_space["weight_decay"] = [float(x) for x in console_args.weight_decay]
     _test_hpo(console_args, jobid_config, autohf, wandb_utils, azure_utils,
               autohf_settings,
               root_log_path=console_args.root_log_path,
@@ -346,6 +346,8 @@ def _exhaustive_sweep(console_args,
 
 
 if __name__ == "__main__":
+    from flaml.nlp.hpo.hpo_searchspace import AutoHPOSearchSpace
+    import itertools
     console_args = load_dft_args()
 
     jobid_config = JobID(console_args)
@@ -363,16 +365,38 @@ if __name__ == "__main__":
 
     #_exhaustive_sweep(console_args, jobid_config, autohf, wandb_utils)
 
+    electra_space = AutoHPOSearchSpace.from_model_and_dataset_name(
+        "grid",
+        "electra",
+        "base",
+        jobid_config.dat,
+        jobid_config.subdat
+    )
+
+    bert_space = AutoHPOSearchSpace.from_model_and_dataset_name(
+        "grid",
+        "bert",
+        "base",
+        jobid_config.dat,
+        jobid_config.subdat
+    )
+
+    for key in list(set(electra_space.keys()).difference(bert_space.keys())):
+        bert_space[key] = electra_space[key]
+
+    bert_space_cartesian = AutoTransformers.cartesian_product(bert_space)
+
+    evaluate_configs(autohf, console_args, bert_space_cartesian)
 
     #evaluate_configs_cv(autohf, console_args)
 
-    if "hp1" in console_args.root_log_path:
-        console_args.seed_transformers = 42
-        evaluate_configs(autohf, console_args, [{"learning_rate": 3e-05, "per_device_train_batch_size": 16,
-                                             "num_train_epochs": 10, "warmup_ratio": 0.0,
-                                             "weight_decay": 0.1, "adam_epsilon": 1e-6}])
-    else:
-        console_args.seed_transformers = 41
-        evaluate_configs(autohf, console_args, [{"learning_rate": 1e-05, "per_device_train_batch_size": 32,
-                                             "num_train_epochs": 3, "warmup_ratio": 0.0,
-                                             "weight_decay": 0.0, "adam_epsilon": 1e-8}])
+    # if "hp1" in console_args.root_log_path:
+    #     console_args.seed_transformers = 42
+    #     evaluate_configs(autohf, console_args, [{"learning_rate": 3e-05, "per_device_train_batch_size": 16,
+    #                                          "num_train_epochs": 10, "warmup_ratio": 0.0,
+    #                                          "weight_decay": 0.1, "adam_epsilon": 1e-6}])
+    # else:
+    #     console_args.seed_transformers = 41
+    #     evaluate_configs(autohf, console_args, [{"learning_rate": 1e-05, "per_device_train_batch_size": 32,
+    #                                          "num_train_epochs": 3, "warmup_ratio": 0.0,
+    #                                          "weight_decay": 0.0, "adam_epsilon": 1e-8}])

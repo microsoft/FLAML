@@ -89,6 +89,15 @@ class AutoTransformers:
             mode=self.jobid_config.mod)
 
     @staticmethod
+    def cartesian_product(origin_space_dict):
+        import itertools
+        keys = origin_space_dict.keys()
+        values = origin_space_dict.values()
+        space_cartesian = itertools.product(*values)
+        space_cartesian_list = [dict(zip(list(keys), list(each_tuple))) for each_tuple in space_cartesian]
+        return space_cartesian_list
+
+    @staticmethod
     def _wrapper(func, *args):  # with star
         return func(*args)
 
@@ -828,6 +837,7 @@ class AutoTransformers:
 
         tune_config = self._search_space_hpo
         tune_config["seed"] = self.jobid_config.sdhf
+
 
         analysis = ray.tune.run(
             self._objective,
