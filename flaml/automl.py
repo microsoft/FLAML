@@ -1391,15 +1391,15 @@ class AutoML:
                         search_state.best_loss,
                         self._best_estimator,
                         self._state.best_loss))
-                warn_threshold = 10**self._warn_count
                 searcher = search_state.search_alg.searcher
                 if searcher.is_ls_ever_converged and not self._ever_converged_per_learner[estimator]:
                     self._ever_converged_per_learner[estimator] = searcher.is_ls_ever_converged
                 if all(self._ever_converged_per_learner.values()) and \
-                   self._state.time_from_start > warn_threshold * self._time_taken_best_iter:
-                    logger.warn(f"All estimator local search has converged at least once, and the total \
-                                  search time exceeds {warn_threshold} times the time taken to find the best model.")
-                    self._warn_count += 1
+                   self._state.time_from_start > self._warn_threshold * self._time_taken_best_iter:
+                    logger.warn("All estimator hyperparameters local search has converged at least once, "
+                                f"and the total search time exceeds {self._warn_threshold} times the time taken "
+                                "to find the best model.")
+                    self._warn_threshold *= 10
             else:
                 logger.info(f"no enough budget for learner {estimator}")
                 if self._estimator_index is not None:
