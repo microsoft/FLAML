@@ -1206,7 +1206,7 @@ class AutoML:
             from ray import __version__ as ray_version
             assert ray_version >= '1.0.0', "requires ray version larger than 1.0.0 to use the ConcurrencyLimiter"
             from ray.tune.suggest import ConcurrencyLimiter
-        except ImportError:
+        except (ImportError, AssertionError):
             from .searcher.suggestion import ConcurrencyLimiter
         if self._hpo_method in ('cfo', 'grid'):
             from flaml import CFO as SearchAlgo
