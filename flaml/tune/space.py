@@ -1,7 +1,9 @@
 
 try:
-    from ray.tune import sample
-except ImportError:
+    from ray import __version__ as ray_version
+    assert ray_version >= '1.0.0', "requires ray version larger than 1.0.0 to use sample properly"
+    from ray.tune import sample 
+except (ImportError, AssertionError):
     from . import sample
 from typing import Dict, Optional, Any
 import numpy as np
