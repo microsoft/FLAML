@@ -6,8 +6,10 @@
 from typing import Dict, Optional
 import numpy as np
 try:
+    from ray import __version__ as ray_version
+    assert ray_version >= '1.0.0'
     from ray.tune.suggest import Searcher
-except ImportError:
+except (ImportError, AssertionError):
     from .suggestion import Searcher
 from .flow2 import FLOW2
 from ..tune.space import (add_cost_to_space, unflatten_hierarchical)

@@ -1,11 +1,12 @@
 
 try:
+    from ray import __version__ as ray_version
+    assert ray_version >= '1.0.0'
     from ray.tune import sample
     from ray.tune.suggest.variant_generator import generate_variants
-except ImportError:
+except (ImportError, AssertionError):
     from . import sample
     from ..searcher.variant_generator import generate_variants
-from flaml.searcher.variant_generator import unflatten_dict
 from typing import Dict, Optional, Any, Tuple
 import numpy as np
 import logging
