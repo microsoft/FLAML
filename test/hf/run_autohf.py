@@ -165,20 +165,43 @@ def search_base_and_search_around_best(console_args, jobid_config, autohf, wandb
               autohf_settings=get_autohf_settings(args_large, **{"points_to_evaluate": [best_config]}))
 
 
-def evaluate_configs(autohf, console_args, ranked_all_configs):
+def evaluate_configs(autohf, console_args):
     import copy
+    from flaml.nlp.hpo.hpo_searchspace import AutoHPOSearchSpace
     jobid_config = JobID(console_args)
     autohf.jobid_config = jobid_config
     azure_utils_large = AzureUtils(
                          root_log_path=console_args.root_log_path,
                          azure_key_path=console_args.key_path,
                          autohf=autohf)
+
+    electra_space = AutoHPOSearchSpace.from_model_and_dataset_name(
+        "grid",
+        "electra",
+        "base",
+        jobid_config.dat,
+        jobid_config.subdat
+    )
+
+    bert_space = AutoHPOSearchSpace.from_model_and_dataset_name(
+        "grid",
+        "bert",
+        "base",
+        jobid_config.dat,
+        jobid_config.subdat
+    )
+
+    for key in list(set(electra_space.keys()).difference(bert_space.keys())):
+        bert_space[key] = electra_space[key]
+
+    bert_space_cartesian = AutoTransformers.cartesian_product(bert_space)
+
     _test_hpo(console_args,
               jobid_config,
               autohf,
               wandb_utils,
               azure_utils_large,
-              autohf_settings=get_autohf_settings(console_args, **{"points_to_evaluate": ranked_all_configs}))
+              autohf_settings=get_autohf_settings(console_args, **{"points_to_evaluate": bert_space_cartesian}))
 
 def evaluate_configs_cv(autohf, console_args):
     import copy
@@ -365,28 +388,7 @@ if __name__ == "__main__":
 
     #_exhaustive_sweep(console_args, jobid_config, autohf, wandb_utils)
 
-    electra_space = AutoHPOSearchSpace.from_model_and_dataset_name(
-        "grid",
-        "electra",
-        "base",
-        jobid_config.dat,
-        jobid_config.subdat
-    )
-
-    bert_space = AutoHPOSearchSpace.from_model_and_dataset_name(
-        "grid",
-        "bert",
-        "base",
-        jobid_config.dat,
-        jobid_config.subdat
-    )
-
-    for key in list(set(electra_space.keys()).difference(bert_space.keys())):
-        bert_space[key] = electra_space[key]
-
-    bert_space_cartesian = AutoTransformers.cartesian_product(bert_space)
-
-    evaluate_configs(autohf, console_args, bert_space_cartesian)
+    evaluate_configs(autohf, console_args)
 
     #evaluate_configs_cv(autohf, console_args)
 
