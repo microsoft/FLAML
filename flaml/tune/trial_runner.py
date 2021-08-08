@@ -5,8 +5,10 @@
 '''
 from typing import Optional
 try:
+    from ray import __version__ as ray_version
+    assert ray_version >= '1.0.0'
     from ray.tune.trial import Trial
-except ImportError:
+except (ImportError, AssertionError):
     from .trial import Trial
 import logging
 logger = logging.getLogger(__name__)

@@ -9,11 +9,13 @@ import time
 import pickle
 
 try:
+    from ray import __version__ as ray_version
+    assert ray_version >= '1.0.0'
     from ray.tune.suggest import Searcher
     from ray.tune.suggest.optuna import OptunaSearch as GlobalSearch
     from ray.tune.suggest.variant_generator import generate_variants
     from ray.tune.utils.util import flatten_dict
-except ImportError:
+except (ImportError, AssertionError):
     from .suggestion import Searcher
     from .suggestion import OptunaSearch as GlobalSearch
     from .variant_generator import generate_variants, flatten_dict
@@ -609,9 +611,11 @@ class BlendSearch(Searcher):
 
 
 try:
+    from ray import __version__ as ray_version
+    assert ray_version >= '1.0.0'
     from ray.tune import (uniform, quniform, choice, randint, qrandint, randn,
                           qrandn, loguniform, qloguniform)
-except ImportError:
+except (ImportError, AssertionError):
     from ..tune.sample import (uniform, quniform, choice, randint, qrandint, randn,
                                qrandn, loguniform, qloguniform)
 

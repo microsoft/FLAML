@@ -6,11 +6,13 @@
 from typing import Dict, Optional
 import numpy as np
 try:
+    from ray import __version__ as ray_version
+    assert ray_version >= '1.0.0'
     from ray.tune.suggest import Searcher
     from ray.tune.suggest.variant_generator import generate_variants
     from ray.tune import sample
     from ray.tune.utils.util import flatten_dict, unflatten_dict
-except ImportError:
+except (ImportError, AssertionError):
     from .suggestion import Searcher
     from .variant_generator import generate_variants, flatten_dict, unflatten_dict
     from ..tune import sample

@@ -1212,8 +1212,9 @@ class AutoML:
             from flaml import CFO as SearchAlgo
         elif 'optuna' == self._hpo_method:
             try:
+                assert ray_version >= '1.0.0'
                 from ray.tune.suggest.optuna import OptunaSearch as SearchAlgo
-            except ImportError:
+            except (ImportError, AssertionError):
                 from .searcher.suggestion import OptunaSearch as SearchAlgo
         elif 'bs' == self._hpo_method:
             from flaml import BlendSearch as SearchAlgo
