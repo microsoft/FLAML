@@ -1171,9 +1171,11 @@ class AutoML:
         logger.info(f"Time taken to find the best model: {self._time_taken_best_iter}")
         if self._time_taken_best_iter >= time_budget * 0.7 and not \
            all(self._ever_converged_per_learner.values()):
-            logger.warn("Time taken to find the best model is larger than 0.7 of the \
-                         provided time budget and not all estimators converged.")
-            logger.warn("Consider increasing the time budget.")
+            logger.warn("Time taken to find the best model is {0:.0g}% of the "
+                        "provided time budget and not all estimators' hyperparameter "
+                        "search converged. Consider increasing the time budget.".format(
+                            self._time_taken_best_iter / time_budget * 100))
+
         if verbose == 0:
             logger.setLevel(old_level)
 
