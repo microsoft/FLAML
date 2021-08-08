@@ -11,8 +11,6 @@ from typing import Dict, Optional, Any, Tuple
 import numpy as np
 import logging
 
-from numpy.lib.function_base import append
-
 logger = logging.getLogger(__name__)
 
 

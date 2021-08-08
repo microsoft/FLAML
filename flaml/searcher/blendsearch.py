@@ -20,7 +20,7 @@ except (ImportError, AssertionError):
     from .variant_generator import flatten_dict
 from .search_thread import SearchThread
 from .flow2 import FLOW2
-from ..tune.space import add_cost_to_space, normalize
+from ..tune.space import add_cost_to_space, normalize   # TODO: , define_by_run_func
 
 import logging
 logger = logging.getLogger(__name__)
@@ -133,6 +133,9 @@ class BlendSearch(Searcher):
         if global_search_alg is not None:
             self._gs = global_search_alg
         elif getattr(self, '__name__', None) != 'CFO':
+            gs_space = space
+            # TODO: when define_by_run is supported
+            # gs_space = define_by_run_func(space)
             try:
                 gs_seed = seed - 10 if (seed - 10) >= 0 else seed - 11 + (1 << 32)
                 if experimental:
@@ -142,10 +145,10 @@ class BlendSearch(Searcher):
                 else:
                     sampler = None
                 self._gs = GlobalSearch(
-                    space=space, metric=metric, mode=mode, seed=gs_seed,
+                    space=gs_space, metric=metric, mode=mode, seed=gs_seed,
                     sampler=sampler)
             except TypeError:
-                self._gs = GlobalSearch(space=space, metric=metric, mode=mode)
+                self._gs = GlobalSearch(space=gs_space, metric=metric, mode=mode)
             self._gs.space = space
         else:
             self._gs = None

@@ -46,6 +46,7 @@ class SearchThread:
         self.cost_attr = cost_attr
         if search_alg:
             self.space = self._space = search_alg.space  # unflattened space
+            # TODO: remove when define_by_run is supported
             if not isinstance(self._search_alg, FLOW2):
                 # remember const config
                 self._const = add_cost_to_space(self.space, {}, {})
