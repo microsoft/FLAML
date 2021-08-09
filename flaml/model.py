@@ -183,9 +183,10 @@ class SKLearnEstimator(BaseEstimator):
 
     def _preprocess(self, X):
         if isinstance(X, pd.DataFrame):
-            X = X.copy()
             cat_columns = X.select_dtypes(include=['category']).columns
-            X[cat_columns] = X[cat_columns].apply(lambda x: x.cat.codes)
+            if not cat_columns.empty:
+                X = X.copy()
+                X[cat_columns] = X[cat_columns].apply(lambda x: x.cat.codes)
         elif isinstance(X, np.ndarray) and X.dtype.kind not in 'buif':
             # numpy array is not of numeric dtype
             X = pd.DataFrame(X)
@@ -666,10 +667,13 @@ class CatBoostEstimator(BaseEstimator):
 
     def _preprocess(self, X):
         if isinstance(X, pd.DataFrame):
-            X = X.copy()
             cat_columns = X.select_dtypes(include=['category']).columns
-            X[cat_columns].apply(
-                lambda x: str(x) if isinstance(x, float) else x)
+            if not cat_columns.empty:
+                X = X.copy()
+                X[cat_columns] = X[cat_columns].apply(
+                    lambda x: x.cat.rename_categories(
+                    [str(c) if isinstance(c, float) else c
+                     for c in x.cat.categories]))
         elif isinstance(X, np.ndarray) and X.dtype.kind not in 'buif':
             # numpy array is not of numeric dtype
             X = pd.DataFrame(X)
