@@ -1,7 +1,12 @@
 def test_automl(budget=5, dataset_format='dataframe'):
     from flaml.data import load_openml_dataset
-    X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=1169, data_dir='test/',
-                                                           dataset_format=dataset_format)
+    from openml.exceptions import OpenMLServerException
+    try:
+        X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=1169, data_dir='test/',
+                                                               dataset_format=dataset_format)
+    except OpenMLServerException:
+        print("OpenMLServerException raised")
+        return
     ''' import AutoML class from flaml package '''
     from flaml import AutoML
     automl = AutoML()
@@ -44,11 +49,7 @@ def test_automl(budget=5, dataset_format='dataframe'):
 
 
 def test_automl_array():
-    from openml.exceptions import OpenMLServerException
-    try:
-        test_automl(5, 'array')
-    except OpenMLServerException:
-        print("OpenMLServerException raised")
+    test_automl(5, 'array')
 
 
 def test_mlflow():
