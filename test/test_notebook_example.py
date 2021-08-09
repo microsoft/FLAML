@@ -6,7 +6,7 @@ def test_automl(budget=5, dataset_format='dataframe'):
                                                                dataset_format=dataset_format)
     except OpenMLServerException:
         print("OpenMLServerException raised")
-
+        return
     ''' import AutoML class from flaml package '''
     from flaml import AutoML
     automl = AutoML()
