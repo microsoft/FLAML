@@ -161,11 +161,57 @@ class TestAutoML(unittest.TestCase):
         })
         y = pd.Series([0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1])
 
+        automl = AutoML()
+        automl_settings = {
+            "time_budget": 6,
+            "task": 'classification',
+            "n_jobs": 1,
+            "estimator_list": ['catboost', 'lrl2'],
+            "eval_method": "cv",
+            "n_splits": 3,
+            "metric": "accuracy",
+            "log_training_metric": True,
+            "verbose": 1,
+            "ensemble": True,
+        }
+        automl.fit(X, y, **automl_settings)
+
+        automl = AutoML()
+        automl_settings = {
+            "time_budget": 2,
+            "task": 'classification',
+            "n_jobs": 1,
+            "estimator_list": ['lrl2', 'kneighbor'],
+            "eval_method": "cv",
+            "n_splits": 3,
+            "metric": "accuracy",
+            "log_training_metric": True,
+            "verbose": 1,
+            "ensemble": True,
+        }
+        automl.fit(X, y, **automl_settings)
+
+        automl = AutoML()
         automl_settings = {
             "time_budget": 3,
             "task": 'classification',
             "n_jobs": 1,
             "estimator_list": ['xgboost', 'catboost', 'kneighbor'],
+            "eval_method": "cv",
+            "n_splits": 3,
+            "metric": "accuracy",
+            "log_training_metric": True,
+            "verbose": 1,
+            "ensemble": True,
+        }
+        automl.fit(X, y, **automl_settings)
+
+        automl = AutoML()
+        automl_settings = {
+            "time_budget": 3,
+            "task": 'classification',
+            "n_jobs": 1,
+            "estimator_list": ['lgbm', 'catboost', 'kneighbor'],
             "eval_method": "cv",
             "n_splits": 3,
             "metric": "accuracy",
