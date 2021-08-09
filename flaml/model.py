@@ -707,11 +707,11 @@ class CatBoostEstimator(BaseEstimator):
     def fit(self, X_train, y_train, budget=None, **kwargs):
         start_time = time.time()
         n_iter = self.params["n_estimators"]
+        X_train = self._preprocess(X_train)
         if isinstance(X_train, pd.DataFrame):
             cat_features = list(X_train.select_dtypes(
                 include='category').columns)
         else:
-            X_train = self._preprocess(X_train)
             cat_features = []
         # from catboost import CatBoostError
         # try:
