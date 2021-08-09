@@ -665,7 +665,12 @@ class CatBoostEstimator(BaseEstimator):
         CatBoostEstimator._train_size = 0
 
     def _preprocess(self, X):
-        if isinstance(X, np.ndarray) and X.dtype.kind not in 'buif':
+        if isinstance(X, pd.DataFrame):
+            X = X.copy()
+            cat_columns = X.select_dtypes(include=['category']).columns
+            X[cat_columns].apply(
+                lambda x: str(x) if isinstance(x, float) else x)
+        elif isinstance(X, np.ndarray) and X.dtype.kind not in 'buif':
             # numpy array is not of numeric dtype
             X = pd.DataFrame(X)
             for col in X.columns:
