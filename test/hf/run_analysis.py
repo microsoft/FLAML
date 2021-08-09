@@ -459,6 +459,37 @@ def print_modelhub_result(console_args):
         print()
     stop = 0
 
+def compare_muppet(console_args):
+    from flaml.nlp.result_analysis.azure_utils import JobID, ConfigScoreList
+    from flaml.nlp import AzureUtils
+
+    dats = ["imdb", "amazon-polarity", "glue", "yelp-polarity"]
+    subdats = [None, None, "sst2", None]
+    for idx in range(len(dats)):
+        partial_jobid_config = JobID()
+        partial_jobid_config.dat = [dats[idx]]
+        partial_jobid_config.subdat = subdats[idx]
+        partial_jobid_config.spa = "uni"
+        partial_jobid_config.presz = "base"
+        partial_jobid_config.pre_full = "facebook-muppet-roberta-base"
+
+        azure_utils = AzureUtils(root_log_path=console_args.azure_root_log_path,
+                                 azure_key_path=console_args.key_path,
+                                 jobid_config=partial_jobid_config)
+        matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
+            console_args.azure_root_log_path,
+            partial_jobid_config)
+        best_config = matched_config_score_lists[0]
+        merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
+                                       for x in config_score_list._config_score_list])._config_score_list
+        top1_merged_list = sorted([x for x in merged_list if isinstance(x.metric_score, dict)],
+                                    key=lambda x: x.metric_score["max"],
+                                    reverse=True)[:1]
+        print(len(merged_list))
+        print(partial_jobid_config.dat)
+        print(top1_merged_list[0].metric_score["max"])
+        print(best_config._test_metric)
+
 def is_dominating(config2score1, config2score2):
     is_larger = True
     for key in config2score1.keys():
@@ -568,6 +599,7 @@ def randomly_sample_gridunion():
     for (each_hp, each_space) in space:
         print(each_hp, random.choice(each_space))
 
+
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('--key_path', type=str, help='key path', required=False, default="../../")
@@ -579,5 +611,6 @@ if __name__ == "__main__":
     #analyze_small_large(console_args=args)
     #compare_learningrate(console_args=args)
     #print_crossvalidation_result(console_args=args)
-    print_modelhub_result(console_args=args)
+    #print_modelhub_result(console_args=args)
     #randomly_sample_gridunion()
+    compare_muppet(console_args=args)
