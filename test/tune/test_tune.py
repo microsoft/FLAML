@@ -194,7 +194,7 @@ def test_nested():
             metric_constraints=[("ab", "<=", 4)]),
         local_dir='logs/',
         num_samples=-1,
-        time_budget_s=.1)
+        time_budget_s=1)
 
     best_trial = analysis.get_best_trial()
     logger.info(f"CFO best config: {best_trial.config}")
@@ -216,7 +216,7 @@ def test_nested():
             metric_constraints=[("ab", "<=", 4)]),
         local_dir='logs/',
         num_samples=-1,
-        time_budget_s=.1)
+        time_budget_s=1)
 
     best_trial = analysis.get_best_trial()
     logger.info(f"BlendSearch exp best config: {best_trial.config}")
@@ -233,7 +233,7 @@ def test_nested():
         metric_constraints=[("ab", "<=", 4)],
         local_dir='logs/',
         num_samples=-1,
-        time_budget_s=.1)
+        time_budget_s=1)
 
     best_trial = analysis.get_best_trial()
     logger.info(f"BlendSearch best config: {best_trial.config}")
