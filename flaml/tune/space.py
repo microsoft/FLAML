@@ -254,12 +254,12 @@ def normalize(
             quantize = None
         if str(sampler) == 'LogUniform':
             upper = domain.upper - (
-                isinstance(domain, sample.Integer) & (quantize is not None))
+                isinstance(domain, sample.Integer) & (quantize is None))
             config_norm[key] = np.log(value / domain.lower) / np.log(
                 upper / domain.lower)
         elif str(sampler) == 'Uniform':
             upper = domain.upper - (
-                isinstance(domain, sample.Integer) & (quantize is not None))
+                isinstance(domain, sample.Integer) & (quantize is None))
             config_norm[key] = (value - domain.lower) / (upper - domain.lower)
         elif str(sampler) == 'Normal':
             # N(mean, sd) -> N(0,1)
@@ -310,12 +310,12 @@ def denormalize(
                 # Handle Log/Uniform
                 if str(sampler) == 'LogUniform':
                     upper = domain.upper - (isinstance(domain, sample.Integer)
-                                            & (quantize is not None))
+                                            & (quantize is None))
                     config_denorm[key] = (
                         upper / domain.lower) ** value * domain.lower
                 elif str(sampler) == 'Uniform':
                     upper = domain.upper - (isinstance(domain, sample.Integer)
-                                            & (quantize is not None))
+                                            & (quantize is None))
                     config_denorm[key] = value * (
                         upper - domain.lower) + domain.lower
                 elif str(sampler) == 'Normal':
