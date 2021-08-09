@@ -819,10 +819,12 @@ class AutoML:
         Returns:
             A dict.
             (a) if there is only one estimator in estimator_list, each key is a
-            hyperparameter name
+            hyperparameter name.
             (b) otherwise, it is a nested dict with 'ml' as the key, and
             a list of the low_cost_partial_configs as the value, corresponding
-            to each learner's low_cost_partial_config
+            to each learner's low_cost_partial_config; the estimator index as
+            an integer corresponding to the cheapest learner is appeneded to the
+            list at the end.
 
         '''
         if len(self.estimator_list) == 1:
@@ -847,10 +849,11 @@ class AutoML:
         Returns:
             A dict.
             (a) if there is only one estimator in estimator_list, each key is a
-            hyperparameter name
+            hyperparameter name.
             (b) otherwise, it is a nested dict with 'ml' as the key, and
             a list of the cat_hp_cost's as the value, corresponding
-            to each learner's cat_hp_cost
+            to each learner's cat_hp_cost; the cost relative to lgbm for each
+            learner (as a list itself) is appended to the list at the end.
 
         '''
         if len(self.estimator_list) == 1:
