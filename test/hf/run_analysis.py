@@ -463,14 +463,14 @@ def compare_muppet(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID, ConfigScoreList
     from flaml.nlp import AzureUtils
 
-    dats =[ "amazon-polarity", "imdb", "amazon-polarity", "glue"]
-    subdats = [None, None, None, "sst2"]
+    dats =["yelp-polarity", "glue"] # [ "amazon-polarity", "imdb",
+    subdats = [None, "sst2"]
     for idx in range(len(dats)):
         partial_jobid_config = JobID()
         partial_jobid_config.dat = [dats[idx]]
         partial_jobid_config.subdat = subdats[idx]
-        partial_jobid_config.spa = "gnr"
-        partial_jobid_config.arg = "cus"
+        partial_jobid_config.spa = "uni"
+        partial_jobid_config.arg = "dft"
         partial_jobid_config.presz = "large"
         partial_jobid_config.pre_full = "facebook-muppet-roberta-large"
 
@@ -486,6 +486,7 @@ def compare_muppet(console_args):
         top1_merged_list = sorted([x for x in merged_list if isinstance(x.metric_score, dict)],
                                     key=lambda x: x.metric_score["max"],
                                     reverse=True)[:1]
+        print(len(matched_config_score_lists))
         print(len(merged_list))
         print(partial_jobid_config.dat)
         print(top1_merged_list[0].metric_score["max"])
