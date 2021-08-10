@@ -271,6 +271,8 @@ class LGBMEstimator(BaseEstimator):
             self.params["objective"] = objective
         if "max_bin" not in self.params:
             self.params['max_bin'] = 1 << int(round(log_max_bin)) - 1
+        if "verbose" not in self.params:
+            self.params['verbose'] = -1
         if 'regression' in task:
             self.estimator_class = LGBMRegressor
         else:
@@ -463,14 +465,15 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         super().__init__(task, **params)
         del self.params['objective']
         del self.params['max_bin']
+        del self.params['verbose']
         self.params.update({
             "n_estimators": int(round(n_estimators)),
             'max_leaves': int(round(max_leaves)),
             'max_depth': 0,
             'grow_policy': params.get("grow_policy", 'lossguide'),
             'tree_method': tree_method,
-            'verbosity': 0,
             'n_jobs': n_jobs,
+            'verbosity': 0,
             'learning_rate': float(learning_rate),
             'subsample': float(subsample),
             'reg_alpha': float(reg_alpha),
@@ -539,6 +542,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         self.params.update({
             "n_estimators": int(round(n_estimators)),
             "n_jobs": n_jobs,
+            "verbose": 0,
             'max_features': float(max_features),
             "max_leaf_nodes": params.get('max_leaf_nodes', int(round(max_leaves))),
         })
