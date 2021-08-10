@@ -463,15 +463,15 @@ def compare_muppet(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID, ConfigScoreList
     from flaml.nlp import AzureUtils
 
-    dats = ["imdb", "amazon-polarity", "glue", "yelp-polarity"]
+    dats =[ "yelp-polarity"] #  ["imdb", "amazon-polarity", "glue",
     subdats = [None, None, "sst2", None]
     for idx in range(len(dats)):
         partial_jobid_config = JobID()
         partial_jobid_config.dat = [dats[idx]]
         partial_jobid_config.subdat = subdats[idx]
-        partial_jobid_config.spa = "uni"
-        partial_jobid_config.presz = "base"
-        partial_jobid_config.pre_full = "facebook-muppet-roberta-base"
+        partial_jobid_config.spa = "gnr"
+        partial_jobid_config.presz = "large"
+        partial_jobid_config.pre_full = "facebook-muppet-roberta-large"
 
         azure_utils = AzureUtils(root_log_path=console_args.azure_root_log_path,
                                  azure_key_path=console_args.key_path,
