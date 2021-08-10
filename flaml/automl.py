@@ -214,7 +214,6 @@ class AutoMLState:
         }
         if sampled_weight is not None:
             self.fit_kwargs['sample_weight'] = weight
-        # with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
         #     tune.report(**result)
         return result
 
@@ -1235,6 +1234,8 @@ class AutoML:
                 from .searcher.suggestion import OptunaSearch as SearchAlgo
         elif 'bs' == self._hpo_method:
             from flaml import BlendSearch as SearchAlgo
+        elif 'cfocat' == self._hpo_method:
+            from flaml import CFOCat as SearchAlgo
         else:
             raise NotImplementedError(
                 f"hpo_method={self._hpo_method} is not recognized. "
@@ -1284,7 +1285,7 @@ class AutoML:
                 else:
                     points_to_evaluate = [search_state.init_config]
                     low_cost_partial_config = search_state.low_cost_partial_config
-                if self._hpo_method in ('bs', 'cfo', 'grid'):
+                if self._hpo_method in ('bs', 'cfo', 'grid', 'cfocat'):
                     algo = SearchAlgo(
                         metric='val_loss', mode='min', space=search_space,
                         points_to_evaluate=points_to_evaluate,
@@ -1307,7 +1308,7 @@ class AutoML:
                                                              max_concurrent=1)
             else:
                 search_space = None
-                if self._hpo_method in ('bs', 'cfo'):
+                if self._hpo_method in ('bs', 'cfo', 'cfocat'):
                     search_state.search_alg.set_search_properties(
                         metric=None, mode=None,
                         config={
