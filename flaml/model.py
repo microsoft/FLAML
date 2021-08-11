@@ -678,7 +678,7 @@ class CatBoostEstimator(BaseEstimator):
                     lambda x:
                         x.cat.rename_categories(
                             [str(c) if isinstance(c, float) else c
-                            for c in x.cat.categories]))
+                             for c in x.cat.categories]))
         elif isinstance(X, np.ndarray) and X.dtype.kind not in 'buif':
             # numpy array is not of numeric dtype
             X = pd.DataFrame(X)
