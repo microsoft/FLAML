@@ -675,9 +675,10 @@ class CatBoostEstimator(BaseEstimator):
             if not cat_columns.empty:
                 X = X.copy()
                 X[cat_columns] = X[cat_columns].apply(
-                    lambda x: x.cat.rename_categories(
-                        [str(c) if isinstance(c, float) else c
-                        for c in x.cat.categories]))
+                    lambda x:
+                        x.cat.rename_categories(
+                            [str(c) if isinstance(c, float) else c
+                            for c in x.cat.categories]))
         elif isinstance(X, np.ndarray) and X.dtype.kind not in 'buif':
             # numpy array is not of numeric dtype
             X = pd.DataFrame(X)
