@@ -521,6 +521,7 @@ class BlendSearch(Searcher):
                     config, space = self._ls.complete_config(
                         init_config, self._ls_bound_min, self._ls_bound_max)
                     self._trial_proposed_by[trial_id] = choice
+                    self._search_thread_pool[choice].running += 1
                 else:
                     thread = self._search_thread_pool[backup]
                     config = thread.suggest(trial_id)
