@@ -104,6 +104,7 @@ def unflatten_hierarchical(config: Dict, space: Dict) -> Tuple[Dict, Dict]:
             domain = space.get(key)
             if domain is not None:
                 subspace[key] = domain
+                sampler = domain.sampler
                 if isinstance(sampler, sample.Quantized):
                     sampler = sampler.sampler
                     if isinstance(sampler, sample.LogUniform):                
