@@ -252,7 +252,7 @@ def test_run_training_function_return_value():
         evaluate_config_dict,
         config={
             'x': tune.qloguniform(lower=1, upper=100000, q=1),
-            'y': tune.qrandint(lower=1, upper=100000, q=2)
+            'y': tune.qrandint(lower=2, upper=100000, q=2)
         },
         metric='metric', mode='max',
         num_samples=100,
@@ -267,7 +267,7 @@ def test_run_training_function_return_value():
         evaluate_config_scalar,
         config={
             'x': tune.qloguniform(lower=1, upper=100000, q=1),
-            'y': tune.randint(lower=1, upper=100000)
+            'y': tune.qlograndint(lower=2, upper=100000, q=2)
         },
         num_samples=100, mode='max',
     )
