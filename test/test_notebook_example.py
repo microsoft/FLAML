@@ -1,9 +1,11 @@
+from openml.exceptions import OpenMLServerException
+
+
 def test_automl(budget=5, dataset_format='dataframe'):
     from flaml.data import load_openml_dataset
-    from openml.exceptions import OpenMLServerException
     try:
-        X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=1169, data_dir='test/',
-                                                               dataset_format=dataset_format)
+        X_train, X_test, y_train, y_test = load_openml_dataset(
+            dataset_id=1169, data_dir='test/', dataset_format=dataset_format)
     except OpenMLServerException:
         print("OpenMLServerException raised")
         return
@@ -58,7 +60,12 @@ def test_mlflow():
     subprocess.check_call([sys.executable, "-m", "pip", "install", "mlflow"])
     import mlflow
     from flaml.data import load_openml_task
-    X_train, X_test, y_train, y_test = load_openml_task(task_id=7592, data_dir='test/')
+    try:
+        X_train, X_test, y_train, y_test = load_openml_task(
+            task_id=7592, data_dir='test/')
+    except OpenMLServerException:
+        print("OpenMLServerException raised")
+        return
     ''' import AutoML class from flaml package '''
     from flaml import AutoML
     automl = AutoML()
