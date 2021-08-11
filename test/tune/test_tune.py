@@ -251,10 +251,11 @@ def test_run_training_function_return_value():
     tune.run(
         evaluate_config_dict,
         config={
-            'x': tune.lograndint(lower=1, upper=100000),
-            'y': tune.randint(lower=1, upper=100000)
+            'x': tune.qloguniform(lower=1, upper=100000, q=1),
+            'y': tune.qrandint(lower=1, upper=100000, q=2)
         },
-        metric='metric',
+        metric='metric', mode='max',
+        num_samples=100,
     )
 
     # Test scalar return value
@@ -265,9 +266,10 @@ def test_run_training_function_return_value():
     tune.run(
         evaluate_config_scalar,
         config={
-            'x': tune.lograndint(lower=1, upper=100000),
+            'x': tune.qloguniform(lower=1, upper=100000, q=1),
             'y': tune.randint(lower=1, upper=100000)
         },
+        num_samples=100, mode='max',
     )
 
 

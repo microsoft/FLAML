@@ -121,10 +121,11 @@ class FLOW2(Searcher):
                 # the step size lower bound for uniform variables doesn't depend
                 # on the current config
                 if isinstance(sampler, sample.Quantized):
+                    q = sampler.q
                     sampler = sampler.get_sampler()
                     if str(sampler) == 'Uniform':
                         self._step_lb = min(
-                            self._step_lb, sampler.q / (domain.upper - domain.lower))
+                            self._step_lb, q / (domain.upper - domain.lower))
                 elif isinstance(domain, sample.Integer) and str(sampler) == 'Uniform':
                     self._step_lb = min(
                         self._step_lb, 1.0 / (domain.upper - 1 - domain.lower))
@@ -191,10 +192,11 @@ class FLOW2(Searcher):
             # the stepsize lower bound for log uniform variables depends on the
             # current config
             if isinstance(sampler, sample.Quantized):
+                q = sampler.q
                 sampler_inner = sampler.get_sampler()
                 if str(sampler_inner) == 'LogUniform':
                     step_lb = min(
-                        step_lb, np.log(1.0 + sampler.q / self.best_config[key])
+                        step_lb, np.log(1.0 + q / self.best_config[key])
                         / np.log(domain.upper / domain.lower))
             elif isinstance(domain, sample.Integer) and str(sampler) == 'LogUniform':
                 step_lb = min(
