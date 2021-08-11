@@ -1084,7 +1084,7 @@ class AutoML:
                 Keys are the name of the estimators, and values are the starting
                 hyperparamter configurations for the corresponding estimators.
             **fit_kwargs: Other key word arguments to pass to fit() function of
-                the searched learners, such sample_weight
+                the searched learners, such as sample_weight.
         '''
         self._start_time_flag = time.time()
         self._state.task = task
