@@ -104,12 +104,13 @@ def unflatten_hierarchical(config: Dict, space: Dict) -> Tuple[Dict, Dict]:
             domain = space.get(key)
             if domain is not None:
                 subspace[key] = domain
-                sampler = domain.sampler
-                if isinstance(sampler, sample.Quantized):
-                    sampler = sampler.sampler
-                    if isinstance(sampler, sample.LogUniform):                
-                        value = np.round(value / sampler.q) * sampler.q
-                        value = domain.cast(value)
+                if isinstance(domain, sample.Domain):
+                    sampler = domain.sampler
+                    if isinstance(sampler, sample.Quantized):
+                        sampler = sampler.sampler
+                        if isinstance(sampler, sample.LogUniform):
+                            value = np.round(value / sampler.q) * sampler.q
+                            value = domain.cast(value)
             hier[key] = value
     return hier, subspace
 
