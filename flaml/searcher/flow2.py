@@ -237,52 +237,17 @@ class FLOW2(Searcher):
         '''
         disturb = self._reset_times and partial_config == self.init_config
         # if not the first time to complete init_config, use random gaussian
-        #     normalized = self.normalize(partial_config)
-        #     for key in normalized:
-        #         # don't change unordered cat choice
-        #         if key in self._unordered_cat_hp:
-        #             continue
-        #         if upper and lower:
-        #             up, low = upper[key], lower[key]
-        #             gauss_std = up - low or self.STEPSIZE
-        #             # allowed bound
-        #             up += self.STEPSIZE
-        #             low -= self.STEPSIZE
-        #         elif key in self._bounded_keys:
-        #             up, low, gauss_std = 1, 0, 1.0
-        #         else:
-        #             up, low, gauss_std = np.Inf, -np.Inf, 1.0
-        #         if key in self._bounded_keys:
-        #             up = min(up, 1)
-        #             low = max(low, 0)
-        #         delta = self.rand_vector_gaussian(1, gauss_std)[0]
-        #         normalized[key] = max(low, min(up, normalized[key] + delta))
-        #     # use best config for unordered cat choice
-        #     config = self.denormalize(normalized)
-        # else:
-        #     # first time init_config, or other configs, take as is
-        #     config = partial_config.copy()
         config, space = complete_config(
             partial_config, self.space, self, disturb, lower, upper)
         if partial_config == self.init_config:
             self._reset_times += 1
-        # config = flatten_dict(config)
-        # for key, value in self.space.items():
-        #     if key not in config:
-        #         config[key] = value
-        # for _, generated in generate_variants({'config': config}):
-        #     config = generated['config']
-        #     break
         if self._resource:
             config[self.prune_attr] = self.min_resource
         return config, space
 
     def create(self, init_config: Dict, obj: float, cost: float, space: Dict
                ) -> Searcher:
-        # flatten_config = flatten_dict(init_config)
-        # space = subspace(self.space, init_config)
-        # use the subspace where the init_config is located
-        # space = {k: self.space[k] for k in flatten_config if k in self.space}
+        # space is the subspace where the init_config is located
         flow2 = self.__class__(
             init_config, self.metric, self.mode,
             space, self.prune_attr,

@@ -557,11 +557,8 @@ class BlendSearch(Searcher):
                 0) if self._points_to_evaluate else self._ls.init_config
             config, space = self._ls.complete_config(
                 init_config, self._ls_bound_min, self._ls_bound_max)
-            # if "ml" in space and hasattr(space["ml"], "categories"):
-            #     print(config, space["ml"].categories)
             config_signature = self._ls.config_signature(config, space)
             result = self._result.get(config_signature)
-            # print(result)
             if result:  # tried before
                 return None
             elif result is None:  # not tried before
