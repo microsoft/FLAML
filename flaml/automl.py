@@ -1236,7 +1236,7 @@ class AutoML:
         elif 'bs' == self._hpo_method:
             from flaml import BlendSearch as SearchAlgo
         elif 'cfocat' == self._hpo_method:
-            from flaml import CFOCat as SearchAlgo
+            from flaml.searcher.cfo_cat import CFOCat as SearchAlgo
         else:
             raise NotImplementedError(
                 f"hpo_method={self._hpo_method} is not recognized. "
