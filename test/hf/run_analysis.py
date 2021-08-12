@@ -469,7 +469,8 @@ def compare_muppet(console_args):
         partial_jobid_config = JobID()
         partial_jobid_config.dat = [dats[idx]]
         partial_jobid_config.subdat = subdats[idx]
-        partial_jobid_config.spa = "uni"
+        partial_jobid_config.spa = "gnr"
+        partial_jobid_config.alg = "rs"
         partial_jobid_config.arg = "dft"
         partial_jobid_config.presz = "large"
         partial_jobid_config.pre_full = "facebook-muppet-roberta-large"
