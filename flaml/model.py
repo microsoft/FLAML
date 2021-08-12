@@ -186,6 +186,13 @@ class SKLearnEstimator(BaseEstimator):
             X = X.copy()
             cat_columns = X.select_dtypes(include=['category']).columns
             X[cat_columns] = X[cat_columns].apply(lambda x: x.cat.codes)
+        elif isinstance(X, np.ndarray) and X.dtype.kind not in 'buif':
+            # numpy array is not of numeric dtype
+            X = pd.DataFrame(X)
+            for col in X.columns:
+                if isinstance(X[col][0], str):
+                    X[col] = X[col].astype('category').cat.codes
+            X = X.to_numpy()
         return X
 
 
@@ -196,17 +203,17 @@ class LGBMEstimator(BaseEstimator):
         upper = min(32768, int(data_size))
         return {
             'n_estimators': {
-                'domain': tune.qloguniform(lower=4, upper=upper, q=1),
+                'domain': tune.lograndint(lower=4, upper=upper),
                 'init_value': 4,
                 'low_cost_init_value': 4,
             },
             'num_leaves': {
-                'domain': tune.qloguniform(lower=4, upper=upper, q=1),
+                'domain': tune.lograndint(lower=4, upper=upper),
                 'init_value': 4,
                 'low_cost_init_value': 4,
             },
             'min_child_samples': {
-                'domain': tune.qloguniform(lower=2, upper=2**7, q=1),
+                'domain': tune.lograndint(lower=2, upper=2**7),
                 'init_value': 20,
             },
             'learning_rate': {
@@ -218,7 +225,7 @@ class LGBMEstimator(BaseEstimator):
                 'init_value': 1.0,
             },
             'log_max_bin': {
-                'domain': tune.qloguniform(lower=3, upper=10, q=1),
+                'domain': tune.lograndint(lower=3, upper=10),
                 'init_value': 8,
             },
             'colsample_bytree': {
@@ -315,12 +322,12 @@ class XGBoostEstimator(SKLearnEstimator):
         upper = min(32768, int(data_size))
         return {
             'n_estimators': {
-                'domain': tune.qloguniform(lower=4, upper=upper, q=1),
+                'domain': tune.lograndint(lower=4, upper=upper),
                 'init_value': 4,
                 'low_cost_init_value': 4,
             },
             'max_leaves': {
-                'domain': tune.qloguniform(lower=4, upper=upper, q=1),
+                'domain': tune.lograndint(lower=4, upper=upper),
                 'init_value': 4,
                 'low_cost_init_value': 4,
             },
@@ -484,16 +491,22 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
 
     @classmethod
     def search_space(cls, data_size, task, **params):
-        upper = min(2048, int(data_size))
+        data_size = int(data_size)
+        upper = min(2048, data_size)
         space = {
             'n_estimators': {
-                'domain': tune.qloguniform(lower=4, upper=upper, q=1),
+                'domain': tune.lograndint(lower=4, upper=upper),
                 'init_value': 4,
                 'low_cost_init_value': 4,
             },
             'max_features': {
                 'domain': tune.loguniform(lower=0.1, upper=1.0),
                 'init_value': 1.0,
+            },
+            'max_leaves': {
+                'domain': tune.lograndint(lower=4, upper=min(32768, data_size)),
+                'init_value': 4,
+                'low_cost_init_value': 4,
             },
         }
         if task != 'regression':
@@ -504,16 +517,13 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         return space
 
     @classmethod
-    def size(cls, config):
-        return 1.0
-
-    @classmethod
     def cost_relative2lgbm(cls):
         return 2.0
 
     def __init__(
         self, task='binary:logistic', n_jobs=1,
-        n_estimators=4, max_features=1.0, criterion='gini', **params
+        n_estimators=4, max_features=1.0, criterion='gini', max_leaves=4,
+        **params
     ):
         super().__init__(task, **params)
         del self.params['objective']
@@ -522,6 +532,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
             "n_estimators": int(round(n_estimators)),
             "n_jobs": n_jobs,
             'max_features': float(max_features),
+            "max_leaf_nodes": params.get('max_leaf_nodes', int(round(max_leaves))),
         })
         if 'regression' in task:
             self.estimator_class = RandomForestRegressor
@@ -621,7 +632,7 @@ class CatBoostEstimator(BaseEstimator):
         upper = max(min(round(1500000 / data_size), 150), 11)
         return {
             'early_stopping_rounds': {
-                'domain': tune.qloguniform(lower=10, upper=upper, q=1),
+                'domain': tune.lograndint(lower=10, upper=upper),
                 'init_value': 10,
                 'low_cost_init_value': 10,
             },
@@ -748,7 +759,7 @@ class KNeighborsEstimator(BaseEstimator):
         upper = min(512, int(data_size / 2))
         return {
             'n_neighbors': {
-                'domain': tune.qloguniform(lower=1, upper=upper, q=1),
+                'domain': tune.lograndint(lower=1, upper=upper),
                 'init_value': 5,
                 'low_cost_init_value': 1,
             },
@@ -781,4 +792,13 @@ class KNeighborsEstimator(BaseEstimator):
                 raise ValueError(
                     "kneighbor requires at least one numeric feature")
             X = X.drop(cat_columns, axis=1)
+        elif isinstance(X, np.ndarray) and X.dtype.kind not in 'buif':
+            # drop categocial columns if any
+            X = pd.DataFrame(X)
+            cat_columns = []
+            for col in X.columns:
+                if isinstance(X[col][0], str):
+                    cat_columns.append(col)
+            X = X.drop(cat_columns, axis=1)
+            X = X.to_numpy()
         return X

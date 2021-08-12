@@ -1,5 +1,6 @@
 '''Require: pip install flaml[test,ray]
 '''
+from flaml.searcher.blendsearch import BlendSearch
 import time
 import os
 from sklearn.model_selection import train_test_split
@@ -103,6 +104,13 @@ def _test_xgboost(method='BlendSearch'):
                     }, cat_hp_cost={
                         "min_child_weight": [6, 3, 2],
                     })
+                elif 'CFOCat' == method:
+                    from flaml.searcher.cfo_cat import CFOCat
+                    algo = CFOCat(low_cost_partial_config={
+                        "max_depth": 1,
+                    }, cat_hp_cost={
+                        "min_child_weight": [6, 3, 2],
+                    })
                 elif 'Dragonfly' == method:
                     from ray.tune.suggest.dragonfly import DragonflySearch
                     algo = DragonflySearch()
@@ -156,7 +164,7 @@ def _test_xgboost(method='BlendSearch'):
 
 
 def test_nested():
-    from flaml import tune
+    from flaml import tune, CFO
     search_space = {
         # test nested search space
         "cost_related": {
@@ -173,6 +181,49 @@ def test_nested():
 
     analysis = tune.run(
         simple_func,
+        search_alg=CFO(
+            space=search_space, metric="obj", mode="min",
+            low_cost_partial_config={
+                "cost_related": {"a": 1}
+            },
+            points_to_evaluate=[
+                {"b": .99, "cost_related": {"a": 3}},
+                {"b": .99, "cost_related": {"a": 2}},
+                {"cost_related": {"a": 8}}
+            ],
+            metric_constraints=[("ab", "<=", 4)]),
+        local_dir='logs/',
+        num_samples=-1,
+        time_budget_s=.1)
+
+    best_trial = analysis.get_best_trial()
+    logger.info(f"CFO best config: {best_trial.config}")
+    logger.info(f"CFO best result: {best_trial.last_result}")
+
+    analysis = tune.run(
+        simple_func,
+        search_alg=BlendSearch(
+            experimental=True,
+            space=search_space, metric="obj", mode="min",
+            low_cost_partial_config={
+                "cost_related": {"a": 1}
+            },
+            points_to_evaluate=[
+                {"b": .99, "cost_related": {"a": 3}},
+                {"b": .99, "cost_related": {"a": 2}},
+                {"cost_related": {"a": 8}}
+            ],
+            metric_constraints=[("ab", "<=", 4)]),
+        local_dir='logs/',
+        num_samples=-1,
+        time_budget_s=.1)
+
+    best_trial = analysis.get_best_trial()
+    logger.info(f"BlendSearch exp best config: {best_trial.config}")
+    logger.info(f"BlendSearch exp best result: {best_trial.last_result}")
+
+    analysis = tune.run(
+        simple_func,
         config=search_space,
         low_cost_partial_config={
             "cost_related": {"a": 1}
@@ -182,19 +233,54 @@ def test_nested():
         metric_constraints=[("ab", "<=", 4)],
         local_dir='logs/',
         num_samples=-1,
-        time_budget_s=1)
+        time_budget_s=.1)
 
     best_trial = analysis.get_best_trial()
-    logger.info(f"Best config: {best_trial.config}")
-    logger.info(f"Best result: {best_trial.last_result}")
+    logger.info(f"BlendSearch best config: {best_trial.config}")
+    logger.info(f"BlendSearch best result: {best_trial.last_result}")
+
+
+def test_run_training_function_return_value():
+    from flaml import tune
+
+    # Test dict return value
+    def evaluate_config_dict(config):
+        metric = (round(config['x']) - 85000)**2 - config['x'] / config['y']
+        return {"metric": metric}
+
+    tune.run(
+        evaluate_config_dict,
+        config={
+            'x': tune.lograndint(lower=1, upper=100000),
+            'y': tune.randint(lower=1, upper=100000)
+        },
+        metric='metric',
+    )
+
+    # Test scalar return value
+    def evaluate_config_scalar(config):
+        metric = (round(config['x']) - 85000)**2 - config['x'] / config['y']
+        return metric
+
+    tune.run(
+        evaluate_config_scalar,
+        config={
+            'x': tune.lograndint(lower=1, upper=100000),
+            'y': tune.randint(lower=1, upper=100000)
+        },
+    )
 
 
 def test_xgboost_bs():
     _test_xgboost()
 
 
-def test_xgboost_cfo():
+def _test_xgboost_cfo():
     _test_xgboost('CFO')
+
+
+def test_xgboost_cfocat():
+    _test_xgboost('CFOCat')
 
 
 def _test_xgboost_dragonfly():

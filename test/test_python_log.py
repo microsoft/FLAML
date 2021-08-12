@@ -29,19 +29,29 @@ class TestLogging(unittest.TestCase):
             automl = AutoML()
             automl_settings = {
                 "time_budget": 1,
-                "metric": 'mse',
+                "metric": 'rmse',
                 "task": 'regression',
                 "log_file_name": training_log,
                 "log_training_metric": True,
                 "n_jobs": 1,
                 "model_history": True,
+                "learner_selector": "roundrobin",
             }
             X_train, y_train = load_boston(return_X_y=True)
             n = len(y_train) >> 1
             automl.fit(X_train=X_train[:n], y_train=y_train[:n],
                        X_val=X_train[n:], y_val=y_train[n:],
                        **automl_settings)
-
+            logger.info(automl.search_space)
+            logger.info(automl.low_cost_partial_config)
+            logger.info(automl.points_to_evalaute)
+            import optuna as ot
+            study = ot.create_study()
+            from flaml.tune.space import define_by_run_func
+            logger.info(define_by_run_func(study.ask(), automl.search_space))
+            config = automl.best_config.copy()
+            config['learner'] = automl.best_estimator
+            automl.trainable({"ml": config})
             # Check if the log buffer is populated.
             self.assertTrue(len(buf.getvalue()) > 0)
 
