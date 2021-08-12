@@ -785,10 +785,13 @@ class AutoML:
                 len(np.unique(self._y_train_all)))
             assert split_type in ["stratified", "uniform"]
             self._split_type = split_type
+        elif self._state.task == 'regression':
+            if split_type in ["uniform", "time"]:
+                self._split_type = split_type
+            else:
+                self._split_type = "uniform"
         elif self._state.task == 'forecast':
             self._split_type = "time"
-        else:
-            self._split_type = "uniform"
         if record_id >= 0:
             eval_method = 'cv'
         elif eval_method == 'auto':
