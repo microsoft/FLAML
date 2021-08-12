@@ -208,16 +208,14 @@ def evaluate_configs_cv(autohf, console_args):
     from run_analysis import get_exhaustive_sweep_result
 
     cv_jobid_config = JobID(console_args)
-    sweep_jobid_config = JobID()
-    sweep_jobid_config.mod = "grid"
-    sweep_jobid_config.pre = cv_jobid_config.pre
-    sweep_jobid_config.presz = cv_jobid_config.presz
-    sweep_jobid_config.dat = cv_jobid_config.dat
-    sweep_jobid_config.subdat = cv_jobid_config.subdat
+    cv_jobid_config.spt = "cv"
+    sweep_jobid_config = JobID(console_args)
+    sweep_jobid_config.pre = None
+    sweep_jobid_config.pre_full = sweep_jobid_config.pre_full.replace("/", "-")
 
-    setattr(sweep_jobid_config, "var1", set(console_args.learning_rate))
-    setattr(sweep_jobid_config, "var2", set(console_args.weight_decay))
-    top1_score, top1_config = get_exhaustive_sweep_result(console_args, "logs_seed/", sweep_jobid_config)
+    # setattr(sweep_jobid_config, "var1", set(console_args.learning_rate))
+    # setattr(sweep_jobid_config, "var2", set(console_args.weight_decay))
+    top1_score, top1_config = get_exhaustive_sweep_result(console_args, "logs_azure/", sweep_jobid_config, 2)
     # top1_config = {"learning_rate": 1e-5, "per_device_train_batch_size": 2,
     #                "num_train_epochs": 0.01, "warmup_ratio": 0.1, "weight_decay": 0.0}
     this_args = copy.deepcopy(console_args)
@@ -226,14 +224,14 @@ def evaluate_configs_cv(autohf, console_args):
         root_log_path=console_args.root_log_path,
         azure_key_path=console_args.key_path, autohf=autohf)
     custom_args = {
-        "foldnum": 5
+        "foldnum": 2
     }
     _test_hpo(this_args,
               cv_jobid_config,
               autohf,
               wandb_utils,
               azure_utils_large,
-              autohf_settings=get_autohf_settings(this_args, **{"points_to_evaluate": [top1_config]}),
+              autohf_settings=get_autohf_settings(this_args, **{"points_to_evaluate": top1_config}),
               **custom_args)
 
 
@@ -280,7 +278,7 @@ def train_cv(idx, train_dataset, eval_dataset, autohf_settings):
     # json.dump(validation_metric, open("tmp_" + str(idx) + ".json", "w"))
     # azure_utils.write_autohf_output(valid_metric=validation_metric,
     #                                 local_file_path=)
-    return idx, validation_metric
+    return idx, validation_metric, analysis
 
 def _test_hpo(console_args,
               jobid_config,
@@ -388,9 +386,9 @@ if __name__ == "__main__":
 
     #_exhaustive_sweep(console_args, jobid_config, autohf, wandb_utils)
 
-    evaluate_configs(autohf, console_args)
+    #evaluate_configs(autohf, console_args)
 
-    #evaluate_configs_cv(autohf, console_args)
+    evaluate_configs_cv(autohf, console_args)
 
     # if "hp1" in console_args.root_log_path:
     #     console_args.seed_transformers = 42

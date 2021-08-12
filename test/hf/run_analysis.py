@@ -330,7 +330,7 @@ def create_partial_config_bestnn():
 
     return jobid_config
 
-def get_exhaustive_sweep_result(console_args, each_root_log_path, partial_jobid_config):
+def get_exhaustive_sweep_result(console_args, each_root_log_path, partial_jobid_config, topk):
     from flaml.nlp.result_analysis.azure_utils import ConfigScoreList
     from flaml.nlp import AzureUtils
     azure_utils = AzureUtils(root_log_path=each_root_log_path,
@@ -341,15 +341,16 @@ def get_exhaustive_sweep_result(console_args, each_root_log_path, partial_jobid_
             partial_jobid=partial_jobid_config)
     merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
                                    for x in config_score_list._config_score_list])._config_score_list
-    return get_top1_score_and_config(merged_list)
+    return get_top1_score_and_config(merged_list, topk)
 
-def get_top1_score_and_config(merged_list):
-    id_and_score_list = [(x, merged_list[x].metric_score["max"]) for x in range(len(merged_list))]
+def get_top1_score_and_config(merged_list, k):
+    id_and_score_list = [(x, merged_list[x].metric_score["max"])
+                         for x in range(len(merged_list)) if isinstance(merged_list[x].metric_score, dict)]
     sorted_id_and_score_list = sorted(id_and_score_list, key=lambda x: x[1], reverse=True)
-    top1_score = sorted_id_and_score_list[0][1]
-    top1_idx = sorted_id_and_score_list[0][0]
-    top1_config = merged_list[top1_idx].config
-    return top1_score, top1_config
+    topk_scores = [sorted_id_and_score_list[x][1] for x in range(k) if x < len(sorted_id_and_score_list)]
+    topk_idxs = [sorted_id_and_score_list[x][0] for x in range(k) if x < len(sorted_id_and_score_list)]
+    topk_configs = [merged_list[x].config for x in topk_idxs]
+    return topk_scores, topk_configs
 
 def load_modelinfo():
     from pandas import read_csv

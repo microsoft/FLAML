@@ -252,8 +252,11 @@ class JobID:
                 if key == "dat":
                     result_dict[key] = [result.group(key)]
                 elif key in ("var1", "var2"):
-                    result_dict[key] = set([result.group(key)])
-                elif key == "rep":
+                    if result.group(key) != "":
+                        result_dict[key] = sorted(list(set([result.group(key)])))
+                    else:
+                        result_dict[key] = []
+                elif key in ("rep", "sddt", "sdhf"):
                     try:
                         try:
                             result_dict[key] = int(result.group(key))
