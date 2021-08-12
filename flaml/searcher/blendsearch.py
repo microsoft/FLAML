@@ -502,6 +502,7 @@ class BlendSearch(Searcher):
             # preliminary check; not checking config validation
             space = self._search_thread_pool[choice].space
             skip = self._should_skip(choice, trial_id, config, space)
+            use_rs = 0
             if skip:
                 if choice:
                     return None
@@ -510,10 +511,12 @@ class BlendSearch(Searcher):
                 skip = self._should_skip(-1, trial_id, config, space)
                 if skip:
                     return None
+                use_rs = 1
             if choice or self._valid(
                config, space, self._gs_admissible_min, self._gs_admissible_max):
                 # LS or valid or no backup choice
                 self._trial_proposed_by[trial_id] = choice
+                self._search_thread_pool[choice].running += use_rs
             else:  # invalid config proposed by GS
                 if choice == backup:
                     # use CFO's init point
