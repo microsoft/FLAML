@@ -161,8 +161,10 @@
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">ray</span> <span class="kn">import</span> <span class="n">__version__</span> <span class="k">as</span> <span class="n">ray_version</span>
+    <span class="k">assert</span> <span class="n">ray_version</span> <span class="o">&gt;=</span> <span class="s1">&#39;1.0.0&#39;</span>
     <span class="kn">from</span> <span class="nn">ray.tune.analysis</span> <span class="kn">import</span> <span class="n">ExperimentAnalysis</span> <span class="k">as</span> <span class="n">EA</span>
-<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+<span class="k">except</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="ne">AssertionError</span><span class="p">):</span>
     <span class="kn">from</span> <span class="nn">.analysis</span> <span class="kn">import</span> <span class="n">ExperimentAnalysis</span> <span class="k">as</span> <span class="n">EA</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -441,9 +443,11 @@
         <span class="k">if</span> <span class="n">reduction_factor</span><span class="p">:</span>
             <span class="n">params</span><span class="p">[</span><span class="s1">&#39;reduction_factor&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">reduction_factor</span>
         <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">ray</span> <span class="kn">import</span> <span class="n">__version__</span> <span class="k">as</span> <span class="n">ray_version</span>
+            <span class="k">assert</span> <span class="n">ray_version</span> <span class="o">&gt;=</span> <span class="s1">&#39;1.0.0&#39;</span>
             <span class="kn">from</span> <span class="nn">ray.tune.schedulers</span> <span class="kn">import</span> <span class="n">ASHAScheduler</span>
             <span class="n">scheduler</span> <span class="o">=</span> <span class="n">ASHAScheduler</span><span class="p">(</span><span class="o">**</span><span class="n">params</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="ne">AssertionError</span><span class="p">):</span>
             <span class="k">pass</span>
     <span class="k">if</span> <span class="n">use_ray</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
