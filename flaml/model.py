@@ -10,10 +10,6 @@ from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.ensemble import ExtraTreesRegressor, ExtraTreesClassifier
 from sklearn.linear_model import LogisticRegression
 from lightgbm import LGBMClassifier, LGBMRegressor
-from prophet import Prophet
-import statsmodels.api as sm
-from statsmodels.tsa.arima.model import ARIMA as ARIMA_estimator
-from statsmodels.tsa.statespace.sarimax import SARIMAX as SARIMAX_estimator
 from scipy.sparse import issparse
 import pandas as pd
 from . import tune
@@ -828,15 +824,15 @@ class FBProphet(BaseEstimator):
             },
             'seasonality_prior_scale': {
                 'domain': tune.loguniform(lower=0.01, upper=100),
-                'init_value': 0.01,
+                'init_value': 1,
             },
             'holidays_prior_scale': {
                 'domain': tune.loguniform(lower=0.01, upper=100),
-                'init_value': 0.01,
+                'init_value': 1,
             },
             'seasonality_mode': {
                 'domain': tune.choice(['additive', 'multiplicative']),
-                'init_value': 'additive',
+                'init_value': 'multiplicative',
             }
         }
         return space
@@ -853,6 +849,8 @@ class FBProphet(BaseEstimator):
 
         if 'n_jobs' in self.params:
             self.params.pop('n_jobs')
+
+        from prophet import Prophet
 
         current_time = time.time()
         model = Prophet(**self.params).fit(train_df)
@@ -914,8 +912,9 @@ class ARIMA(BaseEstimator):
         if 'n_jobs' in self.params:
             self.params.pop('n_jobs')
 
-        current_time = time.time()
+        from statsmodels.tsa.arima.model import ARIMA as ARIMA_estimator
 
+        current_time = time.time()
         model = ARIMA_estimator(train_df,
                                 order=(self.params['p'], self.params['d'], self.params['q']),
                                 enforce_stationarity=False,
@@ -1000,8 +999,9 @@ class SARIMAX(BaseEstimator):
         if 'n_jobs' in self.params:
             self.params.pop('n_jobs')
 
-        current_time = time.time()
+        from statsmodels.tsa.statespace.sarimax import SARIMAX as SARIMAX_estimator
 
+        current_time = time.time()
         model = SARIMAX_estimator(train_df,
                                   order=(self.params['p'], self.params['d'], self.params['q']),
                                   enforce_stationarity=False,

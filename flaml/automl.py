@@ -638,10 +638,13 @@ class AutoML:
                 f"requires input data with at least {n_splits*2} examples.")
             self._state.kf = RepeatedStratifiedKFold(
                 n_splits=n_splits, n_repeats=1, random_state=RANDOM_SEED)
-        elif self._split_type == "TimeSeriesSplit":
-            logger.info("Using TimeSeriesSplit for time series forecast data")
-            self._state.kf = TimeSeriesSplit(
-                n_splits=n_splits, test_size=self._state.fit_kwargs.get('period'))
+        elif self._split_type == "time":
+            logger.info("Using TimeSeriesSplit")
+            if self._state.task == 'forecast':
+                self._state.kf = TimeSeriesSplit(
+                    n_splits=n_splits, test_size=self._state.fit_kwargs.get('period'))
+            else:
+                self._state.kf = TimeSeriesSplit(n_splits=n_splits)
         else:
             logger.info("Using RepeatedKFold")
             self._state.kf = RepeatedKFold(
@@ -783,7 +786,7 @@ class AutoML:
             assert split_type in ["stratified", "uniform"]
             self._split_type = split_type
         elif self._state.task == 'forecast':
-            self._split_type = "TimeSeriesSplit"
+            self._split_type = "time"
         else:
             self._split_type = "uniform"
         if record_id >= 0:
@@ -1118,9 +1121,12 @@ class AutoML:
             assert split_type in ["stratified", "uniform"]
             self._split_type = split_type
         elif self._state.task == 'regression':
-            self._split_type = "uniform"
+            if split_type in ["uniform", "time"]:
+                self._split_type = split_type
+            else:
+                self._split_type = "uniform"
         elif self._state.task == 'forecast':
-            self._split_type = "TimeSeriesSplit"
+            self._split_type = "time"
         if self._state.task == 'forecast' and self._state.fit_kwargs.get('period') is None:
             raise TypeError("missing 1 required argument for 'forecast' task: 'period' ")
         if eval_method == 'auto' or self._state.X_val is not None:

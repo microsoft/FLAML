@@ -79,6 +79,10 @@ setuptools.setup(
             "datasets==1.4.1",
             "tensorboardX<=2.2",
             "torch"
+        ],
+        "forecast": [
+            "prophet>=1.0.1",
+            "statsmodels>=0.12.2"
         ]
     },
     classifiers=[
