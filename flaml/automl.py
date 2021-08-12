@@ -1004,7 +1004,7 @@ class AutoML:
             learner_selector='sample',
             hpo_method=None,
             starting_points={},
-            seed=19823,
+            seed=None,
             **fit_kwargs):
         '''Find a model for a given task
 
@@ -1083,6 +1083,7 @@ class AutoML:
                 config for the estimators.
                 Keys are the name of the estimators, and values are the starting
                 hyperparamter configurations for the corresponding estimators.
+            seed: int or None, default=None | The random seed for np.random.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight.
         '''
