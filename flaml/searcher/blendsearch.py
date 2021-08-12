@@ -13,15 +13,14 @@ try:
     assert ray_version >= '1.0.0'
     from ray.tune.suggest import Searcher
     from ray.tune.suggest.optuna import OptunaSearch as GlobalSearch
-    from ray.tune.suggest.variant_generator import generate_variants
     from ray.tune.utils.util import flatten_dict
 except (ImportError, AssertionError):
     from .suggestion import Searcher
     from .suggestion import OptunaSearch as GlobalSearch
-    from .variant_generator import generate_variants, flatten_dict
+    from .variant_generator import flatten_dict
 from .search_thread import SearchThread
 from .flow2 import FLOW2
-from ..tune.space import add_cost_to_space, exclusive_to_inclusive
+from ..tune.space import add_cost_to_space, normalize   # TODO: , define_by_run_func
 
 import logging
 logger = logging.getLogger(__name__)
@@ -134,6 +133,9 @@ class BlendSearch(Searcher):
         if global_search_alg is not None:
             self._gs = global_search_alg
         elif getattr(self, '__name__', None) != 'CFO':
+            gs_space = space
+            # TODO: when define_by_run is supported
+            # gs_space = define_by_run_func(space)
             try:
                 gs_seed = seed - 10 if (seed - 10) >= 0 else seed - 11 + (1 << 32)
                 if experimental:
@@ -143,10 +145,11 @@ class BlendSearch(Searcher):
                 else:
                     sampler = None
                 self._gs = GlobalSearch(
-                    space=space, metric=metric, mode=mode, seed=gs_seed,
+                    space=gs_space, metric=metric, mode=mode, seed=gs_seed,
                     sampler=sampler)
             except TypeError:
-                self._gs = GlobalSearch(space=space, metric=metric, mode=mode)
+                self._gs = GlobalSearch(space=gs_space, metric=metric, mode=mode)
+            self._gs.space = space
         else:
             self._gs = None
         self._experimental = experimental
@@ -157,13 +160,11 @@ class BlendSearch(Searcher):
             self._started_from_low_cost = not low_cost_partial_config
         else:
             self._candidate_start_points = None
-        if space:
-            # the upper bound of randint and lograndint is exclusive
-            space = exclusive_to_inclusive(space)
         self._ls = self.LocalSearch(
             init_config, metric, mode, space, prune_attr,
             min_resource, max_resource, reduction_factor, self.cost_attr, seed)
         self._is_ls_ever_converged = False
+        self._subspace = {}     # the subspace for each trial id
         self._init_search()
 
     def set_search_properties(self,
@@ -186,10 +187,10 @@ class BlendSearch(Searcher):
             # the search space can be set only once
             if self._gs is not None:
                 self._gs.set_search_properties(metric, mode, config)
+                self._gs.space = config
             if config:
                 add_cost_to_space(
                     config, self._ls.init_config, self._cat_hp_cost)
-                config = exclusive_to_inclusive(config)
             self._ls.set_search_properties(metric, mode, config)
             self._init_search()
         elif metric_changed or mode_changed:
@@ -219,7 +220,9 @@ class BlendSearch(Searcher):
         self._thread_count = 1  # total # threads created
         self._init_used = self._ls.init_config is None
         self._trial_proposed_by = {}  # trial_id: str -> thread_id: int
-        self._ls_bound_min = self._ls.normalize(self._ls.init_config)
+        self._ls_bound_min = normalize(
+            self._ls.init_config.copy(), self._ls.space, self._ls.init_config,
+            {}, recursive=True)
         self._ls_bound_max = self._ls_bound_min.copy()
         self._gs_admissible_min = self._ls_bound_min.copy()
         self._gs_admissible_max = self._ls_bound_max.copy()
@@ -292,10 +295,12 @@ class BlendSearch(Searcher):
             for key, value in result.items():
                 if key.startswith('config/'):
                     config[key[7:]] = value
+            signature = self._ls.config_signature(
+                config, self._subspace.get(trial_id, {}))
             if error:  # remove from result cache
-                del self._result[self._ls.config_signature(config)]
+                del self._result[signature]
             else:  # add to result cache
-                self._result[self._ls.config_signature(config)] = result
+                self._result[signature] = result
                 # update target metric if improved
                 objective = result[self._ls.metric]
                 if (objective - self._metric_target) * self._ls.metric_op < 0:
@@ -303,8 +308,11 @@ class BlendSearch(Searcher):
                 if thread_id:
                     if not self._metric_constraint_satisfied:
                         # no point has been found to satisfy metric constraint
-                        self._expand_admissible_region()
+                        self._expand_admissible_region(
+                            self._ls_bound_min, self._ls_bound_max,
+                            self._subspace.get(trial_id, self._ls.space))
                     if self._gs is not None and self._experimental:
+                        # TODO: key match for hierarchical space
                         self._gs.add_evaluated_point(flatten_dict(config), objective)
                 elif metric_constraint_satisfied and self._create_condition(
                         result):
@@ -316,7 +324,8 @@ class BlendSearch(Searcher):
                         del self._candidate_start_points[trial_id]
                     else:
                         self._started_from_low_cost = True
-                    self._create_thread(config, result)
+                    self._create_thread(config, result, self._subspace.get(
+                        trial_id, self._ls.space))
                 # reset admissible region to ls bounding box
                 self._gs_admissible_min.update(self._ls_bound_min)
                 self._gs_admissible_max.update(self._ls_bound_max)
@@ -324,29 +333,46 @@ class BlendSearch(Searcher):
         if thread_id and thread_id in self._search_thread_pool:
             # local search thread
             self._clean(thread_id)
+        if trial_id in self._subspace and not (self._candidate_start_points
+           and trial_id in self._candidate_start_points):
+            del self._subspace[trial_id]
 
-    def _create_thread(self, config, result):
+    def _create_thread(self, config, result, space):
         # logger.info(f"create local search thread from {config}")
         self._search_thread_pool[self._thread_count] = SearchThread(
             self._ls.mode,
             self._ls.create(
                 config, result[self._ls.metric],
-                cost=result.get(self.cost_attr, 1)),
+                cost=result.get(self.cost_attr, 1), space=space),
             self.cost_attr
         )
         self._thread_count += 1
         self._update_admissible_region(
-            config, self._ls_bound_min, self._ls_bound_max)
+            config, self._ls_bound_min, self._ls_bound_max, space)
 
-    def _update_admissible_region(self, config, admissible_min, admissible_max):
+    def _update_admissible_region(
+        self, config, admissible_min, admissible_max, space: Dict = {}
+    ):
         # update admissible region
-        normalized_config = self._ls.normalize(config)
+        normalized_config = normalize(config, space, config, {})
         for key in admissible_min:
             value = normalized_config[key]
-            if value > admissible_max[key]:
-                admissible_max[key] = value
-            elif value < admissible_min[key]:
-                admissible_min[key] = value
+            if isinstance(admissible_max[key], list):
+                choice = space[key]['_choice_']
+                self._update_admissible_region(
+                    value,
+                    admissible_min[key][choice], admissible_max[key][choice],
+                    space[key]
+                )
+            elif isinstance(value, dict):
+                self._update_admissible_region(
+                    value,
+                    admissible_min[key], admissible_max[key], space[key])
+            else:
+                if value > admissible_max[key]:
+                    admissible_max[key] = value
+                elif value < admissible_min[key]:
+                    admissible_min[key] = value
 
     def _create_condition(self, result: Dict) -> bool:
         ''' create thread condition
@@ -377,7 +403,9 @@ class BlendSearch(Searcher):
         if self._search_thread_pool[thread_id].converged:
             self._is_ls_ever_converged = True
             todelete.add(thread_id)
-            self._expand_admissible_region()
+            self._expand_admissible_region(
+                self._ls_bound_min, self._ls_bound_max,
+                self._search_thread_pool[thread_id].space)
             if self._candidate_start_points:
                 if not self._started_from_given:
                     # remove start points whose perf is worse than the converged
@@ -414,12 +442,21 @@ class BlendSearch(Searcher):
                     config[key[7:]] = value
             self._started_from_given = True
             del self._candidate_start_points[best_trial_id]
-            self._create_thread(config, result)
+            self._create_thread(config, result, self._subspace.get(
+                best_trial_id, self._ls.space))
 
-    def _expand_admissible_region(self):
-        for key in self._ls_bound_max:
-            self._ls_bound_max[key] += self._ls.STEPSIZE
-            self._ls_bound_min[key] -= self._ls.STEPSIZE
+    def _expand_admissible_region(self, lower, upper, space):
+        for key in upper:
+            ub = upper[key]
+            if isinstance(ub, list):
+                choice = space[key]['_choice_']
+                self._expand_admissible_region(
+                    lower[key][choice], upper[key][choice], space[key])
+            elif isinstance(ub, dict):
+                self._expand_admissible_region(lower[key], ub, space[key])
+            else:
+                upper[key] += self._ls.STEPSIZE
+                lower[key] -= self._ls.STEPSIZE
 
     def _inferior(self, id1: int, id2: int) -> bool:
         ''' whether thread id1 is inferior to id2
@@ -457,34 +494,42 @@ class BlendSearch(Searcher):
             if choice and config is None:
                 # local search thread finishes
                 if self._search_thread_pool[choice].converged:
-                    self._expand_admissible_region()
+                    self._expand_admissible_region(
+                        self._ls_bound_min, self._ls_bound_max,
+                        self._search_thread_pool[choice].space)
                     del self._search_thread_pool[choice]
                 return None
             # preliminary check; not checking config validation
-            skip = self._should_skip(choice, trial_id, config)
+            space = self._search_thread_pool[choice].space
+            skip = self._should_skip(choice, trial_id, config, space)
+            use_rs = 0
             if skip:
                 if choice:
                     return None
                 # use rs when BO fails to suggest a config
-                for _, generated in generate_variants({'config': self._ls.space}):
-                    config = generated['config']
-                    break  # get one random config
-                skip = self._should_skip(-1, trial_id, config)
+                config, space = self._ls.complete_config({})
+                skip = self._should_skip(-1, trial_id, config, space)
                 if skip:
                     return None
-            if choice or self._valid(config):
+                use_rs = 1
+            if choice or self._valid(
+               config, space, self._gs_admissible_min, self._gs_admissible_max):
                 # LS or valid or no backup choice
                 self._trial_proposed_by[trial_id] = choice
+                self._search_thread_pool[choice].running += use_rs
             else:  # invalid config proposed by GS
                 if choice == backup:
                     # use CFO's init point
                     init_config = self._ls.init_config
-                    config = self._ls.complete_config(
+                    config, space = self._ls.complete_config(
                         init_config, self._ls_bound_min, self._ls_bound_max)
                     self._trial_proposed_by[trial_id] = choice
+                    self._search_thread_pool[choice].running += 1
                 else:
-                    config = self._search_thread_pool[backup].suggest(trial_id)
-                    skip = self._should_skip(backup, trial_id, config)
+                    thread = self._search_thread_pool[backup]
+                    config = thread.suggest(trial_id)
+                    space = thread.space
+                    skip = self._should_skip(backup, trial_id, config, space)
                     if skip:
                         return None
                     self._trial_proposed_by[trial_id] = backup
@@ -495,21 +540,24 @@ class BlendSearch(Searcher):
                     config[self._ls.prune_attr] = self._ls.min_resource
                 # temporarily relax admissible region for parallel proposals
                 self._update_admissible_region(
-                    config, self._gs_admissible_min, self._gs_admissible_max)
+                    config, self._gs_admissible_min, self._gs_admissible_max,
+                    space)
             else:
                 self._update_admissible_region(
-                    config, self._ls_bound_min, self._ls_bound_max)
+                    config, self._ls_bound_min, self._ls_bound_max, space)
                 self._gs_admissible_min.update(self._ls_bound_min)
                 self._gs_admissible_max.update(self._ls_bound_max)
-            self._result[self._ls.config_signature(config)] = {}
+            signature = self._ls.config_signature(config, space)
+            self._result[signature] = {}
+            self._subspace[trial_id] = space
         else:  # use init config
             if self._candidate_start_points is not None and self._points_to_evaluate:
                 self._candidate_start_points[trial_id] = None
             init_config = self._points_to_evaluate.pop(
                 0) if self._points_to_evaluate else self._ls.init_config
-            config = self._ls.complete_config(
+            config, space = self._ls.complete_config(
                 init_config, self._ls_bound_min, self._ls_bound_max)
-            config_signature = self._ls.config_signature(config)
+            config_signature = self._ls.config_signature(config, space)
             result = self._result.get(config_signature)
             if result:  # tried before
                 return None
@@ -520,15 +568,16 @@ class BlendSearch(Searcher):
             self._init_used = True
             self._trial_proposed_by[trial_id] = 0
             self._search_thread_pool[0].running += 1
+            self._subspace[trial_id] = space
         return config
 
-    def _should_skip(self, choice, trial_id, config) -> bool:
+    def _should_skip(self, choice, trial_id, config, space) -> bool:
         ''' if config is None or config's result is known or constraints are violated
             return True; o.w. return False
         '''
         if config is None:
             return True
-        config_signature = self._ls.config_signature(config)
+        config_signature = self._ls.config_signature(config, space)
         exists = config_signature in self._result
         # check constraints
         if not exists and self._config_constraints:
@@ -597,15 +646,25 @@ class BlendSearch(Searcher):
                     backup_thread_id = thread_id
         return top_thread_id, backup_thread_id
 
-    def _valid(self, config: Dict) -> bool:
+    def _valid(self, config: Dict, space: Dict, lower: Dict, upper: Dict) -> bool:
         ''' config validator
         '''
-        normalized_config = self._ls.normalize(config)
-        for key in self._gs_admissible_min:
+        normalized_config = normalize(config, space, config, {})
+        for key, lb in lower.items():
             if key in config:
                 value = normalized_config[key]
-                if value + self._ls.STEPSIZE < self._gs_admissible_min[key] \
-                        or value > self._gs_admissible_max[key] + self._ls.STEPSIZE:
+                if isinstance(lb, list):
+                    subspace = space[key]['_choice_']
+                elif isinstance(lb, dict):
+                    subspace = space[key]
+                else:
+                    subspace = None
+                if subspace:
+                    valid = self._valid(value, subspace, lb, upper[key])
+                    if not valid:
+                        return False
+                elif (value + self._ls.STEPSIZE < lower[key]
+                      or value > upper[key] + self._ls.STEPSIZE):
                     return False
         return True
 

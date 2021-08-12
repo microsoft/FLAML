@@ -214,7 +214,6 @@ class AutoMLState:
         }
         if sampled_weight is not None:
             self.fit_kwargs['sample_weight'] = weight
-        # with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
         #     tune.report(**result)
         return result
 
@@ -819,10 +818,12 @@ class AutoML:
         Returns:
             A dict.
             (a) if there is only one estimator in estimator_list, each key is a
-            hyperparameter name
+            hyperparameter name.
             (b) otherwise, it is a nested dict with 'ml' as the key, and
             a list of the low_cost_partial_configs as the value, corresponding
-            to each learner's low_cost_partial_config
+            to each learner's low_cost_partial_config; the estimator index as
+            an integer corresponding to the cheapest learner is appeneded to the
+            list at the end.
 
         '''
         if len(self.estimator_list) == 1:
@@ -847,10 +848,11 @@ class AutoML:
         Returns:
             A dict.
             (a) if there is only one estimator in estimator_list, each key is a
-            hyperparameter name
+            hyperparameter name.
             (b) otherwise, it is a nested dict with 'ml' as the key, and
             a list of the cat_hp_cost's as the value, corresponding
-            to each learner's cat_hp_cost
+            to each learner's cat_hp_cost; the cost relative to lgbm for each
+            learner (as a list itself) is appended to the list at the end.
 
         '''
         if len(self.estimator_list) == 1:
@@ -935,7 +937,8 @@ class AutoML:
                 config['FLAML_sample_size'] = sample_size
             estimator = config['learner']
             del config['learner']
-            states[estimator].training_function(config)
+            result = states[estimator].training_function(config)
+            return result
 
         return train
 
@@ -948,7 +951,7 @@ class AutoML:
         '''
 
         def size_func(config: dict) -> float:
-            config = config.get('ml', config).copy
+            config = config.get('ml', config)
             estimator = config['learner']
             learner_class = self._state.learner_classes.get(estimator)
             return learner_class.size(config)
@@ -1001,6 +1004,7 @@ class AutoML:
             learner_selector='sample',
             hpo_method=None,
             starting_points={},
+            seed=None,
             **fit_kwargs):
         '''Find a model for a given task
 
@@ -1068,12 +1072,20 @@ class AutoML:
                 samples used while splitting the dataset into train/valid set
             verbose: int, default=1 | Controls the verbosity, higher means more
                 messages.
+            hpo_method: str or None, default=None | The hyperparameter
+                optimization method. When it is None, CFO is used.
+                No need to set when using flaml's default search space or using
+                a simple customized search space. When set to 'bs', BlendSearch
+                is used. BlendSearch can be tried when the search space is
+                complex, for example, containing multiple disjoint, discontinuous
+                subspaces.
             starting_points: A dictionary to specify the starting hyperparameter
                 config for the estimators.
                 Keys are the name of the estimators, and values are the starting
                 hyperparamter configurations for the corresponding estimators.
+            seed: int or None, default=None | The random seed for np.random.
             **fit_kwargs: Other key word arguments to pass to fit() function of
-                the searched learners, such sample_weight
+                the searched learners, such as sample_weight.
         '''
         self._start_time_flag = time.time()
         self._state.task = task
@@ -1084,6 +1096,8 @@ class AutoML:
         self._validate_data(X_train, y_train, dataframe, label, X_val, y_val)
         self._search_states = {}  # key: estimator name; value: SearchState
         self._random = np.random.RandomState(RANDOM_SEED)
+        if seed is not None:
+            np.random.seed(seed)
         self._learner_selector = learner_selector
         old_level = logger.getEffectiveLevel()
         self.verbose = verbose
@@ -1171,7 +1185,7 @@ class AutoML:
         logger.info(f"Time taken to find the best model: {self._time_taken_best_iter}")
         if self._time_taken_best_iter >= time_budget * 0.7 and not \
            all(self._ever_converged_per_learner.values()):
-            logger.warn("Time taken to find the best model is {0:.0g}% of the "
+            logger.warn("Time taken to find the best model is {0:.0f}% of the "
                         "provided time budget and not all estimators' hyperparameter "
                         "search converged. Consider increasing the time budget.".format(
                             self._time_taken_best_iter / time_budget * 100))
@@ -1207,7 +1221,7 @@ class AutoML:
             self.best_model = {}
         try:
             from ray import __version__ as ray_version
-            assert ray_version >= '1.0.0', "requires ray version larger than 1.0.0 to use the ConcurrencyLimiter"
+            assert ray_version >= '1.0.0'
             from ray.tune.suggest import ConcurrencyLimiter
         except (ImportError, AssertionError):
             from .searcher.suggestion import ConcurrencyLimiter
@@ -1221,8 +1235,12 @@ class AutoML:
                 from .searcher.suggestion import OptunaSearch as SearchAlgo
         elif 'bs' == self._hpo_method:
             from flaml import BlendSearch as SearchAlgo
+        elif 'cfocat' == self._hpo_method:
+            from flaml import CFOCat as SearchAlgo
         else:
-            raise NotImplementedError
+            raise NotImplementedError(
+                f"hpo_method={self._hpo_method} is not recognized. "
+                "'cfo' and 'bs' are supported.")
 
         for self._track_iter in range(self._max_iter):
             if self._estimator_index is None:
@@ -1268,7 +1286,7 @@ class AutoML:
                 else:
                     points_to_evaluate = [search_state.init_config]
                     low_cost_partial_config = search_state.low_cost_partial_config
-                if self._hpo_method in ('bs', 'cfo', 'grid'):
+                if self._hpo_method in ('bs', 'cfo', 'grid', 'cfocat'):
                     algo = SearchAlgo(
                         metric='val_loss', mode='min', space=search_space,
                         points_to_evaluate=points_to_evaluate,
@@ -1291,7 +1309,7 @@ class AutoML:
                                                              max_concurrent=1)
             else:
                 search_space = None
-                if self._hpo_method in ('bs', 'cfo'):
+                if self._hpo_method in ('bs', 'cfo', 'cfocat'):
                     search_state.search_alg.set_search_properties(
                         metric=None, mode=None,
                         config={
