@@ -636,7 +636,7 @@ class AutoML:
         else:
             self.data_size_full = self._state.data_size + X_val.shape[0]
         self._state.X_train, self._state.y_train, self._state.X_val, \
-        self._state.y_val = (X_train, y_train, X_val, y_val)
+            self._state.y_val = (X_train, y_train, X_val, y_val)
         if hasattr(self._state, 'groups') and self._state.groups is not None:
             logger.info("Using GroupKFold")
             assert len(self._state.groups) == y_train_all.size, \
@@ -1182,14 +1182,14 @@ class AutoML:
         logger.info("Evaluation method: {}".format(eval_method))
 
         self._retrain_full = retrain_full and (
-                eval_method == 'holdout' and self._state.X_val is None)
+            eval_method == 'holdout' and self._state.X_val is None)
         if self._state.task != 'forecast':
             self._prepare_data(eval_method, split_ratio, n_splits)
         else:
             self._prepare_data(eval_method, split_ratio, n_splits,
                                period=self._state.fit_kwargs.get('period'))
         self._sample = sample and eval_method != 'cv' and (
-                MIN_SAMPLE_TRAIN * SAMPLE_MULTIPLY_FACTOR < self._state.data_size)
+            MIN_SAMPLE_TRAIN * SAMPLE_MULTIPLY_FACTOR < self._state.data_size)
         if 'auto' == metric:
             if 'binary' in self._state.task:
                 metric = 'roc_auc'
@@ -1253,11 +1253,11 @@ class AutoML:
         logger.info("fit succeeded")
         logger.info(f"Time taken to find the best model: {self._time_taken_best_iter}")
         if self._time_taken_best_iter >= time_budget * 0.7 and not \
-                all(self._ever_converged_per_learner.values()):
+            all(self._ever_converged_per_learner.values()):
             logger.warn("Time taken to find the best model is {0:.0f}% of the "
                         "provided time budget and not all estimators' hyperparameter "
                         "search converged. Consider increasing the time budget.".format(
-                self._time_taken_best_iter / time_budget * 100))
+                            self._time_taken_best_iter / time_budget * 100))
 
         if verbose == 0:
             logger.setLevel(old_level)
@@ -1493,16 +1493,16 @@ class AutoML:
                     self._active_estimators.remove(estimator)
                     self._estimator_index -= 1
             if self._retrain_full and best_config_sig and not better and (
-                    self._search_states[
-                        self._best_estimator].sample_size == self._state.data_size
+                self._search_states[
+                    self._best_estimator].sample_size == self._state.data_size
             ) and (est_retrain_time
-                   <= self._state.time_budget - self._state.time_from_start
-                   <= est_retrain_time + next_trial_time):
+                    <= self._state.time_budget - self._state.time_from_start
+                    <= est_retrain_time + next_trial_time):
                 self._trained_estimator, \
-                retrain_time = self._state._train_with_config(
-                    self._best_estimator,
-                    self._search_states[self._best_estimator].best_config,
-                    self.data_size_full)
+                    retrain_time = self._state._train_with_config(
+                        self._best_estimator,
+                        self._search_states[self._best_estimator].best_config,
+                        self.data_size_full)
                 logger.info("retrain {} for {:.1f}s".format(
                     estimator, retrain_time))
                 self._retrained_config[best_config_sig] = retrain_time
@@ -1580,12 +1580,12 @@ class AutoML:
         untried_exists = False
         for i, estimator in enumerate(estimator_list):
             if estimator in self._search_states and (
-                    self._search_states[estimator].sample_size
+                self._search_states[estimator].sample_size
             ):  # sample_size=None meaning no result
                 search_state = self._search_states[estimator]
                 if (self._search_states[estimator].time2eval_best
-                        > self._state.time_budget - self._state.time_from_start
-                        or self._iter_per_learner[estimator]
+                    > self._state.time_budget - self._state.time_from_start
+                    or self._iter_per_learner[estimator]
                         >= self._max_iter_per_learner):
                     inv.append(0)
                     continue
