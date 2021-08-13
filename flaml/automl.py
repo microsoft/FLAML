@@ -25,6 +25,7 @@ from . import tune
 from .training_log import training_log_reader, training_log_writer
 
 import logging
+
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
     '[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s',
@@ -100,7 +101,7 @@ class SearchState:
             time2eval = result['time2eval']
             trained_estimator = result[
                 'trained_estimator']
-            del result['trained_estimator']     # free up RAM
+            del result['trained_estimator']  # free up RAM
         else:
             obj, time2eval, trained_estimator = np.inf, 0.0, None
             train_loss = config = None
@@ -124,7 +125,7 @@ class SearchState:
                 self.time2eval_best_old = self.time2eval_best
                 self.time2eval_best = time2eval
             if self.trained_estimator and trained_estimator and \
-                self.trained_estimator != trained_estimator and \
+                    self.trained_estimator != trained_estimator and \
                     not save_model_history:
                 self.trained_estimator.cleanup()
             if trained_estimator:
@@ -218,7 +219,7 @@ class AutoMLState:
         return result
 
     def _train_with_config(
-        self, estimator, config_w_resource, sample_size=None
+            self, estimator, config_w_resource, sample_size=None
     ):
         config = config_w_resource.copy()
         if 'FLAML_sample_size' in config:
@@ -234,7 +235,7 @@ class AutoMLState:
         else:
             weight = None
         budget = None if self.time_budget is None else (
-            self.time_budget - self.time_from_start)
+                self.time_budget - self.time_from_start)
         estimator, train_time = train_estimator(
             sampled_X_train,
             sampled_y_train,
@@ -494,8 +495,8 @@ class AutoML:
             self._X_train_all, self._y_train_all
         if issparse(X_train_all):
             X_train_all = X_train_all.tocsr()
-        if self._state.task == 'classification' and self._state.fit_kwargs.get(
-                'sample_weight') is None:
+        if self._state.task == 'binary:logistic' or self._state.task == 'multi:softmax' \
+                and self._state.fit_kwargs.get('sample_weight') is None:
             # logger.info(f"label {pd.unique(y_train_all)}")
             label_set, counts = np.unique(y_train_all, return_counts=True)
             # augment rare classes
@@ -522,13 +523,13 @@ class AutoML:
                     count += rare_count
                 logger.info(
                     f"class {label} augmented from {rare_count} to {count}")
-        if self._state.task != 'forecast':
+        if self._split_type != 'time':
             if 'sample_weight' in self._state.fit_kwargs:
                 X_train_all, y_train_all, self._state.fit_kwargs[
                     'sample_weight'] = shuffle(
-                        X_train_all, y_train_all,
-                        self._state.fit_kwargs['sample_weight'],
-                        random_state=RANDOM_SEED)
+                    X_train_all, y_train_all,
+                    self._state.fit_kwargs['sample_weight'],
+                    random_state=RANDOM_SEED)
             elif hasattr(self._state, 'groups') and self._state.groups is not None:
                 X_train_all, y_train_all, self._state.groups = shuffle(
                     X_train_all, y_train_all, self._state.groups,
@@ -544,7 +545,23 @@ class AutoML:
         X_train, y_train = X_train_all, y_train_all
         if X_val is None:
             # if eval_method = holdout, make holdout data
-            if self._state.task == 'classification' and eval_method == 'holdout':
+            if eval_method == 'holdout' and self._split_type == 'time':
+                if 'period' in self._state.fit_kwargs:
+                    num_samples = X_train_all.shape[0]
+                    split_idx = num_samples - self._state.fit_kwargs.get('period')
+                    X_train = X_train_all[:split_idx]
+                    y_train = y_train_all[:split_idx]
+                    X_val = X_train_all[split_idx:]
+                    y_val = y_train_all[split_idx:]
+                else:
+                    num_samples = X_train_all.shape[0]
+                    num_test = floor(split_ratio * num_samples)
+                    split_idx = num_samples - num_test
+                    X_train = X_train_all[:split_idx]
+                    y_train = y_train_all[:split_idx]
+                    X_val = X_train_all[split_idx:]
+                    y_val = y_train_all[split_idx:]
+            elif self._state.task != 'regression' and eval_method == 'holdout':
                 # for classification, make sure the labels are complete in both
                 # training and validation data
                 label_set, first = np.unique(y_train_all, return_index=True)
@@ -604,20 +621,13 @@ class AutoML:
                         y_train_all,
                         test_size=split_ratio,
                         random_state=RANDOM_SEED)
-            elif eval_method == 'holdout' and self._state.task == 'forecast':
-                num_samples = X_train_all.shape[0]
-                split_idx = num_samples - self._state.fit_kwargs.get('period')
-                X_train = X_train_all[:split_idx]
-                y_train = y_train_all[:split_idx]
-                X_val = X_train_all[split_idx:]
-                y_val = y_train_all[split_idx:]
         self._state.data_size = X_train.shape[0]
         if X_val is None:
             self.data_size_full = self._state.data_size
         else:
             self.data_size_full = self._state.data_size + X_val.shape[0]
         self._state.X_train, self._state.y_train, self._state.X_val, \
-            self._state.y_val = (X_train, y_train, X_val, y_val)
+        self._state.y_val = (X_train, y_train, X_val, y_val)
         if hasattr(self._state, 'groups') and self._state.groups is not None:
             logger.info("Using GroupKFold")
             assert len(self._state.groups) == y_train_all.size, \
@@ -633,7 +643,7 @@ class AutoML:
                 f" requires input data with at least {n_splits} examples.")
             assert y_train_all.size >= 2 * n_splits, (
                 f"{n_splits}-fold cross validation with metric=r2 "
-                f"requires input data with at least {n_splits*2} examples.")
+                f"requires input data with at least {n_splits * 2} examples.")
             self._state.kf = RepeatedStratifiedKFold(
                 n_splits=n_splits, n_repeats=1, random_state=RANDOM_SEED)
         elif self._split_type == "time":
@@ -1109,7 +1119,8 @@ class AutoML:
                 hyperparamter configurations for the corresponding estimators.
             seed: int or None, default=None | The random seed for np.random.
             **fit_kwargs: Other key word arguments to pass to fit() function of
-                the searched learners, such sample_weight, period, and freq
+                the searched learners, such as sample_weight. Include period and
+                freq as key word arguments for forecast task.
         '''
         self._start_time_flag = time.time()
         self._state.task = task
@@ -1162,14 +1173,14 @@ class AutoML:
         logger.info("Evaluation method: {}".format(eval_method))
 
         self._retrain_full = retrain_full and (
-            eval_method == 'holdout' and self._state.X_val is None)
+                eval_method == 'holdout' and self._state.X_val is None)
         if self._state.task != 'forecast':
             self._prepare_data(eval_method, split_ratio, n_splits)
         else:
             self._prepare_data(eval_method, split_ratio, n_splits,
                                period=self._state.fit_kwargs.get('period'))
         self._sample = sample and eval_method != 'cv' and (
-            MIN_SAMPLE_TRAIN * SAMPLE_MULTIPLY_FACTOR < self._state.data_size)
+                MIN_SAMPLE_TRAIN * SAMPLE_MULTIPLY_FACTOR < self._state.data_size)
         if 'auto' == metric:
             if 'binary' in self._state.task:
                 metric = 'roc_auc'
@@ -1233,11 +1244,11 @@ class AutoML:
         logger.info("fit succeeded")
         logger.info(f"Time taken to find the best model: {self._time_taken_best_iter}")
         if self._time_taken_best_iter >= time_budget * 0.7 and not \
-           all(self._ever_converged_per_learner.values()):
+                all(self._ever_converged_per_learner.values()):
             logger.warn("Time taken to find the best model is {0:.0f}% of the "
                         "provided time budget and not all estimators' hyperparameter "
                         "search converged. Consider increasing the time budget.".format(
-                            self._time_taken_best_iter / time_budget * 100))
+                self._time_taken_best_iter / time_budget * 100))
 
         if verbose == 0:
             logger.setLevel(old_level)
@@ -1305,7 +1316,7 @@ class AutoML:
             time_left = self._state.time_budget - self._state.time_from_start
             budget_left = time_left if not self._retrain_full or better or (
                 not self.best_estimator) or self._search_states[
-                self.best_estimator].sample_size < self._state.data_size \
+                                           self.best_estimator].sample_size < self._state.data_size \
                 else time_left - est_retrain_time
             if not search_state.search_alg:
                 search_state.training_function = partial(
@@ -1462,7 +1473,7 @@ class AutoML:
                 if searcher.is_ls_ever_converged and not self._ever_converged_per_learner[estimator]:
                     self._ever_converged_per_learner[estimator] = searcher.is_ls_ever_converged
                 if all(self._ever_converged_per_learner.values()) and \
-                   self._state.time_from_start > self._warn_threshold * self._time_taken_best_iter:
+                        self._state.time_from_start > self._warn_threshold * self._time_taken_best_iter:
                     logger.warn("All estimator hyperparameters local search has converged at least once, "
                                 f"and the total search time exceeds {self._warn_threshold} times the time taken "
                                 "to find the best model.")
@@ -1473,16 +1484,16 @@ class AutoML:
                     self._active_estimators.remove(estimator)
                     self._estimator_index -= 1
             if self._retrain_full and best_config_sig and not better and (
-                self._search_states[
-                    self._best_estimator].sample_size == self._state.data_size
+                    self._search_states[
+                        self._best_estimator].sample_size == self._state.data_size
             ) and (est_retrain_time
-                    <= self._state.time_budget - self._state.time_from_start
-                    <= est_retrain_time + next_trial_time):
+                   <= self._state.time_budget - self._state.time_from_start
+                   <= est_retrain_time + next_trial_time):
                 self._trained_estimator, \
-                    retrain_time = self._state._train_with_config(
-                        self._best_estimator,
-                        self._search_states[self._best_estimator].best_config,
-                        self.data_size_full)
+                retrain_time = self._state._train_with_config(
+                    self._best_estimator,
+                    self._search_states[self._best_estimator].best_config,
+                    self.data_size_full)
                 logger.info("retrain {} for {:.1f}s".format(
                     estimator, retrain_time))
                 self._retrained_config[best_config_sig] = retrain_time
@@ -1560,12 +1571,12 @@ class AutoML:
         untried_exists = False
         for i, estimator in enumerate(estimator_list):
             if estimator in self._search_states and (
-                self._search_states[estimator].sample_size
+                    self._search_states[estimator].sample_size
             ):  # sample_size=None meaning no result
                 search_state = self._search_states[estimator]
                 if (self._search_states[estimator].time2eval_best
-                    > self._state.time_budget - self._state.time_from_start
-                    or self._iter_per_learner[estimator]
+                        > self._state.time_budget - self._state.time_from_start
+                        or self._iter_per_learner[estimator]
                         >= self._max_iter_per_learner):
                     inv.append(0)
                     continue

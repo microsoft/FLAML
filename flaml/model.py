@@ -307,11 +307,11 @@ class LGBMEstimator(BaseEstimator):
             self.params["n_estimators"] = 4
             self._t2 = self._fit(X_train, y_train, **kwargs)
             self._time_per_iter = (self._t2 - self._t1) / (
-                    self.params["n_estimators"] - 1) if self._t2 > self._t1 \
+                self.params["n_estimators"] - 1) if self._t2 > self._t1 \
                 else self._t1 if self._t1 else 0.001
             self._train_size = X_train.shape[0]
             if self._t1 + self._t2 >= budget or n_iter == self.params[
-                "n_estimators"]:
+                    "n_estimators"]:
                 self.params["n_estimators"] = n_iter
                 return time.time() - start_time
         if budget is not None:
@@ -741,13 +741,13 @@ class CatBoostEstimator(BaseEstimator):
             CatBoostEstimator._smallmodel.fit(
                 X_train, y_train, cat_features=cat_features, **kwargs)
             CatBoostEstimator._time_per_iter = (
-                                                       time.time() - start_time - CatBoostEstimator._t1) / (
-                                                       self.params["n_estimators"] - 1)
+                 time.time() - start_time - CatBoostEstimator._t1) / (
+                      self.params["n_estimators"] - 1)
             if CatBoostEstimator._time_per_iter <= 0:
                 CatBoostEstimator._time_per_iter = CatBoostEstimator._t1
             CatBoostEstimator._train_size = len(y_train)
             if time.time() - start_time >= budget or n_iter == self.params[
-                "n_estimators"]:
+                    "n_estimators"]:
                 self.params["n_estimators"] = n_iter
                 self._model = CatBoostEstimator._smallmodel
                 return time.time() - start_time
@@ -1029,6 +1029,7 @@ class SARIMAX(BaseEstimator):
         current_time = time.time()
         model = SARIMAX_estimator(train_df,
                                   order=(self.params['p'], self.params['d'], self.params['q']),
+                                  seasonality_order=(self.params['P'], self.params['D'], self.params['Q'], self.params['s']),
                                   enforce_stationarity=False,
                                   enforce_invertibility=False)
 
@@ -1048,7 +1049,7 @@ class SARIMAX(BaseEstimator):
                 forecast = self._model.predict(start=start_date, end=end_date)
             else:
                 raise ValueError(
-                    "either X_train(pd.Dataframe with dates for predictions, column ds) or X_train(int number of periods)+freq are required")
+                    "either X_test(pd.Dataframe with dates for predictions, column ds) or X_test(int number of periods)+freq are required")
             return forecast
         else:
             return np.ones(X_test.shape[0])
