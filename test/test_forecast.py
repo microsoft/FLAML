@@ -43,7 +43,7 @@ def test_forecast_automl(budget=5):
     print('mape', '=', sklearn_metric_loss_score('mape', y_pred, y_test))
     from flaml.data import get_output_from_log
     time_history, best_valid_loss_history, valid_loss_history, config_history, train_loss_history = \
-        get_output_from_log(filename=settings['log_file_name'], time_budget=60)
+        get_output_from_log(filename=settings['log_file_name'], time_budget=budget)
     for config in config_history:
         print(config)
     print(automl.prune_attr)
