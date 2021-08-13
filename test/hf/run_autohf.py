@@ -208,6 +208,8 @@ def evaluate_configs_cv(autohf, console_args):
     from run_analysis import get_exhaustive_sweep_result
 
     cv_jobid_config = JobID(console_args)
+    cv_jobid_config.mod = "hpo"
+    cv_jobid_config.arg = "cus"
     cv_jobid_config.spt = "cv"
     sweep_jobid_config = JobID(console_args)
     sweep_jobid_config.pre = None
