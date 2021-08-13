@@ -37,7 +37,7 @@ def _test_uniform():
     _test(split_type="uniform")
 
 
-def _test_time():
+def test_time():
     _test(split_type="time")
 
 
