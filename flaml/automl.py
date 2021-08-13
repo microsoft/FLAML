@@ -554,13 +554,21 @@ class AutoML:
                     X_val = X_train_all[split_idx:]
                     y_val = y_train_all[split_idx:]
                 else:
-                    num_samples = X_train_all.shape[0]
-                    num_test = floor(split_ratio * num_samples)
-                    split_idx = num_samples - num_test
-                    X_train = X_train_all[:split_idx]
-                    y_train = y_train_all[:split_idx]
-                    X_val = X_train_all[split_idx:]
-                    y_val = y_train_all[split_idx:]
+                    if 'sample_weight' in self._state.fit_kwargs:
+                        X_train, X_val, y_train, y_val, self._state.fit_kwargs[
+                            'sample_weight'], self._state.weight_val = \
+                            train_test_split(
+                                X_train_all,
+                                y_train_all,
+                                self._state.fit_kwargs['sample_weight'],
+                                test_size=split_ratio,
+                                shuffle=False)
+                    else:
+                        X_train, X_val, y_train, y_val = train_test_split(
+                            X_train_all,
+                            y_train_all,
+                            test_size=split_ratio,
+                            shuffle=False)
             elif self._state.task != 'regression' and eval_method == 'holdout':
                 # for classification, make sure the labels are complete in both
                 # training and validation data
