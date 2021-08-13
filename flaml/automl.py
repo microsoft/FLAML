@@ -101,7 +101,7 @@ class SearchState:
             time2eval = result['time2eval']
             trained_estimator = result[
                 'trained_estimator']
-            del result['trained_estimator']  # free up RAM
+            del result['trained_estimator']     # free up RAM
         else:
             obj, time2eval, trained_estimator = np.inf, 0.0, None
             train_loss = config = None
@@ -125,7 +125,7 @@ class SearchState:
                 self.time2eval_best_old = self.time2eval_best
                 self.time2eval_best = time2eval
             if self.trained_estimator and trained_estimator and \
-                    self.trained_estimator != trained_estimator and \
+                self.trained_estimator != trained_estimator and \
                     not save_model_history:
                 self.trained_estimator.cleanup()
             if trained_estimator:
@@ -219,7 +219,7 @@ class AutoMLState:
         return result
 
     def _train_with_config(
-            self, estimator, config_w_resource, sample_size=None
+        self, estimator, config_w_resource, sample_size=None
     ):
         config = config_w_resource.copy()
         if 'FLAML_sample_size' in config:
@@ -235,7 +235,7 @@ class AutoMLState:
         else:
             weight = None
         budget = None if self.time_budget is None else (
-                self.time_budget - self.time_from_start)
+            self.time_budget - self.time_from_start)
         estimator, train_time = train_estimator(
             sampled_X_train,
             sampled_y_train,
@@ -636,7 +636,7 @@ class AutoML:
         else:
             self.data_size_full = self._state.data_size + X_val.shape[0]
         self._state.X_train, self._state.y_train, self._state.X_val, \
-        self._state.y_val = (X_train, y_train, X_val, y_val)
+            self._state.y_val = (X_train, y_train, X_val, y_val)
         if hasattr(self._state, 'groups') and self._state.groups is not None:
             logger.info("Using GroupKFold")
             assert len(self._state.groups) == y_train_all.size, \
@@ -1189,7 +1189,7 @@ class AutoML:
             self._prepare_data(eval_method, split_ratio, n_splits,
                                period=self._state.fit_kwargs.get('period'))
         self._sample = sample and eval_method != 'cv' and (
-                MIN_SAMPLE_TRAIN * SAMPLE_MULTIPLY_FACTOR < self._state.data_size)
+            MIN_SAMPLE_TRAIN * SAMPLE_MULTIPLY_FACTOR < self._state.data_size)
         if 'auto' == metric:
             if 'binary' in self._state.task:
                 metric = 'roc_auc'
@@ -1493,16 +1493,16 @@ class AutoML:
                     self._active_estimators.remove(estimator)
                     self._estimator_index -= 1
             if self._retrain_full and best_config_sig and not better and (
-                    self._search_states[
-                        self._best_estimator].sample_size == self._state.data_size
+                self._search_states[
+                    self._best_estimator].sample_size == self._state.data_size
             ) and (est_retrain_time
-                   <= self._state.time_budget - self._state.time_from_start
-                   <= est_retrain_time + next_trial_time):
+                    <= self._state.time_budget - self._state.time_from_start
+                    <= est_retrain_time + next_trial_time):
                 self._trained_estimator, \
-                retrain_time = self._state._train_with_config(
-                    self._best_estimator,
-                    self._search_states[self._best_estimator].best_config,
-                    self.data_size_full)
+                    retrain_time = self._state._train_with_config(
+                        self._best_estimator,
+                        self._search_states[self._best_estimator].best_config,
+                        self.data_size_full)
                 logger.info("retrain {} for {:.1f}s".format(
                     estimator, retrain_time))
                 self._retrained_config[best_config_sig] = retrain_time
@@ -1580,12 +1580,12 @@ class AutoML:
         untried_exists = False
         for i, estimator in enumerate(estimator_list):
             if estimator in self._search_states and (
-                    self._search_states[estimator].sample_size
+                self._search_states[estimator].sample_size
             ):  # sample_size=None meaning no result
                 search_state = self._search_states[estimator]
                 if (self._search_states[estimator].time2eval_best
-                        > self._state.time_budget - self._state.time_from_start
-                        or self._iter_per_learner[estimator]
+                    > self._state.time_budget - self._state.time_from_start
+                    or self._iter_per_learner[estimator]
                         >= self._max_iter_per_learner):
                     inv.append(0)
                     continue
