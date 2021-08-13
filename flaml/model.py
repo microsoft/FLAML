@@ -13,13 +13,10 @@ from lightgbm import LGBMClassifier, LGBMRegressor
 from scipy.sparse import issparse
 import pandas as pd
 from . import tune
-import warnings
 
 import logging
 
 logger = logging.getLogger(__name__)
-
-warnings.filterwarnings("ignore")
 
 
 class BaseEstimator:
@@ -48,14 +45,8 @@ class BaseEstimator:
             self._estimator_type = params['_estimator_type']
             del self.params['_estimator_type']
         else:
-            if task == 'regression':
-                self._estimator_type = "regressor"
-            elif task == 'classification':
-                self._estimator_type = "classifier"
-            elif task == 'forecast':
-                self._estimator_type = "forecaster"
-            # self._estimator_type = "regressor" if task == 'regression' \
-            #     else "classifier"
+            self._estimator_type = "regressor" if task == 'regression' \
+                else "classifier"
 
     def get_params(self, deep=False):
         params = self.params.copy()
@@ -193,9 +184,10 @@ class SKLearnEstimator(BaseEstimator):
 
     def _preprocess(self, X):
         if isinstance(X, pd.DataFrame):
-            X = X.copy()
             cat_columns = X.select_dtypes(include=['category']).columns
-            X[cat_columns] = X[cat_columns].apply(lambda x: x.cat.codes)
+            if not cat_columns.empty:
+                X = X.copy()
+                X[cat_columns] = X[cat_columns].apply(lambda x: x.cat.codes)
         elif isinstance(X, np.ndarray) and X.dtype.kind not in 'buif':
             # numpy array is not of numeric dtype
             X = pd.DataFrame(X)
@@ -223,7 +215,7 @@ class LGBMEstimator(BaseEstimator):
                 'low_cost_init_value': 4,
             },
             'min_child_samples': {
-                'domain': tune.lograndint(lower=2, upper=2 ** 7),
+                'domain': tune.lograndint(lower=2, upper=2 ** 7 + 1),
                 'init_value': 20,
             },
             'learning_rate': {
@@ -235,7 +227,7 @@ class LGBMEstimator(BaseEstimator):
                 'init_value': 1.0,
             },
             'log_max_bin': {
-                'domain': tune.lograndint(lower=3, upper=10),
+                'domain': tune.lograndint(lower=3, upper=11),
                 'init_value': 8,
             },
             'colsample_bytree': {
@@ -280,6 +272,8 @@ class LGBMEstimator(BaseEstimator):
             self.params["objective"] = objective
         if "max_bin" not in self.params:
             self.params['max_bin'] = 1 << int(round(log_max_bin)) - 1
+        if "verbose" not in self.params:
+            self.params['verbose'] = -1
         if 'regression' in task:
             self.estimator_class = LGBMRegressor
         else:
@@ -291,6 +285,13 @@ class LGBMEstimator(BaseEstimator):
         if not isinstance(X, pd.DataFrame) and issparse(X) and np.issubdtype(
                 X.dtype, np.integer):
             X = X.astype(float)
+        elif isinstance(X, np.ndarray) and X.dtype.kind not in 'buif':
+            # numpy array is not of numeric dtype
+            X = pd.DataFrame(X)
+            for col in X.columns:
+                if isinstance(X[col][0], str):
+                    X[col] = X[col].astype('category').cat.codes
+            X = X.to_numpy()
         return X
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
@@ -465,14 +466,15 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         super().__init__(task, **params)
         del self.params['objective']
         del self.params['max_bin']
+        del self.params['verbose']
         self.params.update({
             "n_estimators": int(round(n_estimators)),
             'max_leaves': int(round(max_leaves)),
             'max_depth': 0,
             'grow_policy': params.get("grow_policy", 'lossguide'),
             'tree_method': tree_method,
-            'verbosity': 0,
             'n_jobs': n_jobs,
+            'verbosity': 0,
             'learning_rate': float(learning_rate),
             'subsample': float(subsample),
             'reg_alpha': float(reg_alpha),
@@ -531,9 +533,9 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         return 2.0
 
     def __init__(
-        self, task='binary:logistic', n_jobs=1,
-        n_estimators=4, max_features=1.0, criterion='gini', max_leaves=4,
-        **params
+            self, task='binary:logistic', n_jobs=1,
+            n_estimators=4, max_features=1.0, criterion='gini', max_leaves=4,
+            **params
     ):
         super().__init__(task, **params)
         del self.params['objective']
@@ -541,6 +543,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         self.params.update({
             "n_estimators": int(round(n_estimators)),
             "n_jobs": n_jobs,
+            "verbose": 0,
             'max_features': float(max_features),
             "max_leaf_nodes": params.get('max_leaf_nodes', int(round(max_leaves))),
         })
@@ -638,7 +641,7 @@ class CatBoostEstimator(BaseEstimator):
 
     @classmethod
     def search_space(cls, data_size, **params):
-        upper = max(min(round(1500000 / data_size), 150), 11)
+        upper = max(min(round(1500000 / data_size), 150), 12)
         return {
             'early_stopping_rounds': {
                 'domain': tune.lograndint(lower=10, upper=upper),
@@ -665,6 +668,25 @@ class CatBoostEstimator(BaseEstimator):
     def init(cls):
         CatBoostEstimator._time_per_iter = None
         CatBoostEstimator._train_size = 0
+
+    def _preprocess(self, X):
+        if isinstance(X, pd.DataFrame):
+            cat_columns = X.select_dtypes(include=['category']).columns
+            if not cat_columns.empty:
+                X = X.copy()
+                X[cat_columns] = X[cat_columns].apply(
+                    lambda x:
+                    x.cat.rename_categories(
+                        [str(c) if isinstance(c, float) else c
+                         for c in x.cat.categories]))
+        elif isinstance(X, np.ndarray) and X.dtype.kind not in 'buif':
+            # numpy array is not of numeric dtype
+            X = pd.DataFrame(X)
+            for col in X.columns:
+                if isinstance(X[col][0], str):
+                    X[col] = X[col].astype('category').cat.codes
+            X = X.to_numpy()
+        return X
 
     def __init__(
             self, task='binary:logistic', n_jobs=1,
@@ -694,68 +716,69 @@ class CatBoostEstimator(BaseEstimator):
     def fit(self, X_train, y_train, budget=None, **kwargs):
         start_time = time.time()
         n_iter = self.params["n_estimators"]
+        X_train = self._preprocess(X_train)
         if isinstance(X_train, pd.DataFrame):
             cat_features = list(X_train.select_dtypes(
                 include='category').columns)
         else:
             cat_features = []
-        from catboost import CatBoostError
-        try:
-            if (not CatBoostEstimator._time_per_iter or abs(
-                    CatBoostEstimator._train_size - len(y_train)) > 4) and budget:
-                # measure the time per iteration
-                self.params["n_estimators"] = 1
-                CatBoostEstimator._smallmodel = self.estimator_class(**self.params)
-                CatBoostEstimator._smallmodel.fit(
-                    X_train, y_train, cat_features=cat_features, **kwargs)
-                CatBoostEstimator._t1 = time.time() - start_time
-                if CatBoostEstimator._t1 >= budget:
-                    self.params["n_estimators"] = n_iter
-                    self._model = CatBoostEstimator._smallmodel
-                    return CatBoostEstimator._t1
-                self.params["n_estimators"] = 4
-                CatBoostEstimator._smallmodel = self.estimator_class(**self.params)
-                CatBoostEstimator._smallmodel.fit(
-                    X_train, y_train, cat_features=cat_features, **kwargs)
-                CatBoostEstimator._time_per_iter = (
-                                                           time.time() - start_time - CatBoostEstimator._t1) / (
-                                                           self.params["n_estimators"] - 1)
-                if CatBoostEstimator._time_per_iter <= 0:
-                    CatBoostEstimator._time_per_iter = CatBoostEstimator._t1
-                CatBoostEstimator._train_size = len(y_train)
-                if time.time() - start_time >= budget or n_iter == self.params[
-                    "n_estimators"]:
-                    self.params["n_estimators"] = n_iter
-                    self._model = CatBoostEstimator._smallmodel
-                    return time.time() - start_time
-            if budget:
-                train_times = 1
-                self.params["n_estimators"] = min(n_iter, int(
-                    (budget - time.time() + start_time - CatBoostEstimator._t1)
-                    / train_times / CatBoostEstimator._time_per_iter + 1))
+        # from catboost import CatBoostError
+        # try:
+        if (not CatBoostEstimator._time_per_iter or abs(
+                CatBoostEstimator._train_size - len(y_train)) > 4) and budget:
+            # measure the time per iteration
+            self.params["n_estimators"] = 1
+            CatBoostEstimator._smallmodel = self.estimator_class(**self.params)
+            CatBoostEstimator._smallmodel.fit(
+                X_train, y_train, cat_features=cat_features, **kwargs)
+            CatBoostEstimator._t1 = time.time() - start_time
+            if CatBoostEstimator._t1 >= budget:
+                self.params["n_estimators"] = n_iter
                 self._model = CatBoostEstimator._smallmodel
-            if self.params["n_estimators"] > 0:
-                n = max(int(len(y_train) * 0.9), len(y_train) - 1000)
-                X_tr, y_tr = X_train[:n], y_train[:n]
-                if 'sample_weight' in kwargs:
-                    weight = kwargs['sample_weight']
-                    if weight is not None:
-                        kwargs['sample_weight'] = weight[:n]
-                else:
-                    weight = None
-                from catboost import Pool
-                model = self.estimator_class(**self.params)
-                model.fit(
-                    X_tr, y_tr, cat_features=cat_features,
-                    eval_set=Pool(
-                        data=X_train[n:], label=y_train[n:],
-                        cat_features=cat_features),
-                    **kwargs)  # model.get_best_iteration()
+                return CatBoostEstimator._t1
+            self.params["n_estimators"] = 4
+            CatBoostEstimator._smallmodel = self.estimator_class(**self.params)
+            CatBoostEstimator._smallmodel.fit(
+                X_train, y_train, cat_features=cat_features, **kwargs)
+            CatBoostEstimator._time_per_iter = (
+                                                       time.time() - start_time - CatBoostEstimator._t1) / (
+                                                       self.params["n_estimators"] - 1)
+            if CatBoostEstimator._time_per_iter <= 0:
+                CatBoostEstimator._time_per_iter = CatBoostEstimator._t1
+            CatBoostEstimator._train_size = len(y_train)
+            if time.time() - start_time >= budget or n_iter == self.params[
+                "n_estimators"]:
+                self.params["n_estimators"] = n_iter
+                self._model = CatBoostEstimator._smallmodel
+                return time.time() - start_time
+        if budget:
+            train_times = 1
+            self.params["n_estimators"] = min(n_iter, int(
+                (budget - time.time() + start_time - CatBoostEstimator._t1)
+                / train_times / CatBoostEstimator._time_per_iter + 1))
+            self._model = CatBoostEstimator._smallmodel
+        if self.params["n_estimators"] > 0:
+            n = max(int(len(y_train) * 0.9), len(y_train) - 1000)
+            X_tr, y_tr = X_train[:n], y_train[:n]
+            if 'sample_weight' in kwargs:
+                weight = kwargs['sample_weight']
                 if weight is not None:
-                    kwargs['sample_weight'] = weight
-                self._model = model
-        except CatBoostError:
-            self._model = None
+                    kwargs['sample_weight'] = weight[:n]
+            else:
+                weight = None
+            from catboost import Pool
+            model = self.estimator_class(**self.params)
+            model.fit(
+                X_tr, y_tr, cat_features=cat_features,
+                eval_set=Pool(
+                    data=X_train[n:], label=y_train[n:],
+                    cat_features=cat_features),
+                **kwargs)  # model.get_best_iteration()
+            if weight is not None:
+                kwargs['sample_weight'] = weight
+            self._model = model
+        # except CatBoostError:
+        #     self._model = None
         self.params["n_estimators"] = n_iter
         train_time = time.time() - start_time
         return train_time
@@ -913,6 +936,8 @@ class ARIMA(BaseEstimator):
             self.params.pop('n_jobs')
 
         from statsmodels.tsa.arima.model import ARIMA as ARIMA_estimator
+        import warnings
+        warnings.filterwarnings("ignore")
 
         current_time = time.time()
         model = ARIMA_estimator(train_df,

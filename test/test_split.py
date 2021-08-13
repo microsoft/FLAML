@@ -37,6 +37,10 @@ def _test_uniform():
     _test(split_type="uniform")
 
 
+def _test_time():
+    _test(split_type="time")
+
+
 def test_groups():
     from sklearn.externals._arff import ArffException
     try:
