@@ -125,7 +125,7 @@ class SearchState:
                 self.time2eval_best_old = self.time2eval_best
                 self.time2eval_best = time2eval
             if self.trained_estimator and trained_estimator and \
-                    self.trained_estimator != trained_estimator and \
+                self.trained_estimator != trained_estimator and \
                     not save_model_history:
                 self.trained_estimator.cleanup()
             if trained_estimator:
@@ -219,7 +219,7 @@ class AutoMLState:
         return result
 
     def _train_with_config(
-            self, estimator, config_w_resource, sample_size=None
+        self, estimator, config_w_resource, sample_size=None
     ):
         config = config_w_resource.copy()
         if 'FLAML_sample_size' in config:
@@ -235,7 +235,7 @@ class AutoMLState:
         else:
             weight = None
         budget = None if self.time_budget is None else (
-                self.time_budget - self.time_from_start)
+            self.time_budget - self.time_from_start)
         estimator, train_time = train_estimator(
             sampled_X_train,
             sampled_y_train,
