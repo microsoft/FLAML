@@ -215,7 +215,7 @@ def evaluate_configs_cv(autohf, console_args):
 
     # setattr(sweep_jobid_config, "var1", set(console_args.learning_rate))
     # setattr(sweep_jobid_config, "var2", set(console_args.weight_decay))
-    top1_score, top1_config = get_exhaustive_sweep_result(console_args, "logs_azure/", sweep_jobid_config, 2)
+    top1_score, top1_config = get_exhaustive_sweep_result(console_args, "logs_azure/", sweep_jobid_config, 10)
     # top1_config = {"learning_rate": 1e-5, "per_device_train_batch_size": 2,
     #                "num_train_epochs": 0.01, "warmup_ratio": 0.1, "weight_decay": 0.0}
     this_args = copy.deepcopy(console_args)
@@ -224,7 +224,7 @@ def evaluate_configs_cv(autohf, console_args):
         root_log_path=console_args.root_log_path,
         azure_key_path=console_args.key_path, autohf=autohf)
     custom_args = {
-        "foldnum": 2
+        "foldnum": 3
     }
     _test_hpo(this_args,
               cv_jobid_config,
@@ -322,6 +322,7 @@ def _test_hpo(console_args,
         import copy
         cv_k = len(autohf.train_datasets)
         validation_metrics = []
+        configscore_lists = []
         # with multiprocessing.Pool(processes=5) as p:
         #     for idx, validation_metric in p.imap_unordered(train_cv, batches):
         #         validation_metrics.append(validation_metric)
@@ -329,12 +330,18 @@ def _test_hpo(console_args,
         for idx in range(cv_k):
             autohf_settings_copies.append(copy.deepcopy(autohf_settings))
         for idx in range(0, cv_k):
-            idx, validation_metric = train_cv(idx,
+            idx, validation_metric, analysis = train_cv(idx,
                                               train_dataset=autohf.train_datasets[idx],
                                               eval_dataset=autohf.eval_datasets[idx],
                                               autohf_settings=autohf_settings_copies[idx])
+            if analysis is not None:
+                configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
+            else:
+                configscore_list = None
             validation_metrics.append(validation_metric)
-        azure_utils.write_autohf_output(valid_metric=validation_metrics)
+            configscore_lists.append(configscore_list)
+        azure_utils.write_autohf_output(configscore_list=configscore_lists,
+                                        valid_metric=validation_metrics)
 
     rm_home_result()
 

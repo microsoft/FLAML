@@ -618,7 +618,11 @@ class AzureUtils:
             local_file_path = self.generate_local_json_path()
         output_json = {}
         if configscore_list:
-            output_json["val_log"] = [configscore.__dict__ for configscore in configscore_list]
+            if isinstance(configscore_list[0], ConfigScoreList):
+                output_json["val_log"] = [configscore.__dict__ for configscore in configscore_list]
+            else:
+                output_json["val_log"] = [[configscore.__dict__ for configscore in each_configscore_list]
+                                          for each_configscore_list in configscore_list]
         if valid_metric:
             output_json["valid_metric"] = valid_metric
         if duration:
