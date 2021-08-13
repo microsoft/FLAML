@@ -652,7 +652,7 @@ class AutoML:
                 f" requires input data with at least {n_splits} examples.")
             assert y_train_all.size >= 2 * n_splits, (
                 f"{n_splits}-fold cross validation with metric=r2 "
-                f"requires input data with at least {n_splits * 2} examples.")
+                f"requires input data with at least {n_splits*2} examples.")
             self._state.kf = RepeatedStratifiedKFold(
                 n_splits=n_splits, n_repeats=1, random_state=RANDOM_SEED)
         elif self._split_type == "time":

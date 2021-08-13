@@ -215,7 +215,7 @@ class LGBMEstimator(BaseEstimator):
                 'low_cost_init_value': 4,
             },
             'min_child_samples': {
-                'domain': tune.lograndint(lower=2, upper=2 ** 7 + 1),
+                'domain': tune.lograndint(lower=2, upper=2**7 + 1),
                 'init_value': 20,
             },
             'learning_rate': {
@@ -381,10 +381,10 @@ class XGBoostEstimator(SKLearnEstimator):
         return 1.6
 
     def __init__(
-            self, task='regression', all_thread=False, n_jobs=1,
-            n_estimators=4, max_leaves=4, subsample=1.0, min_child_weight=1,
-            learning_rate=0.1, reg_lambda=1.0, reg_alpha=0.0, colsample_bylevel=1.0,
-            colsample_bytree=1.0, tree_method='auto', **params
+        self, task='regression', all_thread=False, n_jobs=1,
+        n_estimators=4, max_leaves=4, subsample=1.0, min_child_weight=1,
+        learning_rate=0.1, reg_lambda=1.0, reg_alpha=0.0, colsample_bylevel=1.0,
+        colsample_bytree=1.0, tree_method='auto', **params
     ):
         super().__init__(task, **params)
         self._n_estimators = int(round(n_estimators))
@@ -457,11 +457,11 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         return XGBoostEstimator.cost_relative2lgbm()
 
     def __init__(
-            self, task='binary:logistic', n_jobs=1,
-            n_estimators=4, max_leaves=4, subsample=1.0,
-            min_child_weight=1, learning_rate=0.1, reg_lambda=1.0, reg_alpha=0.0,
-            colsample_bylevel=1.0, colsample_bytree=1.0, tree_method='hist',
-            **params
+        self, task='binary:logistic', n_jobs=1,
+        n_estimators=4, max_leaves=4, subsample=1.0,
+        min_child_weight=1, learning_rate=0.1, reg_lambda=1.0, reg_alpha=0.0,
+        colsample_bylevel=1.0, colsample_bytree=1.0, tree_method='hist',
+        **params
     ):
         super().__init__(task, **params)
         del self.params['objective']
@@ -533,9 +533,9 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         return 2.0
 
     def __init__(
-            self, task='binary:logistic', n_jobs=1,
-            n_estimators=4, max_features=1.0, criterion='gini', max_leaves=4,
-            **params
+        self, task='binary:logistic', n_jobs=1,
+        n_estimators=4, max_features=1.0, criterion='gini', max_leaves=4,
+        **params
     ):
         super().__init__(task, **params)
         del self.params['objective']
@@ -588,8 +588,8 @@ class LRL1Classifier(SKLearnEstimator):
         return 160
 
     def __init__(
-            self, task='binary:logistic', n_jobs=1, tol=0.0001, C=1.0,
-            **params
+        self, task='binary:logistic', n_jobs=1, tol=0.0001, C=1.0,
+        **params
     ):
         super().__init__(task, **params)
         self.params.update({
@@ -617,8 +617,8 @@ class LRL2Classifier(SKLearnEstimator):
         return 25
 
     def __init__(
-            self, task='binary:logistic', n_jobs=1, tol=0.0001, C=1.0,
-            **params
+        self, task='binary:logistic', n_jobs=1, tol=0.0001, C=1.0,
+        **params
     ):
         super().__init__(task, **params)
         self.params.update({
@@ -676,9 +676,9 @@ class CatBoostEstimator(BaseEstimator):
                 X = X.copy()
                 X[cat_columns] = X[cat_columns].apply(
                     lambda x:
-                    x.cat.rename_categories(
-                        [str(c) if isinstance(c, float) else c
-                         for c in x.cat.categories]))
+                        x.cat.rename_categories(
+                            [str(c) if isinstance(c, float) else c
+                             for c in x.cat.categories]))
         elif isinstance(X, np.ndarray) and X.dtype.kind not in 'buif':
             # numpy array is not of numeric dtype
             X = pd.DataFrame(X)
@@ -689,8 +689,8 @@ class CatBoostEstimator(BaseEstimator):
         return X
 
     def __init__(
-            self, task='binary:logistic', n_jobs=1,
-            n_estimators=8192, learning_rate=0.1, early_stopping_rounds=4, **params
+        self, task='binary:logistic', n_jobs=1,
+        n_estimators=8192, learning_rate=0.1, early_stopping_rounds=4, **params
     ):
         super().__init__(task, **params)
         self.params.update({
@@ -741,8 +741,8 @@ class CatBoostEstimator(BaseEstimator):
             CatBoostEstimator._smallmodel.fit(
                 X_train, y_train, cat_features=cat_features, **kwargs)
             CatBoostEstimator._time_per_iter = (
-                 time.time() - start_time - CatBoostEstimator._t1) / (
-                      self.params["n_estimators"] - 1)
+                time.time() - start_time - CatBoostEstimator._t1) / (
+                    self.params["n_estimators"] - 1)
             if CatBoostEstimator._time_per_iter <= 0:
                 CatBoostEstimator._time_per_iter = CatBoostEstimator._t1
             CatBoostEstimator._train_size = len(y_train)
@@ -773,7 +773,7 @@ class CatBoostEstimator(BaseEstimator):
                 eval_set=Pool(
                     data=X_train[n:], label=y_train[n:],
                     cat_features=cat_features),
-                **kwargs)  # model.get_best_iteration()
+                **kwargs)   # model.get_best_iteration()
             if weight is not None:
                 kwargs['sample_weight'] = weight
             self._model = model
@@ -802,7 +802,7 @@ class KNeighborsEstimator(BaseEstimator):
         return 30
 
     def __init__(
-            self, task='binary:logistic', n_jobs=1, n_neighbors=5, **params
+        self, task='binary:logistic', n_jobs=1, n_neighbors=5, **params
     ):
         super().__init__(task, **params)
         self.params.update({
