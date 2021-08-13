@@ -496,7 +496,8 @@ class AutoML:
         if issparse(X_train_all):
             X_train_all = X_train_all.tocsr()
         if self._state.task == 'binary:logistic' or self._state.task == 'multi:softmax' \
-                and self._state.fit_kwargs.get('sample_weight') is None:
+                and self._state.fit_kwargs.get('sample_weight') is None \
+                and split_type != 'time':
             # logger.info(f"label {pd.unique(y_train_all)}")
             label_set, counts = np.unique(y_train_all, return_counts=True)
             # augment rare classes
