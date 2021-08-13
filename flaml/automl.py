@@ -125,7 +125,7 @@ class SearchState:
                 self.time2eval_best_old = self.time2eval_best
                 self.time2eval_best = time2eval
             if self.trained_estimator and trained_estimator and \
-                self.trained_estimator != trained_estimator and \
+                    self.trained_estimator != trained_estimator and \
                     not save_model_history:
                 self.trained_estimator.cleanup()
             if trained_estimator:
@@ -219,7 +219,7 @@ class AutoMLState:
         return result
 
     def _train_with_config(
-        self, estimator, config_w_resource, sample_size=None
+            self, estimator, config_w_resource, sample_size=None
     ):
         config = config_w_resource.copy()
         if 'FLAML_sample_size' in config:
@@ -235,7 +235,7 @@ class AutoMLState:
         else:
             weight = None
         budget = None if self.time_budget is None else (
-            self.time_budget - self.time_from_start)
+                self.time_budget - self.time_from_start)
         estimator, train_time = train_estimator(
             sampled_X_train,
             sampled_y_train,
@@ -497,7 +497,7 @@ class AutoML:
             X_train_all = X_train_all.tocsr()
         if (self._state.task == 'binary:logistic' or self._state.task == 'multi:softmax') \
                 and self._state.fit_kwargs.get('sample_weight') is None \
-                and split_type != 'time':
+                and self.split_type != 'time':
             # logger.info(f"label {pd.unique(y_train_all)}")
             label_set, counts = np.unique(y_train_all, return_counts=True)
             # augment rare classes
@@ -636,7 +636,7 @@ class AutoML:
         else:
             self.data_size_full = self._state.data_size + X_val.shape[0]
         self._state.X_train, self._state.y_train, self._state.X_val, \
-            self._state.y_val = (X_train, y_train, X_val, y_val)
+        self._state.y_val = (X_train, y_train, X_val, y_val)
         if hasattr(self._state, 'groups') and self._state.groups is not None:
             logger.info("Using GroupKFold")
             assert len(self._state.groups) == y_train_all.size, \
@@ -1182,14 +1182,14 @@ class AutoML:
         logger.info("Evaluation method: {}".format(eval_method))
 
         self._retrain_full = retrain_full and (
-            eval_method == 'holdout' and self._state.X_val is None)
+                eval_method == 'holdout' and self._state.X_val is None)
         if self._state.task != 'forecast':
             self._prepare_data(eval_method, split_ratio, n_splits)
         else:
             self._prepare_data(eval_method, split_ratio, n_splits,
                                period=self._state.fit_kwargs.get('period'))
         self._sample = sample and eval_method != 'cv' and (
-            MIN_SAMPLE_TRAIN * SAMPLE_MULTIPLY_FACTOR < self._state.data_size)
+                MIN_SAMPLE_TRAIN * SAMPLE_MULTIPLY_FACTOR < self._state.data_size)
         if 'auto' == metric:
             if 'binary' in self._state.task:
                 metric = 'roc_auc'
@@ -1253,7 +1253,7 @@ class AutoML:
         logger.info("fit succeeded")
         logger.info(f"Time taken to find the best model: {self._time_taken_best_iter}")
         if self._time_taken_best_iter >= time_budget * 0.7 and not \
-            all(self._ever_converged_per_learner.values()):
+           all(self._ever_converged_per_learner.values()):
             logger.warn("Time taken to find the best model is {0:.0f}% of the "
                         "provided time budget and not all estimators' hyperparameter "
                         "search converged. Consider increasing the time budget.".format(
@@ -1325,7 +1325,7 @@ class AutoML:
             time_left = self._state.time_budget - self._state.time_from_start
             budget_left = time_left if not self._retrain_full or better or (
                 not self.best_estimator) or self._search_states[
-                                           self.best_estimator].sample_size < self._state.data_size \
+                self.best_estimator].sample_size < self._state.data_size \
                 else time_left - est_retrain_time
             if not search_state.search_alg:
                 search_state.training_function = partial(
@@ -1482,7 +1482,7 @@ class AutoML:
                 if searcher.is_ls_ever_converged and not self._ever_converged_per_learner[estimator]:
                     self._ever_converged_per_learner[estimator] = searcher.is_ls_ever_converged
                 if all(self._ever_converged_per_learner.values()) and \
-                        self._state.time_from_start > self._warn_threshold * self._time_taken_best_iter:
+                   self._state.time_from_start > self._warn_threshold * self._time_taken_best_iter:
                     logger.warn("All estimator hyperparameters local search has converged at least once, "
                                 f"and the total search time exceeds {self._warn_threshold} times the time taken "
                                 "to find the best model.")
@@ -1493,16 +1493,16 @@ class AutoML:
                     self._active_estimators.remove(estimator)
                     self._estimator_index -= 1
             if self._retrain_full and best_config_sig and not better and (
-                self._search_states[
-                    self._best_estimator].sample_size == self._state.data_size
+                    self._search_states[
+                        self._best_estimator].sample_size == self._state.data_size
             ) and (est_retrain_time
-                    <= self._state.time_budget - self._state.time_from_start
-                    <= est_retrain_time + next_trial_time):
+                   <= self._state.time_budget - self._state.time_from_start
+                   <= est_retrain_time + next_trial_time):
                 self._trained_estimator, \
-                    retrain_time = self._state._train_with_config(
-                        self._best_estimator,
-                        self._search_states[self._best_estimator].best_config,
-                        self.data_size_full)
+                retrain_time = self._state._train_with_config(
+                    self._best_estimator,
+                    self._search_states[self._best_estimator].best_config,
+                    self.data_size_full)
                 logger.info("retrain {} for {:.1f}s".format(
                     estimator, retrain_time))
                 self._retrained_config[best_config_sig] = retrain_time
@@ -1580,12 +1580,12 @@ class AutoML:
         untried_exists = False
         for i, estimator in enumerate(estimator_list):
             if estimator in self._search_states and (
-                self._search_states[estimator].sample_size
+                    self._search_states[estimator].sample_size
             ):  # sample_size=None meaning no result
                 search_state = self._search_states[estimator]
                 if (self._search_states[estimator].time2eval_best
-                    > self._state.time_budget - self._state.time_from_start
-                    or self._iter_per_learner[estimator]
+                        > self._state.time_budget - self._state.time_from_start
+                        or self._iter_per_learner[estimator]
                         >= self._max_iter_per_learner):
                     inv.append(0)
                     continue
