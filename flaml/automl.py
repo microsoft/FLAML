@@ -495,7 +495,8 @@ class AutoML:
             self._X_train_all, self._y_train_all
         if issparse(X_train_all):
             X_train_all = X_train_all.tocsr()
-        if self._state.task == 'binary:logistic' or self._state.task == 'multi:softmax' \
+        if (self._state.task == 'binary:logistic' or self._state.task == 'multi:softmax') \
+
                 and self._state.fit_kwargs.get('sample_weight') is None \
                 and split_type != 'time':
             # logger.info(f"label {pd.unique(y_train_all)}")
