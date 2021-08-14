@@ -1,16 +1,12 @@
 import time
 
-from ray import tune
-from ray.tune.suggest import ConcurrencyLimiter
-from ray.tune.schedulers import AsyncHyperBandScheduler
-from ray.tune.suggest.flaml import BlendSearch
-
 
 def evaluation_fn(step, width, height):
     return (0.1 + width * step / 100)**(-1) + height * 0.1
 
 
 def easy_objective(config):
+    from ray import tune
     # Hyperparameters
     width, height = config["width"], config["height"]
 
@@ -23,6 +19,14 @@ def easy_objective(config):
 
 
 def test_blendsearch_tune(smoke_test=True):
+    try:
+        from ray import tune
+        from ray.tune.suggest import ConcurrencyLimiter
+        from ray.tune.schedulers import AsyncHyperBandScheduler
+        from ray.tune.suggest.flaml import BlendSearch
+    except ImportError:
+        print('ray[tune] is not installed, skipping test')
+        return
     algo = BlendSearch()
     algo = ConcurrencyLimiter(algo, max_concurrent=4)
     scheduler = AsyncHyperBandScheduler()
