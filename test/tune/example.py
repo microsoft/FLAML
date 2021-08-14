@@ -43,5 +43,6 @@ def test_blendsearch_tune(smoke_test=True):
 
     print("Best hyperparameters found were: ", analysis.best_config)
 
+
 if __name__ == "__main__":
     test_blendsearch_tune(False)
