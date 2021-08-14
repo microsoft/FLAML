@@ -397,7 +397,10 @@ if __name__ == "__main__":
 
     #evaluate_configs(autohf, console_args)
 
-    evaluate_configs_cv(autohf, console_args)
+    if console_args.resplit_mode == "cv":
+        evaluate_configs_cv(autohf, console_args)
+    else:
+        _test_hpo(console_args, jobid_config, autohf, wandb_utils)
 
     # if "hp1" in console_args.root_log_path:
     #     console_args.seed_transformers = 42
