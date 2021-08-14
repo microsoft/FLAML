@@ -212,6 +212,8 @@ def evaluate_configs_cv(autohf, console_args):
     cv_jobid_config.arg = "cus"
     cv_jobid_config.spt = "cv"
     sweep_jobid_config = JobID(console_args)
+    if console_args.algo_mode.endswith("cv"):
+        sweep_jobid_config.mod = console_args.algo_mode[:-2]
     sweep_jobid_config.pre = None
     sweep_jobid_config.pre_full = sweep_jobid_config.pre_full.replace("/", "-")
 
@@ -397,7 +399,7 @@ if __name__ == "__main__":
 
     #evaluate_configs(autohf, console_args)
 
-    if console_args.resplit_mode == "cv":
+    if console_args.algo_mode.endswith("cv"):
         evaluate_configs_cv(autohf, console_args)
     else:
         _test_hpo(console_args, jobid_config, autohf, wandb_utils)

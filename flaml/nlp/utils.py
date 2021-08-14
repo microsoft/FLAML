@@ -18,7 +18,7 @@ def load_dft_args():
     arg_parser.add_argument('--server_name', type=str, help='server name', required=False,
                             choices=["tmdev", "dgx", "azureml"], default="tmdev")
     arg_parser.add_argument('--algo_mode', type=str, help='hpo or grid search', required=False,
-                            choices=["grid", "hpo", "hfhpo"], default="hpo")
+                            choices=["grid", "hpo", "hfhpo", "gridcv", "hpocv"], default="hpo")
     arg_parser.add_argument('--data_root_dir', type=str, help='data dir', required=False, default="data/")
     arg_parser.add_argument('--dataset_subdataset_name', type=dataset_subdataset_name_format_check,
                             help='dataset and subdataset name', required=False, default=None)
