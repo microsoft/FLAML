@@ -27,7 +27,7 @@ def load_dft_args():
     arg_parser.add_argument('--search_alg_args_mode', type=str, help='search algorithm args mode', required=False,
                             choices=["dft", "exp", "cus"], default="dft")
     arg_parser.add_argument('--algo_name', type=str, help='algorithm', required=False,
-                            choices=["bs", "optuna", "cfo", "rs", "grid"], default="bs")
+                            choices=["bs", "optuna", "cfo", "rs"], default="bs")
     arg_parser.add_argument('--pruner', type=str, help='pruner', required=False,
                             choices=["asha", "None"], default="None")
     arg_parser.add_argument('--pretrained_model_size', nargs=2, default=[],
