@@ -800,7 +800,7 @@ class AutoML:
         if self._state.task == 'classification':
             self._state.task = get_classification_objective(
                 len(np.unique(self._y_train_all)))
-            assert split_type in ["stratified", "uniform"]
+            assert split_type in ["stratified", "uniform", "time"]
             self._split_type = split_type
         elif self._state.task == 'regression':
             if split_type in ["uniform", "time"]:
@@ -1160,7 +1160,7 @@ class AutoML:
         if self._state.task == 'classification':
             self._state.task = get_classification_objective(
                 len(np.unique(self._y_train_all)))
-            assert split_type in ["stratified", "uniform"]
+            assert split_type in ["stratified", "uniform", "time"]
             self._split_type = split_type
         elif self._state.task == 'regression':
             if split_type in ["uniform", "time"]:

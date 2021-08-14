@@ -23,7 +23,10 @@ def test_forecast_automl(budget=5):
         "eval_method": "holdout"
     }
     '''The main flaml automl API'''
-    automl.fit(dataframe=X_train, **settings, period=time_horizon, freq='M')
+    try:
+        automl.fit(dataframe=X_train, **settings, period=time_horizon, freq='M')
+    except ImportError:
+        automl.fit(dataframe=X_train, **settings, estimator_list=['arima', 'sarimax'],period=time_horizon, freq='M')
     ''' retrieve best config and best learner'''
     print('Best ML leaner:', automl.best_estimator)
     print('Best hyperparmeter config:', automl.best_config)

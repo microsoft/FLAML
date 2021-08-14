@@ -56,7 +56,6 @@ setuptools.setup(
             "torch==1.8.1",
             "datasets==1.4.1",
             "azure-storage-blob",
-            "prophet>=1.0.1",
             "statsmodels>=0.12.2"
         ],
         "blendsearch": [
