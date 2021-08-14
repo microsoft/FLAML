@@ -888,10 +888,12 @@ class FBProphet(BaseEstimator):
                 future = self._model.make_future_dataframe(periods=X_test, freq=freq)
                 forecast = self._model.predict(future)
             elif isinstance(X_test, pd.DataFrame):
+                print('prophet forecasting using X_test dataframe')
+                print(X_test)
                 forecast = self._model.predict(X_test)
             else:
                 raise ValueError(
-                    "either X_train(pd.Dataframe with dates for predictions, column ds) or X_train(int number of periods)+freq are required")
+                    "either X_test(pd.Dataframe with dates for predictions, column ds) or X_test(int number of periods)+freq are required")
             return forecast['yhat']
         else:
             return np.ones(X_test.shape[0])
@@ -956,12 +958,16 @@ class ARIMA(BaseEstimator):
                 print('arima forecasting using number of periods and freq')
                 forecast = self._model.forecast(steps=X_test).to_frame().reset_index()
             elif isinstance(X_test, pd.DataFrame):
+                print('arima forecasting using X_test dataframe')
+                print(X_test)
                 start_date = X_test.iloc[0, 0]
                 end_date = X_test.iloc[-1, 0]
+                print(start_date, end_date)
+                print(type(start_date))
                 forecast = self._model.predict(start=start_date, end=end_date)
             else:
                 raise ValueError(
-                    "either X_train(pd.Dataframe with dates for predictions, column ds) or X_train(int number of periods)+freq are required")
+                    "either X_test(pd.Dataframe with dates for predictions, column ds) or X_test(int number of periods)+freq are required")
             return forecast
         else:
             return np.ones(X_test.shape[0])

@@ -23,8 +23,12 @@ def _test(split_type):
     }
 
     X, y = fetch_openml(name=dataset, return_X_y=True)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33,
-                                                        random_state=42)
+    if split_type != 'time':
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33,
+                                                            random_state=42)
+    else:
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33,
+                                                            shuffle=False)
     automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
 
     pred = automl.predict(X_test)

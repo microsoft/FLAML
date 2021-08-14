@@ -118,13 +118,15 @@ def sklearn_metric_loss_score(
     return score
 
 
-def get_y_pred(estimator, X, eval_metric, obj):
+def get_y_pred(estimator, X, eval_metric, obj, freq=None):
     if eval_metric in ['roc_auc', 'ap'] and 'binary' in obj:
         y_pred_classes = estimator.predict_proba(X)
         y_pred = y_pred_classes[
             :, 1] if y_pred_classes.ndim > 1 else y_pred_classes
     elif eval_metric in ['log_loss', 'roc_auc']:
         y_pred = estimator.predict_proba(X)
+    elif eval_metric == 'mape':
+        y_pred = estimator.predict(X, freq=freq)
     else:
         y_pred = estimator.predict(X)
     return y_pred
@@ -203,7 +205,7 @@ def evaluate_model_CV(
     valid_fold_num = total_fold_num = 0
     n = kf.get_n_splits()
     X_train_split, y_train_split = X_train_all, y_train_all
-    if task == 'classification':
+    if task == 'binary:logistics' or task == 'multi:softmax':
         labels = np.unique(y_train_all)
     else:
         labels = None
@@ -212,10 +214,12 @@ def evaluate_model_CV(
         kf = kf.split(X_train_split, y_train_split)
     elif isinstance(kf, GroupKFold):
         kf = kf.split(X_train_split, y_train_split, kf.groups)
-    elif isinstance(kf, TimeSeriesSplit):
+    elif isinstance(kf, TimeSeriesSplit) and task == 'forecast':
         y_train_all = pd.DataFrame(y_train_all, columns=['y'])
         train = X_train_all.join(y_train_all)
         kf = kf.split(train)
+    elif isinstance(kf, TimeSeriesSplit):
+        kf = kf.split(X_train_split, y_train_split)
     else:
         kf = kf.split(X_train_split)
     rng = np.random.RandomState(2020)
@@ -227,7 +231,7 @@ def evaluate_model_CV(
     else:
         weight = weight_val = None
     for train_index, val_index in kf:
-        if task != 'forecast':
+        if not isinstance(kf, TimeSeriesSplit):
             train_index = rng.permutation(train_index)
         if isinstance(X_train_all, pd.DataFrame):
             X_train, X_val = X_train_split.iloc[

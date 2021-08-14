@@ -497,7 +497,7 @@ class AutoML:
             X_train_all = X_train_all.tocsr()
         if (self._state.task == 'binary:logistic' or self._state.task == 'multi:softmax') \
                 and self._state.fit_kwargs.get('sample_weight') is None \
-                and self.split_type != 'time':
+                and self._split_type != 'time':
             # logger.info(f"label {pd.unique(y_train_all)}")
             label_set, counts = np.unique(y_train_all, return_counts=True)
             # augment rare classes
@@ -531,13 +531,13 @@ class AutoML:
                     X_train_all, y_train_all,
                     self._state.fit_kwargs['sample_weight'],
                     random_state=RANDOM_SEED)
-        elif hasattr(self._state, 'groups') and self._state.groups is not None:
-            X_train_all, y_train_all, self._state.groups = shuffle(
-                X_train_all, y_train_all, self._state.groups,
-                random_state=RANDOM_SEED)
-        else:
-            X_train_all, y_train_all = shuffle(
-                X_train_all, y_train_all, random_state=RANDOM_SEED)
+            elif hasattr(self._state, 'groups') and self._state.groups is not None:
+                X_train_all, y_train_all, self._state.groups = shuffle(
+                    X_train_all, y_train_all, self._state.groups,
+                    random_state=RANDOM_SEED)
+            else:
+                X_train_all, y_train_all = shuffle(
+                    X_train_all, y_train_all, random_state=RANDOM_SEED)
         if self._df:
             X_train_all.reset_index(drop=True, inplace=True)
             if isinstance(y_train_all, pd.Series):
