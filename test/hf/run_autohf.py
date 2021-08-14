@@ -385,7 +385,7 @@ if __name__ == "__main__":
     wandb_utils = WandbUtils(is_wandb_on=False, wandb_key_path=console_args.key_path, jobid_config=jobid_config)
     wandb_utils.set_wandb_per_run()
 
-    #_test_hpo(console_args, jobid_config, autohf, wandb_utils)
+    _test_hpo(console_args, jobid_config, autohf, wandb_utils)
 
     # search_base_and_search_lower_lr(console_args, jobid_config, autohf, wandb_utils)
 
@@ -397,7 +397,7 @@ if __name__ == "__main__":
 
     #evaluate_configs(autohf, console_args)
 
-    evaluate_configs_cv(autohf, console_args)
+    #evaluate_configs_cv(autohf, console_args)
 
     # if "hp1" in console_args.root_log_path:
     #     console_args.seed_transformers = 42
