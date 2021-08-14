@@ -1182,7 +1182,7 @@ class AutoML:
         logger.info("Evaluation method: {}".format(eval_method))
 
         self._retrain_full = retrain_full and (
-                eval_method == 'holdout' and self._state.X_val is None)
+            eval_method == 'holdout' and self._state.X_val is None)
         if self._state.task != 'forecast':
             self._prepare_data(eval_method, split_ratio, n_splits)
         else:
