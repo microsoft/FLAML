@@ -77,9 +77,14 @@ class AutoTransformers:
                           **custom_hpo_args):
         from .hpo.hpo_searchspace import AutoHPOSearchSpace
 
+        if self.jobid_config.spa == "grid":
+            model_type = "bert"
+        else:
+            model_type = self.jobid_config.pre
+
         search_space_hpo_json \
             = AutoHPOSearchSpace.from_model_and_dataset_name(self.jobid_config.spa,
-                                                             self.jobid_config.pre,
+                                                             model_type,
                                                              self.jobid_config.presz,
                                                              self.jobid_config.dat,
                                                              self.jobid_config.subdat,
@@ -87,6 +92,20 @@ class AutoTransformers:
         self._search_space_hpo = AutoTransformers._convert_dict_to_ray_tune_space(
             search_space_hpo_json,
             mode=self.jobid_config.mod)
+
+        if self.jobid_config.spa == "grid":
+            electra_space = AutoTransformers._convert_dict_to_ray_tune_space(AutoHPOSearchSpace.from_model_and_dataset_name(
+                "grid",
+                "electra",
+                "base",
+                self.jobid_config.dat,
+                self.jobid_config.subdat
+            ))
+
+            for key in list(set(electra_space.keys()).difference(self._search_space_hpo.keys())):
+                self._search_space_hpo[key] = electra_space[key]
+
+            stop = 0
 
     @staticmethod
     def cartesian_product(origin_space_dict):
@@ -837,7 +856,6 @@ class AutoTransformers:
 
         tune_config = self._search_space_hpo
         tune_config["seed"] = self.jobid_config.sdhf
-
 
         analysis = ray.tune.run(
             self._objective,

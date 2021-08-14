@@ -603,6 +603,45 @@ def randomly_sample_gridunion():
     for (each_hp, each_space) in space:
         print(each_hp, random.choice(each_space))
 
+def rename_azure_file(console_args):
+    import copy
+    from flaml.nlp import AzureUtils
+    dat_name = ['amazon_polarity']
+    subdat_name = ''
+
+    # logs_azure/glue_sst2/dat=glue_subdat=sst2_mod=hpo_spa=gnr_arg=cus_alg=bs_pru=None_
+    # pre_full=facebook-muppet-roberta-large_presz=large_spt=rspt_rep=0_sddt=43_sdhf=42_
+    # var1=_var2=.json
+
+    old_jobid_configs = JobID()
+    old_jobid_configs.dat = dat_name
+    old_jobid_configs.subdat = subdat_name
+    old_jobid_configs.mod = "hpo"
+    old_jobid_configs.spa = "gnr"
+    old_jobid_configs.arg = "cus"
+    old_jobid_configs.alg = "bs"
+    old_jobid_configs.pru = "None"
+    old_jobid_configs.pre_full = "facebook-muppet-roberta-large"
+    old_jobid_configs.presz = "large"
+    old_jobid_configs.spt = "rspt"
+    old_jobid_configs.rep = 0
+    old_jobid_configs.sddt = 43
+    old_jobid_configs.sdhf = 42
+    old_jobid_configs.var1 = []
+    old_jobid_configs.var2 = []
+
+    new_jobid_configs = copy.deepcopy(old_jobid_configs)
+    new_jobid_configs.spa = "grid"
+    new_jobid_configs.alg = "grid"
+    new_jobid_configs.mod = "grid"
+    new_jobid_configs.arg = "dft"
+
+    azure_utils = AzureUtils(root_log_path="logs_azure/",
+                             azure_key_path="../../",
+                             jobid_config=old_jobid_configs)
+    azure_utils.rename_one_file(root_log_path="logs_azure/",
+                                old_jobid=old_jobid_configs,
+                                new_jobid=new_jobid_configs)
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
@@ -617,4 +656,5 @@ if __name__ == "__main__":
     #print_crossvalidation_result(console_args=args)
     #print_modelhub_result(console_args=args)
     #randomly_sample_gridunion()
-    compare_muppet(console_args=args)
+    #compare_muppet(console_args=args)
+    rename_azure_file(console_args=args)

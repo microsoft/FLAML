@@ -171,7 +171,11 @@ class JobID:
                 if is_subset is False:
                     is_not_match = True
             else:
-                if getattr(self, key) != val:
+                each_val = getattr(self, key)
+                if key == "dat":
+                    each_val = [x.replace("_", "-") for x in each_val]
+                    val = [x.replace("_", "-") for x in val]
+                if each_val != val:
                     is_not_match = True
         return not is_not_match
 
@@ -618,7 +622,7 @@ class AzureUtils:
             local_file_path = self.generate_local_json_path()
         output_json = {}
         if configscore_list:
-            if isinstance(configscore_list[0], ConfigScoreList):
+            if isinstance(configscore_list[0], ConfigScore):
                 output_json["val_log"] = [configscore.__dict__ for configscore in configscore_list]
             else:
                 output_json["val_log"] = [[configscore.__dict__ for configscore in each_configscore_list]
@@ -699,6 +703,64 @@ class AzureUtils:
                         if is_append:
                             blob_list.append((each_jobconfig, each_blob))
         return blob_list
+
+    def rename_one_file(self,
+                        root_log_path: str,
+                        old_jobid: JobID,
+                        new_jobid: JobID):
+        """
+                   Rename one file to another name
+
+                   Args:
+                       root_log_path:
+                           The root log path in azure blob storage, e.g., "logs_seed/"
+
+                       old_jobid:
+                           The old jobid for matching the blob list
+
+                       new_jobid (optional):
+                           The new jobid for matching the blob list
+
+        """
+        from azure.storage.blob import BlobLeaseClient
+        matched_blob_list = self.get_configblob_from_partial_jobid(root_log_path, old_jobid)
+        assert len(matched_blob_list) == 1
+
+        # step 1: copy from source to destination
+
+        local_file_path = self.generate_local_json_path()
+        source_blob = self._init_blob_client(local_file_path)
+
+        lease = BlobLeaseClient(source_blob)
+        lease.acquire()
+
+        # Get the source blob's properties and display the lease state.
+        source_props = source_blob.get_blob_properties()
+        print("Lease state: " + source_props.lease.state)
+
+        self.jobid = new_jobid
+        local_file_path = self.generate_local_json_path()
+
+        dst_blob = self._init_blob_client(local_file_path)
+        dst_blob.start_copy_from_url(source_blob.url)
+
+        properties = dst_blob.get_blob_properties()
+        copy_props = properties.copy
+
+        print("Copy status: " + copy_props["status"])
+        print("Copy progress: " + copy_props["progress"])
+        print("Completion time: " + str(copy_props["completion_time"]))
+        print("Total bytes: " + str(properties.size))
+
+        if (source_props.lease.state == "leased"):
+            # Break the lease on the source blob.
+            lease.break_lease()
+
+            # Update the destination blob's properties to check the lease state.
+            source_props = source_blob.get_blob_properties()
+            print("Lease state: " + source_props.lease.state)
+
+        # step 2: delete
 
     def get_config_and_score_from_partial_jobid(self,
                                                 root_log_path: str,
