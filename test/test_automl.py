@@ -447,6 +447,32 @@ class TestAutoML(unittest.TestCase):
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
 
+    def test_parallel_xgboost(self):
+        automl_experiment = AutoML()
+        automl_settings = {
+            "time_budget": 10,
+            "metric": 'ap',
+            "task": 'classification',
+            "log_file_name": "test/sparse_classification.log",
+            "estimator_list": ["xgboost"],
+            "log_type": "all",
+            "n_jobs": 1,
+            "n_concurrent_trials": 2,
+        }
+        X_train = scipy.sparse.eye(900000)
+        y_train = np.random.randint(2, size=900000)
+        try:
+            automl_experiment.fit(X_train=X_train, y_train=y_train,
+                                  **automl_settings)
+            print(automl_experiment.predict(X_train))
+            print(automl_experiment.model)
+            print(automl_experiment.config_history)
+            print(automl_experiment.model_history)
+            print(automl_experiment.best_iteration)
+            print(automl_experiment.best_estimator)
+        except ImportError:
+            return
+
     def test_sparse_matrix_lr(self):
         automl_experiment = AutoML()
         automl_settings = {

@@ -85,10 +85,7 @@ class SearchState:
         self.sample_size = None
         self.trial_time = 0
 
-    def update(self, analysis, time_used, save_model_history=False):
-        if not analysis.trials:
-            return
-        result = analysis.trials[-1].last_result
+    def update(self, result, time_used, save_model_history=False):
         if result:
             config = result['config']
             if config and 'FLAML_sample_size' in config:
@@ -98,8 +95,7 @@ class SearchState:
             obj = result['val_loss']
             train_loss = result['train_loss']
             time2eval = result['time2eval']
-            trained_estimator = result[
-                'trained_estimator']
+            trained_estimator = result['trained_estimator']
             del result['trained_estimator']     # free up RAM
         else:
             obj, time2eval, trained_estimator = np.inf, 0.0, None
@@ -248,6 +244,18 @@ class AutoMLState:
         if sampled_weight is not None:
             self.fit_kwargs['sample_weight'] = weight
         return estimator, train_time
+
+
+def size(state: AutoMLState, config: dict) -> float:
+    '''Size function
+
+    Returns:
+        The mem size in bytes for a config
+    '''
+    config = config.get('ml', config)
+    estimator = config['learner']
+    learner_class = state.learner_classes.get(estimator)
+    return learner_class.size(config)
 
 
 class AutoML:
@@ -943,22 +951,6 @@ class AutoML:
         return train
 
     @property
-    def size(self) -> Callable[[dict], float]:
-        '''Size function
-
-        Returns:
-            A function that returns the mem size in bytes for a config
-        '''
-
-        def size_func(config: dict) -> float:
-            config = config.get('ml', config)
-            estimator = config['learner']
-            learner_class = self._state.learner_classes.get(estimator)
-            return learner_class.size(config)
-
-        return size_func
-
-    @property
     def metric_constraints(self) -> list:
         '''Metric constraints
 
@@ -1005,6 +997,7 @@ class AutoML:
             hpo_method=None,
             starting_points={},
             seed=None,
+            n_concurrent_trials=1,
             **fit_kwargs):
         '''Find a model for a given task
 
@@ -1084,6 +1077,9 @@ class AutoML:
                 Keys are the name of the estimators, and values are the starting
                 hyperparamter configurations for the corresponding estimators.
             seed: int or None, default=None | The random seed for np.random.
+            n_concurrent_trials: [Experimental] int, default=1 | The number of
+                concurrent trials. For n_concurrent_trials > 1, installation of
+                ray is required: `pip install flaml[ray]`.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight.
         '''
@@ -1174,6 +1170,7 @@ class AutoML:
         self.split_ratio = split_ratio
         self._save_model_history = model_history
         self._state.n_jobs = n_jobs
+        self._n_concurrent_trials = n_concurrent_trials
         if log_file_name:
             with training_log_writer(log_file_name) as save_helper:
                 self._training_log = save_helper
@@ -1184,7 +1181,8 @@ class AutoML:
         logger.info("fit succeeded")
         logger.info(f"Time taken to find the best model: {self._time_taken_best_iter}")
         if self._time_taken_best_iter >= time_budget * 0.7 and not \
-           all(self._ever_converged_per_learner.values()):
+           all(state.search_alg and state.search_alg.searcher.is_ls_ever_converged
+               for state in self._search_states.values()):
             logger.warn("Time taken to find the best model is {0:.0f}% of the "
                         "provided time budget and not all estimators' hyperparameter "
                         "search converged. Consider increasing the time budget.".format(
@@ -1193,32 +1191,98 @@ class AutoML:
         if verbose == 0:
             logger.setLevel(old_level)
 
-    def _search(self):
-        # initialize the search_states
-        self._eci = []
-        self._state.best_loss = float('+inf')
-        self._state.time_from_start = 0
-        self._estimator_index = None
-        self._best_iteration = 0
-        self._time_taken_best_iter = 0
-        self._model_history = {}
-        self._config_history = {}
-        self._max_iter_per_learner = 1000000  # TODO
-        self._iter_per_learner = dict([(e, 0) for e in self.estimator_list])
-        self._ever_converged_per_learner = dict([(e, False) for e in self.estimator_list])
-        self._fullsize_reached = False
-        self._trained_estimator = None
-        self._best_estimator = None
-        self._retrained_config = {}
-        self._warn_threshold = 10
+    def _search_parallel(self):
+        try:
+            from ray import __version__ as ray_version
+            assert ray_version >= '1.0.0'
+            import ray
+            from ray.tune.suggest import ConcurrencyLimiter            
+        except (ImportError, AssertionError):
+            raise ImportError(
+                "n_concurrent_trial > 1 requires installation of ray. "
+                "Please run pip install flaml[ray]")
+        if self._hpo_method in ('cfo', 'grid'):
+            from flaml import CFO as SearchAlgo
+        elif 'optuna' == self._hpo_method:
+            from ray.tune.suggest.optuna import OptunaSearch as SearchAlgo
+        elif 'bs' == self._hpo_method:
+            from flaml import BlendSearch as SearchAlgo
+        elif 'cfocat' == self._hpo_method:
+            from flaml.searcher.cfo_cat import CFOCat as SearchAlgo
+        else:
+            raise NotImplementedError(
+                f"hpo_method={self._hpo_method} is not recognized. "
+                "'cfo' and 'bs' are supported.")
+        search_alg = SearchAlgo(
+            metric='val_loss',
+            space=self.search_space,
+            low_cost_partial_config=self.low_cost_partial_config,
+            points_to_evaluate=self.points_to_evalaute,
+            cat_hp_cost=self.cat_hp_cost,
+            prune_attr=self.prune_attr,
+            min_resource=self.min_resource,
+            max_resource=self.max_resource,
+            config_constraints=[(partial(size, self._state), '<=', self._mem_thres)],
+            metric_constraints=self.metric_constraints)
+        search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
+        self._state.time_from_start = time.time() - self._start_time_flag
+        time_left = self._state.time_budget - self._state.time_from_start
+        search_alg.set_search_properties(None, None, config={
+            'time_budget_s': time_left})
+        analysis = ray.tune.run(
+            self.trainable, search_alg=search_alg,  # verbose=2,
+            time_budget_s=self._state.time_budget, num_samples=self._max_iter)
+        # logger.info([trial.last_result for trial in analysis.trials])
+        trials = sorted((trial for trial in analysis.trials if trial.last_result),
+                        key=lambda x: x.last_result['time_total_s'])
+        for _track_iter, trial in enumerate(trials):
+            result = trial.last_result
+            better = False
+            if result:
+                config = result['config']
+                estimator = config.get('ml', config)['learner']
+                search_state = self._search_states[estimator]
+                search_state.update(result, 0, self._save_model_history)
+                # if config and 'FLAML_sample_size' in config:
+                #     sample_size = config['FLAML_sample_size']
+                # else:
+                #     sample_size = self.data_size
+                # obj = result['val_loss']
+                # train_loss = result['train_loss']
+                # time2eval = result['time2eval']
+                # trained_estimator = result['trained_estimator']
+                self._state.time_from_start = result['time_total_s']
+                # del result['trained_estimator']     # free up RAM
+                if search_state.sample_size == self._state.data_size:
+                    self._iter_per_learner[estimator] += 1
+                    if not self._fullsize_reached:
+                        self._fullsize_reached = True
+                if search_state.best_loss < self._state.best_loss:
+                    self._state.best_loss = search_state.best_loss
+                    self._best_estimator = estimator
+                    self._config_history[_track_iter] = (
+                        self._best_estimator, config, self._time_taken_best_iter)
+                    if self._save_model_history:
+                        self._model_history[_track_iter] = search_state.trained_estimator
+                    self._trained_estimator = search_state.trained_estimator
+                    self._best_iteration = _track_iter
+                    self._time_taken_best_iter = self._state.time_from_start
+                    better = True
+                    self._search_states[estimator].best_config = config
+                if (better or self._log_type == 'all') and self._training_log:
+                    self._training_log.append(
+                        self._iter_per_learner[estimator],
+                        search_state.train_loss,
+                        search_state.trial_time,
+                        self._state.time_from_start,
+                        search_state.val_loss,
+                        config,
+                        self._state.best_loss,
+                        search_state.best_config,
+                        estimator,
+                        search_state.sample_size)
 
-        est_retrain_time = next_trial_time = 0
-        best_config_sig = None
-        # use ConcurrencyLimiter to limit the amount of concurrency when
-        # using a search algorithm
-        better = True  # whether we find a better model in one trial
-        if self._ensemble:
-            self.best_model = {}
+    def _search_sequential(self):
         try:
             from ray import __version__ as ray_version
             assert ray_version >= '1.0.0'
@@ -1242,6 +1306,11 @@ class AutoML:
                 f"hpo_method={self._hpo_method} is not recognized. "
                 "'cfo' and 'bs' are supported.")
 
+        est_retrain_time = next_trial_time = 0
+        best_config_sig = None
+        better = True  # whether we find a better model in one trial
+        if self._ensemble:
+            self.best_model = {}
         for self._track_iter in range(self._max_iter):
             if self._estimator_index is None:
                 estimator = self._active_estimators[0]
@@ -1307,6 +1376,7 @@ class AutoML:
                     )
                 search_state.search_alg = ConcurrencyLimiter(algo,
                                                              max_concurrent=1)
+                # search_state.search_alg = algo
             else:
                 search_space = None
                 if self._hpo_method in ('bs', 'cfo', 'cfocat'):
@@ -1326,7 +1396,8 @@ class AutoML:
             time_used = time.time() - start_run_time
             better = False
             if analysis.trials:
-                search_state.update(analysis, time_used=time_used,
+                search_state.update(analysis.trials[-1].last_result,
+                                    time_used=time_used,
                                     save_model_history=self._save_model_history)
                 if self._estimator_index is None:
                     eci_base = search_state.init_eci
@@ -1409,11 +1480,10 @@ class AutoML:
                         search_state.best_loss,
                         self._best_estimator,
                         self._state.best_loss))
-                searcher = search_state.search_alg.searcher
-                if searcher.is_ls_ever_converged and not self._ever_converged_per_learner[estimator]:
-                    self._ever_converged_per_learner[estimator] = searcher.is_ls_ever_converged
-                if all(self._ever_converged_per_learner.values()) and \
-                   self._state.time_from_start > self._warn_threshold * self._time_taken_best_iter:
+                if all(state.search_alg and state.search_alg.searcher.is_ls_ever_converged
+                       for state in self._search_states.values()) and (
+                           self._state.time_from_start
+                           > self._warn_threshold * self._time_taken_best_iter):
                     logger.warn("All estimator hyperparameters local search has converged at least once, "
                                 f"and the total search time exceeds {self._warn_threshold} times the time taken "
                                 "to find the best model.")
@@ -1448,6 +1518,29 @@ class AutoML:
                     self._best_estimator].time2eval_best
                 if time_left < time_ensemble < 2 * time_left:
                     break
+
+    def _search(self):
+        # initialize the search_states
+        self._eci = []
+        self._state.best_loss = float('+inf')
+        self._state.time_from_start = 0
+        self._estimator_index = None
+        self._best_iteration = 0
+        self._time_taken_best_iter = 0
+        self._model_history = {}
+        self._config_history = {}
+        self._max_iter_per_learner = 1000000  # TODO
+        self._iter_per_learner = dict([(e, 0) for e in self.estimator_list])
+        self._fullsize_reached = False
+        self._trained_estimator = None
+        self._best_estimator = None
+        self._retrained_config = {}
+        self._warn_threshold = 10
+
+        if self._n_concurrent_trials == 1:
+            self._search_sequential()
+        else:
+            self._search_parallel()
         # Add a checkpoint for the current best config to the log.
         if self._training_log:
             self._training_log.checkpoint()
