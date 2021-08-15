@@ -1003,16 +1003,16 @@ class AutoML:
 
         Args:
             X_train: A numpy array or a pandas dataframe of training data in
-                shape (n, m)
-            y_train: A numpy array or a pandas series of labels in shape (n,)
-            dataframe: A dataframe of training data including label column
-            label: A str of the label column name
+                shape (n, m).
+            y_train: A numpy array or a pandas series of labels in shape (n, ).
+            dataframe: A dataframe of training data including label column.
+            label: A str of the label column name.
                 Note: If X_train and y_train are provided,
                 dataframe and label are ignored;
                 If not, dataframe and label must be provided.
             metric: A string of the metric name or a function,
                 e.g., 'accuracy', 'roc_auc', 'f1', 'micro_f1', 'macro_f1',
-                'log_loss', 'mae', 'mse', 'r2'
+                'log_loss', 'mae', 'mse', 'r2'.
                 if passing a customized metric function, the function needs to
                 have the follwing signature:
 
@@ -1025,11 +1025,11 @@ class AutoML:
                         return metric_to_minimize, metrics_to_log
 
                 which returns a float number as the minimization objective,
-                and a tuple of floats or a dictionary as the metrics to log
+                and a tuple of floats or a dictionary as the metrics to log.
             task: A string of the task type, e.g.,
-                'classification', 'regression'
-            n_jobs: An integer of the number of threads for training
-            log_file_name: A string of the log file name
+                'classification', 'regression', 'forecast'.
+            n_jobs: An integer of the number of threads for training.
+            log_file_name: A string of the log file name.
             estimator_list: A list of strings for estimator names, or 'auto'
                 e.g.,
 
@@ -1037,32 +1037,32 @@ class AutoML:
 
                     ['lgbm', 'xgboost', 'catboost', 'rf', 'extra_tree']
 
-            time_budget: A float number of the time budget in seconds
-            max_iter: An integer of the maximal number of iterations
+            time_budget: A float number of the time budget in seconds.
+            max_iter: An integer of the maximal number of iterations.
             sample: A boolean of whether to sample the training data during
-                search
+                search.
             eval_method: A string of resampling strategy, one of
-                ['auto', 'cv', 'holdout']
-            split_ratio: A float of the valiation data percentage for holdout
-            n_splits: An integer of the number of folds for cross - validation
+                ['auto', 'cv', 'holdout'].
+            split_ratio: A float of the valiation data percentage for holdout.
+            n_splits: An integer of the number of folds for cross - validation.
             log_type: A string of the log type, one of
-                ['better', 'all']
+                ['better', 'all'].
                 'better' only logs configs with better loss than previos iters
-                'all' logs all the tried configs
+                'all' logs all the tried configs.
             model_history: A boolean of whether to keep the history of best
                 models in the history property. Make sure memory is large
                 enough if setting to True.
             log_training_metric: A boolean of whether to log the training
                 metric for each model.
-            mem_thres: A float of the memory size constraint in bytes
-            pred_time_limit: A float of the prediction latency constraint in seconds
-            train_time_limit: A float of the training time constraint in seconds
-            X_val: None or a numpy array or a pandas dataframe of validation data
-            y_val: None or a numpy array or a pandas series of validation labels
+            mem_thres: A float of the memory size constraint in bytes.
+            pred_time_limit: A float of the prediction latency constraint in seconds.
+            train_time_limit: A float of the training time constraint in seconds.
+            X_val: None or a numpy array or a pandas dataframe of validation data.
+            y_val: None or a numpy array or a pandas series of validation labels.
             sample_weight_val: None or a numpy array of the sample weight of
                 validation data.
             groups: None or an array-like of shape (n,) | Group labels for the
-                samples used while splitting the dataset into train/valid set
+                samples used while splitting the dataset into train/valid set.
             verbose: int, default=1 | Controls the verbosity, higher means more
                 messages.
             hpo_method: str or None, default=None | The hyperparameter
@@ -1229,9 +1229,15 @@ class AutoML:
         time_left = self._state.time_budget - self._state.time_from_start
         search_alg.set_search_properties(None, None, config={
             'time_budget_s': time_left})
-        analysis = ray.tune.run(
-            self.trainable, search_alg=search_alg,  # verbose=2,
-            time_budget_s=self._state.time_budget, num_samples=self._max_iter)
+        if self._state.n_jobs > 1:
+            analysis = ray.tune.run(
+                self.trainable, search_alg=search_alg,
+                resources_per_trial={"cpu": self._state.n_jobs},
+                time_budget_s=self._state.time_budget, num_samples=self._max_iter)
+        else:
+            analysis = ray.tune.run(
+                self.trainable, search_alg=search_alg,
+                time_budget_s=self._state.time_budget, num_samples=self._max_iter)
         # logger.info([trial.last_result for trial in analysis.trials])
         trials = sorted((trial for trial in analysis.trials if trial.last_result),
                         key=lambda x: x.last_result['time_total_s'])
@@ -1243,16 +1249,7 @@ class AutoML:
                 estimator = config.get('ml', config)['learner']
                 search_state = self._search_states[estimator]
                 search_state.update(result, 0, self._save_model_history)
-                # if config and 'FLAML_sample_size' in config:
-                #     sample_size = config['FLAML_sample_size']
-                # else:
-                #     sample_size = self.data_size
-                # obj = result['val_loss']
-                # train_loss = result['train_loss']
-                # time2eval = result['time2eval']
-                # trained_estimator = result['trained_estimator']
                 self._state.time_from_start = result['time_total_s']
-                # del result['trained_estimator']     # free up RAM
                 if search_state.sample_size == self._state.data_size:
                     self._iter_per_learner[estimator] += 1
                     if not self._fullsize_reached:
