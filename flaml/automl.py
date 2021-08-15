@@ -1196,7 +1196,7 @@ class AutoML:
             from ray import __version__ as ray_version
             assert ray_version >= '1.0.0'
             import ray
-            from ray.tune.suggest import ConcurrencyLimiter            
+            from ray.tune.suggest import ConcurrencyLimiter
         except (ImportError, AssertionError):
             raise ImportError(
                 "n_concurrent_trial > 1 requires installation of ray. "

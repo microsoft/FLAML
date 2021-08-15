@@ -28,7 +28,7 @@ def test_blendsearch_tune(smoke_test=True):
         print('ray[tune] is not installed, skipping test')
         return
     import numpy as np
-    
+
     algo = BlendSearch()
     algo = ConcurrencyLimiter(algo, max_concurrent=4)
     scheduler = AsyncHyperBandScheduler()

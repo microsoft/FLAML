@@ -113,7 +113,6 @@ class FLOW2(Searcher):
         self._bounded_keys = []
         self._unordered_cat_hp = {}
         hier = False
-        domain_keys = []
         for key, domain in self._space.items():
             assert not (isinstance(domain, dict) and 'grid_search' in domain), \
                 f"{key}'s domain is grid search, not supported in FLOW^2."
