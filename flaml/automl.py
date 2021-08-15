@@ -879,7 +879,7 @@ class AutoML:
         return config
 
     @property
-    def points_to_evalaute(self) -> dict:
+    def points_to_evaluate(self) -> dict:
         '''Initial points to evaluate
 
         Returns:
@@ -1217,7 +1217,7 @@ class AutoML:
             metric='val_loss',
             space=self.search_space,
             low_cost_partial_config=self.low_cost_partial_config,
-            points_to_evaluate=self.points_to_evalaute,
+            points_to_evaluate=self.points_to_evaluate,
             cat_hp_cost=self.cat_hp_cost,
             prune_attr=self.prune_attr,
             min_resource=self.min_resource,
