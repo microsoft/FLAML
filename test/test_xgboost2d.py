@@ -58,6 +58,8 @@ def test_simple(method=None):
     config['learner'] = automl.best_estimator
     automl.trainable(config)
     from flaml import tune
+    from flaml.automl import size
+    from functools import partial
     analysis = tune.run(
         automl.trainable, automl.search_space, metric='val_loss', mode="min",
         low_cost_partial_config=automl.low_cost_partial_config,
@@ -67,7 +69,7 @@ def test_simple(method=None):
         min_resource=automl.min_resource,
         max_resource=automl.max_resource,
         time_budget_s=automl._state.time_budget,
-        config_constraints=[(automl.size, '<=', automl._mem_thres)],
+        config_constraints=[(partial(size, automl._state), '<=', automl._mem_thres)],
         metric_constraints=automl.metric_constraints, num_samples=5)
     print(analysis.trials[-1])
 

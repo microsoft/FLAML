@@ -62,6 +62,8 @@ class TestLogging(unittest.TestCase):
             config['learner'] = automl.best_estimator
             automl.trainable({"ml": config})
             from flaml import tune, CFO
+            from flaml.automl import size
+            from functools import partial
             search_alg = CFO(
                 metric='val_loss',
                 space=automl.search_space,
@@ -71,7 +73,7 @@ class TestLogging(unittest.TestCase):
                 prune_attr=automl.prune_attr,
                 min_resource=automl.min_resource,
                 max_resource=automl.max_resource,
-                config_constraints=[(automl.size, '<=', automl._mem_thres)],
+                config_constraints=[(partial(size, automl._state), '<=', automl._mem_thres)],
                 metric_constraints=automl.metric_constraints)
             analysis = tune.run(
                 automl.trainable, search_alg=search_alg,    # verbose=2,
