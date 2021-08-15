@@ -657,4 +657,4 @@ if __name__ == "__main__":
     #print_modelhub_result(console_args=args)
     #randomly_sample_gridunion()
     #compare_muppet(console_args=args)
-    rename_azure_file(console_args=args)
+    #rename_azure_file(console_args=args)
