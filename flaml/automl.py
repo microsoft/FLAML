@@ -1071,7 +1071,8 @@ class AutoML:
                 a simple customized search space. When set to 'bs', BlendSearch
                 is used. BlendSearch can be tried when the search space is
                 complex, for example, containing multiple disjoint, discontinuous
-                subspaces.
+                subspaces. When set to 'random' and the argument 'n_concurrent_trials'
+                is larger than 1, RandomSearch is used.
             starting_points: A dictionary to specify the starting hyperparameter
                 config for the estimators.
                 Keys are the name of the estimators, and values are the starting
@@ -1209,22 +1210,37 @@ class AutoML:
             from flaml import BlendSearch as SearchAlgo
         elif 'cfocat' == self._hpo_method:
             from flaml.searcher.cfo_cat import CFOCat as SearchAlgo
+        elif 'random' == self._hpo_method:
+            from ray.tune.suggest import BasicVariantGenerator as SearchAlgo
         else:
             raise NotImplementedError(
                 f"hpo_method={self._hpo_method} is not recognized. "
                 "'cfo' and 'bs' are supported.")
-        search_alg = SearchAlgo(
-            metric='val_loss',
-            space=self.search_space,
-            low_cost_partial_config=self.low_cost_partial_config,
-            points_to_evaluate=self.points_to_evaluate,
-            cat_hp_cost=self.cat_hp_cost,
-            prune_attr=self.prune_attr,
-            min_resource=self.min_resource,
-            max_resource=self.max_resource,
-            config_constraints=[(partial(size, self._state), '<=', self._mem_thres)],
-            metric_constraints=self.metric_constraints)
-        search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
+        if self._hpo_method == 'random':
+            points_to_evaluate = self.points_to_evaluate.copy()
+            to_del = []
+            for k, v in self.search_space.items():
+                if not hasattr(v, 'is_valid'):
+                    to_del.append(k)
+            for k in to_del:
+                for p in points_to_evaluate:
+                    del p[k]
+            search_alg = SearchAlgo(max_concurrent=self._n_concurrent_trials,
+                                    points_to_evaluate=points_to_evaluate
+                                    )
+        else:
+            search_alg = SearchAlgo(
+                metric='val_loss',
+                space=self.search_space,
+                low_cost_partial_config=self.low_cost_partial_config,
+                points_to_evaluate=self.points_to_evaluate,
+                cat_hp_cost=self.cat_hp_cost,
+                prune_attr=self.prune_attr,
+                min_resource=self.min_resource,
+                max_resource=self.max_resource,
+                config_constraints=[(partial(size, self._state), '<=', self._mem_thres)],
+                metric_constraints=self.metric_constraints)
+            search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
         self._state.time_from_start = time.time() - self._start_time_flag
         time_left = self._state.time_budget - self._state.time_from_start
         search_alg.set_search_properties(None, None, config={
@@ -1232,11 +1248,13 @@ class AutoML:
         if self._state.n_jobs > 1:
             analysis = ray.tune.run(
                 self.trainable, search_alg=search_alg,
+                config=self.search_space, metric='val_loss', mode='min',
                 resources_per_trial={"cpu": self._state.n_jobs},
                 time_budget_s=self._state.time_budget, num_samples=self._max_iter)
         else:
             analysis = ray.tune.run(
                 self.trainable, search_alg=search_alg,
+                config=self.search_space, metric='val_loss', mode='min',
                 time_budget_s=self._state.time_budget, num_samples=self._max_iter)
         # logger.info([trial.last_result for trial in analysis.trials])
         trials = sorted((trial for trial in analysis.trials if trial.last_result),

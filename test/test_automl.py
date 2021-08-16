@@ -447,7 +447,7 @@ class TestAutoML(unittest.TestCase):
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
 
-    def test_parallel_xgboost(self):
+    def test_parallel_xgboost(self, hpo_method=None):
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 10,
@@ -458,6 +458,7 @@ class TestAutoML(unittest.TestCase):
             "log_type": "all",
             "n_jobs": 1,
             "n_concurrent_trials": 2,
+            "hpo_method": hpo_method,
         }
         X_train = scipy.sparse.eye(900000)
         y_train = np.random.randint(2, size=900000)
@@ -472,6 +473,10 @@ class TestAutoML(unittest.TestCase):
             print(automl_experiment.best_estimator)
         except ImportError:
             return
+
+    def test_parallel_xgboost_random(self):
+        # use random search as the hpo_method
+        self.test_parallel_xgboost(hpo_method='random')
 
     def test_sparse_matrix_lr(self):
         automl_experiment = AutoML()
