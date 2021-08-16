@@ -18,7 +18,8 @@ def get_resplit_portion(jobid_config, console_args):
     train_split = [float(x) for x in console_args.split_portion[0:2]]
     validation_split = [float(x) for x in console_args.split_portion[2:4]]
     test_split = [float(x) for x in console_args.split_portion[4:6]]
-    return {"source": console_args.source_fold, "train": train_split, "validation": validation_split, "test": test_split}
+    return {"source": console_args.source_fold, "train": train_split, "validation": validation_split,
+            "test": test_split}
     # if jobid_config.dat == ["glue"] and jobid_config.subdat in {"mnli", "qqp"}:
     #     return {"source": ["train", "validation"], "train": [0, 0.25], "validation": [0.25, 0.275],
     #             "test": [0.275, 0.3]}
@@ -59,7 +60,7 @@ def get_autohf_settings(console_args, **custom_args):
                        "num_samples": console_args.sample_num,
                        "time_budget": console_args.time_budget,
                        "ckpt_per_epoch": 1,
-                      # "ray_local_mode": True
+                       # "ray_local_mode": True
                        }
     for other_attr in ["ds_config", "rep_id"]:
         if hasattr(console_args, other_attr):
@@ -102,7 +103,8 @@ def get_best_base_config(console_args, jobid_config, autohf, wandb_utils):
         jobid_config_small.presz = "small"
     jobid_config_small.pre_full = re.sub("(xlarge|large|intermediate)", jobid_config_small.presz,
                                          jobid_config_small.pre_full)
-    azure_utils_small = AzureUtils(root_log_path=console_args.root_log_path, azure_key_path=console_args.key_path, autohf=autohf)
+    azure_utils_small = AzureUtils(root_log_path=console_args.root_log_path, azure_key_path=console_args.key_path,
+                                   autohf=autohf)
     preparedata_setting = get_preparedata_setting(console_args, jobid_config, wandb_utils)
     autohf.prepare_data(**preparedata_setting)
     autohf.set_metric()
@@ -127,7 +129,8 @@ def search_base_and_search_lower_lr(console_args, jobid_config, autohf, wandb_ut
     jobid_config_large = JobID(args_large)
     jobid_config_large.presz = jobid_config.presz
     jobid_config_large.pre_full = jobid_config.pre_full
-    azure_utils_large = AzureUtils(root_log_path=console_args.root_log_path, azure_key_path=console_args.key_path, autohf=autohf)
+    azure_utils_large = AzureUtils(root_log_path=console_args.root_log_path, azure_key_path=console_args.key_path,
+                                   autohf=autohf)
 
     _test_hpo(args_large,
               jobid_config_large,
@@ -135,7 +138,7 @@ def search_base_and_search_lower_lr(console_args, jobid_config, autohf, wandb_ut
               wandb_utils,
               azure_utils_large,
               autohf_settings=get_autohf_settings(args_large, **{"points_to_evaluate": [best_config], "bound":
-                                                  {"learning_rate": {"u": best_config["learning_rate"]}}}))
+                  {"learning_rate": {"u": best_config["learning_rate"]}}}))
 
 
 def search_base_and_search_around_best(console_args, jobid_config, autohf, wandb_utils):
@@ -155,7 +158,8 @@ def search_base_and_search_around_best(console_args, jobid_config, autohf, wandb
     jobid_config_large = JobID(args_large)
     jobid_config_large.presz = jobid_config.presz
     jobid_config_large.pre_full = jobid_config.pre_full
-    azure_utils_large = AzureUtils(root_log_path=console_args.root_log_path, azure_key_path=console_args.key_path, autohf=autohf)
+    azure_utils_large = AzureUtils(root_log_path=console_args.root_log_path, azure_key_path=console_args.key_path,
+                                   autohf=autohf)
 
     _test_hpo(args_large,
               jobid_config_large,
@@ -171,9 +175,9 @@ def evaluate_configs(autohf, console_args):
     jobid_config = JobID(console_args)
     autohf.jobid_config = jobid_config
     azure_utils_large = AzureUtils(
-                         root_log_path=console_args.root_log_path,
-                         azure_key_path=console_args.key_path,
-                         autohf=autohf)
+        root_log_path=console_args.root_log_path,
+        azure_key_path=console_args.key_path,
+        autohf=autohf)
 
     electra_space = AutoHPOSearchSpace.from_model_and_dataset_name(
         "grid",
@@ -203,40 +207,122 @@ def evaluate_configs(autohf, console_args):
               azure_utils_large,
               autohf_settings=get_autohf_settings(console_args, **{"points_to_evaluate": bert_space_cartesian}))
 
-def evaluate_configs_cv(autohf, console_args):
-    import copy
-    from run_analysis import get_exhaustive_sweep_result
 
-    cv_jobid_config = JobID(console_args)
-    cv_jobid_config.mod = "hpo"
-    cv_jobid_config.arg = "cus"
-    cv_jobid_config.spt = "cv"
+def evaluate_configs_cv(autohf, console_args, cv_k, wandb_utils):
+    cv_first_step(console_args, autohf, wandb_utils)
+    topk_score, topk_config = cv_second_step(console_args, cv_k)
+    configscore_lists = cv_third_step(console_args, autohf, topk_config)
+    cv_fourth_step(console_args,
+                   configscore_lists,
+                   other_results={
+                       "metric_score": [
+                           [each_configscore.metric_score for each_configscore in each_configscore_list]
+                           for each_configscore_list in configscore_lists
+                       ],
+                       "topk_score": topk_config
+                      }
+                   )
+
+def cv_first_step(console_args, autohf, wandb_utils):
+    # the first step of cv: running hpo
+    jobid_config = JobID(console_args)
+    jobid_config.mod = console_args.algo_mode[:-2]
+    _test_hpo(console_args, jobid_config, autohf, wandb_utils)
+
+def cv_second_step(console_args, k):
+    # the second step of cv: load the topk configs from the saved output from hpo
+    from run_analysis import get_exhaustive_sweep_result
     sweep_jobid_config = JobID(console_args)
-    if console_args.algo_mode.endswith("cv"):
-        sweep_jobid_config.mod = console_args.algo_mode[:-2]
+    sweep_jobid_config.mod = console_args.algo_mode[:-2]
     sweep_jobid_config.pre = None
     sweep_jobid_config.pre_full = sweep_jobid_config.pre_full.replace("/", "-")
+    topk_score, topk_config = get_exhaustive_sweep_result(console_args,
+                                                          console_args.root_log_path,
+                                                          sweep_jobid_config, k)
+    return topk_score, topk_config
 
-    # setattr(sweep_jobid_config, "var1", set(console_args.learning_rate))
-    # setattr(sweep_jobid_config, "var2", set(console_args.weight_decay))
-    top1_score, top1_config = get_exhaustive_sweep_result(console_args, "logs_azure/", sweep_jobid_config, 10)
-    # top1_config = {"learning_rate": 1e-5, "per_device_train_batch_size": 2,
-    #                "num_train_epochs": 0.01, "warmup_ratio": 0.1, "weight_decay": 0.0}
-    this_args = copy.deepcopy(console_args)
+
+def cv_third_step(console_args, autohf, topk_config):
+    # the third step of cv: evaluate the topk configs from the previous step, return the topk x #trials matrix
+    cv_jobid_config = JobID(console_args)
+    cv_jobid_config.mod = "hpo"
+    cv_jobid_config.spa = "gnr"
+    cv_jobid_config.arg = "cus"
+    cv_jobid_config.spt = "cv"
+    cv_jobid_config.alg = "bs"
     autohf.jobid_config = cv_jobid_config
-    azure_utils_large = AzureUtils(
+    azure_utils = AzureUtils(
         root_log_path=console_args.root_log_path,
-        azure_key_path=console_args.key_path, autohf=autohf)
+        azure_key_path=console_args.key_path,
+        autohf=autohf)
+
     custom_args = {
-        "foldnum": 3
-    }
-    _test_hpo(this_args,
-              cv_jobid_config,
+        "foldnum": 2}
+
+    preparedata_setting = get_preparedata_setting(console_args,
+                                                  cv_jobid_config,
+                                                  wandb_utils,
+                                                  **custom_args)
+    autohf.prepare_data(**preparedata_setting)
+    console_args.sample_num = len(topk_config)
+    console_args.time_budget = 100000
+    autohf_settings = get_autohf_settings(console_args,
+                                          **{"points_to_evaluate": topk_config})
+    import copy
+    cv_k = len(autohf.train_datasets)
+    validation_metrics = []
+    configscore_lists = []
+    autohf_settings_copies = []
+    for idx in range(cv_k):
+        autohf_settings_copies.append(copy.deepcopy(autohf_settings))
+    for idx in range(0, cv_k):
+        idx, validation_metric, analysis = train_cv(idx,
+                                                    train_dataset=autohf.train_datasets[idx],
+                                                    eval_dataset=autohf.eval_datasets[idx],
+                                                    autohf_settings=autohf_settings_copies[idx])
+        if analysis is not None:
+            configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
+        else:
+            configscore_list = None
+        validation_metrics.append(validation_metric)
+        configscore_lists.append(configscore_list)
+    return configscore_lists
+
+def cv_fourth_step(console_args,
+                   configscore_lists,
+                   other_results=None):
+    # the fourth step of cv: rerun evaluation for the top1 config found in the previous step
+    import copy
+    top1_config = load_and_select_top1_config(configscore_lists)
+
+    jobid_config = JobID(console_args)
+    jobid_config_origin = copy.deepcopy(jobid_config)
+
+    jobid_config.mod = "hpo"
+    jobid_config.spa = "gnr"
+    jobid_config.arg = "cus"
+    jobid_config.spt = "rspt"
+    jobid_config.alg = "bs"
+
+    autohf.jobid_config = jobid_config
+    azure_utils = AzureUtils(
+        root_log_path=console_args.root_log_path,
+        azure_key_path=console_args.key_path,
+        autohf=autohf)
+
+    console_args.sample_num = 1
+    console_args.time_budget = 100000
+    _test_hpo(console_args,
+              jobid_config,
               autohf,
               wandb_utils,
-              azure_utils_large,
-              autohf_settings=get_autohf_settings(this_args, **{"points_to_evaluate": top1_config}),
-              **custom_args)
+              azure_utils,
+              jobid_config_rename=jobid_config_origin,
+              autohf_settings=get_autohf_settings(console_args,
+                                                  **{"points_to_evaluate": [top1_config]}),
+              other_results=other_results)
+
+    rm_home_result()
 
 
 def convert_config_to_different_size(origin_config, mode):
@@ -272,9 +358,10 @@ def add_dict_item_to_list(this_list, this_dict):
         this_list.append(this_dict)
     return this_list
 
+
 def train_cv(idx, train_dataset, eval_dataset, autohf_settings):
-    #azure_utils = batch_dict["azure_utils"]
-    #os.environ["CUDA_VISIBLE_DEVICES"] = str(idx % 4)
+    # azure_utils = batch_dict["azure_utils"]
+    # os.environ["CUDA_VISIBLE_DEVICES"] = str(idx % 4)
     os.environ['MKL_THREADING_LAYER'] = 'GNU'
     autohf.train_dataset = train_dataset
     autohf.eval_dataset = eval_dataset
@@ -284,12 +371,32 @@ def train_cv(idx, train_dataset, eval_dataset, autohf_settings):
     #                                 local_file_path=)
     return idx, validation_metric, analysis
 
+
+def load_and_select_top1_config(configscore_lists):
+    import numpy as np
+    trialid2config = {}
+    trialid2scores = {}
+
+    for fold_idx in range(len(configscore_lists)):
+        for trial_idx in range(len(configscore_lists[0])):
+            metric_score = configscore_lists[fold_idx][trial_idx].metric_score[autohf.metric_mode_name]
+            this_config = configscore_lists[fold_idx][trial_idx].config
+            trialid2scores.setdefault(trial_idx, [])
+            trialid2scores[trial_idx].append(metric_score)
+            trialid2config[trial_idx] = this_config
+
+    sorted_trialid2scores = sorted(trialid2scores.items(), key=lambda x: np.mean(x[1]), reverse=True)
+    return trialid2config[sorted_trialid2scores[0][0]]
+
+
 def _test_hpo(console_args,
               jobid_config,
               autohf,
               wandb_utils,
               azure_utils=None,
               autohf_settings=None,
+              jobid_config_rename=None,
+              other_results=None,
               **custom_args
               ):
     preparedata_setting = get_preparedata_setting(console_args, jobid_config, wandb_utils, **custom_args)
@@ -299,54 +406,34 @@ def _test_hpo(console_args,
     if not autohf_settings:
         autohf_settings = get_autohf_settings(console_args, **custom_args)
 
-    if jobid_config.spt != "cv":
-        if console_args.algo_mode != "hfhpo":
-            validation_metric, analysis = autohf.fit(**autohf_settings)
-        else:
-            autohf.fit_hf(**autohf_settings)
-        predictions, test_metric = autohf.predict()
-        if test_metric:
-            validation_metric.update({"test": test_metric})
+    if console_args.algo_mode != "hfhpo":
+        validation_metric, analysis = autohf.fit(**autohf_settings)
+    else:
+        autohf.fit_hf(**autohf_settings)
+    predictions, test_metric = autohf.predict()
+    if test_metric:
+        validation_metric.update({"test": test_metric})
 
-        if not azure_utils:
+    if not azure_utils:
+        if jobid_config_rename:
+            azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
+                                 azure_key_path=console_args.key_path,
+                                 jobid_config=jobid_config_rename,
+                                 autohf=autohf)
+        else:
             azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
                                      azure_key_path=console_args.key_path,
                                      autohf=autohf)
 
-        if analysis is not None:
-            configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
-        else:
-            configscore_list = None
-        azure_utils.write_autohf_output(configscore_list=configscore_list,
-                                        valid_metric=validation_metric,
-                                        predictions=predictions,
-                                        duration=autohf.last_run_duration)
+    if analysis is not None:
+        configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
     else:
-        import json
-        import copy
-        cv_k = len(autohf.train_datasets)
-        validation_metrics = []
-        configscore_lists = []
-        # with multiprocessing.Pool(processes=5) as p:
-        #     for idx, validation_metric in p.imap_unordered(train_cv, batches):
-        #         validation_metrics.append(validation_metric)
-        autohf_settings_copies = []
-        for idx in range(cv_k):
-            autohf_settings_copies.append(copy.deepcopy(autohf_settings))
-        for idx in range(0, cv_k):
-            idx, validation_metric, analysis = train_cv(idx,
-                                              train_dataset=autohf.train_datasets[idx],
-                                              eval_dataset=autohf.eval_datasets[idx],
-                                              autohf_settings=autohf_settings_copies[idx])
-            if analysis is not None:
-                configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
-            else:
-                configscore_list = None
-            validation_metrics.append(validation_metric)
-            configscore_lists.append(configscore_list)
-        azure_utils.write_autohf_output(configscore_list=configscore_lists,
-                                        valid_metric=validation_metrics)
-
+        configscore_list = None
+    azure_utils.write_autohf_output(configscore_list=configscore_list,
+                                    valid_metric=validation_metric,
+                                    predictions=predictions,
+                                    duration=autohf.last_run_duration,
+                                    other_results=other_results)
     rm_home_result()
 
 
@@ -380,6 +467,7 @@ def _exhaustive_sweep(console_args,
 if __name__ == "__main__":
     from flaml.nlp.hpo.hpo_searchspace import AutoHPOSearchSpace
     import itertools
+
     console_args = load_dft_args()
 
     jobid_config = JobID(console_args)
@@ -387,7 +475,7 @@ if __name__ == "__main__":
     wandb_utils = WandbUtils(is_wandb_on=False, wandb_key_path=console_args.key_path, jobid_config=jobid_config)
     wandb_utils.set_wandb_per_run()
 
-    #_test_hpo(console_args, jobid_config, autohf, wandb_utils)
+    # _test_hpo(console_args, jobid_config, autohf, wandb_utils)
 
     # search_base_and_search_lower_lr(console_args, jobid_config, autohf, wandb_utils)
 
@@ -395,12 +483,12 @@ if __name__ == "__main__":
 
     # evaluate_large_best_configs_on_small(console_args, autohf)
 
-    #_exhaustive_sweep(console_args, jobid_config, autohf, wandb_utils)
+    # _exhaustive_sweep(console_args, jobid_config, autohf, wandb_utils)
 
-    #evaluate_configs(autohf, console_args)
+    # evaluate_configs(autohf, console_args)
 
     if console_args.algo_mode.endswith("cv"):
-        evaluate_configs_cv(autohf, console_args)
+        evaluate_configs_cv(autohf, console_args, 10, wandb_utils)
     else:
         _test_hpo(console_args, jobid_config, autohf, wandb_utils)
 

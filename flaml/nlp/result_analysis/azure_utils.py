@@ -164,6 +164,7 @@ class JobID:
         """
         is_not_match = False
         for key, val in partial_jobid.__dict__.items():
+            if key == "pre": continue
             if val is None:
                 continue
             if isinstance(val, set):
@@ -175,6 +176,8 @@ class JobID:
                 if key == "dat":
                     each_val = [x.replace("_", "-") for x in each_val]
                     val = [x.replace("_", "-") for x in val]
+                if key == "pre_full":
+                    val = val.replace("/", "-")
                 if each_val != val:
                     is_not_match = True
         return not is_not_match
@@ -614,7 +617,8 @@ class AzureUtils:
                             valid_metric=None,
                             predictions=None,
                             duration=None,
-                            local_file_path=None):
+                            local_file_path=None,
+                            other_results=None):
         """
             write the key info from a job and upload to azure blob storage
         """
@@ -631,6 +635,8 @@ class AzureUtils:
             output_json["valid_metric"] = valid_metric
         if duration:
             output_json["duration"] = duration
+        if other_results:
+            output_json["other_results"] = other_results
         if len(output_json) > 0:
             self.create_local_json_and_upload(output_json, local_file_path)
         if predictions is not None:

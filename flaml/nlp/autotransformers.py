@@ -237,7 +237,7 @@ class AutoTransformers:
 
         self.path_utils = PathUtils(self.jobid_config, hpo_data_root_path=data_root_path)
 
-        if self.jobid_config.spt == "rspt":
+        if self.jobid_config.spt.endswith("rspt"):
             assert resplit_portion, "If split mode is 'rspt', the resplit_portion must be provided. Please " \
                                     "refer to the example in the documentation of AutoTransformers.prepare_data()"
         if self.jobid_config.subdat:
@@ -261,7 +261,7 @@ class AutoTransformers:
                 self.jobid_config.subdat,
                 **auto_tokentoids_config)
 
-        if self.jobid_config.spt in ("rspt", "cv"):
+        if self.jobid_config.spt in ("rspt", "cv", "cvrspt"):
             all_folds_from_source = []
             assert "source" in resplit_portion.keys(), "Must specify the source for resplitting the dataset in" \
                                                        "resplit_portion, which is a list of folder names, e.g., " \
@@ -278,7 +278,7 @@ class AutoTransformers:
             assert "train" in resplit_portion.keys() and "validation" in resplit_portion.keys() \
                    and "test" in resplit_portion.keys(), "train, validation, test must exist in resplit_portion"
 
-            if self.jobid_config.spt == "rspt":
+            if self.jobid_config.spt.endswith("rspt"):
                 _max_seq_length = 0
                 for key in ["train", "validation", "test"]:
                     subfold_dataset = self._get_targetfold_start_end(concatenated_data=merged_folds,
@@ -927,7 +927,7 @@ class AutoTransformers:
                                 self.jobid_config.subdat) == "regression" \
             else np.argmax(predictions, axis=1)
 
-        if self.jobid_config.spt == "rspt":
+        if self.jobid_config.spt.endswith("rspt"):
             assert labels is not None
             metric = self._get_metric_func()
             output_metric = metric.compute(predictions=predictions, references=labels)

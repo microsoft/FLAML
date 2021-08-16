@@ -606,20 +606,20 @@ def randomly_sample_gridunion():
 def rename_azure_file(console_args):
     import copy
     from flaml.nlp import AzureUtils
-    dat_name = ['amazon_polarity']
-    subdat_name = ''
+    dat_name = ['glue']
+    subdat_name = 'sst2'
 
-    # logs_azure/glue_sst2/dat=glue_subdat=sst2_mod=hpo_spa=gnr_arg=cus_alg=bs_pru=None_
-    # pre_full=facebook-muppet-roberta-large_presz=large_spt=rspt_rep=0_sddt=43_sdhf=42_
-    # var1=_var2=.json
+    # logs_azure/glue_sst2/dat=glue_subdat=sst2_mod=
+    # hpo_spa=grid_arg=cus_alg=grid_pru=None_pre_full=facebook-muppet-roberta-large_
+    # presz=large_spt=cv_rep=0_sddt=43_sdhf=42_var1=_var2=.json
 
     old_jobid_configs = JobID()
     old_jobid_configs.dat = dat_name
     old_jobid_configs.subdat = subdat_name
-    old_jobid_configs.mod = "hpo"
-    old_jobid_configs.spa = "gnr"
+    old_jobid_configs.mod = "grid"
+    old_jobid_configs.spa = "grid"
     old_jobid_configs.arg = "cus"
-    old_jobid_configs.alg = "bs"
+    old_jobid_configs.alg = "grid"
     old_jobid_configs.pru = "None"
     old_jobid_configs.pre_full = "facebook-muppet-roberta-large"
     old_jobid_configs.presz = "large"
@@ -631,15 +631,12 @@ def rename_azure_file(console_args):
     old_jobid_configs.var2 = []
 
     new_jobid_configs = copy.deepcopy(old_jobid_configs)
-    new_jobid_configs.spa = "grid"
-    new_jobid_configs.alg = "grid"
-    new_jobid_configs.mod = "grid"
-    new_jobid_configs.arg = "dft"
+    new_jobid_configs.mod = "gridcv"
 
-    azure_utils = AzureUtils(root_log_path="logs_azure/",
+    azure_utils = AzureUtils(root_log_path=console_args.azure_root_log_path,
                              azure_key_path="../../",
                              jobid_config=old_jobid_configs)
-    azure_utils.rename_one_file(root_log_path="logs_azure/",
+    azure_utils.rename_one_file(root_log_path=console_args.azure_root_log_path,
                                 old_jobid=old_jobid_configs,
                                 new_jobid=new_jobid_configs)
 
@@ -657,4 +654,4 @@ if __name__ == "__main__":
     #print_modelhub_result(console_args=args)
     #randomly_sample_gridunion()
     #compare_muppet(console_args=args)
-    #rename_azure_file(console_args=args)
+    rename_azure_file(console_args=args)
