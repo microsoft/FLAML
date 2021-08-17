@@ -433,7 +433,8 @@ def _test_hpo(console_args,
                                     valid_metric=validation_metric,
                                     predictions=predictions,
                                     duration=autohf.last_run_duration,
-                                    other_results=other_results)
+                                    other_results=other_results,
+                                    gitsha=)
     rm_home_result()
 
 
