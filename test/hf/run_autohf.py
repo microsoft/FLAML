@@ -209,7 +209,7 @@ def evaluate_configs(autohf, console_args):
 
 
 def evaluate_configs_cv(autohf, console_args, cv_k, wandb_utils):
-    cv_first_step(console_args, autohf, wandb_utils)
+    #cv_first_step(console_args, autohf, wandb_utils)
     topk_score, topk_config = cv_second_step(console_args, cv_k)
     configscore_lists = cv_third_step(console_args, autohf, topk_config)
     cv_fourth_step(console_args,
@@ -257,7 +257,7 @@ def cv_third_step(console_args, autohf, topk_config):
         autohf=autohf)
 
     custom_args = {
-        "foldnum": 2}
+        "foldnum": 3}
 
     preparedata_setting = get_preparedata_setting(console_args,
                                                   cv_jobid_config,
@@ -293,7 +293,7 @@ def cv_fourth_step(console_args,
                    other_results=None):
     # the fourth step of cv: rerun evaluation for the top1 config found in the previous step
     import copy
-    top1_config = load_and_select_top1_config(configscore_lists)
+    top1_config, top1_score = load_and_select_top1_config(configscore_lists)
 
     jobid_config = JobID(console_args)
     jobid_config_origin = copy.deepcopy(jobid_config)
@@ -310,9 +310,12 @@ def cv_fourth_step(console_args,
         azure_key_path=console_args.key_path,
         jobid_config_rename=jobid_config_origin,
         autohf=autohf)
+    console_args.split_portion[1] = str(max([float(console_args.split_portion[1]),
+                                             float(console_args.split_portion[3])]))
 
     console_args.sample_num = 1
     console_args.time_budget = 100000
+    other_results["avg_cv_score"] = top1_score
     _test_hpo(console_args,
               jobid_config,
               autohf,
@@ -386,7 +389,7 @@ def load_and_select_top1_config(configscore_lists):
             trialid2config[trial_idx] = this_config
 
     sorted_trialid2scores = sorted(trialid2scores.items(), key=lambda x: np.mean(x[1]), reverse=True)
-    return trialid2config[sorted_trialid2scores[0][0]]
+    return trialid2config[sorted_trialid2scores[0][0]], np.mean(sorted_trialid2scores[0][1])
 
 
 def _test_hpo(console_args,
