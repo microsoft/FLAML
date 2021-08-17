@@ -154,11 +154,10 @@ class AutoMLState:
             if weight is not None:
                 sampled_weight = weight[:sample_size]
         else:
-            sampled_X_train = concat(self.X_train, self.X_val)
-            sampled_y_train = np.concatenate([self.y_train, self.y_val])
-            weight = self.fit_kwargs.get('sample_weight')
-            if weight is not None:
-                sampled_weight = np.concatenate([weight, self.weight_val])
+            sampled_X_train = self.X_train_all
+            sampled_y_train = self.y_train_all
+            if 'sample_weight' in self.fit_kwargs:
+                sampled_weight = self.sample_weight_all
         return sampled_X_train, sampled_y_train, sampled_weight
 
     def _compute_with_config_base(self,
@@ -494,8 +493,7 @@ class AutoML:
         X_val, y_val = self._state.X_val, self._state.y_val
         if issparse(X_val):
             X_val = X_val.tocsr()
-        X_train_all, y_train_all = \
-            self._X_train_all, self._y_train_all
+        X_train_all, y_train_all = self._X_train_all, self._y_train_all
         if issparse(X_train_all):
             X_train_all = X_train_all.tocsr()
         if self._state.task != 'regression' and self._state.fit_kwargs.get(
@@ -527,11 +525,13 @@ class AutoML:
                 logger.info(
                     f"class {label} augmented from {rare_count} to {count}")
         if 'sample_weight' in self._state.fit_kwargs:
+            sample_weight_all = self._state.fit_kwargs['sample_weight']
             X_train_all, y_train_all, self._state.fit_kwargs[
                 'sample_weight'] = shuffle(
-                    X_train_all, y_train_all,
-                    self._state.fit_kwargs['sample_weight'],
+                    X_train_all, y_train_all, sample_weight_all,
                     random_state=RANDOM_SEED)
+            self._state.sample_weight_all = self._state.fit_kwargs[
+                'sample_weight']
         elif hasattr(self._state, 'groups') and self._state.groups is not None:
             X_train_all, y_train_all, self._state.groups = shuffle(
                 X_train_all, y_train_all, self._state.groups,
@@ -608,12 +608,11 @@ class AutoML:
                         test_size=split_ratio,
                         random_state=RANDOM_SEED)
         self._state.data_size = X_train.shape[0]
-        if X_val is None:
-            self.data_size_full = self._state.data_size
-        else:
-            self.data_size_full = self._state.data_size + X_val.shape[0]
+        self.data_size_full = len(y_train_all)
         self._state.X_train, self._state.y_train, self._state.X_val, \
             self._state.y_val = (X_train, y_train, X_val, y_val)
+        self._state.X_train_all = X_train_all
+        self._state.y_train_all = y_train_all
         if hasattr(self._state, 'groups') and self._state.groups is not None:
             logger.info("Using GroupKFold")
             assert len(self._state.groups) == y_train_all.size, \
@@ -1561,7 +1560,6 @@ class AutoML:
             self._training_log.checkpoint()
         if self._best_estimator:
             self._selected = self._search_states[self._best_estimator]
-            self._trained_estimator = self._selected.trained_estimator
             self.modelcount = sum(
                 search_state.total_iter
                 for search_state in self._search_states.values())
