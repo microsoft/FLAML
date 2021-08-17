@@ -219,7 +219,7 @@ def evaluate_configs_cv(autohf, console_args, cv_k, wandb_utils):
                            [each_configscore.metric_score for each_configscore in each_configscore_list]
                            for each_configscore_list in configscore_lists
                        ],
-                       "topk_score": topk_config
+                       "topk_config": topk_config
                       }
                    )
 
@@ -308,6 +308,7 @@ def cv_fourth_step(console_args,
     azure_utils = AzureUtils(
         root_log_path=console_args.root_log_path,
         azure_key_path=console_args.key_path,
+        jobid_config_rename=jobid_config_origin,
         autohf=autohf)
 
     console_args.sample_num = 1
@@ -317,7 +318,6 @@ def cv_fourth_step(console_args,
               autohf,
               wandb_utils,
               azure_utils,
-              jobid_config_rename=jobid_config_origin,
               autohf_settings=get_autohf_settings(console_args,
                                                   **{"points_to_evaluate": [top1_config]}),
               other_results=other_results)
@@ -399,6 +399,9 @@ def _test_hpo(console_args,
               other_results=None,
               **custom_args
               ):
+    import subprocess
+    import re
+
     preparedata_setting = get_preparedata_setting(console_args, jobid_config, wandb_utils, **custom_args)
     autohf.prepare_data(**preparedata_setting)
 
@@ -418,8 +421,7 @@ def _test_hpo(console_args,
         if jobid_config_rename:
             azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
                                  azure_key_path=console_args.key_path,
-                                 jobid_config=jobid_config_rename,
-                                 autohf=autohf)
+                                 jobid_config=jobid_config_rename)
         else:
             azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
                                      azure_key_path=console_args.key_path,
@@ -429,12 +431,20 @@ def _test_hpo(console_args,
         configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
     else:
         configscore_list = None
+
+    repo_url = 'git://github.com/liususan091219/FLAML.git'
+    process = subprocess.Popen(["git", "ls-remote", repo_url, "--heads", "exp"], stdout=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+    sha = re.split(r'\t+', stdout.decode('ascii'))[0]
+    print(sha)
+
     azure_utils.write_autohf_output(configscore_list=configscore_list,
                                     valid_metric=validation_metric,
                                     predictions=predictions,
                                     duration=autohf.last_run_duration,
                                     other_results=other_results,
-                                    gitsha=)
+                                    gitsha=sha,
+                                    console_args=console_args.__dict__)
     rm_home_result()
 
 

@@ -419,7 +419,8 @@ class AzureUtils:
                  azure_key_path=None,
                  data_root_dir=None,
                  autohf=None,
-                 jobid_config=None):
+                 jobid_config=None,
+                 jobid_config_rename=None):
         ''' This class is for saving the output files (logs, predictions) for HPO, uploading it to an azure storage
             blob, and performing analysis on the saved blobs. To use the cloud storage, you need to specify a key
             and upload the output files to azure. For example, when running jobs in a cluster, this class can
@@ -493,7 +494,9 @@ class AzureUtils:
             self.root_log_path = root_log_path
         else:
             self.root_log_path = "logs_azure/"
-        if autohf is not None:
+        if jobid_config_rename is not None:
+            self.jobid = jobid_config_rename
+        elif autohf is not None:
             self.jobid = autohf.jobid_config
         else:
             assert jobid_config is not None, "jobid_config must be passed either through autohf.jobid_config" \
@@ -618,7 +621,9 @@ class AzureUtils:
                             predictions=None,
                             duration=None,
                             local_file_path=None,
-                            other_results=None):
+                            other_results=None,
+                            gitsha=None,
+                            console_args=None):
         """
             write the key info from a job and upload to azure blob storage
         """
@@ -637,6 +642,10 @@ class AzureUtils:
             output_json["duration"] = duration
         if other_results:
             output_json["other_results"] = other_results
+        if gitsha:
+            output_json["gitsha"] = gitsha
+        if console_args:
+            output_json["console_args"] = console_args
         if len(output_json) > 0:
             self.create_local_json_and_upload(output_json, local_file_path)
         if predictions is not None:
