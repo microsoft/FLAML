@@ -466,12 +466,12 @@ def compare_muppet(console_args):
 
     dats =["yelp-polarity", "glue", "amazon-polarity", "imdb"]
     subdats = [None, "sst2", None, None]
-    for idx in range(len(dats)):
+    for idx in range(2, 3):
         partial_jobid_config = JobID()
         partial_jobid_config.dat = [dats[idx]]
         partial_jobid_config.subdat = subdats[idx]
-        partial_jobid_config.spa = "gnr"
-        partial_jobid_config.alg = "rs"
+        partial_jobid_config.spa = "grid"
+        partial_jobid_config.alg = "grid"
         partial_jobid_config.arg = "dft"
         partial_jobid_config.presz = "large"
         partial_jobid_config.pre_full = "facebook-muppet-roberta-large"
@@ -606,8 +606,8 @@ def randomly_sample_gridunion():
 def rename_azure_file(console_args):
     import copy
     from flaml.nlp import AzureUtils
-    dat_name = ['glue']
-    subdat_name = 'sst2'
+    dat_name = ['amazon_polarity']
+    subdat_name = ''
 
     # logs_azure/glue_sst2/dat=glue_subdat=sst2_mod=
     # hpo_spa=grid_arg=cus_alg=grid_pru=None_pre_full=facebook-muppet-roberta-large_
@@ -653,5 +653,5 @@ if __name__ == "__main__":
     #print_crossvalidation_result(console_args=args)
     #print_modelhub_result(console_args=args)
     #randomly_sample_gridunion()
-    #compare_muppet(console_args=args)
-    rename_azure_file(console_args=args)
+    compare_muppet(console_args=args)
+    #rename_azure_file(console_args=args)
