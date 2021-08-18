@@ -240,7 +240,7 @@ def evaluate_model_CV(
         valid_fold_num += 1
         total_fold_num += 1
         total_val_loss += val_loss_i
-        if train_loss is not False:
+        if train_loss is not False or not isinstance(eval_metric, str):
             if isinstance(total_train_loss, list):
                 total_train_loss = [
                     total_train_loss[i] + v for i, v in enumerate(train_loss_i)]
@@ -261,7 +261,7 @@ def evaluate_model_CV(
             break
     val_loss = np.max(val_loss_list)
     n = total_fold_num
-    if train_loss is not False:
+    if train_loss is not False or not isinstance(eval_metric, str):
         if isinstance(total_train_loss, list):
             train_loss = [v / n for v in total_train_loss]
         elif isinstance(total_train_loss, dict):
