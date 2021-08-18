@@ -937,6 +937,7 @@ class AutoML:
                     AutoMLState._compute_with_config_base,
                     self._state, estimator)
         states = self._search_states
+        mem_res = self._mem_thres
 
         def train(config: dict):
             sample_size = config.get('FLAML_sample_size')
@@ -945,7 +946,7 @@ class AutoML:
                 config['FLAML_sample_size'] = sample_size
             estimator = config['learner']
             # check memory constraints before training
-            if states[estimator].learner_class.size(config) <= MEM_THRES:
+            if states[estimator].learner_class.size(config) <= mem_res:
                 del config['learner']
                 result = states[estimator].training_function(config)
                 return result
