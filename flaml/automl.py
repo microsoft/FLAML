@@ -525,14 +525,12 @@ class AutoML:
                     count += rare_count
                 logger.info(
                     f"class {label} augmented from {rare_count} to {count}")
-        if 'sample_weight' in self._state.fit_kwargs:
-            sample_weight_all = self._state.fit_kwargs['sample_weight']
-            X_train_all, y_train_all, self._state.fit_kwargs[
-                'sample_weight'] = shuffle(
-                    X_train_all, y_train_all, sample_weight_all,
-                    random_state=RANDOM_SEED)
-            self._state.sample_weight_all = self._state.fit_kwargs[
-                'sample_weight']
+        if self._sample_weight_full is not None:
+            X_train_all, y_train_all, self._state.sample_weight_all = shuffle(
+                X_train_all, y_train_all, self._sample_weight_full,
+                random_state=RANDOM_SEED)
+            self._state.fit_kwargs[
+                'sample_weight'] = self._state.sample_weight_all
         elif hasattr(self._state, 'groups') and self._state.groups is not None:
             X_train_all, y_train_all, self._state.groups = shuffle(
                 X_train_all, y_train_all, self._state.groups,
@@ -1074,6 +1072,11 @@ class AutoML:
                 samples used while splitting the dataset into train/valid set.
             verbose: int, default=1 | Controls the verbosity, higher means more
                 messages.
+            retrain_full: bool or str, default=True | whether to retrain the
+                selected model on the full training data when using holdout.
+                True - retrain after search; False - no retraining;
+                'budget' - do best effort to retrain without violating the time
+                budget.
             hpo_method: str or None, default=None | The hyperparameter
                 optimization method. When it is None, CFO is used.
                 No need to set when using flaml's default search space or using
@@ -1126,8 +1129,11 @@ class AutoML:
             logger.addHandler(_ch)
         logger.info("Evaluation method: {}".format(eval_method))
 
-        self._retrain_full = retrain_full and (
+        self._retrain_full = retrain_full == 'budget' and (
             eval_method == 'holdout' and self._state.X_val is None)
+        self._retrain_final = retrain_full is True and (
+            eval_method == 'holdout' and self._state.X_val is None) or (
+                eval_method == 'cv')
         self._prepare_data(eval_method, split_ratio, n_splits)
         self._sample = sample and eval_method != 'cv' and (
             MIN_SAMPLE_TRAIN * SAMPLE_MULTIPLY_FACTOR < self._state.data_size)
@@ -1188,15 +1194,16 @@ class AutoML:
         else:
             self._training_log = None
             self._search()
-        logger.info("fit succeeded")
-        logger.info(f"Time taken to find the best model: {self._time_taken_best_iter}")
-        if self._time_taken_best_iter >= time_budget * 0.7 and not \
-           all(state.search_alg and state.search_alg.searcher.is_ls_ever_converged
-               for state in self._search_states.values()):
-            logger.warn("Time taken to find the best model is {0:.0f}% of the "
-                        "provided time budget and not all estimators' hyperparameter "
-                        "search converged. Consider increasing the time budget.".format(
-                            self._time_taken_best_iter / time_budget * 100))
+        if self._best_estimator:
+            logger.info("fit succeeded")
+            logger.info(f"Time taken to find the best model: {self._time_taken_best_iter}")
+            if self._time_taken_best_iter >= time_budget * 0.7 and not \
+            all(state.search_alg and state.search_alg.searcher.is_ls_ever_converged
+                for state in self._search_states.values()):
+                logger.warn("Time taken to find the best model is {0:.0f}% of the "
+                            "provided time budget and not all estimators' hyperparameter "
+                            "search converged. Consider increasing the time budget.".format(
+                                self._time_taken_best_iter / time_budget * 100))
 
         if verbose == 0:
             logger.setLevel(old_level)
@@ -1524,10 +1531,10 @@ class AutoML:
                 if self._estimator_index is not None:
                     self._active_estimators.remove(estimator)
                     self._estimator_index -= 1
-            if self._retrain_full and best_config_sig and not better and (
-                self._search_states[
+            if self._retrain_full and best_config_sig and est_retrain_time and (
+                not better and self._search_states[
                     self._best_estimator].sample_size == self._state.data_size
-            ) and (est_retrain_time
+                ) and (est_retrain_time
                     <= self._state.time_budget - self._state.time_from_start
                     <= est_retrain_time + next_trial_time):
                 self._trained_estimator, \
@@ -1611,6 +1618,16 @@ class AutoML:
                 logger.info(f'ensemble: {stacker}')
                 self._trained_estimator = stacker
                 self._trained_estimator.model = stacker
+            elif self._retrain_final:
+                # reset time budget for retraining
+                self._state.time_from_start = 0
+                self._trained_estimator, \
+                    retrain_time = self._state._train_with_config(
+                        self._best_estimator,
+                        self._search_states[self._best_estimator].best_config,
+                        self.data_size_full)
+                logger.info("retrain {} for {:.1f}s".format(
+                    self._best_estimator, retrain_time))
         else:
             self._selected = self._trained_estimator = None
             self.modelcount = 0

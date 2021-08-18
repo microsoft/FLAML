@@ -40,6 +40,7 @@ def test_simple(method=None):
         "n_jobs": 1,
         "hpo_method": method,
         "log_type": "all",
+        "retrain_full": "budget",
         "time_budget": 1
     }
     from sklearn.externals._arff import ArffException
