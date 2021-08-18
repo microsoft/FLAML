@@ -55,6 +55,7 @@ class SearchState:
         self.cat_hp_cost = {}
         self.data_size = data_size
         self.ls_ever_converged = False
+        self.learner_class = learner_class
         search_space = learner_class.search_space(
             data_size=data_size, task=task)
         for name, space in search_space.items():
@@ -180,7 +181,7 @@ class AutoMLState:
         time_left = self.time_budget - self.time_from_start
         budget = time_left if sample_size == self.data_size else \
             time_left / 2 * sample_size / self.data_size
-
+        
         trained_estimator, val_loss, train_loss, time2eval, pred_time = \
             compute_estimator(
                 sampled_X_train,
@@ -943,10 +944,18 @@ class AutoML:
             if sample_size:
                 config['FLAML_sample_size'] = sample_size
             estimator = config['learner']
-            del config['learner']
-            result = states[estimator].training_function(config)
-            return result
-
+            # check memory constraints before training
+            if states[estimator].learner_class.size(config) <= MEM_THRES:
+                del config['learner']
+                result = states[estimator].training_function(config)
+                return result
+            else:
+                return {'pred_time': 0,
+                        'time2eval': 0,
+                        'train_loss': np.inf,
+                        'val_loss': np.inf,
+                        'trained_estimator': None
+                        }
         return train
 
     @property
@@ -1211,19 +1220,26 @@ class AutoML:
             from flaml.searcher.cfo_cat import CFOCat as SearchAlgo
         elif 'random' == self._hpo_method:
             from ray.tune.suggest import BasicVariantGenerator as SearchAlgo
+            from ray.tune.sample import Domain as RayDomain
+            from .tune.sample import Domain
         else:
             raise NotImplementedError(
                 f"hpo_method={self._hpo_method} is not recognized. "
                 "'cfo' and 'bs' are supported.")
         if self._hpo_method == 'random':
+            # Any point in points_to_evaluate must consist of hyperparamters
+            # that are tunable, which can be identified by checking whether
+            # the corresponding value in the search space is an instance of
+            # the 'Domain' class from flaml or ray.tune
             points_to_evaluate = self.points_to_evaluate.copy()
             to_del = []
             for k, v in self.search_space.items():
-                if not hasattr(v, 'is_valid'):
+                if not (isinstance(v, Domain) or isinstance(v, RayDomain)):
                     to_del.append(k)
             for k in to_del:
                 for p in points_to_evaluate:
                     del p[k]
+
             search_alg = SearchAlgo(max_concurrent=self._n_concurrent_trials,
                                     points_to_evaluate=points_to_evaluate
                                     )

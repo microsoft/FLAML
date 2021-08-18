@@ -95,6 +95,7 @@ class TrainingLogWriter(object):
                                    sample_size)
         if validation_loss < self.current_best_loss or \
             validation_loss == self.current_best_loss and \
+                self.current_sample_size is not None and \
                 sample_size > self.current_sample_size:
             self.current_best_loss = validation_loss
             self.current_sample_size = sample_size
