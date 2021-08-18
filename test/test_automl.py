@@ -509,7 +509,7 @@ class TestAutoML(unittest.TestCase):
             "n_jobs": 1,
             "n_concurrent_trials": 2,
             "hpo_method": 'random',
-            }
+        }
 
         X_train = scipy.sparse.eye(900000)
         y_train = np.random.randint(2, size=900000)

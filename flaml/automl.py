@@ -181,7 +181,7 @@ class AutoMLState:
         time_left = self.time_budget - self.time_from_start
         budget = time_left if sample_size == self.data_size else \
             time_left / 2 * sample_size / self.data_size
-        
+
         trained_estimator, val_loss, train_loss, time2eval, pred_time = \
             compute_estimator(
                 sampled_X_train,
@@ -1197,9 +1197,10 @@ class AutoML:
         if self._best_estimator:
             logger.info("fit succeeded")
             logger.info(f"Time taken to find the best model: {self._time_taken_best_iter}")
-            if self._time_taken_best_iter >= time_budget * 0.7 and not \
-            all(state.search_alg and state.search_alg.searcher.is_ls_ever_converged
-                for state in self._search_states.values()):
+            if self._time_taken_best_iter >= time_budget * 0.7 and not all(
+                state.search_alg and state.search_alg.searcher.is_ls_ever_converged
+                for state in self._search_states.values()
+            ):
                 logger.warn("Time taken to find the best model is {0:.0f}% of the "
                             "provided time budget and not all estimators' hyperparameter "
                             "search converged. Consider increasing the time budget.".format(
@@ -1534,9 +1535,9 @@ class AutoML:
             if self._retrain_full and best_config_sig and est_retrain_time and (
                 not better and self._search_states[
                     self._best_estimator].sample_size == self._state.data_size
-                ) and (est_retrain_time
-                    <= self._state.time_budget - self._state.time_from_start
-                    <= est_retrain_time + next_trial_time):
+               ) and (est_retrain_time
+                      <= self._state.time_budget - self._state.time_from_start
+                      <= est_retrain_time + next_trial_time):
                 self._trained_estimator, \
                     retrain_time = self._state._train_with_config(
                         self._best_estimator,
