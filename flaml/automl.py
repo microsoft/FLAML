@@ -1544,7 +1544,7 @@ class AutoML:
                         self._search_states[self._best_estimator].best_config,
                         self.data_size_full)
                 logger.info("retrain {} for {:.1f}s".format(
-                    estimator, retrain_time))
+                    self._best_estimator, retrain_time))
                 self._retrained_config[best_config_sig] = retrain_time
                 est_retrain_time = 0
             self._state.time_from_start = time.time() - self._start_time_flag
