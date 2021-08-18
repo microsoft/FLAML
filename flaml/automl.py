@@ -1621,7 +1621,7 @@ class AutoML:
                 self._trained_estimator.model = stacker
             elif self._retrain_final:
                 # reset time budget for retraining
-                self._state.time_from_start = 0
+                self._state.time_from_start -= self._state.time_budget
                 self._trained_estimator, \
                     retrain_time = self._state._train_with_config(
                         self._best_estimator,
