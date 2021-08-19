@@ -1623,7 +1623,7 @@ class AutoML:
                 # reset time budget for retraining
                 self._state.time_from_start -= self._state.time_budget
                 if (self._state.time_budget - self._state.time_from_start
-                    > search_state.est_retrain_time(self.data_size_full)
+                    > self._selected.est_retrain_time(self.data_size_full)
                 ):
                     self._trained_estimator, \
                         retrain_time = self._state._train_with_config(
