@@ -50,7 +50,8 @@ def get_estimator_class(task, estimator_name):
 
 
 def sklearn_metric_loss_score(
-    metric_name, y_predict, y_true, labels=None, sample_weight=None
+    metric_name, y_predict, y_true, labels=None, sample_weight=None,
+    multi_class=None
 ):
     '''Loss using the specified metric
 
@@ -64,6 +65,7 @@ def sklearn_metric_loss_score(
         y_true: A 1d numpy array of the true labels
         labels: A 1d numpy array of the unique labels
         sample_weight: A 1d numpy array of the sample weight
+        multi_class: 'ovr' (one-vs-rest) or 'ovo' (one-vs-one)
 
     Returns:
         score: A float number of the loss, the lower the better
@@ -85,7 +87,8 @@ def sklearn_metric_loss_score(
             y_true, y_predict, sample_weight=sample_weight)
     elif 'roc_auc' in metric_name:
         score = 1.0 - roc_auc_score(
-            y_true, y_predict, sample_weight=sample_weight)
+            y_true, y_predict, sample_weight=sample_weight,
+            multi_class=multi_class)
     elif 'log_loss' in metric_name:
         score = log_loss(
             y_true, y_predict, labels=labels, sample_weight=sample_weight)
