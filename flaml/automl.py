@@ -1622,13 +1622,19 @@ class AutoML:
             elif self._retrain_final:
                 # reset time budget for retraining
                 self._state.time_from_start -= self._state.time_budget
-                self._trained_estimator, \
-                    retrain_time = self._state._train_with_config(
-                        self._best_estimator,
-                        self._search_states[self._best_estimator].best_config,
-                        self.data_size_full)
-                logger.info("retrain {} for {:.1f}s".format(
-                    self._best_estimator, retrain_time))
+                if (self._state.time_budget - self._state.time_from_start
+                    > search_state.est_retrain_time(self.data_size_full)
+                ):
+                    self._trained_estimator, \
+                        retrain_time = self._state._train_with_config(
+                            self._best_estimator,
+                            self._search_states[self._best_estimator].best_config,
+                            self.data_size_full)
+                    logger.info("retrain {} for {:.1f}s".format(
+                        self._best_estimator, retrain_time))
+                else:
+                    logger.info(
+                        "not retraining because the time budget is too small.")
         else:
             self._selected = self._trained_estimator = None
             self.modelcount = 0
