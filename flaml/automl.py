@@ -1533,12 +1533,11 @@ class AutoML:
                     self._active_estimators.remove(estimator)
                     self._estimator_index -= 1
             if self._retrain_full and best_config_sig and est_retrain_time \
-               and (not better and self._search_states[
-                       self._best_estimator].sample_size == self._state.data_size
-                    ) and (
-                        est_retrain_time
-                        <= self._state.time_budget - self._state.time_from_start
-                        <= est_retrain_time + next_trial_time):
+               and not better and self._search_states[
+                   self._best_estimator].sample_size == self._state.data_size and (
+                       est_retrain_time
+                       <= self._state.time_budget - self._state.time_from_start
+                       <= est_retrain_time + next_trial_time):
                 self._trained_estimator, \
                     retrain_time = self._state._train_with_config(
                         self._best_estimator,
@@ -1625,7 +1624,7 @@ class AutoML:
                 self._state.time_from_start -= self._state.time_budget
                 if (self._state.time_budget - self._state.time_from_start
                     > self._selected.est_retrain_time(self.data_size_full)) \
-                   and self._selected.best_config_sample_size == self.data_size:
+                   and self._selected.best_config_sample_size == self._state.data_size:
                     self._trained_estimator, \
                         retrain_time = self._state._train_with_config(
                             self._best_estimator,
