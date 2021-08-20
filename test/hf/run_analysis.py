@@ -366,6 +366,46 @@ def load_modelinfo():
         model2size[model_name] = model_size
     return model2size
 
+def plot_boxplot(console_args):
+
+    # dat=imdb_subdat=_
+    # mod=hpo_spa=gnr_arg=dft_alg=rs
+    # _pru=None_pre_full=facebook-muppet-roberta-large
+    # _presz=large_spt=rspt_rep=0_sddt=43_sdhf=42_var1=_var2=.json
+    from flaml.nlp.result_analysis.azure_utils import JobID
+    from flaml.nlp import AzureUtils
+    import json
+
+    partial_jobid_config = JobID()
+    partial_jobid_config.dat = ["imdb"]
+    partial_jobid_config.mod = "hpo"
+    partial_jobid_config.spa = "gnr"
+    partial_jobid_config.arg = "dft"
+    partial_jobid_config.alg = "rs"
+    partial_jobid_config.pre_full = "facebook-muppet-roberta-large"
+    partial_jobid_config.spt = "rspt"
+
+    azure_utils = AzureUtils(root_log_path=console_args.azure_root_log_path,
+                             azure_key_path=console_args.key_path,
+                             jobid_config=partial_jobid_config)
+    matched_blob_list = azure_utils.get_configblob_from_partial_jobid(
+        console_args.azure_root_log_path,
+        partial_jobid_config, )
+    assert len(matched_blob_list) == 1
+
+    for (each_jobconfig, each_blob) in matched_blob_list:
+        azure_utils.download_azure_blob(each_blob.name)
+        data_json = json.load(open(each_blob.name, "r"))
+        plot([x['metric_score']['max'] for x in data_json['val_log']])
+
+def plot(spread):
+    import matplotlib.pyplot as plt
+    fig1, ax1 = plt.subplots()
+    plt.scatter([1] * len(spread), spread)
+    ax1.set_title('Basic Plot')
+    ax1.boxplot(spread)
+    plt.show()
+
 def print_modelhub_result(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID
     from flaml.nlp import AzureUtils
@@ -653,5 +693,6 @@ if __name__ == "__main__":
     #print_crossvalidation_result(console_args=args)
     #print_modelhub_result(console_args=args)
     #randomly_sample_gridunion()
-    compare_muppet(console_args=args)
+    #compare_muppet(console_args=args)
     #rename_azure_file(console_args=args)
+    plot_boxplot(console_args=args)
