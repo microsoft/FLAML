@@ -377,12 +377,13 @@ def plot_boxplot(console_args):
     import json
 
     partial_jobid_config = JobID()
-    partial_jobid_config.dat = ["imdb"]
+    partial_jobid_config.dat = ["glue"]
+    partial_jobid_config.subdat = "rte"
     partial_jobid_config.mod = "hpo"
     partial_jobid_config.spa = "gnr"
     partial_jobid_config.arg = "dft"
     partial_jobid_config.alg = "rs"
-    partial_jobid_config.pre_full = "facebook-muppet-roberta-large"
+    partial_jobid_config.pre_full = "facebook/muppet-roberta-large"
     partial_jobid_config.spt = "rspt"
 
     azure_utils = AzureUtils(root_log_path=console_args.azure_root_log_path,
@@ -396,14 +397,18 @@ def plot_boxplot(console_args):
     for (each_jobconfig, each_blob) in matched_blob_list:
         azure_utils.download_azure_blob(each_blob.name)
         data_json = json.load(open(each_blob.name, "r"))
-        plot([x['metric_score']['max'] for x in data_json['val_log']])
+        plot([x['metric_score']['max'] for x in data_json['val_log']],
+             "".join(partial_jobid_config.dat)
+             + "_" + partial_jobid_config.subdat
+             + "_" + partial_jobid_config.pre_full)
 
-def plot(spread):
+def plot(spread, legend):
     import matplotlib.pyplot as plt
     fig1, ax1 = plt.subplots()
     plt.scatter([1] * len(spread), spread)
     ax1.set_title('Basic Plot')
     ax1.boxplot(spread)
+    plt.xlabel(legend)
     plt.show()
 
 def print_modelhub_result(console_args):
