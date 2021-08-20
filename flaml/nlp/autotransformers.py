@@ -855,7 +855,8 @@ class AutoTransformers:
         start_time = time.time()
 
         tune_config = self._search_space_hpo
-        tune_config["seed"] = self.jobid_config.sdhf
+        if "seed" not in tune_config:
+            tune_config["seed"] = self.jobid_config.sdhf
 
         analysis = ray.tune.run(
             self._objective,
