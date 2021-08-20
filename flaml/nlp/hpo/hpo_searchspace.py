@@ -109,7 +109,7 @@ def hpo_space_generic(model_type=None,
     output_config = {
         "learning_rate": {"l": 1e-6, "u": 1e-3, "space": "log"},
         "num_train_epochs": {"l": 1.0, "u": 10.0, "space": "log"},
-        "per_device_train_batch_size": [4, 8, 16, 32, 48],
+        "per_device_train_batch_size": [4, 8, 16, 32],
         "warmup_ratio": {"l": 0.0, "u": 0.3, "space": "linear"},
         "weight_decay": {"l": 0.0, "u": 0.3, "space": "linear"},
         "adam_epsilon": {"l": 1e-8, "u": 1e-6, "space": "linear"},
