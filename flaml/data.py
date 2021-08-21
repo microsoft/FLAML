@@ -148,7 +148,7 @@ def get_output_from_log(filename, time_budget):
             sample_size = record.sample_size
             train_loss = record.logged_metric
 
-            if time_used < time_budget and val_loss != np.inf:
+            if time_used < time_budget and np.isfinite(val_loss):
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss
                     best_config = config
