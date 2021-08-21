@@ -51,7 +51,7 @@ def get_estimator_class(task, estimator_name):
 
 def sklearn_metric_loss_score(
     metric_name, y_predict, y_true, labels=None, sample_weight=None,
-    multi_class=None
+    multi_class='raise'
 ):
     '''Loss using the specified metric
 
@@ -65,7 +65,8 @@ def sklearn_metric_loss_score(
         y_true: A 1d numpy array of the true labels
         labels: A 1d numpy array of the unique labels
         sample_weight: A 1d numpy array of the sample weight
-        multi_class: 'ovr' (one-vs-rest) or 'ovo' (one-vs-one)
+        multi_class: The default value of 'raise' raises an error, so either
+            'ovr' (one-vs-rest) or 'ovo' (one-vs-one) must be passed explicitly
 
     Returns:
         score: A float number of the loss, the lower the better
