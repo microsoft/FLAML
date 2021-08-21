@@ -95,7 +95,7 @@ class SearchState:
                 self.sample_size = self.data_size
             obj = result['val_loss']
             train_loss = result['train_loss']
-            time2eval = result['time2eval']
+            time2eval = result['time_total_s']
             trained_estimator = result['trained_estimator']
             del result['trained_estimator']     # free up RAM
         else:
@@ -182,7 +182,7 @@ class AutoMLState:
         budget = time_left if sample_size == self.data_size else \
             time_left / 2 * sample_size / self.data_size
 
-        trained_estimator, val_loss, train_loss, time2eval, pred_time = \
+        trained_estimator, val_loss, train_loss, _, pred_time = \
             compute_estimator(
                 sampled_X_train,
                 sampled_y_train,
@@ -203,7 +203,6 @@ class AutoMLState:
                 self.fit_kwargs)
         result = {
             'pred_time': pred_time,
-            'time2eval': time2eval,
             'train_loss': train_loss,
             'val_loss': val_loss,
             'trained_estimator': trained_estimator
@@ -950,7 +949,6 @@ class AutoML:
                 return result
             else:
                 return {'pred_time': 0,
-                        'time2eval': 0,
                         'train_loss': np.inf,
                         'val_loss': np.inf,
                         'trained_estimator': None

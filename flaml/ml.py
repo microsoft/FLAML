@@ -126,7 +126,7 @@ def get_test_loss(
     eval_metric, obj, labels=None, budget=None, train_loss=False, fit_kwargs={}
 ):
     start = time.time()
-    train_time = estimator.fit(X_train, y_train, budget, **fit_kwargs)
+    estimator.fit(X_train, y_train, budget, **fit_kwargs)
     if isinstance(eval_metric, str):
         pred_start = time.time()
         test_pred_y = get_y_pred(estimator, X_test, eval_metric, obj)
