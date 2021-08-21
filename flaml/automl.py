@@ -1281,7 +1281,8 @@ class AutoML:
                 config=self.search_space, metric='val_loss', mode='min',
                 time_budget_s=self._state.time_budget, num_samples=self._max_iter)
         # logger.info([trial.last_result for trial in analysis.trials])
-        trials = sorted((trial for trial in analysis.trials if trial.last_result),
+        trials = sorted((trial for trial in analysis.trials if trial.last_result
+                        and trial.last_result['wall_clock_time'] is not None),
                         key=lambda x: x.last_result['wall_clock_time'])
         for _track_iter, trial in enumerate(trials):
             result = trial.last_result
