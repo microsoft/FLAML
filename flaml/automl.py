@@ -203,6 +203,7 @@ class AutoMLState:
                 self.fit_kwargs)
         result = {
             'pred_time': pred_time,
+            'total_search_time': time.time() - self._start_time_flag,
             'train_loss': train_loss,
             'val_loss': val_loss,
             'trained_estimator': trained_estimator
@@ -949,6 +950,7 @@ class AutoML:
                 return result
             else:
                 return {'pred_time': 0,
+                        'total_search_time': None,
                         'train_loss': np.inf,
                         'val_loss': np.inf,
                         'trained_estimator': None
@@ -1094,7 +1096,7 @@ class AutoML:
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight.
         '''
-        self._start_time_flag = time.time()
+        self._state._start_time_flag = self._start_time_flag = time.time()
         self._state.task = task
         self._state.log_training_metric = log_training_metric
         self._state.fit_kwargs = fit_kwargs
@@ -1289,7 +1291,8 @@ class AutoML:
                 estimator = config.get('ml', config)['learner']
                 search_state = self._search_states[estimator]
                 search_state.update(result, 0, self._save_model_history)
-                self._state.time_from_start = result['time_total_s']
+                if result['total_search_time'] is not None:
+                    self._state.time_from_start = result['total_search_time']
                 if search_state.sample_size == self._state.data_size:
                     self._iter_per_learner[estimator] += 1
                     if not self._fullsize_reached:
@@ -1433,7 +1436,8 @@ class AutoML:
             time_used = time.time() - start_run_time
             better = False
             if analysis.trials:
-                search_state.update(analysis.trials[-1].last_result,
+                result = analysis.trials[-1].last_result
+                search_state.update(result,
                                     time_used=time_used,
                                     save_model_history=self._save_model_history)
                 if self._estimator_index is None:
@@ -1443,7 +1447,8 @@ class AutoML:
                         self._eci.append(self._search_states[e].init_eci
                                          / eci_base * self._eci[0])
                     self._estimator_index = 0
-                self._state.time_from_start = time.time() - self._start_time_flag
+                if result['total_search_time'] is not None:
+                    self._state.time_from_start = result['total_search_time']
                 # logger.info(f"{self._search_states[estimator].sample_size}, {data_size}")
                 if search_state.sample_size == self._state.data_size:
                     self._iter_per_learner[estimator] += 1
