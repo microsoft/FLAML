@@ -2,7 +2,8 @@ import unittest
 
 import numpy as np
 import scipy.sparse
-from sklearn.datasets import load_boston, load_iris, load_wine
+from sklearn.datasets import (
+    load_boston, load_breast_cancer, load_iris, load_wine)
 
 import pandas as pd
 from datetime import datetime
@@ -343,6 +344,32 @@ class TestAutoML(unittest.TestCase):
         from sklearn.metrics import roc_curve, precision_recall_curve
         print(multi_class_curves(y_train, y_pred_proba, roc_curve))
         print(multi_class_curves(y_train, y_pred_proba, precision_recall_curve))
+
+    def test_roc_auc(self):
+        automl_experiment_binary = AutoML()
+        automl_settings = {
+            "time_budget": 2,
+            "metric": "roc_auc",
+            "task": "classification",
+            "log_file_name": "test/roc_auc_binary.log",
+            "log_training_metric": True,
+            "n_jobs": 1,
+            "model_history": True
+        }
+        X_train, y_train = load_breast_cancer(return_X_y=True)
+        automl_experiment_binary.fit(
+            X_train=X_train, y_train=y_train, **automl_settings)
+
+        automl_experiment_multi = AutoML()
+        automl_settings["multi_class"] = "ovr"
+        X_train, y_train = load_iris(return_X_y=True)
+        automl_experiment_multi.fit(
+            X_train=X_train, y_train=y_train, **automl_settings)
+
+        automl_experiment_multi = AutoML()
+        automl_settings["multi_class"] = "ovo"
+        automl_experiment_multi.fit(
+            X_train=X_train, y_train=y_train, **automl_settings)
 
     def test_regression(self):
         automl_experiment = AutoML()
