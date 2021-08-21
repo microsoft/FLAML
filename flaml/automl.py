@@ -1636,6 +1636,9 @@ class AutoML:
                             self.data_size_full)
                     logger.info("retrain {} for {:.1f}s".format(
                         self._best_estimator, retrain_time))
+                    if self._trained_estimator:
+                        logger.info(
+                            f'retrained model: {self._trained_estimator.model}')
                 else:
                     logger.info(
                         "not retraining because the time budget is too small.")
