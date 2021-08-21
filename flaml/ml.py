@@ -51,7 +51,7 @@ def get_estimator_class(task, estimator_name):
 
 def sklearn_metric_loss_score(
     metric_name, y_predict, y_true, labels=None, sample_weight=None,
-    multi_class='raise'
+    multi_class=None
 ):
     '''Loss using the specified metric
 
@@ -65,8 +65,8 @@ def sklearn_metric_loss_score(
         y_true: A 1d numpy array of the true labels
         labels: A 1d numpy array of the unique labels
         sample_weight: A 1d numpy array of the sample weight
-        multi_class: The default value of 'raise' raises an error, so either
-            'ovr' (one-vs-rest) or 'ovo' (one-vs-one) must be passed explicitly
+        multi_class: Only used for multiclass targets. 'ovr' (one-vs-rest) or
+            'ovo' (one-vs-one) must be passed explicitly.
 
     Returns:
         score: A float number of the loss, the lower the better
@@ -136,12 +136,13 @@ def get_test_loss(
         test_pred_y = get_y_pred(estimator, X_test, eval_metric, obj)
         pred_time = (time.time() - pred_start) / X_test.shape[0]
         test_loss = sklearn_metric_loss_score(eval_metric, test_pred_y, y_test,
-                                              labels, weight_test)
+                                              labels, weight_test,
+                                              fit_kwargs.get('multi_class'))
         if train_loss is not False:
             test_pred_y = get_y_pred(estimator, X_train, eval_metric, obj)
             train_loss = sklearn_metric_loss_score(
-                eval_metric, test_pred_y,
-                y_train, labels, fit_kwargs.get('sample_weight'))
+                eval_metric, test_pred_y, y_train, labels,
+                fit_kwargs.get('sample_weight'), fit_kwargs.get('multi_class'))
     else:  # customized metric function
         test_loss, metrics = eval_metric(
             X_test, y_test, estimator, labels, X_train, y_train,
