@@ -377,12 +377,12 @@ def plot_boxplot(console_args):
     import json
 
     partial_jobid_config = JobID()
-    partial_jobid_config.dat = ["glue"]
-    partial_jobid_config.subdat = "rte"
+    partial_jobid_config.dat = ["hate_speech18"]
+    partial_jobid_config.subdat = ""
     partial_jobid_config.mod = "hpo"
     partial_jobid_config.spa = "gnr"
     partial_jobid_config.arg = "dft"
-    partial_jobid_config.alg = "rs"
+    partial_jobid_config.alg = "bs"
     partial_jobid_config.pre_full = "facebook/muppet-roberta-large"
     partial_jobid_config.spt = "rspt"
 
