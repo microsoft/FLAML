@@ -192,6 +192,7 @@ def evaluate_model_CV(
     start_time = time.time()
     total_val_loss = 0
     total_train_loss = None
+    train_loss = None
     train_time = pred_time = 0
     valid_fold_num = total_fold_num = 0
     n = kf.get_n_splits()
