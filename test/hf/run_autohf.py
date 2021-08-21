@@ -169,9 +169,7 @@ def search_base_and_search_around_best(console_args, jobid_config, autohf, wandb
               autohf_settings=get_autohf_settings(args_large, **{"points_to_evaluate": [best_config]}))
 
 
-def evaluate_configs(autohf, console_args):
-    import copy
-    from flaml.nlp.hpo.hpo_searchspace import AutoHPOSearchSpace
+def evaluate_configs(autohf, console_args, points_to_evaluate):
     jobid_config = JobID(console_args)
     autohf.jobid_config = jobid_config
     azure_utils_large = AzureUtils(
@@ -179,33 +177,12 @@ def evaluate_configs(autohf, console_args):
         azure_key_path=console_args.key_path,
         autohf=autohf)
 
-    electra_space = AutoHPOSearchSpace.from_model_and_dataset_name(
-        "grid",
-        "electra",
-        "base",
-        jobid_config.dat,
-        jobid_config.subdat
-    )
-
-    bert_space = AutoHPOSearchSpace.from_model_and_dataset_name(
-        "grid",
-        "bert",
-        "base",
-        jobid_config.dat,
-        jobid_config.subdat
-    )
-
-    for key in list(set(electra_space.keys()).difference(bert_space.keys())):
-        bert_space[key] = electra_space[key]
-
-    bert_space_cartesian = AutoTransformers.cartesian_product(bert_space)
-
     _test_hpo(console_args,
               jobid_config,
               autohf,
               wandb_utils,
               azure_utils_large,
-              autohf_settings=get_autohf_settings(console_args, **{"points_to_evaluate": bert_space_cartesian}))
+              autohf_settings=get_autohf_settings(console_args, **{"points_to_evaluate": points_to_evaluate}))
 
 
 def evaluate_configs_cv(autohf, console_args, cv_k, wandb_utils):
@@ -477,6 +454,18 @@ def _exhaustive_sweep(console_args,
               root_log_path=console_args.root_log_path,
               **{"hpo_space": gridunion_space})
 
+def modelcard_exp(console_args):
+    if "hp1" in console_args.root_log_path:
+        console_args.seed_transformers = 42
+        evaluate_configs(autohf, console_args, [{"learning_rate": 3e-05, "per_device_train_batch_size": 16,
+                                             "num_train_epochs": 10, "warmup_ratio": 0.0,
+                                             "weight_decay": 0.1, "adam_epsilon": 1e-6}])
+    else:
+        console_args.seed_transformers = 41
+        evaluate_configs(autohf, console_args, [{"learning_rate": 1e-05, "per_device_train_batch_size": 32,
+                                             "num_train_epochs": 3, "warmup_ratio": 0.0,
+                                             "weight_decay": 0.0, "adam_epsilon": 1e-8}])
+
 
 if __name__ == "__main__":
     from flaml.nlp.hpo.hpo_searchspace import AutoHPOSearchSpace
@@ -503,16 +492,8 @@ if __name__ == "__main__":
 
     if console_args.algo_mode.endswith("cv"):
         evaluate_configs_cv(autohf, console_args, 10, wandb_utils)
-    else:
+    elif console_args.algo_mode.endswith("hpo"):
         _test_hpo(console_args, jobid_config, autohf, wandb_utils)
+    else:
+        modelcard_exp(console_args)
 
-    # if "hp1" in console_args.root_log_path:
-    #     console_args.seed_transformers = 42
-    #     evaluate_configs(autohf, console_args, [{"learning_rate": 3e-05, "per_device_train_batch_size": 16,
-    #                                          "num_train_epochs": 10, "warmup_ratio": 0.0,
-    #                                          "weight_decay": 0.1, "adam_epsilon": 1e-6}])
-    # else:
-    #     console_args.seed_transformers = 41
-    #     evaluate_configs(autohf, console_args, [{"learning_rate": 1e-05, "per_device_train_batch_size": 32,
-    #                                          "num_train_epochs": 3, "warmup_ratio": 0.0,
-    #                                          "weight_decay": 0.0, "adam_epsilon": 1e-8}])
