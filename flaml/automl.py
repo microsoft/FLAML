@@ -1282,7 +1282,7 @@ class AutoML:
                 time_budget_s=self._state.time_budget, num_samples=self._max_iter)
         # logger.info([trial.last_result for trial in analysis.trials])
         trials = sorted((trial for trial in analysis.trials if trial.last_result),
-                        key=lambda x: x.last_result['time_total_s'])
+                        key=lambda x: x.last_result['wall_clock_time'])
         for _track_iter, trial in enumerate(trials):
             result = trial.last_result
             better = False
