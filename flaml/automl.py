@@ -203,7 +203,7 @@ class AutoMLState:
                 self.fit_kwargs)
         result = {
             'pred_time': pred_time,
-            'total_search_time': time.time() - self._start_time_flag,
+            'wall_clock_time': time.time() - self._start_time_flag,
             'train_loss': train_loss,
             'val_loss': val_loss,
             'trained_estimator': trained_estimator
@@ -730,7 +730,7 @@ class AutoML:
                 best = reader.get_record(record_id)
             else:
                 for record in reader.records():
-                    time_used = record.total_search_time
+                    time_used = record.wall_clock_time
                     if time_used > time_budget:
                         break
                     training_duration = time_used
@@ -950,7 +950,7 @@ class AutoML:
                 return result
             else:
                 return {'pred_time': 0,
-                        'total_search_time': None,
+                        'wall_clock_time': None,
                         'train_loss': np.inf,
                         'val_loss': np.inf,
                         'trained_estimator': None
@@ -1291,8 +1291,8 @@ class AutoML:
                 estimator = config.get('ml', config)['learner']
                 search_state = self._search_states[estimator]
                 search_state.update(result, 0, self._save_model_history)
-                if result['total_search_time'] is not None:
-                    self._state.time_from_start = result['total_search_time']
+                if result['wall_clock_time'] is not None:
+                    self._state.time_from_start = result['wall_clock_time']
                 if search_state.sample_size == self._state.data_size:
                     self._iter_per_learner[estimator] += 1
                     if not self._fullsize_reached:
@@ -1447,8 +1447,8 @@ class AutoML:
                         self._eci.append(self._search_states[e].init_eci
                                          / eci_base * self._eci[0])
                     self._estimator_index = 0
-                if result['total_search_time'] is not None:
-                    self._state.time_from_start = result['total_search_time']
+                if result['wall_clock_time'] is not None:
+                    self._state.time_from_start = result['wall_clock_time']
                 # logger.info(f"{self._search_states[estimator].sample_size}, {data_size}")
                 if search_state.sample_size == self._state.data_size:
                     self._iter_per_learner[estimator] += 1
@@ -1499,7 +1499,7 @@ class AutoML:
                                              search_state.train_loss)
                             mlflow.log_metric('trial_time',
                                               search_state.trial_time)
-                            mlflow.log_metric('total_search_time',
+                            mlflow.log_metric('wall_clock_time',
                                               self._state.time_from_start)
                             mlflow.log_metric('validation_loss',
                                               search_state.val_loss)
