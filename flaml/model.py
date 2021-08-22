@@ -221,10 +221,10 @@ class LGBMEstimator(BaseEstimator):
                 'domain': tune.loguniform(lower=1 / 1024, upper=1.0),
                 'init_value': 0.1,
             },
-            'subsample': {
-                'domain': tune.uniform(lower=0.1, upper=1.0),
-                'init_value': 1.0,
-            },
+            # 'subsample': {
+            #     'domain': tune.uniform(lower=0.1, upper=1.0),
+            #     'init_value': 1.0,
+            # },
             'log_max_bin': {
                 'domain': tune.lograndint(lower=3, upper=11),
                 'init_value': 8,
@@ -273,8 +273,8 @@ class LGBMEstimator(BaseEstimator):
             self.params['max_bin'] = 1 << int(round(log_max_bin)) - 1
         if "verbose" not in self.params:
             self.params['verbose'] = -1
-        if "subsample_freq" not in self.params:
-            self.params['subsample_freq'] = 1
+        # if "subsample_freq" not in self.params:
+        #     self.params['subsample_freq'] = 1
         if 'regression' in task:
             self.estimator_class = LGBMRegressor
         else:
