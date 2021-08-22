@@ -1129,7 +1129,7 @@ class AutoML:
             logger.addHandler(_ch)
         logger.info("Evaluation method: {}".format(eval_method))
 
-        self._retrain_full = retrain_full == 'budget' and (
+        self._retrain_in_budget = retrain_full == 'budget' and (
             eval_method == 'holdout' and self._state.X_val is None)
         self._retrain_final = retrain_full is True and (
             eval_method == 'holdout' and self._state.X_val is None) or (
@@ -1269,17 +1269,12 @@ class AutoML:
         time_left = self._state.time_budget - self._state.time_from_start
         search_alg.set_search_properties(None, None, config={
             'time_budget_s': time_left})
-        if self._state.n_jobs > 1:
-            analysis = ray.tune.run(
-                self.trainable, search_alg=search_alg,
-                config=self.search_space, metric='val_loss', mode='min',
-                resources_per_trial={"cpu": self._state.n_jobs},
-                time_budget_s=self._state.time_budget, num_samples=self._max_iter)
-        else:
-            analysis = ray.tune.run(
-                self.trainable, search_alg=search_alg,
-                config=self.search_space, metric='val_loss', mode='min',
-                time_budget_s=self._state.time_budget, num_samples=self._max_iter)
+        resources_per_trial = {
+            "cpu": self._state.n_jobs} if self._state.n_jobs > 1 else None
+        analysis = ray.tune.run(
+            self.trainable, search_alg=search_alg, config=self.search_space,
+            metric='val_loss', mode='min', resources_per_trial=resources_per_trial,
+            time_budget_s=self._state.time_budget, num_samples=self._max_iter)
         # logger.info([trial.last_result for trial in analysis.trials])
         trials = sorted((trial for trial in analysis.trials if trial.last_result
                         and trial.last_result['wall_clock_time'] is not None),
@@ -1364,7 +1359,7 @@ class AutoML:
             search_state = self._search_states[estimator]
             self._state.time_from_start = time.time() - self._start_time_flag
             time_left = self._state.time_budget - self._state.time_from_start
-            budget_left = time_left if not self._retrain_full or better or (
+            budget_left = time_left if not self._retrain_in_budget or better or (
                 not self.best_estimator) or self._search_states[
                 self.best_estimator].sample_size < self._state.data_size \
                 else time_left - est_retrain_time
@@ -1536,7 +1531,7 @@ class AutoML:
                 if self._estimator_index is not None:
                     self._active_estimators.remove(estimator)
                     self._estimator_index -= 1
-            if self._retrain_full and best_config_sig and est_retrain_time \
+            if self._retrain_in_budget and best_config_sig and est_retrain_time \
                and not better and self._search_states[
                    self._best_estimator].sample_size == self._state.data_size and (
                        est_retrain_time
