@@ -365,12 +365,8 @@ class AutoML:
         '''Predict label from features.
 
         Args:
-            X_test: A numpy array of featurized instances, shape n * m,
-            or a pandas dataframe with one column with timestamp values
-            for 'forecasting' task.
-            freq: str or pandas offset, default=None | The frequency of the
-            time-series.
-
+            X_test: A numpy array of featurized instances, shape n * m.
+            
         Returns:
             A numpy array of shape n * 1 - - each element is a predicted class
             label for an instance.
@@ -381,10 +377,7 @@ class AutoML:
             return None
         X_test = self._preprocess(X_test)
         if self._state.task == 'forecast':
-            X_test_df = pd.DataFrame(X_test)
-            X_test_col = list(X_test.columns)[0]
-            X_test_df = X_test_df.rename(columns={X_test_col: 'ds'})
-            y_pred = self._trained_estimator.predict(X_test_df, freq=freq)
+            y_pred = self._trained_estimator.predict(X_test, freq=freq)
         else:
             y_pred = self._trained_estimator.predict(X_test)
         if y_pred.ndim > 1 and isinstance(y_pred, np.ndarray):
@@ -419,25 +412,6 @@ class AutoML:
 
     def _validate_data(self, X_train_all, y_train_all, dataframe, label,
                        X_val=None, y_val=None):
-        if self._state.task == 'forecast':
-            if dataframe is not None and label is not None:
-                dataframe = dataframe.copy()
-                dataframe = dataframe.rename(columns={label[0]: 'ds', label[1]: 'y'})
-            elif dataframe is not None:
-                if ('ds' not in dataframe) or ('y' not in dataframe):
-                    raise ValueError(
-                        'For forecasting task, Dataframe must have columns "ds" and "y" '
-                        'with the dates and values respectively.'
-                    )
-            elif (X_train_all is not None) and (y_train_all is not None):
-                dataframe = pd.DataFrame(X_train_all)
-                time_col = list(dataframe.columns)[0]
-                dataframe = dataframe.rename(columns={time_col: 'ds'})
-                dataframe['y'] = pd.Series(y_train_all)
-                X_train_all = None
-                y_train_all = None
-            label = 'y'
-
         if X_train_all is not None and y_train_all is not None:
             if not (isinstance(X_train_all, np.ndarray) or issparse(X_train_all)
                     or isinstance(X_train_all, pd.DataFrame)):
@@ -550,8 +524,7 @@ class AutoML:
                     count += rare_count
                 logger.info(
                     f"class {label} augmented from {rare_count} to {count}")
-        SHUFFLE_SPLIT_TYPES = ['uniform', 'stratified']
-        if self._split_type in SHUFFLE_SPLIT_TYPES:
+        if self._split_type != 'time':
             if 'sample_weight' in self._state.fit_kwargs:
                 X_train_all, y_train_all, self._state.fit_kwargs[
                     'sample_weight'] = shuffle(
@@ -698,7 +671,6 @@ class AutoML:
                     learner_name,
                     learner_class):
         '''Add a customized learner
-
         Args:
             learner_name: A string of the learner's name
             learner_class: A subclass of flaml.model.BaseEstimator
@@ -707,14 +679,12 @@ class AutoML:
 
     def get_estimator_from_log(self, log_file_name, record_id, task):
         '''Get the estimator from log file
-
         Args:
             log_file_name: A string of the log file name
             record_id: An integer of the record ID in the file,
                 0 corresponds to the first trial
             task: A string of the task type,
                 'binary', 'multi', or 'regression'
-
         Returns:
             An estimator object for the given configuration
         '''
@@ -747,7 +717,6 @@ class AutoML:
                          record_id=-1,
                          **fit_kwargs):
         '''Retrain from log file
-
         Args:
             time_budget: A float number of the time budget in seconds
             log_file_name: A string of the log file name
@@ -864,7 +833,6 @@ class AutoML:
     def search_space(self) -> dict:
         '''Search space
         Must be called after fit(...) (use max_iter=0 to prevent actual fitting)
-
         Returns:
             A dict of the search space
         '''
@@ -884,7 +852,6 @@ class AutoML:
     @property
     def low_cost_partial_config(self) -> dict:
         '''Low cost partial config
-
         Returns:
             A dict.
             (a) if there is only one estimator in estimator_list, each key is a
@@ -894,7 +861,6 @@ class AutoML:
             to each learner's low_cost_partial_config; the estimator index as
             an integer corresponding to the cheapest learner is appeneded to the
             list at the end.
-
         '''
         if len(self.estimator_list) == 1:
             estimator = self.estimator_list[0]
@@ -914,7 +880,6 @@ class AutoML:
     @property
     def cat_hp_cost(self) -> dict:
         '''Categorical hyperparameter cost
-
         Returns:
             A dict.
             (a) if there is only one estimator in estimator_list, each key is a
@@ -923,7 +888,6 @@ class AutoML:
             a list of the cat_hp_cost's as the value, corresponding
             to each learner's cat_hp_cost; the cost relative to lgbm for each
             learner (as a list itself) is appended to the list at the end.
-
         '''
         if len(self.estimator_list) == 1:
             estimator = self.estimator_list[0]
@@ -943,7 +907,6 @@ class AutoML:
     @property
     def points_to_evalaute(self) -> dict:
         '''Initial points to evaluate
-
         Returns:
             A list of dicts. Each dict is the initial point for each learner
         '''
@@ -960,7 +923,6 @@ class AutoML:
     @property
     def prune_attr(self) -> Optional[str]:
         '''Attribute for pruning
-
         Returns:
             A string for the sample size attribute or None
         '''
@@ -969,7 +931,6 @@ class AutoML:
     @property
     def min_resource(self) -> Optional[float]:
         '''Attribute for pruning
-
         Returns:
             A float for the minimal sample size or None
         '''
@@ -978,7 +939,6 @@ class AutoML:
     @property
     def max_resource(self) -> Optional[float]:
         '''Attribute for pruning
-
         Returns:
             A float for the maximal sample size or None
         '''
@@ -987,7 +947,6 @@ class AutoML:
     @property
     def trainable(self) -> Callable[[dict], Optional[float]]:
         '''Training function
-
         Returns:
             A function that evaluates each config and returns the loss
         '''
@@ -1015,7 +974,6 @@ class AutoML:
     @property
     def size(self) -> Callable[[dict], float]:
         '''Size function
-
         Returns:
             A function that returns the mem size in bytes for a config
         '''
@@ -1031,7 +989,6 @@ class AutoML:
     @property
     def metric_constraints(self) -> list:
         '''Metric constraints
-
         Returns:
             A list of the metric constraints
         '''
@@ -1077,19 +1034,12 @@ class AutoML:
             seed=None,
             **fit_kwargs):
         '''Find a model for a given task
-
         Args:
             X_train: A numpy array or a pandas dataframe of training data in
                 shape (n, m)
-                For 'forecast' task, X_train should be timestamp
             y_train: A numpy array or a pandas series of labels in shape (n,)
-                For 'forecast' task, y_train should be value
             dataframe: A dataframe of training data including label column
-                For 'forecast' task, dataframe must be specified and should
-                have two columns: timestamp and value
-            label: A str of the label column name for 'classification' or
-                'regression' task or a tuple of strings for timestamp and
-                value columns for 'forecasting' task
+            label: A str of the label column name
                 Note: If X_train and y_train are provided,
                 dataframe and label are ignored;
                 If not, dataframe and label must be provided.
@@ -1098,28 +1048,22 @@ class AutoML:
                 'log_loss', 'mae', 'mse', 'r2'
                 if passing a customized metric function, the function needs to
                 have the follwing signature:
-
                 .. code-block:: python
-
                     def custom_metric(
                         X_test, y_test, estimator, labels,
                         X_train, y_train, weight_test=None, weight_train=None
                     ):
                         return metric_to_minimize, metrics_to_log
-
                 which returns a float number as the minimization objective,
                 and a tuple of floats or a dictionary as the metrics to log
             task: A string of the task type, e.g.,
-                'classification', 'regression', 'forecast'
+                'classification', 'regression'
             n_jobs: An integer of the number of threads for training
             log_file_name: A string of the log file name
             estimator_list: A list of strings for estimator names, or 'auto'
                 e.g.,
-
                 .. code-block:: python
-
                     ['lgbm', 'xgboost', 'catboost', 'rf', 'extra_tree']
-
             time_budget: A float number of the time budget in seconds
             max_iter: An integer of the maximal number of iterations
             sample: A boolean of whether to sample the training data during
@@ -1161,8 +1105,8 @@ class AutoML:
                 hyperparamter configurations for the corresponding estimators.
             seed: int or None, default=None | The random seed for np.random.
             **fit_kwargs: Other key word arguments to pass to fit() function of
-                the searched learners, such as sample_weight. Include period as
-                a key word argument for 'forecast' task.
+                the searched learners, such as sample_weight. Include period and
+                freq as key word arguments for forecast task.
         '''
         self._start_time_flag = time.time()
         self._state.task = task
@@ -1170,6 +1114,15 @@ class AutoML:
         self._state.fit_kwargs = fit_kwargs
         self._state.weight_val = sample_weight_val
         self._state.groups = groups
+
+        if self._state.task == 'forecast':
+            if dataframe is not None:
+                if ('ds' not in dataframe) or ('y' not in dataframe):
+                    raise ValueError(
+                        'Dataframe must have columns "ds" and "y" with the dates and '
+                        'values respectively.'
+                    )
+                label = 'y'
 
         self._validate_data(X_train, y_train, dataframe, label, X_val, y_val)
         self._search_states = {}  # key: estimator name; value: SearchState
@@ -1192,11 +1145,9 @@ class AutoML:
             else:
                 self._split_type = "uniform"
         elif self._state.task == 'forecast':
-            if split_type is not None and split_type != 'time':
-                    raise ValueError("split_type must be 'time' when task is 'forecast'. ")
             self._split_type = "time"
         if self._state.task == 'forecast' and self._state.fit_kwargs.get('period') is None:
-            raise TypeError("missing 1 required argument for 'forecast' task: 'period'. ")
+            raise TypeError("missing 1 required argument for 'forecast' task: 'period' ")
         if eval_method == 'auto' or self._state.X_val is not None:
             eval_method = self._decide_eval_method(time_budget)
         self._state.eval_method = eval_method
