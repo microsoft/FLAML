@@ -50,23 +50,20 @@ def get_estimator_class(task, estimator_name):
 
 
 def sklearn_metric_loss_score(
-    metric_name, y_predict, y_true, labels=None, sample_weight=None,
-    multi_class=None
+    metric_name, y_predict, y_true, labels=None, sample_weight=None
 ):
     '''Loss using the specified metric
 
     Args:
         metric_name: A string of the metric name, one of
-            'r2', 'rmse', 'mae', 'mse', 'accuracy', 'roc_auc', 'log_loss',
-            'f1', 'ap', 'micro_f1', 'macro_f1'
+            'r2', 'rmse', 'mae', 'mse', 'accuracy', 'roc_auc', 'roc_auc_ovr',
+            'roc_auc_ovo', 'log_loss', 'f1', 'ap', 'micro_f1', 'macro_f1'
         y_predict: A 1d or 2d numpy array of the predictions which can be
             used to calculate the metric. E.g., 2d for log_loss and 1d
             for others.
         y_true: A 1d numpy array of the true labels
         labels: A 1d numpy array of the unique labels
         sample_weight: A 1d numpy array of the sample weight
-        multi_class: Only used for multiclass targets. 'ovr' (one-vs-rest) or
-            'ovo' (one-vs-one) must be passed explicitly.
 
     Returns:
         score: A float number of the loss, the lower the better
@@ -86,10 +83,15 @@ def sklearn_metric_loss_score(
     elif metric_name == 'accuracy':
         score = 1.0 - accuracy_score(
             y_true, y_predict, sample_weight=sample_weight)
-    elif 'roc_auc' in metric_name:
+    elif metric_name == 'roc_auc':
         score = 1.0 - roc_auc_score(
-            y_true, y_predict, sample_weight=sample_weight,
-            multi_class=multi_class)
+            y_true, y_predict, sample_weight=sample_weight)
+    elif metric_name == 'roc_auc_ovr':
+        score = 1.0 - roc_auc_score(
+            y_true, y_predict, sample_weight=sample_weight, multi_class='ovr')
+    elif metric_name == 'roc_auc_ovo':
+        score = 1.0 - roc_auc_score(
+            y_true, y_predict, sample_weight=sample_weight, multi_class='ovo')
     elif 'log_loss' in metric_name:
         score = log_loss(
             y_true, y_predict, labels=labels, sample_weight=sample_weight)
@@ -118,7 +120,7 @@ def get_y_pred(estimator, X, eval_metric, obj):
         y_pred_classes = estimator.predict_proba(X)
         y_pred = y_pred_classes[
             :, 1] if y_pred_classes.ndim > 1 else y_pred_classes
-    elif eval_metric in ['log_loss', 'roc_auc']:
+    elif eval_metric in ['log_loss', 'roc_auc', 'roc_auc_ovr', 'roc_auc_ovo']:
         y_pred = estimator.predict_proba(X)
     else:
         y_pred = estimator.predict(X)
@@ -136,13 +138,12 @@ def get_test_loss(
         test_pred_y = get_y_pred(estimator, X_test, eval_metric, obj)
         pred_time = (time.time() - pred_start) / X_test.shape[0]
         test_loss = sklearn_metric_loss_score(eval_metric, test_pred_y, y_test,
-                                              labels, weight_test,
-                                              fit_kwargs.get('multi_class'))
+                                              labels, weight_test)
         if train_loss is not False:
             test_pred_y = get_y_pred(estimator, X_train, eval_metric, obj)
             train_loss = sklearn_metric_loss_score(
-                eval_metric, test_pred_y, y_train, labels,
-                fit_kwargs.get('sample_weight'), fit_kwargs.get('multi_class'))
+                eval_metric, test_pred_y,
+                y_train, labels, fit_kwargs.get('sample_weight'))
     else:  # customized metric function
         test_loss, metrics = eval_metric(
             X_test, y_test, estimator, labels, X_train, y_train,
