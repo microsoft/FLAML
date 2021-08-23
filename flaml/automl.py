@@ -1034,7 +1034,7 @@ class AutoML:
                 which returns a float number as the minimization objective,
                 and a tuple of floats or a dictionary as the metrics to log.
             task: A string of the task type, e.g.,
-                'classification', 'regression', 'forecast'.
+                'classification', 'regression'.
             n_jobs: An integer of the number of threads for training.
             log_file_name: A string of the log file name.
             estimator_list: A list of strings for estimator names, or 'auto'
