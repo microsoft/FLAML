@@ -163,7 +163,7 @@
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">scipy.sparse</span> <span class="kn">import</span> <span class="n">issparse</span>
 <span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">train_test_split</span><span class="p">,</span> <span class="n">RepeatedStratifiedKFold</span><span class="p">,</span> \
-    <span class="n">RepeatedKFold</span><span class="p">,</span> <span class="n">GroupKFold</span>
+    <span class="n">RepeatedKFold</span><span class="p">,</span> <span class="n">GroupKFold</span><span class="p">,</span> <span class="n">TimeSeriesSplit</span>
 <span class="kn">from</span> <span class="nn">sklearn.utils</span> <span class="kn">import</span> <span class="n">shuffle</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 
@@ -178,6 +178,7 @@
 <span class="kn">from</span> <span class="nn">.training_log</span> <span class="kn">import</span> <span class="n">training_log_reader</span><span class="p">,</span> <span class="n">training_log_writer</span>
 
 <span class="kn">import</span> <span class="nn">logging</span>
+
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 <span class="n">logger_formatter</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">(</span>
     <span class="s1">&#39;[</span><span class="si">%(name)s</span><span class="s1">: </span><span class="si">%(asctime)s</span><span class="s1">] {</span><span class="si">%(lineno)d</span><span class="s1">} </span><span class="si">%(levelname)s</span><span class="s1"> - </span><span class="si">%(message)s</span><span class="s1">&#39;</span><span class="p">,</span>
@@ -513,11 +514,15 @@
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trained_estimator</span><span class="o">.</span><span class="n">classes_</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
         <span class="k">return</span> <span class="kc">None</span>
 
-<div class="viewcode-block" id="AutoML.predict"><a class="viewcode-back" href="../../index.html#flaml.AutoML.predict">[docs]</a>    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X_test</span><span class="p">):</span>
+<div class="viewcode-block" id="AutoML.predict"><a class="viewcode-back" href="../../index.html#flaml.AutoML.predict">[docs]</a>    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X_test</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;Predict label from features.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            X_test: A numpy array of featurized instances, shape n * m.</span>
+<span class="sd">            X_test: A numpy array of featurized instances, shape n * m,</span>
+<span class="sd">            or a pandas dataframe with one column with timestamp values</span>
+<span class="sd">            for &#39;forecasting&#39; task.</span>
+<span class="sd">            freq: str or pandas offset, default=None | The frequency of the</span>
+<span class="sd">            time-series.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            A numpy array of shape n * 1 - - each element is a predicted class</span>
@@ -528,8 +533,14 @@
                 <span class="s2">&quot;No estimator is trained. Please run fit with enough budget.&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">None</span>
         <span class="n">X_test</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preprocess</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
-        <span class="n">y_pred</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trained_estimator</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">y_pred</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s1">&#39;forecast&#39;</span><span class="p">:</span>
+            <span class="n">X_test_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
+            <span class="n">X_test_col</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">X_test</span><span class="o">.</span><span class="n">columns</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">X_test_df</span> <span class="o">=</span> <span class="n">X_test_df</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="n">X_test_col</span><span class="p">:</span> <span class="s1">&#39;ds&#39;</span><span class="p">})</span>
+            <span class="n">y_pred</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trained_estimator</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test_df</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="n">freq</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">y_pred</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trained_estimator</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">y_pred</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
             <span class="n">y_pred</span> <span class="o">=</span> <span class="n">y_pred</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label_transformer</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label_transformer</span><span class="o">.</span><span class="n">inverse_transform</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span>
@@ -561,6 +572,25 @@
 
     <span class="k">def</span> <span class="nf">_validate_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X_train_all</span><span class="p">,</span> <span class="n">y_train_all</span><span class="p">,</span> <span class="n">dataframe</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span>
                        <span class="n">X_val</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y_val</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s1">&#39;forecast&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">dataframe</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">label</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">dataframe</span> <span class="o">=</span> <span class="n">dataframe</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                <span class="n">dataframe</span> <span class="o">=</span> <span class="n">dataframe</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="n">label</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="s1">&#39;ds&#39;</span><span class="p">,</span> <span class="n">label</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="s1">&#39;y&#39;</span><span class="p">})</span>
+            <span class="k">elif</span> <span class="n">dataframe</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;ds&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dataframe</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="s1">&#39;y&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dataframe</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s1">&#39;For forecasting task, Dataframe must have columns &quot;ds&quot; and &quot;y&quot; &#39;</span>
+                        <span class="s1">&#39;with the dates and values respectively.&#39;</span>
+                    <span class="p">)</span>
+            <span class="k">elif</span> <span class="p">(</span><span class="n">X_train_all</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">y_train_all</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>
+                <span class="n">dataframe</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">X_train_all</span><span class="p">)</span>
+                <span class="n">time_col</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">dataframe</span><span class="o">.</span><span class="n">columns</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">dataframe</span> <span class="o">=</span> <span class="n">dataframe</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="n">time_col</span><span class="p">:</span> <span class="s1">&#39;ds&#39;</span><span class="p">})</span>
+                <span class="n">dataframe</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">y_train_all</span><span class="p">)</span>
+                <span class="n">X_train_all</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">y_train_all</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="s1">&#39;y&#39;</span>
+
         <span class="k">if</span> <span class="n">X_train_all</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">y_train_all</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">X_train_all</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="ow">or</span> <span class="n">issparse</span><span class="p">(</span><span class="n">X_train_all</span><span class="p">)</span>
                     <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">X_train_all</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)):</span>
@@ -593,7 +623,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;either X_train+y_train or dataframe+label are required&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">issparse</span><span class="p">(</span><span class="n">X_train_all</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">issparse</span><span class="p">(</span><span class="n">X_train_all</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s1">&#39;forecast&#39;</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_transformer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label_transformer</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_X_train_all</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_y_train_all</span> <span class="o">=</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span>
         <span class="k">else</span><span class="p">:</span>
@@ -635,7 +665,8 @@
     <span class="k">def</span> <span class="nf">_prepare_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
                       <span class="n">eval_method</span><span class="p">,</span>
                       <span class="n">split_ratio</span><span class="p">,</span>
-                      <span class="n">n_splits</span><span class="p">):</span>
+                      <span class="n">n_splits</span><span class="p">,</span>
+                      <span class="n">period</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">X_val</span><span class="p">,</span> <span class="n">y_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">X_val</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">y_val</span>
         <span class="k">if</span> <span class="n">issparse</span><span class="p">(</span><span class="n">X_val</span><span class="p">):</span>
             <span class="n">X_val</span> <span class="o">=</span> <span class="n">X_val</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
@@ -643,8 +674,9 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_X_train_all</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_y_train_all</span>
         <span class="k">if</span> <span class="n">issparse</span><span class="p">(</span><span class="n">X_train_all</span><span class="p">):</span>
             <span class="n">X_train_all</span> <span class="o">=</span> <span class="n">X_train_all</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">!=</span> <span class="s1">&#39;regression&#39;</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-                <span class="s1">&#39;sample_weight&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s1">&#39;binary:logistic&#39;</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s1">&#39;multi:softmax&#39;</span><span class="p">)</span> \
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;sample_weight&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span> \
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="o">!=</span> <span class="s1">&#39;time&#39;</span><span class="p">:</span>
             <span class="c1"># logger.info(f&quot;label {pd.unique(y_train_all)}&quot;)</span>
             <span class="n">label_set</span><span class="p">,</span> <span class="n">counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">y_train_all</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="c1"># augment rare classes</span>
@@ -671,19 +703,21 @@
                     <span class="n">count</span> <span class="o">+=</span> <span class="n">rare_count</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;class </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2"> augmented from </span><span class="si">{</span><span class="n">rare_count</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="s1">&#39;sample_weight&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">:</span>
-            <span class="n">X_train_all</span><span class="p">,</span> <span class="n">y_train_all</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span>
-                <span class="s1">&#39;sample_weight&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">shuffle</span><span class="p">(</span>
+        <span class="n">SHUFFLE_SPLIT_TYPES</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;uniform&#39;</span><span class="p">,</span> <span class="s1">&#39;stratified&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="ow">in</span> <span class="n">SHUFFLE_SPLIT_TYPES</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;sample_weight&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">:</span>
+                <span class="n">X_train_all</span><span class="p">,</span> <span class="n">y_train_all</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span>
+                    <span class="s1">&#39;sample_weight&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">shuffle</span><span class="p">(</span>
                     <span class="n">X_train_all</span><span class="p">,</span> <span class="n">y_train_all</span><span class="p">,</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s1">&#39;sample_weight&#39;</span><span class="p">],</span>
                     <span class="n">random_state</span><span class="o">=</span><span class="n">RANDOM_SEED</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="p">,</span> <span class="s1">&#39;groups&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">groups</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">X_train_all</span><span class="p">,</span> <span class="n">y_train_all</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">groups</span> <span class="o">=</span> <span class="n">shuffle</span><span class="p">(</span>
-                <span class="n">X_train_all</span><span class="p">,</span> <span class="n">y_train_all</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">groups</span><span class="p">,</span>
-                <span class="n">random_state</span><span class="o">=</span><span class="n">RANDOM_SEED</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">X_train_all</span><span class="p">,</span> <span class="n">y_train_all</span> <span class="o">=</span> <span class="n">shuffle</span><span class="p">(</span>
-                <span class="n">X_train_all</span><span class="p">,</span> <span class="n">y_train_all</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="n">RANDOM_SEED</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="p">,</span> <span class="s1">&#39;groups&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">groups</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">X_train_all</span><span class="p">,</span> <span class="n">y_train_all</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">groups</span> <span class="o">=</span> <span class="n">shuffle</span><span class="p">(</span>
+                    <span class="n">X_train_all</span><span class="p">,</span> <span class="n">y_train_all</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">groups</span><span class="p">,</span>
+                    <span class="n">random_state</span><span class="o">=</span><span class="n">RANDOM_SEED</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">X_train_all</span><span class="p">,</span> <span class="n">y_train_all</span> <span class="o">=</span> <span class="n">shuffle</span><span class="p">(</span>
+                    <span class="n">X_train_all</span><span class="p">,</span> <span class="n">y_train_all</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="n">RANDOM_SEED</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_df</span><span class="p">:</span>
             <span class="n">X_train_all</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">y_train_all</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">):</span>
@@ -692,7 +726,31 @@
         <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span> <span class="o">=</span> <span class="n">X_train_all</span><span class="p">,</span> <span class="n">y_train_all</span>
         <span class="k">if</span> <span class="n">X_val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># if eval_method = holdout, make holdout data</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">!=</span> <span class="s1">&#39;regression&#39;</span> <span class="ow">and</span> <span class="n">eval_method</span> <span class="o">==</span> <span class="s1">&#39;holdout&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">eval_method</span> <span class="o">==</span> <span class="s1">&#39;holdout&#39;</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="o">==</span> <span class="s1">&#39;time&#39;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="s1">&#39;period&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">:</span>
+                    <span class="n">num_samples</span> <span class="o">=</span> <span class="n">X_train_all</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">split_idx</span> <span class="o">=</span> <span class="n">num_samples</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;period&#39;</span><span class="p">)</span>
+                    <span class="n">X_train</span> <span class="o">=</span> <span class="n">X_train_all</span><span class="p">[:</span><span class="n">split_idx</span><span class="p">]</span>
+                    <span class="n">y_train</span> <span class="o">=</span> <span class="n">y_train_all</span><span class="p">[:</span><span class="n">split_idx</span><span class="p">]</span>
+                    <span class="n">X_val</span> <span class="o">=</span> <span class="n">X_train_all</span><span class="p">[</span><span class="n">split_idx</span><span class="p">:]</span>
+                    <span class="n">y_val</span> <span class="o">=</span> <span class="n">y_train_all</span><span class="p">[</span><span class="n">split_idx</span><span class="p">:]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="s1">&#39;sample_weight&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">:</span>
+                        <span class="n">X_train</span><span class="p">,</span> <span class="n">X_val</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">y_val</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span>
+                            <span class="s1">&#39;sample_weight&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">weight_val</span> <span class="o">=</span> \
+                            <span class="n">train_test_split</span><span class="p">(</span>
+                                <span class="n">X_train_all</span><span class="p">,</span>
+                                <span class="n">y_train_all</span><span class="p">,</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s1">&#39;sample_weight&#39;</span><span class="p">],</span>
+                                <span class="n">test_size</span><span class="o">=</span><span class="n">split_ratio</span><span class="p">,</span>
+                                <span class="n">shuffle</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">X_train</span><span class="p">,</span> <span class="n">X_val</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">y_val</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span>
+                            <span class="n">X_train_all</span><span class="p">,</span>
+                            <span class="n">y_train_all</span><span class="p">,</span>
+                            <span class="n">test_size</span><span class="o">=</span><span class="n">split_ratio</span><span class="p">,</span>
+                            <span class="n">shuffle</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">!=</span> <span class="s1">&#39;regression&#39;</span> <span class="ow">and</span> <span class="n">eval_method</span> <span class="o">==</span> <span class="s1">&#39;holdout&#39;</span><span class="p">:</span>
                 <span class="c1"># for classification, make sure the labels are complete in both</span>
                 <span class="c1"># training and validation data</span>
                 <span class="n">label_set</span><span class="p">,</span> <span class="n">first</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">y_train_all</span><span class="p">,</span> <span class="n">return_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -777,6 +835,13 @@
                 <span class="sa">f</span><span class="s2">&quot;requires input data with at least </span><span class="si">{</span><span class="n">n_splits</span><span class="o">*</span><span class="mi">2</span><span class="si">}</span><span class="s2"> examples.&quot;</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">kf</span> <span class="o">=</span> <span class="n">RepeatedStratifiedKFold</span><span class="p">(</span>
                 <span class="n">n_splits</span><span class="o">=</span><span class="n">n_splits</span><span class="p">,</span> <span class="n">n_repeats</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="n">RANDOM_SEED</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="o">==</span> <span class="s2">&quot;time&quot;</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using TimeSeriesSplit&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s1">&#39;forecast&#39;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">kf</span> <span class="o">=</span> <span class="n">TimeSeriesSplit</span><span class="p">(</span>
+                    <span class="n">n_splits</span><span class="o">=</span><span class="n">n_splits</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;period&#39;</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">kf</span> <span class="o">=</span> <span class="n">TimeSeriesSplit</span><span class="p">(</span><span class="n">n_splits</span><span class="o">=</span><span class="n">n_splits</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using RepeatedKFold&quot;</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">kf</span> <span class="o">=</span> <span class="n">RepeatedKFold</span><span class="p">(</span>
@@ -915,10 +980,15 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s1">&#39;classification&#39;</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">=</span> <span class="n">get_classification_objective</span><span class="p">(</span>
                 <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_y_train_all</span><span class="p">)))</span>
-            <span class="k">assert</span> <span class="n">split_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;stratified&quot;</span><span class="p">,</span> <span class="s2">&quot;uniform&quot;</span><span class="p">]</span>
+            <span class="k">assert</span> <span class="n">split_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;stratified&quot;</span><span class="p">,</span> <span class="s2">&quot;uniform&quot;</span><span class="p">,</span> <span class="s2">&quot;time&quot;</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="o">=</span> <span class="n">split_type</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="o">=</span> <span class="s2">&quot;uniform&quot;</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s1">&#39;regression&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">split_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;uniform&quot;</span><span class="p">,</span> <span class="s2">&quot;time&quot;</span><span class="p">]:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="o">=</span> <span class="n">split_type</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="o">=</span> <span class="s2">&quot;uniform&quot;</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s1">&#39;forecast&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="o">=</span> <span class="s2">&quot;time&quot;</span>
         <span class="k">if</span> <span class="n">record_id</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">eval_method</span> <span class="o">=</span> <span class="s1">&#39;cv&#39;</span>
         <span class="k">elif</span> <span class="n">eval_method</span> <span class="o">==</span> <span class="s1">&#39;auto&#39;</span><span class="p">:</span>
@@ -1164,15 +1234,22 @@
 <span class="sd">        Args:</span>
 <span class="sd">            X_train: A numpy array or a pandas dataframe of training data in</span>
 <span class="sd">                shape (n, m)</span>
+<span class="sd">                For &#39;forecast&#39; task, X_train should be timestamp</span>
 <span class="sd">            y_train: A numpy array or a pandas series of labels in shape (n,)</span>
+<span class="sd">                For &#39;forecast&#39; task, y_train should be value</span>
 <span class="sd">            dataframe: A dataframe of training data including label column</span>
-<span class="sd">            label: A str of the label column name</span>
+<span class="sd">                For &#39;forecast&#39; task, dataframe must be specified and should</span>
+<span class="sd">                have two columns: timestamp and value</span>
+<span class="sd">            label: A str of the label column name for &#39;classification&#39; or</span>
+<span class="sd">                &#39;regression&#39; task or a tuple of strings for timestamp and</span>
+<span class="sd">                value columns for &#39;forecasting&#39; task</span>
 <span class="sd">                Note: If X_train and y_train are provided,</span>
 <span class="sd">                dataframe and label are ignored;</span>
 <span class="sd">                If not, dataframe and label must be provided.</span>
 <span class="sd">            metric: A string of the metric name or a function,</span>
 <span class="sd">                e.g., &#39;accuracy&#39;, &#39;roc_auc&#39;, &#39;roc_auc_ovr&#39;, &#39;roc_auc_ovo&#39;,</span>
-<span class="sd">                &#39;f1&#39;, &#39;micro_f1&#39;, &#39;macro_f1&#39;, &#39;log_loss&#39;, &#39;mae&#39;, &#39;mse&#39;, &#39;r2&#39;</span>
+<span class="sd">                &#39;f1&#39;, &#39;micro_f1&#39;, &#39;macro_f1&#39;, &#39;log_loss&#39;, &#39;mape&#39;, &#39;mae&#39;, &#39;mse&#39;, &#39;r2&#39;</span>
+<span class="sd">                for &#39;forecast&#39; task, use &#39;mape&#39;</span>
 <span class="sd">                if passing a customized metric function, the function needs to</span>
 <span class="sd">                have the follwing signature:</span>
 
@@ -1187,7 +1264,7 @@
 <span class="sd">                which returns a float number as the minimization objective,</span>
 <span class="sd">                and a tuple of floats or a dictionary as the metrics to log</span>
 <span class="sd">            task: A string of the task type, e.g.,</span>
-<span class="sd">                &#39;classification&#39;, &#39;regression&#39;</span>
+<span class="sd">                &#39;classification&#39;, &#39;regression&#39;, &#39;forecast&#39;</span>
 <span class="sd">            n_jobs: An integer of the number of threads for training</span>
 <span class="sd">            log_file_name: A string of the log file name</span>
 <span class="sd">            estimator_list: A list of strings for estimator names, or &#39;auto&#39;</span>
@@ -1238,7 +1315,8 @@
 <span class="sd">                hyperparamter configurations for the corresponding estimators.</span>
 <span class="sd">            seed: int or None, default=None | The random seed for np.random.</span>
 <span class="sd">            **fit_kwargs: Other key word arguments to pass to fit() function of</span>
-<span class="sd">                the searched learners, such as sample_weight.</span>
+<span class="sd">                the searched learners, such as sample_weight. Include period as</span>
+<span class="sd">                a key word argument for &#39;forecast&#39; task.</span>
 <span class="sd">        &#39;&#39;&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_start_time_flag</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">=</span> <span class="n">task</span>
@@ -1246,6 +1324,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span> <span class="o">=</span> <span class="n">fit_kwargs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">weight_val</span> <span class="o">=</span> <span class="n">sample_weight_val</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">groups</span> <span class="o">=</span> <span class="n">groups</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_data</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">dataframe</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">X_val</span><span class="p">,</span> <span class="n">y_val</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># key: estimator name; value: SearchState</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_random</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="n">RANDOM_SEED</span><span class="p">)</span>
@@ -1259,10 +1338,19 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s1">&#39;classification&#39;</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">=</span> <span class="n">get_classification_objective</span><span class="p">(</span>
                 <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_y_train_all</span><span class="p">)))</span>
-            <span class="k">assert</span> <span class="n">split_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;stratified&quot;</span><span class="p">,</span> <span class="s2">&quot;uniform&quot;</span><span class="p">]</span>
+            <span class="k">assert</span> <span class="n">split_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;stratified&quot;</span><span class="p">,</span> <span class="s2">&quot;uniform&quot;</span><span class="p">,</span> <span class="s2">&quot;time&quot;</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="o">=</span> <span class="n">split_type</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="o">=</span> <span class="s2">&quot;uniform&quot;</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s1">&#39;regression&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">split_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;uniform&quot;</span><span class="p">,</span> <span class="s2">&quot;time&quot;</span><span class="p">]:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="o">=</span> <span class="n">split_type</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="o">=</span> <span class="s2">&quot;uniform&quot;</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s1">&#39;forecast&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">split_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">split_type</span> <span class="o">!=</span> <span class="s1">&#39;time&#39;</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;split_type must be &#39;time&#39; when task is &#39;forecast&#39;. &quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="o">=</span> <span class="s2">&quot;time&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s1">&#39;forecast&#39;</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;period&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;missing 1 required argument for &#39;forecast&#39; task: &#39;period&#39;. &quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">eval_method</span> <span class="o">==</span> <span class="s1">&#39;auto&#39;</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">X_val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">eval_method</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_decide_eval_method</span><span class="p">(</span><span class="n">time_budget</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">eval_method</span> <span class="o">=</span> <span class="n">eval_method</span>
@@ -1275,7 +1363,11 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_retrain_full</span> <span class="o">=</span> <span class="n">retrain_full</span> <span class="ow">and</span> <span class="p">(</span>
             <span class="n">eval_method</span> <span class="o">==</span> <span class="s1">&#39;holdout&#39;</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">X_val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_data</span><span class="p">(</span><span class="n">eval_method</span><span class="p">,</span> <span class="n">split_ratio</span><span class="p">,</span> <span class="n">n_splits</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">!=</span> <span class="s1">&#39;forecast&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_data</span><span class="p">(</span><span class="n">eval_method</span><span class="p">,</span> <span class="n">split_ratio</span><span class="p">,</span> <span class="n">n_splits</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_data</span><span class="p">(</span><span class="n">eval_method</span><span class="p">,</span> <span class="n">split_ratio</span><span class="p">,</span> <span class="n">n_splits</span><span class="p">,</span>
+                               <span class="n">period</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;period&#39;</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_sample</span> <span class="o">=</span> <span class="n">sample</span> <span class="ow">and</span> <span class="n">eval_method</span> <span class="o">!=</span> <span class="s1">&#39;cv&#39;</span> <span class="ow">and</span> <span class="p">(</span>
             <span class="n">MIN_SAMPLE_TRAIN</span> <span class="o">*</span> <span class="n">SAMPLE_MULTIPLY_FACTOR</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">data_size</span><span class="p">)</span>
         <span class="k">if</span> <span class="s1">&#39;auto&#39;</span> <span class="o">==</span> <span class="n">metric</span><span class="p">:</span>
@@ -1283,6 +1375,8 @@
                 <span class="n">metric</span> <span class="o">=</span> <span class="s1">&#39;roc_auc&#39;</span>
             <span class="k">elif</span> <span class="s1">&#39;multi&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span><span class="p">:</span>
                 <span class="n">metric</span> <span class="o">=</span> <span class="s1">&#39;log_loss&#39;</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s1">&#39;forecast&#39;</span><span class="p">:</span>
+                <span class="n">metric</span> <span class="o">=</span> <span class="s1">&#39;mape&#39;</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">metric</span> <span class="o">=</span> <span class="s1">&#39;r2&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">metric</span> <span class="o">=</span> <span class="n">metric</span>
@@ -1299,6 +1393,8 @@
             <span class="n">estimator_list</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;lgbm&#39;</span><span class="p">,</span> <span class="s1">&#39;rf&#39;</span><span class="p">,</span> <span class="s1">&#39;catboost&#39;</span><span class="p">,</span> <span class="s1">&#39;xgboost&#39;</span><span class="p">,</span> <span class="s1">&#39;extra_tree&#39;</span><span class="p">]</span>
             <span class="k">if</span> <span class="s1">&#39;regression&#39;</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span><span class="p">:</span>
                 <span class="n">estimator_list</span> <span class="o">+=</span> <span class="p">[</span><span class="s1">&#39;lrl1&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s1">&#39;forecast&#39;</span><span class="p">:</span>
+                <span class="n">estimator_list</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;fbprophet&#39;</span><span class="p">,</span> <span class="s1">&#39;arima&#39;</span><span class="p">,</span> <span class="s1">&#39;sarimax&#39;</span><span class="p">]</span>
         <span class="k">for</span> <span class="n">estimator_name</span> <span class="ow">in</span> <span class="n">estimator_list</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">estimator_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">learner_classes</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">add_learner</span><span class="p">(</span>
@@ -1390,7 +1486,7 @@
         <span class="k">elif</span> <span class="s1">&#39;bs&#39;</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hpo_method</span><span class="p">:</span>
             <span class="kn">from</span> <span class="nn">flaml</span> <span class="kn">import</span> <span class="n">BlendSearch</span> <span class="k">as</span> <span class="n">SearchAlgo</span>
         <span class="k">elif</span> <span class="s1">&#39;cfocat&#39;</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hpo_method</span><span class="p">:</span>
-            <span class="kn">from</span> <span class="nn">flaml</span> <span class="kn">import</span> <span class="n">CFOCat</span> <span class="k">as</span> <span class="n">SearchAlgo</span>
+            <span class="kn">from</span> <span class="nn">flaml.searcher.cfo_cat</span> <span class="kn">import</span> <span class="n">CFOCat</span> <span class="k">as</span> <span class="n">SearchAlgo</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;hpo_method=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_hpo_method</span><span class="si">}</span><span class="s2"> is not recognized. &quot;</span>

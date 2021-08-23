@@ -287,16 +287,23 @@ model is updated each time.</p>
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>X_train</strong> – A numpy array or a pandas dataframe of training data in
-shape (n, m)</p></li>
-<li><p><strong>y_train</strong> – A numpy array or a pandas series of labels in shape (n,)</p></li>
-<li><p><strong>dataframe</strong> – A dataframe of training data including label column</p></li>
-<li><p><strong>label</strong> – A str of the label column name
+shape (n, m)
+For ‘forecast’ task, X_train should be timestamp</p></li>
+<li><p><strong>y_train</strong> – A numpy array or a pandas series of labels in shape (n,)
+For ‘forecast’ task, y_train should be value</p></li>
+<li><p><strong>dataframe</strong> – A dataframe of training data including label column
+For ‘forecast’ task, dataframe must be specified and should
+have two columns: timestamp and value</p></li>
+<li><p><strong>label</strong> – A str of the label column name for ‘classification’ or
+‘regression’ task or a tuple of strings for timestamp and
+value columns for ‘forecasting’ task
 Note: If X_train and y_train are provided,
 dataframe and label are ignored;
 If not, dataframe and label must be provided.</p></li>
 <li><p><strong>metric</strong> – <p>A string of the metric name or a function,
 e.g., ‘accuracy’, ‘roc_auc’, ‘roc_auc_ovr’, ‘roc_auc_ovo’,
-‘f1’, ‘micro_f1’, ‘macro_f1’, ‘log_loss’, ‘mae’, ‘mse’, ‘r2’
+‘f1’, ‘micro_f1’, ‘macro_f1’, ‘log_loss’, ‘mape’, ‘mae’, ‘mse’, ‘r2’
+for ‘forecast’ task, use ‘mape’
 if passing a customized metric function, the function needs to
 have the follwing signature:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">custom_metric</span><span class="p">(</span>
@@ -310,7 +317,7 @@ have the follwing signature:</p>
 and a tuple of floats or a dictionary as the metrics to log</p>
 </p></li>
 <li><p><strong>task</strong> – A string of the task type, e.g.,
-‘classification’, ‘regression’</p></li>
+‘classification’, ‘regression’, ‘forecast’</p></li>
 <li><p><strong>n_jobs</strong> – An integer of the number of threads for training</p></li>
 <li><p><strong>log_file_name</strong> – A string of the log file name</p></li>
 <li><p><strong>estimator_list</strong> – <p>A list of strings for estimator names, or ‘auto’
@@ -360,7 +367,8 @@ Keys are the name of the estimators, and values are the starting
 hyperparamter configurations for the corresponding estimators.</p></li>
 <li><p><strong>seed</strong> – int or None, default=None | The random seed for np.random.</p></li>
 <li><p><strong>**fit_kwargs</strong> – Other key word arguments to pass to fit() function of
-the searched learners, such as sample_weight.</p></li>
+the searched learners, such as sample_weight. Include period as
+a key word argument for ‘forecast’ task.</p></li>
 </ul>
 </dd>
 </dl>
@@ -464,11 +472,17 @@ the best model is updated each time.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="flaml.AutoML.predict">
-<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X_test</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/automl.html#AutoML.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.AutoML.predict" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X_test</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freq</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/automl.html#AutoML.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.AutoML.predict" title="Permalink to this definition">¶</a></dt>
 <dd><p>Predict label from features.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>X_test</strong> – A numpy array of featurized instances, shape n * m.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X_test</strong> – A numpy array of featurized instances, shape n * m,</p></li>
+<li><p><strong>values</strong> (<em>or a pandas dataframe with one column with timestamp</em>) – </p></li>
+<li><p><strong>task.</strong> (<em>for 'forecasting'</em>) – </p></li>
+<li><p><strong>freq</strong> – str or pandas offset, default=None | The frequency of the</p></li>
+<li><p><strong>time-series.</strong> – </p></li>
+</ul>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p>A numpy array of shape n * 1 - - each element is a predicted class
