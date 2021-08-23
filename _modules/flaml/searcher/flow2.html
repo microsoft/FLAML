@@ -156,6 +156,7 @@
 <span class="sd"> * Licensed under the MIT License. See LICENSE file in the</span>
 <span class="sd"> * project root for license information.</span>
 <span class="sd">&#39;&#39;&#39;</span>
+<span class="kn">from</span> <span class="nn">flaml.tune.sample</span> <span class="kn">import</span> <span class="n">Domain</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="k">try</span><span class="p">:</span>
@@ -293,7 +294,7 @@
                 <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">sampler</span><span class="p">)</span> <span class="o">!=</span> <span class="s1">&#39;Normal&#39;</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_bounded_keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">hier</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_space_keys</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_space</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_space_keys</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tunable_keys</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_hierarchical</span> <span class="o">=</span> <span class="n">hier</span>
         <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prune_attr</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">prune_attr</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_space</span>
                 <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_resource</span><span class="p">):</span>
@@ -652,18 +653,28 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_space</span>
         <span class="n">value_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># self._space_keys doesn&#39;t contain keys with const values,</span>
+        <span class="c1"># e.g., &quot;eval_metric&quot;: [&quot;logloss&quot;, &quot;error&quot;].</span>
         <span class="n">keys</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hierarchical</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_space_keys</span>
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">:</span>
             <span class="n">value</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
             <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">prune_attr</span><span class="p">:</span>
                 <span class="n">value_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-            <span class="c1"># else key must be in self.space</span>
-            <span class="c1"># get rid of list type or constant,</span>
-            <span class="c1"># e.g., &quot;eval_metric&quot;: [&quot;logloss&quot;, &quot;error&quot;]</span>
-            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">space</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">sample</span><span class="o">.</span><span class="n">Integer</span><span class="p">):</span>
-                <span class="n">value_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">value</span><span class="p">)))</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">value_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+                <span class="c1"># key must be in space</span>
+                <span class="n">domain</span> <span class="o">=</span> <span class="n">space</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hierarchical</span><span class="p">:</span>
+                    <span class="c1"># can&#39;t remove constant for hierarchical search space,</span>
+                    <span class="c1"># e.g., learner</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">domain</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+                            <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">sample</span><span class="o">.</span><span class="n">Domain</span><span class="p">)):</span>
+                        <span class="c1"># not domain or hashable</span>
+                        <span class="c1"># get rid of list type for hierarchical search space.</span>
+                        <span class="k">continue</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">sample</span><span class="o">.</span><span class="n">Integer</span><span class="p">):</span>
+                    <span class="n">value_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">value</span><span class="p">)))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">value_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
         <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">value_list</span><span class="p">)</span></div>
 
     <span class="nd">@property</span>

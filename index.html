@@ -281,30 +281,30 @@ model is updated each time.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="flaml.AutoML.fit">
-<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X_train</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_train</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dataframe</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'classification'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_file_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'flaml.log'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">estimator_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_budget</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">60</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ensemble</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eval_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'better'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_history</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_ratio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_splits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_training_metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mem_thres</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4294967296</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pred_time_limit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">inf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_time_limit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">inf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_weight_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groups</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">retrain_full</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'stratified'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">learner_selector</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'sample'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hpo_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">starting_points</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">fit_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/automl.html#AutoML.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.AutoML.fit" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X_train</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_train</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dataframe</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'classification'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_file_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'flaml.log'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">estimator_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_budget</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">60</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ensemble</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eval_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'better'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_history</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_ratio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_splits</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_training_metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mem_thres</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4294967296</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pred_time_limit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">inf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_time_limit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">inf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_weight_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groups</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">retrain_full</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'stratified'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">learner_selector</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'sample'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hpo_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">starting_points</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_concurrent_trials</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">fit_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flaml/automl.html#AutoML.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flaml.AutoML.fit" title="Permalink to this definition">¶</a></dt>
 <dd><p>Find a model for a given task</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>X_train</strong> – A numpy array or a pandas dataframe of training data in
-shape (n, m)
-For ‘forecast’ task, X_train should be timestamp</p></li>
-<li><p><strong>y_train</strong> – A numpy array or a pandas series of labels in shape (n,)
-For ‘forecast’ task, y_train should be value</p></li>
-<li><p><strong>dataframe</strong> – A dataframe of training data including label column
+shape (n, m). For ‘forecast’ task, X_train should contain a
+single column of timestamps.</p></li>
+<li><p><strong>y_train</strong> – A numpy array or a pandas series of labels in shape (n, ).</p></li>
+<li><p><strong>dataframe</strong> – A dataframe of training data including label column.
 For ‘forecast’ task, dataframe must be specified and should
-have two columns: timestamp and value</p></li>
+have two columns: timestamp and value.</p></li>
 <li><p><strong>label</strong> – A str of the label column name for ‘classification’ or
-‘regression’ task or a tuple of strings for timestamp and
-value columns for ‘forecasting’ task
+‘regression’ task, e.g., ‘label’;
+or a tuple of strings for timestamp and value columns for
+‘forecasting’ task, e.g., (‘timestamp’, ‘value’).
 Note: If X_train and y_train are provided,
 dataframe and label are ignored;
 If not, dataframe and label must be provided.</p></li>
 <li><p><strong>metric</strong> – <p>A string of the metric name or a function,
 e.g., ‘accuracy’, ‘roc_auc’, ‘roc_auc_ovr’, ‘roc_auc_ovo’,
-‘f1’, ‘micro_f1’, ‘macro_f1’, ‘log_loss’, ‘mape’, ‘mae’, ‘mse’, ‘r2’
-for ‘forecast’ task, use ‘mape’
-if passing a customized metric function, the function needs to
+‘f1’, ‘micro_f1’, ‘macro_f1’, ‘log_loss’, ‘mae’, ‘mse’, ‘r2’,
+‘mape’.
+If passing a customized metric function, the function needs to
 have the follwing signature:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">custom_metric</span><span class="p">(</span>
     <span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">,</span> <span class="n">estimator</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span>
@@ -314,58 +314,67 @@ have the follwing signature:</p>
 </pre></div>
 </div>
 <p>which returns a float number as the minimization objective,
-and a tuple of floats or a dictionary as the metrics to log</p>
+and a tuple of floats or a dictionary as the metrics to log.</p>
 </p></li>
 <li><p><strong>task</strong> – A string of the task type, e.g.,
-‘classification’, ‘regression’, ‘forecast’</p></li>
-<li><p><strong>n_jobs</strong> – An integer of the number of threads for training</p></li>
-<li><p><strong>log_file_name</strong> – A string of the log file name</p></li>
+‘classification’, ‘regression’, ‘forecast’.</p></li>
+<li><p><strong>n_jobs</strong> – An integer of the number of threads for training.</p></li>
+<li><p><strong>log_file_name</strong> – A string of the log file name.</p></li>
 <li><p><strong>estimator_list</strong> – <p>A list of strings for estimator names, or ‘auto’
 e.g.,</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="s1">&#39;lgbm&#39;</span><span class="p">,</span> <span class="s1">&#39;xgboost&#39;</span><span class="p">,</span> <span class="s1">&#39;catboost&#39;</span><span class="p">,</span> <span class="s1">&#39;rf&#39;</span><span class="p">,</span> <span class="s1">&#39;extra_tree&#39;</span><span class="p">]</span>
 </pre></div>
 </div>
 </p></li>
-<li><p><strong>time_budget</strong> – A float number of the time budget in seconds</p></li>
-<li><p><strong>max_iter</strong> – An integer of the maximal number of iterations</p></li>
+<li><p><strong>time_budget</strong> – A float number of the time budget in seconds.</p></li>
+<li><p><strong>max_iter</strong> – An integer of the maximal number of iterations.</p></li>
 <li><p><strong>sample</strong> – A boolean of whether to sample the training data during
-search</p></li>
+search.</p></li>
 <li><p><strong>eval_method</strong> – A string of resampling strategy, one of
-[‘auto’, ‘cv’, ‘holdout’]</p></li>
-<li><p><strong>split_ratio</strong> – A float of the valiation data percentage for holdout</p></li>
-<li><p><strong>n_splits</strong> – An integer of the number of folds for cross - validation</p></li>
+[‘auto’, ‘cv’, ‘holdout’].</p></li>
+<li><p><strong>split_ratio</strong> – A float of the valiation data percentage for holdout.</p></li>
+<li><p><strong>n_splits</strong> – An integer of the number of folds for cross - validation.</p></li>
 <li><p><strong>log_type</strong> – A string of the log type, one of
-[‘better’, ‘all’]
+[‘better’, ‘all’].
 ‘better’ only logs configs with better loss than previos iters
-‘all’ logs all the tried configs</p></li>
+‘all’ logs all the tried configs.</p></li>
 <li><p><strong>model_history</strong> – A boolean of whether to keep the history of best
 models in the history property. Make sure memory is large
 enough if setting to True.</p></li>
 <li><p><strong>log_training_metric</strong> – A boolean of whether to log the training
 metric for each model.</p></li>
-<li><p><strong>mem_thres</strong> – A float of the memory size constraint in bytes</p></li>
-<li><p><strong>pred_time_limit</strong> – A float of the prediction latency constraint in seconds</p></li>
-<li><p><strong>train_time_limit</strong> – A float of the training time constraint in seconds</p></li>
-<li><p><strong>X_val</strong> – None or a numpy array or a pandas dataframe of validation data</p></li>
-<li><p><strong>y_val</strong> – None or a numpy array or a pandas series of validation labels</p></li>
+<li><p><strong>mem_thres</strong> – A float of the memory size constraint in bytes.</p></li>
+<li><p><strong>pred_time_limit</strong> – A float of the prediction latency constraint in seconds.</p></li>
+<li><p><strong>train_time_limit</strong> – A float of the training time constraint in seconds.</p></li>
+<li><p><strong>X_val</strong> – None or a numpy array or a pandas dataframe of validation data.</p></li>
+<li><p><strong>y_val</strong> – None or a numpy array or a pandas series of validation labels.</p></li>
 <li><p><strong>sample_weight_val</strong> – None or a numpy array of the sample weight of
 validation data.</p></li>
 <li><p><strong>groups</strong> – None or an array-like of shape (n,) | Group labels for the
-samples used while splitting the dataset into train/valid set</p></li>
+samples used while splitting the dataset into train/valid set.</p></li>
 <li><p><strong>verbose</strong> – int, default=1 | Controls the verbosity, higher means more
 messages.</p></li>
+<li><p><strong>retrain_full</strong> – bool or str, default=True | whether to retrain the
+selected model on the full training data when using holdout.
+True - retrain only after search finishes; False - no retraining;
+‘budget’ - do best effort to retrain without violating the time
+budget.</p></li>
 <li><p><strong>hpo_method</strong> – str or None, default=None | The hyperparameter
 optimization method. When it is None, CFO is used.
 No need to set when using flaml’s default search space or using
 a simple customized search space. When set to ‘bs’, BlendSearch
 is used. BlendSearch can be tried when the search space is
 complex, for example, containing multiple disjoint, discontinuous
-subspaces.</p></li>
+subspaces. When set to ‘random’ and the argument ‘n_concurrent_trials’
+is larger than 1, RandomSearch is used.</p></li>
 <li><p><strong>starting_points</strong> – A dictionary to specify the starting hyperparameter
 config for the estimators.
 Keys are the name of the estimators, and values are the starting
 hyperparamter configurations for the corresponding estimators.</p></li>
 <li><p><strong>seed</strong> – int or None, default=None | The random seed for np.random.</p></li>
+<li><p><strong>n_concurrent_trials</strong> – [Experimental] int, default=1 | The number of
+concurrent trials. For n_concurrent_trials &gt; 1, installation of
+ray is required: <cite>pip install flaml[ray]</cite>.</p></li>
 <li><p><strong>**fit_kwargs</strong> – Other key word arguments to pass to fit() function of
 the searched learners, such as sample_weight. Include period as
 a key word argument for ‘forecast’ task.</p></li>
@@ -460,8 +469,8 @@ the best model is updated each time.</p>
 </dd></dl>
 
 <dl class="py property">
-<dt class="sig sig-object py" id="flaml.AutoML.points_to_evalaute">
-<em class="property"><span class="pre">property</span> </em><span class="sig-name descname"><span class="pre">points_to_evalaute</span></span><em class="property"><span class="pre">:</span> <span class="pre">dict</span></em><a class="headerlink" href="#flaml.AutoML.points_to_evalaute" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="flaml.AutoML.points_to_evaluate">
+<em class="property"><span class="pre">property</span> </em><span class="sig-name descname"><span class="pre">points_to_evaluate</span></span><em class="property"><span class="pre">:</span> <span class="pre">dict</span></em><a class="headerlink" href="#flaml.AutoML.points_to_evaluate" title="Permalink to this definition">¶</a></dt>
 <dd><p>Initial points to evaluate</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
@@ -477,11 +486,11 @@ the best model is updated each time.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>X_test</strong> – A numpy array of featurized instances, shape n * m,</p></li>
-<li><p><strong>values</strong> (<em>or a pandas dataframe with one column with timestamp</em>) – </p></li>
-<li><p><strong>task.</strong> (<em>for 'forecasting'</em>) – </p></li>
-<li><p><strong>freq</strong> – str or pandas offset, default=None | The frequency of the</p></li>
-<li><p><strong>time-series.</strong> – </p></li>
+<li><p><strong>X_test</strong> – A numpy array of featurized instances, shape n * m,
+or a pandas dataframe with one column with timestamp values
+for ‘forecasting’ task.</p></li>
+<li><p><strong>freq</strong> – str or pandas offset, default=None | The frequency of the
+time-series.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -559,17 +568,6 @@ Must be called after fit(…) (use max_iter=0 to prevent actual fitting)</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>A dict of the search space</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="flaml.AutoML.size">
-<em class="property"><span class="pre">property</span> </em><span class="sig-name descname"><span class="pre">size</span></span><em class="property"><span class="pre">:</span> <span class="pre">Callable[[dict],</span> <span class="pre">float]</span></em><a class="headerlink" href="#flaml.AutoML.size" title="Permalink to this definition">¶</a></dt>
-<dd><p>Size function</p>
-<dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p>A function that returns the mem size in bytes for a config</p>
 </dd>
 </dl>
 </dd></dl>
