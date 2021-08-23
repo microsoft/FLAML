@@ -1074,7 +1074,7 @@ class AutoML:
                 messages.
             retrain_full: bool or str, default=True | whether to retrain the
                 selected model on the full training data when using holdout.
-                True - retrain after search; False - no retraining;
+                True - retrain only after search finishes; False - no retraining;
                 'budget' - do best effort to retrain without violating the time
                 budget.
             hpo_method: str or None, default=None | The hyperparameter
