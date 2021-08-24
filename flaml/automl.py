@@ -1306,6 +1306,15 @@ class AutoML:
                             "search converged. Consider increasing the time budget.".format(
                                 self._time_taken_best_iter / time_budget * 100))
 
+        if not model_history:
+            # release space
+            del self._X_train_all, self._y_train_all, self._state.kf
+            del self._state.X_train, self._state.X_train_all, self._state.X_val
+            del self._state.y_train, self._state.y_train_all, self._state.y_val
+            del self._sample_weight_full, self._state.fit_kwargs, self._state.groups
+            for state in self._search_states.values():
+                if state.trained_estimator:
+                    del state.trained_estimator
         if verbose == 0:
             logger.setLevel(old_level)
 

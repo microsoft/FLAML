@@ -19,7 +19,7 @@ install_requires = [
     "xgboost>=0.90",
     "scipy>=1.4.1",
     "catboost>=0.23",
-    "scikit-learn>=0.23.2",
+    "scikit-learn>=0.24",
 ],
 
 
