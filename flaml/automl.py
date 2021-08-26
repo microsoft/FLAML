@@ -1074,6 +1074,7 @@ class AutoML:
             starting_points={},
             seed=None,
             n_concurrent_trials=1,
+            keep_search_state=False,
             **fit_kwargs):
         '''Find a model for a given task
 
@@ -1169,6 +1170,9 @@ class AutoML:
             n_concurrent_trials: [Experimental] int, default=1 | The number of
                 concurrent trials. For n_concurrent_trials > 1, installation of
                 ray is required: `pip install flaml[ray]`.
+            keep_search_state: boolean, default=False | Whether to keep search
+                state after fit(). By default the state is deleted for space
+                saving.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Include period as
                 a key word argument for 'forecast' task.
@@ -1306,7 +1310,7 @@ class AutoML:
                             "search converged. Consider increasing the time budget.".format(
                                 self._time_taken_best_iter / time_budget * 100))
 
-        if not model_history:
+        if not keep_search_state:
             # release space
             del self._X_train_all, self._y_train_all, self._state.kf
             del self._state.X_train, self._state.X_train_all, self._state.X_val
