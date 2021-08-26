@@ -1227,6 +1227,7 @@
             <span class="n">starting_points</span><span class="o">=</span><span class="p">{},</span>
             <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">n_concurrent_trials</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">keep_search_state</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
             <span class="o">**</span><span class="n">fit_kwargs</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;Find a model for a given task</span>
 
@@ -1322,6 +1323,9 @@
 <span class="sd">            n_concurrent_trials: [Experimental] int, default=1 | The number of</span>
 <span class="sd">                concurrent trials. For n_concurrent_trials &gt; 1, installation of</span>
 <span class="sd">                ray is required: `pip install flaml[ray]`.</span>
+<span class="sd">            keep_search_state: boolean, default=False | Whether to keep search</span>
+<span class="sd">                state after fit(). By default the state is deleted for space</span>
+<span class="sd">                saving.</span>
 <span class="sd">            **fit_kwargs: Other key word arguments to pass to fit() function of</span>
 <span class="sd">                the searched learners, such as sample_weight. Include period as</span>
 <span class="sd">                a key word argument for &#39;forecast&#39; task.</span>
@@ -1459,6 +1463,15 @@
                             <span class="s2">&quot;search converged. Consider increasing the time budget.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                                 <span class="bp">self</span><span class="o">.</span><span class="n">_time_taken_best_iter</span> <span class="o">/</span> <span class="n">time_budget</span> <span class="o">*</span> <span class="mi">100</span><span class="p">))</span>
 
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">keep_search_state</span><span class="p">:</span>
+            <span class="c1"># release space</span>
+            <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_X_train_all</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_y_train_all</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">kf</span>
+            <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">X_train</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">X_train_all</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">X_val</span>
+            <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">y_train</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">y_train_all</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">y_val</span>
+            <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_weight_full</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">groups</span>
+            <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">trained_estimator</span><span class="p">:</span>
+                    <span class="k">del</span> <span class="n">state</span><span class="o">.</span><span class="n">trained_estimator</span>
         <span class="k">if</span> <span class="n">verbose</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">old_level</span><span class="p">)</span></div>
 
