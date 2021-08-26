@@ -78,7 +78,7 @@ class TestLogging(unittest.TestCase):
             analysis = tune.run(
                 automl.trainable, search_alg=search_alg,    # verbose=2,
                 time_budget_s=1, num_samples=-1)
-            print(min((trial.last_result["val_loss"], trial.last_result)
+            print(min(trial.last_result["val_loss"]
                       for trial in analysis.trials))
             # Check if the log buffer is populated.
             self.assertTrue(len(buf.getvalue()) > 0)
