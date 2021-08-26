@@ -36,6 +36,7 @@ class TestLogging(unittest.TestCase):
                 "log_training_metric": True,
                 "n_jobs": 1,
                 "model_history": True,
+                "keep_search_state": True,
                 "learner_selector": "roundrobin",
             }
             X_train, y_train = load_boston(return_X_y=True)
