@@ -716,7 +716,9 @@ class CatBoostEstimator(BaseEstimator):
         return params
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
+        import shutil
         start_time = time.time()
+        train_dir = str(start_time)
         n_iter = self.params["n_estimators"]
         X_train = self._preprocess(X_train)
         if isinstance(X_train, pd.DataFrame):
@@ -730,16 +732,19 @@ class CatBoostEstimator(BaseEstimator):
                 CatBoostEstimator._train_size - len(y_train)) > 4) and budget:
             # measure the time per iteration
             self.params["n_estimators"] = 1
-            CatBoostEstimator._smallmodel = self.estimator_class(**self.params)
+            CatBoostEstimator._smallmodel = self.estimator_class(
+                train_dir=train_dir, **self.params)
             CatBoostEstimator._smallmodel.fit(
                 X_train, y_train, cat_features=cat_features, **kwargs)
             CatBoostEstimator._t1 = time.time() - start_time
             if CatBoostEstimator._t1 >= budget:
                 self.params["n_estimators"] = n_iter
                 self._model = CatBoostEstimator._smallmodel
+                shutil.rmtree(train_dir)
                 return CatBoostEstimator._t1
             self.params["n_estimators"] = 4
-            CatBoostEstimator._smallmodel = self.estimator_class(**self.params)
+            CatBoostEstimator._smallmodel = self.estimator_class(
+                train_dir=train_dir, **self.params)
             CatBoostEstimator._smallmodel.fit(
                 X_train, y_train, cat_features=cat_features, **kwargs)
             CatBoostEstimator._time_per_iter = (
@@ -752,6 +757,7 @@ class CatBoostEstimator(BaseEstimator):
                     "n_estimators"]:
                 self.params["n_estimators"] = n_iter
                 self._model = CatBoostEstimator._smallmodel
+                shutil.rmtree(train_dir)
                 return time.time() - start_time
         if budget:
             train_times = 1
@@ -769,13 +775,14 @@ class CatBoostEstimator(BaseEstimator):
             else:
                 weight = None
             from catboost import Pool
-            model = self.estimator_class(**self.params)
+            model = self.estimator_class(train_dir=train_dir, **self.params)
             model.fit(
                 X_tr, y_tr, cat_features=cat_features,
                 eval_set=Pool(
                     data=X_train[n:], label=y_train[n:],
                     cat_features=cat_features),
                 **kwargs)   # model.get_best_iteration()
+            shutil.rmtree(train_dir)
             if weight is not None:
                 kwargs['sample_weight'] = weight
             self._model = model
