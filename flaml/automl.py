@@ -1125,6 +1125,10 @@ class AutoML:
             max_iter: An integer of the maximal number of iterations.
             sample: A boolean of whether to sample the training data during
                 search.
+            ensemble: boolean or dict | default=False. Whether to perform
+                ensemble after search. Can be a dict with keys 'passthrough'
+                and 'final_estimator' to specify the passthrough and
+                final_estimator in the stacker.
             eval_method: A string of resampling strategy, one of
                 ['auto', 'cv', 'holdout'].
             split_ratio: A float of the valiation data percentage for holdout.
@@ -1714,15 +1718,20 @@ class AutoML:
                 logger.info(estimators)
                 if len(estimators) <= 1:
                     return
-                if self._state.task != "regression":
+                if self._state.task in ('binary:logistic', 'multi:softmax'):
                     from sklearn.ensemble import StackingClassifier as Stacker
-                    for e in estimators:
-                        e[1]._estimator_type = 'classifier'
                 else:
                     from sklearn.ensemble import StackingRegressor as Stacker
-                best_m = self._trained_estimator
-                stacker = Stacker(estimators, best_m, n_jobs=self._state.n_jobs,
-                                  passthrough=True)
+                if isinstance(self._ensemble, dict):
+                    final_estimator = self._ensemble.get(
+                        'final_estimator', self._trained_estimator)
+                    passthrough = self._ensemble.get('passthrough', True)
+                else:
+                    final_estimator = self._trained_estimator
+                    passthrough = True
+                stacker = Stacker(
+                    estimators, final_estimator, n_jobs=self._state.n_jobs,
+                    passthrough=passthrough)
                 if self._sample_weight_full is not None:
                     self._state.fit_kwargs[
                         'sample_weight'] = self._sample_weight_full

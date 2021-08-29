@@ -162,7 +162,10 @@ class TestAutoML(unittest.TestCase):
             "sample": True,  # whether to subsample training data
             "log_file_name": "test/wine.log",
             "log_training_metric": True,  # whether to log training metric
-            "ensemble": True,
+            "ensemble": {
+                "final_estimator": MyRegularizedGreedyForest(),
+                "passthrough": False,
+            },
             "n_jobs": 1,
         }
 
