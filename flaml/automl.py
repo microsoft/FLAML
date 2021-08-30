@@ -1106,7 +1106,7 @@ class AutoML:
 
                     def custom_metric(
                         X_test, y_test, estimator, labels,
-                        X_train, y_train, weight_test=None, weight_train=None
+                        X_train, y_train, weight_test=None, weight_train=None, config=None,
                     ):
                         return metric_to_minimize, metrics_to_log
 
