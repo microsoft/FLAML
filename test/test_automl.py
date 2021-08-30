@@ -111,7 +111,7 @@ class MyLargeLGBM(LGBMEstimator):
 
 
 def custom_metric(X_test, y_test, estimator, labels, X_train, y_train,
-                  weight_test=None, weight_train=None):
+                  weight_test=None, weight_train=None, config=None):
     from sklearn.metrics import log_loss
     import time
     start = time.time()
