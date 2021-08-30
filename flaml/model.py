@@ -45,8 +45,8 @@ class BaseEstimator:
             self._estimator_type = params['_estimator_type']
             del self.params['_estimator_type']
         else:
-            self._estimator_type = "regressor" if task == 'regression' \
-                else "classifier"
+            self._estimator_type = "classifier" if task in (
+                'binary:logistic', 'multi:softmax') else "regressor"
 
     def get_params(self, deep=False):
         params = self.params.copy()
@@ -718,7 +718,7 @@ class CatBoostEstimator(BaseEstimator):
     def fit(self, X_train, y_train, budget=None, **kwargs):
         import shutil
         start_time = time.time()
-        train_dir = str(start_time)
+        train_dir = f'catboost_{str(start_time)}'
         n_iter = self.params["n_estimators"]
         X_train = self._preprocess(X_train)
         if isinstance(X_train, pd.DataFrame):

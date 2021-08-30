@@ -216,11 +216,13 @@ class AutoMLState:
     def _train_with_config(
         self, estimator, config_w_resource, sample_size=None
     ):
-        config = config_w_resource.copy()
+        if not sample_size:
+            sample_size = config_w_resource['FLAML_sample_size']
+        config = config_w_resource.get('ml', config_w_resource).copy()
         if 'FLAML_sample_size' in config:
-            if not sample_size:
-                sample_size = config['FLAML_sample_size']
             del config['FLAML_sample_size']
+        if "learner" in config:
+            del config['learner']
         assert sample_size is not None
         sampled_X_train, sampled_y_train, sampled_weight = \
             self._prepare_sample_train_data(sample_size)
@@ -1125,6 +1127,10 @@ class AutoML:
             max_iter: An integer of the maximal number of iterations.
             sample: A boolean of whether to sample the training data during
                 search.
+            ensemble: boolean or dict | default=False. Whether to perform
+                ensemble after search. Can be a dict with keys 'passthrough'
+                and 'final_estimator' to specify the passthrough and
+                final_estimator in the stacker.
             eval_method: A string of resampling strategy, one of
                 ['auto', 'cv', 'holdout'].
             split_ratio: A float of the valiation data percentage for holdout.
@@ -1278,7 +1284,9 @@ class AutoML:
         logger.info("List of ML learners in AutoML Run: {}".format(
             estimator_list))
         self.estimator_list = estimator_list
-        self._hpo_method = hpo_method or 'cfo'
+        self._hpo_method = hpo_method or (
+            'cfo' if n_concurrent_trials == 1 or len(estimator_list) == 1
+            else 'bs')
         self._state.time_budget = time_budget
         self._active_estimators = estimator_list.copy()
         self._ensemble = ensemble
@@ -1363,8 +1371,7 @@ class AutoML:
                     del p[k]
 
             search_alg = SearchAlgo(max_concurrent=self._n_concurrent_trials,
-                                    points_to_evaluate=points_to_evaluate
-                                    )
+                                    points_to_evaluate=points_to_evaluate)
         else:
             search_alg = SearchAlgo(
                 metric='val_loss',
@@ -1387,7 +1394,8 @@ class AutoML:
         analysis = ray.tune.run(
             self.trainable, search_alg=search_alg, config=self.search_space,
             metric='val_loss', mode='min', resources_per_trial=resources_per_trial,
-            time_budget_s=self._state.time_budget, num_samples=self._max_iter)
+            time_budget_s=self._state.time_budget, num_samples=self._max_iter,
+            verbose=self.verbose)
         # logger.info([trial.last_result for trial in analysis.trials])
         trials = sorted((trial for trial in analysis.trials if trial.last_result
                         and trial.last_result['wall_clock_time'] is not None),
@@ -1714,15 +1722,20 @@ class AutoML:
                 logger.info(estimators)
                 if len(estimators) <= 1:
                     return
-                if self._state.task != "regression":
+                if self._state.task in ('binary:logistic', 'multi:softmax'):
                     from sklearn.ensemble import StackingClassifier as Stacker
-                    for e in estimators:
-                        e[1]._estimator_type = 'classifier'
                 else:
                     from sklearn.ensemble import StackingRegressor as Stacker
-                best_m = self._trained_estimator
-                stacker = Stacker(estimators, best_m, n_jobs=self._state.n_jobs,
-                                  passthrough=True)
+                if isinstance(self._ensemble, dict):
+                    final_estimator = self._ensemble.get(
+                        'final_estimator', self._trained_estimator)
+                    passthrough = self._ensemble.get('passthrough', True)
+                else:
+                    final_estimator = self._trained_estimator
+                    passthrough = True
+                stacker = Stacker(
+                    estimators, final_estimator, n_jobs=self._state.n_jobs,
+                    passthrough=passthrough)
                 if self._sample_weight_full is not None:
                     self._state.fit_kwargs[
                         'sample_weight'] = self._sample_weight_full
