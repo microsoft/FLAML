@@ -1282,7 +1282,9 @@ class AutoML:
         logger.info("List of ML learners in AutoML Run: {}".format(
             estimator_list))
         self.estimator_list = estimator_list
-        self._hpo_method = hpo_method or 'cfo'
+        self._hpo_method = hpo_method or (
+            'cfo' if n_concurrent_trials == 1 or len(estimator_list) == 1
+            else 'bs')
         self._state.time_budget = time_budget
         self._active_estimators = estimator_list.copy()
         self._ensemble = ensemble
@@ -1367,8 +1369,7 @@ class AutoML:
                     del p[k]
 
             search_alg = SearchAlgo(max_concurrent=self._n_concurrent_trials,
-                                    points_to_evaluate=points_to_evaluate
-                                    )
+                                    points_to_evaluate=points_to_evaluate)
         else:
             search_alg = SearchAlgo(
                 metric='val_loss',
@@ -1391,7 +1392,8 @@ class AutoML:
         analysis = ray.tune.run(
             self.trainable, search_alg=search_alg, config=self.search_space,
             metric='val_loss', mode='min', resources_per_trial=resources_per_trial,
-            time_budget_s=self._state.time_budget, num_samples=self._max_iter)
+            time_budget_s=self._state.time_budget, num_samples=self._max_iter,
+            verbose=self.verbose)
         # logger.info([trial.last_result for trial in analysis.trials])
         trials = sorted((trial for trial in analysis.trials if trial.last_result
                         and trial.last_result['wall_clock_time'] is not None),

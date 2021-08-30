@@ -499,6 +499,30 @@ class TestAutoML(unittest.TestCase):
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
 
+    def test_parallel(self, hpo_method=None):
+        automl_experiment = AutoML()
+        automl_settings = {
+            "time_budget": 10,
+            "task": 'regression',
+            "log_file_name": "test/boston.log",
+            "log_type": "all",
+            "n_jobs": 1,
+            "n_concurrent_trials": 2,
+            "hpo_method": hpo_method,
+        }
+        X_train, y_train = load_boston(return_X_y=True)
+        try:
+            automl_experiment.fit(X_train=X_train, y_train=y_train,
+                                  **automl_settings)
+            print(automl_experiment.predict(X_train))
+            print(automl_experiment.model)
+            print(automl_experiment.config_history)
+            print(automl_experiment.model_history)
+            print(automl_experiment.best_iteration)
+            print(automl_experiment.best_estimator)
+        except ImportError:
+            return
+
     def test_parallel_xgboost(self, hpo_method=None):
         automl_experiment = AutoML()
         automl_settings = {
