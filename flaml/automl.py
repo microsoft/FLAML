@@ -216,11 +216,13 @@ class AutoMLState:
     def _train_with_config(
         self, estimator, config_w_resource, sample_size=None
     ):
-        config = config_w_resource.copy()
+        if not sample_size:
+            sample_size = config_w_resource['FLAML_sample_size']
+        config = config_w_resource.get('ml', config_w_resource).copy()
         if 'FLAML_sample_size' in config:
-            if not sample_size:
-                sample_size = config['FLAML_sample_size']
             del config['FLAML_sample_size']
+        if "learner" in config:
+            del config['learner']
         assert sample_size is not None
         sampled_X_train, sampled_y_train, sampled_weight = \
             self._prepare_sample_train_data(sample_size)

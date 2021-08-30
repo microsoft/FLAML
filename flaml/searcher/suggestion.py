@@ -380,8 +380,8 @@ def validate_warmstart(parameter_names: List[str],
 
             if validate_point_name_lengths and (
                     not len(point) == len(parameter_names)):
-                raise ValueError("Dim of point {}".format(point) +
-                                 " and parameter_names {}".format(
+                raise ValueError("Dim of point {}".format(point)
+                                 + " and parameter_names {}".format(
                                      parameter_names) + " do not match.")
 
     if points_to_evaluate and evaluated_rewards:
