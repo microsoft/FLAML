@@ -165,8 +165,8 @@ def get_test_loss(config, estimator, X_train, y_train, X_test, y_test, weight_te
         test_loss, metrics = eval_metric(X_test, y_test, estimator, labels,
                                          X_train, y_train, weight_test,
                                          fit_kwargs.get('sample_weight'),
-                                         config
-                                         )
+                                         config)
+
         if isinstance(metrics, dict):
             pred_time = metrics.get('pred_time', 0)
         train_loss = metrics
