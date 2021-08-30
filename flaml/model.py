@@ -740,7 +740,7 @@ class CatBoostEstimator(BaseEstimator):
             if CatBoostEstimator._t1 >= budget:
                 self.params["n_estimators"] = n_iter
                 self._model = CatBoostEstimator._smallmodel
-                shutil.rmtree(train_dir, ignore_erros=True)
+                shutil.rmtree(train_dir, ignore_errors=True)
                 return CatBoostEstimator._t1
             self.params["n_estimators"] = 4
             CatBoostEstimator._smallmodel = self.estimator_class(
@@ -757,7 +757,7 @@ class CatBoostEstimator(BaseEstimator):
                     "n_estimators"]:
                 self.params["n_estimators"] = n_iter
                 self._model = CatBoostEstimator._smallmodel
-                shutil.rmtree(train_dir, ignore_erros=True)
+                shutil.rmtree(train_dir, ignore_errors=True)
                 return time.time() - start_time
         if budget:
             train_times = 1
@@ -782,7 +782,7 @@ class CatBoostEstimator(BaseEstimator):
                     data=X_train[n:], label=y_train[n:],
                     cat_features=cat_features),
                 **kwargs)   # model.get_best_iteration()
-            shutil.rmtree(train_dir, ignore_erros=True)
+            shutil.rmtree(train_dir, ignore_errors=True)
             if weight is not None:
                 kwargs['sample_weight'] = weight
             self._model = model
