@@ -144,8 +144,8 @@ def get_y_pred(estimator, X, eval_metric, obj, freq=None):
 
 def get_test_loss(config, estimator, X_train, y_train, X_test, y_test, weight_test,
                   eval_metric, obj, labels=None, budget=None, log_training_metric=False,
-                  fit_kwargs={}
-                  ):
+                  fit_kwargs={}):
+
     start = time.time()
     estimator.fit(X_train, y_train, budget, **fit_kwargs)
     if isinstance(eval_metric, str):
