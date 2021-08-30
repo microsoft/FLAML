@@ -198,7 +198,7 @@ class BlendSearch(Searcher):
             # reset search when metric or mode changed
             self._ls.set_search_properties(metric, mode)
             if self._gs is not None:
-                self._gs.set_search_properties(metric, mode)
+                self._gs.set_search_properties(metric, mode, config)
             self._init_search()
         if config:
             if 'time_budget_s' in config:
