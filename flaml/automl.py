@@ -534,7 +534,8 @@ class AutoML:
             assert len(self._state.groups) == self._nrow, \
                 "the sum of group counts must match the number of examples"
             self._state.groups_val = np.concatenate(
-                [[i] * c for i, c in enumerate(groups_val)])
+                [[i] * c for i, c in enumerate(groups_val)]
+            ) if groups_val is not None else None
         else:            
             self._state.groups_val = groups_val
             self._state.groups = groups
