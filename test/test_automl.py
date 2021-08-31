@@ -111,7 +111,8 @@ class MyLargeLGBM(LGBMEstimator):
 
 
 def custom_metric(X_test, y_test, estimator, labels, X_train, y_train,
-                  weight_test=None, weight_train=None, config=None):
+                  weight_test=None, weight_train=None, config=None,
+                  groups_test=None, groups_train=None):
     from sklearn.metrics import log_loss
     import time
     start = time.time()
@@ -277,9 +278,9 @@ class TestAutoML(unittest.TestCase):
             task='multi')
         print(estimator)
         time_history, best_valid_loss_history, valid_loss_history, \
-            config_history, train_loss_history = get_output_from_log(
+            config_history, metric_history = get_output_from_log(
                 filename=automl_settings['log_file_name'], time_budget=6)
-        print(train_loss_history)
+        print(metric_history)
 
     def test_classification(self, as_frame=False):
         automl_experiment = AutoML()

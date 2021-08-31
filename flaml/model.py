@@ -9,10 +9,11 @@ import time
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.ensemble import ExtraTreesRegressor, ExtraTreesClassifier
 from sklearn.linear_model import LogisticRegression
-from lightgbm import LGBMClassifier, LGBMRegressor
+from lightgbm import LGBMClassifier, LGBMRegressor, LGBMRanker
 from scipy.sparse import issparse
 import pandas as pd
 from . import tune
+from .data import group_counts
 
 import logging
 
@@ -81,6 +82,11 @@ class BaseEstimator:
     def _fit(self, X_train, y_train, **kwargs):
 
         current_time = time.time()
+        if 'groups' in kwargs:
+            kwargs = kwargs.copy()
+            if self._task == 'rank':
+                kwargs['group'] = group_counts(kwargs['groups'])
+            del kwargs['groups']
         X_train = self._preprocess(X_train)
         model = self.estimator_class(**self.params)
         model.fit(X_train, y_train, **kwargs)
@@ -255,12 +261,14 @@ class LGBMEstimator(BaseEstimator):
         if "objective" not in self.params:
             # Default: ‘regression’ for LGBMRegressor,
             # ‘binary’ or ‘multiclass’ for LGBMClassifier
-            if 'regression' in task:
+            if 'regression' == task:
                 objective = 'regression'
             elif 'binary' in task:
                 objective = 'binary'
             elif 'multi' in task:
                 objective = 'multiclass'
+            elif 'rank' == task:
+                objective = 'lambdarank'
             else:
                 objective = 'regression'
             self.params["objective"] = objective
@@ -276,8 +284,10 @@ class LGBMEstimator(BaseEstimator):
             self.params['verbose'] = -1
         # if "subsample_freq" not in self.params:
         #     self.params['subsample_freq'] = 1
-        if 'regression' in task:
+        if 'regression' == task:
             self.estimator_class = LGBMRegressor
+        elif 'rank' == task:
+            self.estimator_class = LGBMRanker
         else:
             self.estimator_class = LGBMClassifier
         self._time_per_iter = None
@@ -488,8 +498,10 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
             'use_label_encoder': params.get('use_label_encoder', False),
         })
 
-        if 'regression' in task:
+        if 'regression' == task:
             self.estimator_class = xgb.XGBRegressor
+        elif 'rank' == task:
+            self.estimator_class = xgb.XGBRanker
         else:
             self.estimator_class = xgb.XGBClassifier
         self._time_per_iter = None
