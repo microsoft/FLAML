@@ -242,8 +242,12 @@ class DataTransformer:
                 X[cat_columns] = X[cat_columns].astype('category')
             if num_columns:
                 X_num = X[num_columns]
-                if drop and np.issubdtype(X_num.columns.dtype, np.integer):
+                if np.issubdtype(X_num.columns.dtype, np.integer) and (
+                    drop or min(X_num.columns) != 0
+                    or max(X_num.columns) != X_num.shape[1] - 1
+                ):
                     X_num.columns = range(X_num.shape[1])
+                    drop = True
                 else:
                     drop = False
                 from sklearn.impute import SimpleImputer

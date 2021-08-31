@@ -86,11 +86,12 @@ def test_rank():
     automl = AutoML()
     automl_settings = {
         "time_budget": 2,
-        "task": 'rank',
+        "task": "rank",
         "log_file_name": "test/{}.log".format(dataset),
         "model_history": True,
         "eval_method": "cv",
-        "groups": np.array([0] * 200 + [1] * 200 + [2] * 200 + [3] * 200 + [4] * 100 + [5] * 100),
+        "groups": np.array(     # group labels
+            [0] * 200 + [1] * 200 + [2] * 200 + [3] * 200 + [4] * 100 + [5] * 100),
         "learner_selector": "roundrobin",
     }
     automl.fit(X, y, **automl_settings)
@@ -98,10 +99,11 @@ def test_rank():
     automl = AutoML()
     automl_settings = {
         "time_budget": 2,
-        "task": 'rank',
+        "task": "rank",
+        "metric": "ndcg@5",     # 5 can be replaced by any number
         "log_file_name": "test/{}.log".format(dataset),
         "model_history": True,
-        "groups": np.array([0] * 200 + [1] * 200 + [2] * 200 + [3] * 200 + [4] * 100 + [5] * 100),
+        "groups": [200] * 4 + [100] * 2,    # alternative way: group counts
         # "estimator_list": ['lgbm', 'xgboost'],  # list of ML learners
         "learner_selector": "roundrobin",
     }

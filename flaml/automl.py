@@ -437,7 +437,7 @@ class AutoML:
         return X
 
     def _validate_data(self, X_train_all, y_train_all, dataframe, label,
-                       X_val=None, y_val=None):
+                       X_val=None, y_val=None, groups_val=None, groups=None):
         if self._state.task == 'forecast':
             if dataframe is not None and label is not None:
                 dataframe = dataframe.copy()
@@ -527,6 +527,17 @@ class AutoML:
                 self._state.y_val = y_val
         else:
             self._state.X_val = self._state.y_val = None
+        if groups is not None and len(groups) != self._nrow:
+            # groups is given as group counts
+            self._state.groups = np.concatenate(
+                [[i] * c for i, c in enumerate(groups)])
+            assert len(self._state.groups) == self._nrow, \
+                "the sum of group counts must match the number of examples"
+            self._state.groups_val = np.concatenate(
+                [[i] * c for i, c in enumerate(groups_val)])
+        else:            
+            self._state.groups_val = groups_val
+            self._state.groups = groups
 
     def _prepare_data(self,
                       eval_method,
@@ -804,8 +815,9 @@ class AutoML:
                     None -> uniform.
                 For time series forecasting, must be None or 'time'.
                 For ranking task, must be None or 'group'.
-            groups: None or an array-like of shape (n,) | Group labels for the
-                samples used while splitting the dataset into train/valid set.
+            groups: None or array-like | Group labels (with matching length to
+                y_train) or groups counts (with sum equal to length of y_train)
+                for training data.
             n_jobs: An integer of the number of threads for training.
             train_best: A boolean of whether to train the best config in the
                 time budget; if false, train the last config in the budget.
@@ -820,8 +832,7 @@ class AutoML:
         '''
         self._state.task = task
         self._state.fit_kwargs = fit_kwargs
-        self._validate_data(X_train, y_train, dataframe, label)
-        self._state.groups = groups
+        self._validate_data(X_train, y_train, dataframe, label, groups=groups)
 
         logger.info('log file name {}'.format(log_file_name))
 
@@ -1208,10 +1219,12 @@ class AutoML:
             y_val: None or a numpy array or a pandas series of validation labels.
             sample_weight_val: None or a numpy array of the sample weight of
                 validation data of the same shape as y_val.
-            groups_val: None or a numpy array of the group labels of
-                validation data of the same shape as y_val.
-            groups: None or an array-like of shape (n,) | Group labels for the
-                samples used while splitting the dataset into train/valid set.
+            groups_val: None or array-like | group labels (with matching length
+                to y_val) or group counts (with sum equal to length of y_val)
+                for validation data. Need to be consistent with groups.
+            groups: None or array-like | Group labels (with matching length to
+                y_train) or groups counts (with sum equal to length of y_train)
+                for training data.
             verbose: int, default=1 | Controls the verbosity, higher means more
                 messages.
             retrain_full: bool or str, default=True | whether to retrain the
@@ -1254,10 +1267,9 @@ class AutoML:
         self._state.log_training_metric = log_training_metric
         self._state.fit_kwargs = fit_kwargs
         self._state.weight_val = sample_weight_val
-        self._state.groups_val = groups_val
-        self._state.groups = groups
 
-        self._validate_data(X_train, y_train, dataframe, label, X_val, y_val)
+        self._validate_data(X_train, y_train, dataframe, label, X_val, y_val,
+                            groups_val, groups)
         self._search_states = {}  # key: estimator name; value: SearchState
         self._random = np.random.RandomState(RANDOM_SEED)
         if seed is not None:

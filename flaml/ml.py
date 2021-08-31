@@ -121,16 +121,20 @@ def sklearn_metric_loss_score(
     elif 'ap' == metric_name:
         score = 1 - average_precision_score(
             y_true, y_predict, sample_weight=sample_weight)
-    elif 'ndcg' == metric_name:
-        counts = group_counts(groups)
-        score = 0
-        psum = 0
-        for c in counts:
-            score -= ndcg_score(np.asarray([y_true[psum:psum + c]]),
-                                np.asarray([y_predict[psum:psum + c]]))
-            psum += c
-        score /= len(counts)
-        score += 1
+    elif 'ndcg' in metric_name:
+        if '@' in metric_name:
+            k = int(metric_name.split('@', 1)[-1])
+            counts = group_counts(groups)
+            score = 0
+            psum = 0
+            for c in counts:
+                score -= ndcg_score(np.asarray([y_true[psum:psum + c]]),
+                                    np.asarray([y_predict[psum:psum + c]]), k=k)
+                psum += c
+            score /= len(counts)
+            score += 1
+        else:
+            score = 1 - ndcg_score([y_true], [y_predict])
     else:
         raise ValueError(
             metric_name + ' is not a built-in metric, '
