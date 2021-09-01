@@ -1,4 +1,3 @@
-import warnings
 import numpy as np
 from flaml import AutoML
 
@@ -27,7 +26,7 @@ def test_forecast_automl(budget=5):
     try:
         automl.fit(dataframe=df, **settings, period=time_horizon)
     except ImportError:
-        warnings.warn("not using FBProphet due to ImportError")
+        print("not using FBProphet due to ImportError")
         automl.fit(dataframe=df, **settings, estimator_list=[
             'arima', 'sarimax'], period=time_horizon)
     ''' retrieve best config and best learner'''
@@ -62,7 +61,7 @@ def test_forecast_automl(budget=5):
     try:
         automl.fit(X_train=X_train, y_train=y_train, **settings, period=time_horizon)
     except ImportError:
-        warnings.warn("not using FBProphet due to ImportError")
+        print("not using FBProphet due to ImportError")
         automl.fit(X_train=X_train, y_train=y_train, **settings, estimator_list=[
             'arima', 'sarimax'], period=time_horizon)
 
@@ -71,29 +70,30 @@ def test_numpy():
     X_train = np.arange('2014-01', '2021-01', dtype='datetime64[M]')
     y_train = np.random.random(size=72)
     automl = AutoML()
-    automl.fit(
-        X_train=X_train[:72],  # a single column of timestamp
-        y_train=y_train,  # value for each timestamp
-        period=12,  # time horizon to forecast, e.g., 12 months
-        task='forecast', time_budget=3,  # time budget in seconds
-        log_file_name="test/forecast.log")
-    print(automl.predict(X_train[72:]))
     try:
+        automl.fit(
+            X_train=X_train[:72],  # a single column of timestamp
+            y_train=y_train,  # value for each timestamp
+            period=12,  # time horizon to forecast, e.g., 12 months
+            task='forecast', time_budget=3,  # time budget in seconds
+            log_file_name="test/forecast.log")
+        print(automl.predict(X_train[72:]))
         print(automl.predict(12))
     except ValueError:
-        print("ValueError for FBProphet raised as expected.")
-
-    automl = AutoML()
-    automl.fit(
-        X_train=X_train[:72],  # a single column of timestamp
-        y_train=y_train,  # value for each timestamp
-        period=12,  # time horizon to forecast, e.g., 12 months
-        task='forecast', time_budget=1,  # time budget in seconds
-        estimator_list=['arima', 'sarimax'],
-        log_file_name="test/forecast.log")
-    print(automl.predict(X_train[72:]))
-    # an alternative way to specify predict steps for arima/sarimax
-    print(automl.predict(12))
+        print("ValueError for FBProphet is raised as expected.")
+    except ImportError:
+        print("not using FBProphet due to ImportError")
+        automl = AutoML()
+        automl.fit(
+            X_train=X_train[:72],  # a single column of timestamp
+            y_train=y_train,  # value for each timestamp
+            period=12,  # time horizon to forecast, e.g., 12 months
+            task='forecast', time_budget=1,  # time budget in seconds
+            estimator_list=['arima', 'sarimax'],
+            log_file_name="test/forecast.log")
+        print(automl.predict(X_train[72:]))
+        # an alternative way to specify predict steps for arima/sarimax
+        print(automl.predict(12))
 
 
 if __name__ == "__main__":
