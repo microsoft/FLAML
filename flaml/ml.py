@@ -164,6 +164,10 @@ def get_test_loss(config, estimator, X_train, y_train, X_test, y_test, weight_te
                   log_training_metric=False, fit_kwargs={}):
 
     start = time.time()
+    # if groups_test is not None:
+    #     fit_kwargs['groups_val'] = groups_test
+    #     fit_kwargs['X_val'] = X_test
+    #     fit_kwargs['y_val'] = y_test
     estimator.fit(X_train, y_train, budget, **fit_kwargs)
     if isinstance(eval_metric, str):
         pred_start = time.time()
@@ -206,15 +210,18 @@ def evaluate_model_CV(config, estimator, X_train_all, y_train_all, budget, kf,
     else:
         labels = None
     groups = None
+    shuffle = True
     if isinstance(kf, RepeatedStratifiedKFold):
         kf = kf.split(X_train_split, y_train_split)
     elif isinstance(kf, GroupKFold):
         groups = kf.groups
         kf = kf.split(X_train_split, y_train_split, groups)
+        shuffle = False
     elif isinstance(kf, TimeSeriesSplit) and task == 'forecast':
         y_train_all = pd.DataFrame(y_train_all, columns=['y'])
         train = X_train_all.join(y_train_all)
         kf = kf.split(train)
+        shuffle = False
     elif isinstance(kf, TimeSeriesSplit):
         kf = kf.split(X_train_split, y_train_split)
     else:
@@ -228,7 +235,7 @@ def evaluate_model_CV(config, estimator, X_train_all, y_train_all, budget, kf,
     else:
         weight = weight_val = None
     for train_index, val_index in kf:
-        if not (isinstance(kf, TimeSeriesSplit) or isinstance(kf, GroupKFold)):
+        if shuffle:
             train_index = rng.permutation(train_index)
         if isinstance(X_train_all, pd.DataFrame):
             X_train, X_val = X_train_split.iloc[
