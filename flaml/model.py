@@ -983,8 +983,8 @@ class ARIMA(BaseEstimator):
             if isinstance(X_test, int) and freq is not None:
                 forecast = self._model.forecast(steps=X_test).to_frame().reset_index()
             elif isinstance(X_test, pd.DataFrame):
-                start = X_test.index[0]
-                end = X_test.index[-1]
+                start = X_test.iloc[0, 0]
+                end = X_test.iloc[-1, 0]
                 forecast = self._model.predict(start=start, end=end)
             else:
                 raise ValueError(
