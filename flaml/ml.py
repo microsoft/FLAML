@@ -145,15 +145,13 @@ def sklearn_metric_loss_score(
     return score
 
 
-def get_y_pred(estimator, X, eval_metric, obj, freq=None):
+def get_y_pred(estimator, X, eval_metric, obj):
     if eval_metric in ['roc_auc', 'ap'] and 'binary' in obj:
         y_pred_classes = estimator.predict_proba(X)
         y_pred = y_pred_classes[
             :, 1] if y_pred_classes.ndim > 1 else y_pred_classes
     elif eval_metric in ['log_loss', 'roc_auc', 'roc_auc_ovr', 'roc_auc_ovo']:
         y_pred = estimator.predict_proba(X)
-    elif eval_metric == 'mape':
-        y_pred = estimator.predict(X, freq=freq)
     else:
         y_pred = estimator.predict(X)
     return y_pred

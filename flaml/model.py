@@ -3,6 +3,7 @@
  * Licensed under the MIT License.
 '''
 
+import warnings
 import numpy as np
 import xgboost as xgb
 import time
@@ -888,44 +889,43 @@ class FBProphet(BaseEstimator):
         }
         return space
 
-    def fit(self, X_train, y_train, budget=None, **kwargs):
+    def __init__(self, task='forecast', **params):
+        if 'n_jobs' in params:
+            params.pop('n_jobs')
+        super().__init__(task, **params)
+
+    def _join(self, X_train, y_train):
+        assert 'ds' in X_train, (
+            'Dataframe for training forecast model must have column'
+            ' "ds" with the dates in X_train.')
         y_train = pd.DataFrame(y_train, columns=['y'])
         train_df = X_train.join(y_train)
+        return train_df
 
-        if ('ds' not in train_df) or ('y' not in train_df):
-            raise ValueError(
-                'Dataframe for training forecast model must have columns "ds" and "y" with the dates and '
-                'values respectively.'
-            )
-
-        if 'n_jobs' in self.params:
-            self.params.pop('n_jobs')
-
+    def fit(self, X_train, y_train, budget=None, **kwargs):
         from prophet import Prophet
-
         current_time = time.time()
+        train_df = self._join(X_train, y_train)
         model = Prophet(**self.params).fit(train_df)
         train_time = time.time() - current_time
         self._model = model
         return train_time
 
-    def predict(self, X_test, freq=None):
+    def predict(self, X_test):
+        if isinstance(X_test, int):
+            raise ValueError(
+                "predict() with steps is only supported for arima/sarimax."
+                " For FBProphet, pass a dataframe with a date colum named ds.")
         if self._model is not None:
-            if isinstance(X_test, int) and freq is not None:
-                future = self._model.make_future_dataframe(periods=X_test, freq=freq)
-                forecast = self._model.predict(future)
-            elif isinstance(X_test, pd.DataFrame):
-                forecast = self._model.predict(X_test)
-            else:
-                raise ValueError(
-                    "either X_test(pd.Dataframe with dates for predictions, column ds) or"
-                    "X_test(int number of periods)+freq are required.")
+            forecast = self._model.predict(X_test)
             return forecast['yhat']
         else:
+            warnings.warn(
+                "Estimator is not fit yet. Please run fit() before predict().")
             return np.ones(X_test.shape[0])
 
 
-class ARIMA(BaseEstimator):
+class ARIMA(FBProphet):
     @classmethod
     def search_space(cls, **params):
         space = {
@@ -947,52 +947,42 @@ class ARIMA(BaseEstimator):
         }
         return space
 
-    def fit(self, X_train, y_train, budget=None, **kwargs):
-        y_train = pd.DataFrame(y_train, columns=['y'])
-        train_df = X_train.join(y_train)
-
-        if ('ds' not in train_df) or ('y' not in train_df):
-            raise ValueError(
-                'Dataframe for training forecast model must have columns "ds" and "y" with the dates and '
-                'values respectively.'
-            )
-
+    def _join(self, X_train, y_train):
+        train_df = super()._join(X_train, y_train)
         train_df.index = pd.to_datetime(train_df['ds'])
         train_df = train_df.drop('ds', axis=1)
+        return train_df
 
-        if 'n_jobs' in self.params:
-            self.params.pop('n_jobs')
-
+    def fit(self, X_train, y_train, budget=None, **kwargs):
         from statsmodels.tsa.arima.model import ARIMA as ARIMA_estimator
-        import warnings
         warnings.filterwarnings("ignore")
-
         current_time = time.time()
-        model = ARIMA_estimator(train_df,
-                                order=(self.params['p'], self.params['d'], self.params['q']),
-                                enforce_stationarity=False,
-                                enforce_invertibility=False)
-
+        train_df = self._join(X_train, y_train)
+        model = ARIMA_estimator(
+            train_df, order=(
+                self.params['p'], self.params['d'], self.params['q']),
+            enforce_stationarity=False, enforce_invertibility=False)
         model = model.fit()
         train_time = time.time() - current_time
         self._model = model
         return train_time
 
-    def predict(self, X_test, freq=None):
+    def predict(self, X_test):
         if self._model is not None:
-            if isinstance(X_test, int) and freq is not None:
-                forecast = self._model.forecast(steps=X_test).to_frame().reset_index()
+            if isinstance(X_test, int):
+                forecast = self._model.forecast(steps=X_test)
             elif isinstance(X_test, pd.DataFrame):
                 start = X_test.iloc[0, 0]
                 end = X_test.iloc[-1, 0]
                 forecast = self._model.predict(start=start, end=end)
             else:
                 raise ValueError(
-                    "either X_test(pd.Dataframe with dates for predictions, column ds) or"
-                    "X_test(int number of periods)+freq are required.")
+                    "X_test needs to be either a pd.Dataframe with dates as column ds)"
+                    " or an int number of periods for predict().")
             return forecast
         else:
-            return np.ones(X_test.shape[0])
+            return np.ones(X_test if isinstance(X_test, int)
+                           else X_test.shape[0])
 
 
 class SARIMAX(ARIMA):
@@ -1037,30 +1027,16 @@ class SARIMAX(ARIMA):
         return space
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
-        y_train = pd.DataFrame(y_train, columns=['y'])
-        train_df = X_train.join(y_train)
-
-        if ('ds' not in train_df) or ('y' not in train_df):
-            raise ValueError(
-                'Dataframe for training forecast model must have columns "ds" and "y" with the dates and '
-                'values respectively.'
-            )
-
-        train_df.index = pd.to_datetime(train_df['ds'])
-        train_df = train_df.drop('ds', axis=1)
-
-        if 'n_jobs' in self.params:
-            self.params.pop('n_jobs')
-
         from statsmodels.tsa.statespace.sarimax import SARIMAX as SARIMAX_estimator
-
         current_time = time.time()
-        model = SARIMAX_estimator(train_df,
-                                  order=(self.params['p'], self.params['d'], self.params['q']),
-                                  seasonality_order=(self.params['P'], self.params['D'], self.params['Q'], self.params['s']),
-                                  enforce_stationarity=False,
-                                  enforce_invertibility=False)
-
+        train_df = self._join(X_train, y_train)
+        model = SARIMAX_estimator(
+            train_df, order=(
+                self.params['p'], self.params['d'], self.params['q']),
+            seasonality_order=(
+                self.params['P'], self.params['D'], self.params['Q'],
+                self.params['s']),
+            enforce_stationarity=False, enforce_invertibility=False)
         model = model.fit()
         train_time = time.time() - current_time
         self._model = model

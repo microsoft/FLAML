@@ -380,33 +380,26 @@ class AutoML:
             return self._trained_estimator.classes_.tolist()
         return None
 
-    def predict(self, X_test, freq=None):
+    def predict(self, X_test):
         '''Predict label from features.
 
         Args:
             X_test: A numpy array of featurized instances, shape n * m,
-                or a pandas dataframe with one column with timestamp values
-                for 'forecasting' task.
-            freq: str or pandas offset, default=None | The frequency of the
-                time-series.
+                or for 'forecasting' task:
+                    a pandas dataframe with one column of timestamp values
+                    or an integer n for the predict steps (only valid when
+                    the estimator is arima or sarimax).
 
         Returns:
-            A numpy array of shape n * 1 - - each element is a predicted class
+            A array-like of shape n * 1 - - each element is a predicted
             label for an instance.
         '''
         if self._trained_estimator is None:
             warnings.warn(
                 "No estimator is trained. Please run fit with enough budget.")
             return None
-        if self._state.task == 'forecast':
-            X_test_df = pd.DataFrame(X_test)
-            X_test_col = X_test_df.columns[0]
-            X_test_df = X_test_df.rename(columns={X_test_col: 'ds'})
-            X_test_df = self._preprocess(X_test_df)
-            y_pred = self._trained_estimator.predict(X_test_df, freq=freq)
-        else:
-            X_test = self._preprocess(X_test)
-            y_pred = self._trained_estimator.predict(X_test)
+        X_test = self._preprocess(X_test)
+        y_pred = self._trained_estimator.predict(X_test)
         if y_pred.ndim > 1 and isinstance(y_pred, np.ndarray):
             y_pred = y_pred.flatten()
         if self._label_transformer:
@@ -431,10 +424,16 @@ class AutoML:
         return proba
 
     def _preprocess(self, X):
-        if issparse(X):
-            X = X.tocsr()
-        if self._transformer:
-            X = self._transformer.transform(X)
+        if isinstance(X, int):
+            return X
+        if self._state.task == 'forecast':
+            X = pd.DataFrame(X)
+            X = X.rename(columns={X.columns[0]: 'ds'})
+        else:
+            if issparse(X):
+                X = X.tocsr()
+            if self._transformer:
+                X = self._transformer.transform(X)
         return X
 
     def _validate_data(self, X_train_all, y_train_all, dataframe, label,
@@ -446,13 +445,11 @@ class AutoML:
             elif dataframe is not None:
                 if ('ds' not in dataframe) or ('y' not in dataframe):
                     raise ValueError(
-                        'For forecasting task, Dataframe must have columns "ds" and "y" '
-                        'with the dates and values respectively.'
-                    )
+                        'For forecasting task, dataframe must have columns "ds" and "y" '
+                        'with the dates and values respectively.')
             elif (X_train_all is not None) and (y_train_all is not None):
                 dataframe = pd.DataFrame(X_train_all)
-                time_col = dataframe.columns[0]
-                dataframe = dataframe.rename(columns={time_col: 'ds'})
+                dataframe = dataframe.rename(columns={dataframe.columns[0]: 'ds'})
                 dataframe['y'] = pd.Series(y_train_all)
                 X_train_all = None
                 y_train_all = None
@@ -1817,9 +1814,11 @@ class AutoML:
             elif self._retrain_final:
                 # reset time budget for retraining
                 self._state.time_from_start -= self._state.time_budget
-                if (self._state.time_budget - self._state.time_from_start
-                    > self._selected.est_retrain_time(self.data_size_full)) \
-                   and self._selected.best_config_sample_size == self._state.data_size:
+                if self._state.task == 'forecast' or (
+                    self._state.time_budget - self._state.time_from_start
+                    > self._selected.est_retrain_time(self.data_size_full)
+                    and self._selected.best_config_sample_size == self._state.data_size
+                ):
                     self._trained_estimator, \
                         retrain_time = self._state._train_with_config(
                             self._best_estimator,
