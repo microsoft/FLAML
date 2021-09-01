@@ -17,6 +17,7 @@ def test_automl(budget=5, dataset_format='dataframe'):
         "metric": 'accuracy',  # primary metrics can be chosen from: ['accuracy','roc_auc','roc_auc_ovr','roc_auc_ovo','f1','log_loss','mae','mse','r2']
         "task": 'classification',  # task type
         "log_file_name": 'airlines_experiment.log',  # flaml log file
+        "seed": 7654321,    # random seed
     }
     '''The main flaml automl API'''
     automl.fit(X_train=X_train, y_train=y_train, **settings)
@@ -41,7 +42,7 @@ def test_automl(budget=5, dataset_format='dataframe'):
     print('roc_auc', '=', 1 - sklearn_metric_loss_score('roc_auc', y_pred_proba, y_test))
     print('log_loss', '=', sklearn_metric_loss_score('log_loss', y_pred_proba, y_test))
     from flaml.data import get_output_from_log
-    time_history, best_valid_loss_history, valid_loss_history, config_history, train_loss_history = \
+    time_history, best_valid_loss_history, valid_loss_history, config_history, metric_history = \
         get_output_from_log(filename=settings['log_file_name'], time_budget=60)
     for config in config_history:
         print(config)
