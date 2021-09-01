@@ -161,19 +161,20 @@
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">pickle</span>
 
+
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">from</span> <span class="nn">ray</span> <span class="kn">import</span> <span class="n">__version__</span> <span class="k">as</span> <span class="n">ray_version</span>
     <span class="k">assert</span> <span class="n">ray_version</span> <span class="o">&gt;=</span> <span class="s1">&#39;1.0.0&#39;</span>
     <span class="kn">from</span> <span class="nn">ray.tune.suggest</span> <span class="kn">import</span> <span class="n">Searcher</span>
     <span class="kn">from</span> <span class="nn">ray.tune.suggest.optuna</span> <span class="kn">import</span> <span class="n">OptunaSearch</span> <span class="k">as</span> <span class="n">GlobalSearch</span>
-    <span class="kn">from</span> <span class="nn">ray.tune.utils.util</span> <span class="kn">import</span> <span class="n">flatten_dict</span>
+    <span class="kn">from</span> <span class="nn">ray.tune.utils.util</span> <span class="kn">import</span> <span class="n">unflatten_dict</span>
 <span class="k">except</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="ne">AssertionError</span><span class="p">):</span>
     <span class="kn">from</span> <span class="nn">.suggestion</span> <span class="kn">import</span> <span class="n">Searcher</span>
     <span class="kn">from</span> <span class="nn">.suggestion</span> <span class="kn">import</span> <span class="n">OptunaSearch</span> <span class="k">as</span> <span class="n">GlobalSearch</span>
-    <span class="kn">from</span> <span class="nn">.variant_generator</span> <span class="kn">import</span> <span class="n">flatten_dict</span>
+    <span class="kn">from</span> <span class="nn">..tune.trial</span> <span class="kn">import</span> <span class="n">unflatten_dict</span>
 <span class="kn">from</span> <span class="nn">.search_thread</span> <span class="kn">import</span> <span class="n">SearchThread</span>
 <span class="kn">from</span> <span class="nn">.flow2</span> <span class="kn">import</span> <span class="n">FLOW2</span>
-<span class="kn">from</span> <span class="nn">..tune.space</span> <span class="kn">import</span> <span class="n">add_cost_to_space</span><span class="p">,</span> <span class="n">normalize</span>   <span class="c1"># TODO: , define_by_run_func</span>
+<span class="kn">from</span> <span class="nn">..tune.space</span> <span class="kn">import</span> <span class="n">add_cost_to_space</span><span class="p">,</span> <span class="n">indexof</span><span class="p">,</span> <span class="n">normalize</span><span class="p">,</span> <span class="n">define_by_run_func</span>
 
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -286,9 +287,8 @@
         <span class="k">if</span> <span class="n">global_search_alg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span> <span class="o">=</span> <span class="n">global_search_alg</span>
         <span class="k">elif</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;__name__&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="o">!=</span> <span class="s1">&#39;CFO&#39;</span><span class="p">:</span>
-            <span class="n">gs_space</span> <span class="o">=</span> <span class="n">space</span>
-            <span class="c1"># TODO: when define_by_run is supported</span>
-            <span class="c1"># gs_space = define_by_run_func(space)</span>
+            <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+            <span class="n">gs_space</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">define_by_run_func</span><span class="p">,</span> <span class="n">space</span><span class="o">=</span><span class="n">space</span><span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">gs_seed</span> <span class="o">=</span> <span class="n">seed</span> <span class="o">-</span> <span class="mi">10</span> <span class="k">if</span> <span class="p">(</span><span class="n">seed</span> <span class="o">-</span> <span class="mi">10</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">seed</span> <span class="o">-</span> <span class="mi">11</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">32</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">experimental</span><span class="p">:</span>
@@ -351,7 +351,10 @@
             <span class="c1"># reset search when metric or mode changed</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">set_search_properties</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="p">)</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span><span class="o">.</span><span class="n">set_search_properties</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span> <span class="o">=</span> <span class="n">GlobalSearch</span><span class="p">(</span>
+                    <span class="n">space</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_gs</span><span class="o">.</span><span class="n">_space</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span>
+                    <span class="n">sampler</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_gs</span><span class="o">.</span><span class="n">_sampler</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span><span class="o">.</span><span class="n">space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">space</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_init_search</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">config</span><span class="p">:</span>
             <span class="k">if</span> <span class="s1">&#39;time_budget_s&#39;</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span>
@@ -465,9 +468,11 @@
                         <span class="bp">self</span><span class="o">.</span><span class="n">_expand_admissible_region</span><span class="p">(</span>
                             <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">,</span>
                             <span class="bp">self</span><span class="o">.</span><span class="n">_subspace</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">trial_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">space</span><span class="p">))</span>
-                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_experimental</span><span class="p">:</span>
-                        <span class="c1"># TODO: key match for hierarchical space</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">_gs</span><span class="o">.</span><span class="n">add_evaluated_point</span><span class="p">(</span><span class="n">flatten_dict</span><span class="p">(</span><span class="n">config</span><span class="p">),</span> <span class="n">objective</span><span class="p">)</span>
+                    <span class="c1"># if self._gs is not None and self._experimental:</span>
+                    <span class="c1">#     # TODO: recover when supported</span>
+                    <span class="c1">#     converted = convert_key(config, self._gs.space)</span>
+                    <span class="c1">#     logger.info(converted)</span>
+                    <span class="c1">#     self._gs.add_evaluated_point(converted, objective)</span>
                 <span class="k">elif</span> <span class="n">metric_constraint_satisfied</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_condition</span><span class="p">(</span>
                         <span class="n">result</span><span class="p">):</span>
                     <span class="c1"># thread creator</span>
@@ -492,7 +497,6 @@
             <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subspace</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span></div>
 
     <span class="k">def</span> <span class="nf">_create_thread</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">space</span><span class="p">):</span>
-        <span class="c1"># logger.info(f&quot;create local search thread from {config}&quot;)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_thread_count</span><span class="p">]</span> <span class="o">=</span> <span class="n">SearchThread</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
@@ -502,26 +506,29 @@
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_thread_count</span> <span class="o">+=</span> <span class="mi">1</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_update_admissible_region</span><span class="p">(</span>
-            <span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">,</span> <span class="n">space</span><span class="p">)</span>
+            <span class="n">unflatten_dict</span><span class="p">(</span><span class="n">config</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">space</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_update_admissible_region</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">admissible_min</span><span class="p">,</span> <span class="n">admissible_max</span><span class="p">,</span> <span class="n">space</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">admissible_min</span><span class="p">,</span> <span class="n">admissible_max</span><span class="p">,</span> <span class="n">subspace</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="p">{},</span>
+        <span class="n">space</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="p">):</span>
         <span class="c1"># update admissible region</span>
-        <span class="n">normalized_config</span> <span class="o">=</span> <span class="n">normalize</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="n">normalized_config</span> <span class="o">=</span> <span class="n">normalize</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subspace</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="p">{})</span>
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">admissible_min</span><span class="p">:</span>
             <span class="n">value</span> <span class="o">=</span> <span class="n">normalized_config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">admissible_max</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">list</span><span class="p">):</span>
-                <span class="n">choice</span> <span class="o">=</span> <span class="n">space</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s1">&#39;_choice_&#39;</span><span class="p">]</span>
+                <span class="n">domain</span> <span class="o">=</span> <span class="n">space</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                <span class="n">choice</span> <span class="o">=</span> <span class="n">indexof</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_update_admissible_region</span><span class="p">(</span>
                     <span class="n">value</span><span class="p">,</span>
                     <span class="n">admissible_min</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">choice</span><span class="p">],</span> <span class="n">admissible_max</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">choice</span><span class="p">],</span>
-                    <span class="n">space</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                    <span class="n">subspace</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">domain</span><span class="p">[</span><span class="n">choice</span><span class="p">]</span>
                 <span class="p">)</span>
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_update_admissible_region</span><span class="p">(</span>
-                    <span class="n">value</span><span class="p">,</span>
-                    <span class="n">admissible_min</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">admissible_max</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">space</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+                    <span class="n">value</span><span class="p">,</span> <span class="n">admissible_min</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">admissible_max</span><span class="p">[</span><span class="n">key</span><span class="p">],</span>
+                    <span class="n">subspace</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">space</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">value</span> <span class="o">&gt;</span> <span class="n">admissible_max</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
                     <span class="n">admissible_max</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
@@ -667,7 +674,8 @@
                     <span class="k">return</span> <span class="kc">None</span>
                 <span class="n">use_rs</span> <span class="o">=</span> <span class="mi">1</span>
             <span class="k">if</span> <span class="n">choice</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_valid</span><span class="p">(</span>
-               <span class="n">config</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_max</span><span class="p">):</span>
+               <span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">space</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_min</span><span class="p">,</span>
+               <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_max</span><span class="p">):</span>
                 <span class="c1"># LS or valid or no backup choice</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">choice</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="n">choice</span><span class="p">]</span><span class="o">.</span><span class="n">running</span> <span class="o">+=</span> <span class="n">use_rs</span>
@@ -695,10 +703,11 @@
                 <span class="c1"># temporarily relax admissible region for parallel proposals</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_update_admissible_region</span><span class="p">(</span>
                     <span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_max</span><span class="p">,</span>
-                    <span class="n">space</span><span class="p">)</span>
+                    <span class="n">space</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">space</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_update_admissible_region</span><span class="p">(</span>
-                    <span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">,</span> <span class="n">space</span><span class="p">)</span>
+                    <span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">space</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_min</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_min</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_gs_admissible_max</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls_bound_max</span><span class="p">)</span>
             <span class="n">signature</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">config_signature</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">space</span><span class="p">)</span>
@@ -785,11 +794,6 @@
         <span class="n">top_thread_id</span> <span class="o">=</span> <span class="n">backup_thread_id</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">priority1</span> <span class="o">=</span> <span class="n">priority2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">priority</span>
         <span class="k">for</span> <span class="n">thread_id</span><span class="p">,</span> <span class="n">thread</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="c1"># if thread_id:</span>
-            <span class="c1">#     print(</span>
-            <span class="c1">#         f&quot;priority of thread {thread_id}={thread.priority}&quot;)</span>
-            <span class="c1">#     logger.debug(</span>
-            <span class="c1">#         f&quot;thread {thread_id}.can_suggest={thread.can_suggest}&quot;)</span>
             <span class="k">if</span> <span class="n">thread_id</span> <span class="ow">and</span> <span class="n">thread</span><span class="o">.</span><span class="n">can_suggest</span><span class="p">:</span>
                 <span class="n">priority</span> <span class="o">=</span> <span class="n">thread</span><span class="o">.</span><span class="n">priority</span>
                 <span class="k">if</span> <span class="n">priority</span> <span class="o">&gt;</span> <span class="n">priority1</span><span class="p">:</span>
@@ -800,21 +804,29 @@
                     <span class="n">backup_thread_id</span> <span class="o">=</span> <span class="n">thread_id</span>
         <span class="k">return</span> <span class="n">top_thread_id</span><span class="p">,</span> <span class="n">backup_thread_id</span>
 
-    <span class="k">def</span> <span class="nf">_valid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">space</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">lower</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">upper</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_valid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">space</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">subspace</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+               <span class="n">lower</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">upper</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="sd">&#39;&#39;&#39; config validator</span>
 <span class="sd">        &#39;&#39;&#39;</span>
-        <span class="n">normalized_config</span> <span class="o">=</span> <span class="n">normalize</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="n">normalized_config</span> <span class="o">=</span> <span class="n">normalize</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subspace</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="p">{})</span>
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">lb</span> <span class="ow">in</span> <span class="n">lower</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span>
                 <span class="n">value</span> <span class="o">=</span> <span class="n">normalized_config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lb</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-                    <span class="n">subspace</span> <span class="o">=</span> <span class="n">space</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s1">&#39;_choice_&#39;</span><span class="p">]</span>
+                    <span class="n">domain</span> <span class="o">=</span> <span class="n">space</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                    <span class="n">index</span> <span class="o">=</span> <span class="n">indexof</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+                    <span class="n">nestedspace</span> <span class="o">=</span> <span class="n">subspace</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                    <span class="n">lb</span> <span class="o">=</span> <span class="n">lb</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+                    <span class="n">ub</span> <span class="o">=</span> <span class="n">upper</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">index</span><span class="p">]</span>
                 <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lb</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-                    <span class="n">subspace</span> <span class="o">=</span> <span class="n">space</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                    <span class="n">nestedspace</span> <span class="o">=</span> <span class="n">subspace</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                    <span class="n">domain</span> <span class="o">=</span> <span class="n">space</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                    <span class="n">ub</span> <span class="o">=</span> <span class="n">upper</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">subspace</span> <span class="o">=</span> <span class="kc">None</span>
-                <span class="k">if</span> <span class="n">subspace</span><span class="p">:</span>
-                    <span class="n">valid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_valid</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">subspace</span><span class="p">,</span> <span class="n">lb</span><span class="p">,</span> <span class="n">upper</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+                    <span class="n">nestedspace</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">if</span> <span class="n">nestedspace</span><span class="p">:</span>
+                    <span class="n">valid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_valid</span><span class="p">(</span>
+                        <span class="n">value</span><span class="p">,</span> <span class="n">domain</span><span class="p">,</span> <span class="n">nestedspace</span><span class="p">,</span> <span class="n">lb</span><span class="p">,</span> <span class="n">ub</span><span class="p">)</span>
                     <span class="k">if</span> <span class="ow">not</span> <span class="n">valid</span><span class="p">:</span>
                         <span class="k">return</span> <span class="kc">False</span>
                 <span class="k">elif</span> <span class="p">(</span><span class="n">value</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">STEPSIZE</span> <span class="o">&lt;</span> <span class="n">lower</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
