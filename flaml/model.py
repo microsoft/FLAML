@@ -87,7 +87,7 @@ class BaseEstimator:
             if self._task == 'rank':
                 kwargs['group'] = group_counts(kwargs['groups'])
                 # groups_val = kwargs.get('groups_val')
-                # if groups_val is not None:                    
+                # if groups_val is not None:
                 #     kwargs['eval_group'] = [group_counts(groups_val)]
                 #     kwargs['eval_set'] = [
                 #         (kwargs['X_val'], kwargs['y_val'])]
