@@ -541,8 +541,7 @@ class AutoML:
     def _prepare_data(self,
                       eval_method,
                       split_ratio,
-                      n_splits,
-                      period=None):
+                      n_splits):
         X_val, y_val = self._state.X_val, self._state.y_val
         if issparse(X_val):
             X_val = X_val.tocsr()
@@ -599,9 +598,12 @@ class AutoML:
         if X_val is None and eval_method == 'holdout':
             # if eval_method = holdout, make holdout data
             if self._split_type == 'time':
-                if 'period' in self._state.fit_kwargs:
+                if self._state.task == 'forecast':
                     num_samples = X_train_all.shape[0]
-                    split_idx = num_samples - self._state.fit_kwargs.get('period')
+                    period = self._state.fit_kwargs['period']
+                    assert period < num_samples, (
+                        f"period={period}>#examples={num_samples}")
+                    split_idx = num_samples - period
                     X_train = X_train_all[:split_idx]
                     y_train = y_train_all[:split_idx]
                     X_val = X_train_all[split_idx:]
@@ -722,8 +724,16 @@ class AutoML:
         elif self._split_type == "time":
             # logger.info("Using TimeSeriesSplit")
             if self._state.task == 'forecast':
+                period = self._state.fit_kwargs['period']
+                if period * (n_splits + 1) > y_train_all.size:
+                    n_splits = int(y_train_all.size / period - 1)
+                    assert n_splits >= 2, (
+                        f"cross validation for forecasting period={period}"
+                        f" requires input data with at least {3 * period} examples.")
+                    logger.info(
+                        f"Using nsplits={n_splits} due to data size limit.")
                 self._state.kf = TimeSeriesSplit(
-                    n_splits=n_splits, test_size=self._state.fit_kwargs.get('period'))
+                    n_splits=n_splits, test_size=period)
             else:
                 self._state.kf = TimeSeriesSplit(n_splits=n_splits)
         else:
@@ -912,9 +922,8 @@ class AutoML:
         elif self._state.task == 'forecast':
             assert split_type in [None, "time"]
             self._split_type = "time"
-            if self._state.fit_kwargs.get('period') is None:
-                raise TypeError(
-                    "missing 1 required argument for 'forecast' task: 'period'.")
+            assert isinstance(self._state.fit_kwargs.get('period'), int), (
+                "missing a required integer 'period' for forecast.")
         elif self._state.task == 'rank':
             assert self._state.groups is not None, \
                 'groups must be specified for ranking task.'
@@ -1294,11 +1303,7 @@ class AutoML:
         self._retrain_final = retrain_full is True and (
             eval_method == 'holdout' and self._state.X_val is None) or (
                 eval_method == 'cv')
-        if self._state.task != 'forecast':
-            self._prepare_data(eval_method, split_ratio, n_splits)
-        else:
-            self._prepare_data(eval_method, split_ratio, n_splits,
-                               period=self._state.fit_kwargs['period'])
+        self._prepare_data(eval_method, split_ratio, n_splits)
         self._sample = sample and task != 'rank' and eval_method != 'cv' and (
             MIN_SAMPLE_TRAIN * SAMPLE_MULTIPLY_FACTOR < self._state.data_size)
         if 'auto' == metric:

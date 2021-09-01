@@ -72,12 +72,12 @@ def test_numpy():
     automl = AutoML()
     try:
         automl.fit(
-            X_train=X_train[:72],  # a single column of timestamp
+            X_train=X_train[:60],  # a single column of timestamp
             y_train=y_train,  # value for each timestamp
             period=12,  # time horizon to forecast, e.g., 12 months
             task='forecast', time_budget=3,  # time budget in seconds
             log_file_name="test/forecast.log")
-        print(automl.predict(X_train[72:]))
+        print(automl.predict(X_train[60:]))
         print(automl.predict(12))
     except ValueError:
         print("ValueError for FBProphet is raised as expected.")
