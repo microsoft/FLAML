@@ -86,6 +86,13 @@ class BaseEstimator:
             kwargs = kwargs.copy()
             if self._task == 'rank':
                 kwargs['group'] = group_counts(kwargs['groups'])
+                # groups_val = kwargs.get('groups_val')
+                # if groups_val is not None:                    
+                #     kwargs['eval_group'] = [group_counts(groups_val)]
+                #     kwargs['eval_set'] = [
+                #         (kwargs['X_val'], kwargs['y_val'])]
+                #     kwargs['verbose'] = False
+                #     del kwargs['groups_val'], kwargs['X_val'], kwargs['y_val']
             del kwargs['groups']
         X_train = self._preprocess(X_train)
         model = self.estimator_class(**self.params)
@@ -976,9 +983,9 @@ class ARIMA(BaseEstimator):
             if isinstance(X_test, int) and freq is not None:
                 forecast = self._model.forecast(steps=X_test).to_frame().reset_index()
             elif isinstance(X_test, pd.DataFrame):
-                start_date = X_test.iloc[0, 0]
-                end_date = X_test.iloc[-1, 0]
-                forecast = self._model.predict(start=start_date, end=end_date)
+                start = X_test.index[0]
+                end = X_test.index[-1]
+                forecast = self._model.predict(start=start, end=end)
             else:
                 raise ValueError(
                     "either X_test(pd.Dataframe with dates for predictions, column ds) or"
@@ -988,7 +995,7 @@ class ARIMA(BaseEstimator):
             return np.ones(X_test.shape[0])
 
 
-class SARIMAX(BaseEstimator):
+class SARIMAX(ARIMA):
     @classmethod
     def search_space(cls, **params):
         space = {
@@ -1058,19 +1065,3 @@ class SARIMAX(BaseEstimator):
         train_time = time.time() - current_time
         self._model = model
         return train_time
-
-    def predict(self, X_test, freq=None):
-        if self._model is not None:
-            if isinstance(X_test, int) and freq is not None:
-                forecast = self._model.forecast(steps=X_test).to_frame().reset_index()
-            elif isinstance(X_test, pd.DataFrame):
-                start_date = X_test.iloc[0, 0]
-                end_date = X_test.iloc[-1, 0]
-                forecast = self._model.predict(start=start_date, end=end_date)
-            else:
-                raise ValueError(
-                    "either X_test(pd.Dataframe with dates for predictions, column ds)"
-                    "or X_test(int number of periods)+freq are required.")
-            return forecast
-        else:
-            return np.ones(X_test.shape[0])

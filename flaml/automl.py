@@ -398,13 +398,14 @@ class AutoML:
             warnings.warn(
                 "No estimator is trained. Please run fit with enough budget.")
             return None
-        X_test = self._preprocess(X_test)
         if self._state.task == 'forecast':
             X_test_df = pd.DataFrame(X_test)
-            X_test_col = list(X_test.columns)[0]
+            X_test_col = X_test_df.columns[0]
             X_test_df = X_test_df.rename(columns={X_test_col: 'ds'})
+            X_test_df = self._preprocess(X_test_df)
             y_pred = self._trained_estimator.predict(X_test_df, freq=freq)
         else:
+            X_test = self._preprocess(X_test)
             y_pred = self._trained_estimator.predict(X_test)
         if y_pred.ndim > 1 and isinstance(y_pred, np.ndarray):
             y_pred = y_pred.flatten()
@@ -450,7 +451,7 @@ class AutoML:
                     )
             elif (X_train_all is not None) and (y_train_all is not None):
                 dataframe = pd.DataFrame(X_train_all)
-                time_col = list(dataframe.columns)[0]
+                time_col = dataframe.columns[0]
                 dataframe = dataframe.rename(columns={time_col: 'ds'})
                 dataframe['y'] = pd.Series(y_train_all)
                 X_train_all = None
