@@ -65,7 +65,7 @@ tune.run(train_with_config, config={…}, low_cost_partial_config={…}, time_bu
 
 ## Advantages
 
-* For common machine learning tasks like classification and regression, find quality models with lower computational resources.
+* For common machine learning tasks like classification and regression, find quality models with small computational resources.
 * Users can choose their desired customizability: minimal customization (computational resource budget), medium customization (e.g., scikit-style learner, search space and metric), full customization (arbitrary training and evaluation code).
 * Allow human guidance in hyperparameter tuning to respect prior on certain subspaces but also able to explore other subspaces. Read more about the
 hyperparameter optimization methods
