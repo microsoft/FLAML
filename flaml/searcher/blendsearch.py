@@ -129,8 +129,20 @@ class BlendSearch(Searcher):
                 "consider providing low-cost values for cost-related hps via "
                 "'low_cost_partial_config'."
             )
-        self._points_to_evaluate = points_to_evaluate or []
-        self._evaluated_rewards = evaluated_rewards or []
+        if evaluated_rewards and mode:
+            self._points_to_evaluate = []
+            self._evaluated_rewards = []
+            best = max(evaluated_rewards) if mode == 'max' else min(
+                evaluated_rewards)
+            # only keep the best points as start points
+            for i, r in enumerate(evaluated_rewards):
+                if r == best:
+                    p = points_to_evaluate[i]
+                    self._points_to_evaluate.append(p)
+                    self._evaluated_rewards.append(r)
+        else:
+            self._points_to_evaluate = points_to_evaluate or []
+            self._evaluated_rewards = evaluated_rewards or []
         self._config_constraints = config_constraints
         self._metric_constraints = metric_constraints
         if self._metric_constraints:
