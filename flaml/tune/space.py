@@ -10,8 +10,6 @@ except (ImportError, AssertionError):
 from typing import Dict, Optional, Any, Tuple
 import numpy as np
 import logging
-from .trial import flatten_dict
-from ..searcher.variant_generator import parse_spec_vars
 
 logger = logging.getLogger(__name__)
 

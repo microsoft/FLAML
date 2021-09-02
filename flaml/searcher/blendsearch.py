@@ -185,7 +185,7 @@ class BlendSearch(Searcher):
             self._gs = None
         self._experimental = experimental
         if getattr(self, '__name__', None) == 'CFO' and points_to_evaluate and len(
-           points_to_evaluate) > 1:
+           self._points_to_evaluate) > 1:
             # use the best config in points_to_evaluate as the start point
             self._candidate_start_points = {}
             self._started_from_low_cost = not low_cost_partial_config
@@ -267,6 +267,7 @@ class BlendSearch(Searcher):
         else:
             self._metric_constraint_satisfied = True
             self._metric_constraint_penalty = None
+        self.best_resource = self._ls.min_resource
 
     def save(self, checkpoint_path: str):
         ''' save states to a checkpoint path
@@ -338,6 +339,8 @@ class BlendSearch(Searcher):
                 objective = result[self._ls.metric]
                 if (objective - self._metric_target) * self._ls.metric_op < 0:
                     self._metric_target = objective
+                    if self._ls.resource:
+                        self._best_resource = config[self._ls.prune_attr]
                 if thread_id:
                     if not self._metric_constraint_satisfied:
                         # no point has been found to satisfy metric constraint
@@ -528,10 +531,12 @@ class BlendSearch(Searcher):
         '''
         if self._init_used and not self._points_to_evaluate:
             choice, backup = self._select_thread()
-            if choice < 0:  # timeout
-                return None
+            # if choice < 0:  # timeout
+            #     return None
             config = self._search_thread_pool[choice].suggest(trial_id)
-            if choice and config is None:
+            if not choice and config is not None and self._ls.resource:
+                config[self._ls.prune_attr] = self.best_resource
+            elif choice and config is None:
                 # local search thread finishes
                 if self._search_thread_pool[choice].converged:
                     self._expand_admissible_region(
@@ -576,9 +581,6 @@ class BlendSearch(Searcher):
                     self._trial_proposed_by[trial_id] = backup
                     choice = backup
             if not choice:  # global search
-                if self._ls._resource:
-                    # TODO: min or median?
-                    config[self._ls.prune_attr] = self._ls.min_resource
                 # temporarily relax admissible region for parallel proposals
                 self._update_admissible_region(
                     config, self._gs_admissible_min, self._gs_admissible_max,

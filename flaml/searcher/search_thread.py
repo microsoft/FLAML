@@ -46,7 +46,7 @@ class SearchThread:
         self.cost_attr = cost_attr
         if search_alg:
             self.space = self._space = search_alg.space  # unflattened space
-            if not isinstance(search_alg, FLOW2) and isinstance(
+            if self.space and not isinstance(search_alg, FLOW2) and isinstance(
                 search_alg._space, dict
             ):
                 # remember const config
