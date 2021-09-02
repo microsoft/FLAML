@@ -285,9 +285,9 @@ class TestAutoML(unittest.TestCase):
     def test_binary(self):
         automl_experiment = AutoML()
         automl_settings = {
-            "time_budget": 4,
+            "time_budget": 1,
             "task": 'binary',
-            "log_file_name": "test/iris.log",
+            "log_file_name": "test/breast_cancer.log",
             "log_training_metric": True,
             "n_jobs": 1,
             "model_history": True
