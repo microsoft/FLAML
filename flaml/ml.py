@@ -160,7 +160,6 @@ def get_y_pred(estimator, X, eval_metric, obj):
 def get_test_loss(config, estimator, X_train, y_train, X_test, y_test, weight_test,
                   groups_test, eval_metric, obj, labels=None, budget=None,
                   log_training_metric=False, fit_kwargs={}):
-
     start = time.time()
     # if groups_test is not None:
     #     fit_kwargs['groups_val'] = groups_test
@@ -203,7 +202,7 @@ def evaluate_model_CV(config, estimator, X_train_all, y_train_all, budget, kf,
     valid_fold_num = total_fold_num = 0
     n = kf.get_n_splits()
     X_train_split, y_train_split = X_train_all, y_train_all
-    if task == 'binary:logistics' or task == 'multi:softmax':
+    if task in ('binary', 'multi'):
         labels = np.unique(y_train_all)
     else:
         labels = None
@@ -337,9 +336,9 @@ def train_estimator(
 
 def get_classification_objective(num_labels: int) -> str:
     if num_labels == 2:
-        objective_name = 'binary:logistic'
+        objective_name = 'binary'
     else:
-        objective_name = 'multi:softmax'
+        objective_name = 'multi'
     return objective_name
 
 

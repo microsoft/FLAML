@@ -31,12 +31,12 @@ class BaseEstimator:
             for both regression and classification
     '''
 
-    def __init__(self, task='binary:logistic', **params):
+    def __init__(self, task='binary', **params):
         '''Constructor
 
         Args:
             task: A string of the task type, one of
-                'binary:logistic', 'multi:softmax', 'regression'
+                'binary', 'multi', 'regression'
             n_jobs: An integer of the number of parallel threads
             params: A dictionary of the hyperparameter names and values
         '''
@@ -48,7 +48,7 @@ class BaseEstimator:
             del self.params['_estimator_type']
         else:
             self._estimator_type = "classifier" if task in (
-                'binary:logistic', 'multi:softmax') else "regressor"
+                'binary', 'multi') else "regressor"
 
     def get_params(self, deep=False):
         params = self.params.copy()
@@ -193,7 +193,7 @@ class BaseEstimator:
 
 class SKLearnEstimator(BaseEstimator):
 
-    def __init__(self, task='binary:logistic', **params):
+    def __init__(self, task='binary', **params):
         super().__init__(task, **params)
 
     def _preprocess(self, X):
@@ -264,7 +264,7 @@ class LGBMEstimator(BaseEstimator):
         n_estimators = int(round(config['n_estimators']))
         return (num_leaves * 3 + (num_leaves - 1) * 4 + 1.0) * n_estimators * 8
 
-    def __init__(self, task='binary:logistic', log_max_bin=8, **params):
+    def __init__(self, task='binary', log_max_bin=8, **params):
         super().__init__(task, **params)
         if "objective" not in self.params:
             # Default: ‘regression’ for LGBMRegressor,
@@ -477,7 +477,7 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         return XGBoostEstimator.cost_relative2lgbm()
 
     def __init__(
-        self, task='binary:logistic', n_jobs=1,
+        self, task='binary', n_jobs=1,
         n_estimators=4, max_leaves=4, subsample=1.0,
         min_child_weight=1, learning_rate=0.1, reg_lambda=1.0, reg_alpha=0.0,
         colsample_bylevel=1.0, colsample_bytree=1.0, tree_method='hist',
@@ -555,7 +555,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         return 2.0
 
     def __init__(
-        self, task='binary:logistic', n_jobs=1,
+        self, task='binary', n_jobs=1,
         n_estimators=4, max_features=1.0, criterion='gini', max_leaves=4,
         **params
     ):
@@ -586,7 +586,7 @@ class ExtraTreeEstimator(RandomForestEstimator):
     def cost_relative2lgbm(cls):
         return 1.9
 
-    def __init__(self, task='binary:logistic', **params):
+    def __init__(self, task='binary', **params):
         super().__init__(task, **params)
         if 'regression' in task:
             self.estimator_class = ExtraTreesRegressor
@@ -610,7 +610,7 @@ class LRL1Classifier(SKLearnEstimator):
         return 160
 
     def __init__(
-        self, task='binary:logistic', n_jobs=1, tol=0.0001, C=1.0,
+        self, task='binary', n_jobs=1, tol=0.0001, C=1.0,
         **params
     ):
         super().__init__(task, **params)
@@ -639,7 +639,7 @@ class LRL2Classifier(SKLearnEstimator):
         return 25
 
     def __init__(
-        self, task='binary:logistic', n_jobs=1, tol=0.0001, C=1.0,
+        self, task='binary', n_jobs=1, tol=0.0001, C=1.0,
         **params
     ):
         super().__init__(task, **params)
@@ -711,7 +711,7 @@ class CatBoostEstimator(BaseEstimator):
         return X
 
     def __init__(
-        self, task='binary:logistic', n_jobs=1,
+        self, task='binary', n_jobs=1,
         n_estimators=8192, learning_rate=0.1, early_stopping_rounds=4, **params
     ):
         super().__init__(task, **params)
@@ -831,7 +831,7 @@ class KNeighborsEstimator(BaseEstimator):
         return 30
 
     def __init__(
-        self, task='binary:logistic', n_jobs=1, n_neighbors=5, **params
+        self, task='binary', n_jobs=1, n_neighbors=5, **params
     ):
         super().__init__(task, **params)
         self.params.update({

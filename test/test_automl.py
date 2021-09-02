@@ -17,7 +17,7 @@ from flaml import tune
 
 class MyRegularizedGreedyForest(SKLearnEstimator):
 
-    def __init__(self, task='binary:logistic', n_jobs=1, max_leaf=4,
+    def __init__(self, task='binary', n_jobs=1, max_leaf=4,
                  n_iter=1, n_tree_search=1, opt_interval=1, learning_rate=1.0,
                  min_samples_leaf=1, **params):
 

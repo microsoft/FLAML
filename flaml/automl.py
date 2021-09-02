@@ -548,7 +548,7 @@ class AutoML:
         X_train_all, y_train_all = self._X_train_all, self._y_train_all
         if issparse(X_train_all):
             X_train_all = X_train_all.tocsr()
-        if self._state.task in ('binary:logistic', 'multi:softmax') \
+        if self._state.task in ('binary', 'multi') \
                 and self._state.fit_kwargs.get('sample_weight') is None \
                 and self._split_type != 'time':
             # logger.info(f"label {pd.unique(y_train_all)}")
@@ -760,7 +760,7 @@ class AutoML:
             record_id: An integer of the record ID in the file,
                 0 corresponds to the first trial
             task: A string of the task type,
-                'binary', 'multi', or 'regression'
+                'binary', 'multi', 'regression', 'forecast', 'rank'
 
         Returns:
             An estimator object for the given configuration
@@ -1782,7 +1782,7 @@ class AutoML:
             if self._trained_estimator:
                 logger.info(f'selected model: {self._trained_estimator.model}')
             if self._ensemble and self._state.task in (
-                'binary:logistic', 'multi:softmax', 'regression',
+                'binary', 'multi', 'regression',
             ):
                 search_states = list(x for x in self._search_states.items()
                                      if x[1].trained_estimator)
@@ -1795,7 +1795,7 @@ class AutoML:
                 logger.info(estimators)
                 if len(estimators) <= 1:
                     return
-                if self._state.task in ('binary:logistic', 'multi:softmax'):
+                if self._state.task in ('binary', 'multi'):
                     from sklearn.ensemble import StackingClassifier as Stacker
                 else:
                     from sklearn.ensemble import StackingRegressor as Stacker
