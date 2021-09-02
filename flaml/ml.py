@@ -157,16 +157,9 @@ def get_y_pred(estimator, X, eval_metric, obj):
     return y_pred
 
 
-def get_test_loss(config, estimator, X_train, y_train, X_test, y_test, weight_test,
-                  groups_test, eval_metric, obj, labels=None, budget=None,
-                  log_training_metric=False, fit_kwargs={}):
-
-    start = time.time()
-    # if groups_test is not None:
-    #     fit_kwargs['groups_val'] = groups_test
-    #     fit_kwargs['X_val'] = X_test
-    #     fit_kwargs['y_val'] = y_test
-    estimator.fit(X_train, y_train, budget, **fit_kwargs)
+def _eval_estimator(config, estimator, X_train, y_train, X_test, y_test, weight_test,
+                    groups_test, eval_metric, obj, labels=None,
+                    log_training_metric=False, fit_kwargs={}):
     if isinstance(eval_metric, str):
         pred_start = time.time()
         test_pred_y = get_y_pred(estimator, X_test, eval_metric, obj)
@@ -188,6 +181,23 @@ def get_test_loss(config, estimator, X_train, y_train, X_test, y_test, weight_te
         if isinstance(metrics, dict):
             pred_time = metrics.get('pred_time', 0)
         metric_for_logging = metrics
+    return test_loss, metric_for_logging, pred_time
+
+
+def get_test_loss(config, estimator, X_train, y_train, X_test, y_test, weight_test,
+                  groups_test, eval_metric, obj, labels=None, budget=None,
+                  log_training_metric=False, fit_kwargs={}):
+
+    start = time.time()
+    # if groups_test is not None:
+    #     fit_kwargs['groups_val'] = groups_test
+    #     fit_kwargs['X_val'] = X_test
+    #     fit_kwargs['y_val'] = y_test
+    estimator.fit(X_train, y_train, budget, **fit_kwargs)
+    test_loss, metric_for_logging, pred_time = _eval_estimator(config, estimator,
+                                                               X_train, y_train, X_test, y_test,
+                                                               weight_test, groups_test, eval_metric, obj,
+                                                               labels, log_training_metric, fit_kwargs)
     train_time = time.time() - start
     return test_loss, metric_for_logging, train_time, pred_time
 
