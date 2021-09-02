@@ -166,21 +166,19 @@ def _eval_estimator(config, estimator, X_train, y_train, X_test, y_test, weight_
         pred_time = (time.time() - pred_start) / X_test.shape[0]
         test_loss = sklearn_metric_loss_score(eval_metric, test_pred_y, y_test,
                                               labels, weight_test, groups_test)
+        metric_for_logging = {}
         if log_training_metric:
-            test_pred_y = get_y_pred(estimator, X_train, eval_metric, obj)
-            metric_for_logging = sklearn_metric_loss_score(
-                eval_metric, test_pred_y, y_train, labels,
+            train_pred_y = get_y_pred(estimator, X_train, eval_metric, obj)
+            metric_for_logging['train_loss'] = sklearn_metric_loss_score(
+                eval_metric, train_pred_y, y_train, labels,
                 fit_kwargs.get('sample_weight'), fit_kwargs.get('groups'))
-        else:
-            metric_for_logging = None
     else:  # customized metric function
-        test_loss, metrics = eval_metric(
+        test_loss, metric_for_logging = eval_metric(
             X_test, y_test, estimator, labels, X_train, y_train, weight_test,
             fit_kwargs.get('sample_weight'), config, groups_test,
             fit_kwargs.get('groups'))
-        if isinstance(metrics, dict):
-            pred_time = metrics.get('pred_time', 0)
-        metric_for_logging = metrics
+        if isinstance(metric_for_logging, dict):
+            pred_time = metric_for_logging.get('pred_time', 0)
         test_pred_y = None  # eval_metric may return test_pred_y but not necessarily. Setting None for now.
     return test_loss, metric_for_logging, pred_time, test_pred_y
 
