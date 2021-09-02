@@ -14,14 +14,14 @@ try:
     assert ray_version >= '1.0.0'
     from ray.tune.suggest import Searcher
     from ray.tune.suggest.optuna import OptunaSearch as GlobalSearch
-    from ray.tune.utils.util import unflatten_dict
 except (ImportError, AssertionError):
     from .suggestion import Searcher
     from .suggestion import OptunaSearch as GlobalSearch
-    from ..tune.trial import unflatten_dict
+from ..tune.trial import unflatten_dict, flatten_dict
 from .search_thread import SearchThread
 from .flow2 import FLOW2
-from ..tune.space import add_cost_to_space, indexof, normalize, define_by_run_func
+from ..tune.space import (
+    add_cost_to_space, indexof, normalize, define_by_run_func)
 
 import logging
 logger = logging.getLogger(__name__)
@@ -53,6 +53,7 @@ class BlendSearch(Searcher):
                  metric_constraints: Optional[
                      List[Tuple[str, str, float]]] = None,
                  seed: Optional[int] = 20,
+                 evaluated_rewards: Optional[List] = None,
                  experimental: Optional[bool] = False):
         '''Constructor
 
@@ -111,6 +112,12 @@ class BlendSearch(Searcher):
             metric_constraints: A list of metric constraints to be satisfied.
                 e.g., `['precision', '>=', 0.9]`
             seed: An integer of the random seed.
+            evaluated_rewards (list): If you have previously evaluated the
+                parameters passed in as points_to_evaluate you can avoid
+                re-running those trials by passing in the reward attributes
+                as a list so the optimiser can be told the results without
+                needing to re-compute the trial. Must be the same length as
+                points_to_evaluate.
             experimental: A bool of whether to use experimental features.
         '''
         self._metric, self._mode = metric, mode
@@ -123,6 +130,7 @@ class BlendSearch(Searcher):
                 "'low_cost_partial_config'."
             )
         self._points_to_evaluate = points_to_evaluate or []
+        self._evaluated_rewards = evaluated_rewards or []
         self._config_constraints = config_constraints
         self._metric_constraints = metric_constraints
         if self._metric_constraints:
@@ -131,24 +139,35 @@ class BlendSearch(Searcher):
         self._cat_hp_cost = cat_hp_cost or {}
         if space:
             add_cost_to_space(space, init_config, self._cat_hp_cost)
+        self._ls = self.LocalSearch(
+            init_config, metric, mode, space, prune_attr,
+            min_resource, max_resource, reduction_factor, self.cost_attr, seed)
+        self._is_ls_ever_converged = False
         if global_search_alg is not None:
             self._gs = global_search_alg
         elif getattr(self, '__name__', None) != 'CFO':
-            from functools import partial
-            gs_space = partial(define_by_run_func, space=space)
+            if space and self._ls.hierarchical:
+                from functools import partial
+                gs_space = partial(define_by_run_func, space=space)
+                evaluated_rewards = None    # not supproted by define-by-run
+            else:
+                gs_space = space
+            gs_seed = seed - 10 if (seed - 10) >= 0 else seed - 11 + (1 << 32)
+            if experimental:
+                import optuna as ot
+                sampler = ot.samplers.TPESampler(
+                    seed=seed, multivariate=True, group=True)
+            else:
+                sampler = None
             try:
-                gs_seed = seed - 10 if (seed - 10) >= 0 else seed - 11 + (1 << 32)
-                if experimental:
-                    import optuna as ot
-                    sampler = ot.samplers.TPESampler(
-                        seed=seed, multivariate=True, group=True)
-                else:
-                    sampler = None
+                self._gs = GlobalSearch(
+                    space=gs_space, metric=metric, mode=mode, seed=gs_seed,
+                    sampler=sampler, points_to_evaluate=points_to_evaluate,
+                    evaluated_rewards=evaluated_rewards)
+            except ValueError:
                 self._gs = GlobalSearch(
                     space=gs_space, metric=metric, mode=mode, seed=gs_seed,
                     sampler=sampler)
-            except TypeError:
-                self._gs = GlobalSearch(space=gs_space, metric=metric, mode=mode)
             self._gs.space = space
         else:
             self._gs = None
@@ -160,10 +179,6 @@ class BlendSearch(Searcher):
             self._started_from_low_cost = not low_cost_partial_config
         else:
             self._candidate_start_points = None
-        self._ls = self.LocalSearch(
-            init_config, metric, mode, space, prune_attr,
-            min_resource, max_resource, reduction_factor, self.cost_attr, seed)
-        self._is_ls_ever_converged = False
         self._subspace = {}     # the subspace for each trial id
         if space:
             self._init_search()
@@ -187,6 +202,7 @@ class BlendSearch(Searcher):
         if not self._ls.space:
             # the search space can be set only once
             if self._gs is not None:
+                # define-by-run is not supported via set_search_properties
                 self._gs.set_search_properties(metric, mode, config)
                 self._gs.space = config
             if config:
@@ -315,11 +331,14 @@ class BlendSearch(Searcher):
                         self._expand_admissible_region(
                             self._ls_bound_min, self._ls_bound_max,
                             self._subspace.get(trial_id, self._ls.space))
-                    # if self._gs is not None and self._experimental:
-                    #     # TODO: recover when supported
-                    #     converted = convert_key(config, self._gs.space)
-                    #     logger.info(converted)
-                    #     self._gs.add_evaluated_point(converted, objective)
+                    if self._gs is not None and self._experimental and (
+                       not self._ls.hierarchical):
+                        self._gs.add_evaluated_point(
+                            flatten_dict(config), objective)
+                        # TODO: recover when supported
+                        # converted = convert_key(config, self._gs.space)
+                        # logger.info(converted)
+                        # self._gs.add_evaluated_point(converted, objective)
                 elif metric_constraint_satisfied and self._create_condition(
                         result):
                     # thread creator

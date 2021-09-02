@@ -13,6 +13,7 @@ try:
     from ray.tune.analysis import ExperimentAnalysis as EA
 except (ImportError, AssertionError):
     from .analysis import ExperimentAnalysis as EA
+from .result import DEFAULT_METRIC
 import logging
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class ExperimentAnalysis(EA):
             super().__init__(self, None, trials, metric, mode)
         except (TypeError, ValueError):
             self.trials = trials
-            self.default_metric = metric or '_default_anonymous_metric'
+            self.default_metric = metric or DEFAULT_METRIC
             self.default_mode = mode
 
 
@@ -82,7 +83,7 @@ def report(_metric=None, **kwargs):
         if _verbose == 2:
             logger.info(f"result: {kwargs}")
         if _metric:
-            result['_default_anonymous_metric'] = _metric
+            result[DEFAULT_METRIC] = _metric
         trial = _runner.running_trial
         if _running_trial == trial:
             _training_iteration += 1
@@ -259,7 +260,7 @@ def run(training_function,
     if search_alg is None:
         from ..searcher.blendsearch import BlendSearch
         search_alg = BlendSearch(
-            metric=metric or '_default_anonymous_metric', mode=mode,
+            metric=metric or DEFAULT_METRIC, mode=mode,
             space=config,
             points_to_evaluate=points_to_evaluate,
             low_cost_partial_config=low_cost_partial_config,
