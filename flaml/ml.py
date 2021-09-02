@@ -181,7 +181,8 @@ def _eval_estimator(config, estimator, X_train, y_train, X_test, y_test, weight_
         if isinstance(metrics, dict):
             pred_time = metrics.get('pred_time', 0)
         metric_for_logging = metrics
-    return test_loss, metric_for_logging, pred_time
+        test_pred_y = None  # eval_metric may return test_pred_y but not necessarily. Setting None for now.
+    return test_loss, metric_for_logging, pred_time, test_pred_y
 
 
 def get_test_loss(config, estimator, X_train, y_train, X_test, y_test, weight_test,
@@ -194,10 +195,10 @@ def get_test_loss(config, estimator, X_train, y_train, X_test, y_test, weight_te
     #     fit_kwargs['X_val'] = X_test
     #     fit_kwargs['y_val'] = y_test
     estimator.fit(X_train, y_train, budget, **fit_kwargs)
-    test_loss, metric_for_logging, pred_time = _eval_estimator(config, estimator,
-                                                               X_train, y_train, X_test, y_test,
-                                                               weight_test, groups_test, eval_metric, obj,
-                                                               labels, log_training_metric, fit_kwargs)
+    test_loss, metric_for_logging, pred_time, _ = _eval_estimator(config, estimator,
+                                                                  X_train, y_train, X_test, y_test,
+                                                                  weight_test, groups_test, eval_metric, obj,
+                                                                  labels, log_training_metric, fit_kwargs)
     train_time = time.time() - start
     return test_loss, metric_for_logging, train_time, pred_time
 
