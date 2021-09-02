@@ -40,9 +40,10 @@ class BlendSearch(Searcher):
                  metric: Optional[str] = None,
                  mode: Optional[str] = None,
                  space: Optional[dict] = None,
-                 points_to_evaluate: Optional[List[dict]] = None,
                  low_cost_partial_config: Optional[dict] = None,
                  cat_hp_cost: Optional[dict] = None,
+                 points_to_evaluate: Optional[List[dict]] = None,
+                 evaluated_rewards: Optional[List] = None,
                  prune_attr: Optional[str] = None,
                  min_resource: Optional[float] = None,
                  max_resource: Optional[float] = None,
@@ -53,7 +54,6 @@ class BlendSearch(Searcher):
                  metric_constraints: Optional[
                      List[Tuple[str, str, float]]] = None,
                  seed: Optional[int] = 20,
-                 evaluated_rewards: Optional[List] = None,
                  experimental: Optional[bool] = False):
         '''Constructor
 
@@ -62,7 +62,6 @@ class BlendSearch(Searcher):
             mode: A string in ['min', 'max'] to specify the objective as
                 minimization or maximization.
             space: A dictionary to specify the search space.
-            points_to_evaluate: Initial parameter suggestions to be run first.
             low_cost_partial_config: A dictionary from a subset of
                 controlled dimensions to the initial low-cost values.
                 e.g.,
@@ -81,6 +80,13 @@ class BlendSearch(Searcher):
 
                 i.e., the relative cost of the
                 three choices of 'tree_method' is 1, 1 and 2 respectively.
+            points_to_evaluate: Initial parameter suggestions to be run first.
+            evaluated_rewards (list): If you have previously evaluated the
+                parameters passed in as points_to_evaluate you can avoid
+                re-running those trials by passing in the reward attributes
+                as a list so the optimiser can be told the results without
+                needing to re-compute the trial. Must be the same length as
+                points_to_evaluate.
             prune_attr: A string of the attribute used for pruning.
                 Not necessarily in space.
                 When prune_attr is in space, it is a hyperparameter, e.g.,
@@ -112,12 +118,6 @@ class BlendSearch(Searcher):
             metric_constraints: A list of metric constraints to be satisfied.
                 e.g., `['precision', '>=', 0.9]`
             seed: An integer of the random seed.
-            evaluated_rewards (list): If you have previously evaluated the
-                parameters passed in as points_to_evaluate you can avoid
-                re-running those trials by passing in the reward attributes
-                as a list so the optimiser can be told the results without
-                needing to re-compute the trial. Must be the same length as
-                points_to_evaluate.
             experimental: A bool of whether to use experimental features.
         '''
         self._metric, self._mode = metric, mode
@@ -323,10 +323,11 @@ class BlendSearch(Searcher):
                 trial_id, result, error)
             del self._trial_proposed_by[trial_id]
         if result:
-            config = {}
-            for key, value in result.items():
-                if key.startswith('config/'):
-                    config[key[7:]] = value
+            config = result.get('config', {})
+            if not config:
+                for key, value in result.items():
+                    if key.startswith('config/'):
+                        config[key[7:]] = value
             signature = self._ls.config_signature(
                 config, self._subspace.get(trial_id, {}))
             if error:  # remove from result cache
@@ -594,22 +595,35 @@ class BlendSearch(Searcher):
         else:  # use init config
             if self._candidate_start_points is not None and self._points_to_evaluate:
                 self._candidate_start_points[trial_id] = None
-            init_config = self._points_to_evaluate.pop(
-                0) if self._points_to_evaluate else self._ls.init_config
+            reward = None
+            if self._points_to_evaluate:
+                init_config = self._points_to_evaluate.pop(0)
+                if self._evaluated_rewards:
+                    reward = self._evaluated_rewards.pop(0)
+            else:
+                init_config = self._ls.init_config
             config, space = self._ls.complete_config(
                 init_config, self._ls_bound_min, self._ls_bound_max)
-            config_signature = self._ls.config_signature(config, space)
-            result = self._result.get(config_signature)
-            if result:  # tried before
-                return None
-            elif result is None:  # not tried before
-                self._result[config_signature] = {}
-            else:  # running but no result yet
-                return None
+            if reward is None:
+                config_signature = self._ls.config_signature(config, space)
+                result = self._result.get(config_signature)
+                if result:  # tried before
+                    return None
+                elif result is None:  # not tried before
+                    self._result[config_signature] = {}
+                else:  # running but no result yet
+                    return None
             self._init_used = True
             self._trial_proposed_by[trial_id] = 0
             self._search_thread_pool[0].running += 1
             self._subspace[trial_id] = space
+            if reward is not None:
+                result = {
+                    self._metric: reward, self.cost_attr: 1,
+                    'config': config
+                }
+                self.on_trial_complete(trial_id, result)
+                return None
         return config
 
     def _should_skip(self, choice, trial_id, config, space) -> bool:
