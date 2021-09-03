@@ -264,6 +264,7 @@ class TestAutoML(unittest.TestCase):
             "model_history": True,
             "sample_weight": np.ones(len(y)),
             "pred_time_limit": 1e-5,
+            "ensemble": True,
         }
         automl_experiment.fit(**automl_settings)
         print(automl_experiment.classes_)
@@ -382,23 +383,25 @@ class TestAutoML(unittest.TestCase):
 
     def test_roc_auc_ovr(self):
         automl_experiment = AutoML()
+        X_train, y_train = load_iris(return_X_y=True)
         automl_settings = {
-            "time_budget": 2,
+            "time_budget": 1,
             "metric": "roc_auc_ovr",
             "task": "classification",
             "log_file_name": "test/roc_auc_ovr.log",
             "log_training_metric": True,
             "n_jobs": 1,
+            "sample_weight": np.ones(len(y_train)),
+            "eval_method": "holdout",
             "model_history": True
         }
-        X_train, y_train = load_iris(return_X_y=True)
         automl_experiment.fit(
             X_train=X_train, y_train=y_train, **automl_settings)
 
     def test_roc_auc_ovo(self):
         automl_experiment = AutoML()
         automl_settings = {
-            "time_budget": 2,
+            "time_budget": 1,
             "metric": "roc_auc_ovo",
             "task": "classification",
             "log_file_name": "test/roc_auc_ovo.log",
@@ -438,6 +441,11 @@ class TestAutoML(unittest.TestCase):
             log_file_name=automl_settings["log_file_name"],
             X_train=X_train, y_train=y_train,
             train_full=True, time_budget=1)
+        automl_experiment.retrain_from_log(
+            task="regression",
+            log_file_name=automl_settings["log_file_name"],
+            X_train=X_train, y_train=y_train,
+            train_full=True, time_budget=0)
 
     def test_sparse_matrix_classification(self):
         automl_experiment = AutoML()
@@ -565,7 +573,7 @@ class TestAutoML(unittest.TestCase):
         except ImportError:
             return
 
-    def test_parallel_xgboost_random(self):
+    def test_parallel_xgboost_others(self):
         # use random search as the hpo_method
         self.test_parallel_xgboost(hpo_method='random')
 

@@ -1,3 +1,4 @@
+from mlflow.tracking.fluent import autolog
 from openml.exceptions import OpenMLServerException
 
 
@@ -85,6 +86,8 @@ def test_mlflow():
         automl.fit(
             X_train=X_train, y_train=y_train, **settings)
     # subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "mlflow"])
+    automl._mem_thres = 0
+    print(automl.trainable(automl.points_to_evaluate[0]))
 
 
 if __name__ == "__main__":
