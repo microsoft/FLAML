@@ -96,7 +96,7 @@ class FLOW2(Searcher):
         self.space = space or {}
         self._space = flatten_dict(self.space, prevent_delimiter=True)
         self._random = np.random.RandomState(seed)
-        self._seed = seed
+        self.seed = seed
         self.init_config = init_config
         self.best_config = flatten_dict(init_config)
         self.prune_attr = prune_attr
@@ -254,10 +254,10 @@ class FLOW2(Searcher):
             init_config, self.metric, self.mode,
             space, self.prune_attr,
             self.min_resource, self.max_resource,
-            self.resource_multiple_factor, self.cost_attr, self._seed + 1)
+            self.resource_multiple_factor, self.cost_attr, self.seed + 1)
         flow2.best_obj = obj * self.metric_op  # minimize internally
         flow2.cost_incumbent = cost
-        self._seed += 1
+        self.seed += 1
         return flow2
 
     def normalize(self, config, recursive=False) -> Dict:

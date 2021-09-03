@@ -66,6 +66,7 @@ except (ImportError, AssertionError):
             metric="m",
             global_search_alg=searcher, metric_constraints=[("c", "<", 1)])
         searcher.set_search_properties(metric="m2", config=config)
+        searcher.set_search_properties(config={"time_budget_s": 0})
         c = searcher.suggest('t1')
         searcher.on_trial_complete("t1", {"config": c}, True)
         c = searcher.suggest('t2')
@@ -85,3 +86,41 @@ except (ImportError, AssertionError):
         searcher.suggest("t1")
         searcher.suggest("t2")
         searcher.on_trial_result('t3', {})
+        c = searcher.generate_parameters(1)
+        searcher.receive_trial_result(1, c, {'reward': 0})
+        searcher.update_search_space(
+            {
+                "a": {
+                    "_value": [1, 2],
+                    "_type": "choice",
+                },
+                "b": {
+                    "_value": [1, 3],
+                    "_type": "randint",
+                },
+                "c": {
+                    "_value": [.1, 3],
+                    "_type": "uniform",
+                },
+                "d": {
+                    "_value": [2, 8, 2],
+                    "_type": "quniform",
+                },
+                "e": {
+                    "_value": [2, 8],
+                    "_type": "loguniform",
+                },
+                "f": {
+                    "_value": [2, 8, 2],
+                    "_type": "qloguniform",
+                },
+                "g": {
+                    "_value": [0, 2],
+                    "_type": "normal",
+                },
+                "h": {
+                    "_value": [0, 2, 2],
+                    "_type": "qnormal",
+                },
+            }
+        )

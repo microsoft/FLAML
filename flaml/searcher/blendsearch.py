@@ -154,7 +154,6 @@ class BlendSearch(Searcher):
         self._ls = self.LocalSearch(
             init_config, metric, mode, space, prune_attr,
             min_resource, max_resource, reduction_factor, self.cost_attr, seed)
-        self._is_ls_ever_converged = False
         if global_search_alg is not None:
             self._gs = global_search_alg
         elif getattr(self, '__name__', None) != 'CFO':
@@ -191,7 +190,6 @@ class BlendSearch(Searcher):
             self._started_from_low_cost = not low_cost_partial_config
         else:
             self._candidate_start_points = None
-        self._subspace = {}     # the subspace for each trial id
         if space:
             self._init_search()
 
@@ -244,6 +242,8 @@ class BlendSearch(Searcher):
     def _init_search(self):
         '''initialize the search
         '''
+        self._is_ls_ever_converged = False
+        self._subspace = {}     # the subspace for each trial id
         self._metric_target = np.inf * self._ls.metric_op
         self._search_thread_pool = {
             # id: int -> thread: SearchThread
@@ -741,78 +741,87 @@ except (ImportError, AssertionError):
 try:
     from nni.tuner import Tuner as NNITuner
     from nni.utils import extract_scalar_reward
-
-    class BlendSearchTuner(BlendSearch, NNITuner):
-        '''Tuner class for NNI
-        '''
-
-        def receive_trial_result(self, parameter_id, parameters, value,
-                                 **kwargs):
-            '''
-            Receive trial's final result.
-            parameter_id: int
-            parameters: object created by 'generate_parameters()'
-            value: final metrics of the trial, including default metric
-            '''
-            result = {}
-            for key, value in parameters.items():
-                result['config/' + key] = value
-            reward = extract_scalar_reward(value)
-            result[self._metric] = reward
-            # if nni does not report training cost,
-            # using sequence as an approximation.
-            # if no sequence, using a constant 1
-            result[self.cost_attr] = value.get(self.cost_attr, value.get(
-                'sequence', 1))
-            self.on_trial_complete(str(parameter_id), result)
-        ...
-
-        def generate_parameters(self, parameter_id, **kwargs) -> Dict:
-            '''
-            Returns a set of trial (hyper-)parameters, as a serializable object
-            parameter_id: int
-            '''
-            return self.suggest(str(parameter_id))
-        ...
-
-        def update_search_space(self, search_space):
-            '''
-            Tuners are advised to support updating search space at run-time.
-            If a tuner can only set search space once before generating first hyper-parameters,
-            it should explicitly document this behaviour.
-            search_space: JSON object created by experiment owner
-            '''
-            config = {}
-            for key, value in search_space.items():
-                v = value.get("_value")
-                _type = value['_type']
-                if _type == 'choice':
-                    config[key] = choice(v)
-                elif _type == 'randint':
-                    config[key] = randint(v[0], v[1] - 1)
-                elif _type == 'uniform':
-                    config[key] = uniform(v[0], v[1])
-                elif _type == 'quniform':
-                    config[key] = quniform(v[0], v[1], v[2])
-                elif _type == 'loguniform':
-                    config[key] = loguniform(v[0], v[1])
-                elif _type == 'qloguniform':
-                    config[key] = qloguniform(v[0], v[1], v[2])
-                elif _type == 'normal':
-                    config[key] = randn(v[1], v[2])
-                elif _type == 'qnormal':
-                    config[key] = qrandn(v[1], v[2], v[3])
-                else:
-                    raise ValueError(
-                        f'unsupported type in search_space {_type}')
-            self._ls.set_search_properties(None, None, config)
-            if self._gs is not None:
-                self._gs.set_search_properties(None, None, config)
-            self._init_search()
-
 except ImportError:
-    class BlendSearchTuner(BlendSearch):
+    class NNITuner:
         pass
+
+    def extract_scalar_reward(x: Dict):
+        return x.get('reward')
+
+
+class BlendSearchTuner(BlendSearch, NNITuner):
+    '''Tuner class for NNI
+    '''
+
+    def receive_trial_result(self, parameter_id, parameters, value,
+                             **kwargs):
+        '''
+        Receive trial's final result.
+        parameter_id: int
+        parameters: object created by 'generate_parameters()'
+        value: final metrics of the trial, including default metric
+        '''
+        result = {}
+        for k, v in parameters.items():
+            result['config/' + k] = v
+        reward = extract_scalar_reward(value)
+        result[self._metric] = reward
+        # if nni does not report training cost,
+        # using sequence as an approximation.
+        # if no sequence, using a constant 1
+        result[self.cost_attr] = value.get(self.cost_attr, value.get(
+            'sequence', 1))
+        self.on_trial_complete(str(parameter_id), result)
+    ...
+
+    def generate_parameters(self, parameter_id, **kwargs) -> Dict:
+        '''
+        Returns a set of trial (hyper-)parameters, as a serializable object
+        parameter_id: int
+        '''
+        return self.suggest(str(parameter_id))
+    ...
+
+    def update_search_space(self, search_space):
+        '''
+        Tuners are advised to support updating search space at run-time.
+        If a tuner can only set search space once before generating first hyper-parameters,
+        it should explicitly document this behaviour.
+        search_space: JSON object created by experiment owner
+        '''
+        config = {}
+        for key, value in search_space.items():
+            v = value.get("_value")
+            _type = value['_type']
+            if _type == 'choice':
+                config[key] = choice(v)
+            elif _type == 'randint':
+                config[key] = randint(*v)
+            elif _type == 'uniform':
+                config[key] = uniform(*v)
+            elif _type == 'quniform':
+                config[key] = quniform(*v)
+            elif _type == 'loguniform':
+                config[key] = loguniform(*v)
+            elif _type == 'qloguniform':
+                config[key] = qloguniform(*v)
+            elif _type == 'normal':
+                config[key] = randn(*v)
+            elif _type == 'qnormal':
+                config[key] = qrandn(*v)
+            else:
+                raise ValueError(
+                    f'unsupported type in search_space {_type}')
+        add_cost_to_space(config, {}, {})
+        self._ls = self.LocalSearch(
+            {}, self._ls.metric, self._mode, config, cost_attr=self.cost_attr,
+            seed=self._ls.seed)
+        if self._gs is not None:
+            self._gs = GlobalSearch(
+                space=config, metric=self._metric, mode=self._mode,
+                sampler=self._gs._sampler)
+            self._gs.space = config
+        self._init_search()
 
 
 class CFO(BlendSearchTuner):
