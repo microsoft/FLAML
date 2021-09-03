@@ -620,13 +620,13 @@ class TestAutoML(unittest.TestCase):
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
 
-    def test_sparse_matrix_regression_cv(self):
+    def test_sparse_matrix_regression_holdout(self):
         X_train = scipy.sparse.random(8, 100)
         y_train = np.random.uniform(size=8)
         automl_experiment = AutoML()
         automl_settings = {
-            "time_budget": 2,
-            'eval_method': 'cv',
+            "time_budget": 1,
+            'eval_method': 'holdout',
             "task": 'regression',
             "log_file_name": "test/sparse_regression.log",
             "n_jobs": 1,

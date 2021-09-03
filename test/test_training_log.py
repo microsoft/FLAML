@@ -46,6 +46,7 @@ class TestTrainingLog(unittest.TestCase):
             automl_settings["log_file_name"] = None
             automl_experiment.fit(X_train=X_train, y_train=y_train,
                                   **automl_settings)
+            automl_experiment._selected.update(None, 0)
 
     def test_illfilename(self):
         try:
