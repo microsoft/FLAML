@@ -5,7 +5,6 @@
 '''
 import time
 from typing import Callable, Optional
-import warnings
 from functools import partial
 import numpy as np
 from scipy.sparse import issparse
@@ -1241,13 +1240,14 @@ class AutoML:
                 For time series forecasting, must be None or 'time'.
                 For ranking task, must be None or 'group'.
             hpo_method: str or None, default=None | The hyperparameter
-                optimization method. When it is None, CFO is used.
+                optimization method. By default, CFO is used for sequential
+                search and BlendSearch is used for parallel search.
                 No need to set when using flaml's default search space or using
                 a simple customized search space. When set to 'bs', BlendSearch
                 is used. BlendSearch can be tried when the search space is
                 complex, for example, containing multiple disjoint, discontinuous
-                subspaces. When set to 'random' and the argument 'n_concurrent_trials'
-                is larger than 1, RandomSearch is used.
+                subspaces. When set to 'random' and the argument
+                `n_concurrent_trials` is larger than 1, random search is used.
             starting_points: A dictionary to specify the starting hyperparameter
                 config for the estimators.
                 Keys are the name of the estimators, and values are the starting
@@ -1348,8 +1348,7 @@ class AutoML:
             estimator_list))
         self.estimator_list = estimator_list
         self._hpo_method = hpo_method or (
-            'cfo' if n_concurrent_trials == 1 or len(estimator_list) == 1
-            else 'bs')
+            'cfo' if n_concurrent_trials == 1 else 'bs')
         self._state.time_budget = time_budget
         self._active_estimators = estimator_list.copy()
         self._ensemble = ensemble

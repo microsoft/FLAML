@@ -1,4 +1,3 @@
-from mlflow.tracking.fluent import autolog
 from openml.exceptions import OpenMLServerException
 
 
