@@ -438,10 +438,9 @@ class AutoML:
                 dataframe = dataframe.copy()
                 dataframe = dataframe.rename(columns={label[0]: 'ds', label[1]: 'y'})
             elif dataframe is not None:
-                if ('ds' not in dataframe) or ('y' not in dataframe):
-                    raise ValueError(
-                        'For forecasting task, dataframe must have columns "ds" and "y" '
-                        'with the dates and values respectively.')
+                assert 'ds' in dataframe and 'y' in dataframe, (
+                    'For forecasting task, dataframe must have columns '
+                    '"ds" and "y" with the dates and values respectively.')
             elif (X_train_all is not None) and (y_train_all is not None):
                 dataframe = pd.DataFrame(X_train_all)
                 dataframe = dataframe.rename(columns={dataframe.columns[0]: 'ds'})
