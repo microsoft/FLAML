@@ -24,7 +24,7 @@ def get_estimator_class(task, estimator_name):
     ''' when adding a new learner, need to add an elif branch '''
 
     if 'xgboost' == estimator_name:
-        if 'regression' in task:
+        if 'regression' == task:
             estimator_class = XGBoostEstimator
         else:
             estimator_class = XGBoostSklearnEstimator

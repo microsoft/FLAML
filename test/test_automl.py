@@ -579,7 +579,8 @@ class TestAutoML(unittest.TestCase):
 
     def test_random_out_of_memory(self):
         automl_experiment = AutoML()
-        automl_experiment.add_learner(learner_name='large_lgbm', learner_class=MyLargeLGBM)
+        automl_experiment.add_learner(
+            learner_name='large_lgbm', learner_class=MyLargeLGBM)
         automl_settings = {
             "time_budget": 2,
             "metric": 'ap',

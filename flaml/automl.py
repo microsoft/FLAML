@@ -326,10 +326,8 @@ class AutoML:
             An object with `predict()` and `predict_proba()` method (for
         classification), storing the best trained model for estimator_name.
         '''
-        if estimator_name in self._search_states:
-            state = self._search_states[estimator_name]
-            return getattr(state, 'trained_estimator', None)
-        return None
+        state = self._search_states.get(estimator_name)
+        return state and getattr(state, 'trained_estimator', None)
 
     @property
     def best_estimator(self):
