@@ -328,7 +328,7 @@ class AutoML:
         '''
         if estimator_name in self._search_states:
             state = self._search_states[estimator_name]
-            return getattr(state, 'trained_estimator')
+            return getattr(state, 'trained_estimator', None)
         return None
 
     @property
