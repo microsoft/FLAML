@@ -182,12 +182,11 @@
 <span class="sd">        .. code-block:: python</span>
 
 <span class="sd">            autohf = AutoTransformers()</span>
-<span class="sd">            autohf_settings = {&quot;resources_per_trial&quot;: {&quot;cpu&quot;: 1},</span>
-<span class="sd">                       &quot;num_samples&quot;: -1,</span>
-<span class="sd">                       &quot;time_budget&quot;: 100000,</span>
-<span class="sd">                       &quot;ckpt_per_epoch&quot;: 1,</span>
-<span class="sd">                       &quot;fp16&quot;: False,</span>
-<span class="sd">                      }</span>
+<span class="sd">            autohf_settings = {</span>
+<span class="sd">                &quot;resources_per_trial&quot;: {&quot;cpu&quot;: 1, &quot;gpu&quot;: 1},</span>
+<span class="sd">                &quot;num_samples&quot;: -1,</span>
+<span class="sd">                &quot;time_budget&quot;: 60,</span>
+<span class="sd">            }</span>
 
 <span class="sd">            validation_metric, analysis = autohf.fit(**autohf_settings)</span>
 
@@ -198,10 +197,11 @@
         <span class="n">search_space</span> <span class="o">=</span> <span class="p">{}</span>
 
         <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;grid&quot;</span><span class="p">:</span>
+            <span class="c1"># TODO add test</span>
             <span class="k">for</span> <span class="n">each_hp</span> <span class="ow">in</span> <span class="n">config_json</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
                 <span class="n">this_config</span> <span class="o">=</span> <span class="n">config_json</span><span class="p">[</span><span class="n">each_hp</span><span class="p">]</span>
                 <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">this_config</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">this_config</span><span class="p">,</span> <span class="nb">list</span><span class="p">),</span> \
-                    <span class="s2">&quot;config of &quot;</span> <span class="o">+</span> <span class="n">each_hp</span> <span class="o">+</span> <span class="s2">&quot; must be dict or list&quot;</span>
+                    <span class="s2">&quot;config of &quot;</span> <span class="o">+</span> <span class="n">each_hp</span> <span class="o">+</span> <span class="s2">&quot; must be dict or list for grid search&quot;</span>
                 <span class="n">search_space</span><span class="p">[</span><span class="n">each_hp</span><span class="p">]</span> <span class="o">=</span> <span class="n">ray</span><span class="o">.</span><span class="n">tune</span><span class="o">.</span><span class="n">grid_search</span><span class="p">(</span><span class="n">this_config</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">each_hp</span> <span class="ow">in</span> <span class="n">config_json</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
@@ -237,10 +237,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_search_space_hpo</span> <span class="o">=</span> <span class="n">AutoTransformers</span><span class="o">.</span><span class="n">_convert_dict_to_ray_tune_space</span><span class="p">(</span>
             <span class="n">search_space_hpo_json</span><span class="p">,</span>
             <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">jobid_config</span><span class="o">.</span><span class="n">mod</span><span class="p">)</span>
-
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_wrapper</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>  <span class="c1"># with star</span>
-        <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_get_split_name</span><span class="p">(</span><span class="n">data_raw</span><span class="p">,</span> <span class="n">fold_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -332,7 +328,7 @@
             <span class="n">data_raw</span> <span class="o">=</span> <span class="n">load_dataset</span><span class="p">(</span><span class="n">JobID</span><span class="o">.</span><span class="n">dataset_list_to_str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">jobid_config</span><span class="o">.</span><span class="n">dat</span><span class="p">),</span>
                                     <span class="bp">self</span><span class="o">.</span><span class="n">jobid_config</span><span class="o">.</span><span class="n">subdat</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">data_raw</span> <span class="o">=</span> <span class="n">AutoTransformers</span><span class="o">.</span><span class="n">_wrapper</span><span class="p">(</span><span class="n">load_dataset</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">jobid_config</span><span class="o">.</span><span class="n">dat</span><span class="p">)</span>
+            <span class="n">data_raw</span> <span class="o">=</span> <span class="n">load_dataset</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">jobid_config</span><span class="o">.</span><span class="n">dat</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_train_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dev_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_test_name</span> <span class="o">=</span> <span class="n">AutoTransformers</span><span class="o">.</span><span class="n">_get_split_name</span><span class="p">(</span>
             <span class="n">data_raw</span><span class="p">,</span>
@@ -502,6 +498,7 @@
         <span class="k">return</span> <span class="n">training_args_config</span><span class="p">,</span> <span class="n">per_model_config</span>
 
     <span class="k">def</span> <span class="nf">_objective</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">reporter</span><span class="p">,</span> <span class="n">checkpoint_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># TODO add test</span>
         <span class="kn">from</span> <span class="nn">transformers.trainer_utils</span> <span class="kn">import</span> <span class="n">set_seed</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_transformers_verbosity</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_transformers_verbose</span><span class="p">)</span>
 
@@ -980,6 +977,7 @@
         <span class="n">test_trainer</span> <span class="o">=</span> <span class="n">TrainerForAutoTransformers</span><span class="p">(</span><span class="n">best_model</span><span class="p">,</span> <span class="n">training_args</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobid_config</span><span class="o">.</span><span class="n">spt</span> <span class="o">==</span> <span class="s2">&quot;ori&quot;</span><span class="p">:</span>
+            <span class="c1"># TODO add test</span>
             <span class="k">if</span> <span class="s2">&quot;label&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">test_dataset</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">test_dataset</span><span class="o">.</span><span class="n">remove_columns_</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">)</span>
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Cleaning the existing label column from test data&quot;</span><span class="p">)</span>
