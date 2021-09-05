@@ -513,6 +513,7 @@
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;console_args has no attribute </span><span class="si">{}</span><span class="s2">, continue&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">each_key</span><span class="p">))</span>
                 <span class="k">continue</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mod</span> <span class="o">==</span> <span class="s2">&quot;grid&quot;</span><span class="p">:</span>
+            <span class="c1"># TODO coverage</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">alg</span> <span class="o">=</span> <span class="s2">&quot;grid&quot;</span></div>
 
 
@@ -600,6 +601,7 @@
         <span class="k">if</span> <span class="n">autohf</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">jobid</span> <span class="o">=</span> <span class="n">autohf</span><span class="o">.</span><span class="n">jobid_config</span>
         <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># TODO coverage</span>
             <span class="k">assert</span> <span class="n">jobid_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;jobid_config must be passed either through autohf.jobid_config&quot;</span> \
                                              <span class="s2">&quot; or jobid_config&quot;</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">jobid</span> <span class="o">=</span> <span class="n">jobid_config</span>
@@ -680,6 +682,7 @@
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Your output will not be synced to azure because azure-blob-storage is not installed&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">download_azure_blob</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blobname</span><span class="p">):</span>
+        <span class="c1"># TODO coverage</span>
         <span class="n">blob_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_blob_client</span><span class="p">(</span><span class="n">blobname</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">blob_client</span><span class="p">:</span>
             <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">&quot;(?P&lt;parent_path&gt;^.*)/[^/]+$&quot;</span><span class="p">,</span> <span class="n">blobname</span><span class="p">)</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">&quot;parent_path&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span>
@@ -702,6 +705,7 @@
                 <span class="n">metric_score</span> <span class="o">=</span> <span class="n">each_trial</span><span class="o">.</span><span class="n">metric_analysis</span><span class="p">[</span><span class="s2">&quot;eval_&quot;</span> <span class="o">+</span> <span class="n">analysis</span><span class="o">.</span><span class="n">default_metric</span><span class="p">]</span>
                 <span class="n">time_stamp</span> <span class="o">=</span> <span class="n">each_trial</span><span class="o">.</span><span class="n">metric_analysis</span><span class="p">[</span><span class="s1">&#39;timestamp&#39;</span><span class="p">]</span>
             <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="c1"># TODO coverage</span>
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;KeyError, </span><span class="si">{}</span><span class="s2"> does not contain the key </span><span class="si">{}</span><span class="s2"> or </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;each_trial.metric_analysis&quot;</span><span class="p">,</span>
                                                                               <span class="s2">&quot;eval_&quot;</span> <span class="o">+</span> <span class="n">analysis</span><span class="o">.</span><span class="n">default_metric</span><span class="p">,</span>
                                                                               <span class="s2">&quot;timestamp&quot;</span><span class="p">))</span>
@@ -761,6 +765,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">azure_save_file_name</span> <span class="o">=</span> <span class="n">local_json_file</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">][:</span><span class="o">-</span><span class="mi">5</span><span class="p">]</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_root_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># TODO coverage</span>
             <span class="kn">from</span> <span class="nn">..utils</span> <span class="kn">import</span> <span class="n">load_dft_args</span>
             <span class="n">console_args</span> <span class="o">=</span> <span class="n">load_dft_args</span><span class="p">()</span>
             <span class="n">output_dir</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">console_args</span><span class="p">,</span> <span class="s2">&quot;data_root_dir&quot;</span><span class="p">)</span>
@@ -775,6 +780,7 @@
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">is_after_earliest_time</span><span class="p">(</span><span class="n">this_blob</span><span class="p">,</span> <span class="n">earliest_time</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]):</span>
+        <span class="c1"># TODO coverage</span>
         <span class="kn">import</span> <span class="nn">pytz</span>
         <span class="n">utc</span> <span class="o">=</span> <span class="n">pytz</span><span class="o">.</span><span class="n">UTC</span>
         <span class="k">if</span> <span class="n">this_blob</span><span class="o">.</span><span class="n">last_modified</span> <span class="o">&gt;=</span> <span class="n">utc</span><span class="o">.</span><span class="n">localize</span><span class="p">(</span><span class="n">datetime</span><span class="p">(</span><span class="n">earliest_time</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">earliest_time</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">earliest_time</span><span class="p">[</span><span class="mi">2</span><span class="p">])):</span>
@@ -792,6 +798,7 @@
         <span class="n">container_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_azure_clients</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">container_client</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">each_blob</span> <span class="ow">in</span> <span class="n">container_client</span><span class="o">.</span><span class="n">list_blobs</span><span class="p">():</span>
+                <span class="c1"># TODO coverage</span>
                 <span class="k">if</span> <span class="n">each_blob</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">root_log_path</span><span class="p">):</span>
                     <span class="n">each_jobconfig</span> <span class="o">=</span> <span class="n">JobID</span><span class="o">.</span><span class="n">convert_blobname_to_jobid</span><span class="p">(</span><span class="n">each_blob</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
                     <span class="n">is_append</span> <span class="o">=</span> <span class="kc">False</span>
@@ -854,6 +861,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">matched_config_score_lists</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="p">(</span><span class="n">each_jobconfig</span><span class="p">,</span> <span class="n">each_blob</span><span class="p">)</span> <span class="ow">in</span> <span class="n">matched_blob_list</span><span class="p">:</span>
+            <span class="c1"># TODO coverage</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">download_azure_blob</span><span class="p">(</span><span class="n">each_blob</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
             <span class="n">data_json</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">each_blob</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">))</span>
             <span class="n">each_config_and_score_list</span> <span class="o">=</span> <span class="n">ConfigScoreList</span><span class="p">(</span>
