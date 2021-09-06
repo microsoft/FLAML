@@ -763,7 +763,8 @@ class BlendSearchTuner(BlendSearch, NNITuner):
         '''
         result = {
             'config': parameters, self._metric: extract_scalar_reward(value),
-            self.cost_attr: value.get(self.cost_attr, value.get('sequence', 1))
+            self.cost_attr: 1 if isinstance(value, float) else value.get(
+                self.cost_attr, value.get('sequence', 1))
             # if nni does not report training cost,
             # using sequence as an approximation.
             # if no sequence, using a constant 1
