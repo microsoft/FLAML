@@ -220,6 +220,7 @@ def cifar10_main(
             config=config,
             metric="loss",
             mode="min",
+            low_cost_partial_config={"num_epochs": 1},
             max_resource=max_num_epochs,
             min_resource=1,
             report_intermediate_result=True,
@@ -242,10 +243,7 @@ def cifar10_main(
         elif 'CFO' == method:
             from flaml import CFO
             algo = CFO(low_cost_partial_config={
-                "l1": 2,
-                "l2": 2,
                 "num_epochs": 1,
-                "batch_size": 4,
             })
         elif 'Nevergrad' == method:
             from ray.tune.suggest.nevergrad import NevergradSearch
