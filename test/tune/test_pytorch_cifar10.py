@@ -218,12 +218,6 @@ def cifar10_main(
         result = tune.run(
             ray.tune.with_parameters(train_cifar, data_dir=data_dir),
             config=config,
-            # low_cost_partial_config={
-                # "l1": 2,
-                # "l2": 2,
-                # "num_epochs": 1,
-                # "batch_size": 4,
-            # },
             metric="loss",
             mode="min",
             max_resource=max_num_epochs,
@@ -302,7 +296,7 @@ def cifar10_main(
 # __main_end__
 
 
-gpus_per_trial = 0.5 # on GPU server
+gpus_per_trial = 0.5  # on GPU server
 num_samples = 500
 
 
