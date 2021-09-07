@@ -69,8 +69,10 @@ class SearchState:
                 self.cat_hp_cost[name] = space['cat_hp_cost']
             # if a starting point is provided, set the init config to be
             # the starting point provided
-            if starting_point is not None and starting_point.get(name) is not None:
+            if isinstance(starting_point, dict) and starting_point.get(name) is not None:
                 self.init_config[name] = starting_point[name]
+        if isinstance(starting_point, list):
+            self.init_config = starting_point
         self._hp_names = list(self._search_space_domain.keys())
         self.search_alg = None
         self.best_config = None
@@ -1019,12 +1021,16 @@ class AutoML:
         '''
         points = []
         for estimator in self.estimator_list:
-            config = self._search_states[estimator].init_config
-            config['learner'] = estimator
-            if len(self.estimator_list) > 1:
-                points.append({'ml': config})
+            if isinstance(self._search_states[estimator].init_config, list):
+                configs = self._search_states[estimator].init_config
             else:
-                points.append(config)
+                configs = [self._search_states[estimator].init_config]
+            for config in configs:
+                config['learner'] = estimator
+                if len(self.estimator_list) > 1:
+                    points.append({'ml': config})
+                else:
+                    points.append(config)
         return points
 
     @property
@@ -1569,7 +1575,7 @@ class AutoML:
                     self._max_iter_per_learner = len(points_to_evaluate)
                     low_cost_partial_config = None
                 else:
-                    points_to_evaluate = [search_state.init_config]
+                    points_to_evaluate = search_state.init_config if isinstance(search_state.init_config, list) else [search_state.init_config]
                     low_cost_partial_config = search_state.low_cost_partial_config
                 if self._hpo_method in ('bs', 'cfo', 'grid', 'cfocat'):
                     algo = SearchAlgo(
