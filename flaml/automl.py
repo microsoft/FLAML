@@ -1147,6 +1147,7 @@ class AutoML:
             seed=None,
             n_concurrent_trials=1,
             keep_search_state=False,
+            append_log=False,
             **fit_kwargs):
         '''Find a model for a given task
 
@@ -1264,6 +1265,8 @@ class AutoML:
             keep_search_state: boolean, default=False | Whether to keep search
                 state after fit(). By default the state is deleted for space
                 saving.
+            append_log: boolean, default=False | whetehr to directly append the log
+                records to the input log file if it exists.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Include period as
                 a key word argument for 'forecast' task.
@@ -1367,7 +1370,7 @@ class AutoML:
         self._state.n_jobs = n_jobs
         self._n_concurrent_trials = n_concurrent_trials
         if log_file_name:
-            with training_log_writer(log_file_name) as save_helper:
+            with training_log_writer(log_file_name, append_log) as save_helper:
                 self._training_log = save_helper
                 self._search()
         else:
