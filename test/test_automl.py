@@ -759,16 +759,11 @@ class TestAutoML(unittest.TestCase):
         log_file_name = automl_settings['log_file_name']
         with training_log_reader(log_file_name) as reader:
             for record in reader.records():
-                record_id = record.record_id
-                val_loss = record.validation_loss
-                logged_metric = record.logged_metric
                 config = record.config
-                best_config = record.best_config
                 learner = record.learner
                 if learner not in starting_points:
                     starting_points[learner] = []
                 starting_points[learner].append(config)
-
         max_iter = sum([len(s) for k, s in starting_points.items()])
         automl_settings_resume = {
             "time_budget": 2,
@@ -781,6 +776,7 @@ class TestAutoML(unittest.TestCase):
             "model_history": True,
             "log_type": 'all',
             "starting_points": starting_points,
+            "append_log": True,
         }
         new_automl_experiment = AutoML()
         new_automl_experiment.fit(X_train=X_train, y_train=y_train,
