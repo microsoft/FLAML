@@ -2,7 +2,8 @@
 '''
 import argparse
 from flaml.nlp.result_analysis.azure_utils import JobID
-
+import numpy as np
+import torch
 
 def extract_sorted_config_list(dataset2configscorelist, topk):
     dataset2topkconfigs = {}
@@ -53,7 +54,7 @@ def print_all_configs(console_args, partial_jobid_config):
     azure_utils = AzureUtils(console_args=console_args)
     matched_config_score_lists = \
         azure_utils.get_config_and_score_from_partial_jobid(
-            console_args.azure_root_log_path,
+            console_args.root_log_path,
             partial_jobid_config)
 
     for each_configscore_list in matched_config_score_lists:
@@ -87,7 +88,7 @@ def compare_small_vs_large(console_args):
     partial_jobid_config.presz = "base"
 
     small_dataset2configscorelist = azure_utils.get_config_and_score_from_partial_jobid(
-        console_args.azure_root_log_path,
+        console_args.root_log_path,
         partial_jobid_config)
 
     small_mergedconfiglist = merge_configscore_list(small_dataset2configscorelist)
@@ -99,7 +100,7 @@ def compare_small_vs_large(console_args):
     partial_jobid_config.presz = "large"
 
     large_dataset2configscorelist = azure_utils.get_config_and_score_from_partial_jobid(
-        console_args.azure_root_log_path,
+        console_args.root_log_path,
         partial_jobid_config)
 
     large_mergedconfiglist = merge_configscore_list(large_dataset2configscorelist)
@@ -142,7 +143,7 @@ def print_sorted_configs(console_args,
 
         matched_config_score_lists = \
             azure_utils.get_config_and_score_from_partial_jobid(
-                console_args.azure_root_log_path,
+                console_args.root_log_path,
                 jobid_config)
         configscorelist = matched_config_score_lists[0]._config_score_list
         count = 0
@@ -161,14 +162,14 @@ def analyze_exhaustive_sweep(console_args):
     partial_jobid_config.pre = "funnel"
     partial_jobid_config.presz = "xlarge"
 
-    azure_utils = AzureUtils(root_log_path=console_args.azure_root_log_path,
+    azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
                              azure_key_path=console_args.key_path,
                              jobid_config=partial_jobid_config)
 
     for subdat in ["cola"]:
         partial_jobid_config.subdat = subdat
         matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
-            console_args.azure_root_log_path,
+            console_args.root_log_path,
             partial_jobid_config)
         merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
                                        for x in config_score_list._config_score_list])
@@ -230,11 +231,11 @@ def output_csv(console_args):
 
     for presz in presz_sizes:
         partial_jobid_config.presz = presz
-        azure_utils = AzureUtils(root_log_path=console_args.azure_root_log_path,
+        azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
                                  azure_key_path=console_args.key_path,
                                  jobid_config=partial_jobid_config)
         matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
-            console_args.azure_root_log_path,
+            console_args.root_log_path,
             partial_jobid_config)
         merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
                                        for x in config_score_list._config_score_list])
@@ -269,11 +270,11 @@ def analyze_small_large(console_args):
 
     for presz in presz_sizes:
         partial_jobid_config.presz = presz
-        azure_utils = AzureUtils(root_log_path=console_args.azure_root_log_path,
+        azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
                                  azure_key_path=console_args.key_path,
                                  jobid_config=partial_jobid_config)
         matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
-                console_args.azure_root_log_path,
+                console_args.root_log_path,
                 partial_jobid_config)
         merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
                                        for x in config_score_list._config_score_list])._config_score_list
@@ -386,11 +387,11 @@ def plot_boxplot(console_args):
     partial_jobid_config.pre_full = "facebook/muppet-roberta-large"
     partial_jobid_config.spt = "rspt"
 
-    azure_utils = AzureUtils(root_log_path=console_args.azure_root_log_path,
+    azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
                              azure_key_path=console_args.key_path,
                              jobid_config=partial_jobid_config)
     matched_blob_list = azure_utils.get_configblob_from_partial_jobid(
-        console_args.azure_root_log_path,
+        console_args.root_log_path,
         partial_jobid_config, )
     assert len(matched_blob_list) == 1
 
@@ -521,11 +522,11 @@ def compare_muppet(console_args):
         partial_jobid_config.presz = "large"
         partial_jobid_config.pre_full = "facebook-muppet-roberta-large"
 
-        azure_utils = AzureUtils(root_log_path=console_args.azure_root_log_path,
+        azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
                                  azure_key_path=console_args.key_path,
                                  jobid_config=partial_jobid_config)
         matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
-            console_args.azure_root_log_path,
+            console_args.root_log_path,
             partial_jobid_config)
         best_config = matched_config_score_lists[0]
         merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
@@ -678,19 +679,82 @@ def rename_azure_file(console_args):
     new_jobid_configs = copy.deepcopy(old_jobid_configs)
     new_jobid_configs.mod = "gridcv"
 
-    azure_utils = AzureUtils(root_log_path=console_args.azure_root_log_path,
+    azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
                              azure_key_path="../../",
                              jobid_config=old_jobid_configs)
-    azure_utils.rename_one_file(root_log_path=console_args.azure_root_log_path,
+    azure_utils.rename_one_file(root_log_path=console_args.root_log_path,
                                 old_jobid=old_jobid_configs,
                                 new_jobid=new_jobid_configs)
 
+def spearman_correlation(console_args):
+    # checking the spearman correlation between validation accuracy and the proxy function value with one forward/
+    # backward pass
+    from flaml.nlp import AzureUtils
+    from flaml.nlp.autotransformers import AutoTransformers
+    from flaml.nlp.utils import load_dft_args
+    from zerocost_utils import get_onebatch_proxy_score
+
+    console_args = load_dft_args()
+
+    old_jobid_configs = JobID()
+    old_jobid_configs.dat = ["glue"]
+    old_jobid_configs.subdat = "rte"
+    old_jobid_configs.mod = "hpo"
+    old_jobid_configs.spa = "gnr"
+    old_jobid_configs.arg = "dft"
+    old_jobid_configs.alg = "rs"
+    old_jobid_configs.spt = "rspt"
+    old_jobid_configs.pre = "electra"
+    old_jobid_configs.pre_full = "google-electra-base-discriminator"
+    old_jobid_configs.rep = 0
+    old_jobid_configs.sddt = 43
+    old_jobid_configs.sdhf = 42
+    old_jobid_configs.var1 = []
+    old_jobid_configs.var2 = []
+
+    from run_autohf import evaluate_configs
+    autohf = AutoTransformers()
+
+    azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
+                             azure_key_path="../../",
+                             jobid_config=old_jobid_configs)
+    matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
+        root_log_path=console_args.root_log_path,
+        partial_jobid=old_jobid_configs)
+    assert len(matched_config_score_lists) == 1
+
+    all_metrics = []
+    all_truescores = []
+    counter = 0
+
+    from scipy import stats
+
+    for each_configscore_list in matched_config_score_lists:
+        for each_entry in each_configscore_list._config_score_list:
+            print(counter)
+            counter += 1
+            if counter > 50: break
+            config_dict = each_entry.config
+            console_args.root_log_path = "logs_azure_test/"
+            old_jobid_configs.pre_full = "google/electra-base-discriminator"
+            metric = get_onebatch_proxy_score(autohf,
+                                              jobid_config=old_jobid_configs,
+                                              hp_config=config_dict,
+                                              console_args=console_args)
+            true_score = each_entry.metric_score['max']
+            all_metrics.append(metric)
+            all_truescores.append(true_score)
+
+        print(stats.spearmanr(all_metrics, all_truescores))
+        break
+
 if __name__ == "__main__":
+    from flaml.nlp.utils import load_dft_args
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('--key_path', type=str, help='key path', required=False, default="../../")
-    arg_parser.add_argument('--azure_root_log_path', type=str,
+    arg_parser.add_argument('--root_log_path', type=str,
                             help='root log path of blob storage', required=True, default="logs_azure/")
-    args = arg_parser.parse_args()
+    console_args = load_dft_args()
 
     partial_config_large = create_partial_config_hpo()
     #analyze_small_large(console_args=args)
@@ -700,4 +764,5 @@ if __name__ == "__main__":
     #randomly_sample_gridunion()
     #compare_muppet(console_args=args)
     #rename_azure_file(console_args=args)
-    plot_boxplot(console_args=args)
+    #plot_boxplot(console_args=args)
+    spearman_correlation(console_args=console_args)
