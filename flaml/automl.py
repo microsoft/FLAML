@@ -84,8 +84,10 @@ class SearchState:
                 self.cat_hp_cost[name] = space["cat_hp_cost"]
             # if a starting point is provided, set the init config to be
             # the starting point provided
-            if starting_point is not None and starting_point.get(name) is not None:
+            if isinstance(starting_point, dict) and starting_point.get(name) is not None:
                 self.init_config[name] = starting_point[name]
+        if isinstance(starting_point, list):
+            self.init_config = starting_point
         self._hp_names = list(self._search_space_domain.keys())
         self.search_alg = None
         self.best_config = None
@@ -1136,12 +1138,16 @@ class AutoML:
         """
         points = []
         for estimator in self.estimator_list:
-            config = self._search_states[estimator].init_config
-            config["learner"] = estimator
-            if len(self.estimator_list) > 1:
-                points.append({"ml": config})
+            if isinstance(self._search_states[estimator].init_config, list):
+                configs = self._search_states[estimator].init_config
             else:
-                points.append(config)
+                configs = [self._search_states[estimator].init_config]
+            for config in configs:
+                config['learner'] = estimator
+                if len(self.estimator_list) > 1:
+                    points.append({'ml': config})
+                else:
+                    points.append(config)
         return points
 
     @property
@@ -1260,6 +1266,7 @@ class AutoML:
         seed=None,
         n_concurrent_trials=1,
         keep_search_state=False,
+        append_log=False,
         early_stop=False,
         **fit_kwargs,
     ):
@@ -1370,6 +1377,8 @@ class AutoML:
                 config for the estimators.
                 Keys are the name of the estimators, and values are the starting
                 hyperparamter configurations for the corresponding estimators.
+                The value can be a single hyperparamter configuration dict or a list
+                of hyperparamter configuration dicts.
             seed: int or None, default=None | The random seed for np.random.
             n_concurrent_trials: [Experimental] int, default=1 | The number of
                 concurrent trials. For n_concurrent_trials > 1, installation of
@@ -1378,7 +1387,9 @@ class AutoML:
                 state after fit(). By default the state is deleted for space
                 saving.
             early_stop: boolean, default=False | Whether to stop early if the
-                search is considered to converge
+                search is considered to converge.
+            append_log: boolean, default=False | whetehr to directly append the log
+                records to the input log file if it exists.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Include period as
                 a key word argument for 'forecast' task.
@@ -1500,7 +1511,7 @@ class AutoML:
         self._n_concurrent_trials = n_concurrent_trials
         self._early_stop = early_stop
         if log_file_name:
-            with training_log_writer(log_file_name) as save_helper:
+            with training_log_writer(log_file_name, append_log) as save_helper:
                 self._training_log = save_helper
                 self._search()
         else:
@@ -1754,7 +1765,8 @@ class AutoML:
                     self._max_iter_per_learner = len(points_to_evaluate)
                     low_cost_partial_config = None
                 else:
-                    points_to_evaluate = [search_state.init_config]
+                    points_to_evaluate = search_state.init_config if isinstance(
+                        search_state.init_config, list) else [search_state.init_config]
                     low_cost_partial_config = search_state.low_cost_partial_config
                 if self._hpo_method in ("bs", "cfo", "grid", "cfocat"):
                     algo = SearchAlgo(
