@@ -1,6 +1,11 @@
 import numpy as np
 import torch
 
+from transformers.trainer_utils import set_seed
+
+set_seed(42)
+torch.manual_seed(42)
+
 def get_batch_jacobian(model, inputs, trainer):
     from transformers import AutoModelForSequenceClassification
     from torchviz import make_dot
@@ -15,7 +20,11 @@ def get_batch_jacobian(model, inputs, trainer):
     X.requires_grad_(True)
     y = output['loss']
 
-    jacob = torch.autograd.grad(y, X, retain_graph=False, create_graph=False)
+    jacob = torch.autograd.grad(
+        y, X,
+        retain_graph=False,
+        create_graph=False,)
+        # grad_outputs=torch.ones_like(y))
 
     return jacob[0].detach()
 
@@ -63,6 +72,9 @@ def get_trainer(config, autohf):
 
     def model_init():
         return autohf._load_model(per_model_config=per_model_config)
+
+    set_seed(42)
+    torch.manual_seed(42)
 
     autohf._resources_per_trial = {"gpu": 1, "cpu": 1}
     autohf.ckpt_per_epoch = 1
@@ -114,8 +126,8 @@ def get_onebatch_proxy_score(autohf,
                            device=torch.device("cuda:0"
                            if torch.cuda.is_available() else "cpu"))
 
-    #metric = compute_jacob_cov(this_model, inputs, trainer)
-    metric = compute_synflow_per_weight(this_model, inputs, trainer)
+    metric = compute_jacob_cov(this_model, inputs, trainer)
+    #metric = compute_synflow_per_weight(this_model, inputs, trainer)
 
     return metric
 
@@ -161,9 +173,6 @@ def compute_synflow_per_weight(net, inputs, trainer):
 
     # keep signs of all params
     signs = linearize(net)
-
-    for param in net.parameters():
-        param.requires_grad_(True)
 
     # Compute gradients with input of 1s
     loss, output = trainer.compute_loss(net,
