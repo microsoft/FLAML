@@ -131,7 +131,7 @@ def run(
         List[Tuple[Callable[[dict], float], str, float]]
     ] = None,
     metric_constraints: Optional[List[Tuple[str, str, float]]] = None,
-    max_failure: Optional[int] = 10,
+    max_failure: Optional[int] = 100,
     use_ray: Optional[bool] = False,
 ):
     """The trigger for HPO.
