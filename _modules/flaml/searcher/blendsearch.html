@@ -914,16 +914,14 @@
 <span class="sd">        parameters: object created by &#39;generate_parameters()&#39;</span>
 <span class="sd">        value: final metrics of the trial, including default metric</span>
 <span class="sd">        &#39;&#39;&#39;</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">result</span><span class="p">[</span><span class="s1">&#39;config/&#39;</span> <span class="o">+</span> <span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
-        <span class="n">reward</span> <span class="o">=</span> <span class="n">extract_scalar_reward</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-        <span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">]</span> <span class="o">=</span> <span class="n">reward</span>
-        <span class="c1"># if nni does not report training cost,</span>
-        <span class="c1"># using sequence as an approximation.</span>
-        <span class="c1"># if no sequence, using a constant 1</span>
-        <span class="n">result</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cost_attr</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cost_attr</span><span class="p">,</span> <span class="n">value</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-            <span class="s1">&#39;sequence&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;config&#39;</span><span class="p">:</span> <span class="n">parameters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">:</span> <span class="n">extract_scalar_reward</span><span class="p">(</span><span class="n">value</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cost_attr</span><span class="p">:</span> <span class="mi">1</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="k">else</span> <span class="n">value</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cost_attr</span><span class="p">,</span> <span class="n">value</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;sequence&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="c1"># if nni does not report training cost,</span>
+            <span class="c1"># using sequence as an approximation.</span>
+            <span class="c1"># if no sequence, using a constant 1</span>
+        <span class="p">}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">on_trial_complete</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">parameter_id</span><span class="p">),</span> <span class="n">result</span><span class="p">)</span>
     <span class="o">...</span>
 
