@@ -727,13 +727,10 @@ def spearman_correlation(console_args):
     all_truescores = []
     counter = 0
 
-    from scipy import stats
-
     for each_configscore_list in matched_config_score_lists:
         for each_entry in each_configscore_list._config_score_list:
             print(counter)
             counter += 1
-            if counter > 50: break
             config_dict = each_entry.config
             console_args.root_log_path = "logs_azure_test/"
             old_jobid_configs.pre_full = "google/electra-base-discriminator"
@@ -745,7 +742,11 @@ def spearman_correlation(console_args):
             all_metrics.append(metric)
             all_truescores.append(true_score)
 
-        print(stats.spearmanr(all_metrics, all_truescores))
+        import json
+        json.dump({"all_metric": all_metrics, "all_truescores": all_truescores},
+                  open(JobID.get_full_data_name(old_jobid_configs.dat,
+                                                old_jobid_configs.subdat)
+                       + "jacob_cov.json", "w"))
         break
 
 if __name__ == "__main__":
