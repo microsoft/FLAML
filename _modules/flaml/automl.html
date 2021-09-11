@@ -237,7 +237,10 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">cat_hp_cost</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">space</span><span class="p">[</span><span class="s2">&quot;cat_hp_cost&quot;</span><span class="p">]</span>
             <span class="c1"># if a starting point is provided, set the init config to be</span>
             <span class="c1"># the starting point provided</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">starting_point</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="n">starting_point</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="nb">isinstance</span><span class="p">(</span><span class="n">starting_point</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="n">starting_point</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="p">):</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">init_config</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">starting_point</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">starting_point</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">init_config</span> <span class="o">=</span> <span class="n">starting_point</span>
@@ -1296,9 +1299,9 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">configs</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="p">[</span><span class="n">estimator</span><span class="p">]</span><span class="o">.</span><span class="n">init_config</span><span class="p">]</span>
             <span class="k">for</span> <span class="n">config</span> <span class="ow">in</span> <span class="n">configs</span><span class="p">:</span>
-                <span class="n">config</span><span class="p">[</span><span class="s1">&#39;learner&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">estimator</span>
+                <span class="n">config</span><span class="p">[</span><span class="s2">&quot;learner&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">estimator</span>
                 <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                    <span class="n">points</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">&#39;ml&#39;</span><span class="p">:</span> <span class="n">config</span><span class="p">})</span>
+                    <span class="n">points</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;ml&quot;</span><span class="p">:</span> <span class="n">config</span><span class="p">})</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">points</span>
@@ -1628,7 +1631,12 @@
             <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s2">&quot;rank&quot;</span><span class="p">:</span>
                 <span class="n">estimator_list</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;lgbm&quot;</span><span class="p">,</span> <span class="s2">&quot;xgboost&quot;</span><span class="p">]</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">estimator_list</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;lgbm&quot;</span><span class="p">,</span> <span class="s2">&quot;rf&quot;</span><span class="p">,</span> <span class="s2">&quot;catboost&quot;</span><span class="p">,</span> <span class="s2">&quot;xgboost&quot;</span><span class="p">,</span> <span class="s2">&quot;extra_tree&quot;</span><span class="p">]</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="kn">import</span> <span class="nn">catboost</span>
+
+                    <span class="n">estimator_list</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;lgbm&quot;</span><span class="p">,</span> <span class="s2">&quot;rf&quot;</span><span class="p">,</span> <span class="s2">&quot;catboost&quot;</span><span class="p">,</span> <span class="s2">&quot;xgboost&quot;</span><span class="p">,</span> <span class="s2">&quot;extra_tree&quot;</span><span class="p">]</span>
+                <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+                    <span class="n">estimator_list</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;lgbm&quot;</span><span class="p">,</span> <span class="s2">&quot;rf&quot;</span><span class="p">,</span> <span class="s2">&quot;xgboost&quot;</span><span class="p">,</span> <span class="s2">&quot;extra_tree&quot;</span><span class="p">]</span>
                 <span class="k">if</span> <span class="s2">&quot;regression&quot;</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span><span class="p">:</span>
                     <span class="n">estimator_list</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;lrl1&quot;</span><span class="p">]</span>
         <span class="k">for</span> <span class="n">estimator_name</span> <span class="ow">in</span> <span class="n">estimator_list</span><span class="p">:</span>
@@ -1918,8 +1926,11 @@
                     <span class="bp">self</span><span class="o">.</span><span class="n">_max_iter_per_learner</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">points_to_evaluate</span><span class="p">)</span>
                     <span class="n">low_cost_partial_config</span> <span class="o">=</span> <span class="kc">None</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">points_to_evaluate</span> <span class="o">=</span> <span class="n">search_state</span><span class="o">.</span><span class="n">init_config</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span>
-                        <span class="n">search_state</span><span class="o">.</span><span class="n">init_config</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="p">[</span><span class="n">search_state</span><span class="o">.</span><span class="n">init_config</span><span class="p">]</span>
+                    <span class="n">points_to_evaluate</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">search_state</span><span class="o">.</span><span class="n">init_config</span>
+                        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">search_state</span><span class="o">.</span><span class="n">init_config</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
+                        <span class="k">else</span> <span class="p">[</span><span class="n">search_state</span><span class="o">.</span><span class="n">init_config</span><span class="p">]</span>
+                    <span class="p">)</span>
                     <span class="n">low_cost_partial_config</span> <span class="o">=</span> <span class="n">search_state</span><span class="o">.</span><span class="n">low_cost_partial_config</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hpo_method</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;bs&quot;</span><span class="p">,</span> <span class="s2">&quot;cfo&quot;</span><span class="p">,</span> <span class="s2">&quot;grid&quot;</span><span class="p">,</span> <span class="s2">&quot;cfocat&quot;</span><span class="p">):</span>
                     <span class="n">algo</span> <span class="o">=</span> <span class="n">SearchAlgo</span><span class="p">(</span>
