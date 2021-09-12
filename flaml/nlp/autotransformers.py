@@ -350,28 +350,23 @@ class AutoTransformers:
         if not checkpoint_path:
             checkpoint_path = self.jobid_config.pre_full
 
-        def get_this_model(model_config):
+        def get_this_model():
             from transformers import AutoModelForSequenceClassification
-            return AutoModelForSequenceClassification.from_pretrained(
-                pretrained_model_name_or_path=checkpoint_path,
-                config=model_config)
+            return AutoModelForSequenceClassification.from_pretrained(checkpoint_path, config=model_config)
 
         def is_pretrained_model_in_classification_head_list():
             return self.jobid_config.pre in MODEL_CLASSIFICATION_HEAD_MAPPING.keys()
 
-        def _set_model_config(per_model_config):
+        def _set_model_config():
             if per_model_config and len(per_model_config) > 0:
                 model_config = AutoConfig.from_pretrained(
-                    pretrained_model_name_or_path=checkpoint_path,
+                    checkpoint_path,
                     num_labels=model_config_num_labels,
-                    output_hidden_states=True,
                     **per_model_config)
             else:
                 model_config = AutoConfig.from_pretrained(
-                    pretrained_model_name_or_path=checkpoint_path,
-                    output_hidden_states=True,
+                    checkpoint_path,
                     num_labels=model_config_num_labels)
-            model_config.output_hidden_states = True
             return model_config
 
         if this_task == "seq-classification":
@@ -380,20 +375,20 @@ class AutoTransformers:
                 model_config_num_labels = num_labels_old
             else:
                 model_config_num_labels = self._num_labels
-            model_config = _set_model_config(per_model_config)
+            model_config = _set_model_config()
 
             if is_pretrained_model_in_classification_head_list():
                 if self._num_labels != num_labels_old:
-                    this_model = get_this_model(model_config)
+                    this_model = get_this_model()
                     model_config.num_labels = self._num_labels
                     this_model.num_labels = self._num_labels
                     this_model.classifier = AutoSeqClassificationHead \
                         .from_model_type_and_config(self.jobid_config.pre,
                                                     model_config)
                 else:
-                    this_model = get_this_model(model_config)
+                    this_model = get_this_model()
             else:
-                this_model = get_this_model(model_config)
+                this_model = get_this_model()
 
             this_model.resize_token_embeddings(len(self._tokenizer))
             return this_model

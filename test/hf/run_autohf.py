@@ -35,7 +35,7 @@ def get_resplit_portion(jobid_config, console_args):
     #     return {"source": ["train", "validation"], "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
 
 
-def get_preparedata_setting(console_args, jobid_config, wandb_utils=None, **custom_args):
+def get_preparedata_setting(console_args, jobid_config, wandb_utils, **custom_args):
     preparedata_setting = {
         "server_name": console_args.server_name,
         "data_root_path": console_args.data_root_dir,
@@ -169,12 +169,8 @@ def search_base_and_search_around_best(console_args, jobid_config, autohf, wandb
               autohf_settings=get_autohf_settings(args_large, **{"points_to_evaluate": [best_config]}))
 
 
-def evaluate_configs(autohf, console_args, points_to_evaluate, wandb_utils=None):
+def evaluate_configs(autohf, console_args, points_to_evaluate):
     jobid_config = JobID(console_args)
-    if wandb_utils is None:
-        wandb_utils = WandbUtils(is_wandb_on=False, wandb_key_path=console_args.key_path, jobid_config=jobid_config)
-        wandb_utils.set_wandb_per_run()
-
     autohf.jobid_config = jobid_config
     azure_utils_large = AzureUtils(
         root_log_path=console_args.root_log_path,
