@@ -847,6 +847,12 @@ class AutoTransformers:
         self._set_search_space(**custom_hpo_args)
 
         search_algo = self._get_search_algo(self.jobid_config.alg, self.jobid_config.arg, **custom_hpo_args)
+        if self.jobid_config.alg == "bs":
+            search_algo.set_search_properties(config=self._search_space_hpo,
+                                              metric=self.metric_name,
+                                              mode=self.metric_mode_name)
+            search_algo.set_search_properties(config={"time_budget_s": time_budget})
+
         scheduler = AutoScheduler.from_scheduler_name(self.jobid_config.pru)
         self.ckpt_per_epoch = ckpt_per_epoch
         self.path_utils.make_dir_per_run()
@@ -858,8 +864,9 @@ class AutoTransformers:
         if "seed" not in tune_config:
             tune_config["seed"] = self.jobid_config.sdhf
 
-        import numpy as np
-        np.random.seed(7654321)
+        if search_algo in ("bs", "rs", "cfo"):
+            import numpy as np
+            np.random.seed(7654321)
         from ray import tune
 
         analysis = ray.tune.run(
@@ -868,15 +875,7 @@ class AutoTransformers:
             mode=self.metric_mode_name,
             name="ray_result",
             resources_per_trial=resources_per_trial,
-            config={
-        "learning_rate": tune.loguniform(1e-6, 1e-3),
-        "num_train_epochs": tune.loguniform(1.0, 10.0),
-        "per_device_train_batch_size": tune.choice([4, 8, 16, 32]),
-        "warmup_ratio": tune.uniform(0.0, 0.3),
-        "weight_decay": tune.uniform(0.0, 0.3),
-        "adam_epsilon": tune.uniform(1e-8, 1e-6),
-        "seed": tune.choice([x for x in range(1, 100)])
-        },
+            config=tune_config,
             verbose=ray_verbose,
             local_dir=self.path_utils.ckpt_dir_per_run,
             num_samples=num_samples,

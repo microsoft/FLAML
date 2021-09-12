@@ -110,7 +110,7 @@ class AutoSearchAlgorithm:
 
 
 def get_search_algo_args_optuna(search_args_mode, hpo_search_space=None, **custom_hpo_args):
-    return {}
+    return custom_hpo_args
 
 
 def default_search_algo_args_bs(search_args_mode, hpo_search_space=None, **custom_hpo_args):
