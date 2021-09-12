@@ -448,7 +448,6 @@ class AutoTransformers:
 
         def model_init():
             return self._load_model()
-        print("seed:" + str(config["seed"]))
         set_seed(config["seed"])
 
         training_args_config, per_model_config = AutoTransformers._separate_config(config)
