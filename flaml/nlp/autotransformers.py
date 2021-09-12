@@ -859,7 +859,8 @@ class AutoTransformers:
             tune_config["seed"] = self.jobid_config.sdhf
 
         import numpy as np
-        np.random.seed(42)
+        np.random.seed(7654321)
+        from ray import tune
 
         analysis = ray.tune.run(
             self._objective,
@@ -867,7 +868,15 @@ class AutoTransformers:
             mode=self.metric_mode_name,
             name="ray_result",
             resources_per_trial=resources_per_trial,
-            config=tune_config,
+            config={
+        "learning_rate": tune.loguniform(1e-6, 1e-3),
+        "num_train_epochs": tune.loguniform(1.0, 10.0),
+        "per_device_train_batch_size": tune.choice([4, 8, 16, 32]),
+        "warmup_ratio": tune.uniform(0.0, 0.3),
+        "weight_decay": tune.uniform(0.0, 0.3),
+        "adam_epsilon": tune.uniform(1e-8, 1e-6),
+        "seed": tune.choice([x for x in range(1, 100)])
+        },
             verbose=ray_verbose,
             local_dir=self.path_utils.ckpt_dir_per_run,
             num_samples=num_samples,
