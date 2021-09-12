@@ -1,7 +1,6 @@
 import json
 import os
 import numpy as np
-np.random.seed(42)
 import time
 import logging
 
