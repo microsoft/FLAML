@@ -858,6 +858,9 @@ class AutoTransformers:
         if "seed" not in tune_config:
             tune_config["seed"] = self.jobid_config.sdhf
 
+        import numpy as np
+        np.random.seed(42)
+
         analysis = ray.tune.run(
             self._objective,
             metric=self.metric_name,

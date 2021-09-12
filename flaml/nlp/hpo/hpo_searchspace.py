@@ -113,7 +113,7 @@ def hpo_space_generic(model_type=None,
         "warmup_ratio": {"l": 0.0, "u": 0.3, "space": "linear"},
         "weight_decay": {"l": 0.0, "u": 0.3, "space": "linear"},
         "adam_epsilon": {"l": 1e-8, "u": 1e-6, "space": "linear"},
-        "seed": [42], #x for x in range(1, 100)]
+        "seed": [x for x in range(1, 100)]
     }
     return output_config
 
