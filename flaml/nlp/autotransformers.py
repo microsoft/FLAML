@@ -357,7 +357,6 @@ class AutoTransformers:
             return AutoModelForSequenceClassification.from_pretrained(checkpoint_path, config=model_config)
 
         def is_pretrained_model_in_classification_head_list():
-            # TODO coverage
             return self.jobid_config.pre in MODEL_CLASSIFICATION_HEAD_MAPPING.keys()
 
         def _set_model_config():
@@ -381,6 +380,7 @@ class AutoTransformers:
             model_config = _set_model_config()
 
             if is_pretrained_model_in_classification_head_list():
+                # TODO coverage
                 if self._num_labels != num_labels_old:
                     this_model = get_this_model()
                     model_config.num_labels = self._num_labels
@@ -407,6 +407,7 @@ class AutoTransformers:
         if data_name in ("glue", "super_glue"):
             # TODO delete
             metric = datasets.load.load_metric(data_name, self.jobid_config.subdat)
+        # TODO delete
         elif data_name in ("squad", "squad_v2"):
             metric = datasets.load.load_metric(data_name)
         else:
