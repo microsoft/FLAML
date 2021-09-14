@@ -48,6 +48,7 @@ class AutoTransformers:
         search_space = {}
 
         if mode == "grid":
+            # TODO add test
             for each_hp in config_json.keys():
                 this_config = config_json[each_hp]
                 assert isinstance(this_config, dict) or isinstance(this_config, list), \
