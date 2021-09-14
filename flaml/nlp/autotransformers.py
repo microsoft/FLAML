@@ -177,6 +177,7 @@ class AutoTransformers:
                      max_seq_length=128,
                      fold_name=None,
                      resplit_portion=None,
+                     load_config_mode="console",
                      **custom_data_args):
         '''Prepare data
 
@@ -194,22 +195,24 @@ class AutoTransformers:
                 autohf.prepare_data(**preparedata_setting)
 
             Args:
-                server_name:
-                    A string variable, which can be tmdev or azureml
                 data_root_path:
                     The root path for storing the checkpoints and output results, e.g., "data/"
                 jobid_config:
                     A JobID object describing the profile of job
-                wandb_utils:
-                    A WandbUtils object for wandb operations
+                is_wandb_on:
+                    A boolean variable indicating whether wandb is used
+                server_name=None:
+                    server name
                 max_seq_length (optional):
                     Max_seq_lckpt_per_epochength for the huggingface, this hyperparameter must be specified
                     at the data processing step
+                fold_name:
+                    A list, which fold of data to use for resplit
                 resplit_portion:
                     The proportion for resplitting the train and dev data when split_mode="resplit".
                     If args.resplit_mode = "rspt", resplit_portion is required
-                is_wandb_on:
-                    A boolean variable indicating whether wandb is used
+                load_config_mode：
+                    where the config is loaded from, "console": from console, "args": from custom_data_args
             '''
         from .dataset.dataprocess_auto import AutoEncodeText
         from transformers import AutoTokenizer
@@ -222,12 +225,14 @@ class AutoTransformers:
         """
             loading the jobid config from console args
         """
-        console_args = load_dft_args()
-        self.jobid_config = JobID(console_args)
         if jobid_config:
             self.jobid_config = jobid_config
-        if len(custom_data_args) > 0:
+        elif load_config_mode == "args":
+            self.jobid_config = JobID()
             self.jobid_config.set_jobid_from_console_args(console_args=custom_data_args)
+        else:
+            console_args = load_dft_args()
+            self.jobid_config = JobID(console_args)
         if is_wandb_on:
             from .result_analysis.wandb_utils import WandbUtils
             self.wandb_utils = WandbUtils(is_wandb_on=is_wandb_on,
