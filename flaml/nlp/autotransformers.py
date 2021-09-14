@@ -405,7 +405,6 @@ class AutoTransformers:
     def _get_metric_func(self):
         data_name = JobID.dataset_list_to_str(self.jobid_config.dat)
         if data_name in ("glue", "super_glue"):
-            # TODO delete
             metric = datasets.load.load_metric(data_name, self.jobid_config.subdat)
         # TODO delete
         elif data_name in ("squad", "squad_v2"):
