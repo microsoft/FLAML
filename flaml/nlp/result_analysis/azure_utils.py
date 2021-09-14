@@ -307,7 +307,6 @@ class JobID:
             assert key in JobID.__dataclass_fields__.keys()
             setattr(self, key, jobid_list[key])
         if self.mod == "grid":
-            # TODO coverage
             self.alg = "grid"
 
     @staticmethod
@@ -410,6 +409,7 @@ class JobID:
                 print("console_args has no attribute {}, continue".format(each_key))
                 continue
         if self.mod == "grid":
+            # TODO coverage
             self.alg = "grid"
 
 
