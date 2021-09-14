@@ -77,6 +77,7 @@ setuptools.setup(
             "transformers",
             "datasets==1.4.1",
             "tensorboardX<=2.2",
+            "optuna==2.8.0",
             "torch",
         ],
         "forecast": ["prophet>=1.0.1", "statsmodels>=0.12.2"],
