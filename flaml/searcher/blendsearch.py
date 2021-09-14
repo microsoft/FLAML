@@ -252,6 +252,7 @@ class BlendSearch(Searcher):
             self._ls.set_search_properties(metric, mode, config)
             self._init_search()
         else:
+            init_search = False
             if metric_changed or mode_changed:
                 # reset search when metric or mode changed
                 self._ls.set_search_properties(metric, mode)
@@ -263,14 +264,18 @@ class BlendSearch(Searcher):
                         sampler=self._gs._sampler,
                     )
                     self._gs.space = self._ls.space
-            if config:
+                init_search = True
+            if config and self.__name__ != "CFO":
+                # CFO doesn't need these settings
                 if "time_budget_s" in config:
                     self._time_budget_s = config["time_budget_s"]
                 if "metric_target" in config:
                     self._metric_target = config.get("metric_target")
                 if "num_samples" in config:
                     self._num_samples = config["num_samples"]
-            self._init_search()
+                init_search = True
+            if init_search:
+                self._init_search()
         return True
 
     def _init_search(self):
