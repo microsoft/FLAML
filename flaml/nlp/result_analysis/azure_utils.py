@@ -679,6 +679,7 @@ class AzureUtils:
         """
         azure_save_file_name = local_json_file.split("/")[-1][:-5]
         if self.data_root_dir is None:
+            # TODO coverage
             from ..utils import load_dft_args
             console_args = load_dft_args()
             output_dir = getattr(console_args, "data_root_dir")
