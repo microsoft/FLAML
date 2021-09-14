@@ -62,9 +62,11 @@ class AutoSearchAlgorithm:
         """
 
         assert hpo_search_space, "hpo_search_space needs to be specified for calling AutoSearchAlgorithm.from_method_name"
+        # TODO coverage
         if not search_algo_name:
             search_algo_name = "grid"
         if search_algo_name in SEARCH_ALGO_MAPPING.keys():
+            # TODO coverage
             if SEARCH_ALGO_MAPPING[search_algo_name] is None:
                 return None
             """
@@ -84,6 +86,7 @@ class AutoSearchAlgorithm:
              : max(hpo_search_space["per_device_train_batch_size"].categories)},
             """
             if search_algo_args_mode == "dft":
+                # TODO coverage
                 this_search_algo_kwargs = DEFAULT_SEARCH_ALGO_ARGS_MAPPING[search_algo_name](
                     "dft", hpo_search_space=hpo_search_space, **allowed_custom_args)
             elif search_algo_args_mode == "cus":
@@ -103,6 +106,7 @@ class AutoSearchAlgorithm:
 
     @staticmethod
     def grid2list(grid_config):
+        # TODO coverage
         key_val_list = [[(key, each_val) for each_val in val_list['grid_search']]
                         for (key, val_list) in grid_config.items()]
         config_list = [dict(x) for x in itertools.product(*key_val_list)]
@@ -110,6 +114,7 @@ class AutoSearchAlgorithm:
 
 
 def get_search_algo_args_optuna(search_args_mode, hpo_search_space=None, **custom_hpo_args):
+    # TODO coverage
     return custom_hpo_args
 
 
@@ -119,6 +124,7 @@ def default_search_algo_args_bs(search_args_mode, hpo_search_space=None, **custo
             isinstance(hpo_search_space["num_train_epochs"], ray.tune.sample.Categorical):
         min_epoch = min(hpo_search_space["num_train_epochs"].categories)
     else:
+        # TODO coverage
         assert isinstance(hpo_search_space["num_train_epochs"], ray.tune.sample.Float)
         min_epoch = hpo_search_space["num_train_epochs"].lower
     default_search_algo_args = {
@@ -164,6 +170,7 @@ def default_search_algo_args_hyperopt(hpo_search_space=None):
 
 
 def default_search_algo_args_grid_search(search_args_mode, hpo_search_space=None, **custom_hpo_args):
+    # TODO coverage
     return {}
 
 
