@@ -123,6 +123,7 @@ class AutoTransformers:
 
     @staticmethod
     def _get_split_name(data_raw, fold_name=None):
+        # TODO coverage
         if fold_name:
             return fold_name
         fold_keys = data_raw.keys()
