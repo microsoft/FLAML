@@ -62,12 +62,12 @@ class AutoSearchAlgorithm:
         """
 
         assert hpo_search_space, "hpo_search_space needs to be specified for calling AutoSearchAlgorithm.from_method_name"
-        # TODO coverage
         if not search_algo_name:
+            # TODO coverage
             search_algo_name = "grid"
         if search_algo_name in SEARCH_ALGO_MAPPING.keys():
-            # TODO coverage
             if SEARCH_ALGO_MAPPING[search_algo_name] is None:
+                # TODO coverage
                 return None
             """
             filtering the customized args for hpo from custom_hpo_args, keep those
