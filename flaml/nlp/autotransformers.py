@@ -357,6 +357,7 @@ class AutoTransformers:
             return AutoModelForSequenceClassification.from_pretrained(checkpoint_path, config=model_config)
 
         def is_pretrained_model_in_classification_head_list():
+            # TODO coverage
             return self.jobid_config.pre in MODEL_CLASSIFICATION_HEAD_MAPPING.keys()
 
         def _set_model_config():
@@ -395,6 +396,7 @@ class AutoTransformers:
             this_model.resize_token_embeddings(len(self._tokenizer))
             return this_model
         elif this_task == "regression":
+            # TODO add test
             model_config_num_labels = 1
             model_config = _set_model_config()
             this_model = get_this_model()
@@ -403,6 +405,7 @@ class AutoTransformers:
     def _get_metric_func(self):
         data_name = JobID.dataset_list_to_str(self.jobid_config.dat)
         if data_name in ("glue", "super_glue"):
+            # TODO delete
             metric = datasets.load.load_metric(data_name, self.jobid_config.subdat)
         elif data_name in ("squad", "squad_v2"):
             metric = datasets.load.load_metric(data_name)
@@ -412,6 +415,7 @@ class AutoTransformers:
 
     def _compute_metrics_by_dataset_name(self,
                                          eval_pred):
+        # TODO coverage
         predictions, labels = eval_pred
         predictions = np.squeeze(predictions) \
             if self.task_name == "regression" else np.argmax(predictions, axis=1)
@@ -421,6 +425,7 @@ class AutoTransformers:
     def _compute_checkpoint_freq(self,
                                  num_train_epochs,
                                  batch_size):
+        # TODO coverage
         if "gpu" in self._resources_per_trial:
             ckpt_step_freq = int(min(num_train_epochs, 1) * len(self.train_dataset) / batch_size
                                  / self._resources_per_trial["gpu"] / self.ckpt_per_epoch) + 1
