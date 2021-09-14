@@ -450,6 +450,7 @@ class AutoTransformers:
         return training_args_config, per_model_config
 
     def _objective(self, config, reporter, checkpoint_dir=None):
+        # TODO add test
         from transformers.trainer_utils import set_seed
         self._set_transformers_verbosity(self._transformers_verbose)
 
@@ -647,6 +648,7 @@ class AutoTransformers:
                _fp16=True,
                **custom_hpo_args
                ):
+        # TODO remove?
         from transformers.trainer_utils import HPSearchBackend
 
         '''Fine tuning the huggingface using HF's API Transformers.hyperparameter_search (for comparitive purpose).
@@ -760,6 +762,7 @@ class AutoTransformers:
         return validation_metric
 
     def _set_transformers_verbosity(self, transformers_verbose):
+        # TODO coverage
         if transformers_verbose == transformers.logging.ERROR:
             transformers.logging.set_verbosity_error()
         elif transformers_verbose == transformers.logging.WARNING:
@@ -935,6 +938,7 @@ class AutoTransformers:
         test_trainer = TrainerForAutoTransformers(best_model, training_args)
 
         if self.jobid_config.spt == "ori":
+            # TODO add test
             if "label" in self.test_dataset.features.keys():
                 self.test_dataset.remove_columns_("label")
                 print("Cleaning the existing label column from test data")
