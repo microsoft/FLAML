@@ -13,21 +13,12 @@ def dataset_subdataset_name_format_check(val_str):
     return val_str
 
 
-def pretrained_model_size_format_check(val_str):
-    regex = re.compile(r"^[^:]*:(small|base|large|xlarge)")
-    if (val_str is not None) and (not regex.search(val_str)):
-        raise argparse.ArgumentTypeError("pretrained_model_size must be in the format {model_name}:{model_size},"
-                                         "where {model_name} is the name from huggingface.co/models, {model_size}"
-                                         "is chosen from small, base, large, xlarge")
-    return val_str
-
-
 def load_dft_args():
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('--server_name', type=str, help='server name', required=False,
                             choices=["tmdev", "dgx", "azureml"], default="tmdev")
     arg_parser.add_argument('--algo_mode', type=str, help='hpo or grid search', required=False,
-                            choices=["grid", "hpo", "hfhpo"], default="hpo")
+                            choices=["grid", "hpo", "hfhpo", "gridcv", "hpocv", "eval"], default="hpo")
     arg_parser.add_argument('--data_root_dir', type=str, help='data dir', required=False, default="data/")
     arg_parser.add_argument('--dataset_subdataset_name', type=dataset_subdataset_name_format_check,
                             help='dataset and subdataset name', required=False, default=None)
@@ -36,28 +27,35 @@ def load_dft_args():
     arg_parser.add_argument('--search_alg_args_mode', type=str, help='search algorithm args mode', required=False,
                             choices=["dft", "exp", "cus"], default="dft")
     arg_parser.add_argument('--algo_name', type=str, help='algorithm', required=False,
-                            choices=["bs", "optuna", "cfo", "rs"], default="bs")
+                            choices=["bs", "optuna", "cfo", "rs", "grid"], default="bs")
     arg_parser.add_argument('--pruner', type=str, help='pruner', required=False,
                             choices=["asha", "None"], default="None")
-    arg_parser.add_argument('--pretrained_model_size', type=pretrained_model_size_format_check,
-                            help='pretrained model', required=False, default=None)
+    arg_parser.add_argument('--pretrained_model_size', nargs=2, default=[],
+                            help='pretrained model', required=False)
     arg_parser.add_argument('--sample_num', type=int, help='sample num', required=False, default=None)
     arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False, default=None)
     arg_parser.add_argument('--time_as_grid', type=int, help='time as grid search', required=False, default=None)
     arg_parser.add_argument('--rep_id', type=int, help='rep id', required=False, default=0)
     arg_parser.add_argument('--azure_key', type=str, help='azure key', required=False, default=None)
     arg_parser.add_argument('--resplit_mode', type=str, help='resplit mode', required=False,
-                            choices=["rspt", "ori"], default="ori")
+                            choices=["rspt", "ori", "cv"], default="ori")
     arg_parser.add_argument('--ds_config', type=str, help='deep speed config file path',
                             required=False, default=None)
-    arg_parser.add_argument('--yml_file', type=str, help='yml file path', required=False, default="test.yml")
     arg_parser.add_argument('--key_path', type=str, help='path for key.json', required=False, default=None)
     arg_parser.add_argument('--root_log_path', type=str, help='root path for log', required=False, default="logs_azure")
     arg_parser.add_argument('--round_idx', type=int, help='round idx for acl experiments', required=False, default=0)
     arg_parser.add_argument('--seed_data', type=int, help='seed of data shuffling', required=False, default=43)
     arg_parser.add_argument('--seed_transformers', type=int, help='seed of transformers', required=False, default=42)
-    console_args, unknown = arg_parser.parse_known_args()
-    return console_args
+    arg_parser.add_argument('--learning_rate', nargs='+', default=[],
+                            help='optional arg learning_rate', required=False)
+    arg_parser.add_argument('--weight_decay', nargs='+', default=[],
+                            help='optional arg weight_decay', required=False)
+    arg_parser.add_argument('--source_fold', nargs='+', default=[],
+                            help='source fold for resplit', required=False)
+    arg_parser.add_argument('--split_portion', nargs='+', default=[],
+                            help='resplit portion', required=False)
+    args, unknown = arg_parser.parse_known_args()
+    return args
 
 
 def merge_dicts(dict1, dict2):

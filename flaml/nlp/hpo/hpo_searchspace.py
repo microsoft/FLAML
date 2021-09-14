@@ -33,10 +33,8 @@ def bounded_gridunion(model_type=None,
         if "u" in custom_hpo_args["bound"][each_key]:
             upper = custom_hpo_args["bound"][each_key]["u"]
         else:
-            # TODO coverage
             upper = 100000
         if "l" in custom_hpo_args["bound"][each_key]:
-            # TODO coverage
             lower = custom_hpo_args["bound"][each_key]["l"]
         else:
             lower = -100000
@@ -44,7 +42,6 @@ def bounded_gridunion(model_type=None,
         upper_id = len(original_space)
         for x in range(len(original_space)):
             if original_space[x] > upper:
-                # TODO coverage
                 upper_id = x
                 break
         lower_id = 0
@@ -80,6 +77,7 @@ def hpo_space_gridunion(model_type=None,
                 default_values[each_hp] = [getattr(training_args, each_hp)]
             except AttributeError:
                 print("training args do not contain {}, passed".format(each_hp))
+                pass
 
         output_config = merge_dicts(output_config, default_values)
 
@@ -111,9 +109,11 @@ def hpo_space_generic(model_type=None,
     output_config = {
         "learning_rate": {"l": 1e-6, "u": 1e-3, "space": "log"},
         "num_train_epochs": {"l": 1.0, "u": 10.0, "space": "log"},
-        "per_device_train_batch_size": [4, 8, 16, 32, 48],
+        "per_device_train_batch_size": [4, 8, 16, 32],
         "warmup_ratio": {"l": 0.0, "u": 0.3, "space": "linear"},
-        "weight_decay": {"l": 0.0, "u": 0.3, "space": "linear"}
+        "weight_decay": {"l": 0.0, "u": 0.3, "space": "linear"},
+        "adam_epsilon": {"l": 1e-8, "u": 1e-6, "space": "linear"},
+        "seed": [x for x in range(1, 100)]
     }
     return output_config
 
@@ -124,7 +124,6 @@ def hpo_space_generic_grid(model_type=None,
                            subdataset_name=None,
                            algo_mode=None,
                            **custom_hpo_args):
-    # TODO coverage
     output_config = {
         "learning_rate": [1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1.5e-4],
         "num_train_epochs": [3, 10],
@@ -141,7 +140,6 @@ def hpo_space_small(model_type=None,
                     subdataset_name=None,
                     algo_mode=None,
                     **custom_hpo_args):
-    # TODO coverage
     config_json = AutoGridSearchSpace.from_model_and_dataset_name(
         model_type, model_size_type, dataset_name_list, subdataset_name, "hpo")
     output_config = {}

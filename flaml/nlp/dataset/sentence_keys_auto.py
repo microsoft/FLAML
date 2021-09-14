@@ -16,6 +16,21 @@ sentence_keys_super_glue = {
     "wsc": ["text"]
 }
 
+sentence_keys_hate_speech18 = ["text"]
+
+sentence_keys_dbpedia_14 = ["content"]
+
+sentence_keys_imdb = ["text"]
+
+sentence_keys_yelp_review_full = ["text"]
+
+sentence_keys_yelp_polarity = ["text"]
+
+sentence_keys_amazon_polarity = ["content"]
+
+sentence_keys_amazon_reviews_multi = ["review_body"]
+
+sentence_keys_sentiment140 = ["review_body"]
 
 def get_sentence_keys(dataset_name, subdataset_name=None):
     eval_name_mapping = globals()["sentence_keys_" + dataset_name]

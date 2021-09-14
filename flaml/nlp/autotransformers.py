@@ -2,17 +2,20 @@ import json
 import os
 import numpy as np
 import time
+import logging
 
 try:
     import ray
     import transformers
     from transformers import TrainingArguments
     import datasets
-    from .dataset.task_auto import get_default_task
-    from .result_analysis.azure_utils import JobID
-    from .huggingface.trainer import TrainerForAutoTransformers
+    import torch
 except ImportError:
     print("To use the nlp component in flaml, run pip install flaml[nlp]")
+
+from .dataset.task_auto import get_default_task
+from .result_analysis.azure_utils import JobID
+from .huggingface.trainer import TrainerForAutoTransformers
 
 task_list = [
     "seq-classification",
@@ -29,11 +32,12 @@ class AutoTransformers:
         .. code-block:: python
 
             autohf = AutoTransformers()
-            autohf_settings = {
-                "resources_per_trial": {"cpu": 1, "gpu": 1},
-                "num_samples": -1,
-                "time_budget": 60,
-            }
+            autohf_settings = {"resources_per_trial": {"cpu": 1},
+                       "num_samples": -1,
+                       "time_budget": 100000,
+                       "ckpt_per_epoch": 1,
+                       "fp16": False,
+                      }
 
             validation_metric, analysis = autohf.fit(**autohf_settings)
 
@@ -44,11 +48,10 @@ class AutoTransformers:
         search_space = {}
 
         if mode == "grid":
-            # TODO add test
             for each_hp in config_json.keys():
                 this_config = config_json[each_hp]
                 assert isinstance(this_config, dict) or isinstance(this_config, list), \
-                    "config of " + each_hp + " must be dict or list for grid search"
+                    "config of " + each_hp + " must be dict or list"
                 search_space[each_hp] = ray.tune.grid_search(this_config)
         else:
             for each_hp in config_json.keys():
@@ -74,9 +77,14 @@ class AutoTransformers:
                           **custom_hpo_args):
         from .hpo.hpo_searchspace import AutoHPOSearchSpace
 
+        if self.jobid_config.spa == "grid":
+            model_type = "bert"
+        else:
+            model_type = self.jobid_config.pre
+
         search_space_hpo_json \
             = AutoHPOSearchSpace.from_model_and_dataset_name(self.jobid_config.spa,
-                                                             self.jobid_config.pre,
+                                                             model_type,
                                                              self.jobid_config.presz,
                                                              self.jobid_config.dat,
                                                              self.jobid_config.subdat,
@@ -85,9 +93,35 @@ class AutoTransformers:
             search_space_hpo_json,
             mode=self.jobid_config.mod)
 
+        if self.jobid_config.spa == "grid":
+            electra_space = AutoTransformers._convert_dict_to_ray_tune_space(AutoHPOSearchSpace.from_model_and_dataset_name(
+                "grid",
+                "electra",
+                "base",
+                self.jobid_config.dat,
+                self.jobid_config.subdat
+            ))
+
+            for key in list(set(electra_space.keys()).difference(self._search_space_hpo.keys())):
+                self._search_space_hpo[key] = electra_space[key]
+
+            stop = 0
+
+    @staticmethod
+    def cartesian_product(origin_space_dict):
+        import itertools
+        keys = origin_space_dict.keys()
+        values = origin_space_dict.values()
+        space_cartesian = itertools.product(*values)
+        space_cartesian_list = [dict(zip(list(keys), list(each_tuple))) for each_tuple in space_cartesian]
+        return space_cartesian_list
+
+    @staticmethod
+    def _wrapper(func, *args):  # with star
+        return func(*args)
+
     @staticmethod
     def _get_split_name(data_raw, fold_name=None):
-        # TODO coverage
         if fold_name:
             return fold_name
         fold_keys = data_raw.keys()
@@ -101,6 +135,38 @@ class AutoTransformers:
                     "documentation of AutoTransformers.prepare_data()".format(",".join(fold_keys))
         return "train", "validation", "test"
 
+    def _get_start_end_bound(self,
+                            concatenated_data=None,
+                            resplit_portion_key=None,
+                            lower_bound_portion=0.0,
+                            upper_bound_portion=1.0
+                            ):
+        data_len = len(concatenated_data)
+        target_fold_start, target_fold_end = \
+            int(resplit_portion_key[0] * data_len), \
+            int(resplit_portion_key[1] * data_len)
+        lower_bound, upper_bound = int(lower_bound_portion * data_len), int(upper_bound_portion * data_len)
+        return target_fold_start, target_fold_end, lower_bound, upper_bound
+
+    def _get_targetfold_start_end(self,
+                                  concatenated_data=None,
+                                  resplit_portion_key=None,
+                                  lower_bound_portion=0.0,
+                                  upper_bound_portion=1.0):
+        def crange(start_pos, end_pos, lower_bound, upper_bound):
+            assert start_pos >= lower_bound and end_pos <= upper_bound, "start and end portion must be within 1.0"
+            if start_pos <= end_pos:
+                return range(start_pos, end_pos)
+            else:
+                return [x for x in range(start_pos, upper_bound)] + [x for x in range(lower_bound, end_pos)]
+        target_fold_start, target_fold_end, lower_bound, upper_bound = self._get_start_end_bound(concatenated_data,
+                                                                                                 resplit_portion_key,
+                                                                                                 lower_bound_portion,
+                                                                                                 upper_bound_portion)
+        subfold_dataset = concatenated_data.select(
+            [x for x in crange(target_fold_start, target_fold_end, lower_bound, upper_bound)]).flatten_indices()
+        return subfold_dataset
+
     def prepare_data(self,
                      data_root_path,
                      jobid_config=None,
@@ -110,18 +176,20 @@ class AutoTransformers:
                      fold_name=None,
                      resplit_portion=None,
                      **custom_data_args):
-        """Prepare data
+        '''Prepare data
 
-            Example:
+            An example:
 
-                .. code-block:: python
-
-                    preparedata_setting = {"server_name": "tmdev", "data_root_path": "data/", "max_seq_length": 128,
-                                               "jobid_config": jobid_config, "wandb_utils": wandb_utils,
-                                               "resplit_portion": {"source": ["train", "validation"],
-                                               "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}}
-
-                    autohf.prepare_data(**preparedata_setting)
+                preparedata_setting = {
+                "server_name": "tmdev",
+                "data_root_path": "data/",
+                "max_seq_length": 128,
+                "jobid_config": jobid_config,
+                "wandb_utils": wandb_utils,
+                "resplit_portion": {"source": ["train", "validation"],
+                "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}
+                }
+                autohf.prepare_data(**preparedata_setting)
 
             Args:
                 server_name:
@@ -140,7 +208,7 @@ class AutoTransformers:
                     If args.resplit_mode = "rspt", resplit_portion is required
                 is_wandb_on:
                     A boolean variable indicating whether wandb is used
-        """
+            '''
         from .dataset.dataprocess_auto import AutoEncodeText
         from transformers import AutoTokenizer
         from datasets import load_dataset
@@ -169,42 +237,31 @@ class AutoTransformers:
 
         self.path_utils = PathUtils(self.jobid_config, hpo_data_root_path=data_root_path)
 
-        if self.jobid_config.spt == "rspt":
+        if self.jobid_config.spt.endswith("rspt"):
             assert resplit_portion, "If split mode is 'rspt', the resplit_portion must be provided. Please " \
                                     "refer to the example in the documentation of AutoTransformers.prepare_data()"
         if self.jobid_config.subdat:
             data_raw = load_dataset(JobID.dataset_list_to_str(self.jobid_config.dat),
                                     self.jobid_config.subdat)
         else:
-            data_raw = load_dataset(*self.jobid_config.dat)
+            data_raw = AutoTransformers._wrapper(load_dataset, *self.jobid_config.dat)
 
         self._train_name, self._dev_name, self._test_name = AutoTransformers._get_split_name(
             data_raw,
             fold_name=fold_name)
-        auto_tokentoids_config = {"max_seq_length": self._max_seq_length}
+
         self._tokenizer = AutoTokenizer.from_pretrained(self.jobid_config.pre_full, use_fast=True)
 
         def autoencodetext_from_model_and_dataset_name():
+            auto_tokentoids_config = {"max_seq_length": self._max_seq_length}
             return AutoEncodeText.from_model_and_dataset_name(
-                data_raw,
+                subfold_dataset,
                 self.jobid_config.pre_full,
                 self.jobid_config.dat,
                 self.jobid_config.subdat,
                 **auto_tokentoids_config)
 
-        data_encoded = autoencodetext_from_model_and_dataset_name()
-        self._max_seq_length = 0
-        """
-            Update the max_seq_length to the minimum of the actual max seq length and the user defined max_seq_length
-        """
-        for each_fold in data_encoded.keys():
-            self._max_seq_length = max(self._max_seq_length,
-                                       max([sum(data_encoded[each_fold][x]['attention_mask']) for x in
-                                            range(len(data_encoded[each_fold]))]))
-        self._max_seq_length = int((self._max_seq_length + 15) / 16) * 16
-        data_encoded = autoencodetext_from_model_and_dataset_name()
-
-        if self.jobid_config.spt == "rspt":
+        if self.jobid_config.spt in ("rspt", "cv", "cvrspt"):
             all_folds_from_source = []
             assert "source" in resplit_portion.keys(), "Must specify the source for resplitting the dataset in" \
                                                        "resplit_portion, which is a list of folder names, e.g., " \
@@ -212,30 +269,70 @@ class AutoTransformers:
 
             source_fold_names = resplit_portion['source']
             for each_fold_name in source_fold_names:
-                this_fold_dataset = data_encoded[each_fold_name]
+                this_fold_dataset = data_raw[each_fold_name]
                 all_folds_from_source.append(this_fold_dataset)
 
-            merged_folds_from_source = datasets.concatenate_datasets(all_folds_from_source)
-            merged_folds_from_source = merged_folds_from_source.shuffle(seed=self.jobid_config.sddt)
+            merged_folds = datasets.concatenate_datasets(all_folds_from_source)
+            merged_folds = merged_folds.shuffle(seed=self.jobid_config.sddt)
 
             assert "train" in resplit_portion.keys() and "validation" in resplit_portion.keys() \
                    and "test" in resplit_portion.keys(), "train, validation, test must exist in resplit_portion"
 
-            for key in ["train", "validation", "test"]:
-                target_fold_start, target_fold_end = \
-                    int(resplit_portion[key][0] * len(merged_folds_from_source)), \
-                    int(resplit_portion[key][1] * len(merged_folds_from_source))
-                subfold_dataset = merged_folds_from_source.select(
-                    [x for x in range(target_fold_start, target_fold_end)]).flatten_indices()
-                if key == "train":
-                    self.train_dataset = subfold_dataset
-                elif key == "validation":
-                    self.eval_dataset = subfold_dataset
-                else:
-                    self.test_dataset = subfold_dataset
+            if self.jobid_config.spt.endswith("rspt"):
+                _max_seq_length = 0
+                for key in ["train", "validation", "test"]:
+                    subfold_dataset = self._get_targetfold_start_end(concatenated_data=merged_folds,
+                                                                     resplit_portion_key=resplit_portion[key])
+                    this_encoded_data = autoencodetext_from_model_and_dataset_name()
+                    if key == "train":
+                        self.train_dataset = this_encoded_data
+                    elif key == "validation":
+                        self.eval_dataset = this_encoded_data
+                    else:
+                        self.test_dataset = this_encoded_data
+                    _max_seq_length = max(_max_seq_length,
+                                               max([sum(this_encoded_data[x]['attention_mask']) for x in
+                                                    range(len(this_encoded_data))]))
+                self._max_seq_length = int((_max_seq_length + 15) / 16) * 16
+            else:
+                assert "foldnum" in custom_data_args, "if the split mode is cross validation, foldnum must be" \
+                                                      "specified"
+
+                def get_cv_split_points(lower_bound, upper_bound, idx, k):
+                    return (upper_bound - lower_bound) / k * idx + lower_bound, \
+                           (upper_bound - lower_bound) / k * (idx + 1) + lower_bound
+
+                subfold_dataset = self._get_targetfold_start_end(concatenated_data=merged_folds,
+                                                                   resplit_portion_key=resplit_portion["test"])
+                self.test_dataset = autoencodetext_from_model_and_dataset_name()
+                train_val_lower = min(resplit_portion["train"][0], resplit_portion["validation"][0])
+                train_val_upper = max(resplit_portion["train"][1], resplit_portion["validation"][1])
+                cv_k = custom_data_args["foldnum"]
+                self.eval_datasets = []
+                self.train_datasets = []
+                for idx in range(cv_k):
+                    this_fold_lower, this_fold_upper = get_cv_split_points(
+                                                       train_val_lower,
+                                                       train_val_upper, idx, cv_k)
+                    subfold_dataset = self._get_targetfold_start_end(
+                                                   concatenated_data=merged_folds,
+                                                   resplit_portion_key=[this_fold_lower, this_fold_upper],
+                                                   lower_bound_portion=train_val_lower,
+                                                   upper_bound_portion=train_val_upper)
+                    self.eval_datasets.append(autoencodetext_from_model_and_dataset_name())
+                    subfold_dataset = self._get_targetfold_start_end(
+                                               concatenated_data=merged_folds,
+                                               resplit_portion_key=[this_fold_upper, this_fold_lower],
+                                               lower_bound_portion=train_val_lower,
+                                               upper_bound_portion=train_val_upper)
+                    self.train_datasets.append(autoencodetext_from_model_and_dataset_name())
         else:
-            self.train_dataset, self.eval_dataset, self.test_dataset \
-                = data_encoded[self._train_name], data_encoded[self._dev_name], data_encoded[self._test_name]
+            subfold_dataset = data_raw[self._train_name]
+            self.train_dataset = autoencodetext_from_model_and_dataset_name()
+            subfold_dataset = data_raw[self._dev_name]
+            self.eval_dataset = autoencodetext_from_model_and_dataset_name()
+            subfold_dataset = data_raw[self._test_name]
+            self.test_dataset = autoencodetext_from_model_and_dataset_name()
 
     def _load_model(self,
                     checkpoint_path=None,
@@ -281,7 +378,6 @@ class AutoTransformers:
             model_config = _set_model_config()
 
             if is_pretrained_model_in_classification_head_list():
-                # TODO coverage
                 if self._num_labels != num_labels_old:
                     this_model = get_this_model()
                     model_config.num_labels = self._num_labels
@@ -297,7 +393,6 @@ class AutoTransformers:
             this_model.resize_token_embeddings(len(self._tokenizer))
             return this_model
         elif this_task == "regression":
-            # TODO add test
             model_config_num_labels = 1
             model_config = _set_model_config()
             this_model = get_this_model()
@@ -307,7 +402,6 @@ class AutoTransformers:
         data_name = JobID.dataset_list_to_str(self.jobid_config.dat)
         if data_name in ("glue", "super_glue"):
             metric = datasets.load.load_metric(data_name, self.jobid_config.subdat)
-        # TODO delete
         elif data_name in ("squad", "squad_v2"):
             metric = datasets.load.load_metric(data_name)
         else:
@@ -316,7 +410,6 @@ class AutoTransformers:
 
     def _compute_metrics_by_dataset_name(self,
                                          eval_pred):
-        # TODO coverage
         predictions, labels = eval_pred
         predictions = np.squeeze(predictions) \
             if self.task_name == "regression" else np.argmax(predictions, axis=1)
@@ -326,7 +419,6 @@ class AutoTransformers:
     def _compute_checkpoint_freq(self,
                                  num_train_epochs,
                                  batch_size):
-        # TODO coverage
         if "gpu" in self._resources_per_trial:
             ckpt_step_freq = int(min(num_train_epochs, 1) * len(self.train_dataset) / batch_size
                                  / self._resources_per_trial["gpu"] / self.ckpt_per_epoch) + 1
@@ -351,7 +443,6 @@ class AutoTransformers:
         return training_args_config, per_model_config
 
     def _objective(self, config, reporter, checkpoint_dir=None):
-        # TODO add test
         from transformers.trainer_utils import set_seed
         self._set_transformers_verbosity(self._transformers_verbose)
 
@@ -374,6 +465,7 @@ class AutoTransformers:
         if transformers.__version__.startswith("3"):
             training_args = TrainingArguments(
                 output_dir=self.path_utils.ckpt_dir_per_trial,
+                do_train=True,
                 do_eval=True,
                 per_device_eval_batch_size=32,
                 eval_steps=ckpt_freq,
@@ -387,6 +479,7 @@ class AutoTransformers:
             from transformers import IntervalStrategy
             training_args = TrainingArguments(
                 output_dir=self.path_utils.ckpt_dir_per_trial,
+                do_train=True,
                 do_eval=True,
                 per_device_eval_batch_size=32,
                 eval_steps=ckpt_freq,
@@ -433,10 +526,12 @@ class AutoTransformers:
         for key in custom_hpo_args.keys():
             if key == "points_to_evaluate":
                 for each_init_config in custom_hpo_args[key]:
-                    for each_hp in each_init_config.keys():
-                        assert each_hp in self._search_space_hpo.keys(), \
-                            "points_to_evaluate hp must be within the search space"
+                    for each_hp in list(each_init_config.keys()):
+                        if each_hp not in self._search_space_hpo.keys():
+                            del each_init_config[each_hp]
+                        print("{} is not in the search space, deleting from init config".format(each_hp))
 
+                    for each_hp in list(each_init_config.keys()):
                         assert isinstance(each_init_config[each_hp], int) or \
                                isinstance(each_init_config[each_hp], float) or \
                                isinstance(each_init_config[each_hp], str) or \
@@ -451,6 +546,7 @@ class AutoTransformers:
                             assert each_init_config[each_hp] in self._search_space_hpo[each_hp].categories, \
                                 "points_to_evaluate {each_hp} value must be within the search space"
                         else:
+                            stop = 0
                             assert self._search_space_hpo[each_hp].lower <= each_init_config[each_hp] <= \
                                    self._search_space_hpo[each_hp].upper, \
                                    "points_to_evaluate {each_hp} value must be within the search space"
@@ -458,9 +554,6 @@ class AutoTransformers:
     def _get_search_algo(self,
                          search_algo_name,
                          search_algo_args_mode,
-                         time_budget,
-                         metric_name,
-                         metric_mode_name,
                          **custom_hpo_args):
         from .hpo.searchalgo_auto import AutoSearchAlgorithm
 
@@ -470,9 +563,6 @@ class AutoTransformers:
             search_algo_name,
             search_algo_args_mode,
             self._search_space_hpo,
-            time_budget,
-            metric_name,
-            metric_mode_name,
             **custom_hpo_args)
         return search_algo
 
@@ -550,7 +640,6 @@ class AutoTransformers:
                _fp16=True,
                **custom_hpo_args
                ):
-        # TODO remove?
         from transformers.trainer_utils import HPSearchBackend
 
         '''Fine tuning the huggingface using HF's API Transformers.hyperparameter_search (for comparitive purpose).
@@ -614,7 +703,7 @@ class AutoTransformers:
 
         trainer = TrainerForAutoTransformers(
             this_model,
-            training_args,
+            args=training_args,
             model_init=model_init,
             train_dataset=self.train_dataset,
             eval_dataset=self.eval_dataset,
@@ -664,7 +753,6 @@ class AutoTransformers:
         return validation_metric
 
     def _set_transformers_verbosity(self, transformers_verbose):
-        # TODO coverage
         if transformers_verbose == transformers.logging.ERROR:
             transformers.logging.set_verbosity_error()
         elif transformers_verbose == transformers.logging.WARNING:
@@ -687,21 +775,18 @@ class AutoTransformers:
             transformers_verbose=10,
             resources_per_trial=None,
             ray_local_mode=False,
+            keep_checkpoints_num=1,
             **custom_hpo_args):
-        """Fine tuning the huggingface using the hpo setting
+        '''Fine tuning the huggingface using the hpo setting
 
-        Example:
-
-            .. code-block:: python
-
-                autohf_settings = {"resources_per_trial": {"cpu": 1},
-                           "num_samples": 1,
-                           "time_budget": 100000,
-                           "ckpt_per_epoch": 1,
-                           "fp16": False,
-                          }
-
-                validation_metric, analysis = autohf.fit(**autohf_settings)
+        An example:
+            autohf_settings = {"resources_per_trial": {"cpu": 1},
+                       "num_samples": 1,
+                       "time_budget": 100000,
+                       "ckpt_per_epoch": 1,
+                       "fp16": False,
+                      }
+            validation_metric, analysis = autohf.fit(**autohf_settings)
 
         Args:
             resources_per_trial:
@@ -720,25 +805,30 @@ class AutoTransformers:
             ckpt_per_epoch:
                 An integer value of number of checkpoints per epoch, default = 1
             ray_verbose:
-                An integer, default=1 | verbosit of ray,
+                int, default=1 | verbosit of ray,
             transformers_verbose:
-                An integer, default=transformers.logging.INFO | verbosity of transformers, must be chosen from one of
+                int, default=transformers.logging.INFO | verbosity of transformers, must be chosen from one of
                 transformers.logging.ERROR, transformers.logging.INFO, transformers.logging.WARNING,
                 or transformers.logging.DEBUG
             fp16:
-                A boolean, default = True | whether to use fp16
+                boolean, default = True | whether to use fp16
             ray_local_mode:
-                A boolean, default = False | whether to use the local mode (debugging mode) for ray tune.run
+                boolean, default = False | whether to use the local mode (debugging mode) for ray tune.run
+            keep_checkpoints_num:
+                int, default = 1 | the number of checkpoints to keep for ray tune.run
             custom_hpo_args:
-                The additional keyword arguments, e.g., custom_hpo_args = {"points_to_evaluate": [{
-                "num_train_epochs": 1, "per_device_train_batch_size": 128, }]}
+                The additional keyword arguments, e.g.,
+                custom_hpo_args = {"points_to_evaluate": [{
+                           "num_train_epochs": 1,
+                           "per_device_train_batch_size": 128, }]}
 
         Returns:
+           validation_metric:
+                a dict storing the validation score
+           analysis:
+                a ray.tune.analysis.Analysis object storing the analysis results from tune.run
 
-            validation_metric: A dict storing the validation score
-
-            analysis: A ray.tune.analysis.Analysis object storing the analysis results from tune.run
-        """
+        '''
         from .hpo.scheduler_auto import AutoScheduler
         self._transformers_verbose = transformers_verbose
 
@@ -753,16 +843,16 @@ class AutoTransformers:
         self._set_metric(custom_metric_name, custom_metric_mode_name)
         self._set_task()
         self._fp16 = fp16
-        ray.shutdown()
         ray.init(local_mode=ray_local_mode)
         self._set_search_space(**custom_hpo_args)
 
-        search_algo = self._get_search_algo(self.jobid_config.alg,
-                                            self.jobid_config.arg,
-                                            time_budget,
-                                            self.metric_name,
-                                            self.metric_mode_name,
-                                            **custom_hpo_args)
+        search_algo = self._get_search_algo(self.jobid_config.alg, self.jobid_config.arg, **custom_hpo_args)
+        if self.jobid_config.alg == "bs":
+            search_algo.set_search_properties(config=self._search_space_hpo,
+                                              metric=self.metric_name,
+                                              mode=self.metric_mode_name)
+            search_algo.set_search_properties(config={"time_budget_s": time_budget})
+
         scheduler = AutoScheduler.from_scheduler_name(self.jobid_config.pru)
         self.ckpt_per_epoch = ckpt_per_epoch
         self.path_utils.make_dir_per_run()
@@ -771,7 +861,13 @@ class AutoTransformers:
         start_time = time.time()
 
         tune_config = self._search_space_hpo
-        tune_config["seed"] = self.jobid_config.sdhf
+        if "seed" not in tune_config:
+            tune_config["seed"] = self.jobid_config.sdhf
+
+        if search_algo in ("bs", "rs", "cfo"):
+            import numpy as np
+            np.random.seed(7654321)
+        from ray import tune
 
         analysis = ray.tune.run(
             self._objective,
@@ -784,7 +880,7 @@ class AutoTransformers:
             local_dir=self.path_utils.ckpt_dir_per_run,
             num_samples=num_samples,
             time_budget_s=time_budget,
-            keep_checkpoints_num=1,
+            keep_checkpoints_num=keep_checkpoints_num,
             scheduler=scheduler,
             search_alg=search_algo,
         )
@@ -832,7 +928,6 @@ class AutoTransformers:
         test_trainer = TrainerForAutoTransformers(best_model, training_args)
 
         if self.jobid_config.spt == "ori":
-            # TODO add test
             if "label" in self.test_dataset.features.keys():
                 self.test_dataset.remove_columns_("label")
                 print("Cleaning the existing label column from test data")
@@ -844,7 +939,7 @@ class AutoTransformers:
                                 self.jobid_config.subdat) == "regression" \
             else np.argmax(predictions, axis=1)
 
-        if self.jobid_config.spt == "rspt":
+        if self.jobid_config.spt.endswith("rspt"):
             assert labels is not None
             metric = self._get_metric_func()
             output_metric = metric.compute(predictions=predictions, references=labels)
@@ -868,20 +963,21 @@ class AutoTransformers:
 
             Args:
                 predictions:
-                    A list of predictions, which is the output of AutoTransformers.predict()
+                    a list of predictions, which is the output of AutoTransformers.predict()
                 output_prediction_path:
-                    Output path for the prediction
+                    output path for the prediction
                 output_zip_file_name:
-                    An string, which is the name of the output zip file
+                    an string, which is the name of the output zip file
 
             Returns:
-                The path of the output .zip file
+                the path of the output .zip file
         """
         from .dataset.submission_auto import auto_output_prediction
         return auto_output_prediction(self.jobid_config.dat,
-                                      output_prediction_path,
-                                      output_zip_file_name,
-                                      predictions,
-                                      self.train_dataset,
-                                      self._dev_name,
-                                      self.jobid_config.subdat)
+                                          output_prediction_path,
+                                          output_zip_file_name,
+                                          predictions,
+                                          self.train_dataset,
+                                          self._dev_name,
+                                          self.jobid_config.subdat)
+

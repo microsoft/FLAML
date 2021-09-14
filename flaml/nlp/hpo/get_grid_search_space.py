@@ -20,15 +20,18 @@ def get_space_union_and_unique(search_space_common,
     # enumerate over each case where the search space is different
     # this difference can be the dataset or model size, etc.
     is_included = False
-    from ..utils import merge_dicts
     for each_case in search_space_unique.keys():
-        from ..utils import _check_dict_keys_overlaps
         if each_case in this_case_tags:
             is_included = True
-            assert not _check_dict_keys_overlaps(this_search_space, search_space_unique[each_case]), \
-                "the hyperparameters of common and unique search spaces should not have overlaps"
-            this_search_space.update(search_space_unique[each_case])
-        search_space_union = merge_dicts(search_space_union, search_space_unique[each_case])
+    from ..utils import merge_dicts
+    if is_included is True:
+        for each_case in search_space_unique.keys():
+            from ..utils import _check_dict_keys_overlaps
+            if each_case in this_case_tags:
+                assert not _check_dict_keys_overlaps(this_search_space, search_space_unique[each_case]), \
+                    "the hyperparameters of common and unique search spaces should not have overlaps"
+                this_search_space.update(search_space_unique[each_case])
+            search_space_union = merge_dicts(search_space_union, search_space_unique[each_case])
     if is_included:
         return this_search_space
     else:
@@ -303,6 +306,9 @@ def get_electra_space(model_size_type=None,
         },
         "glue_qqp": {
             "num_train_epochs": [3],
+        },
+        "other": {
+            "num_train_epochs": [3, 10],
         }
     }
     from ..result_analysis.azure_utils import JobID

@@ -1,12 +1,14 @@
 import os
-
-try:
-    from transformers import Trainer as TFTrainer
-except ImportError:
-    TFTrainer = object
+import transformers
 
 
-class TrainerForAutoTransformers(TFTrainer):
+class TrainerForAutoTransformers(transformers.Trainer):
+    """
+        Overriding transformers.Trainer.
+
+        Args:
+            huggingface (:class:`~transformers.PreTrainedModel` or :obj:`torch.nn.Module`, `optional`):
+    """
 
     def evaluate(self,
                  eval_dataset=None):
@@ -17,7 +19,6 @@ class TrainerForAutoTransformers(TFTrainer):
                 eval_dataset:
                     the dataset to be evaluated
         """
-        # TODO coverage
         from ray import tune
 
         eval_dataloader = self.get_eval_dataloader(eval_dataset)
@@ -39,7 +40,6 @@ class TrainerForAutoTransformers(TFTrainer):
                 Overriding transformers.Trainer.save_state. It is only through saving
                 the states can best_trial.get_best_checkpoint return a non-empty value.
         """
-        # TODO coverage
         import torch
         from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
         from ray import tune
@@ -82,7 +82,6 @@ class TrainerForAutoTransformers(TFTrainer):
             device_count=None):
         if max_steps:
             return int(warmup_ratio * max_steps)
-        # TODO coverage
         max_steps = TrainerForAutoTransformers.convert_num_train_epochs_to_max_steps(
             num_train_epochs,
             num_train_examples,

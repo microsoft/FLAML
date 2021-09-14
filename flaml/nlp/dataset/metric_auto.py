@@ -30,15 +30,24 @@ metric_mode_mapping_super_glue = {
 
 metric_mode_mapping_imdb = [("accuracy", "max")]
 
+metric_mode_mapping_dbpedia = [("accuracy", "max")]
+
 metric_mode_mapping_yelp = [("accuracy", "max")]
+
+metric_mode_mapping_hate_speech18 = [("accuracy", "max")]
 
 METRIC_MAPPING = OrderedDict(
     [
         ("squad", metric_mode_mapping_squad),
         ("glue", metric_mode_mapping_glue),
+        ("hate_speech18", metric_mode_mapping_hate_speech18),
         ("super_glue", metric_mode_mapping_super_glue),
         ("imdb", metric_mode_mapping_imdb),
-        ("yelp_review_full", metric_mode_mapping_yelp)
+        ("dbpedia_14", metric_mode_mapping_dbpedia),
+        ("yelp_review_full", metric_mode_mapping_yelp),
+        ("amazon_reviews_multi", metric_mode_mapping_yelp),
+        ("amazon_polarity", metric_mode_mapping_yelp),
+        ("yelp_polarity", metric_mode_mapping_yelp)
     ]
 )
 
@@ -64,7 +73,6 @@ def get_default_and_alternative_metric(dataset_name_list: typing.List,
 
         return default_metric, default_mode, all_metrics, all_mode
     else:
-        # TODO coverage
         assert isinstance(eval_name_mapping, list), "dataset_name and subdataset_name not correctly specified"
 
         default_metric, default_mode = eval_name_mapping[0]

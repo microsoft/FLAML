@@ -77,7 +77,6 @@ def tokenize_superglue_wic(this_example,
     try:
         padding_direction = this_tokenizer.padding_side
         if padding_direction == "left":
-            # TODO coverage
             padding_id = input_ids_sepp[0]
             while input_ids_sepp[ptr_sepp] == padding_id:
                 ptr_sepp += 1
@@ -104,7 +103,6 @@ def tokenize_superglue_wic(this_example,
                 which_sepp += 1
                 ptr_sepp += 1
             else:
-                # TODO coverage
                 ptr_sepp += 1
     """
         max_word_span is the maximum tokens of the word
@@ -133,7 +131,6 @@ def tokenize_glue(this_example,
     if len(sentence_keys) > 1:
         sentence1_key, sentence2_key = sentence_keys[0], sentence_keys[1]
     else:
-        # TODO coverage
         sentence1_key = sentence_keys[0]
         sentence2_key = None
 
@@ -147,6 +144,14 @@ def tokenize_glue(this_example,
 
 TOKENIZER_MAPPING = OrderedDict(
     [
+        (("hate_speech18", ""), tokenize_glue),
+        (("dbpedia_14", ""), tokenize_glue),
+        (("sentiment140", ""), tokenize_glue),
+        (("imdb", ""), tokenize_glue),
+        (("yelp_review_full", ""), tokenize_glue),
+        (("amazon_polarity", ""), tokenize_glue),
+        (("amazon_reviews_multi", ""), tokenize_glue),
+        (("yelp_polarity", ""), tokenize_glue),
         (("glue", "rte"), tokenize_glue),
         (("glue", "mrpc"), tokenize_glue),
         (("glue", "cola"), tokenize_glue),
@@ -179,7 +184,7 @@ class AutoEncodeText:
 
     @classmethod
     def from_model_and_dataset_name(cls,
-                                    data_raw,
+                                    subfold_dataset,
                                     model_checkpoint_path,
                                     dataset_name_list: list = None,
                                     subdataset_name=None,
@@ -216,7 +221,7 @@ class AutoEncodeText:
         if (dataset_name, subdataset_name) in TOKENIZER_MAPPING.keys():
             this_tokenizer = AutoTokenizer.from_pretrained(model_checkpoint_path, use_fast=True)
             token_func = TOKENIZER_MAPPING[(dataset_name, subdataset_name)]
-            return data_raw.map(
+            return subfold_dataset.map(
                 partial(token_func,
                         this_tokenizer=this_tokenizer,
                         dataset_name=dataset_name,

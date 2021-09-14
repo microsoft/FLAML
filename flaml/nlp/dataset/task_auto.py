@@ -14,18 +14,34 @@ task_mapping_glue = {
     "wnli": "seq-classification"
 }
 
+task_mapping_hate_speech18 = "seq-classification"
+
 task_mapping_squad = "question-answering"
+
+task_mapping_dbpedia = "seq-classification"
 
 task_mapping_super_glue = {
     "wic": "seq-classification",
     "rte": "seq-classification"
 }
 
+task_mapping_imdb = "seq-classification"
+
+task_mapping_sentiment140 = "regression"
+
 TASK_MAPPING = OrderedDict(
     [
         ("squad", task_mapping_squad),
         ("glue", task_mapping_glue),
+        ("dbpedia_14", task_mapping_dbpedia),
+        ("imdb", task_mapping_imdb),
         ("super_glue", task_mapping_super_glue),
+        ("hate_speech18", task_mapping_hate_speech18),
+        ("sentiment140", "regression"),
+        ("yelp_review_full", "regression"),
+        ("amazon_polarity", task_mapping_imdb),
+        ("amazon_reviews_multi", "regression"),
+        ("yelp_polarity", task_mapping_imdb)
     ]
 )
 
@@ -42,7 +58,6 @@ def get_default_task(dataset_name_list: list, subdataset_name=None):
             "dataset_name and subdataset_name not correctly specified"
         default_task = eval_name_mapping[subdataset_name]
     else:
-        # TODO coverage
-        assert isinstance(eval_name_mapping, list), "dataset_name and subdataset_name not correctly specified"
+        #assert isinstance(eval_name_mapping, list), "dataset_name and subdataset_name not correctly specified"
         default_task = eval_name_mapping
     return default_task
