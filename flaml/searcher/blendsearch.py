@@ -252,7 +252,6 @@ class BlendSearch(Searcher):
             self._ls.set_search_properties(metric, mode, config)
             self._init_search()
         else:
-            init_search = False
             if metric_changed or mode_changed:
                 # reset search when metric or mode changed
                 self._ls.set_search_properties(metric, mode)
@@ -264,28 +263,37 @@ class BlendSearch(Searcher):
                         sampler=self._gs._sampler,
                     )
                     self._gs.space = self._ls.space
-                init_search = True
-            if config and self.__name__ != "CFO":
+                self._init_search()
+            if config:
                 # CFO doesn't need these settings
                 if "time_budget_s" in config:
-                    self._time_budget_s = config["time_budget_s"]
+                    self._time_budget_s = config["time_budget_s"]  # budget from now
+                    now = time.time()
+                    self._time_used += now - self._start_time
+                    self._start_time = now
+                    self._set_deadline()
                 if "metric_target" in config:
                     self._metric_target = config.get("metric_target")
                 if "num_samples" in config:
-                    self._num_samples = config["num_samples"]
-                init_search = True
-            if init_search:
-                self._init_search()
+                    self._num_samples = (
+                        config["num_samples"]
+                        + len(self._result)
+                        + len(self._trial_proposed_by)
+                    )
         return True
 
-    def _init_search(self):
-        """initialize the search"""
-        self._start_time = time.time()
+    def _set_deadline(self):
         if self._time_budget_s is not None:
             self._deadline = self._time_budget_s + self._start_time
             SearchThread.set_eps(self._time_budget_s)
         else:
             self._deadline = np.inf
+
+    def _init_search(self):
+        """initialize the search"""
+        self._start_time = time.time()
+        self._time_used = 0
+        self._set_deadline()
         self._is_ls_ever_converged = False
         self._subspace = {}  # the subspace for each trial id
         self._metric_target = np.inf * self._ls.metric_op
@@ -319,6 +327,8 @@ class BlendSearch(Searcher):
 
     def save(self, checkpoint_path: str):
         """save states to a checkpoint path"""
+        self._time_used += time.time() - self._start_time
+        self._start_time = time.time()
         save_object = self
         with open(checkpoint_path, "wb") as outputFile:
             pickle.dump(save_object, outputFile)
@@ -328,6 +338,8 @@ class BlendSearch(Searcher):
         with open(checkpoint_path, "rb") as inputFile:
             state = pickle.load(inputFile)
         self.__dict__ = state.__dict__
+        self._start_time = time.time()
+        self._set_deadline()
 
     @property
     def metric_target(self):
@@ -776,7 +788,7 @@ class BlendSearch(Searcher):
             num_proposed = num_finished + len(self._trial_proposed_by)
             num_left = max(self._num_samples - num_proposed, 0)
             if num_proposed > 0:
-                time_used = now - self._start_time
+                time_used = now - self._start_time + self._time_used
                 min_eci = min(min_eci, time_used / num_finished * num_left)
             # print(f"{min_eci}, {time_used / num_finished * num_left}, {num_finished}, {num_left}")
         max_speed = 0
