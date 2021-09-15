@@ -2,11 +2,15 @@ from flaml.nlp import AutoTransformers
 
 autohf = AutoTransformers()
 preparedata_setting = {
-                          "dataset_subdataset_name": "glue:sst2",
+                          "dataset_subdataset_name": "glue:mrpc",
                           "pretrained_model_size": ["google/electra-base-discriminator", "base"],
                           "data_root_path": "data/",
                           "max_seq_length": 128,
-                          "load_config_mode": "args"
+                          "load_config_mode": "args",
+                          "resplit_mode": "ori",
+                          "pruner": "None",
+                          "seed_data": 43,
+                          "seed_transformers": 42
                        }
 autohf.prepare_data(**preparedata_setting)
 
