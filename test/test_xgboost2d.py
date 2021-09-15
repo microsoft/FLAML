@@ -18,12 +18,12 @@ class XGBoost2D(XGBoostSklearnEstimator):
         upper = min(32768, int(data_size))
         return {
             'n_estimators': {
-                'domain': tune.qloguniform(lower=4, upper=upper, q=1),
-                'init_value': 4,
+                'domain': tune.lograndint(lower=4, upper=upper),
+                'low_cost_init_value': 4,
             },
             'max_leaves': {
-                'domain': tune.qloguniform(lower=4, upper=upper, q=1),
-                'init_value': 4,
+                'domain': tune.lograndint(lower=4, upper=upper),
+                'low_cost_init_value': 4,
             },
         }
 
@@ -40,7 +40,9 @@ def test_simple(method=None):
         "n_jobs": 1,
         "hpo_method": method,
         "log_type": "all",
-        "time_budget": 3
+        "retrain_full": "budget",
+        "keep_search_state": True,
+        "time_budget": 1
     }
     from sklearn.externals._arff import ArffException
     try:
@@ -51,9 +53,30 @@ def test_simple(method=None):
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.33, random_state=42)
     automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
+    print(automl.estimator_list)
+    print(automl.search_space)
+    print(automl.points_to_evaluate)
+    config = automl.best_config.copy()
+    config['learner'] = automl.best_estimator
+    automl.trainable(config)
+    from flaml import tune
+    from flaml.automl import size
+    from functools import partial
+    analysis = tune.run(
+        automl.trainable, automl.search_space, metric='val_loss', mode="min",
+        low_cost_partial_config=automl.low_cost_partial_config,
+        points_to_evaluate=automl.points_to_evaluate,
+        cat_hp_cost=automl.cat_hp_cost,
+        prune_attr=automl.prune_attr,
+        min_resource=automl.min_resource,
+        max_resource=automl.max_resource,
+        time_budget_s=automl._state.time_budget,
+        config_constraints=[(partial(size, automl._state), '<=', automl._mem_thres)],
+        metric_constraints=automl.metric_constraints, num_samples=5)
+    print(analysis.trials[-1])
 
 
-def _test_optuna():
+def test_optuna():
     test_simple(method="optuna")
 
 

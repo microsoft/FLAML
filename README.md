@@ -1,6 +1,6 @@
 [![PyPI version](https://badge.fury.io/py/FLAML.svg)](https://badge.fury.io/py/FLAML)
 [![Build](https://github.com/microsoft/FLAML/actions/workflows/python-package.yml/badge.svg)](https://github.com/microsoft/FLAML/actions/workflows/python-package.yml)
-![Python Version](https://img.shields.io/badge/3.6%20%7C%203.7%20%7C%203.8-blue)
+![Python Version](https://img.shields.io/badge/3.6%20%7C%203.7%20%7C%203.8%20%7C%203.9-blue)
 [![Downloads](https://pepy.tech/badge/flaml/month)](https://pepy.tech/project/flaml)
 [![Join the chat at https://gitter.im/FLAMLer/community](https://badges.gitter.im/FLAMLer/community.svg)](https://gitter.im/FLAMLer/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
@@ -13,13 +13,15 @@
 
 FLAML is a lightweight Python library that finds accurate machine
 learning models automatically, efficiently and economically. It frees users from selecting
-learners and hyperparameters for each learner. It is fast and economical. 
+learners and hyperparameters for each learner. It is fast and economical.
 The simple and lightweight design makes it easy to extend, such as
 adding customized learners or metrics. FLAML is powered by a new, [cost-effective
 hyperparameter optimization](https://github.com/microsoft/FLAML/tree/main/flaml/tune)
 and learner selection method invented by Microsoft Research.
 FLAML leverages the structure of the search space to choose a search order optimized for both cost and error. For example, the system tends to propose cheap configurations at the beginning stage of the search,
 but quickly moves to configurations with high model complexity and large sample size when needed in the later stage of the search. For another example, it favors cheap learners in the beginning but penalizes them later if the error improvement is slow. The cost-bounded search and cost-based prioritization make a big difference in the search efficiency under budget constraints.
+
+FLAML has a .NET implementation as well from [ML.NET Model Builder](https://dotnet.microsoft.com/apps/machinelearning-ai/ml-dotnet/model-builder). This [ML.NET blog](https://devblogs.microsoft.com/dotnet/ml-net-june-updates/#new-and-improved-automl) describes the improvement brought by FLAML.
 
 ## Installation
 
@@ -40,6 +42,7 @@ pip install flaml[notebook]
 
 * With three lines of code, you can start using this economical and fast
 AutoML engine as a scikit-learn style estimator.
+
 ```python
 from flaml import AutoML
 automl = AutoML()
@@ -48,11 +51,13 @@ automl.fit(X_train, y_train, task="classification")
 
 * You can restrict the learners and use FLAML as a fast hyperparameter tuning
 tool for XGBoost, LightGBM, Random Forest etc. or a customized learner.
+
 ```python
 automl.fit(X_train, y_train, task="classification", estimator_list=["lgbm"])
 ```
 
 * You can also run generic ray-tune style hyperparameter tuning for a custom function.
+
 ```python
 from flaml import tune
 tune.run(train_with_config, config={…}, low_cost_partial_config={…}, time_budget_s=3600)
@@ -60,17 +65,17 @@ tune.run(train_with_config, config={…}, low_cost_partial_config={…}, time_bu
 
 ## Advantages
 
-* For classification and regression tasks, find quality models with lower computational resources.
+* For common machine learning tasks like classification and regression, find quality models with small computational resources.
 * Users can choose their desired customizability: minimal customization (computational resource budget), medium customization (e.g., scikit-style learner, search space and metric), full customization (arbitrary training and evaluation code).
-* Allow human guidance in hyperparameter tuning to respect prior on certain subspaces but also able to explore other subspaces. Read more about the 
+* Allow human guidance in hyperparameter tuning to respect prior on certain subspaces but also able to explore other subspaces. Read more about the
 hyperparameter optimization methods
-in FLAML [here](https://github.com/microsoft/FLAML/tree/main/flaml/tune). They can be used beyond the AutoML context. 
+in FLAML [here](https://github.com/microsoft/FLAML/tree/main/flaml/tune). They can be used beyond the AutoML context.
 And they can be used in distributed HPO frameworks such as ray tune or nni.
 * Support online AutoML: automatic hyperparameter tuning for online learning algorithms. Read more about the online AutoML method in FLAML [here](https://github.com/microsoft/FLAML/tree/main/flaml/onlineml).
 
 ## Examples
 
-A basic classification example.
+* A basic classification example.
 
 ```python
 from flaml import AutoML
@@ -94,7 +99,7 @@ print(automl.predict_proba(X_train))
 print(automl.model)
 ```
 
-A basic regression example.
+* A basic regression example.
 
 ```python
 from flaml import AutoML
@@ -118,19 +123,53 @@ print(automl.predict(X_train))
 print(automl.model)
 ```
 
+* Time series forecasting.
+
+```python
+# pip install flaml[forecast]
+import numpy as np
+from flaml import AutoML
+X_train = np.arange('2014-01', '2021-01', dtype='datetime64[M]')
+y_train = np.random.random(size=72)
+automl = AutoML()
+automl.fit(X_train=X_train[:72],  # a single column of timestamp
+           y_train=y_train,  # value for each timestamp
+           period=12,  # time horizon to forecast, e.g., 12 months
+           task='forecast', time_budget=15,  # time budget in seconds
+           log_file_name="test/forecast.log",
+          )
+print(automl.predict(X_train[72:]))
+```
+
+* Learning to rank.
+
+```python
+from sklearn.datasets import fetch_openml
+from flaml import AutoML
+X_train, y_train = fetch_openml(name="credit-g", return_X_y=True, as_frame=False)
+y_train = y_train.cat.codes
+# not a real learning to rank dataaset
+groups = [200] * 4 + [100] * 2    # group counts
+automl = AutoML()
+automl.fit(
+    X_train, y_train, groups=groups,
+    task='rank', time_budget=10,    # in seconds
+)
+```
+
 More examples can be found in [notebooks](https://github.com/microsoft/FLAML/tree/main/notebook/).
 
 ## Documentation
 
 Please find the API documentation [here](https://microsoft.github.io/FLAML/).
 
-Please find demo and tutorials of FLAML [here](https://www.youtube.com/channel/UCfU0zfFXHXdAd5x-WvFBk5A)
-
+Please find demo and tutorials of FLAML [here](https://www.youtube.com/channel/UCfU0zfFXHXdAd5x-WvFBk5A).
 
 For more technical details, please check our papers.
 
-* [FLAML: A Fast and Lightweight AutoML Library](https://www.microsoft.com/en-us/research/publication/flaml-a-fast-and-lightweight-automl-library/). Chi Wang, Qingyun Wu, Markus Weimer, Erkang Zhu. MLSys, 2021.
-```
+* [FLAML: A Fast and Lightweight AutoML Library](https://www.microsoft.com/en-us/research/publication/flaml-a-fast-and-lightweight-automl-library/). Chi Wang, Qingyun Wu, Markus Weimer, Erkang Zhu. MLSys 2021.
+
+```bibtex
 @inproceedings{wang2021flaml,
     title={FLAML: A Fast and Lightweight AutoML Library},
     author={Chi Wang and Qingyun Wu and Markus Weimer and Erkang Zhu},
@@ -138,9 +177,10 @@ For more technical details, please check our papers.
     booktitle={MLSys},
 }
 ```
+
 * [Frugal Optimization for Cost-related Hyperparameters](https://arxiv.org/abs/2005.01571). Qingyun Wu, Chi Wang, Silu Huang. AAAI 2021.
 * [Economical Hyperparameter Optimization With Blended Search Strategy](https://www.microsoft.com/en-us/research/publication/economical-hyperparameter-optimization-with-blended-search-strategy/). Chi Wang, Qingyun Wu, Silu Huang, Amin Saied. ICLR 2021.
-* [ChaCha for Online AutoML](https://arxiv.org/pdf/2106.04815.pdf). Qingyun Wu, Chi Wang, John Langford, Paul Mineiro and Marco Rossi. To appear in ICML 2021.
+* [ChaCha for Online AutoML](https://www.microsoft.com/en-us/research/publication/chacha-for-online-automl/). Qingyun Wu, Chi Wang, John Langford, Paul Mineiro and Marco Rossi. ICML 2021.
 
 ## Contributing
 
@@ -160,18 +200,40 @@ contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additio
 
 ## Developing
 
-### Setup:
+### Setup
 
-```
+```bash
 git clone https://github.com/microsoft/FLAML.git
 pip install -e .[test,notebook]
 ```
 
-### Coverage
-Any code you commit should generally not significantly impact coverage. To run all unit tests:
+### Docker
+
+We provide a simple [Dockerfile](https://github.com/microsoft/FLAML/blob/main/Dockerfile).
+
+```bash
+docker build git://github.com/microsoft/FLAML -t flaml-dev
+docker run -it flaml-dev
 ```
+
+### Develop in Remote Container
+
+If you use vscode, you can open the FLAML folder in a [Container](https://code.visualstudio.com/docs/remote/containers).
+We have provided the configuration in [.devcontainer]((https://github.com/microsoft/FLAML/blob/main/.devcontainer)).
+
+### Pre-commit
+
+Run `pre-commit install` to install pre-commit into your git hooks. Before you commit, run
+`pre-commit run` to check if you meet the pre-commit requirements. If you use Windows (without WSL) and can't commit after installing pre-commit, you can run `pre-commit uninstall` to uninstall the hook. In WSL or Linux this is supposed to work.
+
+### Coverage
+
+Any code you commit should not decrease coverage. To run all unit tests:
+
+```bash
 coverage run -m pytest test
 ```
+
 Then you can see the coverage report by
 `coverage report -m` or `coverage html`.
 If all the tests are passed, please also test run notebook/flaml_automl to make sure your commit does not break the notebook example.
@@ -181,7 +243,7 @@ If all the tests are passed, please also test run notebook/flaml_automl to make 
 * Chi Wang
 * Qingyun Wu
 
-Contributors (alphabetical order): Sebastien Bubeck, Surajit Chaudhuri, Nadiia Chepurko, Ofer Dekel, Alex Deng, Anshuman Dutt, Nicolo Fusi, Jianfeng Gao, Johannes Gehrke, Silu Huang, Dongwoo Kim, Christian Konig, John Langford, Xueqing Liu, Paul Mineiro, Amin Saied, Neil Tenenholtz, Olga Vrousgou, Markus Weimer, Haozhe Zhang, Erkang Zhu.
+Contributors (alphabetical order): Amir Aghaei, Vijay Aski, Sebastien Bubeck, Surajit Chaudhuri, Nadiia Chepurko, Ofer Dekel, Alex Deng, Anshuman Dutt, Nicolo Fusi, Jianfeng Gao, Johannes Gehrke, Niklas Gustafsson, Silu Huang, Dongwoo Kim, Christian Konig, John Langford, Menghao Li, Mingqin Li, Zhe Liu, Naveen Gaur, Paul Mineiro, Vivek Narasayya, Jake Radzikowski, Marco Rossi, Amin Saied, Neil Tenenholtz, Olga Vrousgou, Markus Weimer, Yue Wang, Qingyun Wu, Qiufeng Yin, Haozhe Zhang, Minjia Zhang, XiaoYun Zhang, Eric Zhu, and open-source contributors.
 
 ## License
 

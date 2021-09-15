@@ -108,8 +108,11 @@ class JobID:
     rep: int = field(default=0)
     sddt: int = field(default=None)
     sdhf: int = field(default=None)
+<<<<<<< HEAD
     var1: Optional[set] = field(default=None)
     var2: Optional[set] = field(default=None)
+=======
+>>>>>>> upstream/main
 
     def __init__(self,
                  console_args=None):
@@ -134,32 +137,25 @@ class JobID:
         self.rep = 0
         self.sddt = 43
         self.sdhf = 42
-        self.var1 = None
-        self.var2 = None
 
     def is_match(self, partial_jobid):
-        """
-            return a boolean variable whether the current object matches the partial jobid defined
-            in partial_jobid. For example,
-            self = JobID(dat = ['glue'],
-                            subdat = 'cola',
-                            mod = 'bestnn',
-                            spa = 'buni',
-                            arg = 'cus',
-                            alg = 'bs',
-                            pru = 'None',
-                            pre = 'funnel',
-                            presz = 'xlarge',
-                            spt = 'rspt',
-                            rep = 0,
-                            sddt = 43,
-                            sdhf = 42)
-            partial_jobid1 = JobID(dat = ['glue'],
-                                  subdat = 'cola',
-                                  mod = 'hpo')
-           partial_jobid2 = JobID(dat = ['glue'],
-                                  subdat = 'cola',
-                                  mod = 'bestnn')
+        """Return a boolean variable whether the current object matches the partial jobid defined in partial_jobid.
+
+           Example:
+
+               .. code-block:: python
+
+                   self = JobID(dat = ['glue'], subdat = 'cola', mod = 'bestnn', spa = 'buni', arg = 'cus', alg = 'bs',
+                                pru = 'None', pre = 'funnel', presz = 'xlarge', spt = 'rspt', rep = 0, sddt = 43, sdhf = 42)
+
+                   partial_jobid1 = JobID(dat = ['glue'],
+                                          subdat = 'cola',
+                                          mod = 'hpo')
+
+                   partial_jobid2 = JobID(dat = ['glue'],
+                                          subdat = 'cola',
+                                          mod = 'bestnn')
+
             return False for partial_jobid1 and True for partial_jobid2
         """
         is_not_match = False
@@ -184,7 +180,7 @@ class JobID:
 
     def to_wandb_string(self):
         """
-            preparing for the job ID for wandb
+            Preparing for the job ID for wandb
         """
         field_dict = self.__dict__
         keytoval_str = "_".join([JobID.dataset_list_to_str(field_dict[key])
@@ -195,7 +191,7 @@ class JobID:
 
     def to_jobid_string(self):
         """
-            convert the current JobID into a blob name string which contains all the fields
+            Convert the current JobID into a blob name string which contains all the fields
         """
         list_keys = list(JobID.__dataclass_fields__.keys())
         field_dict = self.__dict__
@@ -214,7 +210,7 @@ class JobID:
 
     def to_partial_jobid_string(self):
         """
-            convert the current JobID into a blob name string which only contains the fields whose values are not "None"
+            Convert the current JobID into a blob name string which only contains the fields whose values are not "None"
         """
         list_keys = list(JobID.__dataclass_fields__.keys())
         field_dict = self.__dict__  # field_dict contains fields whose values are not None
@@ -230,9 +226,10 @@ class JobID:
     @staticmethod
     def blobname_to_jobid_dict(keytoval_str):
         """
-            converting an azure blobname to a JobID config,
+            Converting an azure blobname to a JobID config,
             e.g., blobname = "dat=glue_subdat=cola_mod=bestnn_spa=buni_arg=cus_
-                              alg=bs_pru=None_pre=funnel_presz=xlarge_spt=rspt_rep=0.json"
+            alg=bs_pru=None_pre=funnel_presz=xlarge_spt=rspt_rep=0.json"
+
             the converted jobid dict = {dat = ['glue'], subdat = 'cola', mod = 'bestnn',
                                    spa = 'buni', arg = 'cus', alg = 'bs', pru = 'None',
                                    pre = 'funnel', presz = 'xlarge', spt = 'rspt',
@@ -301,7 +298,7 @@ class JobID:
                                 **jobid_list
                                 ):
         """
-            set the jobid from a dict object
+            Set the jobid from a dict object
         """
         for key in jobid_list.keys():
             assert key in JobID.__dataclass_fields__.keys()
@@ -312,7 +309,7 @@ class JobID:
     @staticmethod
     def convert_blobname_to_jobid(blobname):
         """
-            converting a blobname string to a JobID object
+            Converting a blobname string to a JobID object
         """
         jobconfig_dict = JobID.blobname_to_jobid_dict(blobname)
         if jobconfig_dict:
@@ -325,7 +322,7 @@ class JobID:
     @staticmethod
     def get_full_data_name(dataset_name: Union[list, str], subdataset_name=None):
         """
-            convert a dataset name and sub dataset name to a full dataset name
+            Convert a dataset name and sub dataset name to a full dataset name
         """
         if isinstance(dataset_name, list):
             full_dataset_name = JobID.dataset_list_to_str(dataset_name)
@@ -337,7 +334,7 @@ class JobID:
 
     def get_jobid_full_data_name(self):
         """
-            get the full dataset name of the current JobID object
+            Get the full dataset name of the current JobID object
         """
         return JobID.get_full_data_name(JobID.dataset_list_to_str(self.dat), self.subdat)
 
@@ -384,8 +381,6 @@ class JobID:
             "rep_id": "rep",
             "seed_data": "sddt",
             "seed_transformers": "sdhf",
-            "learning_rate": "var1",
-            "weight_decay": "var2"
         }
         for each_key in console_to_jobid_key_mapping.keys():
             try:
@@ -409,6 +404,7 @@ class JobID:
                 print("console_args has no attribute {}, continue".format(each_key))
                 continue
         if self.mod == "grid":
+            # TODO coverage
             self.alg = "grid"
 
 
@@ -499,6 +495,7 @@ class AzureUtils:
         elif autohf is not None:
             self.jobid = autohf.jobid_config
         else:
+            # TODO coverage
             assert jobid_config is not None, "jobid_config must be passed either through autohf.jobid_config" \
                                              " or jobid_config"
             self.jobid = jobid_config
@@ -579,6 +576,7 @@ class AzureUtils:
             print("Your output will not be synced to azure because azure-blob-storage is not installed")
 
     def download_azure_blob(self, blobname):
+        # TODO coverage
         blob_client = self._init_blob_client(blobname)
         if blob_client:
             pathlib.Path(re.search("(?P<parent_path>^.*)/[^/]+$", blobname).group("parent_path")).mkdir(
@@ -601,6 +599,7 @@ class AzureUtils:
                 metric_score = each_trial.metric_analysis["eval_" + analysis.default_metric]
                 time_stamp = each_trial.metric_analysis['timestamp']
             except KeyError:
+                # TODO coverage
                 print("KeyError, {} does not contain the key {} or {}".format("each_trial.metric_analysis",
                                                                               "eval_" + analysis.default_metric,
                                                                               "timestamp"))
@@ -625,7 +624,7 @@ class AzureUtils:
                             gitsha=None,
                             console_args=None):
         """
-            write the key info from a job and upload to azure blob storage
+            Write the key info from a job and upload to azure blob storage
         """
         if local_file_path is None:
             local_file_path = self.generate_local_json_path()
@@ -653,7 +652,7 @@ class AzureUtils:
 
     def generate_local_json_path(self):
         """
-            return a path string for storing the json file locally
+            Return a path string for storing the json file locally
         """
         full_dataset_name = self.jobid.get_jobid_full_data_name()
         jobid_str = self.jobid.to_jobid_string()
@@ -671,10 +670,11 @@ class AzureUtils:
                                            local_json_file,
                                            predictions):
         """
-            store predictions (a .zip file) locally and upload
+            Store predictions (a .zip file) locally and upload
         """
         azure_save_file_name = local_json_file.split("/")[-1][:-5]
         if self.data_root_dir is None:
+            # TODO coverage
             from ..utils import load_dft_args
             console_args = load_dft_args()
             output_dir = getattr(console_args, "data_root_dir")
@@ -690,6 +690,7 @@ class AzureUtils:
 
     @staticmethod
     def is_after_earliest_time(this_blob, earliest_time: Tuple[int, int, int]):
+        # TODO coverage
         import pytz
         utc = pytz.UTC
         if this_blob.last_modified >= utc.localize(datetime(earliest_time[0], earliest_time[1], earliest_time[2])):
@@ -701,12 +702,13 @@ class AzureUtils:
                                           partial_jobid,
                                           earliest_time: Tuple[int, int, int] = None):
         """
-            get all blobs whose jobid configs match the partial_jobid
+            Get all blobs whose jobid configs match the partial_jobid
         """
         blob_list = []
         container_client = self._init_azure_clients()
         if container_client:
             for each_blob in container_client.list_blobs():
+                # TODO coverage
                 if each_blob.name.startswith(root_log_path):
                     each_jobconfig = JobID.convert_blobname_to_jobid(each_blob.name)
                     is_append = False
@@ -827,6 +829,7 @@ class AzureUtils:
         """
         matched_config_score_lists = []
         for (each_jobconfig, each_blob) in matched_blob_list:
+            # TODO coverage
             self.download_azure_blob(each_blob.name)
             data_json = json.load(open(each_blob.name, "r"))
             try:

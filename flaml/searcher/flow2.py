@@ -3,17 +3,22 @@
  * Licensed under the MIT License. See LICENSE file in the
  * project root for license information.
 '''
-from typing import Dict, Optional
+from flaml.tune.sample import Domain
+from typing import Dict, Optional, Tuple
 import numpy as np
 try:
+    from ray import __version__ as ray_version
+    assert ray_version >= '1.0.0'
     from ray.tune.suggest import Searcher
     from ray.tune.suggest.variant_generator import generate_variants
     from ray.tune import sample
     from ray.tune.utils.util import flatten_dict, unflatten_dict
-except ImportError:
+except (ImportError, AssertionError):
     from .suggestion import Searcher
-    from .variant_generator import generate_variants, flatten_dict, unflatten_dict
+    from .variant_generator import generate_variants
     from ..tune import sample
+    from ..tune.trial import flatten_dict, unflatten_dict
+from ..tune.space import complete_config, denormalize, normalize
 
 
 import logging
@@ -26,18 +31,17 @@ class FLOW2(Searcher):
 
     STEPSIZE = 0.1
     STEP_LOWER_BOUND = 0.0001
-    cost_attr = 'time_total_s'
 
     def __init__(self,
                  init_config: dict,
                  metric: Optional[str] = None,
                  mode: Optional[str] = None,
-                 cat_hp_cost: Optional[dict] = None,
                  space: Optional[dict] = None,
                  prune_attr: Optional[str] = None,
                  min_resource: Optional[float] = None,
                  max_resource: Optional[float] = None,
                  resource_multiple_factor: Optional[float] = 4,
+                 cost_attr: Optional[str] = 'time_total_s',
                  seed: Optional[int] = 20):
         '''Constructor
 
@@ -73,6 +77,7 @@ class FLOW2(Searcher):
                 prune_attr; only valid if prune_attr is not in space.
             resource_multiple_factor: A float of the multiplicative factor
                 used for increasing resource.
+            cost_attr: A string of the attribute used for cost.
             seed: An integer of the random seed.
         '''
         if mode:
@@ -89,15 +94,15 @@ class FLOW2(Searcher):
         elif mode == "min":
             self.metric_op = 1.
         self.space = space or {}
-        self.space = flatten_dict(self.space, prevent_delimiter=True)
+        self._space = flatten_dict(self.space, prevent_delimiter=True)
         self._random = np.random.RandomState(seed)
-        self._seed = seed
+        self.seed = seed
         self.init_config = init_config
         self.best_config = flatten_dict(init_config)
-        self.cat_hp_cost = cat_hp_cost
         self.prune_attr = prune_attr
         self.min_resource = min_resource
         self.resource_multiple_factor = resource_multiple_factor or 4
+        self.cost_attr = cost_attr
         self.max_resource = max_resource
         self._resource = None
         self._step_lb = np.Inf
@@ -107,18 +112,9 @@ class FLOW2(Searcher):
     def _init_search(self):
         self._tunable_keys = []
         self._bounded_keys = []
-        # choices of numeric values. integer encoding.
-        # value: (ordered list of choices,
-        #  dict from choice to index in the ordered list)
-        self._ordered_choice_hp = {}
-        # choices with given cost. integer encoding.
-        # value: (array of choices ordered by cost,
-        #  dict from choice to index in the ordered array)
-        self._ordered_cat_hp = {}
-        # unordered choices. value: cardinality
         self._unordered_cat_hp = {}
-        self._cat_hp_cost = {}
-        for key, domain in self.space.items():
+        hier = False
+        for key, domain in self._space.items():
             assert not (isinstance(domain, dict) and 'grid_search' in domain), \
                 f"{key}'s domain is grid search, not supported in FLOW^2."
             if callable(getattr(domain, 'get_sampler', None)):
@@ -127,41 +123,33 @@ class FLOW2(Searcher):
                 # the step size lower bound for uniform variables doesn't depend
                 # on the current config
                 if isinstance(sampler, sample.Quantized):
-                    sampler_inner = sampler.get_sampler()
-                    if str(sampler_inner) == 'Uniform':
+                    q = sampler.q
+                    sampler = sampler.get_sampler()
+                    if str(sampler) == 'Uniform':
                         self._step_lb = min(
-                            self._step_lb, sampler.q / (domain.upper - domain.lower))
+                            self._step_lb, q / (domain.upper - domain.lower))
                 elif isinstance(domain, sample.Integer) and str(sampler) == 'Uniform':
                     self._step_lb = min(
-                        self._step_lb, 1.0 / (domain.upper - domain.lower))
+                        self._step_lb, 1.0 / (domain.upper - 1 - domain.lower))
                 if isinstance(domain, sample.Categorical):
-                    cat_hp_cost = self.cat_hp_cost
-                    if cat_hp_cost and key in cat_hp_cost:
-                        cost = np.array(cat_hp_cost[key])
-                        ind = np.argsort(cost)
-                        ordered = np.array(domain.categories)[ind]
-                        cost = self._cat_hp_cost[key] = cost[ind]
-                        d = {}
-                        for i, choice in enumerate(ordered):
-                            d[choice] = i
-                        self._ordered_cat_hp[key] = (ordered, d)
-                    elif all(isinstance(x, int) or isinstance(x, float)
-                             for x in domain.categories):
-                        ordered = sorted(domain.categories)
-                        d = {}
-                        for i, choice in enumerate(ordered):
-                            d[choice] = i
-                        self._ordered_choice_hp[key] = (ordered, d)
-                    else:
+                    if not domain.ordered:
                         self._unordered_cat_hp[key] = len(domain.categories)
+                    if not hier:
+                        for cat in domain.categories:
+                            if isinstance(cat, dict):
+                                hier = True
+                                break
                 if str(sampler) != 'Normal':
                     self._bounded_keys.append(key)
-        self._space_keys = list(self.space.keys())
-        if (self.prune_attr and self.prune_attr not in self.space
+        if not hier:
+            self._space_keys = sorted(self._tunable_keys)
+        self.hierarchical = hier
+        if (self.prune_attr and self.prune_attr not in self._space
                 and self.max_resource):
-            self._space_keys.append(self.prune_attr)
             self.min_resource = self.min_resource or self._min_resource()
             self._resource = self._round(self.min_resource)
+            if not hier:
+                self._space_keys.append(self.prune_attr)
         else:
             self._resource = None
         self.incumbent = {}
@@ -172,16 +160,16 @@ class FLOW2(Searcher):
         self._num_complete4incumbent = self._cost_complete4incumbent = 0
         self._num_allowed4incumbent = 2 * self.dim
         self._proposed_by = {}  # trial_id: int -> incumbent: Dict
-        self.step = self.STEPSIZE * np.sqrt(self.dim)
+        self.step_ub = np.sqrt(self.dim)
+        self.step = self.STEPSIZE * self.step_ub
         lb = self.step_lower_bound
         if lb > self.step:
             self.step = lb * 2
         # upper bound
-        self.step_ub = np.sqrt(self.dim)
         if self.step > self.step_ub:
             self.step = self.step_ub
         # maximal # consecutive no improvements
-        self.dir = 2**(self.dim)
+        self.dir = 2**(min(9, self.dim))
         self._configs = {}  # dict from trial_id to (config, stepsize)
         self._K = 0
         self._iter_best_config = self.trial_count_proposed = self.trial_count_complete = 1
@@ -189,8 +177,11 @@ class FLOW2(Searcher):
         self._reset_times = 0
         # record intermediate trial cost
         self._trial_cost = {}
-        self._same = False  # whether the proposedd config is the same as best_config
-        self._init_phrase = True  # initial phase to increase initial stepsize
+        self._same = False  # whether the proposed config is the same as best_config
+        self._init_phase = True  # initial phase to increase initial stepsize
+        self._trunc = 0
+        # no truncation by default. when > 0, it means how many
+        # non-zero dimensions to keep in the random unit vector
 
     @property
     def step_lower_bound(self) -> float:
@@ -198,24 +189,25 @@ class FLOW2(Searcher):
         for key in self._tunable_keys:
             if key not in self.best_config:
                 continue
-            domain = self.space[key]
+            domain = self._space[key]
             sampler = domain.get_sampler()
             # the stepsize lower bound for log uniform variables depends on the
             # current config
             if isinstance(sampler, sample.Quantized):
+                q = sampler.q
                 sampler_inner = sampler.get_sampler()
                 if str(sampler_inner) == 'LogUniform':
                     step_lb = min(
-                        step_lb, np.log(1.0 + sampler.q / self.best_config[key])
+                        step_lb, np.log(1.0 + q / self.best_config[key])
                         / np.log(domain.upper / domain.lower))
             elif isinstance(domain, sample.Integer) and str(sampler) == 'LogUniform':
                 step_lb = min(
                     step_lb, np.log(1.0 + 1.0 / self.best_config[key])
-                    / np.log(domain.upper / domain.lower))
+                    / np.log((domain.upper - 1) / domain.lower))
         if np.isinf(step_lb):
             step_lb = self.STEP_LOWER_BOUND
         else:
-            step_lb *= np.sqrt(self.dim)
+            step_lb *= self.step_ub
         return step_lb
 
     @property
@@ -241,165 +233,44 @@ class FLOW2(Searcher):
     def complete_config(
         self, partial_config: Dict,
         lower: Optional[Dict] = None, upper: Optional[Dict] = None
-    ) -> Dict:
+    ) -> Tuple[Dict, Dict]:
         ''' generate a complete config from the partial config input
         add minimal resource to config if available
         '''
-        if self._reset_times and partial_config == self.init_config:
-            # not the first time to complete init_config, use random gaussian
-            normalized = self.normalize(partial_config)
-            for key in normalized:
-                # don't change unordered cat choice
-                if key not in self._unordered_cat_hp:
-                    if upper and lower:
-                        up, low = upper[key], lower[key]
-                        gauss_std = up - low or self.STEPSIZE
-                        # allowed bound
-                        up += self.STEPSIZE
-                        low -= self.STEPSIZE
-                    elif key in self._bounded_keys:
-                        up, low, gauss_std = 1, 0, 1.0
-                    else:
-                        up, low, gauss_std = np.Inf, -np.Inf, 1.0
-                    if key in self._bounded_keys:
-                        up = min(up, 1)
-                        low = max(low, 0)
-                    delta = self.rand_vector_gaussian(1, gauss_std)[0]
-                    normalized[key] = max(low, min(up, normalized[key] + delta))
-            # use best config for unordered cat choice
-            config = self.denormalize(normalized)
-        else:
-            # first time init_config, or other configs, take as is
-            config = partial_config.copy()
+        disturb = self._reset_times and partial_config == self.init_config
+        # if not the first time to complete init_config, use random gaussian
+        config, space = complete_config(
+            partial_config, self.space, self, disturb, lower, upper)
         if partial_config == self.init_config:
             self._reset_times += 1
-        config = flatten_dict(config)
-        for key, value in self.space.items():
-            if key not in config:
-                config[key] = value
-        for _, generated in generate_variants({'config': config}):
-            config = generated['config']
-            break
         if self._resource:
             config[self.prune_attr] = self.min_resource
-        return unflatten_dict(config)
+        return config, space
 
-    def create(self, init_config: Dict, obj: float, cost: float) -> Searcher:
-        flow2 = FLOW2(init_config, self.metric, self.mode, self._cat_hp_cost,
-                      unflatten_dict(self.space), self.prune_attr,
-                      self.min_resource, self.max_resource,
-                      self.resource_multiple_factor, self._seed + 1)
+    def create(self, init_config: Dict, obj: float, cost: float, space: Dict
+               ) -> Searcher:
+        # space is the subspace where the init_config is located
+        flow2 = self.__class__(
+            init_config, self.metric, self.mode,
+            space, self.prune_attr,
+            self.min_resource, self.max_resource,
+            self.resource_multiple_factor, self.cost_attr, self.seed + 1)
         flow2.best_obj = obj * self.metric_op  # minimize internally
         flow2.cost_incumbent = cost
+        self.seed += 1
         return flow2
 
-    def normalize(self, config) -> Dict:
+    def normalize(self, config, recursive=False) -> Dict:
         ''' normalize each dimension in config to [0,1]
         '''
-        config_norm = {}
-        for key, value in flatten_dict(config).items():
-            if key in self.space:
-                # domain: sample.Categorical/Integer/Float/Function
-                domain = self.space[key]
-                if not callable(getattr(domain, 'get_sampler', None)):
-                    config_norm[key] = value
-                else:
-                    if isinstance(domain, sample.Categorical):
-                        # normalize categorical
-                        if key in self._ordered_cat_hp:
-                            l, d = self._ordered_cat_hp[key]
-                            config_norm[key] = (d[value] + 0.5) / len(l)
-                        elif key in self._ordered_choice_hp:
-                            l, d = self._ordered_choice_hp[key]
-                            config_norm[key] = (d[value] + 0.5) / len(l)
-                        elif key in self.incumbent:
-                            config_norm[key] = self.incumbent[
-                                key] if value == self.best_config[
-                                    key] else (self.incumbent[
-                                        key] + 1) % self._unordered_cat_hp[key]
-                        else:
-                            config_norm[key] = 0
-                        continue
-                    # Uniform/LogUniform/Normal/Base
-                    sampler = domain.get_sampler()
-                    if isinstance(sampler, sample.Quantized):
-                        # sampler is sample.Quantized
-                        sampler = sampler.get_sampler()
-                    if str(sampler) == 'LogUniform':
-                        config_norm[key] = np.log(value / domain.lower) / np.log(
-                            domain.upper / domain.lower)
-                    elif str(sampler) == 'Uniform':
-                        config_norm[key] = (
-                            value - domain.lower) / (domain.upper - domain.lower)
-                    elif str(sampler) == 'Normal':
-                        # N(mean, sd) -> N(0,1)
-                        config_norm[key] = (value - sampler.mean) / sampler.sd
-                    else:
-                        # TODO? elif str(sampler) == 'Base': # sample.Function._CallSampler
-                        # e.g., {test: sample_from(lambda spec: randn(10, 2).sample() * 0.01)}
-                        config_norm[key] = value
-            else:  # prune_attr
-                config_norm[key] = value
-        return config_norm
+        return normalize(
+            config, self._space, self.best_config, self.incumbent, recursive)
 
     def denormalize(self, config):
         ''' denormalize each dimension in config from [0,1]
         '''
-        config_denorm = {}
-        for key, value in config.items():
-            if key in self.space:
-                # domain: sample.Categorical/Integer/Float/Function
-                domain = self.space[key]
-                if not callable(getattr(domain, 'get_sampler', None)):
-                    config_denorm[key] = value
-                else:
-                    if isinstance(domain, sample.Categorical):
-                        # denormalize categorical
-                        if key in self._ordered_cat_hp:
-                            l, _ = self._ordered_cat_hp[key]
-                            n = len(l)
-                            config_denorm[key] = l[min(n - 1, int(np.floor(value * n)))]
-                        elif key in self._ordered_choice_hp:
-                            l, _ = self._ordered_choice_hp[key]
-                            n = len(l)
-                            config_denorm[key] = l[min(n - 1, int(np.floor(value * n)))]
-                        else:
-                            assert key in self.incumbent
-                            if round(value) == self.incumbent[key]:
-                                config_denorm[key] = self.best_config[key]
-                            else:  # ****random value each time!****
-                                config_denorm[key] = self._random.choice(
-                                    [x for x in domain.categories
-                                     if x != self.best_config[key]])
-                        continue
-                    # Uniform/LogUniform/Normal/Base
-                    sampler = domain.get_sampler()
-                    if isinstance(sampler, sample.Quantized):
-                        # sampler is sample.Quantized
-                        sampler = sampler.get_sampler()
-                    # Handle Log/Uniform
-                    if str(sampler) == 'LogUniform':
-                        config_denorm[key] = (
-                            domain.upper / domain.lower) ** value * domain.lower
-                    elif str(sampler) == 'Uniform':
-                        config_denorm[key] = value * (
-                            domain.upper - domain.lower) + domain.lower
-                    elif str(sampler) == 'Normal':
-                        # denormalization for 'Normal'
-                        config_denorm[key] = value * sampler.sd + sampler.mean
-                    else:
-                        config_denorm[key] = value
-                    # Handle quantized
-                    sampler = domain.get_sampler()
-                    if isinstance(sampler, sample.Quantized):
-                        config_denorm[key] = np.round(
-                            np.divide(config_denorm[key], sampler.q)) * sampler.q
-                    # Handle int (4.6 -> 5)
-                    if isinstance(domain, sample.Integer):
-                        config_denorm[key] = int(round(config_denorm[key]))
-            else:  # prune_attr
-                config_denorm[key] = value
-        return config_denorm
+        return denormalize(
+            config, self._space, self.best_config, self.incumbent, self._random)
 
     def set_search_properties(self,
                               metric: Optional[str] = None,
@@ -416,6 +287,7 @@ class FLOW2(Searcher):
                 self.metric_op = 1.
         if config:
             self.space = config
+            self._space = flatten_dict(self.space)
             self._init_search()
         return True
 
@@ -448,7 +320,11 @@ class FLOW2(Searcher):
                     if self.step > self.step_ub:
                         self.step = self.step_ub
                     self._iter_best_config = self.trial_count_complete
+                    if self._trunc:
+                        self._trunc = min(self._trunc + 1, self.dim)
                     return
+                elif self._trunc:
+                    self._trunc = max(self._trunc >> 1, 1)
         proposed_by = self._proposed_by.get(trial_id)
         if proposed_by == self.incumbent:
             # proposed by current incumbent and no better
@@ -494,8 +370,10 @@ class FLOW2(Searcher):
             # record the cost in case it is pruned and cost info is lost
             self._trial_cost[trial_id] = cost
 
-    def rand_vector_unit_sphere(self, dim) -> np.ndarray:
+    def rand_vector_unit_sphere(self, dim, trunc=0) -> np.ndarray:
         vec = self._random.normal(0, 1, dim)
+        if 0 < trunc < dim:
+            vec[np.abs(vec).argsort()[:dim - trunc]] = 0
         mag = np.linalg.norm(vec)
         return vec / mag
 
@@ -521,7 +399,7 @@ class FLOW2(Searcher):
             config[self.prune_attr] = self._resource
             self._direction_tried = None
             self._configs[trial_id] = (config, self.step)
-            return config
+            return unflatten_dict(config)
         self._num_allowed4incumbent -= 1
         move = self.incumbent.copy()
         if self._direction_tried is not None:
@@ -532,7 +410,7 @@ class FLOW2(Searcher):
         else:
             # propose a new direction
             self._direction_tried = self.rand_vector_unit_sphere(
-                self.dim) * self.step
+                self.dim, self._trunc) * self.step
             for i, key in enumerate(self._tunable_keys):
                 move[key] += self._direction_tried[i]
         self._project(move)
@@ -540,13 +418,14 @@ class FLOW2(Searcher):
         self._proposed_by[trial_id] = self.incumbent
         self._configs[trial_id] = (config, self.step)
         self._num_proposedby_incumbent += 1
-        if self._init_phrase:
+        best_config = self.best_config
+        if self._init_phase:
             if self._direction_tried is None:
                 if self._same:
-                    # check if the new config is different from self.best_config
+                    # check if the new config is different from best_config
                     same = True
                     for key, value in config.items():
-                        if key not in self.best_config or value != self.best_config[key]:
+                        if key not in best_config or value != best_config[key]:
                             same = False
                             break
                     if same:
@@ -555,10 +434,10 @@ class FLOW2(Searcher):
                         if self.step > self.step_ub:
                             self.step = self.step_ub
             else:
-                # check if the new config is different from self.best_config
+                # check if the new config is different from best_config
                 same = True
                 for key, value in config.items():
-                    if key not in self.best_config or value != self.best_config[key]:
+                    if key not in best_config or value != best_config[key]:
                         same = False
                         break
                 self._same = same
@@ -566,7 +445,7 @@ class FLOW2(Searcher):
                 not self._resource or self._resource == self.max_resource):
             # check stuck condition if using max resource
             self._num_proposedby_incumbent -= 2
-            self._init_phrase = False
+            self._init_phase = False
             if self.step >= self.step_lower_bound:
                 # decrease step size
                 self._oldK = self._K if self._K else self._iter_best_config
@@ -574,6 +453,27 @@ class FLOW2(Searcher):
                 self.step *= np.sqrt(self._oldK / self._K)
             else:
                 return None
+        if self._init_phase:
+            return unflatten_dict(config)
+        if self._trunc == 1 and self._direction_tried is not None:
+            # random
+            for i, key in enumerate(self._tunable_keys):
+                if self._direction_tried[i] != 0:
+                    for _, generated in generate_variants({'config': {
+                        key: self._space[key]
+                    }}):
+                        if generated['config'][key] != best_config[key]:
+                            config[key] = generated['config'][key]
+                            return unflatten_dict(config)
+                        break
+        else:
+            # check if config == best_config
+            if len(config) == len(best_config):
+                for key, value in best_config.items():
+                    if value != config[key]:
+                        return unflatten_dict(config)
+                # print('move to', move)
+                self.incumbent = move
         return unflatten_dict(config)
 
     def _project(self, config):
@@ -592,26 +492,37 @@ class FLOW2(Searcher):
         '''
         return self._num_allowed4incumbent > 0
 
-    def config_signature(self, config) -> tuple:
+    def config_signature(self, config, space: Dict = None) -> tuple:
         ''' return the signature tuple of a config
         '''
         config = flatten_dict(config)
+        if space:
+            space = flatten_dict(space)
+        else:
+            space = self._space
         value_list = []
-        for key in self._space_keys:
-            if key in config:
-                value = config[key]
-                if key == self.prune_attr:
-                    value_list.append(value)
-                # else key must be in self.space
-                # get rid of list type or constant,
-                # e.g., "eval_metric": ["logloss", "error"]
-                elif callable(getattr(self.space[key], 'sample', None)):
-                    if isinstance(self.space[key], sample.Integer):
-                        value_list.append(int(round(value)))
-                    else:
-                        value_list.append(value)
+        # self._space_keys doesn't contain keys with const values,
+        # e.g., "eval_metric": ["logloss", "error"].
+        keys = sorted(config.keys()) if self.hierarchical else self._space_keys
+        for key in keys:
+            value = config[key]
+            if key == self.prune_attr:
+                value_list.append(value)
             else:
-                value_list.append(None)
+                # key must be in space
+                domain = space[key]
+                if self.hierarchical:
+                    # can't remove constant for hierarchical search space,
+                    # e.g., learner
+                    if not (domain is None or type(domain) in (str, int, float)
+                            or isinstance(domain, sample.Domain)):
+                        # not domain or hashable
+                        # get rid of list type for hierarchical search space.
+                        continue
+                if isinstance(domain, sample.Integer):
+                    value_list.append(int(round(value)))
+                else:
+                    value_list.append(value)
         return tuple(value_list)
 
     @property
@@ -633,8 +544,9 @@ class FLOW2(Searcher):
             return False
         for key in self._unordered_cat_hp:
             # unordered cat choice is hard to reach by chance
-            if config1[key] != config2[key]:
+            if config1[key] != config2.get(key):
                 return False
         delta = np.array(
-            [incumbent1[key] - incumbent2[key] for key in self._tunable_keys])
+            [incumbent1[key] - incumbent2.get(key, np.inf)
+             for key in self._tunable_keys])
         return np.linalg.norm(delta) <= self.step

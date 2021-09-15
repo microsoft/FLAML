@@ -19,55 +19,14 @@ Copyright (c) Microsoft Corporation.
 '''
 import copy
 import logging
-from collections.abc import Mapping
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Dict, Generator, List, Tuple
 
 import numpy
 import random
 
-from ..tune.sample import Categorical, Domain, Function
+from ..tune.sample import Categorical, Domain
 
 logger = logging.getLogger(__name__)
-
-
-def flatten_dict(dt, delimiter="/", prevent_delimiter=False):
-    dt = copy.deepcopy(dt)
-    if prevent_delimiter and any(delimiter in key for key in dt):
-        # Raise if delimiter is any of the keys
-        raise ValueError(
-            "Found delimiter `{}` in key when trying to flatten array."
-            "Please avoid using the delimiter in your specification.")
-    while any(isinstance(v, dict) for v in dt.values()):
-        remove = []
-        add = {}
-        for key, value in dt.items():
-            if isinstance(value, dict):
-                for subkey, v in value.items():
-                    if prevent_delimiter and delimiter in subkey:
-                        # Raise  if delimiter is in any of the subkeys
-                        raise ValueError(
-                            "Found delimiter `{}` in key when trying to "
-                            "flatten array. Please avoid using the delimiter "
-                            "in your specification.")
-                    add[delimiter.join([key, str(subkey)])] = v
-                remove.append(key)
-        dt.update(add)
-        for k in remove:
-            del dt[k]
-    return dt
-
-
-def unflatten_dict(dt, delimiter="/"):
-    """Unflatten dict. Does not support unflattening lists."""
-    dict_type = type(dt)
-    out = dict_type()
-    for key, val in dt.items():
-        path = key.split(delimiter)
-        item = out
-        for k in path[:-1]:
-            item = item.setdefault(k, dict_type())
-        item[path[-1]] = val
-    return out
 
 
 class TuneError(Exception):
@@ -84,16 +43,9 @@ def generate_variants(
         variants in combination:
             "activation": grid_search(["relu", "tanh"])
             "learning_rate": grid_search([1e-3, 1e-4, 1e-5])
-        Lambda functions: These are evaluated to produce a concrete value, and
-        can express dependencies or conditional distributions between values.
-        They can also be used to express random search (e.g., by calling
-        into the `random` or `np` module).
-            "cpu": lambda spec: spec.config.num_workers
-            "batch_size": lambda spec: random.uniform(1, 1000)
     Finally, to support defining specs in plain JSON / YAML, grid search
-    and lambda functions can also be defined alternatively as follows:
+    can also be defined alternatively as follows:
         "activation": {"grid_search": ["relu", "tanh"]}
-        "cpu": {"eval": "spec.config.num_workers"}
     Use `format_vars` to format the returned dict of hyperparameters.
     Yields:
         (Dict of resolved variables, Spec object)
@@ -120,57 +72,6 @@ _STANDARD_IMPORTS = {
 _MAX_RESOLUTION_PASSES = 20
 
 
-def resolve_nested_dict(nested_dict: Dict) -> Dict[Tuple, Any]:
-    """Flattens a nested dict by joining keys into tuple of paths.
-    Can then be passed into `format_vars`.
-    """
-    res = {}
-    for k, v in nested_dict.items():
-        if isinstance(v, dict):
-            for k_, v_ in resolve_nested_dict(v).items():
-                res[(k, ) + k_] = v_
-        else:
-            res[(k, )] = v
-    return res
-
-
-def format_vars(resolved_vars: Dict) -> str:
-    """Formats the resolved variable dict into a single string."""
-    out = []
-    for path, value in sorted(resolved_vars.items()):
-        if path[0] in ["run", "env", "resources_per_trial"]:
-            continue  # TrialRunner already has these in the experiment_tag
-        pieces = []
-        last_string = True
-        for k in path[::-1]:
-            if isinstance(k, int):
-                pieces.append(str(k))
-            elif last_string:
-                last_string = False
-                pieces.append(k)
-        pieces.reverse()
-        out.append(_clean_value("_".join(pieces)) + "=" + _clean_value(value))
-    return ",".join(out)
-
-
-def flatten_resolved_vars(resolved_vars: Dict) -> Dict:
-    """Formats the resolved variable dict into a mapping of (str -> value)."""
-    flattened_resolved_vars_dict = {}
-    for pieces, value in resolved_vars.items():
-        if pieces[0] == "config":
-            pieces = pieces[1:]
-        pieces = [str(piece) for piece in pieces]
-        flattened_resolved_vars_dict["/".join(pieces)] = value
-    return flattened_resolved_vars_dict
-
-
-def _clean_value(value: Any) -> str:
-    if isinstance(value, float):
-        return "{:.5}".format(value)
-    else:
-        return str(value).replace("/", "_")
-
-
 def parse_spec_vars(spec: Dict) -> Tuple[List[Tuple[Tuple, Any]], List[Tuple[
         Tuple, Any]], List[Tuple[Tuple, Any]]]:
     resolved, unresolved = _split_resolved_unresolved_values(spec)
@@ -189,40 +90,6 @@ def parse_spec_vars(spec: Dict) -> Tuple[List[Tuple[Tuple, Any]], List[Tuple[
     grid_vars.sort()
 
     return resolved_vars, domain_vars, grid_vars
-
-
-def count_variants(spec: Dict, presets: Optional[List[Dict]] = None) -> int:
-    # Helper function: Deep update dictionary
-    def deep_update(d, u):
-        for k, v in u.items():
-            if isinstance(v, Mapping):
-                d[k] = deep_update(d.get(k, {}), v)
-            else:
-                d[k] = v
-        return d
-
-    # Count samples for a specific spec
-    def spec_samples(spec, num_samples=1):
-        _, domain_vars, grid_vars = parse_spec_vars(spec)
-        grid_count = 1
-        for path, domain in grid_vars:
-            grid_count *= len(domain.categories)
-        return num_samples * grid_count
-
-    total_samples = 0
-    total_num_samples = spec.get("num_samples", 1)
-    # For each preset, overwrite the spec and count the samples generated
-    # for this preset
-    for preset in presets:
-        preset_spec = copy.deepcopy(spec)
-        deep_update(preset_spec["config"], preset)
-        total_samples += spec_samples(preset_spec, 1)
-        total_num_samples -= 1
-
-    # Add the remaining samples
-    if total_num_samples > 0:
-        total_samples += spec_samples(spec, total_num_samples)
-    return total_samples
 
 
 def _generate_variants(spec: Dict) -> Tuple[Dict, Dict]:
@@ -248,43 +115,6 @@ def _generate_variants(spec: Dict) -> Tuple[Dict, Dict]:
                         "your configuration.".format(k))
                 resolved_vars[k] = v
             yield resolved_vars, spec
-
-
-def get_preset_variants(spec: Dict, config: Dict):
-    """Get variants according to a spec, initialized with a config.
-    Variables from the spec are overwritten by the variables in the config.
-    Thus, we may end up with less sampled parameters.
-    This function also checks if values used to overwrite search space
-    parameters are valid, and logs a warning if not.
-    """
-    spec = copy.deepcopy(spec)
-
-    resolved, _, _ = parse_spec_vars(config)
-
-    for path, val in resolved:
-        try:
-            domain = _get_value(spec["config"], path)
-            if isinstance(domain, dict):
-                if "grid_search" in domain:
-                    domain = Categorical(domain["grid_search"])
-                else:
-                    # If users want to overwrite an entire subdict,
-                    # let them do it.
-                    domain = None
-        except IndexError as exc:
-            raise ValueError(
-                f"Pre-set config key `{'/'.join(path)}` does not correspond "
-                f"to a valid key in the search space definition. Please add "
-                f"this path to the `config` variable passed to `tune.run()`."
-            ) from exc
-
-        if domain and not domain.is_valid(val):
-            logger.warning(
-                f"Pre-set value `{val}` is not within valid values of "
-                f"parameter `{'/'.join(path)}`: {domain.domain_str}")
-        assign_value(spec["config"], path, val)
-
-    return _generate_variants(spec)
 
 
 def assign_value(spec: Dict, path: Tuple, value: Any):
@@ -364,10 +194,6 @@ def _try_resolve(v) -> Tuple[bool, Any]:
     if isinstance(v, Domain):
         # Domain to sample from
         return False, v
-    elif isinstance(v, dict) and len(v) == 1 and "eval" in v:
-        # Lambda function in eval syntax
-        return False, Function(
-            lambda spec: eval(v["eval"], _STANDARD_IMPORTS, {"spec": spec}))
     elif isinstance(v, dict) and len(v) == 1 and "grid_search" in v:
         # Grid search values
         grid_values = v["grid_search"]

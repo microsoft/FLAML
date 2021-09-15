@@ -16,7 +16,7 @@ class TrainingLogRecord(object):
                  iter_per_learner: int,
                  logged_metric: float,
                  trial_time: float,
-                 total_search_time: float,
+                 wall_clock_time: float,
                  validation_loss,
                  config,
                  best_validation_loss,
@@ -27,7 +27,7 @@ class TrainingLogRecord(object):
         self.iter_per_learner = iter_per_learner
         self.logged_metric = logged_metric
         self.trial_time = trial_time
-        self.total_search_time = total_search_time
+        self.wall_clock_time = wall_clock_time
         self.validation_loss = validation_loss
         self.config = config
         self.best_validation_loss = best_validation_loss
@@ -67,11 +67,14 @@ class TrainingLogWriter(object):
     def open(self):
         self.file = open(self.output_filename, 'w')
 
+    def append_open(self):
+        self.file = open(self.output_filename, 'a')
+
     def append(self,
                it_counter: int,
                train_loss: float,
                trial_time: float,
-               total_search_time: float,
+               wall_clock_time: float,
                validation_loss,
                config,
                best_validation_loss,
@@ -86,7 +89,7 @@ class TrainingLogWriter(object):
                                    it_counter,
                                    train_loss,
                                    trial_time,
-                                   total_search_time,
+                                   wall_clock_time,
                                    validation_loss,
                                    config,
                                    best_validation_loss,
@@ -95,6 +98,7 @@ class TrainingLogWriter(object):
                                    sample_size)
         if validation_loss < self.current_best_loss or \
             validation_loss == self.current_best_loss and \
+                self.current_sample_size is not None and \
                 sample_size > self.current_sample_size:
             self.current_best_loss = validation_loss
             self.current_sample_size = sample_size
@@ -117,7 +121,8 @@ class TrainingLogWriter(object):
         self.file.flush()
 
     def close(self):
-        self.file.close()
+        if self.file is not None:
+            self.file.close()
         self.file = None  # for pickle
 
 
@@ -141,7 +146,8 @@ class TrainingLogReader(object):
             yield TrainingLogRecord(**data)
 
     def close(self):
-        self.file.close()
+        if self.file is not None:
+            self.file.close()
         self.file = None  # for pickle
 
     def get_record(self, record_id) -> TrainingLogRecord:
@@ -154,10 +160,13 @@ class TrainingLogReader(object):
 
 
 @contextmanager
-def training_log_writer(filename: str):
+def training_log_writer(filename: str, append: bool = False):
     try:
         w = TrainingLogWriter(filename)
-        w.open()
+        if not append:
+            w.open()
+        else:
+            w.append_open()
         yield w
     finally:
         w.close()
