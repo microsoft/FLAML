@@ -108,11 +108,8 @@ class JobID:
     rep: int = field(default=0)
     sddt: int = field(default=None)
     sdhf: int = field(default=None)
-<<<<<<< HEAD
     var1: Optional[set] = field(default=None)
     var2: Optional[set] = field(default=None)
-=======
->>>>>>> upstream/main
 
     def __init__(self,
                  console_args=None):
