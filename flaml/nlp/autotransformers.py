@@ -854,7 +854,12 @@ class AutoTransformers:
         ray.init(local_mode=ray_local_mode)
         self._set_search_space(**custom_hpo_args)
 
-        search_algo = self._get_search_algo(self.jobid_config.alg, self.jobid_config.arg, **custom_hpo_args)
+        search_algo = self._get_search_algo(self.jobid_config.alg,
+                                            self.jobid_config.arg,
+                                            time_budget,
+                                            self.metric_name,
+                                            self.metric_mode_name,
+                                            **custom_hpo_args)
         if self.jobid_config.alg == "bs":
             search_algo.set_search_properties(config=self._search_space_hpo,
                                               metric=self.metric_name,
