@@ -192,18 +192,21 @@ class JobID:
         """
         list_keys = list(JobID.__dataclass_fields__.keys())
         field_dict = self.__dict__
-        keytoval_str = "_".join([key + "=" + str(field_dict[key].replace("/", "-"))
-                                 if key == "pre_full"
-                                 else
-                                 key + "=" + JobID.dataset_list_to_str_for_output(field_dict[key])
-                                 if type(field_dict[key]) == list
-                                 else
-                                 key + "=" + JobID.set_to_str(field_dict[key])
-                                 if type(field_dict[key]) == set
-                                 else
-                                 key + "=" + str(field_dict[key])
-                                 for key in list_keys if key != "pre"])
-        return keytoval_str
+        keytoval_list = []
+        for key in list_keys:
+            try:
+                if key != "pre":
+                    if key == "pre_full":
+                        keytoval_list.append(key + "=" + str(field_dict[key].replace("/", "-")))
+                    elif type(field_dict[key]) == list:
+                        keytoval_list.append(key + "=" + JobID.dataset_list_to_str_for_output(field_dict[key]))
+                    elif type(field_dict[key]) == set:
+                        keytoval_list.append(key + "=" + JobID.set_to_str(field_dict[key]))
+                    else:
+                        keytoval_list.append(key + "=" + str(field_dict[key]))
+            except KeyError:
+                continue
+        return "_".join(keytoval_list)
 
     def to_partial_jobid_string(self):
         """
