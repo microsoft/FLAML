@@ -75,6 +75,7 @@ setuptools.setup(
         "nlp": [
             "ray[tune]>=1.6.0",
             "transformers",
+            "optuna==2.8.0",
             "datasets==1.4.1",
             "tensorboardX<=2.2",
             "torch",
