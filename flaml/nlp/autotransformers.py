@@ -897,7 +897,7 @@ class AutoTransformers:
             num_samples=num_samples,
             time_budget_s=time_budget,
             keep_checkpoints_num=keep_checkpoints_num,
-            #checkpoint_score_attr=self.metric_name,
+            checkpoint_score_attr=self.metric_name,
             scheduler=scheduler,
             search_alg=search_algo,
         )
