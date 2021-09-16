@@ -11,6 +11,8 @@ try:
     from .dataset.task_auto import get_default_task
     from .result_analysis.azure_utils import JobID
     from .huggingface.trainer import TrainerForAutoTransformers
+    from typing import Optional
+    from ray.tune.trial import Trial
 except ImportError:
     print("To use the nlp component in flaml, run pip install flaml[nlp]")
 
@@ -773,6 +775,82 @@ class AutoTransformers:
         else:
             raise Exception("transformers_verbose must be set to ERROR, WARNING, INFO or DEBUG")
 
+    @staticmethod
+    def get_best_trial_with_checkpoint(analysis,
+                       metric: Optional[str] = None,
+                       mode: Optional[str] = None,
+                       scope: str = "last",
+                       filter_nan_and_inf: bool = True) -> Optional[Trial]:
+        """Retrieve the best trial object.
+
+        Compares all trials' scores on ``metric``.
+        If ``metric`` is not specified, ``self.default_metric`` will be used.
+        If `mode` is not specified, ``self.default_mode`` will be used.
+        These values are usually initialized by passing the ``metric`` and
+        ``mode`` parameters to ``tune.run()``.
+
+        Args:
+            metric (str): Key for trial info to order on. Defaults to
+                ``self.default_metric``.
+            mode (str): One of [min, max]. Defaults to ``self.default_mode``.
+            scope (str): One of [all, last, avg, last-5-avg, last-10-avg].
+                If `scope=last`, only look at each trial's final step for
+                `metric`, and compare across trials based on `mode=[min,max]`.
+                If `scope=avg`, consider the simple average over all steps
+                for `metric` and compare across trials based on
+                `mode=[min,max]`. If `scope=last-5-avg` or `scope=last-10-avg`,
+                consider the simple average over the last 5 or 10 steps for
+                `metric` and compare across trials based on `mode=[min,max]`.
+                If `scope=all`, find each trial's min/max score for `metric`
+                based on `mode`, and compare trials based on `mode=[min,max]`.
+            filter_nan_and_inf (bool): If True (default), NaN or infinite
+                values are disregarded and these trials are never selected as
+                the best trial.
+        """
+        from ray.tune.utils.util import is_nan_or_inf
+        if scope not in ["all", "last", "avg", "last-5-avg", "last-10-avg"]:
+            raise ValueError(
+                "ExperimentAnalysis: attempting to get best trial for "
+                "metric {} for scope {} not in [\"all\", \"last\", \"avg\", "
+                "\"last-5-avg\", \"last-10-avg\"]. "
+                "If you didn't pass a `metric` parameter to `tune.run()`, "
+                "you have to pass one when fetching the best trial.".format(
+                    metric, scope))
+        best_trial = None
+        best_metric_score = None
+        for trial in analysis.trials:
+            if metric not in trial.metric_analysis:
+                continue
+            if trial.checkpoint is None: continue
+
+            if scope in ["last", "avg", "last-5-avg", "last-10-avg"]:
+                metric_score = trial.metric_analysis[metric][scope]
+            else:
+                metric_score = trial.metric_analysis[metric][mode]
+
+            if filter_nan_and_inf and is_nan_or_inf(metric_score):
+                continue
+
+            if best_metric_score is None:
+                best_metric_score = metric_score
+                best_trial = trial
+                continue
+
+            if (mode == "max") and (best_metric_score < metric_score):
+                best_metric_score = metric_score
+                best_trial = trial
+            elif (mode == "min") and (best_metric_score > metric_score):
+                best_metric_score = metric_score
+                best_trial = trial
+
+        if not best_trial:
+            raise Exception(
+                "Could not find best trial. Did you pass the correct `metric` "
+                "parameter?")
+        return best_trial
+
+
+
     def fit(self,
             num_samples,
             time_budget,
@@ -880,9 +958,9 @@ class AutoTransformers:
         if "seed" not in tune_config:
             tune_config["seed"] = self.jobid_config.sdhf
 
-        if search_algo in ("bs", "rs", "cfo"):
-            import numpy as np
-            np.random.seed(7654321)
+        # if search_algo in ("bs", "rs", "cfo"):
+        #     import numpy as np
+        #     np.random.seed(7654321)
         from ray import tune
 
         analysis = ray.tune.run(
@@ -907,7 +985,11 @@ class AutoTransformers:
 
         ray.shutdown()
 
-        best_trial = analysis.get_best_trial(scope="all", metric=self.metric_name, mode=self.metric_mode_name)
+        best_trial = AutoTransformers.get_best_trial_with_checkpoint(
+            analysis,
+            scope="all",
+            metric=self.metric_name,
+            mode=self.metric_mode_name)
         validation_metric = {"eval_" + self.metric_name
                              : best_trial.metric_analysis[self.metric_name][self.metric_mode_name]}
         for x in range(len(self._all_metrics)):
