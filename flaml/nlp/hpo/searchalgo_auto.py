@@ -42,6 +42,7 @@ class AutoSearchAlgorithm:
                          time_budget,
                          metric_name,
                          metric_mode_name,
+                         seed_bs=None,
                          **custom_hpo_args):
         """
         Instantiating one of the search algorithm classes based on the search algorithm name, search algorithm
@@ -86,11 +87,6 @@ class AutoSearchAlgorithm:
             allowed_arguments = SEARCH_ALGO_MAPPING[search_algo_name].__init__.__code__.co_varnames
             allowed_custom_args = {key: custom_hpo_args[key] for key in custom_hpo_args.keys() if
                                    key in allowed_arguments}
-            if "seed_bs" in custom_hpo_args.keys():
-                if search_algo_name == "bs":
-                    allowed_custom_args["seed"] = custom_hpo_args["seed_bs"]
-                elif search_algo_name == "optuna":
-                    allowed_custom_args["seed"] = custom_hpo_args["seed_bs"] - 10
 
             """
              If the search_algo_args_mode is "dft", set the args to the default args, e.g.,the default args for
@@ -104,6 +100,7 @@ class AutoSearchAlgorithm:
                     metric_name,
                     metric_mode_name,
                     hpo_search_space=hpo_search_space,
+                    seed=seed_bs,
                     **allowed_custom_args)
             elif search_algo_args_mode == "cus":
                 this_search_algo_kwargs = DEFAULT_SEARCH_ALGO_ARGS_MAPPING[search_algo_name](
@@ -111,6 +108,7 @@ class AutoSearchAlgorithm:
                     metric_name,
                     metric_mode_name,
                     hpo_search_space=hpo_search_space,
+                    seed=seed_bs,
                     **allowed_custom_args)
 
             """
@@ -136,15 +134,26 @@ class AutoSearchAlgorithm:
         return config_list
 
 
-def get_search_algo_args_optuna(search_args_mode, hpo_search_space=None, **custom_hpo_args):
+def get_search_algo_args_optuna(search_args_mode,
+                                metric_name,
+                                metric_mode_name,
+                                hpo_search_space=None,
+                                seed=None,
+                                **custom_hpo_args):
     # TODO coverage
-    return custom_hpo_args
+    default_search_algo_args = {}
+    if search_args_mode == "cus":
+        default_search_algo_args.update(custom_hpo_args)
+    if seed is not None:
+        default_search_algo_args["seed"] = seed
+    return default_search_algo_args
 
 
 def default_search_algo_args_bs(search_args_mode,
                                 metric_name,
                                 metric_mode_name,
                                 hpo_search_space=None,
+                                seed=None,
                                 **custom_hpo_args):
     assert hpo_search_space, "hpo_search_space needs to be specified for calling AutoSearchAlgorithm.from_method_name"
     if "num_train_epochs" in hpo_search_space and \
@@ -165,6 +174,8 @@ def default_search_algo_args_bs(search_args_mode,
     }
     if search_args_mode == "cus":
         default_search_algo_args.update(custom_hpo_args)
+    if seed is not None:
+        default_search_algo_args["seed"] = seed
     return default_search_algo_args
 
 

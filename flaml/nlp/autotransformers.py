@@ -560,6 +560,7 @@ class AutoTransformers:
                          time_budget,
                          metric_name,
                          metric_mode_name,
+                         seed_bs=None,
                          **custom_hpo_args):
         from .hpo.searchalgo_auto import AutoSearchAlgorithm
 
@@ -572,6 +573,7 @@ class AutoTransformers:
             time_budget,
             metric_name,
             metric_mode_name,
+            seed_bs,
             **custom_hpo_args)
         return search_algo
 
@@ -863,7 +865,9 @@ class AutoTransformers:
             resources_per_trial=None,
             ray_local_mode=False,
             keep_checkpoints_num=1,
-            **custom_hpo_args):
+            seed_bs=None,
+            seed_np=None,
+            ** custom_hpo_args):
         """Fine tuning the huggingface using the hpo setting
 
         Example:
@@ -940,6 +944,7 @@ class AutoTransformers:
                                             time_budget,
                                             self.metric_name,
                                             self.metric_mode_name,
+                                            seed_bs,
                                             **custom_hpo_args)
         if self.jobid_config.alg == "bs":
             search_algo.set_search_properties(config=self._search_space_hpo,
@@ -958,9 +963,9 @@ class AutoTransformers:
         if "seed" not in tune_config:
             tune_config["seed"] = self.jobid_config.sdhf
 
-        if search_algo in ("bs", "rs", "cfo") and "seed_np" in custom_hpo_args.keys():
+        if search_algo in ("bs", "rs", "cfo") and seed_np:
             import numpy as np
-            np.random.seed(custom_hpo_args["seed_np"])
+            np.random.seed(seed_np)
         from ray import tune
 
         analysis = ray.tune.run(
