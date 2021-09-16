@@ -169,6 +169,7 @@ class AutoTransformers:
                      max_seq_length=128,
                      fold_name=None,
                      resplit_portion=None,
+                     load_config_mode="console",
                      **custom_data_args):
         """Prepare data
 
@@ -212,12 +213,14 @@ class AutoTransformers:
         """
             loading the jobid config from console args
         """
-        console_args = load_dft_args()
-        self.jobid_config = JobID(console_args)
         if jobid_config:
             self.jobid_config = jobid_config
-        if len(custom_data_args) > 0:
+        elif load_config_mode == "args":
+            self.jobid_config = JobID()
             self.jobid_config.set_jobid_from_console_args(console_args=custom_data_args)
+        else:
+            console_args = load_dft_args()
+            self.jobid_config = JobID(console_args)
         if is_wandb_on:
             from .result_analysis.wandb_utils import WandbUtils
             self.wandb_utils = WandbUtils(is_wandb_on=is_wandb_on,
