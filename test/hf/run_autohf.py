@@ -60,7 +60,8 @@ def get_autohf_settings(console_args, **custom_args):
                        "num_samples": console_args.sample_num,
                        "time_budget": console_args.time_budget,
                        "ckpt_per_epoch": 1,
-                       # "ray_local_mode": True
+                       "seed_np": console_args.seed_np,
+                       "seed_bs": console_args.seed_bs,
                        }
     for other_attr in ["ds_config", "rep_id"]:
         if hasattr(console_args, other_attr):

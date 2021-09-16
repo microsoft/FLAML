@@ -86,6 +86,11 @@ class AutoSearchAlgorithm:
             allowed_arguments = SEARCH_ALGO_MAPPING[search_algo_name].__init__.__code__.co_varnames
             allowed_custom_args = {key: custom_hpo_args[key] for key in custom_hpo_args.keys() if
                                    key in allowed_arguments}
+            if "seed_bs" in custom_hpo_args.keys():
+                if search_algo_name == "bs":
+                    allowed_custom_args["seed"] = custom_hpo_args["seed_bs"]
+                elif search_algo_name == "optuna":
+                    allowed_custom_args["seed"] = custom_hpo_args["seed_bs"] - 10
 
             """
              If the search_algo_args_mode is "dft", set the args to the default args, e.g.,the default args for

@@ -958,9 +958,9 @@ class AutoTransformers:
         if "seed" not in tune_config:
             tune_config["seed"] = self.jobid_config.sdhf
 
-        # if search_algo in ("bs", "rs", "cfo"):
-        #     import numpy as np
-        #     np.random.seed(7654321)
+        if search_algo in ("bs", "rs", "cfo") and "seed_np" in custom_hpo_args.keys():
+            import numpy as np
+            np.random.seed(custom_hpo_args["seed_np"])
         from ray import tune
 
         analysis = ray.tune.run(
