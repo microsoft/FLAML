@@ -134,7 +134,7 @@ class AutoSearchAlgorithm:
         return config_list
 
 
-def get_search_algo_args_optuna(search_args_mode,
+def default_search_algo_args_optuna(search_args_mode,
                                 metric_name,
                                 metric_mode_name,
                                 hpo_search_space=None,
@@ -180,26 +180,28 @@ def default_search_algo_args_bs(search_args_mode,
 
 
 def default_search_algo_args_grid_search(search_args_mode,
-                                         metric_name,
-                                         metric_mode_name,
-                                         hpo_search_space=None,
-                                         **custom_hpo_args):
+                                        metric_name,
+                                        metric_mode_name,
+                                        hpo_search_space=None,
+                                        seed=None,
+                                        **custom_hpo_args):
     # TODO coverage
     return {}
 
 
 def default_search_algo_args_random_search(search_args_mode,
-                                           metric_name,
-                                           metric_mode_name,
-                                           hpo_search_space=None,
-                                           **custom_hpo_args):
-    # TODO coverage
+                                        metric_name,
+                                        metric_mode_name,
+                                        hpo_search_space=None,
+                                        seed=None,
+                                        **custom_hpo_args):
+            # TODO coverage
     return {}
 
 
 DEFAULT_SEARCH_ALGO_ARGS_MAPPING = OrderedDict(
     [
-        ("optuna", get_search_algo_args_optuna),
+        ("optuna", default_search_algo_args_optuna),
         ("cfo", default_search_algo_args_bs),
         ("bs", default_search_algo_args_bs),
         ("grid", default_search_algo_args_grid_search),
