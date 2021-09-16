@@ -108,6 +108,8 @@ class JobID:
     rep: int = field(default=0)
     sddt: int = field(default=None)
     sdhf: int = field(default=None)
+    sdnp: int = field(default=None)
+    sdbs: int = field(default=None)
     var1: Optional[set] = field(default=None)
     var2: Optional[set] = field(default=None)
 
@@ -260,7 +262,7 @@ class JobID:
                         result_dict[key] = sorted(list(set([result.group(key)])))
                     else:
                         result_dict[key] = []
-                elif key in ("rep", "sddt", "sdhf"):
+                elif key in ("rep", "sddt", "sdhf", "sdnp", "sdbs"):
                     try:
                         try:
                             result_dict[key] = int(result.group(key))
@@ -381,6 +383,8 @@ class JobID:
             "rep_id": "rep",
             "seed_data": "sddt",
             "seed_transformers": "sdhf",
+            "seed_np": "sdnp",
+            "seed_bs": "sdbs",
         }
         for each_key in console_to_jobid_key_mapping.keys():
             try:
