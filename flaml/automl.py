@@ -1374,8 +1374,7 @@ class AutoML:
                 a simple customized search space. When set to 'bs', BlendSearch
                 is used. BlendSearch can be tried when the search space is
                 complex, for example, containing multiple disjoint, discontinuous
-                subspaces. When set to 'random' and the argument
-                `n_concurrent_trials` is larger than 1, random search is used.
+                subspaces. When set to 'random', random search is used.
             starting_points: A dictionary to specify the starting hyperparameter
                 config for the estimators.
                 Keys are the name of the estimators, and values are the starting
@@ -1717,6 +1716,8 @@ class AutoML:
                 from .searcher.suggestion import OptunaSearch as SearchAlgo
         elif "bs" == self._hpo_method:
             from flaml import BlendSearch as SearchAlgo
+        elif "random" == self._hpo_method:
+            from flaml.searcher import RandomSearch as SearchAlgo
         elif "cfocat" == self._hpo_method:
             from flaml.searcher.cfo_cat import CFOCat as SearchAlgo
         else:
@@ -1784,7 +1785,7 @@ class AutoML:
                         else [search_state.init_config]
                     )
                     low_cost_partial_config = search_state.low_cost_partial_config
-                if self._hpo_method in ("bs", "cfo", "grid", "cfocat"):
+                if self._hpo_method in ("bs", "cfo", "grid", "cfocat", "random"):
                     algo = SearchAlgo(
                         metric="val_loss",
                         mode="min",
