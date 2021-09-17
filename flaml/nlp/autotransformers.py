@@ -779,10 +779,10 @@ class AutoTransformers:
 
     @staticmethod
     def get_best_trial_with_checkpoint(analysis,
-                       metric: Optional[str] = None,
-                       mode: Optional[str] = None,
-                       scope: str = "last",
-                       filter_nan_and_inf: bool = True) -> Optional[Trial]:
+                       metric=None,
+                       mode=None,
+                       scope="last",
+                       filter_nan_and_inf=True):
         """Retrieve the best trial object.
 
         Compares all trials' scores on ``metric``.
