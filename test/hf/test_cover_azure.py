@@ -26,7 +26,7 @@ def get_console_args():
     args.search_alg_args_mode = "dft"
     args.algo_name = "bs"
     args.pruner = "None"
-    args.pretrained_model_size = "google/electra-base-discriminator:base"
+    args.pretrained_model_size = ["google/electra-base-discriminator", "base"]
     args.resplit_mode = "rspt"
     args.rep_id = 0
     args.seed_data = 43
@@ -42,8 +42,9 @@ def test_get_configblob_from_partial_jobid():
 
     from flaml.nlp import JobID
     each_blob_name = "dat=glue_subdat=cola_mod=grid_spa=cus_arg=dft_alg=grid" \
-                     "_pru=None_pre=deberta_presz=large_spt=rspt_rep=0_sddt=43" \
-                     "_sdhf=42.json"
+                     "_pru=None_pre_full=roberta-base_presz=large_spt=rspt_rep=0_sddt=43" \
+                     "_sdhf=42_sdnp=42_sdbs=20.json"
+
     partial_jobid = JobID()
     partial_jobid.pre = "deberta"
     partial_jobid.mod = "grid"

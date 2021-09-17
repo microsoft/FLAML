@@ -15,7 +15,7 @@ def get_console_args():
     args.search_alg_args_mode = "dft"
     args.algo_name = "bs"
     args.pruner = "None"
-    args.pretrained_model_size = "google/electra-base-discriminator:base"
+    args.pretrained_model_size = ["google/electra-base-discriminator", "base"]
     args.resplit_mode = "rspt"
     args.rep_id = 0
     args.seed_data = 43
