@@ -57,8 +57,8 @@ class ConfigScoreList:
 
     def get_best_config(self,
                         metric_mode="max"):
-        return max(self._config_score_list, key=lambda x: getattr(x, "metric_score")[metric_mode])
-
+        filtered_config_score_list = [x for x in self._config_score_list if isinstance(getattr(x, "metric_score"), dict)]
+        return max(filtered_config_score_list, key= lambda x:getattr(x, "metric_score")[metric_mode])
 
 @dataclass
 class JobID:
@@ -163,7 +163,11 @@ class JobID:
             if val is None:
                 continue
             if isinstance(val, set):
-                is_subset = len(getattr(self, key).difference(val)) == 0
+                val = set([str(x) for x in val])
+                this_value = getattr(self, key)
+                if isinstance(this_value, int) or isinstance(this_value, str):
+                    this_value = set([str(this_value)])
+                is_subset = len(this_value.difference(val)) == 0
                 if is_subset is False:
                     is_not_match = True
             else:
@@ -265,7 +269,11 @@ class JobID:
                 elif key in ("rep", "sddt", "sdhf", "sdnp", "sdbs"):
                     try:
                         try:
-                            result_dict[key] = int(result.group(key))
+                            try:
+                                result_dict[key] = int(result.group(key))
+                            except TypeError:
+                                print("int() argument is a NoneType, continuing")
+                                result_dict[key] = -1
                         except IndexError:
                             print("No group {} in the regex result".format(key))
                             result_dict[key] = -1

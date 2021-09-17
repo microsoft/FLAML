@@ -145,7 +145,7 @@ def default_search_algo_args_optuna(search_args_mode,
     if search_args_mode == "cus":
         default_search_algo_args.update(custom_hpo_args)
     if seed is not None:
-        default_search_algo_args["seed"] = seed
+        default_search_algo_args["seed"] = seed - 10
     return default_search_algo_args
 
 
@@ -166,7 +166,6 @@ def default_search_algo_args_bs(search_args_mode,
     default_search_algo_args = {
         "low_cost_partial_config": {
             "num_train_epochs": min_epoch,
-            "per_device_train_batch_size": max(hpo_search_space["per_device_train_batch_size"].categories),
         },
         "space": hpo_search_space,
         "metric": metric_name,
