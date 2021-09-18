@@ -363,7 +363,7 @@ class AutoML:
 
         Returns:
             An object with `predict()` and `predict_proba()` method (for
-        classification), storing the best trained model for estimator_name.
+            classification), storing the best trained model for estimator_name.
         """
         state = self._search_states.get(estimator_name)
         return state and getattr(state, "trained_estimator", None)
@@ -413,6 +413,11 @@ class AutoML:
         if attr:
             return attr.classes_.tolist()
         return None
+
+    @property
+    def time_to_find_best_model(self) -> float:
+        """time taken to find best model in seconds"""
+        return self.__dict__.get("_time_taken_best_iter")
 
     def predict(self, X_test):
         """Predict label from features.
