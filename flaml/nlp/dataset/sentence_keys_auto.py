@@ -10,6 +10,8 @@ sentence_keys_glue = {
     "wnli": ["sentence1", "sentence2"]
 }
 
+sentence_keys_anli = ["hypothesis", "premise"]
+
 sentence_keys_super_glue = {
     "rte": ["hypothesis", "premise"],
     "wic": ["sentence1", "sentence2"],

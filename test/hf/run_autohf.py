@@ -51,6 +51,8 @@ def get_preparedata_setting(console_args, jobid_config, wandb_utils=None, **cust
         preparedata_setting["max_seq_length"] = 512
     if jobid_config.dat[0] == "glue" and jobid_config.subdat == "mnli":
         preparedata_setting["fold_name"] = ['train', 'validation_matched', 'test_matched']
+    elif jobid_config.dat[0] == "anli":
+        preparedata_setting["fold_name"] = ['train_r3', 'dev_r3', 'test_r3']
     preparedata_setting.update(custom_args)
     return preparedata_setting
 

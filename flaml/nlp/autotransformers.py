@@ -116,20 +116,30 @@ class AutoTransformers:
         return space_cartesian_list
 
     @staticmethod
-    def _get_split_name(data_raw, fold_name=None):
+    def _get_split_name(data_raw, fold_names=None):
         # TODO coverage
-        if fold_name:
-            return fold_name
+        split_map = {}
+        dft_split_map = {"train": "train", "validation": "validation", "test": "test"}
+        default_fold_name_mapping = {"train": "train",
+                                     "dev": "validation",
+                                     "test": "test",
+                                     "val": "validation"}
+        if fold_names:
+            for each_fold_name in fold_names:
+                for each_dft_fold_name in default_fold_name_mapping:
+                    if each_fold_name.startswith(each_dft_fold_name):
+                        split_map[default_fold_name_mapping[each_dft_fold_name]] = each_fold_name
+            return split_map
         fold_keys = data_raw.keys()
         if fold_keys == {"train", "validation", "test"}:
-            return "train", "validation", "test"
+            return dft_split_map
         for each_key in fold_keys:
             for each_split_name in {"train", "validation", "test"}:
                 assert not (each_key.startswith(each_split_name) and each_key != each_split_name), \
                     "Dataset split must be within {}, must be explicitly specified in dataset_config, e.g.," \
                     "'fold_name': ['train','validation_matched','test_matched']. Please refer to the example in the " \
                     "documentation of AutoTransformers.prepare_data()".format(",".join(fold_keys))
-        return "train", "validation", "test"
+        return dft_split_map
 
     def _get_start_end_bound(self,
                             concatenated_data=None,
@@ -243,9 +253,9 @@ class AutoTransformers:
         else:
             data_raw = load_dataset(*self.jobid_config.dat)
 
-        self._train_name, self._dev_name, self._test_name = AutoTransformers._get_split_name(
+        split_mapping = AutoTransformers._get_split_name(
             data_raw,
-            fold_name=fold_name)
+            fold_names=fold_name)
 
         self._tokenizer = AutoTokenizer.from_pretrained(self.jobid_config.pre_full, use_fast=True)
 
@@ -266,7 +276,7 @@ class AutoTransformers:
 
             source_fold_names = resplit_portion['source']
             for each_fold_name in source_fold_names:
-                this_fold_dataset = data_raw[each_fold_name]
+                this_fold_dataset = data_raw[split_mapping[each_fold_name]]
                 all_folds_from_source.append(this_fold_dataset)
 
             merged_folds = datasets.concatenate_datasets(all_folds_from_source)
@@ -324,11 +334,11 @@ class AutoTransformers:
                                                upper_bound_portion=train_val_upper)
                     self.train_datasets.append(autoencodetext_from_model_and_dataset_name())
         else:
-            subfold_dataset = data_raw[self._train_name]
+            subfold_dataset = data_raw[split_mapping["train"]]
             self.train_dataset = autoencodetext_from_model_and_dataset_name()
-            subfold_dataset = data_raw[self._dev_name]
+            subfold_dataset = data_raw[split_mapping["validation"]]
             self.eval_dataset = autoencodetext_from_model_and_dataset_name()
-            subfold_dataset = data_raw[self._test_name]
+            subfold_dataset = data_raw[split_mapping["test"]]
             self.test_dataset = autoencodetext_from_model_and_dataset_name()
 
     def _load_model(self,

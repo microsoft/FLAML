@@ -14,6 +14,8 @@ task_mapping_glue = {
     "wnli": "seq-classification"
 }
 
+task_mapping_anli = "seq-classification"
+
 task_mapping_hate_speech18 = "seq-classification"
 
 task_mapping_squad = "question-answering"
@@ -41,7 +43,8 @@ TASK_MAPPING = OrderedDict(
         ("yelp_review_full", "regression"),
         ("amazon_polarity", task_mapping_imdb),
         ("amazon_reviews_multi", "regression"),
-        ("yelp_polarity", task_mapping_imdb)
+        ("yelp_polarity", task_mapping_imdb),
+        ("anli", task_mapping_anli)
     ]
 )
 
@@ -59,6 +62,6 @@ def get_default_task(dataset_name_list: list, subdataset_name=None):
         default_task = eval_name_mapping[subdataset_name]
     else:
         # TODO coverage
-        assert isinstance(eval_name_mapping, list), "dataset_name and subdataset_name not correctly specified"
+        assert isinstance(eval_name_mapping, str), "dataset_name and subdataset_name not correctly specified"
         default_task = eval_name_mapping
     return default_task

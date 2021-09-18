@@ -164,6 +164,7 @@ TOKENIZER_MAPPING = OrderedDict(
         (("glue", "mnli"), tokenize_glue),
         (("glue", "qqp"), tokenize_glue),
         (("glue", "qnli"), tokenize_glue),
+        (("anli", ""), tokenize_glue),
         (("super_glue", "wic"), tokenize_superglue_wic),
     ]
 )
