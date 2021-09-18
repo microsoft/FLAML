@@ -607,6 +607,7 @@ def get_val_test_scores(matched_config_score_lists, metric_name, all_seed_config
     val_scores = []
     test_scores = []
     trial_nums = []
+    all_this_configs = []
     import numpy as np
     for configscore_list in matched_config_score_lists:
         if configscore_list._test_metric:
@@ -616,6 +617,7 @@ def get_val_test_scores(matched_config_score_lists, metric_name, all_seed_config
                 trial_nums.append(len(configscore_list._config_score_list))
                 val_scores.append(best_config.metric_score['max'])
                 test_scores.append(configscore_list._test_metric[metric_name])
+                all_this_configs.append(this_seed_config)
     print("{}\t{}\t{}".format("%.4f" % np.mean(val_scores), "%.4f" % np.mean(test_scores), "%.4f" % np.mean(trial_nums)))
     print([float("%.4f" % x) for x in sorted(val_scores)])
     print([float("%.4f" % x) for x in sorted(test_scores)])
@@ -696,9 +698,16 @@ def print_benchmark(console_args):
     partial_jobid_config.subdat = "rte"
     partial_jobid_config.sdnp = set(["101", "102"])
     partial_jobid_config.sdbs = set(["20", "30"])
-    partial_jobid_config.alg = "rs"
-    partial_jobid_config.pre_full = "roberta-base"
+    partial_jobid_config.alg = "bs"
+    partial_jobid_config.pre_full = "facebook-muppet-roberta-base"
     overlap_seed_configs = None
+
+    # azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
+    #                          azure_key_path=console_args.key_path,
+    #                          jobid_config=partial_jobid_config)
+    # matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
+    #     root_log_path=console_args.root_log_path,
+    #     partial_jobid=partial_jobid_config)
 
     for partial_jobid_config.pru in ("asha", "None"):
         azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
