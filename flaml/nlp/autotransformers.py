@@ -76,10 +76,10 @@ class AutoTransformers:
                           **custom_hpo_args):
         from .hpo.hpo_searchspace import AutoHPOSearchSpace
 
-        if self.jobid_config.spa == "grid":
-            model_type = "bert"
-        else:
-            model_type = self.jobid_config.pre
+        # if self.jobid_config.spa == "grid":
+        #     model_type = "bert"
+        # else:
+        model_type = self.jobid_config.pre
 
         search_space_hpo_json \
             = AutoHPOSearchSpace.from_model_and_dataset_name(self.jobid_config.spa,
@@ -103,8 +103,6 @@ class AutoTransformers:
 
             for key in list(set(electra_space.keys()).difference(self._search_space_hpo.keys())):
                 self._search_space_hpo[key] = electra_space[key]
-
-            stop = 0
 
     @staticmethod
     def cartesian_product(origin_space_dict):
@@ -303,7 +301,7 @@ class AutoTransformers:
                 self._max_seq_length = int((_max_seq_length + 15) / 16) * 16
             else:
                 assert "foldnum" in custom_data_args, "if the split mode is cross validation, foldnum must be" \
-                                                      "specified"
+                                                      " specified"
 
                 def get_cv_split_points(lower_bound, upper_bound, idx, k):
                     return (upper_bound - lower_bound) / k * idx + lower_bound, \
@@ -559,7 +557,6 @@ class AutoTransformers:
                             assert each_init_config[each_hp] in self._search_space_hpo[each_hp].categories, \
                                 "points_to_evaluate {each_hp} value must be within the search space"
                         else:
-                            stop = 0
                             assert self._search_space_hpo[each_hp].lower <= each_init_config[each_hp] <= \
                                    self._search_space_hpo[each_hp].upper, \
                                    "points_to_evaluate {each_hp} value must be within the search space"

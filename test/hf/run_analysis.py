@@ -696,9 +696,9 @@ def print_benchmark(console_args):
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "hpo"
     partial_jobid_config.subdat = "rte"
-    partial_jobid_config.sdnp = set(["101", "102"])
-    partial_jobid_config.sdbs = set(["20", "30"])
-    partial_jobid_config.alg = "bs"
+    partial_jobid_config.sddt = set(["101", "102", "103"])
+    #partial_jobid_config.sdbs = set(["20", "30"])
+    partial_jobid_config.pru = "None"
     partial_jobid_config.pre_full = "facebook-muppet-roberta-base"
     overlap_seed_configs = None
     config2matchedbloblists = {}
@@ -710,7 +710,7 @@ def print_benchmark(console_args):
     #     root_log_path=console_args.root_log_path,
     #     partial_jobid=partial_jobid_config)
 
-    for partial_jobid_config.pru in ["asha", "None"]:
+    for partial_jobid_config.alg in ["optuna", "rs", "bs"]:
         azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
                                  azure_key_path=console_args.key_path,
                                  jobid_config=partial_jobid_config)
@@ -723,7 +723,7 @@ def print_benchmark(console_args):
         else:
             overlap_seed_configs = overlap_seed_configs.intersection(this_seed_configs)
 
-    for partial_jobid_config.pru in ("asha", "None"):
+    for partial_jobid_config.alg in ["optuna", "rs", "bs"]:
         print("pruner", partial_jobid_config.pru)
         azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
                                  azure_key_path=console_args.key_path,
@@ -732,12 +732,12 @@ def print_benchmark(console_args):
             root_log_path=console_args.root_log_path,
             partial_jobid=partial_jobid_config)
         #get_val_test_scores(matched_config_score_lists, "accuracy", overlap_seed_configs)
-        config2matchedbloblists[partial_jobid_config.pru] = matched_config_score_lists
+        config2matchedbloblists[partial_jobid_config.alg] = matched_config_score_lists
 
     azure_utils.plot_hpo_curves(
         config2matchedbloblists,
-        config2color={"asha": "blue", "None": "red"},
-        plot_title=partial_jobid_config.subdat + "_" + partial_jobid_config.alg + "_" + partial_jobid_config.pre_full
+        config2color={"optuna": "blue", "rs": "red", "bs": "green"},
+        plot_title=partial_jobid_config.subdat + "_" + partial_jobid_config.pru + "_" + partial_jobid_config.pre_full
     )
 
 if __name__ == "__main__":
@@ -746,10 +746,10 @@ if __name__ == "__main__":
     arg_parser.add_argument('--key_path', type=str, help='key path', required=False, default="../../../")
     arg_parser.add_argument('--root_log_path', type=str,
                             help='root log path of blob storage', required=True, default="logs_azure/")
-    # console_args = load_dft_args()
-    #
-    # partial_config_large = create_partial_config_hpo()
-    #print_benchmark(console_args=console_args)
+    console_args = load_dft_args()
+
+    partial_config_large = create_partial_config_hpo()
+    print_benchmark(console_args=console_args)
     #analyze_small_large(console_args=args)
     #compare_learningrate(console_args=args)
     #print_crossvalidation_result(console_args=args)
