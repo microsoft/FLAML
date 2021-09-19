@@ -701,6 +701,7 @@ def print_benchmark(console_args):
     partial_jobid_config.alg = "bs"
     partial_jobid_config.pre_full = "facebook-muppet-roberta-base"
     overlap_seed_configs = None
+    config2matchedbloblists = {}
 
     # azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
     #                          azure_key_path=console_args.key_path,
@@ -709,7 +710,7 @@ def print_benchmark(console_args):
     #     root_log_path=console_args.root_log_path,
     #     partial_jobid=partial_jobid_config)
 
-    for partial_jobid_config.pru in ("asha", "None"):
+    for partial_jobid_config.pru in ["asha", "None"]:
         azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
                                  azure_key_path=console_args.key_path,
                                  jobid_config=partial_jobid_config)
@@ -730,7 +731,14 @@ def print_benchmark(console_args):
         matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
             root_log_path=console_args.root_log_path,
             partial_jobid=partial_jobid_config)
-        get_val_test_scores(matched_config_score_lists, "accuracy", overlap_seed_configs)
+        #get_val_test_scores(matched_config_score_lists, "accuracy", overlap_seed_configs)
+        config2matchedbloblists[partial_jobid_config.pru] = matched_config_score_lists
+
+    azure_utils.plot_hpo_curves(
+        config2matchedbloblists,
+        config2color={"asha": "blue", "None": "red"},
+        plot_title=partial_jobid_config.subdat + "_" + partial_jobid_config.alg + "_" + partial_jobid_config.pre_full
+    )
 
 if __name__ == "__main__":
     from flaml.nlp.utils import load_dft_args

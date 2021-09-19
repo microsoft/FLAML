@@ -855,3 +855,91 @@ class AzureUtils:
                 test_metric=test_metric)
             matched_config_score_lists.append(each_config_and_score_list)
         return matched_config_score_lists
+
+    def get_plot_data(self, sorted_ts, this_ts2score):
+        xs = []
+        ys = []
+        max_score_sofar = 0
+        for each_ts in sorted_ts:
+            max_score_ts = max(this_ts2score[each_ts])
+            max_score_sofar = max(max_score_sofar, max_score_ts)
+            xs.append(each_ts - sorted_ts[0])
+            ys.append(max_score_sofar)
+        return xs, ys
+
+    def get_all_xs_ys(self, each_matchedblob_lists, metric_mode="max"):
+        all_xs_ys = []
+        all_xs = set([])
+        for each_matchedblob_list in each_matchedblob_lists:
+            this_ts2score = {}
+            for each_trial_entry in each_matchedblob_list._config_score_list:
+                try:
+                    this_ts = each_trial_entry.time_stamp[metric_mode]
+                    this_ts2score.setdefault(this_ts, [])
+                    this_ts2score[this_ts].append(each_trial_entry.metric_score[metric_mode])
+                except TypeError:
+                    pass
+            sorted_ts_list = sorted(this_ts2score.keys())
+            xs, ys = self.get_plot_data(sorted_ts_list, this_ts2score)
+            all_xs_ys.append((xs, ys))
+            all_xs.update(xs)
+        return all_xs, all_xs_ys
+
+    def plot_one_curve(self, all_xs, all_xs_ys, this_color, this_label):
+        import matplotlib.pyplot as plt
+        plt.plot([4 * x for x in all_xs_ys], color=this_color, label=this_label)
+
+    def plot_avg_curve(self, all_xs, all_xs_ys, this_color, this_label):
+        import matplotlib.pyplot as plt
+        import bisect
+        import numpy as np
+        all_xs = sorted(all_xs)
+        means = []
+        stds = []
+        for each_tick in all_xs:
+            all_ys = []
+            for i in range(len(all_xs_ys)):
+                xs = all_xs_ys[i][0]
+                ys = all_xs_ys[i][1]
+                if len(ys) == 0: continue
+                y_pos = max(0, min(bisect.bisect_left(xs, each_tick), len(ys) - 1))
+                this_y = ys[y_pos]
+                all_ys.append(this_y)
+            avg_y = np.mean(all_ys)
+            std_y = np.std(all_ys)
+            means.append(avg_y)
+            stds.append(std_y)
+        line1, = plt.plot(all_xs, means, color=this_color, label=this_label)
+        plt.fill_between(all_xs,
+                         np.subtract(means, stds),
+                         np.add(means, stds),
+                         color=this_color,
+                         alpha=0.2)
+        plt.legend()
+
+    def plot_each_matchedblob_lists(self, each_matchedblob_lists):
+        return self.get_all_xs_ys(each_matchedblob_lists)
+
+    def plot_one_or_multiple_curves(self, all_xs, all_xs_ys, this_color, this_label):
+        if len(all_xs) == 1:
+            self.plot_one_curve(all_xs, all_xs_ys, this_color, this_label)
+        else:
+            self.plot_avg_curve(all_xs, all_xs_ys, this_color, this_label)
+
+    def plot_hpo_curves(self,
+                        config2matched_blob_list,
+                        config2color,
+                        plot_title):
+        import matplotlib.pyplot as plt
+        assert isinstance(config2matched_blob_list, dict) \
+               and isinstance(list(config2matched_blob_list.values())[0], list), "The input of plot_hpo_curve must be" \
+               "a dictionary from configuration (e.g., hpo name) to a list of matched blob list"
+        for (each_label, each_matchedblob_lists) in config2matched_blob_list.items():
+            all_xs, all_xs_ys = self.plot_each_matchedblob_lists(each_matchedblob_lists)
+            self.plot_one_or_multiple_curves(all_xs, all_xs_ys, config2color[each_label], each_label)
+        plt.xlabel("wall clock time (s)")
+        plt.ylabel("validation score")
+        plt.title(plot_title)
+        # plt.legend(loc=2)
+        plt.ylim(0.9, 0.96)
+        plt.show()
