@@ -31,6 +31,8 @@ task_mapping_imdb = "seq-classification"
 
 task_mapping_sentiment140 = "regression"
 
+task_mapping_hyperpartisan = "seq-classification"
+
 TASK_MAPPING = OrderedDict(
     [
         ("squad", task_mapping_squad),
@@ -44,7 +46,8 @@ TASK_MAPPING = OrderedDict(
         ("amazon_polarity", task_mapping_imdb),
         ("amazon_reviews_multi", "regression"),
         ("yelp_polarity", task_mapping_imdb),
-        ("anli", task_mapping_anli)
+        ("anli", task_mapping_anli),
+        ("hyperpartisan_news_detection", task_mapping_hyperpartisan)
     ]
 )
 

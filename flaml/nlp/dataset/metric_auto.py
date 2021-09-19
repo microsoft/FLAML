@@ -38,6 +38,8 @@ metric_mode_mapping_hate_speech18 = [("accuracy", "max")]
 
 metric_mode_mapping_anli = [("accuracy", "max")]
 
+metric_mode_mapping_hyperpartisan = [("accuracy", "max")]
+
 METRIC_MAPPING = OrderedDict(
     [
         ("squad", metric_mode_mapping_squad),
@@ -50,7 +52,8 @@ METRIC_MAPPING = OrderedDict(
         ("amazon_reviews_multi", metric_mode_mapping_yelp),
         ("amazon_polarity", metric_mode_mapping_yelp),
         ("yelp_polarity", metric_mode_mapping_yelp),
-        ("anli", metric_mode_mapping_anli)
+        ("anli", metric_mode_mapping_anli),
+        ("hyperpartisan_news_detection", metric_mode_mapping_hyperpartisan)
     ]
 )
 

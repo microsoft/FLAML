@@ -34,6 +34,8 @@ sentence_keys_amazon_reviews_multi = ["review_body"]
 
 sentence_keys_sentiment140 = ["review_body"]
 
+sentence_keys_hyperpartisan_news_detection = ["title", "text"]
+
 def get_sentence_keys(dataset_name, subdataset_name=None):
     eval_name_mapping = globals()["sentence_keys_" + dataset_name]
     if isinstance(eval_name_mapping, dict):

@@ -220,6 +220,7 @@ class AutoTransformers:
 
         self._max_seq_length = max_seq_length
         self._server_name = server_name if server_name is not None else "tmdev"
+
         """
             loading the jobid config from console args
         """
@@ -347,11 +348,6 @@ class AutoTransformers:
 
         this_task = get_default_task(self.jobid_config.dat,
                                      self.jobid_config.subdat)
-        if this_task == "seq-classification":
-            self._num_labels = len(self.train_dataset.features["label"].names)
-        elif this_task == "regression":
-            self._num_labels = 1
-
         if not checkpoint_path:
             checkpoint_path = self.jobid_config.pre_full
 
@@ -649,6 +645,15 @@ class AutoTransformers:
         self.task_name = get_default_task(self.jobid_config.dat,
                                           self.jobid_config.subdat)
 
+    def _set_num_labels(self):
+        if self.task_name == "seq-classification":
+            try:
+                self._num_labels = len(self.train_dataset.features["label"].names)
+            except AttributeError:
+                self._num_labels = len(set([x["label"] for x in self.train_dataset]))
+        elif  self.task_name == "regression":
+            self._num_labels = 1
+
     def fit_hf(self,
                resources_per_trial,
                num_samples,
@@ -941,6 +946,7 @@ class AutoTransformers:
         self._resources_per_trial = resources_per_trial
         self._set_metric(custom_metric_name, custom_metric_mode_name)
         self._set_task()
+        self._set_num_labels()
         self._fp16 = fp16
         ray.shutdown()
         ray.init(local_mode=ray_local_mode)
@@ -1040,8 +1046,8 @@ class AutoTransformers:
 
         if self.jobid_config.spt == "ori":
             # TODO add test
-            if "label" in self.test_dataset.features.keys():
-                self.test_dataset.remove_columns_("label")
+            if ["label"] in self.test_dataset.features.keys():
+                self.test_dataset.remove_columns_(["label"])
                 print("Cleaning the existing label column from test data")
 
         test_dataloader = test_trainer.get_test_dataloader(self.test_dataset)
