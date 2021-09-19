@@ -746,9 +746,9 @@ if __name__ == "__main__":
     arg_parser.add_argument('--key_path', type=str, help='key path', required=False, default="../../../")
     arg_parser.add_argument('--root_log_path', type=str,
                             help='root log path of blob storage', required=True, default="logs_azure/")
-    console_args = load_dft_args()
-
-    partial_config_large = create_partial_config_hpo()
+    # console_args = load_dft_args()
+    #
+    # partial_config_large = create_partial_config_hpo()
     #print_benchmark(console_args=console_args)
     #analyze_small_large(console_args=args)
     #compare_learningrate(console_args=args)
