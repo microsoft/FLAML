@@ -151,10 +151,10 @@ config is found.</p>
 <dd class="field-odd"><p><strong>estimator_name</strong> – a str of the estimator’s name</p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>An object with <cite>predict()</cite> and <cite>predict_proba()</cite> method (for</p>
+<dd class="field-even"><p>An object with <cite>predict()</cite> and <cite>predict_proba()</cite> method (for
+classification), storing the best trained model for estimator_name.</p>
 </dd>
 </dl>
-<p>classification), storing the best trained model for estimator_name.</p>
 </dd></dl>
 
 <dl class="py property">
@@ -296,8 +296,7 @@ No need to set when using flaml’s default search space or using
 a simple customized search space. When set to ‘bs’, BlendSearch
 is used. BlendSearch can be tried when the search space is
 complex, for example, containing multiple disjoint, discontinuous
-subspaces. When set to ‘random’ and the argument
-<cite>n_concurrent_trials</cite> is larger than 1, random search is used.</p></li>
+subspaces. When set to ‘random’, random search is used.</p></li>
 <li><p><strong>starting_points</strong> – A dictionary to specify the starting hyperparameter
 config for the estimators.
 Keys are the name of the estimators, and values are the starting
@@ -536,6 +535,12 @@ Must be called after fit(…) (use max_iter=0 to prevent actual fitting)</p>
 <dd class="field-odd"><p>A dict of the search space</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="flaml.AutoML.time_to_find_best_model">
+<em class="property"><span class="pre">property</span> </em><span class="sig-name descname"><span class="pre">time_to_find_best_model</span></span><em class="property"><span class="pre">:</span> <span class="pre">float</span></em><a class="headerlink" href="#flaml.AutoML.time_to_find_best_model" title="Permalink to this definition"></a></dt>
+<dd><p>time taken to find best model in seconds</p>
 </dd></dl>
 
 <dl class="py property">
