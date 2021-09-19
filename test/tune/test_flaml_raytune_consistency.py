@@ -6,11 +6,6 @@ import numpy as np
 import time
 from flaml import tune
 
-try:
-    from ray import tune as raytune
-except ImportError:
-    print("skip test_consistency because ray tune cannot be imported.")
-
 
 def evaluate_config(config):
     """evaluate a hyperparameter configuration"""
@@ -56,6 +51,13 @@ def setup_searcher(searcher_name):
 def _test_flaml_raytune_consistency(
     num_samples=-1, max_concurrent_trials=1, searcher_name="cfo"
 ):
+    try:
+        from ray import tune as raytune
+    except ImportError:
+        print(
+            "skip _test_flaml_raytune_consistency because ray tune cannot be imported."
+        )
+        return
     np.random.seed(100)
     searcher = setup_searcher(searcher_name)
     analysis = tune.run(
