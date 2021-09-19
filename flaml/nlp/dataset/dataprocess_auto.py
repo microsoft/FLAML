@@ -166,6 +166,7 @@ TOKENIZER_MAPPING = OrderedDict(
         (("glue", "qnli"), tokenize_glue),
         (("anli", ""), tokenize_glue),
         (("super_glue", "wic"), tokenize_superglue_wic),
+        (("hyperpartisan_news_detection", "byarticle"), tokenize_superglue_wic),
     ]
 )
 
