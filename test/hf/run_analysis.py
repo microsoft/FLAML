@@ -698,7 +698,7 @@ def print_benchmark(console_args):
     partial_jobid_config.subdat = "rte"
     partial_jobid_config.sddt = set(["101", "102", "103"])
     #partial_jobid_config.sdbs = set(["20", "30"])
-    partial_jobid_config.pru = "None"
+    partial_jobid_config.alg = "optuna"
     partial_jobid_config.pre_full = "facebook-muppet-roberta-base"
     overlap_seed_configs = None
     config2matchedbloblists = {}
@@ -710,7 +710,7 @@ def print_benchmark(console_args):
     #     root_log_path=console_args.root_log_path,
     #     partial_jobid=partial_jobid_config)
 
-    for partial_jobid_config.alg in ["optuna", "rs", "bs"]:
+    for partial_jobid_config.pru in ["asha", "None"]:
         azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
                                  azure_key_path=console_args.key_path,
                                  jobid_config=partial_jobid_config)
@@ -723,7 +723,7 @@ def print_benchmark(console_args):
         else:
             overlap_seed_configs = overlap_seed_configs.intersection(this_seed_configs)
 
-    for partial_jobid_config.alg in ["optuna", "rs", "bs"]:
+    for partial_jobid_config.pru in ["asha", "None"]:
         print("pruner", partial_jobid_config.pru)
         azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
                                  azure_key_path=console_args.key_path,
@@ -732,12 +732,12 @@ def print_benchmark(console_args):
             root_log_path=console_args.root_log_path,
             partial_jobid=partial_jobid_config)
         #get_val_test_scores(matched_config_score_lists, "accuracy", overlap_seed_configs)
-        config2matchedbloblists[partial_jobid_config.alg] = matched_config_score_lists
+        config2matchedbloblists[partial_jobid_config.pru] = matched_config_score_lists
 
     azure_utils.plot_hpo_curves(
         config2matchedbloblists,
-        config2color={"optuna": "blue", "rs": "red", "bs": "green"},
-        plot_title=partial_jobid_config.subdat + "_" + partial_jobid_config.pru + "_" + partial_jobid_config.pre_full
+        config2color={"asha": "red", "None": "blue"},
+        plot_title=partial_jobid_config.subdat + "_" + partial_jobid_config.alg + "_" + partial_jobid_config.pre_full
     )
 
 if __name__ == "__main__":

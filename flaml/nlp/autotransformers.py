@@ -260,12 +260,13 @@ class AutoTransformers:
 
         def autoencodetext_from_model_and_dataset_name():
             auto_tokentoids_config = {"max_seq_length": self._max_seq_length}
-            return AutoEncodeText.from_model_and_dataset_name(
+            tokenized_dat = AutoEncodeText.from_model_and_dataset_name(
                 subfold_dataset,
                 self.jobid_config.pre_full,
                 self.jobid_config.dat,
                 self.jobid_config.subdat,
                 **auto_tokentoids_config)
+            return tokenized_dat
 
         if self.jobid_config.spt in ("rspt", "cv", "cvrspt"):
             all_folds_from_source = []
@@ -339,6 +340,14 @@ class AutoTransformers:
             self.eval_dataset = autoencodetext_from_model_and_dataset_name()
             subfold_dataset = data_raw[split_mapping["test"]]
             self.test_dataset = autoencodetext_from_model_and_dataset_name()
+
+        if "label" not in self.train_dataset[0].keys():
+            if self.jobid_config.dat[0] == "hyperpartisan_news_detection":
+                ori_col = "bias"
+                new_col = "label"
+                self.train_dataset = self.train_dataset.rename_column(ori_col, new_col)
+                self.eval_dataset = self.eval_dataset.rename_column(ori_col, new_col)
+                self.test_dataset = self.test_dataset.rename_column(ori_col, new_col)
 
     def _load_model(self,
                     checkpoint_path=None,
