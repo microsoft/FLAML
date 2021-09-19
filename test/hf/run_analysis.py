@@ -749,7 +749,7 @@ if __name__ == "__main__":
     console_args = load_dft_args()
 
     partial_config_large = create_partial_config_hpo()
-    print_benchmark(console_args=console_args)
+    #print_benchmark(console_args=console_args)
     #analyze_small_large(console_args=args)
     #compare_learningrate(console_args=args)
     #print_crossvalidation_result(console_args=args)
