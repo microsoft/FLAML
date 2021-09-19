@@ -133,13 +133,16 @@ class AutoTransformers:
         fold_keys = data_raw.keys()
         if fold_keys == {"train", "validation", "test"}:
             return dft_split_map
+        dev_name = ""
         for each_key in fold_keys:
             for each_split_name in {"train", "validation", "test"}:
+                if each_split_name == "validation":
+                    dev_name = each_split_name
                 assert not (each_key.startswith(each_split_name) and each_key != each_split_name), \
                     "Dataset split must be within {}, must be explicitly specified in dataset_config, e.g.," \
                     "'fold_name': ['train','validation_matched','test_matched']. Please refer to the example in the " \
                     "documentation of AutoTransformers.prepare_data()".format(",".join(fold_keys))
-        return dft_split_map
+        return dft_split_map, dev_name
 
     def _get_start_end_bound(self,
                             concatenated_data=None,
@@ -253,7 +256,7 @@ class AutoTransformers:
         else:
             data_raw = load_dataset(*self.jobid_config.dat)
 
-        split_mapping = AutoTransformers._get_split_name(
+        split_mapping, self.dev_name = AutoTransformers._get_split_name(
             data_raw,
             fold_names=fold_name)
 
