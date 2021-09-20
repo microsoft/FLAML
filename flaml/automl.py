@@ -1949,18 +1949,16 @@ class AutoML:
                         f"exceeds {self._warn_threshold} times the time taken "
                         "to find the best model."
                     )
-                    self._warn_threshold *= 10
                     if self._early_stop:
                         logger.warning("Stopping search as early_stop is set to True.")
                         break
+                    self._warn_threshold *= 10
             else:
                 logger.info(f"stop trying learner {estimator}")
                 if self._estimator_index is not None:
                     self._active_estimators.remove(estimator)
                     self._estimator_index -= 1
-                self._state.time_from_start = time.time() - self._start_time_flag
-                if self._state.time_budget > self._state.time_from_start:
-                    search_state.search_alg.searcher._is_ls_ever_converged = True
+                search_state.search_alg.searcher._is_ls_ever_converged = True
             if (
                 self._retrain_in_budget
                 and best_config_sig
