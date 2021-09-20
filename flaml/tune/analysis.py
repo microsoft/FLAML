@@ -69,7 +69,8 @@ class ExperimentAnalysis:
 
     @property
     def results(self) -> Dict[str, Dict]:
-        """Get the last result of the all trials of the experiment"""
+        """Get the last result of all the trials of the experiment"""
+
         return {trial.trial_id: trial.last_result for trial in self.trials}
 
     def _validate_metric(self, metric: str) -> str:
