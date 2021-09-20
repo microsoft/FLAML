@@ -1,0 +1,65 @@
+description: finetuning test on AMLK8s
+
+target:
+  service: amlk8s
+  name: ms-shared
+
+environment:
+  image: sonichi/hpo4hf:latest
+  setup:
+    # - pip install transformers datasets wandb prompt_toolkit==1.0.14 --user
+    # - sudo apt-get -y install git
+    - git clone https://github.com/liususan091219/FLAML.git FLAML0
+    - cd FLAML0
+    - git checkout exp_928d
+    - pip install -e. --user
+    - export MKL_NUM_THREADS=1
+    - cd ..
+    - git clone https://github.com/liususan091219/FLAML.git
+    - cd FLAML
+    - git checkout benchmark_eval
+
+code:
+  local_dir: $CONFIG_DIR/../key/
+
+search:
+  job_template:
+    name: _{experiment_name:s}_{auto:3s}
+    sku: G4-V100 ^itpwus2v100cl-s,itp-v100-scus-2,itp-v100-eus,itpeastusv100cl,itp-v100-wus2,sea-v100-16-ms,itpscusv100cl,itphyperdgxcl1-s,ms-weu-v100-webx,g-v100-4x-weu,itpmtlv100cl1-s,g-v100-8x-ncus,ms-aip-webxt,ms-scus-v1002-we,g-v100-8x-eus-1
+    command:
+    - python FLAML/test/run_autohf.py --dataset_subdataset_name {dataset_subdataset_name} --pretrained_model_size {pretrained_model_size} --key_path "." --sample_num 100000 --time_budget 7200 --root_log_path {root_log_path} --resplit_mode {resplit_mode} --source_fold {source_fold} --space_mode {space_mode} --algo_name {algo_name} --search_alg_args_mode dft --algo_mode hpo --split_portion {split_portion} --pruner {pruner} --seed_data {seed_data}
+    submit_args: &retry_args
+      max_attempts: 0
+  type: grid
+  max_trials: 18
+  params:
+    - name: pretrained_model_size
+      spec: discrete
+      values: ["facebook/muppet-roberta-base base"]
+    - name: dataset_subdataset_name
+      spec: discrete
+      values: ["hyperpartisan_news_detection:bypublisher"]
+    - name: seed_data
+      spec: discrete
+      values: [101, 102, 103]
+    - name: resplit_mode
+      spec: discrete
+      values: ["rspt"]
+    - name: source_fold
+      spec: discrete
+      values: ["train validation test"]
+    - name: split_portion
+      spec: discrete
+      values: ["0 0.1 0.1 0.11 0.11 0.12"]
+    - name: root_log_path
+      spec: discrete
+      values: ["logs_benchmark/latest/"]
+    - name: space_mode
+      spec: discrete
+      values: ["gnr"]
+    - name: algo_name
+      spec: discrete
+      values: ["bs", "optuna", "rs"]
+    - name: pruner
+      spec: discrete
+      values: ["None", "asha"]
