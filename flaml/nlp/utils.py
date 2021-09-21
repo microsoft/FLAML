@@ -138,7 +138,7 @@ def load_dft_args():
         type=int,
         help="seed of data shuffling",
         required=False,
-        default=43,
+        default=101,
     )
     arg_parser.add_argument(
         "--seed_bs", type=int, help="seed of bs", required=False, default=20
