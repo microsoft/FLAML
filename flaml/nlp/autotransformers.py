@@ -1049,7 +1049,6 @@ class AutoTransformers:
         ray_local_mode=False,
         keep_checkpoints_num=1,
         seed_bs=None,
-        seed_np=None,
         **custom_hpo_args
     ):
         """Fine tuning the huggingface using the hpo setting
@@ -1153,10 +1152,10 @@ class AutoTransformers:
         if "seed" not in tune_config:
             tune_config["seed"] = self.jobid_config.sdhf
 
-        if search_algo in ("bs", "rs", "cfo") and seed_np is not None:
+        if search_algo in ("bs", "rs", "cfo") and seed_bs is not None:
             import numpy as np
 
-            np.random.seed(seed_np)
+            np.random.seed(seed_bs + 7654321)
         from ray import tune
 
         analysis = ray.tune.run(

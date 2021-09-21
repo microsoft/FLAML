@@ -9,53 +9,171 @@ from dataclasses import dataclass, field
 def dataset_subdataset_name_format_check(val_str):
     regex = re.compile(r"^[^:]*:[^:]*$")
     if (val_str is not None) and (not regex.search(val_str)):
-        raise argparse.ArgumentTypeError("dataset_subdataset_name must be in the format {data_name}:{subdata_name}")
+        raise argparse.ArgumentTypeError(
+            "dataset_subdataset_name must be in the format {data_name}:{subdata_name}"
+        )
     return val_str
 
 
 def load_dft_args():
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('--server_name', type=str, help='server name', required=False,
-                            choices=["tmdev", "dgx", "azureml"], default="tmdev")
-    arg_parser.add_argument('--algo_mode', type=str, help='hpo or grid search', required=False,
-                            choices=["grid", "hpo", "hfhpo", "gridcv", "hpocv", "eval"], default="hpo")
-    arg_parser.add_argument('--data_root_dir', type=str, help='data dir', required=False, default="data/")
-    arg_parser.add_argument('--dataset_subdataset_name', type=dataset_subdataset_name_format_check,
-                            help='dataset and subdataset name', required=False, default=None)
-    arg_parser.add_argument('--space_mode', type=str, help='space mode', required=False,
-                            choices=["grid", "gnr", "uni", "uni_test", "cus", "buni"], default="uni")
-    arg_parser.add_argument('--search_alg_args_mode', type=str, help='search algorithm args mode', required=False,
-                            choices=["dft", "exp", "cus"], default="dft")
-    arg_parser.add_argument('--algo_name', type=str, help='algorithm', required=False,
-                            choices=["bs", "optuna", "cfo", "rs", "grid"], default="bs")
-    arg_parser.add_argument('--pruner', type=str, help='pruner', required=False,
-                            choices=["asha", "None"], default="None")
-    arg_parser.add_argument('--pretrained_model_size', nargs=2, default=[],
-                            help='pretrained model', required=False)
-    arg_parser.add_argument('--sample_num', type=int, help='sample num', required=False, default=None)
-    arg_parser.add_argument('--time_budget', type=int, help='time budget', required=False, default=None)
-    arg_parser.add_argument('--time_as_grid', type=int, help='time as grid search', required=False, default=None)
-    arg_parser.add_argument('--rep_id', type=int, help='rep id', required=False, default=0)
-    arg_parser.add_argument('--azure_key', type=str, help='azure key', required=False, default=None)
-    arg_parser.add_argument('--resplit_mode', type=str, help='resplit mode', required=False,
-                            choices=["rspt", "ori", "cv"], default="ori")
-    arg_parser.add_argument('--ds_config', type=str, help='deep speed config file path',
-                            required=False, default=None)
-    arg_parser.add_argument('--key_path', type=str, help='path for key.json', required=False, default=None)
-    arg_parser.add_argument('--root_log_path', type=str, help='root path for log', required=False, default="logs_azure")
-    arg_parser.add_argument('--round_idx', type=int, help='round idx for acl experiments', required=False, default=0)
-    arg_parser.add_argument('--seed_data', type=int, help='seed of data shuffling', required=False, default=43)
-    arg_parser.add_argument('--seed_np', type=int, help='seed of numpy', required=False, default=7654321)
-    arg_parser.add_argument('--seed_bs', type=int, help='seed of bs', required=False, default=20)
-    arg_parser.add_argument('--seed_transformers', type=int, help='seed of transformers', required=False, default=42)
-    arg_parser.add_argument('--learning_rate', nargs='+', default=[],
-                            help='optional arg learning_rate', required=False)
-    arg_parser.add_argument('--weight_decay', nargs='+', default=[],
-                            help='optional arg weight_decay', required=False)
-    arg_parser.add_argument('--source_fold', nargs='+', default=[],
-                            help='source fold for resplit', required=False)
-    arg_parser.add_argument('--split_portion', nargs='+', default=[],
-                            help='resplit portion', required=False)
+    arg_parser.add_argument(
+        "--server_name",
+        type=str,
+        help="server name",
+        required=False,
+        choices=["tmdev", "dgx", "azureml"],
+        default="tmdev",
+    )
+    arg_parser.add_argument(
+        "--algo_mode",
+        type=str,
+        help="hpo or grid search",
+        required=False,
+        choices=["grid", "hpo", "hfhpo", "gridcv", "hpocv", "eval"],
+        default="hpo",
+    )
+    arg_parser.add_argument(
+        "--data_root_dir", type=str, help="data dir", required=False, default="data/"
+    )
+    arg_parser.add_argument(
+        "--dataset_subdataset_name",
+        type=dataset_subdataset_name_format_check,
+        help="dataset and subdataset name",
+        required=False,
+        default=None,
+    )
+    arg_parser.add_argument(
+        "--space_mode",
+        type=str,
+        help="space mode",
+        required=False,
+        choices=["grid", "gnr", "uni", "uni_test", "cus", "buni"],
+        default="uni",
+    )
+    arg_parser.add_argument(
+        "--search_alg_args_mode",
+        type=str,
+        help="search algorithm args mode",
+        required=False,
+        choices=["dft", "exp", "cus"],
+        default="dft",
+    )
+    arg_parser.add_argument(
+        "--algo_name",
+        type=str,
+        help="algorithm",
+        required=False,
+        choices=["bs", "optuna", "cfo", "rs", "grid"],
+        default="bs",
+    )
+    arg_parser.add_argument(
+        "--pruner",
+        type=str,
+        help="pruner",
+        required=False,
+        choices=["asha", "None"],
+        default="None",
+    )
+    arg_parser.add_argument(
+        "--pretrained_model_size",
+        nargs=2,
+        default=[],
+        help="pretrained model",
+        required=False,
+    )
+    arg_parser.add_argument(
+        "--sample_num", type=int, help="sample num", required=False, default=None
+    )
+    arg_parser.add_argument(
+        "--time_budget", type=int, help="time budget", required=False, default=None
+    )
+    arg_parser.add_argument(
+        "--time_as_grid",
+        type=int,
+        help="time as grid search",
+        required=False,
+        default=None,
+    )
+    arg_parser.add_argument(
+        "--rep_id", type=int, help="rep id", required=False, default=0
+    )
+    arg_parser.add_argument(
+        "--azure_key", type=str, help="azure key", required=False, default=None
+    )
+    arg_parser.add_argument(
+        "--resplit_mode",
+        type=str,
+        help="resplit mode",
+        required=False,
+        choices=["rspt", "ori", "cv"],
+        default="ori",
+    )
+    arg_parser.add_argument(
+        "--ds_config",
+        type=str,
+        help="deep speed config file path",
+        required=False,
+        default=None,
+    )
+    arg_parser.add_argument(
+        "--key_path", type=str, help="path for key.json", required=False, default=None
+    )
+    arg_parser.add_argument(
+        "--root_log_path",
+        type=str,
+        help="root path for log",
+        required=False,
+        default="logs_azure",
+    )
+    arg_parser.add_argument(
+        "--round_idx",
+        type=int,
+        help="round idx for acl experiments",
+        required=False,
+        default=0,
+    )
+    arg_parser.add_argument(
+        "--seed_data",
+        type=int,
+        help="seed of data shuffling",
+        required=False,
+        default=43,
+    )
+    arg_parser.add_argument(
+        "--seed_bs", type=int, help="seed of bs", required=False, default=20
+    )
+    arg_parser.add_argument(
+        "--seed_transformers",
+        type=int,
+        help="seed of transformers",
+        required=False,
+        default=42,
+    )
+    arg_parser.add_argument(
+        "--learning_rate",
+        nargs="+",
+        default=[],
+        help="optional arg learning_rate",
+        required=False,
+    )
+    arg_parser.add_argument(
+        "--weight_decay",
+        nargs="+",
+        default=[],
+        help="optional arg weight_decay",
+        required=False,
+    )
+    arg_parser.add_argument(
+        "--source_fold",
+        nargs="+",
+        default=[],
+        help="source fold for resplit",
+        required=False,
+    )
+    arg_parser.add_argument(
+        "--split_portion", nargs="+", default=[], help="resplit portion", required=False
+    )
     args, unknown = arg_parser.parse_known_args()
     return args
 
@@ -77,10 +195,12 @@ def _check_dict_keys_overlaps(dict1: dict, dict2: dict):
     return len(dict1_keys.intersection(dict2_keys)) > 0
 
 
-def _variable_override_default_alternative(obj_ref, var_name, default_value, all_values, overriding_value=None):
+def _variable_override_default_alternative(
+    obj_ref, var_name, default_value, all_values, overriding_value=None
+):
     """
-        Setting the value of var. If overriding_value is specified, var is set to overriding_value;
-        If overriding_value is not specified, var is set to default_value meanwhile showing all_values
+    Setting the value of var. If overriding_value is specified, var is set to overriding_value;
+    If overriding_value is not specified, var is set to default_value meanwhile showing all_values
     """
     assert isinstance(all_values, list)
     if overriding_value:
@@ -88,8 +208,12 @@ def _variable_override_default_alternative(obj_ref, var_name, default_value, all
         print("The value for {} is specified as {}".format(var_name, overriding_value))
     else:
         setattr(obj_ref, var_name, default_value)
-        print("The value for {} is not specified, setting it to the default value {}. "
-              "Alternatively, you can set it to {}".format(var_name, default_value, ",".join(all_values)))
+        print(
+            "The value for {} is not specified, setting it to the default value {}. "
+            "Alternatively, you can set it to {}".format(
+                var_name, default_value, ",".join(all_values)
+            )
+        )
 
 
 @dataclass
@@ -101,13 +225,18 @@ class PathUtils:
 
     log_dir_per_run: str = field(metadata={"help": "log directory for each run."})
     result_dir_per_run: str = field(metadata={"help": "result directory for each run."})
-    ckpt_dir_per_run: str = field(metadata={"help": "checkpoint directory for each run."})
-    ckpt_dir_per_trial: str = field(metadata={"help": "checkpoint directory for each trial."})
+    ckpt_dir_per_run: str = field(
+        metadata={"help": "checkpoint directory for each run."}
+    )
+    ckpt_dir_per_trial: str = field(
+        metadata={"help": "checkpoint directory for each trial."}
+    )
 
-    def __init__(self,
-                 jobid_config,
-                 hpo_data_root_path,
-                 ):
+    def __init__(
+        self,
+        jobid_config,
+        hpo_data_root_path,
+    ):
         self.jobid_config = jobid_config
         self.hpo_data_root_path = hpo_data_root_path
         self.hpo_ckpt_path = os.path.join(hpo_data_root_path, "checkpoint")

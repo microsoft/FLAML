@@ -1,9 +1,10 @@
-'''Require: pip install torch transformers datasets wandb flaml[blendsearch,ray]
-'''
+"""Require: pip install torch transformers datasets wandb flaml[blendsearch,ray]
+"""
 import argparse
 from flaml.nlp.result_analysis.azure_utils import JobID
 import numpy as np
 import torch
+
 
 def extract_sorted_config_list(dataset2configscorelist, topk):
     dataset2topkconfigs = {}
@@ -13,13 +14,28 @@ def extract_sorted_config_list(dataset2configscorelist, topk):
             for item in scorelist:
                 if item[0] not in [x[0] for x in all_configscorelist]:
                     all_configscorelist.append(item)
-        sorted_all_configscorelist = sorted(all_configscorelist, key=lambda x: x[1], reverse=True)
+        sorted_all_configscorelist = sorted(
+            all_configscorelist, key=lambda x: x[1], reverse=True
+        )
         topk_configs = []
 
-        for each_hp in ("learning_rate", "num_train_epochs", "per_device_train_batch_size", "warmup_ratio",
-                        "weight_decay", "adam_epsilon"):
-            topk_configs.append((each_hp, [sorted_all_configscorelist[x][0][each_hp] for x in range(topk)]))
-        topk_configs.append(("perf", [sorted_all_configscorelist[x][1] for x in range(topk)]))
+        for each_hp in (
+            "learning_rate",
+            "num_train_epochs",
+            "per_device_train_batch_size",
+            "warmup_ratio",
+            "weight_decay",
+            "adam_epsilon",
+        ):
+            topk_configs.append(
+                (
+                    each_hp,
+                    [sorted_all_configscorelist[x][0][each_hp] for x in range(topk)],
+                )
+            )
+        topk_configs.append(
+            ("perf", [sorted_all_configscorelist[x][1] for x in range(topk)])
+        )
 
         dataset2topkconfigs[dataset] = topk_configs
     return dataset2topkconfigs
@@ -44,21 +60,27 @@ def merge_configscore_list(small_dataset2configscorelist):
                         exists = True
                         break
                 if exists is False:
-                    merged_configscore_list[dict2tuple(each_configscore_entry[0])] = each_configscore_entry[1]
+                    merged_configscore_list[
+                        dict2tuple(each_configscore_entry[0])
+                    ] = each_configscore_entry[1]
         dataset2merged_configscorelist[dataset] = merged_configscore_list
     return dataset2merged_configscorelist
 
 
 def print_all_configs(console_args, partial_jobid_config):
     from flaml.nlp.result_analysis.azure_utils import AzureUtils, JobID
+
     azure_utils = AzureUtils(console_args=console_args)
-    matched_config_score_lists = \
-        azure_utils.get_config_and_score_from_partial_jobid(
-            console_args.root_log_path,
-            partial_jobid_config)
+    matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
+        console_args.root_log_path, partial_jobid_config
+    )
 
     for each_configscore_list in matched_config_score_lists:
-        for (config_dict, score, time_stamp) in each_configscore_list._config_score_list:
+        for (
+            config_dict,
+            score,
+            time_stamp,
+        ) in each_configscore_list._config_score_list:
             print_config(config_dict)
             print(score)
             print()
@@ -79,6 +101,7 @@ def print_config(config_dict):
 
 def compare_small_vs_large(console_args):
     from flaml.nlp.result_analysis.azure_utils import AzureUtils, JobID
+
     azure_utils = AzureUtils(console_args=console_args)
 
     partial_jobid_config = JobID()
@@ -88,8 +111,8 @@ def compare_small_vs_large(console_args):
     partial_jobid_config.presz = "base"
 
     small_dataset2configscorelist = azure_utils.get_config_and_score_from_partial_jobid(
-        console_args.root_log_path,
-        partial_jobid_config)
+        console_args.root_log_path, partial_jobid_config
+    )
 
     small_mergedconfiglist = merge_configscore_list(small_dataset2configscorelist)
 
@@ -100,8 +123,8 @@ def compare_small_vs_large(console_args):
     partial_jobid_config.presz = "large"
 
     large_dataset2configscorelist = azure_utils.get_config_and_score_from_partial_jobid(
-        console_args.root_log_path,
-        partial_jobid_config)
+        console_args.root_log_path, partial_jobid_config
+    )
 
     large_mergedconfiglist = merge_configscore_list(large_dataset2configscorelist)
 
@@ -109,24 +132,29 @@ def compare_small_vs_large(console_args):
         merged_large_configlist = large_mergedconfiglist[each_dataset]
         print(each_dataset)
         print()
-        for (each_tuple, large_score) in sorted(merged_large_configlist.items(), key=lambda x: x[1], reverse=True):
+        for (each_tuple, large_score) in sorted(
+            merged_large_configlist.items(), key=lambda x: x[1], reverse=True
+        ):
             # small_score = merged_small_configlist[each_tuple]
             is_in_onlysmall = each_tuple in small_mergedconfiglist[each_dataset]
             for each_val in each_tuple:
                 print(each_val, end=", ")
             print(large_score, is_in_onlysmall, sep=",")
         print()
-        for (each_tuple, small_score) in \
-                sorted(small_mergedconfiglist[each_dataset].items(), key=lambda x: x[1], reverse=True):
+        for (each_tuple, small_score) in sorted(
+            small_mergedconfiglist[each_dataset].items(),
+            key=lambda x: x[1],
+            reverse=True,
+        ):
             is_in_large = each_tuple in large_mergedconfiglist[each_dataset]
             for each_val in each_tuple:
                 print(each_val, end=", ")
             print(small_score, is_in_large, sep=",")
 
 
-def print_sorted_configs(console_args,
-                         sort_method):
+def print_sorted_configs(console_args, sort_method):
     from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils
+
     jobid_config = JobID()
     jobid_config.mod = "bestnn"
     jobid_config.spa = "buni"
@@ -141,13 +169,16 @@ def print_sorted_configs(console_args,
         jobid_config.subdat = subdat_list[each_rep]
         azure_utils = AzureUtils(console_args=console_args)
 
-        matched_config_score_lists = \
+        matched_config_score_lists = (
             azure_utils.get_config_and_score_from_partial_jobid(
-                console_args.root_log_path,
-                jobid_config)
+                console_args.root_log_path, jobid_config
+            )
+        )
         configscorelist = matched_config_score_lists[0]._config_score_list
         count = 0
-        for (each_config, each_score, time_stamp) in configscorelist.sorted(sort_method):
+        for (each_config, each_score, time_stamp) in configscorelist.sorted(
+            sort_method
+        ):
             print(count)
             print(each_score)
             print_config(each_config)
@@ -157,37 +188,57 @@ def print_sorted_configs(console_args,
 
 def analyze_exhaustive_sweep(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils, ConfigScoreList
+
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "grid"
     partial_jobid_config.pre = "funnel"
     partial_jobid_config.presz = "xlarge"
 
-    azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
-                             azure_key_path=console_args.key_path,
-                             jobid_config=partial_jobid_config)
+    azure_utils = AzureUtils(
+        root_log_path=console_args.root_log_path,
+        azure_key_path=console_args.key_path,
+        jobid_config=partial_jobid_config,
+    )
 
     for subdat in ["cola"]:
         partial_jobid_config.subdat = subdat
-        matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
-            console_args.root_log_path,
-            partial_jobid_config)
-        merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
-                                       for x in config_score_list._config_score_list])
+        matched_config_score_lists = (
+            azure_utils.get_config_and_score_from_partial_jobid(
+                console_args.root_log_path, partial_jobid_config
+            )
+        )
+        merged_list = ConfigScoreList(
+            [
+                x
+                for config_score_list in matched_config_score_lists
+                for x in config_score_list._config_score_list
+            ]
+        )
         hp2avg_pearsonr = {}
         hp2avg_pearsonp = {}
         import math
 
         for rep in range(1):
             # sorted_merged_list = random.sample(merged_list._config_score_list, 36)
-            sorted_merged_list = sorted(merged_list._config_score_list, key=lambda x: x.metric_score["max"],
-                                        reverse=True)[:36]
+            sorted_merged_list = sorted(
+                merged_list._config_score_list,
+                key=lambda x: x.metric_score["max"],
+                reverse=True,
+            )[:36]
             print(sorted_merged_list[0].config["learning_rate"])
 
-            metric_scores = [x.metric_score['max'] for x in sorted_merged_list]
-            for each_hp in ["learning_rate", "per_device_train_batch_size", "num_train_epochs", "warmup_ratio",
-                            "weight_decay", "adam_epsilon"]:
+            metric_scores = [x.metric_score["max"] for x in sorted_merged_list]
+            for each_hp in [
+                "learning_rate",
+                "per_device_train_batch_size",
+                "num_train_epochs",
+                "warmup_ratio",
+                "weight_decay",
+                "adam_epsilon",
+            ]:
                 hp_val = [x.config[each_hp] for x in sorted_merged_list]
                 from scipy.stats import pearsonr
+
                 pearsonr, pearsonp = pearsonr(hp_val, metric_scores)
                 hp2avg_pearsonr.setdefault(each_hp, [])
                 hp2avg_pearsonr[each_hp].append(pearsonr)
@@ -196,9 +247,11 @@ def analyze_exhaustive_sweep(console_args):
 
         for each_hp in hp2avg_pearsonr.keys():
             import numpy
+
             print(each_hp)
             print(numpy.mean(hp2avg_pearsonr[each_hp]))
             print(math.exp(numpy.mean(hp2avg_pearsonp[each_hp])))
+
 
 def get_distribution_from_list(sorted_merged_list, each_hp):
     hp2count = {}
@@ -207,38 +260,57 @@ def get_distribution_from_list(sorted_merged_list, each_hp):
         hp_val = each_config.config[each_hp]
         hp2count.setdefault(hp_val, 0)
         hp2count[hp_val] += 1
-        totalcount +=1
+        totalcount += 1
 
     sorted_hp_vals = []
     for each_hp in sorted(hp2count.keys()):
         sorted_hp_vals.append(float(hp2count[each_hp]) / totalcount)
     return sorted_hp_vals
 
+
 def compute_kl_div(pk, qk):
     import math
-    return sum(pk[i] * math.log2(pk[i]/qk[i]) for i in range(len(pk)))
+
+    return sum(pk[i] * math.log2(pk[i] / qk[i]) for i in range(len(pk)))
+
 
 def output_csv(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID, ConfigScoreList
     from flaml.nlp import AzureUtils
+
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "grid"
     partial_jobid_config.pre = "deberta"
     partial_jobid_config.subdat = "mrpc"
     presz_sizes = ["large"]
-    all_hps = ["learning_rate", "per_device_train_batch_size", "num_train_epochs", "warmup_ratio", "weight_decay",
-               "adam_epsilon"]
+    all_hps = [
+        "learning_rate",
+        "per_device_train_batch_size",
+        "num_train_epochs",
+        "warmup_ratio",
+        "weight_decay",
+        "adam_epsilon",
+    ]
 
     for presz in presz_sizes:
         partial_jobid_config.presz = presz
-        azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
-                                 azure_key_path=console_args.key_path,
-                                 jobid_config=partial_jobid_config)
-        matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
-            console_args.root_log_path,
-            partial_jobid_config)
-        merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
-                                       for x in config_score_list._config_score_list])
+        azure_utils = AzureUtils(
+            root_log_path=console_args.root_log_path,
+            azure_key_path=console_args.key_path,
+            jobid_config=partial_jobid_config,
+        )
+        matched_config_score_lists = (
+            azure_utils.get_config_and_score_from_partial_jobid(
+                console_args.root_log_path, partial_jobid_config
+            )
+        )
+        merged_list = ConfigScoreList(
+            [
+                x
+                for config_score_list in matched_config_score_lists
+                for x in config_score_list._config_score_list
+            ]
+        )
         lr2score = {}
         with open(presz + ".csv", "w") as fout:
             for each_hp in all_hps:
@@ -246,19 +318,20 @@ def output_csv(console_args):
             fout.write("performance\n")
             for x in merged_list._config_score_list:
                 lr2score.setdefault(x.config["learning_rate"], [])
-                lr2score[x.config["learning_rate"]].append(x.metric_score['max'])
+                lr2score[x.config["learning_rate"]].append(x.metric_score["max"])
                 for each_hp in all_hps:
                     fout.write(str(x.config[each_hp]) + ",")
                 fout.write(str(x.metric_score["max"]) + "\n")
-        import numpy as np
+
         for each_lr in lr2score.keys():
             print(each_lr)
             print(np.mean(lr2score[each_lr]))
-        stop = 0
+
 
 def analyze_small_large(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID, ConfigScoreList
     from flaml.nlp import AzureUtils
+
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "grid"
     partial_jobid_config.pre = "deberta"
@@ -266,20 +339,37 @@ def analyze_small_large(console_args):
 
     hp2sz2distribution = {}
     presz_sizes = ["large", "base"]
-    all_hps = ["learning_rate", "per_device_train_batch_size", "num_train_epochs", "warmup_ratio", "weight_decay", "adam_epsilon"]
+    all_hps = [
+        "learning_rate",
+        "per_device_train_batch_size",
+        "num_train_epochs",
+        "warmup_ratio",
+        "weight_decay",
+        "adam_epsilon",
+    ]
 
     for presz in presz_sizes:
         partial_jobid_config.presz = presz
-        azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
-                                 azure_key_path=console_args.key_path,
-                                 jobid_config=partial_jobid_config)
-        matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
-                console_args.root_log_path,
-                partial_jobid_config)
-        merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
-                                       for x in config_score_list._config_score_list])._config_score_list
-        sorted_merged_list = sorted(merged_list, key=lambda x: x.metric_score["max"],
-                                    reverse=True)[:36]
+        azure_utils = AzureUtils(
+            root_log_path=console_args.root_log_path,
+            azure_key_path=console_args.key_path,
+            jobid_config=partial_jobid_config,
+        )
+        matched_config_score_lists = (
+            azure_utils.get_config_and_score_from_partial_jobid(
+                console_args.root_log_path, partial_jobid_config
+            )
+        )
+        merged_list = ConfigScoreList(
+            [
+                x
+                for config_score_list in matched_config_score_lists
+                for x in config_score_list._config_score_list
+            ]
+        )._config_score_list
+        sorted_merged_list = sorted(
+            merged_list, key=lambda x: x.metric_score["max"], reverse=True
+        )[:36]
         for each_hp in all_hps:
             this_distribution = get_distribution_from_list(sorted_merged_list, each_hp)
             hp2sz2distribution.setdefault(each_hp, {})
@@ -289,11 +379,14 @@ def analyze_small_large(console_args):
         large_distribtion = hp2sz2distribution[each_hp][presz_sizes[0]]
         small_distribution = hp2sz2distribution[each_hp][presz_sizes[1]]
         kl_div_small_large = compute_kl_div(small_distribution, large_distribtion)
-        uniform_distribution = [1.0 / len(large_distribtion) for x in range(len(large_distribtion))]
+        uniform_distribution = [
+            1.0 / len(large_distribtion) for x in range(len(large_distribtion))
+        ]
         kl_div_uniform_large = compute_kl_div(uniform_distribution, large_distribtion)
         print(each_hp)
         print(kl_div_small_large)
         print(kl_div_uniform_large)
+
 
 def create_partial_config_bestnn():
     jobid_config = JobID()
@@ -331,30 +424,57 @@ def create_partial_config_bestnn():
 
     return jobid_config
 
-def get_exhaustive_sweep_result(console_args, each_root_log_path, partial_jobid_config, topk):
+
+def get_exhaustive_sweep_result(
+    console_args, each_root_log_path, partial_jobid_config, topk
+):
     from flaml.nlp.result_analysis.azure_utils import ConfigScoreList
     from flaml.nlp import AzureUtils
-    azure_utils = AzureUtils(root_log_path=each_root_log_path,
-                             azure_key_path=console_args.key_path,
-                             jobid_config=partial_jobid_config)
+
+    azure_utils = AzureUtils(
+        root_log_path=each_root_log_path,
+        azure_key_path=console_args.key_path,
+        jobid_config=partial_jobid_config,
+    )
     matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
-            root_log_path=each_root_log_path,
-            partial_jobid=partial_jobid_config)
-    merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
-                                   for x in config_score_list._config_score_list])._config_score_list
+        root_log_path=each_root_log_path, partial_jobid=partial_jobid_config
+    )
+    merged_list = ConfigScoreList(
+        [
+            x
+            for config_score_list in matched_config_score_lists
+            for x in config_score_list._config_score_list
+        ]
+    )._config_score_list
     return get_top1_score_and_config(merged_list, topk)
 
+
 def get_top1_score_and_config(merged_list, k):
-    id_and_score_list = [(x, merged_list[x].metric_score["max"])
-                         for x in range(len(merged_list)) if isinstance(merged_list[x].metric_score, dict)]
-    sorted_id_and_score_list = sorted(id_and_score_list, key=lambda x: x[1], reverse=True)
-    topk_scores = [sorted_id_and_score_list[x][1] for x in range(k) if x < len(sorted_id_and_score_list)]
-    topk_idxs = [sorted_id_and_score_list[x][0] for x in range(k) if x < len(sorted_id_and_score_list)]
+    id_and_score_list = [
+        (x, merged_list[x].metric_score["max"])
+        for x in range(len(merged_list))
+        if isinstance(merged_list[x].metric_score, dict)
+    ]
+    sorted_id_and_score_list = sorted(
+        id_and_score_list, key=lambda x: x[1], reverse=True
+    )
+    topk_scores = [
+        sorted_id_and_score_list[x][1]
+        for x in range(k)
+        if x < len(sorted_id_and_score_list)
+    ]
+    topk_idxs = [
+        sorted_id_and_score_list[x][0]
+        for x in range(k)
+        if x < len(sorted_id_and_score_list)
+    ]
     topk_configs = [merged_list[x].config for x in topk_idxs]
     return topk_scores, topk_configs
 
+
 def load_modelinfo():
     from pandas import read_csv
+
     modelinfo = read_csv("modelinfo.csv", delimiter=",")
     model2size = {}
 
@@ -366,6 +486,7 @@ def load_modelinfo():
             model_size *= 1000
         model2size[model_name] = model_size
     return model2size
+
 
 def plot_boxplot(console_args):
 
@@ -387,30 +508,40 @@ def plot_boxplot(console_args):
     partial_jobid_config.pre_full = "facebook/muppet-roberta-large"
     partial_jobid_config.spt = "rspt"
 
-    azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
-                             azure_key_path=console_args.key_path,
-                             jobid_config=partial_jobid_config)
+    azure_utils = AzureUtils(
+        root_log_path=console_args.root_log_path,
+        azure_key_path=console_args.key_path,
+        jobid_config=partial_jobid_config,
+    )
     matched_blob_list = azure_utils.get_configblob_from_partial_jobid(
         console_args.root_log_path,
-        partial_jobid_config, )
+        partial_jobid_config,
+    )
     assert len(matched_blob_list) == 1
 
     for (each_jobconfig, each_blob) in matched_blob_list:
         azure_utils.download_azure_blob(each_blob.name)
         data_json = json.load(open(each_blob.name, "r"))
-        plot([x['metric_score']['max'] for x in data_json['val_log']],
-             "".join(partial_jobid_config.dat)
-             + "_" + partial_jobid_config.subdat
-             + "_" + partial_jobid_config.pre_full)
+        plot(
+            [x["metric_score"]["max"] for x in data_json["val_log"]],
+            "".join(partial_jobid_config.dat)
+            + "_"
+            + partial_jobid_config.subdat
+            + "_"
+            + partial_jobid_config.pre_full,
+        )
+
 
 def plot(spread, legend):
     import matplotlib.pyplot as plt
+
     fig1, ax1 = plt.subplots()
     plt.scatter([1] * len(spread), spread)
-    ax1.set_title('Basic Plot')
+    ax1.set_title("Basic Plot")
     ax1.boxplot(spread)
     plt.xlabel(legend)
     plt.show()
+
 
 def print_modelhub_result(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID
@@ -425,28 +556,36 @@ def print_modelhub_result(console_args):
         for model_config in ["hp1", "hp2", "hp1_trainsize", "hp2_trainsize"]:
             partial_jobid_config = JobID()
             partial_jobid_config.dat = [each_dat]
-            #partial_jobid_config.presz = presz
+            # partial_jobid_config.presz = presz
             if each_dat == "glue":
                 partial_jobid_config.subdat = "sst2"
             each_root_log_path = "logs_modelhub/" + model_config + "/"
-            azure_utils = AzureUtils(root_log_path=each_root_log_path,
-                             azure_key_path=console_args.key_path,
-                             jobid_config=partial_jobid_config)
+            azure_utils = AzureUtils(
+                root_log_path=each_root_log_path,
+                azure_key_path=console_args.key_path,
+                jobid_config=partial_jobid_config,
+            )
             matched_blob_list = azure_utils.get_configblob_from_partial_jobid(
                 each_root_log_path,
-                partial_jobid_config, )
+                partial_jobid_config,
+            )
             for (each_jobconfig, each_blob) in matched_blob_list:
                 azure_utils.download_azure_blob(each_blob.name)
                 data_json = json.load(open(each_blob.name, "r"))
-                valid_acc = data_json['valid_metric']["eval_accuracy"]
-                test_acc = data_json['valid_metric']["test"]["accuracy"]
-                match_result = re.search(".*pre_full=(?P<pre_full>[^_]+)_.*sdhf=(?P<seed>[^_]+)_.*", each_blob.name)
+                valid_acc = data_json["valid_metric"]["eval_accuracy"]
+                # test_acc = data_json["valid_metric"]["test"]["accuracy"]
+                match_result = re.search(
+                    ".*pre_full=(?P<pre_full>[^_]+)_.*sdhf=(?P<seed>[^_]+)_.*",
+                    each_blob.name,
+                )
                 this_model_name = match_result.group("pre_full")
                 this_config = each_dat + "_" + model_config
                 model2config2score.setdefault(this_model_name, {})
                 model2config2score[this_model_name][this_config] = valid_acc
 
-    sorted_models = sorted([x for x in model2config2score.keys() if x in model2size]) # and model2size[x] > 100])
+    sorted_models = sorted(
+        [x for x in model2config2score.keys() if x in model2size]
+    )  # and model2size[x] > 100])
     config2best = {}
 
     for each_dat in ["glue", "yelp-polarity", "imdb", "amazon-polarity"]:
@@ -455,31 +594,38 @@ def print_modelhub_result(console_args):
             model_configs = ["hp1", "hp2"]
         for model_config in model_configs:
             each_config = each_dat + "_" + model_config
-            #print(each_config)
+            # print(each_config)
             for each_model in sorted_models:
-                if each_model == "lordtt13-COVID-SciBERT": continue
+                if each_model == "lordtt13-COVID-SciBERT":
+                    continue
                 try:
                     this_score = model2config2score[each_model][each_config]
                     if model2size[each_model] < 45:
                         config2best.setdefault(each_config, -1)
-                        config2best[each_config] = max(config2best[each_config], this_score)
+                        config2best[each_config] = max(
+                            config2best[each_config], this_score
+                        )
                 except KeyError:
                     this_score = ""
-                print(this_score, end = ",")
+                print(this_score, end=",")
             print()
 
     model2regret = {}
-    import numpy as np
+
     for each_model in model2config2score.keys():
         if each_model in model2size and model2size[each_model] < 315:
             for each_config in model2config2score[each_model]:
                 try:
                     this_score = model2config2score[each_model][each_config]
                     model2regret.setdefault(each_model, [])
-                    model2regret[each_model].append(config2best[each_config] - this_score)
+                    model2regret[each_model].append(
+                        config2best[each_config] - this_score
+                    )
                 except KeyError:
                     pass
-    sorted_model2regret = sorted(model2regret.items(), key = lambda x: np.mean(x[1]), reverse=False)
+    # sorted_model2regret = sorted(
+    #     model2regret.items(), key=lambda x: np.mean(x[1]), reverse=False
+    # )
 
     dominated_model_list = set([])
     for idx1 in range(len(sorted_models) - 1):
@@ -488,8 +634,12 @@ def print_modelhub_result(console_args):
             model2 = sorted_models[idx2].replace("/", "-")
             model1_size = model2size[model1]
             model2_size = model2size[model2]
-            is_dominating1 = is_dominating(model2config2score[model1], model2config2score[model2])
-            is_dominating2 = is_dominating(model2config2score[model2], model2config2score[model1])
+            is_dominating1 = is_dominating(
+                model2config2score[model1], model2config2score[model2]
+            )
+            is_dominating2 = is_dominating(
+                model2config2score[model2], model2config2score[model1]
+            )
             if is_dominating1 is True and model1_size <= model2_size:
                 dominated_model_list.add(model2)
             if is_dominating2 is True and model2_size <= model1_size:
@@ -499,18 +649,20 @@ def print_modelhub_result(console_args):
         for idx2 in range(len(dominating_list)):
             model1 = dominating_list[idx1]
             model2 = dominating_list[idx2]
-            is_dominating1 = is_dominating(model2config2score[model1], model2config2score[model2])
+            is_dominating1 = is_dominating(
+                model2config2score[model1], model2config2score[model2]
+            )
             if idx1 == idx2:
                 is_dominating1 = 0
             print(int(is_dominating1), end=",")
         print()
-    stop = 0
+
 
 def compare_muppet(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID, ConfigScoreList
     from flaml.nlp import AzureUtils
 
-    dats =["yelp-polarity", "glue", "amazon-polarity", "imdb"]
+    dats = ["yelp-polarity", "glue", "amazon-polarity", "imdb"]
     subdats = [None, "sst2", None, None]
     for idx in range(2, 3):
         partial_jobid_config = JobID()
@@ -522,23 +674,35 @@ def compare_muppet(console_args):
         partial_jobid_config.presz = "large"
         partial_jobid_config.pre_full = "facebook-muppet-roberta-large"
 
-        azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
-                                 azure_key_path=console_args.key_path,
-                                 jobid_config=partial_jobid_config)
-        matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
-            console_args.root_log_path,
-            partial_jobid_config)
+        azure_utils = AzureUtils(
+            root_log_path=console_args.root_log_path,
+            azure_key_path=console_args.key_path,
+            jobid_config=partial_jobid_config,
+        )
+        matched_config_score_lists = (
+            azure_utils.get_config_and_score_from_partial_jobid(
+                console_args.root_log_path, partial_jobid_config
+            )
+        )
         best_config = matched_config_score_lists[0]
-        merged_list = ConfigScoreList([x for config_score_list in matched_config_score_lists
-                                       for x in config_score_list._config_score_list])._config_score_list
-        top1_merged_list = sorted([x for x in merged_list if isinstance(x.metric_score, dict)],
-                                    key=lambda x: x.metric_score["max"],
-                                    reverse=True)[:1]
+        merged_list = ConfigScoreList(
+            [
+                x
+                for config_score_list in matched_config_score_lists
+                for x in config_score_list._config_score_list
+            ]
+        )._config_score_list
+        top1_merged_list = sorted(
+            [x for x in merged_list if isinstance(x.metric_score, dict)],
+            key=lambda x: x.metric_score["max"],
+            reverse=True,
+        )[:1]
         print(len(matched_config_score_lists))
         print(len(merged_list))
         print(partial_jobid_config.dat)
         print(top1_merged_list[0].metric_score["max"])
         print(best_config._test_metric)
+
 
 def is_dominating(config2score1, config2score2):
     is_larger = True
@@ -550,11 +714,12 @@ def is_dominating(config2score1, config2score2):
             pass
     return is_larger
 
+
 def print_crossvalidation_result(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID
     from flaml.nlp import AzureUtils
     import json
-    import numpy as np
+
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "hpo"
     partial_jobid_config.pre = "funnel"
@@ -562,22 +727,28 @@ def print_crossvalidation_result(console_args):
     partial_jobid_config.presz = "small"
 
     each_root_log_path = "logs_cv/"
-    azure_utils = AzureUtils(root_log_path=each_root_log_path,
-                             azure_key_path=console_args.key_path,
-                             jobid_config=partial_jobid_config)
+    azure_utils = AzureUtils(
+        root_log_path=each_root_log_path,
+        azure_key_path=console_args.key_path,
+        jobid_config=partial_jobid_config,
+    )
     matched_blob_list = azure_utils.get_configblob_from_partial_jobid(
         each_root_log_path,
-        partial_jobid_config,)
+        partial_jobid_config,
+    )
     for (each_jobconfig, each_blob) in matched_blob_list:
         azure_utils.download_azure_blob(each_blob.name)
         data_json = json.load(open(each_blob.name, "r"))
-        avg_acc = np.mean([x["eval_matthews_correlation"] for x in data_json['valid_metric']])
+        avg_acc = np.mean(
+            [x["eval_matthews_correlation"] for x in data_json["valid_metric"]]
+        )
         print(each_blob.name, avg_acc)
-    stop = 0
+
 
 def compare_learningrate(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID
     from flaml.nlp import AzureUtils
+
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "grid"
     partial_jobid_config.pre = "funnel"
@@ -585,42 +756,63 @@ def compare_learningrate(console_args):
     partial_jobid_config.presz = "small"
 
     each_root_log_path = "logs_seed/"
-    azure_utils = AzureUtils(root_log_path=each_root_log_path,
-                             azure_key_path=console_args.key_path,
-                             jobid_config=partial_jobid_config)
-    matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
+    azure_utils = AzureUtils(
         root_log_path=each_root_log_path,
-        partial_jobid=partial_jobid_config)
-    #split_configscorelist(matched_config_score_lists)
-    get_val_test_scores(matched_config_score_lists,
-                        "accuracy" if partial_jobid_config.subdat != "cola" else "matthews_correlation")
+        azure_key_path=console_args.key_path,
+        jobid_config=partial_jobid_config,
+    )
+    matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
+        root_log_path=each_root_log_path, partial_jobid=partial_jobid_config
+    )
+    # split_configscorelist(matched_config_score_lists)
+    get_val_test_scores(
+        matched_config_score_lists,
+        "accuracy" if partial_jobid_config.subdat != "cola" else "matthews_correlation",
+    )
+
 
 def get_seed_configs(matched_config_score_lists):
     seed_configs = []
     for configscore_list in matched_config_score_lists:
         if configscore_list._test_metric:
-            this_seed_config = str(configscore_list._jobid_config.sdbs) + "_" + str(configscore_list._jobid_config.sdnp)
+            this_seed_config = (
+                str(configscore_list._jobid_config.sdbs)
+                + "_"
+                + str(configscore_list._jobid_config.sdnp)
+            )
             seed_configs.append(this_seed_config)
     return set(seed_configs)
+
 
 def get_val_test_scores(matched_config_score_lists, metric_name, all_seed_configs):
     val_scores = []
     test_scores = []
     trial_nums = []
     all_this_configs = []
-    import numpy as np
+
     for configscore_list in matched_config_score_lists:
         if configscore_list._test_metric:
-            this_seed_config = str(configscore_list._jobid_config.sdbs) + "_" + str(configscore_list._jobid_config.sdnp)
+            this_seed_config = (
+                str(configscore_list._jobid_config.sdbs)
+                + "_"
+                + str(configscore_list._jobid_config.sdnp)
+            )
             best_config = configscore_list.get_best_config()
             if this_seed_config in all_seed_configs:
                 trial_nums.append(len(configscore_list._config_score_list))
-                val_scores.append(best_config.metric_score['max'])
+                val_scores.append(best_config.metric_score["max"])
                 test_scores.append(configscore_list._test_metric[metric_name])
                 all_this_configs.append(this_seed_config)
-    print("{}\t{}\t{}".format("%.4f" % np.mean(val_scores), "%.4f" % np.mean(test_scores), "%.4f" % np.mean(trial_nums)))
+    print(
+        "{}\t{}\t{}".format(
+            "%.4f" % np.mean(val_scores),
+            "%.4f" % np.mean(test_scores),
+            "%.4f" % np.mean(trial_nums),
+        )
+    )
     print([float("%.4f" % x) for x in sorted(val_scores)])
     print([float("%.4f" % x) for x in sorted(test_scores)])
+
 
 def create_partial_config_list():
     jobid_config = JobID()
@@ -641,22 +833,28 @@ def create_partial_config_hpo():
 
     return jobid_config
 
+
 def randomly_sample_gridunion():
-    space = [('learning_rate', [2e-05, 4e-05, 0.00015, 1e-05, 0.0001, 3e-05, 5e-05]),
-             ('per_device_train_batch_size', [32, 8, 16]),
-             ('num_train_epochs', [10, 3]),
-             ('warmup_ratio', [0.06, 0.0, 0.1]),
-             ('weight_decay', [0.1, 0.0]),
-             ('adam_epsilon', [1e-08, 1e-06])]
+    space = [
+        ("learning_rate", [2e-05, 4e-05, 0.00015, 1e-05, 0.0001, 3e-05, 5e-05]),
+        ("per_device_train_batch_size", [32, 8, 16]),
+        ("num_train_epochs", [10, 3]),
+        ("warmup_ratio", [0.06, 0.0, 0.1]),
+        ("weight_decay", [0.1, 0.0]),
+        ("adam_epsilon", [1e-08, 1e-06]),
+    ]
     import random
+
     for (each_hp, each_space) in space:
         print(each_hp, random.choice(each_space))
+
 
 def rename_azure_file(console_args):
     import copy
     from flaml.nlp import AzureUtils
-    dat_name = ['amazon_polarity']
-    subdat_name = ''
+
+    dat_name = ["amazon_polarity"]
+    subdat_name = ""
 
     # logs_azure/glue_sst2/dat=glue_subdat=sst2_mod=
     # hpo_spa=grid_arg=cus_alg=grid_pru=None_pre_full=facebook-muppet-roberta-large_
@@ -682,12 +880,17 @@ def rename_azure_file(console_args):
     new_jobid_configs = copy.deepcopy(old_jobid_configs)
     new_jobid_configs.mod = "gridcv"
 
-    azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
-                             azure_key_path="../../",
-                             jobid_config=old_jobid_configs)
-    azure_utils.rename_one_file(root_log_path=console_args.root_log_path,
-                                old_jobid=old_jobid_configs,
-                                new_jobid=new_jobid_configs)
+    azure_utils = AzureUtils(
+        root_log_path=console_args.root_log_path,
+        azure_key_path="../../",
+        jobid_config=old_jobid_configs,
+    )
+    azure_utils.rename_one_file(
+        root_log_path=console_args.root_log_path,
+        old_jobid=old_jobid_configs,
+        new_jobid=new_jobid_configs,
+    )
+
 
 def print_benchmark(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID
@@ -695,9 +898,9 @@ def print_benchmark(console_args):
 
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "hpo"
-    partial_jobid_config.subdat = "rte"
+    partial_jobid_config.subdat = "bypublisher"
     partial_jobid_config.sddt = set(["101", "102", "103"])
-    #partial_jobid_config.sdbs = set(["20", "30"])
+    partial_jobid_config.sdnp = set(["7654321"])
     partial_jobid_config.alg = "optuna"
     partial_jobid_config.pre_full = "facebook-muppet-roberta-base"
     overlap_seed_configs = None
@@ -711,12 +914,17 @@ def print_benchmark(console_args):
     #     partial_jobid=partial_jobid_config)
 
     for partial_jobid_config.pru in ["asha", "None"]:
-        azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
-                                 azure_key_path=console_args.key_path,
-                                 jobid_config=partial_jobid_config)
-        matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
+        azure_utils = AzureUtils(
             root_log_path=console_args.root_log_path,
-            partial_jobid=partial_jobid_config)
+            azure_key_path=console_args.key_path,
+            jobid_config=partial_jobid_config,
+        )
+        matched_config_score_lists = (
+            azure_utils.get_config_and_score_from_partial_jobid(
+                root_log_path=console_args.root_log_path,
+                partial_jobid=partial_jobid_config,
+            )
+        )
         this_seed_configs = get_seed_configs(matched_config_score_lists)
         if overlap_seed_configs is None:
             overlap_seed_configs = this_seed_configs
@@ -725,36 +933,120 @@ def print_benchmark(console_args):
 
     for partial_jobid_config.pru in ["asha", "None"]:
         print("pruner", partial_jobid_config.pru)
-        azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
-                                 azure_key_path=console_args.key_path,
-                                 jobid_config=partial_jobid_config)
-        matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
+        azure_utils = AzureUtils(
             root_log_path=console_args.root_log_path,
-            partial_jobid=partial_jobid_config)
-        #get_val_test_scores(matched_config_score_lists, "accuracy", overlap_seed_configs)
+            azure_key_path=console_args.key_path,
+            jobid_config=partial_jobid_config,
+        )
+        matched_config_score_lists = (
+            azure_utils.get_config_and_score_from_partial_jobid(
+                root_log_path=console_args.root_log_path,
+                partial_jobid=partial_jobid_config,
+            )
+        )
+        # get_val_test_scores(matched_config_score_lists, "accuracy", overlap_seed_configs)
         config2matchedbloblists[partial_jobid_config.pru] = matched_config_score_lists
 
     azure_utils.plot_hpo_curves(
         config2matchedbloblists,
         config2color={"asha": "red", "None": "blue"},
-        plot_title=partial_jobid_config.subdat + "_" + partial_jobid_config.alg + "_" + partial_jobid_config.pre_full
+        plot_title=partial_jobid_config.subdat
+        + "_"
+        + partial_jobid_config.alg
+        + "_"
+        + partial_jobid_config.pre_full,
     )
+
+
+def print_by_method(console_args):
+    from flaml.nlp.result_analysis.azure_utils import JobID
+    from flaml.nlp import AzureUtils
+
+    partial_jobid_config = JobID()
+    partial_jobid_config.mod = "hpo"
+    partial_jobid_config.subdat = "rte"
+    partial_jobid_config.sddt = set(["101", "102", "103"])
+    partial_jobid_config.sdnp = set(["7654321"])
+    partial_jobid_config.pru = "None"
+    partial_jobid_config.pre_full = "facebook-muppet-roberta-base"
+    overlap_seed_configs = None
+    config2matchedbloblists = {}
+
+    # azure_utils = AzureUtils(root_log_path=console_args.root_log_path,
+    #                          azure_key_path=console_args.key_path,
+    #                          jobid_config=partial_jobid_config)
+    # matched_config_score_lists = azure_utils.get_config_and_score_from_partial_jobid(
+    #     root_log_path=console_args.root_log_path,
+    #     partial_jobid=partial_jobid_config)
+
+    for partial_jobid_config.alg in ["bs", "rs", "optuna"]:
+        azure_utils = AzureUtils(
+            root_log_path=console_args.root_log_path,
+            azure_key_path=console_args.key_path,
+            jobid_config=partial_jobid_config,
+        )
+        matched_config_score_lists = (
+            azure_utils.get_config_and_score_from_partial_jobid(
+                root_log_path=console_args.root_log_path,
+                partial_jobid=partial_jobid_config,
+            )
+        )
+        this_seed_configs = get_seed_configs(matched_config_score_lists)
+        if overlap_seed_configs is None:
+            overlap_seed_configs = this_seed_configs
+        else:
+            overlap_seed_configs = overlap_seed_configs.intersection(this_seed_configs)
+
+    for partial_jobid_config.alg in ["bs", "rs", "optuna"]:
+        print("pruner", partial_jobid_config.pru)
+        azure_utils = AzureUtils(
+            root_log_path=console_args.root_log_path,
+            azure_key_path=console_args.key_path,
+            jobid_config=partial_jobid_config,
+        )
+        matched_config_score_lists = (
+            azure_utils.get_config_and_score_from_partial_jobid(
+                root_log_path=console_args.root_log_path,
+                partial_jobid=partial_jobid_config,
+            )
+        )
+        # get_val_test_scores(matched_config_score_lists, "accuracy", overlap_seed_configs)
+        config2matchedbloblists[partial_jobid_config.alg] = matched_config_score_lists
+
+    azure_utils.plot_hpo_curves(
+        config2matchedbloblists,
+        config2color={"optuna": "red", "rs": "blue", "bs": "green"},
+        plot_title=partial_jobid_config.subdat
+        + "_"
+        + partial_jobid_config.pru
+        + "_"
+        + partial_jobid_config.pre_full,
+    )
+
 
 if __name__ == "__main__":
     from flaml.nlp.utils import load_dft_args
+
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('--key_path', type=str, help='key path', required=False, default="../../../")
-    arg_parser.add_argument('--root_log_path', type=str,
-                            help='root log path of blob storage', required=True, default="logs_azure/")
+    arg_parser.add_argument(
+        "--key_path", type=str, help="key path", required=False, default="../../../"
+    )
+    arg_parser.add_argument(
+        "--root_log_path",
+        type=str,
+        help="root log path of blob storage",
+        required=True,
+        default="logs_azure/",
+    )
     console_args = load_dft_args()
 
     partial_config_large = create_partial_config_hpo()
-    print_benchmark(console_args=console_args)
-    #analyze_small_large(console_args=args)
-    #compare_learningrate(console_args=args)
-    #print_crossvalidation_result(console_args=args)
-    #print_modelhub_result(console_args=args)
-    #randomly_sample_gridunion()
-    #compare_muppet(console_args=args)
-    #rename_azure_file(console_args=args)
-    #plot_boxplot(console_args=args)
+    print_by_method(console_args=console_args)
+    # analyze_small_large(console_args=args)
+    # compare_learningrate(console_args=args)
+    # print_crossvalidation_result(console_args=args)
+    # print_modelhub_result(console_args=args)
+    # randomly_sample_gridunion()
+    # compare_muppet(console_args=args)
+    # rename_azure_file(console_args=args)
+    # plot_boxplot(console_args=args)
