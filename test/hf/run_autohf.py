@@ -78,7 +78,7 @@ def get_preparedata_setting(
 
 
 def get_autohf_settings(console_args, **custom_args):
-    if console_args.algo_mode == "optuna":
+    if console_args.algo_name == "optuna":
         seed_bs = console_args.seed_bs - 10
     else:
         seed_bs = console_args.seed_bs
