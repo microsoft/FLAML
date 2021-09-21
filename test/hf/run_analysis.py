@@ -775,11 +775,7 @@ def get_seed_configs(matched_config_score_lists):
     seed_configs = []
     for configscore_list in matched_config_score_lists:
         if configscore_list._test_metric:
-            this_seed_config = (
-                str(configscore_list._jobid_config.sdbs)
-                + "_"
-                + str(configscore_list._jobid_config.sdnp)
-            )
+            this_seed_config = str(configscore_list._jobid_config.sdbs)
             seed_configs.append(this_seed_config)
     return set(seed_configs)
 
@@ -792,11 +788,7 @@ def get_val_test_scores(matched_config_score_lists, metric_name, all_seed_config
 
     for configscore_list in matched_config_score_lists:
         if configscore_list._test_metric:
-            this_seed_config = (
-                str(configscore_list._jobid_config.sdbs)
-                + "_"
-                + str(configscore_list._jobid_config.sdnp)
-            )
+            this_seed_config = str(configscore_list._jobid_config.sdbs)
             best_config = configscore_list.get_best_config()
             if this_seed_config in all_seed_configs:
                 trial_nums.append(len(configscore_list._config_score_list))
@@ -900,7 +892,6 @@ def print_benchmark(console_args):
     partial_jobid_config.mod = "hpo"
     partial_jobid_config.subdat = "bypublisher"
     partial_jobid_config.sddt = set(["101", "102", "103"])
-    partial_jobid_config.sdnp = set(["7654321"])
     partial_jobid_config.alg = "optuna"
     partial_jobid_config.pre_full = "facebook-muppet-roberta-base"
     overlap_seed_configs = None
@@ -966,7 +957,6 @@ def print_by_method(console_args):
     partial_jobid_config.mod = "hpo"
     partial_jobid_config.subdat = "rte"
     partial_jobid_config.sddt = set(["101", "102", "103"])
-    partial_jobid_config.sdnp = set(["7654321"])
     partial_jobid_config.pru = "None"
     partial_jobid_config.pre_full = "facebook-muppet-roberta-base"
     overlap_seed_configs = None

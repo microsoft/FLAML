@@ -299,7 +299,7 @@ class JobID:
                         result_dict[key] = sorted(list(set([result.group(key)])))
                     else:
                         result_dict[key] = []
-                elif key in ("rep", "sddt", "sdhf", "sdnp", "sdbs"):
+                elif key in ("rep", "sddt", "sdhf", "sdbs"):
                     try:
                         try:
                             try:
