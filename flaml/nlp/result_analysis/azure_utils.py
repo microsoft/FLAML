@@ -179,7 +179,7 @@ class JobID:
                 this_value = getattr(self, key)
                 if isinstance(this_value, int) or isinstance(this_value, str):
                     this_value = set([str(this_value)])
-                is_subset = len(this_value.difference(val)) == 0
+                is_subset = this_value.issubset(val)
                 if is_subset is False:
                     is_not_match = True
             else:
