@@ -469,6 +469,7 @@ class AutoTransformers:
             if is_pretrained_model_in_classification_head_list():
                 model_config_num_labels = num_labels_old
             else:
+                self._set_num_labels(this_task)
                 model_config_num_labels = self._num_labels
             model_config = _set_model_config()
 
@@ -804,13 +805,13 @@ class AutoTransformers:
             self.jobid_config.dat, self.jobid_config.subdat
         )
 
-    def _set_num_labels(self):
-        if self.task_name == "seq-classification":
+    def _set_num_labels(self, task_name):
+        if task_name == "seq-classification":
             try:
                 self._num_labels = len(self.train_dataset.features["label"].names)
             except AttributeError:
                 self._num_labels = len(set([x["label"] for x in self.train_dataset]))
-        elif self.task_name == "regression":
+        elif task_name == "regression":
             self._num_labels = 1
 
     def fit_hf(
@@ -1118,7 +1119,7 @@ class AutoTransformers:
         self._resources_per_trial = resources_per_trial
         self._set_metric(custom_metric_name, custom_metric_mode_name)
         self._set_task()
-        self._set_num_labels()
+        self._set_num_labels(self.task_name)
         self._fp16 = fp16
         ray.shutdown()
         ray.init(local_mode=ray_local_mode)
