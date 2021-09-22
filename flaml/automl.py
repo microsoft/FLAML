@@ -1312,7 +1312,7 @@ class AutoML:
                         return metric_to_minimize, metrics_to_log
 
                 which returns a float number as the minimization objective,
-                and a tuple of floats or a dictionary as the metrics to log.
+                and a dictionary as the metrics to log.
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'forecast', 'rank'.
             n_jobs: An integer of the number of threads for training.
