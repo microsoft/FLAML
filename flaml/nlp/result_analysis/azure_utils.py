@@ -1074,5 +1074,5 @@ class AzureUtils:
         plt.ylabel("validation score")
         plt.title(plot_title)
         # plt.legend(loc=2)
-        plt.ylim(0.86, 0.96)
+        plt.ylim(0.8, 0.92)
         plt.show()

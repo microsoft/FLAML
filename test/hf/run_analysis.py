@@ -892,7 +892,7 @@ def print_benchmark(console_args):
     partial_jobid_config.mod = "hpo"
     partial_jobid_config.subdat = "bypublisher"
     partial_jobid_config.sddt = set(["101", "102", "103"])
-    partial_jobid_config.alg = "optuna"
+    partial_jobid_config.alg = "bs"
     partial_jobid_config.pre_full = "facebook-muppet-roberta-base"
     overlap_seed_configs = None
     config2matchedbloblists = {}
@@ -955,9 +955,10 @@ def print_by_method(console_args):
 
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "hpo"
-    partial_jobid_config.subdat = "rte"
-    partial_jobid_config.sddt = set(["101", "102", "103"])
-    partial_jobid_config.pru = "None"
+    partial_jobid_config.subdat = "bypublisher"
+    partial_jobid_config.sddt = set(["101"])
+    partial_jobid_config.sdbs = set(["20", "30", "40"])
+    partial_jobid_config.pru = "asha"
     partial_jobid_config.pre_full = "facebook-muppet-roberta-base"
     overlap_seed_configs = None
     config2matchedbloblists = {}
@@ -1031,7 +1032,7 @@ if __name__ == "__main__":
     console_args = load_dft_args()
 
     partial_config_large = create_partial_config_hpo()
-    print_by_method(console_args=console_args)
+    print_benchmark(console_args=console_args)
     # analyze_small_large(console_args=args)
     # compare_learningrate(console_args=args)
     # print_crossvalidation_result(console_args=args)

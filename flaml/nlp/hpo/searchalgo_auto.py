@@ -181,18 +181,18 @@ def default_search_algo_args_bs(
     assert (
         hpo_search_space
     ), "hpo_search_space needs to be specified for calling AutoSearchAlgorithm.from_method_name"
-    if "num_train_epochs" in hpo_search_space and isinstance(
-        hpo_search_space["num_train_epochs"], ray.tune.sample.Categorical
-    ):
-        min_epoch = min(hpo_search_space["num_train_epochs"].categories)
-    else:
-        # TODO coverage
-        assert isinstance(hpo_search_space["num_train_epochs"], ray.tune.sample.Float)
-        min_epoch = hpo_search_space["num_train_epochs"].lower
+    # if "num_train_epochs" in hpo_search_space and isinstance(
+    #     hpo_search_space["num_train_epochs"], ray.tune.sample.Categorical
+    # ):
+    #     min_epoch = min(hpo_search_space["num_train_epochs"].categories)
+    # else:
+    #     # TODO coverage
+    #     assert isinstance(hpo_search_space["num_train_epochs"], ray.tune.sample.Float)
+    #     min_epoch = hpo_search_space["num_train_epochs"].lower
     default_search_algo_args = {
-        "low_cost_partial_config": {
-            "num_train_epochs": min_epoch,
-        },
+        # "low_cost_partial_config": {
+        #     "num_train_epochs": min_epoch,
+        # },
         "space": hpo_search_space,
         "metric": metric_name,
         "mode": metric_mode_name,
