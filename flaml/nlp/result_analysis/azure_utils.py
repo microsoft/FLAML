@@ -305,7 +305,7 @@ class JobID:
                             try:
                                 result_dict[key] = int(result.group(key))
                             except TypeError:
-                                print("int() argument is a NoneType, continuing")
+                                # print("int() argument is a NoneType, continuing")
                                 result_dict[key] = -1
                         except IndexError:
                             print("No group {} in the regex result".format(key))

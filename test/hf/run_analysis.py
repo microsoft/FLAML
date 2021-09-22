@@ -1015,6 +1015,55 @@ def print_by_method(console_args):
     )
 
 
+def analyze_asha(console_args):
+    from flaml.nlp.result_analysis.azure_utils import JobID
+    from flaml.nlp import AzureUtils
+
+    partial_jobid_config = JobID()
+    partial_jobid_config.mod = "hpo"
+    partial_jobid_config.subdat = "bypublisher"
+    partial_jobid_config.alg = "rs"
+    partial_jobid_config.pre_full = "facebook-muppet-roberta-base"
+    # overlap_seed_configs = None
+    # config2matchedbloblists = {}
+
+    # sdbs must be a set
+    for partial_jobid_config.sdbs in [{"20"}, {"30"}, {"40"}]:
+        for partial_jobid_config.pru in ["None", "asha"]:
+            acc2count = {}
+            azure_utils = AzureUtils(
+                root_log_path=console_args.root_log_path,
+                azure_key_path=console_args.key_path,
+                jobid_config=partial_jobid_config,
+            )
+            matched_config_score_lists = (
+                azure_utils.get_config_and_score_from_partial_jobid(
+                    root_log_path=console_args.root_log_path,
+                    partial_jobid=partial_jobid_config,
+                )
+            )
+            assert len(matched_config_score_lists) == 1
+            all_scores = [
+                float(int(10 * x.metric_score["max"])) / 10
+                for x in matched_config_score_lists[0]._config_score_list
+                if isinstance(x.metric_score, dict)
+            ]
+            for each_score in all_scores:
+                acc2count.setdefault(each_score, 0)
+                acc2count[round_val(each_score)] += 1
+            total_count = sum(acc2count.values())
+            acc2count = {
+                key: round_val(float(val) / total_count)
+                for (key, val) in acc2count.items()
+            }
+            print(sorted(acc2count.items(), key=lambda x: x[0]))
+        # stop = 0
+
+
+def round_val(val):
+    return float(int(100 * val)) / 100
+
+
 if __name__ == "__main__":
     from flaml.nlp.utils import load_dft_args
 
@@ -1032,7 +1081,7 @@ if __name__ == "__main__":
     console_args = load_dft_args()
 
     partial_config_large = create_partial_config_hpo()
-    print_benchmark(console_args=console_args)
+    analyze_asha(console_args=console_args)
     # analyze_small_large(console_args=args)
     # compare_learningrate(console_args=args)
     # print_crossvalidation_result(console_args=args)
