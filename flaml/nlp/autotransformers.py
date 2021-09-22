@@ -1174,6 +1174,7 @@ class AutoTransformers:
             checkpoint_score_attr=self.metric_name,
             scheduler=scheduler,
             search_alg=search_algo,
+            fail_fast=True,
         )
         duration = time.time() - start_time
         self.last_run_duration = duration
