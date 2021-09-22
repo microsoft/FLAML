@@ -1853,6 +1853,16 @@ class AutoML:
                             self._search_states[e].init_eci / eci_base * self._eci[0]
                         )
                     self._estimator_index = 0
+                    min_budget = max(10 * self._eci[0], sum(self._eci))
+                    max_budget = 10000 * self._eci[0]
+                    if search_state.sample_size:
+                        ratio = search_state.data_size / search_state.sample_size
+                        min_budget *= ratio
+                        max_budget *= ratio
+                    logger.info(
+                        f"Estimated sufficient time budget={max_budget:.0f}s."
+                        f" Estimated necessary time budget={min_budget:.0f}s."
+                    )
                 if result["wall_clock_time"] is not None:
                     self._state.time_from_start = result["wall_clock_time"]
                 # logger.info(f"{self._search_states[estimator].sample_size}, {data_size}")
