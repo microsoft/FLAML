@@ -1933,7 +1933,7 @@ class AutoML:
                             mlflow.log_param("best_config", search_state.best_config)
                             mlflow.log_param("best_learner", self._best_estimator)
                 logger.info(
-                    " at {:.1f}s,\tbest {}'s error={:.4f},\tbest {}'s error={:.4f}".format(
+                    " at {:.1f}s,\testimator {}'s best error={:.4f},\tbest estimator {}'s best error={:.4f}".format(
                         self._state.time_from_start,
                         estimator,
                         search_state.best_loss,
