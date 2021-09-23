@@ -87,8 +87,9 @@ def get_autohf_settings(console_args, **custom_args):
         "resources_per_trial": {"gpu": 1, "cpu": 1},
         "num_samples": console_args.sample_num,
         "time_budget": console_args.time_budget,
-        "ckpt_per_epoch": 1,
+        "ckpt_per_epoch": 5,
         "seed_bs": seed_bs,
+        "keep_checkpoints_num": 10000000,
     }
     for other_attr in ["ds_config", "rep_id"]:
         if hasattr(console_args, other_attr):

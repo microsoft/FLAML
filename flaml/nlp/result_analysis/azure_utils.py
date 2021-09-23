@@ -24,6 +24,7 @@ class ConfigScore:
         config: dict = None,
         metric_score: dict = None,
         time_stamp: float = None,
+        all_ckpts: list = None,
     ):
         self.trial_id = trial_id
         self.start_time = start_time
@@ -31,6 +32,7 @@ class ConfigScore:
         self.config = config
         self.metric_score = metric_score
         self.time_stamp = time_stamp
+        self.all_ckpts = all_ckpts
 
 
 class ConfigScoreList:
@@ -76,6 +78,9 @@ class ConfigScoreList:
 class JobID:
     """
     The class for specifying the config of a job, includes the following fields:
+
+    Notice the naming of class JobID is a shorter version of the naming of console arguments (flaml/nlp/utils.py).
+    This existence of the shortened namings in JobID class is for shortening the file names in azure blob storage.
 
     dat:
         A list which is the dataset name
@@ -170,7 +175,9 @@ class JobID:
         """
         is_not_match = False
         for key, val in partial_jobid.__dict__.items():
-            if key == "pre":
+            if (
+                key == "pre"
+            ):  # skip matching the abbreviated model name, only match the full model name
                 continue
             if val is None:
                 continue
@@ -184,10 +191,12 @@ class JobID:
                     is_not_match = True
             else:
                 each_val = getattr(self, key)
-                if key == "dat":
+                if key == "dat":  # replace underline with dash for dataset name
+                    # because underline is unsed for separating each attribute
                     each_val = [x.replace("_", "-") for x in each_val]
                     val = [x.replace("_", "-") for x in val]
-                if key == "pre_full":
+                if key == "pre_full":  # replace "/" with dash in the full model name
+                    # because "/" is the directory separator of the azure file system
                     val = val.replace("/", "-")
                 if each_val != val:
                     is_not_match = True
@@ -204,7 +213,8 @@ class JobID:
                 if type(field_dict[key]) == list
                 else str(field_dict[key])
                 for key in field_dict.keys()
-                if key != "pre"
+                if key
+                != "pre"  # skip the abbreviated model name in naming of the file, use the full model name instead
             ]
         )
         return keytoval_str
@@ -218,7 +228,9 @@ class JobID:
         keytoval_list = []
         for key in list_keys:
             try:
-                if key != "pre":
+                if (
+                    key != "pre"
+                ):  # skip the abbreviated model name in naming of the file, use the full model name instead
                     if key == "pre_full":
                         keytoval_list.append(
                             key + "=" + str(field_dict[key].replace("/", "-"))
@@ -272,6 +284,7 @@ class JobID:
                                pre = 'funnel', presz = 'xlarge', spt = 'rspt',
                                rep = 0, sddt = 43, sdhf = 42)
         """
+        # skip the abbreviated model name in naming of the file, use the full model name instead
         field_keys = [
             key for key in list(JobID.__dataclass_fields__.keys()) if key != "pre"
         ]
@@ -683,6 +696,42 @@ class AzureUtils:
             with open(blobname, "wb") as fout:
                 fout.write(blob_client.download_blob().readall())
 
+    def _get_all_checkpoint_results(self, analysis, each_trial, this_trial_config):
+        import math
+
+        all_ckpts = analysis.get_trial_checkpoints_paths(each_trial)
+        ckpt_path = re.search(
+            r"^(?P<ckpt_path>.*)/checkpoint_\d+/", all_ckpts[0][0]
+        ).group("ckpt_path")
+
+        with open(os.path.join(ckpt_path, "result.json"), "r") as fin:
+            all_ckpt_results = []
+            epochs = set([])
+            max_epoch = -1
+            for line in fin:
+                result_json = json.loads(line)
+                if result_json["epoch"] in epochs:
+                    continue
+                epochs.add(result_json["epoch"])
+                all_ckpt_results.append(
+                    {
+                        "epoch": result_json["epoch"],
+                        "score": result_json["eval_" + analysis.default_metric],
+                    }
+                )
+                max_epoch = max(max_epoch, result_json["epoch"])
+            if max_epoch < this_trial_config["num_train_epochs"] and int(
+                math.log(max_epoch, 2)
+            ) == math.log(max_epoch, 2):
+                is_early_stop = True
+            else:
+                is_early_stop = False
+            return {
+                "max_epoch": max_epoch,
+                "is_early_stop": is_early_stop,
+                "all_ckpt_results": all_ckpt_results,
+            }
+
     def extract_configscore_list_from_analysis(self, analysis):
         """
         Extracting a json object for storing the key information returned from tune.run
@@ -709,6 +758,9 @@ class AzureUtils:
                 )
                 metric_score = 0
                 time_stamp = 0
+            all_ckpts_results = self._get_all_checkpoint_results(
+                analysis, each_trial, config
+            )
             configscore_list.append(
                 ConfigScore(
                     trial_id=trial_id,
@@ -717,6 +769,7 @@ class AzureUtils:
                     config=config,
                     metric_score=metric_score,
                     time_stamp=time_stamp,
+                    all_ckpts=all_ckpts_results,
                 )
             )
         return configscore_list
@@ -1074,5 +1127,5 @@ class AzureUtils:
         plt.ylabel("validation score")
         plt.title(plot_title)
         # plt.legend(loc=2)
-        plt.ylim(0.8, 0.92)
+        plt.ylim(0.8, 0.96)
         plt.show()

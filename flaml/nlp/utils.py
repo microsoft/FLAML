@@ -73,7 +73,7 @@ def load_dft_args():
         help="pruner",
         required=False,
         choices=["asha", "None"],
-        default="None",
+        default="asha",
     )
     arg_parser.add_argument(
         "--pretrained_model_size",
