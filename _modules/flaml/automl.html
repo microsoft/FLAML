@@ -1375,7 +1375,7 @@
 <span class="sd">                        return metric_to_minimize, metrics_to_log</span>
 
 <span class="sd">                which returns a float number as the minimization objective,</span>
-<span class="sd">                and a tuple of floats or a dictionary as the metrics to log.</span>
+<span class="sd">                and a dictionary as the metrics to log.</span>
 <span class="sd">            task: A string of the task type, e.g.,</span>
 <span class="sd">                &#39;classification&#39;, &#39;regression&#39;, &#39;forecast&#39;, &#39;rank&#39;.</span>
 <span class="sd">            n_jobs: An integer of the number of threads for training.</span>
@@ -1916,6 +1916,16 @@
                             <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="p">[</span><span class="n">e</span><span class="p">]</span><span class="o">.</span><span class="n">init_eci</span> <span class="o">/</span> <span class="n">eci_base</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eci</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
                         <span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_estimator_index</span> <span class="o">=</span> <span class="mi">0</span>
+                    <span class="n">min_budget</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">10</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eci</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_eci</span><span class="p">))</span>
+                    <span class="n">max_budget</span> <span class="o">=</span> <span class="mi">10000</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eci</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">search_state</span><span class="o">.</span><span class="n">sample_size</span><span class="p">:</span>
+                        <span class="n">ratio</span> <span class="o">=</span> <span class="n">search_state</span><span class="o">.</span><span class="n">data_size</span> <span class="o">/</span> <span class="n">search_state</span><span class="o">.</span><span class="n">sample_size</span>
+                        <span class="n">min_budget</span> <span class="o">*=</span> <span class="n">ratio</span>
+                        <span class="n">max_budget</span> <span class="o">*=</span> <span class="n">ratio</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Estimated sufficient time budget=</span><span class="si">{</span><span class="n">max_budget</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">s.&quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot; Estimated necessary time budget=</span><span class="si">{</span><span class="n">min_budget</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">s.&quot;</span>
+                    <span class="p">)</span>
                 <span class="k">if</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;wall_clock_time&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">time_from_start</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;wall_clock_time&quot;</span><span class="p">]</span>
                 <span class="c1"># logger.info(f&quot;{self._search_states[estimator].sample_size}, {data_size}&quot;)</span>
@@ -1986,7 +1996,7 @@
                             <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;best_config&quot;</span><span class="p">,</span> <span class="n">search_state</span><span class="o">.</span><span class="n">best_config</span><span class="p">)</span>
                             <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;best_learner&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_best_estimator</span><span class="p">)</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                    <span class="s2">&quot; at </span><span class="si">{:.1f}</span><span class="s2">s,</span><span class="se">\t</span><span class="s2">best </span><span class="si">{}</span><span class="s2">&#39;s error=</span><span class="si">{:.4f}</span><span class="s2">,</span><span class="se">\t</span><span class="s2">best </span><span class="si">{}</span><span class="s2">&#39;s error=</span><span class="si">{:.4f}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="s2">&quot; at </span><span class="si">{:.1f}</span><span class="s2">s,</span><span class="se">\t</span><span class="s2">estimator </span><span class="si">{}</span><span class="s2">&#39;s best error=</span><span class="si">{:.4f}</span><span class="s2">,</span><span class="se">\t</span><span class="s2">best estimator </span><span class="si">{}</span><span class="s2">&#39;s best error=</span><span class="si">{:.4f}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">time_from_start</span><span class="p">,</span>
                         <span class="n">estimator</span><span class="p">,</span>
                         <span class="n">search_state</span><span class="o">.</span><span class="n">best_loss</span><span class="p">,</span>
@@ -2012,18 +2022,16 @@
                         <span class="sa">f</span><span class="s2">&quot;exceeds </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_warn_threshold</span><span class="si">}</span><span class="s2"> times the time taken &quot;</span>
                         <span class="s2">&quot;to find the best model.&quot;</span>
                     <span class="p">)</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_warn_threshold</span> <span class="o">*=</span> <span class="mi">10</span>
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_early_stop</span><span class="p">:</span>
                         <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Stopping search as early_stop is set to True.&quot;</span><span class="p">)</span>
                         <span class="k">break</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_warn_threshold</span> <span class="o">*=</span> <span class="mi">10</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;stop trying learner </span><span class="si">{</span><span class="n">estimator</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_estimator_index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_active_estimators</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">estimator</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_estimator_index</span> <span class="o">-=</span> <span class="mi">1</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">time_from_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_time_flag</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">time_budget</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">time_from_start</span><span class="p">:</span>
-                    <span class="n">search_state</span><span class="o">.</span><span class="n">search_alg</span><span class="o">.</span><span class="n">searcher</span><span class="o">.</span><span class="n">_is_ls_ever_converged</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="n">search_state</span><span class="o">.</span><span class="n">search_alg</span><span class="o">.</span><span class="n">searcher</span><span class="o">.</span><span class="n">_is_ls_ever_converged</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="k">if</span> <span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_retrain_in_budget</span>
                 <span class="ow">and</span> <span class="n">best_config_sig</span>
