@@ -700,37 +700,43 @@ class AzureUtils:
         import math
 
         all_ckpts = analysis.get_trial_checkpoints_paths(each_trial)
-        ckpt_path = re.search(
-            r"^(?P<ckpt_path>.*)/checkpoint_\d+/", all_ckpts[0][0]
-        ).group("ckpt_path")
 
-        with open(os.path.join(ckpt_path, "result.json"), "r") as fin:
+        try:
+            ckpt_path = re.search(
+                r"^(?P<ckpt_path>.*)/checkpoint_\d+/", all_ckpts[0][0]
+            ).group("ckpt_path")
+
+            with open(os.path.join(ckpt_path, "result.json"), "r") as fin:
+                all_ckpt_results = []
+                epochs = set([])
+                max_epoch = -1
+                for line in fin:
+                    result_json = json.loads(line)
+                    if result_json["epoch"] in epochs:
+                        continue
+                    epochs.add(result_json["epoch"])
+                    all_ckpt_results.append(
+                        {
+                            "epoch": result_json["epoch"],
+                            "score": result_json["eval_" + analysis.default_metric],
+                        }
+                    )
+                    max_epoch = max(max_epoch, result_json["epoch"])
+                if max_epoch < this_trial_config["num_train_epochs"] and int(
+                    math.log(max_epoch, 2)
+                ) == math.log(max_epoch, 2):
+                    is_early_stop = True
+                else:
+                    is_early_stop = False
+        except IndexError:
+            is_early_stop = False
+            max_epoch = 0
             all_ckpt_results = []
-            epochs = set([])
-            max_epoch = -1
-            for line in fin:
-                result_json = json.loads(line)
-                if result_json["epoch"] in epochs:
-                    continue
-                epochs.add(result_json["epoch"])
-                all_ckpt_results.append(
-                    {
-                        "epoch": result_json["epoch"],
-                        "score": result_json["eval_" + analysis.default_metric],
-                    }
-                )
-                max_epoch = max(max_epoch, result_json["epoch"])
-            if max_epoch < this_trial_config["num_train_epochs"] and int(
-                math.log(max_epoch, 2)
-            ) == math.log(max_epoch, 2):
-                is_early_stop = True
-            else:
-                is_early_stop = False
-            return {
-                "max_epoch": max_epoch,
-                "is_early_stop": is_early_stop,
-                "all_ckpt_results": all_ckpt_results,
-            }
+        return {
+            "max_epoch": max_epoch,
+            "is_early_stop": is_early_stop,
+            "all_ckpt_results": all_ckpt_results,
+        }
 
     def extract_configscore_list_from_analysis(self, analysis):
         """
