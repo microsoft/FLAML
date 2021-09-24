@@ -348,7 +348,7 @@ class JobID:
 
     @staticmethod
     def set_to_str(value_set):
-        return sorted(list(value_set))[0]
+        return min(value_set)
 
     def set_jobid_from_arg_list(self, **jobid_list):
         """
