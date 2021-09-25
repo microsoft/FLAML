@@ -49,7 +49,7 @@ def load_dft_args():
         help="space mode",
         required=False,
         choices=["grid", "gnr", "uni", "uni_test", "cus", "buni"],
-        default="uni",
+        default="grid",
     )
     arg_parser.add_argument(
         "--search_alg_args_mode",

@@ -74,11 +74,15 @@ class AutoTransformers:
 
     def _set_search_space(self, **custom_hpo_args):
         from .hpo.hpo_searchspace import AutoHPOSearchSpace
+        from .hpo.grid_searchspace_auto import GRID_SEARCH_SPACE_MAPPING
 
-        # if self.jobid_config.spa == "grid":
-        #     model_type = "bert"
-        # else:
-        model_type = self.jobid_config.pre
+        if self.jobid_config.mod == "grid":
+            if self.jobid_config.pre in GRID_SEARCH_SPACE_MAPPING.keys():
+                model_type = self.jobid_config.pre
+            else:
+                raise Exception("The grid space is not implemented in FLAML")
+        else:
+            model_type = self.jobid_config.pre
 
         search_space_hpo_json = AutoHPOSearchSpace.from_model_and_dataset_name(
             self.jobid_config.spa,
@@ -107,18 +111,6 @@ class AutoTransformers:
                 set(electra_space.keys()).difference(self._search_space_hpo.keys())
             ):
                 self._search_space_hpo[key] = electra_space[key]
-
-    @staticmethod
-    def cartesian_product(origin_space_dict):
-        import itertools
-
-        keys = origin_space_dict.keys()
-        values = origin_space_dict.values()
-        space_cartesian = itertools.product(*values)
-        space_cartesian_list = [
-            dict(zip(list(keys), list(each_tuple))) for each_tuple in space_cartesian
-        ]
-        return space_cartesian_list
 
     @staticmethod
     def _get_split_name(data_raw, fold_names=None):
@@ -302,6 +294,8 @@ class AutoTransformers:
         else:
             data_raw = load_dataset(*self.jobid_config.dat)
 
+        data_raw = self._rename_cols(data_raw)
+
         split_mapping, self._dev_name = AutoTransformers._get_split_name(
             data_raw, fold_names=fold_name
         )
@@ -422,13 +416,18 @@ class AutoTransformers:
             subfold_dataset = data_raw[split_mapping["test"]]
             self.test_dataset = autoencodetext_from_model_and_dataset_name()
 
-        if "label" not in self.train_dataset[0].keys():
-            if self.jobid_config.dat[0] == "hyperpartisan_news_detection":
-                ori_col = "bias"
-                new_col = "label"
-                self.train_dataset = self.train_dataset.rename_column(ori_col, new_col)
-                self.eval_dataset = self.eval_dataset.rename_column(ori_col, new_col)
-                self.test_dataset = self.test_dataset.rename_column(ori_col, new_col)
+    def _rename_cols(self, data_raw):
+        if self.jobid_config.dat[0] == "hyperpartisan_news_detection":
+            ori_col = "bias"
+            new_col = "label"
+            return self._rename_column(ori_col, new_col, data_raw)
+        else:
+            return data_raw
+
+    def _rename_column(self, ori_col, new_col, data_raw):
+        for each_key in data_raw.keys():
+            data_raw[each_key] = data_raw[each_key].rename_column(ori_col, new_col)
+        return data_raw
 
     def _load_model(self, checkpoint_path=None, per_model_config=None):
         from transformers import AutoConfig
@@ -813,132 +812,6 @@ class AutoTransformers:
                 self._num_labels = len(set([x["label"] for x in self.train_dataset]))
         elif task_name == "regression":
             self._num_labels = 1
-
-    def fit_hf(
-        self,
-        resources_per_trial,
-        num_samples,
-        time_budget,
-        custom_metric_name=None,
-        custom_metric_mode_name=None,
-        _fp16=True,
-        **custom_hpo_args
-    ):
-        # TODO remove?
-        from transformers.trainer_utils import HPSearchBackend
-
-        """Fine tuning the huggingface using HF's API Transformers.hyperparameter_search (for comparitive purpose).
-               Transformers.hyperparameter_search has the following disadvantages:
-            (1) it does not return tune.analysis.Analysis result, what is analysis used for
-            (2) it is inconvenient to develop on top of Transformers.hyperparameter_search, whose trainable function,
-                 search space, etc. are defined inside of Transformers.hyperparameter_search.
-               An example:
-            autohf_settings = {"resources_per_trial": {"cpu": 1},
-                       "num_samples": 1,
-                       "time_budget": 100000,
-                       "ckpt_per_epoch": 1,
-                       "fp16": False,
-                      }
-            validation_metric, analysis = autohf.fit(**autohf_settings,)
-            Args:
-                resources_per_trial:
-                    A dict showing the resources used by each trial,
-                    e.g., {"gpu": 4, "cpu": 4}
-                num_samples:
-                    An int variable of the maximum number of trials
-                time_budget:
-                    An int variable of the maximum time budget
-                custom_metric_name:
-                    A string of the dataset name or a function,
-                    e.g., 'accuracy', 'f1', 'loss',
-                custom_metric_mode_name:
-                    A string of the mode name,
-                    e.g., "max", "min", "last", "all"
-                fp16:
-                    boolean, default = True | whether to use fp16
-                custom_hpo_args:
-                    The additional keyword arguments, e.g.,
-                    custom_hpo_args = {"points_to_evaluate": [{
-                               "num_train_epochs": 1,
-                               "per_device_train_batch_size": 128, }]}
-            Returns:
-               validation_metric:
-                    a dict storing the validation score
-            """
-
-        def model_init():
-            return self._load_model()
-
-        def ray_hp_space(trial):
-            return {
-                "learning_rate": ray.tune.loguniform(1e-6, 1e-4),
-                "num_train_epochs": ray.tune.choice(list(range(1, 6))),
-                "seed": ray.tune.quniform(1, 41, 1),
-                "per_device_train_batch_size": ray.tune.choice([4, 8, 16, 32, 64]),
-            }
-
-        self._set_metric(custom_metric_name, custom_metric_mode_name)
-        self._set_task()
-
-        training_args = TrainingArguments(
-            output_dir=self.path_utils.hpo_ckpt_path,
-            fp16=_fp16,
-        )
-        this_model = self._load_model()
-
-        trainer = TrainerForAutoTransformers(
-            this_model,
-            args=training_args,
-            model_init=model_init,
-            train_dataset=self.train_dataset,
-            eval_dataset=self.eval_dataset,
-            tokenizer=self._tokenizer,
-            compute_metrics=self._compute_metrics_by_dataset_name,
-        )
-        self.path_utils.make_dir_per_run()
-
-        start_time = time.time()
-        best_run = trainer.hyperparameter_search(
-            n_trials=num_samples,
-            time_budget_s=time_budget,
-            # hp_space=ray_hp_space,
-            backend=HPSearchBackend.RAY,
-            resources_per_trial=resources_per_trial,
-        )
-        duration = time.time() - start_time
-        self.last_run_duration = duration
-        print("Total running time: {} seconds".format(duration))
-
-        hp_dict = best_run.hyperparameters
-        hp_dict["seed"] = int(hp_dict["seed"])
-
-        best_training_args = TrainingArguments(
-            output_dir=self.path_utils.hpo_ckpt_path,
-            fp16=_fp16,
-            **hp_dict,
-        )
-
-        best_trainer = TrainerForAutoTransformers(
-            this_model,
-            best_training_args,
-            model_init=model_init,
-            train_dataset=self.train_dataset,
-            eval_dataset=self.eval_dataset,
-            tokenizer=self._tokenizer,
-            compute_metrics=self._compute_metrics_by_dataset_name,
-        )
-
-        best_model_checkpoint_path = os.path.join(
-            self.path_utils.hpo_ckpt_path, "hpo_hf"
-        )
-        if not os.path.exists(best_model_checkpoint_path):
-            os.mkdir(best_model_checkpoint_path)
-        best_trainer.train()
-        best_trainer.save_model(best_model_checkpoint_path)
-        self._save_ckpt_json(best_model_checkpoint_path)
-        validation_metric = best_trainer.evaluate()
-
-        return validation_metric
 
     def _set_transformers_verbosity(self, transformers_verbose):
         # TODO coverage
