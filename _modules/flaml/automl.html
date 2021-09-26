@@ -1477,6 +1477,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_random</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="n">RANDOM_SEED</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_seed</span> <span class="o">=</span> <span class="n">seed</span> <span class="o">+</span> <span class="mi">19823</span> <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">20</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_learner_selector</span> <span class="o">=</span> <span class="n">learner_selector</span>
         <span class="n">old_level</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">getEffectiveLevel</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span> <span class="o">=</span> <span class="n">verbose</span>
@@ -1688,6 +1689,7 @@
                     <span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="p">),</span> <span class="s2">&quot;&lt;=&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mem_thres</span><span class="p">)</span>
                 <span class="p">],</span>
                 <span class="n">metric_constraints</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_constraints</span><span class="p">,</span>
+                <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_seed</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">search_alg</span> <span class="o">=</span> <span class="n">ConcurrencyLimiter</span><span class="p">(</span><span class="n">search_alg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_n_concurrent_trials</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">time_from_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_time_flag</span>
@@ -1868,6 +1870,7 @@
                             <span class="p">(</span><span class="n">learner_class</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="s2">&quot;&lt;=&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mem_thres</span><span class="p">)</span>
                         <span class="p">],</span>
                         <span class="n">metric_constraints</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_constraints</span><span class="p">,</span>
+                        <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_seed</span><span class="p">,</span>
                     <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">algo</span> <span class="o">=</span> <span class="n">SearchAlgo</span><span class="p">(</span>
