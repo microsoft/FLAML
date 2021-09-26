@@ -453,7 +453,9 @@ class AutoML:
         if y_pred.ndim > 1 and isinstance(y_pred, np.ndarray):
             y_pred = y_pred.flatten()
         if self._label_transformer:
-            return self._label_transformer.inverse_transform(pd.Series(y_pred))
+            return self._label_transformer.inverse_transform(
+                pd.Series(y_pred.astype(int))
+            )
         else:
             return y_pred
 
