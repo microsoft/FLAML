@@ -117,9 +117,13 @@ class SearchState:
             time2eval = result["time_total_s"]
             trained_estimator = result["trained_estimator"]
             del result["trained_estimator"]  # free up RAM
+            n_iter = trained_estimator and trained_estimator.params.get("n_estimators")
+            if n_iter is not None and "n_estimators" in config:
+                config["n_estimators"] = n_iter
+                n_iter = None
         else:
             obj, time2eval, trained_estimator = np.inf, 0.0, None
-            metric_for_logging = config = None
+            metric_for_logging = config = n_iter = None
         self.trial_time = time2eval
         self.total_time_used += time_used
         self.total_iter += 1
@@ -147,8 +151,10 @@ class SearchState:
                 self.trained_estimator.cleanup()
             if trained_estimator:
                 self.trained_estimator = trained_estimator
+            self.best_n_iter = n_iter
         self.metric_for_logging = metric_for_logging
         self.val_loss, self.config = obj, config
+        self.n_iter = n_iter
 
     def get_hist_config_sig(self, sample_size, config):
         config_values = tuple([config[k] for k in self._hp_names])
@@ -251,7 +257,9 @@ class AutoMLState:
         #     tune.report(**result)
         return result
 
-    def _train_with_config(self, estimator, config_w_resource, sample_size=None):
+    def _train_with_config(
+        self, estimator, config_w_resource, sample_size=None, n_iter=None
+    ):
         if not sample_size:
             sample_size = config_w_resource.get(
                 "FLAML_sample_size", len(self.y_train_all)
@@ -288,6 +296,7 @@ class AutoMLState:
             self.n_jobs,
             self.learner_classes.get(estimator),
             budget,
+            n_iter,
             self.fit_kwargs,
         )
         if sampled_weight is not None:
@@ -1007,7 +1016,7 @@ class AutoML:
         self._state.time_budget = None
         self._state.n_jobs = n_jobs
         self._trained_estimator = self._state._train_with_config(
-            best_estimator, best_config, sample_size
+            best_estimator, best_config, sample_size, best.n_iter
         )[0]
         logger.info("retrain from log succeeded")
         return training_duration
@@ -1697,10 +1706,9 @@ class AutoML:
                         self._state.time_from_start,
                         search_state.val_loss,
                         config,
-                        self._state.best_loss,
-                        search_state.best_config,
                         estimator,
                         search_state.sample_size,
+                        search_state.n_iter,
                     )
 
     def _search_sequential(self):
@@ -1909,10 +1917,9 @@ class AutoML:
                             self._state.time_from_start,
                             search_state.val_loss,
                             search_state.config,
-                            search_state.best_loss,
-                            search_state.best_config,
                             estimator,
                             search_state.sample_size,
+                            search_state.n_iter,
                         )
                     if mlflow is not None and mlflow.active_run():
                         with mlflow.start_run(nested=True):
@@ -1985,10 +1992,12 @@ class AutoML:
                     <= est_retrain_time + next_trial_time
                 )
             ):
+                state = self._search_states[self._best_estimator]
                 self._trained_estimator, retrain_time = self._state._train_with_config(
                     self._best_estimator,
-                    self._search_states[self._best_estimator].best_config,
+                    state.best_config,
                     self.data_size_full,
+                    state.best_n_iter,
                 )
                 logger.info(
                     "retrain {} for {:.1f}s".format(self._best_estimator, retrain_time)
@@ -2093,13 +2102,15 @@ class AutoML:
                     > self._selected.est_retrain_time(self.data_size_full)
                     and self._selected.best_config_sample_size == self._state.data_size
                 ):
+                    state = self._search_states[self._best_estimator]
                     (
                         self._trained_estimator,
                         retrain_time,
                     ) = self._state._train_with_config(
                         self._best_estimator,
-                        self._search_states[self._best_estimator].best_config,
+                        state.best_config,
                         self.data_size_full,
+                        state.best_n_iter,
                     )
                     logger.info(
                         "retrain {} for {:.1f}s".format(
