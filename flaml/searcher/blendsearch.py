@@ -129,11 +129,12 @@ class BlendSearch(Searcher):
         self._metric, self._mode = metric, mode
         init_config = low_cost_partial_config or {}
         if not init_config:
-            logger.warning(
+            logger.info(
                 "No low-cost partial config given to the search algorithm. "
                 "For cost-frugal search, "
                 "consider providing low-cost values for cost-related hps via "
-                "'low_cost_partial_config'."
+                "'low_cost_partial_config'. More info can be found at "
+                "https://github.com/microsoft/FLAML/wiki/About-%60low_cost_partial_config%60"
             )
         if evaluated_rewards and mode:
             self._points_to_evaluate = []
