@@ -355,7 +355,7 @@ class LGBMEstimator(BaseEstimator):
         if self.params["n_estimators"] > 0:
             self._fit(X_train, y_train, **kwargs)
         else:
-            self.params["n_estimators"] = n_iter
+            self.params["n_estimators"] = self._model.n_estimators
         train_time = time.time() - start_time
         return train_time
 
@@ -881,7 +881,7 @@ class CatBoostEstimator(BaseEstimator):
                 kwargs["sample_weight"] = weight
             self._model = model
         else:
-            self.params["n_estimators"] = n_iter
+            self.params["n_estimators"] = self._model.tree_count_
         # except CatBoostError:
         #     self._model = None
         train_time = time.time() - start_time
