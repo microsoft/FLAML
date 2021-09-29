@@ -146,3 +146,11 @@ except (ImportError, AssertionError):
         print(searcher.suggest("t4"))
         searcher.on_trial_complete({"t1"}, {})
         searcher.on_trial_result({"t2"}, {})
+        np.random.seed(654321)
+        searcher = RandomSearch(
+            space=config,
+            points_to_evaluate=[{"a": 7, "b": 1e-3}, {"a": 6, "b": 3e-4}],
+        )
+        print(searcher.suggest("t1"))
+        print(searcher.suggest("t2"))
+        print(searcher.suggest("t3"))
