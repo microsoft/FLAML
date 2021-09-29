@@ -265,17 +265,6 @@ class LGBMEstimator(BaseEstimator):
 
     def __init__(self, task="binary", log_max_bin=8, **params):
         super().__init__(task, **params)
-        if "objective" not in self.params:
-            # Default: ‘regression’ for LGBMRegressor,
-            # ‘binary’ or ‘multiclass’ for LGBMClassifier
-            objective = "regression"
-            if "binary" in task:
-                objective = "binary"
-            elif "multi" in task:
-                objective = "multiclass"
-            elif "rank" == task:
-                objective = "lambdarank"
-            self.params["objective"] = objective
         if "n_estimators" in self.params:
             self.params["n_estimators"] = int(round(self.params["n_estimators"]))
         if "num_leaves" in self.params:
@@ -521,7 +510,6 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         **params,
     ):
         super().__init__(task, **params)
-        del self.params["objective"]
         del self.params["max_bin"]
         del self.params["verbose"]
         self.params.update(
@@ -602,7 +590,6 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         **params,
     ):
         super().__init__(task, **params)
-        del self.params["objective"]
         del self.params["max_bin"]
         self.params.update(
             {

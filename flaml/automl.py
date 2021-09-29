@@ -2184,7 +2184,7 @@ class AutoML:
                     speed = delta_loss / delta_time
                     if speed:
                         estimated_cost = max(2 * gap / speed, estimated_cost)
-                estimated_cost == estimated_cost or 1e-10
+                estimated_cost == estimated_cost or 1e-9
                 inv.append(1 / estimated_cost)
             else:
                 estimated_cost = self._eci[i]
