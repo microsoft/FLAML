@@ -266,7 +266,7 @@ class TestAutoML(unittest.TestCase):
             "n_splits": 3,
             "metric": "accuracy",
             "log_training_metric": True,
-            "verbose": 1,
+            "verbose": 4,
             "ensemble": True,
         }
         automl.fit(X, y, **automl_settings)
@@ -281,7 +281,7 @@ class TestAutoML(unittest.TestCase):
             "n_splits": 3,
             "metric": "accuracy",
             "log_training_metric": True,
-            "verbose": 1,
+            "verbose": 4,
             "ensemble": True,
         }
         automl.fit(X, y, **automl_settings)
@@ -296,7 +296,7 @@ class TestAutoML(unittest.TestCase):
             "n_splits": 3,
             "metric": "accuracy",
             "log_training_metric": True,
-            "verbose": 1,
+            "verbose": 4,
             "ensemble": True,
         }
         automl.fit(X, y, **automl_settings)
@@ -311,7 +311,7 @@ class TestAutoML(unittest.TestCase):
             "n_splits": 3,
             "metric": "accuracy",
             "log_training_metric": True,
-            "verbose": 1,
+            "verbose": 4,
             "ensemble": True,
         }
         automl.fit(X, y, **automl_settings)
@@ -861,8 +861,8 @@ class TestAutoML(unittest.TestCase):
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 3,
-            "metric": 'accuracy',
-            "task": 'classification',
+            "metric": "accuracy",
+            "task": "classification",
             "log_file_name": "test/iris.log",
             "log_training_metric": True,
             "n_jobs": 1,
@@ -873,16 +873,19 @@ class TestAutoML(unittest.TestCase):
             # test drop column
             X_train.columns = range(X_train.shape[1])
             X_train[X_train.shape[1]] = np.zeros(len(y_train))
-        automl_experiment.fit(X_train=X_train, y_train=y_train,
-                              **automl_settings)
+        automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
         automl_val_accuracy = 1.0 - automl_experiment.best_loss
-        print('Best ML leaner:', automl_experiment.best_estimator)
-        print('Best hyperparmeter config:', automl_experiment.best_config)
-        print('Best accuracy on validation data: {0:.4g}'.format(automl_val_accuracy))
-        print('Training duration of best run: {0:.4g} s'.format(automl_experiment.best_config_train_time))
+        print("Best ML leaner:", automl_experiment.best_estimator)
+        print("Best hyperparmeter config:", automl_experiment.best_config)
+        print("Best accuracy on validation data: {0:.4g}".format(automl_val_accuracy))
+        print(
+            "Training duration of best run: {0:.4g} s".format(
+                automl_experiment.best_config_train_time
+            )
+        )
 
         starting_points = {}
-        log_file_name = automl_settings['log_file_name']
+        log_file_name = automl_settings["log_file_name"]
         with training_log_reader(log_file_name) as reader:
             for record in reader.records():
                 config = record.config
@@ -893,25 +896,28 @@ class TestAutoML(unittest.TestCase):
         max_iter = sum([len(s) for k, s in starting_points.items()])
         automl_settings_resume = {
             "time_budget": 2,
-            "metric": 'accuracy',
-            "task": 'classification',
+            "metric": "accuracy",
+            "task": "classification",
             "log_file_name": "test/iris_resume_all.log",
             "log_training_metric": True,
             "n_jobs": 1,
             "max_iter": max_iter,
             "model_history": True,
-            "log_type": 'all',
+            "log_type": "all",
             "starting_points": starting_points,
             "append_log": True,
         }
         new_automl_experiment = AutoML()
-        new_automl_experiment.fit(X_train=X_train, y_train=y_train,
-                                  **automl_settings_resume)
+        new_automl_experiment.fit(
+            X_train=X_train, y_train=y_train, **automl_settings_resume
+        )
 
         new_automl_val_accuracy = 1.0 - new_automl_experiment.best_loss
         # print('Best ML leaner:', new_automl_experiment.best_estimator)
         # print('Best hyperparmeter config:', new_automl_experiment.best_config)
-        print('Best accuracy on validation data: {0:.4g}'.format(new_automl_val_accuracy))
+        print(
+            "Best accuracy on validation data: {0:.4g}".format(new_automl_val_accuracy)
+        )
         # print('Training duration of best run: {0:.4g} s'.format(new_automl_experiment.best_config_train_time))
 
 

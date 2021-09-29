@@ -1282,7 +1282,7 @@ class AutoML:
         sample_weight_val=None,
         groups_val=None,
         groups=None,
-        verbose=1,
+        verbose=3,
         retrain_full=True,
         split_type=None,
         learner_selector="sample",
@@ -1375,7 +1375,7 @@ class AutoML:
             groups: None or array-like | Group labels (with matching length to
                 y_train) or groups counts (with sum equal to length of y_train)
                 for training data.
-            verbose: int, default=1 | Controls the verbosity, higher means more
+            verbose: int, default=3 | Controls the verbosity, higher means more
                 messages.
             retrain_full: bool or str, default=True | whether to retrain the
                 selected model on the full training data when using holdout.
@@ -1435,8 +1435,8 @@ class AutoML:
         self._learner_selector = learner_selector
         old_level = logger.getEffectiveLevel()
         self.verbose = verbose
-        if verbose == 0:
-            logger.setLevel(logging.WARNING)
+        # if verbose == 0:
+        logger.setLevel(50 - verbose * 10)
         if (not mlflow or not mlflow.active_run()) and not logger.handlers:
             # Add the console handler.
             _ch = logging.StreamHandler()
@@ -1584,8 +1584,8 @@ class AutoML:
             for state in self._search_states.values():
                 if state.trained_estimator:
                     del state.trained_estimator
-        if verbose == 0:
-            logger.setLevel(old_level)
+        # if verbose == 0:
+        logger.setLevel(old_level)
 
     def _search_parallel(self):
         try:
@@ -1852,7 +1852,7 @@ class AutoML:
                 search_state.training_function,
                 search_alg=search_state.search_alg,
                 time_budget_s=min(budget_left, self._state.train_time_limit),
-                verbose=max(self.verbose - 1, 0),
+                verbose=max(self.verbose - 3, 0),
                 use_ray=False,
             )
             time_used = time.time() - start_run_time

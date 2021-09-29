@@ -17,7 +17,7 @@ from .data import group_counts
 
 import logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("flaml.automl")
 
 
 class BaseEstimator:
@@ -95,6 +95,8 @@ class BaseEstimator:
             del kwargs["groups"]
         X_train = self._preprocess(X_train)
         model = self.estimator_class(**self.params)
+        if logger.level == logging.DEBUG:
+            logger.debug(f"flaml.model - {model}")
         model.fit(X_train, y_train, **kwargs)
         train_time = time.time() - current_time
         self._model = model
