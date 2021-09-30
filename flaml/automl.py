@@ -904,7 +904,7 @@ class AutoML:
         n_splits=N_SPLITS,
         split_type=None,
         groups=None,
-        n_jobs=1,
+        n_jobs=-1,
         train_best=True,
         train_full=False,
         record_id=-1,
