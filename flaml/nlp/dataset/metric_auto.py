@@ -11,7 +11,7 @@ metric_mode_mapping_glue = {
     "rte": [("accuracy", "max")],
     "sst2": [("accuracy", "max")],
     "stsb": [("pearson", "max"), ("spearmanr", "max")],
-    "wnli": [("accuracy", "max")]
+    "wnli": [("accuracy", "max")],
 }
 
 metric_mode_mapping_squad = [("exact_match", "max"), ("f1", "max")]
@@ -25,7 +25,7 @@ metric_mode_mapping_super_glue = {
     "wsc": [("accuracy", "max")],
     "wsc.fixed": [("accuracy", "max")],
     "boolq": [("accuracy", "max")],
-    "axg": [("accuracy", "max")]
+    "axg": [("accuracy", "max")],
 }
 
 metric_mode_mapping_imdb = [("accuracy", "max")]
@@ -53,37 +53,46 @@ METRIC_MAPPING = OrderedDict(
         ("amazon_polarity", metric_mode_mapping_yelp),
         ("yelp_polarity", metric_mode_mapping_yelp),
         ("anli", metric_mode_mapping_anli),
-        ("hyperpartisan_news_detection", metric_mode_mapping_hyperpartisan)
+        ("hyperpartisan_news_detection", metric_mode_mapping_hyperpartisan),
     ]
 )
 
 
-def get_default_and_alternative_metric(dataset_name_list: typing.List,
-                                       subdataset_name=None,
-                                       custom_metric_name=None,
-                                       custom_metric_mode_name=None):
+def get_default_and_alternative_metric(
+    dataset_name_list: typing.List,
+    subdataset_name=None,
+    custom_metric_name=None,
+    custom_metric_mode_name=None,
+):
     from ..result_analysis.azure_utils import JobID
+
     dataset_name = JobID.dataset_list_to_str(dataset_name_list)
     if dataset_name not in METRIC_MAPPING.keys():
-        assert custom_metric_name and custom_metric_mode_name, \
-            "The dataset is not in {}, you must explicitly specify " \
-            "the custom_metric_name and custom_metric_mode_name".format(",".join(METRIC_MAPPING.keys()))
+        assert custom_metric_name and custom_metric_mode_name, (
+            "The dataset is not in {}, you must explicitly specify "
+            "the custom_metric_name and custom_metric_mode_name".format(
+                ",".join(METRIC_MAPPING.keys())
+            )
+        )
     eval_name_mapping = METRIC_MAPPING[dataset_name]
     if isinstance(eval_name_mapping, dict):
-        assert subdataset_name and subdataset_name in eval_name_mapping, \
-            "dataset_name and subdataset_name not correctly specified"
+        assert (
+            subdataset_name and subdataset_name in eval_name_mapping
+        ), "dataset_name and subdataset_name not correctly specified"
         default_metric, default_mode = eval_name_mapping[subdataset_name][0]
-        all_metrics, all_mode \
-            = [x[0] for x in eval_name_mapping[subdataset_name]] \
-            + ["loss"], [x[1] for x in eval_name_mapping[subdataset_name]] + ["min"]
+        all_metrics, all_mode = [x[0] for x in eval_name_mapping[subdataset_name]] + [
+            "loss"
+        ], [x[1] for x in eval_name_mapping[subdataset_name]] + ["min"]
 
         return default_metric, default_mode, all_metrics, all_mode
     else:
-        # TODO coverage
-        assert isinstance(eval_name_mapping, list), "dataset_name and subdataset_name not correctly specified"
+        assert isinstance(
+            eval_name_mapping, list
+        ), "dataset_name and subdataset_name not correctly specified"
 
         default_metric, default_mode = eval_name_mapping[0]
-        all_metrics, all_mode = [x[0] for x in eval_name_mapping] + ["loss"], \
-                                [x[1] for x in eval_name_mapping] + ["min"]
+        all_metrics, all_mode = [x[0] for x in eval_name_mapping] + ["loss"], [
+            x[1] for x in eval_name_mapping
+        ] + ["min"]
 
         return default_metric, default_mode, all_metrics, all_mode

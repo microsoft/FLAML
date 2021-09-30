@@ -24,10 +24,7 @@ class WandbUtils:
     # and removing the wandb_mixin decorator
     # https://docs.ray.io/en/master/tune/tutorials/tune-wandb.html
 
-    def __init__(self,
-                 is_wandb_on=False,
-                 wandb_key_path=None,
-                 jobid_config=None):
+    def __init__(self, is_wandb_on=False, wandb_key_path=None, jobid_config=None):
         if is_wandb_on:
             wandb_key = WandbUtils.get_wandb_key(wandb_key_path)
             if wandb_key != "":
@@ -35,7 +32,6 @@ class WandbUtils:
             os.environ["WANDB_API_KEY"] = wandb_key
             os.environ["WANDB_MODE"] = "online"
         else:
-            # TODO coverage
             os.environ["WANDB_MODE"] = "disabled"
         self.jobid_config = jobid_config
 
@@ -47,57 +43,68 @@ class WandbUtils:
                 wandb_key = key_json["wandb_key"]
                 return wandb_key
             except FileNotFoundError:
-                print("Cannot use wandb module because key.json is not found under key_path")
+                print(
+                    "Cannot use wandb module because key.json is not found under key_path"
+                )
                 return ""
         except KeyError:
             print("Cannot use wandb module because wandb key is not specified")
             return ""
 
     def set_wandb_per_trial(self):
-        # TODO coverage
         print("before wandb.init\n\n\n")
         try:
             import wandb
+
             try:
                 if os.environ["WANDB_MODE"] == "online":
                     os.environ["WANDB_SILENT"] = "false"
-                    return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
-                                      group=self.wandb_group_name,
-                                      name=str(WandbUtils._get_next_trial_ids()),
-                                      settings=wandb.Settings(
-                                          _disable_stats=True),
-                                      reinit=False)
+                    return wandb.init(
+                        project=self.jobid_config.get_jobid_full_data_name(),
+                        group=self.wandb_group_name,
+                        name=str(WandbUtils._get_next_trial_ids()),
+                        settings=wandb.Settings(_disable_stats=True),
+                        reinit=False,
+                    )
                 else:
                     return None
             except wandb.errors.UsageError as err:
                 print(err)
                 return None
         except ImportError:
-            print("Cannot use wandb module because wandb is not installed, run pip install wandb==0.10.26")
+            print(
+                "Cannot use wandb module because wandb is not installed, run pip install wandb==0.10.26"
+            )
 
     @staticmethod
     def _get_next_trial_ids():
         hash = hashlib.sha1()
-        hash.update(str(time()).encode('utf-8'))
+        hash.update(str(time()).encode("utf-8"))
         return "trial_" + hash.hexdigest()[:3]
 
     def set_wandb_per_run(self):
         try:
             import wandb
-            os.environ["WANDB_RUN_GROUP"] = self.jobid_config.to_wandb_string() + wandb.util.generate_id()
+
+            os.environ["WANDB_RUN_GROUP"] = (
+                self.jobid_config.to_wandb_string() + wandb.util.generate_id()
+            )
             self.wandb_group_name = os.environ["WANDB_RUN_GROUP"]
             try:
                 if os.environ["WANDB_MODE"] == "online":
                     os.environ["WANDB_SILENT"] = "false"
-                    return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
-                                      group=os.environ["WANDB_RUN_GROUP"],
-                                      settings=wandb.Settings(
-                                          _disable_stats=True),
-                                      reinit=False)
+                    return wandb.init(
+                        project=self.jobid_config.get_jobid_full_data_name(),
+                        group=os.environ["WANDB_RUN_GROUP"],
+                        settings=wandb.Settings(_disable_stats=True),
+                        reinit=False,
+                    )
                 else:
                     return None
             except wandb.errors.UsageError as err:
                 print(err)
                 return None
         except ImportError:
-            print("Cannot use wandb module because wandb is not installed, run pip install wandb==0.10.26")
+            print(
+                "Cannot use wandb module because wandb is not installed, run pip install wandb==0.10.26"
+            )

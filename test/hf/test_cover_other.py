@@ -46,9 +46,9 @@ def get_preparedata_setting(jobid_config):
         "jobid_config": jobid_config,
         "resplit_portion": {
             "source": ["train", "validation"],
-            "train": [0, 0.8],
-            "validation": [0.8, 0.9],
-            "test": [0.9, 1.0],
+            "train": [0, 0.1],
+            "validation": [0.1, 0.11],
+            "test": [0.11, 0.12],
         },
     }
     return preparedata_setting
@@ -89,6 +89,13 @@ def test_dataprocess():
 
         preparedata_setting = get_preparedata_setting(jobid_config)
         autohf.prepare_data(**preparedata_setting)
+
+        if subdat == "wic":
+            jobid_config.pre_full = "xlnet-base-cased"
+            jobid_config.pre = "xlnet"
+
+            preparedata_setting = get_preparedata_setting(jobid_config)
+            autohf.prepare_data(**preparedata_setting)
 
 
 def test_gridsearch_space():
@@ -131,12 +138,6 @@ def test_hpo_space():
         jobid_config.spa = spa
         if jobid_config.spa == "cus":
             custom_hpo_args = {"hpo_space": {"learning_rate": [1e-5]}}
-        elif jobid_config.spa == "buni":
-            best_config = {"learning_rate": 1e-5}
-            custom_hpo_args = {
-                "points_to_evaluate": [best_config],
-                "bound": {"learning_rate": {"u": best_config["learning_rate"]}},
-            }
         else:
             custom_hpo_args = {}
 
@@ -173,6 +174,14 @@ def test_trainer():
     trainer.convert_warmup_ratio_to_warmup_steps(
         warmup_ratio,
         max_steps=max_steps,
+        num_train_epochs=num_train_epochs,
+        num_train_examples=num_train_examples,
+        per_device_train_batch_size=per_device_train_batch_size,
+        device_count=device_count,
+    )
+    trainer.convert_warmup_ratio_to_warmup_steps(
+        warmup_ratio,
+        max_steps=None,
         num_train_epochs=num_train_epochs,
         num_train_examples=num_train_examples,
         per_device_train_batch_size=per_device_train_batch_size,
@@ -236,12 +245,112 @@ def test_wandb_utils():
     wandb_utils.wandb_group_name = "test"
     wandb_utils._get_next_trial_ids()
     wandb_utils.set_wandb_per_run()
+    wandb_utils.set_wandb_per_trial()
+
+    wandb_utils = WandbUtils(
+        is_wandb_on=False, wandb_key_path=args.key_path, jobid_config=jobid_config
+    )
+
+
+def test_objective():
+    from flaml.nlp import AutoTransformers
+    from flaml.nlp import JobID
+    from flaml.nlp import AzureUtils
+
+    """
+        test grid search
+    """
+    jobid_config = JobID()
+    jobid_config.set_unittest_config()
+    autohf = AutoTransformers()
+    jobid_config.mod = "hpo"
+    jobid_config.alg = "bs"
+    jobid_config.spa = "gnr"
+    jobid_config.pre = "bert"
+    jobid_config.arg = "cus"
+    autohf = AutoTransformers()
+
+    preparedata_setting = get_preparedata_setting(jobid_config)
+    autohf.prepare_data(**preparedata_setting)
+    autohf._transformers_verbose = 10
+    autohf._resources_per_trial = {"cpu": 1}
+    autohf.ckpt_per_epoch = 1
+    autohf._fp16 = True
+    autohf.task_name = "seq-classification"
+
+    autohf._objective(
+        config={
+            "learning_rate": 1e-5,
+            "num_train_epochs": 0.1,
+            "per_device_train_batch_size": 4,
+            "warmup_ratio": 0,
+            "weight_decay": 0,
+            "seed": 42,
+        },
+    )
+
+
+def test_search_algo_auto():
+    from flaml.nlp import AutoTransformers
+    from flaml.nlp import JobID
+    from flaml.nlp.hpo.searchalgo_auto import AutoSearchAlgorithm
+
+    jobid_config = JobID()
+    jobid_config.set_unittest_config()
+
+    _search_space_hpo = AutoTransformers._convert_dict_to_ray_tune_space(
+        {
+            "learning_rate": {"l": 1e-6, "u": 1e-3, "space": "log"},
+            "num_train_epochs": {"l": 1.0, "u": 10.0, "space": "log"},
+            "per_device_train_batch_size": [4, 8, 16, 32],
+            "warmup_ratio": {"l": 0.0, "u": 0.3, "space": "linear"},
+            "weight_decay": {"l": 0.0, "u": 0.3, "space": "linear"},
+            "adam_epsilon": {"l": 1e-8, "u": 1e-6, "space": "linear"},
+            "seed": [x for x in range(40, 45)],
+        },
+        mode="hpo",
+    )
+
+    AutoSearchAlgorithm.from_method_name(
+        "bs",
+        "dft",
+        _search_space_hpo,
+        1,
+        "accuracy",
+        "max",
+        42,
+    )
+
+    AutoSearchAlgorithm.from_method_name(
+        None,
+        "dft",
+        _search_space_hpo,
+        1,
+        "accuracy",
+        "max",
+        42,
+    )
+
+    AutoSearchAlgorithm.from_method_name(
+        "optuna",
+        "cus",
+        _search_space_hpo,
+        1,
+        "accuracy",
+        "max",
+        42,
+    )
+
+    AutoSearchAlgorithm.from_method_name(
+        "grid",
+        "dft",
+        _search_space_hpo,
+        1,
+        "accuracy",
+        "max",
+        42,
+    )
 
 
 if __name__ == "__main__":
-    test_wandb_utils()
     test_dataprocess()
-    test_gridsearch_space()
-    test_hpo_space()
-    test_trainer()
-    test_switch_head()

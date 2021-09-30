@@ -12,7 +12,6 @@ SEARCH_ALGO_MAPPING = OrderedDict(
         ("cfo", CFO),
         ("bs", BlendSearch),
         ("grid", None),
-        ("gridbert", None),
         ("rs", None),
     ]
 )
@@ -75,11 +74,9 @@ class AutoSearchAlgorithm:
             hpo_search_space
         ), "hpo_search_space needs to be specified for calling AutoSearchAlgorithm.from_method_name"
         if not search_algo_name:
-            # TODO coverage
             search_algo_name = "grid"
         if search_algo_name in SEARCH_ALGO_MAPPING.keys():
             if SEARCH_ALGO_MAPPING[search_algo_name] is None:
-                # TODO coverage
                 return None
             """
             filtering the customized args for hpo from custom_hpo_args, keep those
@@ -103,7 +100,6 @@ class AutoSearchAlgorithm:
              : max(hpo_search_space["per_device_train_batch_size"].categories)},
             """
             if search_algo_args_mode == "dft":
-                # TODO coverage
                 this_search_algo_kwargs = DEFAULT_SEARCH_ALGO_ARGS_MAPPING[
                     search_algo_name
                 ](
@@ -142,16 +138,6 @@ class AutoSearchAlgorithm:
             )
         )
 
-    @staticmethod
-    def grid2list(grid_config):
-        # TODO coverage
-        key_val_list = [
-            [(key, each_val) for each_val in val_list["grid_search"]]
-            for (key, val_list) in grid_config.items()
-        ]
-        config_list = [dict(x) for x in itertools.product(*key_val_list)]
-        return config_list
-
 
 def default_search_algo_args_optuna(
     search_args_mode,
@@ -161,7 +147,6 @@ def default_search_algo_args_optuna(
     seed=None,
     **custom_hpo_args
 ):
-    # TODO coverage
     default_search_algo_args = {}
     if search_args_mode == "cus":
         default_search_algo_args.update(custom_hpo_args)
@@ -204,36 +189,10 @@ def default_search_algo_args_bs(
     return default_search_algo_args
 
 
-def default_search_algo_args_grid_search(
-    search_args_mode,
-    metric_name,
-    metric_mode_name,
-    hpo_search_space=None,
-    seed=None,
-    **custom_hpo_args
-):
-    # TODO coverage
-    return {}
-
-
-def default_search_algo_args_random_search(
-    search_args_mode,
-    metric_name,
-    metric_mode_name,
-    hpo_search_space=None,
-    seed=None,
-    **custom_hpo_args
-):
-    # TODO coverage
-    return {}
-
-
 DEFAULT_SEARCH_ALGO_ARGS_MAPPING = OrderedDict(
     [
         ("optuna", default_search_algo_args_optuna),
         ("cfo", default_search_algo_args_bs),
         ("bs", default_search_algo_args_bs),
-        ("grid", default_search_algo_args_grid_search),
-        ("gridbert", default_search_algo_args_random_search),
     ]
 )
