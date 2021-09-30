@@ -13,10 +13,11 @@ try:
 
     assert ray_version >= "1.0.0"
     from ray.tune.analysis import ExperimentAnalysis as EA
-    from ray.tune.suggest import ConcurrencyLimiter
+
+    ray_import = True
 except (ImportError, AssertionError):
+    ray_import = False
     from .analysis import ExperimentAnalysis as EA
-    from flaml.searcher.suggestion import ConcurrencyLimiter
 from .result import DEFAULT_METRIC
 import logging
 
@@ -304,6 +305,10 @@ def run(
         if metric is None or mode is None:
             metric = metric or search_alg.metric
             mode = mode or search_alg.mode
+        if ray_import:
+            from ray.tune.suggest import ConcurrencyLimiter
+        else:
+            from flaml.searcher.suggestion import ConcurrencyLimiter
         searcher = (
             search_alg.searcher
             if isinstance(search_alg, ConcurrencyLimiter)
@@ -330,15 +335,10 @@ def run(
             params["grace_period"] = min_resource
         if reduction_factor:
             params["reduction_factor"] = reduction_factor
-        try:
-            from ray import __version__ as ray_version
-
-            assert ray_version >= "1.0.0"
+        if ray_import:
             from ray.tune.schedulers import ASHAScheduler
 
             scheduler = ASHAScheduler(**params)
-        except (ImportError, AssertionError):
-            pass
     if use_ray:
         try:
             from ray import tune
