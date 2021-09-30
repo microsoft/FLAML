@@ -13,8 +13,10 @@ try:
 
     assert ray_version >= "1.0.0"
     from ray.tune.analysis import ExperimentAnalysis as EA
+    from ray.tune.suggest import ConcurrencyLimiter
 except (ImportError, AssertionError):
     from .analysis import ExperimentAnalysis as EA
+    from flaml.searcher.suggestion import ConcurrencyLimiter
 from .result import DEFAULT_METRIC
 import logging
 
@@ -278,9 +280,9 @@ def run(
         else:
             logger.setLevel(logging.CRITICAL)
 
-    if search_alg is None:
-        from ..searcher.blendsearch import BlendSearch
+    from ..searcher.blendsearch import BlendSearch
 
+    if search_alg is None:
         search_alg = BlendSearch(
             metric=metric or DEFAULT_METRIC,
             mode=mode,
@@ -299,18 +301,23 @@ def run(
             metric_constraints=metric_constraints,
         )
     else:
-        setting = {}
-        if time_budget_s:
-            setting["time_budget_s"] = time_budget_s
-        if num_samples > 0:
-            setting["num_samples"] = num_samples
         if metric is None or mode is None:
             metric = metric or search_alg.metric
             mode = mode or search_alg.mode
-        try:
-            search_alg.set_search_properties(metric, mode, config, setting)
-        except TypeError:
-            search_alg.searcher.set_search_properties(metric, mode, config, setting)
+        searcher = (
+            search_alg.searcher
+            if isinstance(search_alg, ConcurrencyLimiter)
+            else search_alg
+        )
+        if isinstance(searcher, BlendSearch):
+            setting = {}
+            if time_budget_s:
+                setting["time_budget_s"] = time_budget_s
+            if num_samples > 0:
+                setting["num_samples"] = num_samples
+            searcher.set_search_properties(metric, mode, config, setting)
+        else:
+            searcher.set_search_properties(metric, mode, config)
     scheduler = None
     if report_intermediate_result:
         params = {}
