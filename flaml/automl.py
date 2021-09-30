@@ -1631,6 +1631,8 @@ class AutoML:
                 points_to_evaluate=points_to_evaluate,
             )
         else:
+            self._state.time_from_start = time.time() - self._start_time_flag
+            time_left = self._state.time_budget - self._state.time_from_start
             search_alg = SearchAlgo(
                 metric="val_loss",
                 space=space,
@@ -1645,13 +1647,9 @@ class AutoML:
                 ],
                 metric_constraints=self.metric_constraints,
                 seed=self._seed,
+                time_budget_s=time_left,
             )
             search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
-        self._state.time_from_start = time.time() - self._start_time_flag
-        time_left = self._state.time_budget - self._state.time_from_start
-        search_alg.set_search_properties(
-            None, None, config={"time_budget_s": time_left}
-        )
         resources_per_trial = (
             {"cpu": self._state.n_jobs} if self._state.n_jobs > 1 else None
         )
@@ -1840,10 +1838,10 @@ class AutoML:
             else:
                 search_space = None
                 if self._hpo_method in ("bs", "cfo", "cfocat"):
-                    search_state.search_alg.set_search_properties(
+                    search_state.search_alg.searcher.set_search_properties(
                         metric=None,
                         mode=None,
-                        config={
+                        setting={
                             "metric_target": self._state.best_loss,
                         },
                     )

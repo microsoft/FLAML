@@ -2,7 +2,12 @@ import unittest
 
 import numpy as np
 import scipy.sparse
-from sklearn.datasets import load_boston, load_iris, load_wine, load_breast_cancer
+from sklearn.datasets import (
+    fetch_california_housing,
+    load_iris,
+    load_wine,
+    load_breast_cancer,
+)
 
 import pandas as pd
 from datetime import datetime
@@ -17,59 +22,37 @@ from flaml.training_log import training_log_reader
 
 
 class MyRegularizedGreedyForest(SKLearnEstimator):
-    def __init__(
-        self,
-        task="binary",
-        n_jobs=1,
-        max_leaf=4,
-        n_iter=1,
-        n_tree_search=1,
-        opt_interval=1,
-        learning_rate=1.0,
-        min_samples_leaf=1,
-        **params
-    ):
+    def __init__(self, task="binary", **config):
 
-        super().__init__(task, **params)
+        super().__init__(task, **config)
 
-        if "regression" in task:
-            self.estimator_class = RGFRegressor
-        else:
+        if task in ("binary", "multi"):
             self.estimator_class = RGFClassifier
-
-        # round integer hyperparameters
-        self.params = {
-            "n_jobs": n_jobs,
-            "max_leaf": int(round(max_leaf)),
-            "n_iter": int(round(n_iter)),
-            "n_tree_search": int(round(n_tree_search)),
-            "opt_interval": int(round(opt_interval)),
-            "learning_rate": learning_rate,
-            "min_samples_leaf": int(round(min_samples_leaf)),
-        }
+        else:
+            self.estimator_class = RGFRegressor
 
     @classmethod
     def search_space(cls, data_size, task):
         space = {
             "max_leaf": {
-                "domain": tune.qloguniform(lower=4, upper=data_size, q=1),
+                "domain": tune.lograndint(lower=4, upper=data_size),
                 "init_value": 4,
             },
             "n_iter": {
-                "domain": tune.qloguniform(lower=1, upper=data_size, q=1),
+                "domain": tune.lograndint(lower=1, upper=data_size),
                 "init_value": 1,
             },
             "n_tree_search": {
-                "domain": tune.qloguniform(lower=1, upper=32768, q=1),
+                "domain": tune.lograndint(lower=1, upper=32768),
                 "init_value": 1,
             },
             "opt_interval": {
-                "domain": tune.qloguniform(lower=1, upper=10000, q=1),
+                "domain": tune.lograndint(lower=1, upper=10000),
                 "init_value": 100,
             },
             "learning_rate": {"domain": tune.loguniform(lower=0.01, upper=20.0)},
             "min_samples_leaf": {
-                "domain": tune.qloguniform(lower=1, upper=20, q=1),
+                "domain": tune.lograndint(lower=1, upper=20),
                 "init_value": 20,
             },
         }
@@ -97,15 +80,15 @@ def logregobj(preds, dtrain):
 class MyXGB1(XGBoostEstimator):
     """XGBoostEstimator with logregobj as the objective function"""
 
-    def __init__(self, **params):
-        super().__init__(objective=logregobj, **params)
+    def __init__(self, **config):
+        super().__init__(objective=logregobj, **config)
 
 
 class MyXGB2(XGBoostEstimator):
     """XGBoostEstimator with 'reg:squarederror' as the objective function"""
 
-    def __init__(self, **params):
-        super().__init__(objective="reg:squarederror", **params)
+    def __init__(self, **config):
+        super().__init__(objective="reg:squarederror", **config)
 
 
 class MyLargeLGBM(LGBMEstimator):
@@ -525,7 +508,7 @@ class TestAutoML(unittest.TestCase):
             "n_jobs": 1,
             "model_history": True,
         }
-        X_train, y_train = load_boston(return_X_y=True)
+        X_train, y_train = fetch_california_housing(return_X_y=True)
         n = int(len(y_train) * 9 // 10)
         automl_experiment.fit(
             X_train=X_train[:n],
@@ -648,7 +631,7 @@ class TestAutoML(unittest.TestCase):
             "n_concurrent_trials": 2,
             "hpo_method": hpo_method,
         }
-        X_train, y_train = load_boston(return_X_y=True)
+        X_train, y_train = fetch_california_housing(return_X_y=True)
         try:
             automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
             print(automl_experiment.predict(X_train))

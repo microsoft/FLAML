@@ -299,16 +299,18 @@ def run(
             metric_constraints=metric_constraints,
         )
     else:
-        search_alg.set_search_properties(metric, mode, config)
+        setting = {}
+        if time_budget_s:
+            setting["time_budget_s"] = time_budget_s
+        if num_samples > 0:
+            setting["num_samples"] = num_samples
         if metric is None or mode is None:
             metric = metric or search_alg.metric
             mode = mode or search_alg.mode
-        if time_budget_s or num_samples > 0:
-            search_alg.set_search_properties(
-                None,
-                None,
-                config={"time_budget_s": time_budget_s, "num_samples": num_samples},
-            )
+        try:
+            search_alg.set_search_properties(metric, mode, config, setting)
+        except TypeError:
+            search_alg.searcher.set_search_properties(metric, mode, config, setting)
     scheduler = None
     if report_intermediate_result:
         params = {}
@@ -392,7 +394,9 @@ def run(
         else:
             fail += 1  # break with ub consecutive failures
     if fail == ub:
-        logger.warning("fail to sample a trial for 10 times in a row, stopping.")
+        logger.warning(
+            f"fail to sample a trial for {max_failure} times in a row, stopping."
+        )
     if verbose > 0:
         logger.handlers.clear()
     return ExperimentAnalysis(_runner.get_trials(), metric=metric, mode=mode)

@@ -72,8 +72,9 @@ except (ImportError, AssertionError):
         searcher = BlendSearch(
             metric="m", global_search_alg=searcher, metric_constraints=[("c", "<", 1)]
         )
-        searcher.set_search_properties(metric="m2", config=config)
-        searcher.set_search_properties(config={"time_budget_s": 0})
+        searcher.set_search_properties(
+            metric="m2", config=config, setting={"time_budget_s": 0}
+        )
         c = searcher.suggest("t1")
         searcher.on_trial_complete("t1", {"config": c}, True)
         c = searcher.suggest("t2")
