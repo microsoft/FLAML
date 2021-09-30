@@ -154,43 +154,6 @@ def get_best_base_config(console_args, jobid_config, autohf, wandb_utils):
     return best_config
 
 
-def search_base_and_search_lower_lr(console_args, jobid_config, autohf, wandb_utils):
-    best_config = get_best_base_config(console_args, jobid_config, autohf, wandb_utils)
-
-    import copy
-
-    args_large = copy.deepcopy(console_args)
-    args_large.time_budget = console_args.time_budget - 3600
-    args_large.sample_num = 100000
-    args_large.algo_name = console_args.algo_name
-    args_large.search_alg_args_mode = "cus"
-    args_large.space_mode = "buni"
-    args_large.pruner = "None"
-    jobid_config_large = JobID(args_large)
-    jobid_config_large.presz = jobid_config.presz
-    jobid_config_large.pre_full = jobid_config.pre_full
-    azure_utils_large = AzureUtils(
-        root_log_path=console_args.root_log_path,
-        azure_key_path=console_args.key_path,
-        autohf=autohf,
-    )
-
-    _test_hpo(
-        args_large,
-        jobid_config_large,
-        autohf,
-        wandb_utils,
-        azure_utils_large,
-        autohf_settings=get_autohf_settings(
-            args_large,
-            **{
-                "points_to_evaluate": [best_config],
-                "bound": {"learning_rate": {"u": best_config["learning_rate"]}},
-            }
-        ),
-    )
-
-
 def search_base_and_search_around_best(console_args, jobid_config, autohf, wandb_utils):
     console_args.algo_name = "bs"
     console_args.search_alg_args_mode = "dft"

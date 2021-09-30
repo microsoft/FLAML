@@ -160,7 +160,7 @@ class JobID:
 
             .. code-block:: python
 
-                self = JobID(dat = ['glue'], subdat = 'cola', mod = 'bestnn', spa = 'buni', arg = 'cus', alg = 'bs',
+                self = JobID(dat = ['glue'], subdat = 'cola', mod = 'bestnn', spa = 'uni', arg = 'cus', alg = 'bs',
                              pru = 'None', pre = 'funnel', presz = 'xlarge', spt = 'rspt', rep = 0, sddt = 43, sdhf = 42)
 
                 partial_jobid1 = JobID(dat = ['glue'],
@@ -276,11 +276,11 @@ class JobID:
     def blobname_to_jobid_dict(keytoval_str):
         """
         Converting an azure blobname to a JobID config,
-        e.g., blobname = "dat=glue_subdat=cola_mod=bestnn_spa=buni_arg=cus_
+        e.g., blobname = "dat=glue_subdat=cola_mod=bestnn_spa=uni_arg=cus_
         alg=bs_pru=None_pre=funnel_presz=xlarge_spt=rspt_rep=0.json"
 
         the converted jobid dict = {dat = ['glue'], subdat = 'cola', mod = 'bestnn',
-                               spa = 'buni', arg = 'cus', alg = 'bs', pru = 'None',
+                               spa = 'uni', arg = 'cus', alg = 'bs', pru = 'None',
                                pre = 'funnel', presz = 'xlarge', spt = 'rspt',
                                rep = 0, sddt = 43, sdhf = 42)
         """
@@ -455,24 +455,39 @@ class JobID:
                         dataset_subdataset_name_format_check(
                             JobID.get_attrval_from_arg_or_dict(console_args, each_key)
                         )
-                        self.dat = (
-                            JobID.get_attrval_from_arg_or_dict(console_args, each_key)
-                            .split(":")[0]
-                            .split(",")
-                        )
-                        self.subdat = JobID.get_attrval_from_arg_or_dict(
-                            console_args, each_key
-                        ).split(":")[1]
+                        try:
+                            self.dat = (
+                                JobID.get_attrval_from_arg_or_dict(
+                                    console_args, each_key
+                                )
+                                .split(":")[0]
+                                .split(",")
+                            )
+                        except AttributeError:
+                            self.dat = []
+                        try:
+                            self.subdat = JobID.get_attrval_from_arg_or_dict(
+                                console_args, each_key
+                            ).split(":")[1]
+                        except AttributeError:
+                            self.subdat = ""
                     elif each_key == "pretrained_model_size":
-                        self.pre_full = JobID.get_attrval_from_arg_or_dict(
-                            console_args, each_key
-                        )[0]
-                        self.pre = JobID.extract_model_type(self.pre_full)
-                        self.presz = JobID.get_attrval_from_arg_or_dict(
-                            console_args, each_key
-                        )[1]
+                        try:
+                            self.pre_full = JobID.get_attrval_from_arg_or_dict(
+                                console_args, each_key
+                            )[0]
+                            self.pre = JobID.extract_model_type(self.pre_full)
+                        except IndexError:
+                            self.pre_full = ""
+                            self.pre = ""
+                        try:
+                            self.presz = JobID.get_attrval_from_arg_or_dict(
+                                console_args, each_key
+                            )[1]
+                        except IndexError:
+                            self.presz = ""
                     else:
-                        jobid_key = console_to_jobid_key_mapping[each_key]
+                        jobid_key = console_to_jobid_key_mapping.get(each_key, "")
                         attrval = JobID.get_attrval_from_arg_or_dict(
                             console_args, each_key
                         )
@@ -484,7 +499,6 @@ class JobID:
                 print("console_args has no attribute {}, continue".format(each_key))
                 continue
         if self.mod == "grid":
-            # TODO coverage
             self.alg = "grid"
 
 
@@ -576,7 +590,6 @@ class AzureUtils:
         elif autohf is not None:
             self.jobid = autohf.jobid_config
         else:
-            # TODO coverage
             assert jobid_config is not None, (
                 "jobid_config must be passed either through autohf.jobid_config"
                 " or jobid_config"
@@ -687,14 +700,15 @@ class AzureUtils:
             )
 
     def download_azure_blob(self, blobname):
-        # TODO coverage
         blob_client = self._init_blob_client(blobname)
-        if blob_client:
-            pathlib.Path(
-                re.search("(?P<parent_path>^.*)/[^/]+$", blobname).group("parent_path")
-            ).mkdir(parents=True, exist_ok=True)
-            with open(blobname, "wb") as fout:
-                fout.write(blob_client.download_blob().readall())
+        pathlib.Path(blobname).parent.mkdir(parents=True, exist_ok=True)
+        with open(blobname, "wb") as fout:
+            # pathlib.Path(
+            #     re.search("(?P<parent_path>^.*)/[^/]+$", blobname).group("parent_path")
+            # ).mkdir(parents=True, exist_ok=True)
+            fout.write(
+                blob_client.download_blob().readall()
+            ) if blob_client else fout.write(b"{}")
 
     def _get_all_checkpoint_results(self, analysis, each_trial, this_trial_config):
         import math
@@ -710,6 +724,7 @@ class AzureUtils:
                 all_ckpt_results = []
                 epochs = set([])
                 max_epoch = -1
+                min_epoch = 10000
                 for line in fin:
                     result_json = json.loads(line)
                     if result_json["epoch"] in epochs:
@@ -722,12 +737,10 @@ class AzureUtils:
                         }
                     )
                     max_epoch = max(max_epoch, result_json["epoch"])
-                if max_epoch < this_trial_config["num_train_epochs"] and int(
-                    math.log(max_epoch, 2)
-                ) == math.log(max_epoch, 2):
-                    is_early_stop = True
-                else:
-                    is_early_stop = False
+                    min_epoch = min(min_epoch, result_json["epoch"])
+                is_early_stop = AzureUtils.is_early_stop(
+                    max_epoch, min_epoch, this_trial_config
+                )
         except IndexError:
             is_early_stop = False
             max_epoch = 0
@@ -737,6 +750,16 @@ class AzureUtils:
             "is_early_stop": is_early_stop,
             "all_ckpt_results": all_ckpt_results,
         }
+
+    @staticmethod
+    def is_early_stop(max_epoch, min_epoch, this_trial_config):
+        import math
+
+        log_max_epoch = math.log(max_epoch / min_epoch, 2)
+        return (
+            max_epoch < this_trial_config["num_train_epochs"]
+            and int(log_max_epoch) == log_max_epoch
+        )
 
     def extract_configscore_list_from_analysis(self, analysis):
         """
@@ -748,22 +771,10 @@ class AzureUtils:
             start_time = each_trial.start_time
             last_update_time = each_trial.last_update_time
             config = each_trial.config
-            try:
-                metric_score = each_trial.metric_analysis[
-                    "eval_" + analysis.default_metric
-                ]
-                time_stamp = each_trial.metric_analysis["timestamp"]
-            except KeyError:
-                # TODO coverage
-                print(
-                    "KeyError, {} does not contain the key {} or {}".format(
-                        "each_trial.metric_analysis",
-                        "eval_" + analysis.default_metric,
-                        "timestamp",
-                    )
-                )
-                metric_score = 0
-                time_stamp = 0
+            metric_score = each_trial.metric_analysis.get(
+                "eval_" + analysis.default_metric, 0
+            )
+            time_stamp = each_trial.metric_analysis["timestamp"]
             all_ckpts_results = self._get_all_checkpoint_results(
                 analysis, each_trial, config
             )
@@ -848,7 +859,6 @@ class AzureUtils:
         """
         azure_save_file_name = local_json_file.split("/")[-1][:-5]
         if self.data_root_dir is None:
-            # TODO coverage
             from ..utils import load_dft_args
 
             console_args = load_dft_args()
@@ -869,15 +879,29 @@ class AzureUtils:
 
     @staticmethod
     def is_after_earliest_time(this_blob, earliest_time: Tuple[int, int, int]):
-        # TODO coverage
         import pytz
 
         utc = pytz.UTC
-        if this_blob.last_modified >= utc.localize(
+        return this_blob.last_modified >= utc.localize(
             datetime(earliest_time[0], earliest_time[1], earliest_time[2])
-        ):
-            return True
-        return False
+        )
+
+    @staticmethod
+    def append_blob_list(
+        each_blob, root_log_path, partial_jobid, earliest_time, blob_list
+    ):
+        if each_blob.name.startswith(root_log_path):
+            each_jobconfig = JobID.convert_blobname_to_jobid(each_blob.name)
+            is_append = False
+            if each_jobconfig:
+                if each_jobconfig.is_match(partial_jobid):
+                    is_append = True
+                if earliest_time and not AzureUtils.is_after_earliest_time(
+                    each_blob, earliest_time
+                ):
+                    is_append = False
+                if is_append:
+                    blob_list.append((each_jobconfig, each_blob))
 
     def get_configblob_from_partial_jobid(
         self, root_log_path, partial_jobid, earliest_time: Tuple[int, int, int] = None
@@ -889,19 +913,9 @@ class AzureUtils:
         container_client = self._init_azure_clients()
         if container_client:
             for each_blob in container_client.list_blobs():
-                # TODO coverage
-                if each_blob.name.startswith(root_log_path):
-                    each_jobconfig = JobID.convert_blobname_to_jobid(each_blob.name)
-                    is_append = False
-                    if each_jobconfig:
-                        if each_jobconfig.is_match(partial_jobid):
-                            is_append = True
-                        if earliest_time and not AzureUtils.is_after_earliest_time(
-                            each_blob, earliest_time
-                        ):
-                            is_append = False
-                        if is_append:
-                            blob_list.append((each_jobconfig, each_blob))
+                AzureUtils.append_blob_list(
+                    each_blob, root_log_path, partial_jobid, earliest_time, blob_list
+                )
         return blob_list
 
     def rename_one_file(self, root_log_path: str, old_jobid: JobID, new_jobid: JobID):
@@ -1016,18 +1030,15 @@ class AzureUtils:
         """
         matched_config_score_lists = []
         for (each_jobconfig, each_blob) in matched_blob_list:
-            # TODO coverage
             self.download_azure_blob(each_blob.name)
             data_json = json.load(open(each_blob.name, "r"))
-            try:
-                test_metric = data_json["valid_metric"]["test"]
-            except KeyError:
-                test_metric = None
+            test_metric = data_json.get("valid_metric", {}).get("test")
             each_config_and_score_list = ConfigScoreList(
                 jobid_config=each_jobconfig,
                 blob_file=each_blob,
                 config_score_list=[
-                    ConfigScore(**each_dict) for each_dict in data_json["val_log"]
+                    ConfigScore(**each_dict)
+                    for each_dict in data_json.get("val_log", [])
                 ],
                 test_metric=test_metric,
             )

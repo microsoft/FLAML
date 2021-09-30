@@ -152,40 +152,6 @@ def compare_small_vs_large(console_args):
             print(small_score, is_in_large, sep=",")
 
 
-def print_sorted_configs(console_args, sort_method):
-    from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils
-
-    jobid_config = JobID()
-    jobid_config.mod = "bestnn"
-    jobid_config.spa = "buni"
-    jobid_config.alg = "bs"
-    jobid_config.pre = "funnel"
-    jobid_config.presz = "xlarge"
-
-    subdat_list = ["rte", "mrpc", "cola"]
-
-    for each_rep in range(3):
-        jobid_config.rep = console_args.rep_id = each_rep
-        jobid_config.subdat = subdat_list[each_rep]
-        azure_utils = AzureUtils(console_args=console_args)
-
-        matched_config_score_lists = (
-            azure_utils.get_config_and_score_from_partial_jobid(
-                console_args.root_log_path, jobid_config
-            )
-        )
-        configscorelist = matched_config_score_lists[0]._config_score_list
-        count = 0
-        for (each_config, each_score, time_stamp) in configscorelist.sorted(
-            sort_method
-        ):
-            print(count)
-            print(each_score)
-            print_config(each_config)
-            print()
-            count += 1
-
-
 def analyze_exhaustive_sweep(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils, ConfigScoreList
 
@@ -814,18 +780,6 @@ def create_partial_config_list():
     return jobid_config
 
 
-def create_partial_config_hpo():
-    jobid_config = JobID()
-    jobid_config.mod = "bestnn"
-    jobid_config.spa = "buni"
-    jobid_config.pre = "deberta"
-    jobid_config.presz = "large"
-    jobid_config.alg = "cfo"
-    jobid_config.pru = "None"
-
-    return jobid_config
-
-
 def randomly_sample_gridunion():
     space = [
         ("learning_rate", [2e-05, 4e-05, 0.00015, 1e-05, 0.0001, 3e-05, 5e-05]),
@@ -890,7 +844,7 @@ def print_benchmark(console_args):
 
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "hpo"
-    partial_jobid_config.subdat = "rte"
+    partial_jobid_config.subdat = "qnli"
     partial_jobid_config.sddt = set(["101", "102", "103"])
     partial_jobid_config.alg = "bs"
     partial_jobid_config.pre_full = "facebook-muppet-roberta-base"
@@ -1015,6 +969,50 @@ def print_by_method(console_args):
     )
 
 
+def print_asha(console_args):
+    from flaml.nlp.result_analysis.azure_utils import JobID
+    from flaml.nlp import AzureUtils
+
+    partial_jobid_config = JobID()
+    partial_jobid_config.mod = "hpo"
+    partial_jobid_config.subdat = "qnli"
+    partial_jobid_config.sddt = set(["101"])
+    partial_jobid_config.sdbs = set(["20", "30", "40"])
+    partial_jobid_config.alg = "bs"
+    partial_jobid_config.pru = "asha"
+    partial_jobid_config.pre_full = "facebook-muppet-roberta-base"
+    # overlap_seed_configs = None
+    config2matchedbloblists = {}
+
+    for root_log_path in ["logs_benchmark/latest/", "logs_benchmark/latest/ckpt_5/"]:
+        azure_utils = AzureUtils(
+            root_log_path=root_log_path,
+            azure_key_path=console_args.key_path,
+            jobid_config=partial_jobid_config,
+        )
+        matched_config_score_lists = (
+            azure_utils.get_config_and_score_from_partial_jobid(
+                root_log_path=root_log_path,
+                partial_jobid=partial_jobid_config,
+            )
+        )
+        # get_val_test_scores(matched_config_score_lists, "accuracy", overlap_seed_configs)
+        config2matchedbloblists[root_log_path] = matched_config_score_lists
+
+    azure_utils.plot_hpo_curves(
+        config2matchedbloblists,
+        config2color={
+            "logs_benchmark/latest/": "red",
+            "logs_benchmark/latest/ckpt_5/": "blue",
+        },
+        plot_title=partial_jobid_config.subdat
+        + "_"
+        + partial_jobid_config.pru
+        + "_"
+        + partial_jobid_config.pre_full,
+    )
+
+
 def analyze_asha(console_args):
     from flaml.nlp.result_analysis.azure_utils import JobID
     from flaml.nlp import AzureUtils
@@ -1060,6 +1058,89 @@ def analyze_asha(console_args):
         # stop = 0
 
 
+def count_pruned_trials(console_args):
+    from flaml.nlp.result_analysis.azure_utils import JobID
+    from flaml.nlp import AzureUtils
+
+    partial_jobid_config = JobID()
+    partial_jobid_config.mod = "hpo"
+    partial_jobid_config.subdat = "rte"
+    partial_jobid_config.sddt = set(["101"])
+    partial_jobid_config.sdbs = set(["40"])
+    partial_jobid_config.alg = "bs"
+    partial_jobid_config.pru = "asha"
+    partial_jobid_config.pre_full = "facebook-muppet-roberta-base"
+
+    root_log_path = "logs_benchmark/latest/glue_rte/"
+
+    azure_utils = AzureUtils(
+        root_log_path=root_log_path,
+        azure_key_path=console_args.key_path,
+        jobid_config=partial_jobid_config,
+    )
+    matched_config_score_list = (
+        azure_utils.get_config_and_score_from_partial_jobid(
+            root_log_path=root_log_path,
+            partial_jobid=partial_jobid_config,
+        )
+    )[0]
+
+    early_stop_count = all_count = 0
+    for each_config_score in matched_config_score_list._config_score_list:
+        if len(each_config_score.all_ckpts["all_ckpt_results"]) == 0:
+            continue
+        max_epoch = each_config_score.all_ckpts["max_epoch"]
+        min_epoch = each_config_score.all_ckpts["all_ckpt_results"][0]["epoch"]
+        is_early_stop = AzureUtils.is_early_stop(
+            max_epoch, min_epoch, each_config_score.config
+        )
+        early_stop_count += int(is_early_stop)
+        all_count += 1
+
+    print(early_stop_count, all_count)
+
+
+def plot_trials_with_plt(matched_config_score_list):
+    import matplotlib.pyplot as plt
+
+    for each_trial_entry in matched_config_score_list._config_score_list:
+        xs = [x["epoch"] for x in each_trial_entry.all_ckpts["all_ckpt_results"]]
+        ys = [x["score"] for x in each_trial_entry.all_ckpts["all_ckpt_results"]]
+        plt.plot(xs, ys)
+
+    plt.show()
+
+
+def plot_hpo_trials(console_args):
+    from flaml.nlp.result_analysis.azure_utils import JobID
+    from flaml.nlp import AzureUtils
+
+    partial_jobid_config = JobID()
+    partial_jobid_config.mod = "hpo"
+    partial_jobid_config.subdat = "qnli"
+    partial_jobid_config.sddt = set(["101"])
+    partial_jobid_config.sdbs = set(["40"])
+    partial_jobid_config.alg = "bs"
+    partial_jobid_config.pru = "asha"
+    partial_jobid_config.pre_full = "facebook-muppet-roberta-base"
+
+    root_log_path = "logs_benchmark/latest/glue_qnli/"
+
+    azure_utils = AzureUtils(
+        root_log_path=root_log_path,
+        azure_key_path=console_args.key_path,
+        jobid_config=partial_jobid_config,
+    )
+    matched_config_score_list = (
+        azure_utils.get_config_and_score_from_partial_jobid(
+            root_log_path=root_log_path,
+            partial_jobid=partial_jobid_config,
+        )
+    )[0]
+
+    plot_trials_with_plt(matched_config_score_list)
+
+
 def round_val(val):
     return float(int(100 * val)) / 100
 
@@ -1080,8 +1161,7 @@ if __name__ == "__main__":
     )
     console_args = load_dft_args()
 
-    partial_config_large = create_partial_config_hpo()
-    print_benchmark(console_args=console_args)
+    plot_hpo_trials(console_args=console_args)
     # analyze_small_large(console_args=args)
     # compare_learningrate(console_args=args)
     # print_crossvalidation_result(console_args=args)

@@ -1,15 +1,15 @@
 from collections import OrderedDict
 
-from .get_grid_search_space import \
-    (get_electra_space,
-     get_bert_space,
-     get_roberta_space,
-     get_funnel_space,
-     get_deberta_space,
-     get_albert_space,
-     get_longformer_space,
-     get_mobilebert_space
-     )
+from .get_grid_search_space import (
+    get_electra_space,
+    get_bert_space,
+    get_roberta_space,
+    get_funnel_space,
+    get_deberta_space,
+    get_albert_space,
+    get_longformer_space,
+    get_mobilebert_space,
+)
 
 GRID_SEARCH_SPACE_MAPPING = OrderedDict(
     [
@@ -20,7 +20,7 @@ GRID_SEARCH_SPACE_MAPPING = OrderedDict(
         ("deberta", get_deberta_space),
         ("albert", get_albert_space),
         ("mobilebert", get_mobilebert_space),
-        ("longformer", get_longformer_space)
+        ("longformer", get_longformer_space),
     ]
 )
 
@@ -33,7 +33,7 @@ HF_MODEL_LIST = [
     "distilbert",
     "deberta",
     "mobilebert",
-    "funnel"
+    "funnel",
 ]
 
 
@@ -54,12 +54,14 @@ class AutoGridSearchSpace:
         )
 
     @classmethod
-    def from_model_and_dataset_name(cls,
-                                    model_type,
-                                    model_size_type,
-                                    dataset_name_list: list = None,
-                                    subdataset_name=None,
-                                    algo_mode=None):
+    def from_model_and_dataset_name(
+        cls,
+        model_type,
+        model_size_type,
+        dataset_name_list: list = None,
+        subdataset_name=None,
+        algo_mode=None,
+    ):
         """
         Instantiate one of the classes for getting the recommended grid search space of a pre-trained LM from
         the model type, model size type, dataset name, sub dataset name and algorithm mode
@@ -78,7 +80,7 @@ class AutoGridSearchSpace:
                 A string variable which is the sub dataset name,e.g., "rte"
 
             algo_mode:
-                A string variable which is the algorithm mode for grid search, e.g., "gridbert"
+                A string variable which is the algorithm mode for grid search, e.g., "grid"
 
         Example:
             >>> AutoGridSearchSpace.from_model_and_dataset_name("electra", "small", ["glue"], "rte", "grid")
@@ -87,11 +89,15 @@ class AutoGridSearchSpace:
 
         if model_type in GRID_SEARCH_SPACE_MAPPING.keys():
             this_model_recommended_space = GRID_SEARCH_SPACE_MAPPING[model_type](
-                model_size_type, dataset_name_list, subdataset_name, algo_mode)
+                model_size_type, dataset_name_list, subdataset_name, algo_mode
+            )
             return this_model_recommended_space
         raise ValueError(
             "Unrecognized method {},{} for this kind of AutoGridSearchSpace: {}.\n"
             "Method name should be one of {}.".format(
-                model_type, dataset_name_list, cls.__name__, ", ".join(GRID_SEARCH_SPACE_MAPPING.keys())
+                model_type,
+                dataset_name_list,
+                cls.__name__,
+                ", ".join(GRID_SEARCH_SPACE_MAPPING.keys()),
             )
         )

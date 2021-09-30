@@ -42,7 +42,6 @@ class AutoTransformers:
         search_space = {}
 
         if mode == "grid":
-            # TODO add test
             for each_hp in config_json.keys():
                 this_config = config_json[each_hp]
                 assert isinstance(this_config, dict) or isinstance(this_config, list), (
@@ -114,7 +113,6 @@ class AutoTransformers:
 
     @staticmethod
     def _get_split_name(data_raw, fold_names=None):
-        # TODO coverage
         split_map = {}
         dft_split_map = {"train": "train", "validation": "validation", "test": "test"}
         default_fold_name_mapping = {
@@ -473,7 +471,6 @@ class AutoTransformers:
             model_config = _set_model_config()
 
             if is_pretrained_model_in_classification_head_list():
-                # TODO coverage
                 if self._num_labels != num_labels_old:
                     this_model = get_this_model()
                     model_config.num_labels = self._num_labels
@@ -491,7 +488,6 @@ class AutoTransformers:
             this_model.resize_token_embeddings(len(self._tokenizer))
             return this_model
         elif this_task == "regression":
-            # TODO add test
             model_config_num_labels = 1
             model_config = _set_model_config()
             this_model = get_this_model()
@@ -501,15 +497,11 @@ class AutoTransformers:
         data_name = JobID.dataset_list_to_str(self.jobid_config.dat)
         if data_name in ("glue", "super_glue"):
             metric = datasets.load.load_metric(data_name, self.jobid_config.subdat)
-        # TODO delete
-        elif data_name in ("squad", "squad_v2"):
-            metric = datasets.load.load_metric(data_name)
         else:
             metric = datasets.load.load_metric(self.metric_name)
         return metric
 
     def _compute_metrics_by_dataset_name(self, eval_pred):
-        # TODO coverage
         predictions, labels = eval_pred
         predictions = (
             np.squeeze(predictions)
@@ -520,7 +512,6 @@ class AutoTransformers:
         return metric_func.compute(predictions=predictions, references=labels)
 
     def _compute_checkpoint_freq(self, num_train_epochs, batch_size):
-        # TODO coverage
         if "gpu" in self._resources_per_trial:
             ckpt_step_freq = (
                 int(
@@ -560,8 +551,7 @@ class AutoTransformers:
 
         return training_args_config, per_model_config
 
-    def _objective(self, config, reporter, checkpoint_dir=None):
-        # TODO add test
+    def _objective(self, config, reporter=None, checkpoint_dir=None):
         from transformers.trainer_utils import set_seed
 
         self._set_transformers_verbosity(self._transformers_verbose)
@@ -576,7 +566,13 @@ class AutoTransformers:
         )
         this_model = self._load_model(per_model_config=per_model_config)
 
-        trial_id = reporter.trial_id
+        if reporter:
+            # If reporter != None, set trial_id to reporter.trial_id, i.e., when the trainable function is used for hpo
+            trial_id = reporter.trial_id
+        else:
+            # If reporter = None, set trial_id to "0000", i.e., when the trainable function is used for testing only
+            trial_id = "0000"
+
         self.path_utils.make_dir_per_trial(trial_id)
 
         ckpt_freq = self._compute_checkpoint_freq(
@@ -584,7 +580,7 @@ class AutoTransformers:
             batch_size=config["per_device_train_batch_size"],
         )
 
-        assert self.path_utils.ckpt_dir_per_trial
+        assert self.path_utils.ckpt_dir_per_trial is not None
 
         if transformers.__version__.startswith("3"):
             training_args = TrainingArguments(
@@ -624,7 +620,7 @@ class AutoTransformers:
             tokenizer=self._tokenizer,
             compute_metrics=self._compute_metrics_by_dataset_name,
         )
-        trainer.trial_id = reporter.trial_id
+        trainer.trial_id = trial_id
 
         """
             create a wandb run. If os.environ["WANDB_MODE"] == "offline", run = None
@@ -814,7 +810,6 @@ class AutoTransformers:
             self._num_labels = 1
 
     def _set_transformers_verbosity(self, transformers_verbose):
-        # TODO coverage
         if transformers_verbose == transformers.logging.ERROR:
             transformers.logging.set_verbosity_error()
         elif transformers_verbose == transformers.logging.WARNING:
@@ -1101,8 +1096,7 @@ class AutoTransformers:
         test_trainer = TrainerForAutoTransformers(best_model, training_args)
 
         if self.jobid_config.spt == "ori":
-            # TODO add test
-            if ["label"] in self.test_dataset.features.keys():
+            if "label" in self.test_dataset.features.keys():
                 self.test_dataset.remove_columns_(["label"])
                 print("Cleaning the existing label column from test data")
 

@@ -11,7 +11,7 @@ task_mapping_glue = {
     "rte": "seq-classification",
     "sst2": "seq-classification",
     "stsb": "regression",
-    "wnli": "seq-classification"
+    "wnli": "seq-classification",
 }
 
 task_mapping_anli = "seq-classification"
@@ -22,10 +22,7 @@ task_mapping_squad = "question-answering"
 
 task_mapping_dbpedia = "seq-classification"
 
-task_mapping_super_glue = {
-    "wic": "seq-classification",
-    "rte": "seq-classification"
-}
+task_mapping_super_glue = {"wic": "seq-classification", "rte": "seq-classification"}
 
 task_mapping_imdb = "seq-classification"
 
@@ -47,24 +44,30 @@ TASK_MAPPING = OrderedDict(
         ("amazon_reviews_multi", "regression"),
         ("yelp_polarity", task_mapping_imdb),
         ("anli", task_mapping_anli),
-        ("hyperpartisan_news_detection", task_mapping_hyperpartisan)
+        ("hyperpartisan_news_detection", task_mapping_hyperpartisan),
     ]
 )
 
 
 def get_default_task(dataset_name_list: list, subdataset_name=None):
     from ..result_analysis.azure_utils import JobID
+
     dataset_name = JobID.dataset_list_to_str(dataset_name_list)
-    assert dataset_name in TASK_MAPPING.keys(), "The dataset is not in {}, you must explicitly specify " \
-                                                "the custom_metric_name and custom_metric_mode_name".format(
-        ",".join(TASK_MAPPING.keys()))
+    assert dataset_name in TASK_MAPPING.keys(), (
+        "The dataset is not in {}, you must explicitly specify "
+        "the custom_metric_name and custom_metric_mode_name".format(
+            ",".join(TASK_MAPPING.keys())
+        )
+    )
     eval_name_mapping = TASK_MAPPING[dataset_name]
     if isinstance(eval_name_mapping, dict):
-        assert subdataset_name and subdataset_name in eval_name_mapping, \
-            "dataset_name and subdataset_name not correctly specified"
+        assert (
+            subdataset_name and subdataset_name in eval_name_mapping
+        ), "dataset_name and subdataset_name not correctly specified"
         default_task = eval_name_mapping[subdataset_name]
     else:
-        # TODO coverage
-        assert isinstance(eval_name_mapping, str), "dataset_name and subdataset_name not correctly specified"
+        assert isinstance(
+            eval_name_mapping, str
+        ), "dataset_name and subdataset_name not correctly specified"
         default_task = eval_name_mapping
     return default_task

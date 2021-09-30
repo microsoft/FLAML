@@ -12,7 +12,7 @@ file_name_mapping_glue = {
     "rte": ["RTE.tsv"],
     "sst2": ["SST-2.tsv"],
     "stsb": ["STS-B.tsv"],
-    "wnli": ["WNLI.tsv"]
+    "wnli": ["WNLI.tsv"],
 }
 
 default_prediction_glue = {
@@ -25,7 +25,7 @@ default_prediction_glue = {
     "rte": ["not_entailment"],
     "sst2": ["0"],
     "stsb": ["0.0"],
-    "wnli": ["0"]
+    "wnli": ["0"],
 }
 
 test_size_glue = {
@@ -38,16 +38,19 @@ test_size_glue = {
     "rte": [3000],
     "sst2": [1821],
     "stsb": [1379],
-    "wnli": [146]
+    "wnli": [146],
 }
 
 
-def output_prediction_glue(output_path, zip_file_name, predictions, train_data, dev_name, subdataset_name):
+def output_prediction_glue(
+    output_path, zip_file_name, predictions, train_data, dev_name, subdataset_name
+):
     output_dir = os.path.join(output_path, zip_file_name)
     if os.path.exists(output_dir):
         assert os.path.isdir(output_dir)
     else:
         import pathlib
+
         pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
     if subdataset_name != "stsb":
         label_list = train_data.features["label"].names
@@ -59,7 +62,6 @@ def output_prediction_glue(output_path, zip_file_name, predictions, train_data, 
             if subdataset_name != "mnli":
                 is_match = subdataset_name == each_subdataset_name
             else:
-                # TODO coverage
                 if dev_name == "validation_matched":
                     is_match = each_file == "MNLI-m.tsv"
                 else:
@@ -69,24 +71,25 @@ def output_prediction_glue(output_path, zip_file_name, predictions, train_data, 
                     writer.write("index\tprediction\n")
                     for index, item in enumerate(predictions):
                         if subdataset_name == "stsb":
-                            # TODO coverage
+                            # if the dataset is stsbm the prediction needs to be a float number rounded to [0, 5.0]
                             if item > 5.0:
                                 item = 5.0
                             writer.write(f"{index}\t{item:3.3f}\n")
                         else:
                             if subdataset_name in ("rte", "qnli", "mnli"):
-                                # TODO coverage
+                                # if the dataset is rte, qnli or mnli, the prediction needs to be the string
                                 item = label_list[item]
                                 writer.write(f"{index}\t{item}\n")
                             else:
-                                if int(item) == item:
+                                if isinstance(item, str):
+                                    writer.write(f"{index}\t{item}\n")
+                                elif int(item) == item:
                                     item = int(item)
                                     writer.write(f"{index}\t{item}\n")
                                 else:
-                                    # TODO coverage
                                     writer.write(f"{index}\t{item:3.3f}\n")
 
-    shutil.make_archive(os.path.join(output_path, zip_file_name), 'zip', output_dir)
+    shutil.make_archive(os.path.join(output_path, zip_file_name), "zip", output_dir)
     return os.path.join(output_path, zip_file_name + ".zip")
 
 
@@ -97,22 +100,22 @@ OUTPUT_PREDICTION_MAPPING = OrderedDict(
 )
 
 
-def auto_output_prediction(dataset_name_list: list,
-                           output_path,
-                           zip_file_name,
-                           predictions,
-                           train_data,
-                           dev_name,
-                           subset_name):
+def auto_output_prediction(
+    dataset_name_list: list,
+    output_path,
+    zip_file_name,
+    predictions,
+    train_data,
+    dev_name,
+    subset_name,
+):
     from ..result_analysis.azure_utils import JobID
+
     dataset_name = JobID.dataset_list_to_str(dataset_name_list)
     if dataset_name in OUTPUT_PREDICTION_MAPPING.keys():
-        return OUTPUT_PREDICTION_MAPPING[dataset_name](output_path,
-                                                       zip_file_name,
-                                                       predictions,
-                                                       train_data,
-                                                       dev_name,
-                                                       subset_name)
+        return OUTPUT_PREDICTION_MAPPING[dataset_name](
+            output_path, zip_file_name, predictions, train_data, dev_name, subset_name
+        )
     else:
         return None
 
