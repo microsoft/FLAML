@@ -18,6 +18,7 @@ from .data import group_counts
 import logging
 
 logger = logging.getLogger("flaml.automl")
+CLASSIFICATION = ("binary", "multi", "classification")
 
 
 class BaseEstimator:
@@ -46,7 +47,7 @@ class BaseEstimator:
             self._estimator_type = self.params.pop("_estimator_type")
         else:
             self._estimator_type = (
-                "classifier" if task in ("binary", "multi") else "regressor"
+                "classifier" if task in CLASSIFICATION else "regressor"
             )
 
     def get_params(self, deep=False):
@@ -146,9 +147,8 @@ class BaseEstimator:
             Each element at (i,j) is the probability for instance i to be in
                 class j
         """
-        assert self._task in (
-            "binary",
-            "multi",
+        assert (
+            self._task in CLASSIFICATION
         ), "predict_prob() only for classification task."
         X_test = self._preprocess(X_test)
         return self._model.predict_proba(X_test)
@@ -497,7 +497,7 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         self.estimator_class = xgb.XGBRegressor
         if "rank" == task:
             self.estimator_class = xgb.XGBRanker
-        elif task in ("binary", "multi"):
+        elif task in CLASSIFICATION:
             self.estimator_class = xgb.XGBClassifier
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
@@ -527,7 +527,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
                 "low_cost_init_value": 4,
             },
         }
-        if task in ("binary", "multi"):
+        if task in CLASSIFICATION:
             space["criterion"] = {
                 "domain": tune.choice(["gini", "entropy"]),
                 # 'init_value': 'gini',
@@ -554,7 +554,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         super().__init__(task, **params)
         self.params["verbose"] = 0
         self.estimator_class = RandomForestRegressor
-        if task in ("binary", "multi"):
+        if task in CLASSIFICATION:
             self.estimator_class = RandomForestClassifier
 
 
@@ -594,10 +594,7 @@ class LRL1Classifier(SKLearnEstimator):
 
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
-        assert task in (
-            "binary",
-            "multi",
-        ), "LogisticRegression for classification task only"
+        assert task in CLASSIFICATION, "LogisticRegression for classification task only"
         self.estimator_class = LogisticRegression
 
 
@@ -619,10 +616,7 @@ class LRL2Classifier(SKLearnEstimator):
 
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
-        assert task in (
-            "binary",
-            "multi",
-        ), "LogisticRegression for classification task only"
+        assert task in CLASSIFICATION, "LogisticRegression for classification task only"
         self.estimator_class = LogisticRegression
 
 
@@ -704,7 +698,7 @@ class CatBoostEstimator(BaseEstimator):
         from catboost import CatBoostRegressor
 
         self.estimator_class = CatBoostRegressor
-        if task in ("binary", "multi"):
+        if task in CLASSIFICATION:
             from catboost import CatBoostClassifier
 
             self.estimator_class = CatBoostClassifier
@@ -838,7 +832,7 @@ class KNeighborsEstimator(BaseEstimator):
 
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
-        if task in ("binary", "multi"):
+        if task in CLASSIFICATION:
             from sklearn.neighbors import KNeighborsClassifier
 
             self.estimator_class = KNeighborsClassifier
