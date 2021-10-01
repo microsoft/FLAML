@@ -18,8 +18,9 @@ try:
     from .huggingface.trainer import TrainerForAutoTransformers
     from typing import Optional
     from ray.tune.trial import Trial
-except ImportError:
-    raise Exception("To use the nlp component in flaml, run pip install flaml[nlp]")
+except ImportError as err:
+    print("To use the nlp component in flaml, run pip install flaml[nlp]")
+    raise err
 
 task_list = ["seq-classification", "regression", "question-answering"]
 
@@ -84,7 +85,7 @@ class AutoTransformers:
             if self.jobid_config.pre in GRID_SEARCH_SPACE_MAPPING.keys():
                 model_type = self.jobid_config.pre
             else:
-                raise Exception("The grid space is not implemented in FLAML")
+                raise NotImplementedError("The grid space is not implemented in FLAML")
         else:
             model_type = self.jobid_config.pre
 
@@ -831,7 +832,7 @@ class AutoTransformers:
         elif transformers_verbose == transformers.logging.DEBUG:
             transformers.logging.set_verbosity_debug()
         else:
-            raise Exception(
+            raise ValueError(
                 "transformers_verbose must be set to ERROR, WARNING, INFO or DEBUG"
             )
 
@@ -909,11 +910,11 @@ class AutoTransformers:
                 best_metric_score = metric_score
                 best_trial = trial
 
-        if not best_trial:
-            raise Exception(
-                "Could not find best trial. Did you pass the correct `metric` "
-                "parameter?"
-            )
+        # if not best_trial:
+        #     raise Exception(
+        #         "Could not find best trial. Did you pass the correct `metric` "
+        #         "parameter?"
+        #     )
         return best_trial
 
     def fit(
@@ -1065,25 +1066,28 @@ class AutoTransformers:
         best_trial = AutoTransformers.get_best_trial_with_checkpoint(
             analysis, scope="all", metric=self.metric_name, mode=self.metric_mode_name
         )
-        validation_metric = {
-            "eval_"
-            + self.metric_name: best_trial.metric_analysis[self.metric_name][
-                self.metric_mode_name
-            ]
-        }
-        for x in range(len(self._all_metrics)):
-            validation_metric[
-                "eval_" + self._all_metrics[x]
-            ] = best_trial.metric_analysis[self._all_metrics[x]][self._all_modes[x]]
+        if best_trial is not None:
+            validation_metric = {
+                "eval_"
+                + self.metric_name: best_trial.metric_analysis[self.metric_name][
+                    self.metric_mode_name
+                ]
+            }
+            for x in range(len(self._all_metrics)):
+                validation_metric[
+                    "eval_" + self._all_metrics[x]
+                ] = best_trial.metric_analysis[self._all_metrics[x]][self._all_modes[x]]
 
-        get_best_ckpt = analysis.get_best_checkpoint(
-            best_trial, metric=self.metric_name, mode=self.metric_mode_name
-        )
-        best_ckpt = AutoTransformers._recover_checkpoint(get_best_ckpt)
+            get_best_ckpt = analysis.get_best_checkpoint(
+                best_trial, metric=self.metric_name, mode=self.metric_mode_name
+            )
+            best_ckpt = AutoTransformers._recover_checkpoint(get_best_ckpt)
 
-        self._save_ckpt_json(best_ckpt)
+            self._save_ckpt_json(best_ckpt)
 
-        return validation_metric, analysis
+            return validation_metric, analysis
+        else:
+            return None, analysis
 
     def predict(self, ckpt_json_dir=None, **kwargs):
         """Predict label for test data.

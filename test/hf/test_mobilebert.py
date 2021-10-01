@@ -209,23 +209,25 @@ def test_hpo_ori():
     ]
     validation_metric, analysis = autohf.fit(**autohf_settings)
 
-    predictions, test_metric = autohf.predict()
-    if test_metric:
-        validation_metric.update({"test": test_metric})
+    if validation_metric is not None:
 
-    azure_utils = AzureUtils(
-        root_log_path="logs_test/", data_root_dir="data/", autohf=autohf
-    )
-    azure_utils._azure_key = "test"
-    azure_utils._container_name = "test"
+        predictions, test_metric = autohf.predict()
+        if test_metric:
+            validation_metric.update({"test": test_metric})
 
-    configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
-    azure_utils.write_autohf_output(
-        configscore_list=configscore_list,
-        valid_metric=validation_metric,
-        predictions=predictions,
-        duration=autohf.last_run_duration,
-    )
+        azure_utils = AzureUtils(
+            root_log_path="logs_test/", data_root_dir="data/", autohf=autohf
+        )
+        azure_utils._azure_key = "test"
+        azure_utils._container_name = "test"
+
+        configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
+        azure_utils.write_autohf_output(
+            configscore_list=configscore_list,
+            valid_metric=validation_metric,
+            predictions=predictions,
+            duration=autohf.last_run_duration,
+        )
 
 
 def test_hpo():
@@ -248,23 +250,24 @@ def test_hpo():
     autohf_settings["points_to_evaluate"] = [{"learning_rate": 2e-5}]
     validation_metric, analysis = autohf.fit(**autohf_settings)
 
-    predictions, test_metric = autohf.predict()
-    if test_metric:
-        validation_metric.update({"test": test_metric})
+    if validation_metric is not None:
+        predictions, test_metric = autohf.predict()
+        if test_metric:
+            validation_metric.update({"test": test_metric})
 
-    azure_utils = AzureUtils(
-        root_log_path="logs_test/", data_root_dir="data/", autohf=autohf
-    )
-    azure_utils._azure_key = "test"
-    azure_utils._container_name = "test"
+        azure_utils = AzureUtils(
+            root_log_path="logs_test/", data_root_dir="data/", autohf=autohf
+        )
+        azure_utils._azure_key = "test"
+        azure_utils._container_name = "test"
 
-    configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
-    azure_utils.write_autohf_output(
-        configscore_list=configscore_list,
-        valid_metric=validation_metric,
-        predictions=predictions,
-        duration=autohf.last_run_duration,
-    )
+        configscore_list = azure_utils.extract_configscore_list_from_analysis(analysis)
+        azure_utils.write_autohf_output(
+            configscore_list=configscore_list,
+            valid_metric=validation_metric,
+            predictions=predictions,
+            duration=autohf.last_run_duration,
+        )
 
 
 def test_transformers_verbosity():
