@@ -810,6 +810,8 @@ class AutoTransformers:
             self._num_labels = 1
 
     def _set_transformers_verbosity(self, transformers_verbose):
+        import transformers
+
         if transformers_verbose == transformers.logging.ERROR:
             transformers.logging.set_verbosity_error()
         elif transformers_verbose == transformers.logging.WARNING:
