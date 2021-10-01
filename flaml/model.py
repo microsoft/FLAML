@@ -95,8 +95,10 @@ class BaseEstimator:
         X_train = self._preprocess(X_train)
         model = self.estimator_class(**self.params)
         if logger.level == logging.DEBUG:
-            logger.debug(f"flaml.model - {model}")
+            logger.debug(f"flaml.model - {model} fit started")
         model.fit(X_train, y_train, **kwargs)
+        if logger.level == logging.DEBUG:
+            logger.debug(f"flaml.model - {model} fit finished")
         train_time = time.time() - current_time
         self._model = model
         return train_time
