@@ -36,7 +36,7 @@ from .config import (
     N_SPLITS,
     SAMPLE_MULTIPLY_FACTOR,
 )
-from .data import concat
+from .data import concat, CLASSIFICATION
 from . import tune
 from .training_log import training_log_reader, training_log_writer
 
@@ -619,7 +619,7 @@ class AutoML:
         if issparse(X_train_all):
             X_train_all = X_train_all.tocsr()
         if (
-            self._state.task in ("binary", "multi")
+            self._state.task in CLASSIFICATION
             and self._state.fit_kwargs.get("sample_weight") is None
             and self._split_type not in ["time", "group"]
         ):
@@ -725,7 +725,7 @@ class AutoML:
                     y_train, y_val = y_train_all[train_idx], y_train_all[val_idx]
                     self._state.groups = self._state.groups_all[train_idx]
                     self._state.groups_val = self._state.groups_all[val_idx]
-            elif self._state.task in ("binary", "multi"):
+            elif self._state.task in CLASSIFICATION:
                 # for classification, make sure the labels are complete in both
                 # training and validation data
                 label_set, first = np.unique(y_train_all, return_index=True)
@@ -1032,7 +1032,7 @@ class AutoML:
             self._state.task = get_classification_objective(
                 len(np.unique(self._y_train_all))
             )
-        if self._state.task in ("binary", "multi"):
+        if self._state.task in CLASSIFICATION:
             assert split_type in [None, "stratified", "uniform", "time", "group"]
             self._split_type = (
                 split_type or self._state.groups is None and "stratified" or "group"
@@ -2075,7 +2075,7 @@ class AutoML:
                 logger.info(estimators)
                 if len(estimators) <= 1:
                     return
-                if self._state.task in ("binary", "multi"):
+                if self._state.task in CLASSIFICATION:
                     from sklearn.ensemble import StackingClassifier as Stacker
                 else:
                     from sklearn.ensemble import StackingRegressor as Stacker
