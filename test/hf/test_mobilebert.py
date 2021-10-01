@@ -3,10 +3,10 @@
 global azure_log_path
 global azure_key
 
-try:
-    import ray
-except ImportError:
-    print("ray tune cannot be imported")
+""" Notice ray is required by flaml/nlp. The try except before each test function
+is for telling user to install flaml[nlp]. In future, if flaml/nlp contains a module that
+ does not require ray, need to remove the try...except before the test functions and address
+  import errors in the library code accordingly. """
 
 
 def get_preparedata_setting(jobid_config):
@@ -75,9 +75,13 @@ def get_autohf_settings():
 
 
 def test_hpo_grid():
+    try:
+        import ray
+    except ImportError:
+        return
+
     from flaml.nlp import AutoTransformers
     from flaml.nlp import JobID
-    from flaml.nlp import AzureUtils
 
     """
         test grid search
@@ -102,6 +106,11 @@ def test_hpo_grid():
 
 
 def test_foldname():
+    try:
+        import ray
+    except ImportError:
+        return
+
     from flaml.nlp import AutoTransformers
     from flaml.nlp import JobID
     from flaml.nlp import AzureUtils
@@ -124,6 +133,10 @@ def test_foldname():
 
 
 def test_one_sentence_key():
+    try:
+        import ray
+    except ImportError:
+        return
     from flaml.nlp import AutoTransformers
     from flaml.nlp import JobID
     from flaml.nlp import AzureUtils
@@ -145,6 +158,10 @@ def test_one_sentence_key():
 
 
 def test_cv():
+    try:
+        import ray
+    except ImportError:
+        return
     from flaml.nlp import AutoTransformers
     from flaml.nlp import JobID
     from flaml.nlp import AzureUtils
@@ -169,6 +186,10 @@ def test_cv():
 
 
 def test_hpo_ori():
+    try:
+        import ray
+    except ImportError:
+        return
     from flaml.nlp import AutoTransformers
     from flaml.nlp import JobID
     from flaml.nlp import AzureUtils
@@ -208,6 +229,10 @@ def test_hpo_ori():
 
 
 def test_hpo():
+    try:
+        import ray
+    except ImportError:
+        return
     from flaml.nlp import AutoTransformers
     from flaml.nlp import JobID
     from flaml.nlp import AzureUtils
@@ -243,6 +268,10 @@ def test_hpo():
 
 
 def test_transformers_verbosity():
+    try:
+        import ray
+    except ImportError:
+        return
     import transformers
     from flaml.nlp import AutoTransformers
     from flaml.nlp import JobID

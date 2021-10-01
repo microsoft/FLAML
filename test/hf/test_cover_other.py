@@ -1,13 +1,10 @@
 """
     test suites for covering other functions
 """
-try:
-    import ray
-except ModuleNotFoundError:
-    print("ray tune cannot be imported")
-
-from transformers import AutoConfig
-from flaml.nlp.huggingface.trainer import TrainerForAutoTransformers
+""" Notice ray is required by flaml/nlp. The try except before each test function
+ is for telling user to install flaml[nlp]. In future, if flaml/nlp contains a module that
+ does not require ray, need to remove the try...except before the test functions and address
+  import errors in the library code accordingly. """
 
 
 def get_console_args():
@@ -62,6 +59,11 @@ def test_dataprocess():
     """
     test to increase the coverage for flaml.nlp.dataprocess_auto
     """
+    try:
+        import ray
+    except ImportError:
+        return
+
     from flaml.nlp import AutoTransformers
     from flaml.nlp import JobID
     from flaml.nlp.dataset.dataprocess_auto import TOKENIZER_MAPPING
@@ -98,6 +100,11 @@ def test_dataprocess():
 
 
 def test_gridsearch_space():
+    try:
+        import ray
+    except ImportError:
+        return
+
     from flaml.nlp.hpo.grid_searchspace_auto import (
         GRID_SEARCH_SPACE_MAPPING,
         AutoGridSearchSpace,
@@ -114,6 +121,11 @@ def test_gridsearch_space():
 
 
 def test_hpo_space():
+    try:
+        import ray
+    except ImportError:
+        return
+
     from flaml.nlp.hpo.hpo_searchspace import (
         AutoHPOSearchSpace,
         HPO_SEARCH_SPACE_MAPPING,
@@ -141,6 +153,12 @@ def test_hpo_space():
 
 
 def test_trainer():
+    try:
+        import ray
+    except ImportError:
+        return
+    from flaml.nlp.huggingface.trainer import TrainerForAutoTransformers
+
     num_train_epochs = 3
     num_train_examples = 100
     per_device_train_batch_size = 32
@@ -181,6 +199,12 @@ def test_trainer():
 
 
 def test_switch_head():
+    try:
+        import ray
+    except ImportError:
+        return
+    from transformers import AutoConfig
+
     from flaml.nlp.huggingface.switch_head_auto import (
         AutoSeqClassificationHead,
         MODEL_CLASSIFICATION_HEAD_MAPPING,
@@ -204,6 +228,11 @@ def test_switch_head():
 
 
 def test_wandb_utils():
+    try:
+        import ray
+    except ImportError:
+        return
+
     from flaml.nlp.result_analysis.wandb_utils import WandbUtils
     from flaml.nlp import JobID
     import os
@@ -227,6 +256,11 @@ def test_wandb_utils():
 
 
 def test_objective():
+    try:
+        import ray
+    except ImportError:
+        return
+
     from flaml.nlp import AutoTransformers
     from flaml.nlp import JobID
     from flaml.nlp import AzureUtils
@@ -265,6 +299,11 @@ def test_objective():
 
 
 def test_search_algo_auto():
+    try:
+        import ray
+    except ImportError:
+        return
+
     from flaml.nlp import AutoTransformers
     from flaml.nlp import JobID
     from flaml.nlp.hpo.searchalgo_auto import AutoSearchAlgorithm

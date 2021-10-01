@@ -42,7 +42,6 @@ setuptools.setup(
             "rgf-python",
         ],
         "test": [
-            "ray[tune]>=1.6.0",
             "flake8>=3.8.4",
             "pytest>=6.1.1",
             "coverage>=5.3",

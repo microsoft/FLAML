@@ -1,13 +1,16 @@
-from collections import OrderedDict
-from ray.tune.schedulers import ASHAScheduler, HyperBandScheduler
+try:
+    from collections import OrderedDict
+    from ray.tune.schedulers import ASHAScheduler, HyperBandScheduler
 
-SCHEDULER_MAPPING = OrderedDict(
-    [
-        ("None", None),
-        ("asha", ASHAScheduler),
-        ("hb", HyperBandScheduler),
-    ]
-)
+    SCHEDULER_MAPPING = OrderedDict(
+        [
+            ("None", None),
+            ("asha", ASHAScheduler),
+            ("hb", HyperBandScheduler),
+        ]
+    )
+except ModuleNotFoundError:
+    print("ray not installed")
 
 
 class AutoScheduler:

@@ -4,20 +4,22 @@ import numpy as np
 import time
 
 try:
-    try:
-        import ray
-        import transformers
-        from transformers import TrainingArguments
-        import datasets
-        from .dataset.task_auto import get_default_task
-        from .result_analysis.azure_utils import JobID
-        from .huggingface.trainer import TrainerForAutoTransformers
-        from typing import Optional
-        from ray.tune.trial import Trial
-    except ModuleNotFoundError:
-        print("To use the nlp component in flaml, run pip install flaml[nlp]")
+    """Notice ray is required by flaml/nlp. This try except is for telling user to
+    install flaml[nlp]. In future, if flaml/nlp contains a module that does not require
+    ray, this line needs to be deleted. In addition, need to remove `ray[tune]` from
+    setup.py: nlp. Further more, for all the test code for those modules (that does not
+     require ray), need to remove the try...except before the test functions and address
+     import errors in the library code accordingly."""
+    import ray
+    import transformers
+    from transformers import TrainingArguments
+    import datasets
+    from .result_analysis.azure_utils import JobID
+    from .huggingface.trainer import TrainerForAutoTransformers
+    from typing import Optional
+    from ray.tune.trial import Trial
 except ImportError:
-    print("To use the nlp component in flaml, run pip install flaml[nlp]")
+    raise Exception("To use the nlp component in flaml, run pip install flaml[nlp]")
 
 task_list = ["seq-classification", "regression", "question-answering"]
 
@@ -433,6 +435,7 @@ class AutoTransformers:
         return data_raw
 
     def _load_model(self, checkpoint_path=None, per_model_config=None):
+        from .dataset.task_auto import get_default_task
         from transformers import AutoConfig
         from .huggingface.switch_head_auto import (
             AutoSeqClassificationHead,
@@ -801,6 +804,8 @@ class AutoTransformers:
         self._all_modes = all_modes
 
     def _set_task(self):
+        from .dataset.task_auto import get_default_task
+
         self.task_name = get_default_task(
             self.jobid_config.dat, self.jobid_config.subdat
         )
@@ -1113,6 +1118,8 @@ class AutoTransformers:
         predictions, labels, _ = test_trainer.prediction_loop(
             test_dataloader, description="Prediction"
         )
+        from .dataset.task_auto import get_default_task
+
         predictions = (
             np.squeeze(predictions)
             if get_default_task(self.jobid_config.dat, self.jobid_config.subdat)
