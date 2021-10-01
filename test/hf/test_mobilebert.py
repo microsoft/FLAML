@@ -3,6 +3,11 @@
 global azure_log_path
 global azure_key
 
+try:
+    import ray
+except ImportError:
+    print("ray tune cannot be imported")
+
 
 def get_preparedata_setting(jobid_config):
     preparedata_setting = {
@@ -164,11 +169,6 @@ def test_cv():
 
 
 def test_hpo_ori():
-    try:
-        import ray
-    except ImportError:
-        return
-
     from flaml.nlp import AutoTransformers
     from flaml.nlp import JobID
     from flaml.nlp import AzureUtils
@@ -208,11 +208,6 @@ def test_hpo_ori():
 
 
 def test_hpo():
-    try:
-        import ray
-    except ImportError:
-        return
-
     from flaml.nlp import AutoTransformers
     from flaml.nlp import JobID
     from flaml.nlp import AzureUtils

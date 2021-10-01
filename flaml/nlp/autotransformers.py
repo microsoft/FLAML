@@ -4,17 +4,20 @@ import numpy as np
 import time
 
 try:
-    import ray
-    import transformers
-    from transformers import TrainingArguments
-    import datasets
-    from .dataset.task_auto import get_default_task
-    from .result_analysis.azure_utils import JobID
-    from .huggingface.trainer import TrainerForAutoTransformers
-    from typing import Optional
-    from ray.tune.trial import Trial
+    try:
+        import ray
+        import transformers
+        from transformers import TrainingArguments
+        import datasets
+        from .dataset.task_auto import get_default_task
+        from .result_analysis.azure_utils import JobID
+        from .huggingface.trainer import TrainerForAutoTransformers
+        from typing import Optional
+        from ray.tune.trial import Trial
+    except ModuleNotFoundError:
+        print("To use the nlp component in flaml, run pip install flaml[nlp]")
 except ImportError:
-    raise Exception("To use the nlp component in flaml, run pip install flaml[nlp]")
+    print("To use the nlp component in flaml, run pip install flaml[nlp]")
 
 task_list = ["seq-classification", "regression", "question-answering"]
 
