@@ -243,6 +243,7 @@ class AutoTransformers:
             is_wandb_on:
                 A boolean variable indicating whether wandb is used
         """
+        from flaml.nlp.result_analysis.azure_utils import JobID
         from .dataset.dataprocess_auto import AutoEncodeText
         from transformers import AutoTokenizer
         from datasets import load_dataset
