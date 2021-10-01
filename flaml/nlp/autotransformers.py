@@ -14,7 +14,7 @@ try:
     from typing import Optional
     from ray.tune.trial import Trial
 except ImportError:
-    print("To use the nlp component in flaml, run pip install flaml[nlp]")
+    raise Exception("To use the nlp component in flaml, run pip install flaml[nlp]")
 
 task_list = ["seq-classification", "regression", "question-answering"]
 
@@ -249,6 +249,7 @@ class AutoTransformers:
         from datasets import load_dataset
         from .utils import PathUtils
         from .utils import load_dft_args
+        import datasets
 
         self._max_seq_length = max_seq_length
         self._server_name = server_name if server_name is not None else "tmdev"
@@ -1091,6 +1092,8 @@ class AutoTransformers:
             A numpy array of shape n * 1 - - each element is a predicted class
             label for an instance.
         """
+        from .huggingface.trainer import TrainerForAutoTransformers
+
         best_checkpoint = self._load_ckpt_json(ckpt_json_dir, **kwargs)
         best_model = self._load_model(checkpoint_path=best_checkpoint)
         training_args = TrainingArguments(
