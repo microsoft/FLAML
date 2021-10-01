@@ -289,7 +289,7 @@ def test_objective():
     autohf._objective(
         config={
             "learning_rate": 1e-5,
-            "num_train_epochs": 0.1,
+            "num_train_epochs": 0.01,
             "per_device_train_batch_size": 4,
             "warmup_ratio": 0,
             "weight_decay": 0,
@@ -366,4 +366,4 @@ def test_search_algo_auto():
 
 
 if __name__ == "__main__":
-    test_dataprocess()
+    test_objective()
