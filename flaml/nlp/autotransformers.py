@@ -112,10 +112,9 @@ class AutoTransformers:
                 )
             )
 
-            for key in list(
-                set(electra_space.keys()).difference(self._search_space_hpo.keys())
-            ):
-                self._search_space_hpo[key] = electra_space[key]
+            for key, value in electra_space.items():
+                if key not in self._search_space_hpo:
+                    self._search_space_hpo[key] = value
 
     @staticmethod
     def _get_split_name(data_raw, fold_names=None):
