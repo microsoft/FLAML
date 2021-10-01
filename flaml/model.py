@@ -13,12 +13,11 @@ from lightgbm import LGBMClassifier, LGBMRegressor, LGBMRanker
 from scipy.sparse import issparse
 import pandas as pd
 from . import tune
-from .data import group_counts
+from .data import group_counts, CLASSIFICATION
 
 import logging
 
 logger = logging.getLogger("flaml.automl")
-CLASSIFICATION = ("binary", "multi", "classification")
 
 
 class BaseEstimator:
