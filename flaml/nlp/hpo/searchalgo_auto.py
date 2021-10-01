@@ -226,6 +226,5 @@ DEFAULT_SEARCH_ALGO_ARGS_MAPPING = OrderedDict(
         ("cfo", default_search_algo_args_bs),
         ("bs", default_search_algo_args_bs),
         ("grid", default_search_algo_args_grid_search),
-        ("gridbert", default_search_algo_args_random_search),
     ]
 )
