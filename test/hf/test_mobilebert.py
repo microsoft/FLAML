@@ -132,8 +132,7 @@ def _test_foldname():
     """
     jobid_config = JobID()
     jobid_config.set_unittest_config()
-    jobid_config.pre = "roberta"
-    jobid_config.pre_full = "roberta-base"
+    jobid_config.reset_pre_full("roberta-base")
     autohf = AutoTransformers()
     jobid_config.subdat = "mnli"
     preparedata_setting = get_preparedata_setting_mnli(jobid_config)
@@ -158,8 +157,7 @@ def _test_one_sentence_key():
     """
     jobid_config = JobID()
     jobid_config.set_unittest_config()
-    jobid_config.pre = "roberta"
-    jobid_config.pre_full = "roberta-base"
+    jobid_config.reset_pre_full("roberta-base")
     autohf = AutoTransformers()
     jobid_config.subdat = "cola"
     preparedata_setting = get_preparedata_setting(jobid_config)

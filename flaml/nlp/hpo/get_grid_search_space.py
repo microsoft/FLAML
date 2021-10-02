@@ -160,7 +160,7 @@ def get_bert_space(
         # task, we selected the best fine-tuning learning rate (among 5e-5, 4e-5, 3e-5, and 2e-5) on the Dev set
         "glue": {
             "learning_rate": [5e-5, 4e-5, 3e-5, 2e-5],
-            "per_device_train_batch_size": [32],
+            "per_device_train_batch_size": [4],
             "num_train_epochs": [3],
         },
         # Section 4.2: We fine-tune for 3 epochs with a learning rate of 5e-5 and a batch size of 32
