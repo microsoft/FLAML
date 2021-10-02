@@ -55,7 +55,7 @@ def get_preparedata_setting(jobid_config):
     return preparedata_setting
 
 
-def test_dataprocess():
+def _test_dataprocess():
     """
     test to increase the coverage for flaml.nlp.dataprocess_auto
     """
@@ -99,7 +99,7 @@ def test_dataprocess():
             autohf.prepare_data(**preparedata_setting)
 
 
-def test_gridsearch_space():
+def _test_gridsearch_space():
     try:
         import ray
     except ImportError:
@@ -120,7 +120,7 @@ def test_gridsearch_space():
         )
 
 
-def test_hpo_space():
+def _test_hpo_space():
     try:
         import ray
     except ImportError:
@@ -152,7 +152,7 @@ def test_hpo_space():
         )
 
 
-def test_trainer():
+def _test_trainer():
     try:
         import ray
     except ImportError:
@@ -198,7 +198,7 @@ def test_trainer():
     )
 
 
-def test_switch_head():
+def _test_switch_head():
     try:
         import ray
     except ImportError:
@@ -227,7 +227,7 @@ def test_switch_head():
         )
 
 
-def test_wandb_utils():
+def _test_wandb_utils():
     try:
         import ray
     except ImportError:
@@ -255,7 +255,7 @@ def test_wandb_utils():
     )
 
 
-def test_objective():
+def _test_objective():
     try:
         import ray
     except ImportError:
@@ -290,7 +290,7 @@ def test_objective():
         config={
             "learning_rate": 1e-5,
             "num_train_epochs": 0.01,
-            "per_device_train_batch_size": 4,
+            "per_device_train_batch_size": 1,
             "warmup_ratio": 0,
             "weight_decay": 0,
             "seed": 42,
@@ -298,7 +298,7 @@ def test_objective():
     )
 
 
-def test_search_algo_auto():
+def _test_search_algo_auto():
     try:
         import ray
     except ImportError:
@@ -365,5 +365,5 @@ def test_search_algo_auto():
     )
 
 
-if __name__ == "__main__":
-    test_objective()
+# if __name__ == "__main__":
+#     test_objective()
