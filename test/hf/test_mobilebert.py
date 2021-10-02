@@ -88,7 +88,7 @@ def test_hpo_grid():
     """
     jobid_config = JobID()
     jobid_config.set_unittest_config()
-    jobid_config.subdat = "stsb"
+    # jobid_config.subdat = "stsb"
     autohf = AutoTransformers()
     jobid_config.mod = "grid"
     jobid_config.alg = "grid"
@@ -297,5 +297,5 @@ def _test_transformers_verbosity():
         autohf._set_transformers_verbosity(verbose)
 
 
-# if __name__ == "__main__":
-#     test_hpo_ori()
+if __name__ == "__main__":
+    test_hpo_grid()
