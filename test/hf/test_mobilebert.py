@@ -205,7 +205,11 @@ def test_hpo_ori():
 
     autohf_settings = get_autohf_settings()
     autohf_settings["points_to_evaluate"] = [
-        {"learning_rate": 2e-5, "num_train_epochs": 0.01}
+        {
+            "learning_rate": 2e-5,
+            "num_train_epochs": 0.01,
+            "per_device_train_batch_size": 1,
+        }
     ]
     validation_metric, analysis = autohf.fit(**autohf_settings)
 
