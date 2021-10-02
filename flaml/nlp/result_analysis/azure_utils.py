@@ -145,7 +145,7 @@ class JobID:
         self.dat = ["glue"]
         self.subdat = "mrpc"
         self.mod = "hpo"
-        self.spa = "uni_test"
+        self.spa = "gnr_test"
         self.arg = "cus"
         self.alg = "bs"
         self.pru = "None"
