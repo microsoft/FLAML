@@ -1196,7 +1196,7 @@ class AutoML:
         Returns:
             A float for the minimal sample size or None
         """
-        return MIN_SAMPLE_TRAIN if self._sample else None
+        return self._min_sample_size if self._sample else None
 
     @property
     def max_resource(self) -> Optional[float]:
@@ -1299,6 +1299,7 @@ class AutoML:
         early_stop=False,
         append_log=False,
         auto_augment=True,
+        min_sample_size=MIN_SAMPLE_TRAIN,
         **fit_kwargs,
     ):
         """Find a model for a given task
@@ -1422,6 +1423,8 @@ class AutoML:
                 records to the input log file if it exists.
             auto_augment: boolean, default=True | Whether to automatically
                 augment rare classes.
+            min_sample_size: int, default=MIN_SAMPLE_TRAIN | the minimal sample
+                size when sample=True.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Include period as
                 a key word argument for 'forecast' task.
@@ -1466,12 +1469,13 @@ class AutoML:
             or (eval_method == "cv")
         )
         self._auto_augment = auto_augment
+        self._min_sample_size = min_sample_size
         self._prepare_data(eval_method, split_ratio, n_splits)
         self._sample = (
             sample
             and task != "rank"
             and eval_method != "cv"
-            and (MIN_SAMPLE_TRAIN * SAMPLE_MULTIPLY_FACTOR < self._state.data_size)
+            and (self._min_sample_size * SAMPLE_MULTIPLY_FACTOR < self._state.data_size)
         )
         if "auto" == metric:
             if "binary" in self._state.task:
@@ -1789,7 +1793,7 @@ class AutoML:
                 search_space = search_state.search_space
                 if self._sample:
                     prune_attr = "FLAML_sample_size"
-                    min_resource = MIN_SAMPLE_TRAIN
+                    min_resource = self._min_sample_size
                     max_resource = self._state.data_size
                 else:
                     prune_attr = min_resource = max_resource = None
