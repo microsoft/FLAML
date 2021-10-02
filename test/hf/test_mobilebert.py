@@ -198,6 +198,7 @@ def test_hpo_ori():
     jobid_config.set_unittest_config()
     jobid_config.spt = "ori"
     jobid_config.subdat = "wnli"
+    jobid_config.spa = "gnr_test"
     autohf = AutoTransformers()
 
     preparedata_setting = get_preparedata_setting(jobid_config)
@@ -296,5 +297,5 @@ def _test_transformers_verbosity():
         autohf._set_transformers_verbosity(verbose)
 
 
-# if __name__ == "__main__":
-#     test_hpo_ori()
+if __name__ == "__main__":
+    test_hpo_ori()

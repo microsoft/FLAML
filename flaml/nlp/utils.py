@@ -48,7 +48,7 @@ def load_dft_args():
         type=str,
         help="space mode",
         required=False,
-        choices=["grid", "gnr", "uni", "uni_test", "cus"],
+        choices=["grid", "gnr", "uni", "uni_test", "cus", "gnr_test"],
         default="grid",
     )
     arg_parser.add_argument(

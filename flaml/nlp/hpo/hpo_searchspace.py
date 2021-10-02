@@ -92,6 +92,26 @@ def hpo_space_generic(
     return output_config
 
 
+def hpo_space_generic_test(
+    model_type=None,
+    model_size_type=None,
+    dataset_name_list: list = None,
+    subdataset_name=None,
+    algo_mode=None,
+    **custom_hpo_args
+):
+    output_config = {
+        "learning_rate": {"l": 1e-6, "u": 1e-3, "space": "log"},
+        "num_train_epochs": {"l": 0.001, "u": 10.0, "space": "log"},
+        "per_device_train_batch_size": [1, 2, 4, 8, 16, 32, 64],
+        "warmup_ratio": {"l": 0.0, "u": 0.3, "space": "linear"},
+        "weight_decay": {"l": 0.0, "u": 0.3, "space": "linear"},
+        "adam_epsilon": {"l": 1e-8, "u": 1e-6, "space": "linear"},
+        "seed": [x for x in range(40, 45)],
+    }
+    return output_config
+
+
 def hpo_space_grid(
     model_type=None,
     model_size_type=None,
@@ -110,6 +130,7 @@ HPO_SEARCH_SPACE_MAPPING = OrderedDict(
         ("grid", hpo_space_grid),
         ("uni", hpo_space_gridunion),
         ("gnr", hpo_space_generic),
+        ("gnr_test", hpo_space_generic_test),
         ("uni_test", hpo_space_gridunion_smoke_test),
         ("cus", hpo_space_custom),
     ]
