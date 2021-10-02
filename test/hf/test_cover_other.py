@@ -55,7 +55,7 @@ def get_preparedata_setting(jobid_config):
     return preparedata_setting
 
 
-def _test_dataprocess():
+def test_dataprocess():
     """
     test to increase the coverage for flaml.nlp.dataprocess_auto
     """
@@ -99,7 +99,7 @@ def _test_dataprocess():
             autohf.prepare_data(**preparedata_setting)
 
 
-def _test_gridsearch_space():
+def test_gridsearch_space():
     try:
         import ray
     except ImportError:
@@ -120,7 +120,7 @@ def _test_gridsearch_space():
         )
 
 
-def _test_hpo_space():
+def test_hpo_space():
     try:
         import ray
     except ImportError:
@@ -152,7 +152,7 @@ def _test_hpo_space():
         )
 
 
-def _test_trainer():
+def test_trainer():
     try:
         import ray
     except ImportError:
@@ -198,7 +198,7 @@ def _test_trainer():
     )
 
 
-def _test_switch_head():
+def test_switch_head():
     try:
         import ray
     except ImportError:
@@ -227,7 +227,7 @@ def _test_switch_head():
         )
 
 
-def _test_wandb_utils():
+def test_wandb_utils():
     try:
         import ray
     except ImportError:
@@ -255,7 +255,7 @@ def _test_wandb_utils():
     )
 
 
-def _test_objective():
+def test_objective():
     try:
         import ray
     except ImportError:
@@ -298,7 +298,7 @@ def _test_objective():
     )
 
 
-def _test_search_algo_auto():
+def test_search_algo_auto():
     try:
         import ray
     except ImportError:
