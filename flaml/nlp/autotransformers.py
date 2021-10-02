@@ -82,16 +82,22 @@ class AutoTransformers:
         from .hpo.grid_searchspace_auto import GRID_SEARCH_SPACE_MAPPING
 
         if self.jobid_config.mod == "grid":
-            if self.jobid_config.pre in GRID_SEARCH_SPACE_MAPPING.keys():
-                model_type = self.jobid_config.pre
+            if "grid_search_space" in custom_hpo_args.keys():
+                grid_space_model_type = custom_hpo_args["grid_search_space"]
+            elif self.jobid_config.pre in GRID_SEARCH_SPACE_MAPPING.keys():
+                grid_space_model_type = self.jobid_config.pre
             else:
+                # grid mode is not designed for user to use. Therefore we only allow
+                # grid search in the following two cases: (1) if
+                # user has specified a model, and the model contains a grid space in FLAML
+                # or (2) the user has specified which model's grid space to use
                 raise NotImplementedError("The grid space is not implemented in FLAML")
         else:
-            model_type = self.jobid_config.pre
+            grid_space_model_type = self.jobid_config.pre
 
         search_space_hpo_json = AutoHPOSearchSpace.from_model_and_dataset_name(
             self.jobid_config.spa,
-            model_type,
+            grid_space_model_type,
             self.jobid_config.presz,
             self.jobid_config.dat,
             self.jobid_config.subdat,
@@ -916,6 +922,15 @@ class AutoTransformers:
         #     )
         return best_trial
 
+    def _check_jobid_config(self):
+        assert (
+            JobID._extract_model_type_with_keywords_match(self.jobid_config.pre_full)
+            == self.jobid_config.pre
+        ), "The full name and abbreviation of the pre-trained model must be consistent"
+
+    def _check_input_args(self, **custom_hpo_args):
+        self._check_jobid_config()
+
     def fit(
         self,
         num_samples,
@@ -978,6 +993,10 @@ class AutoTransformers:
             custom_hpo_args:
                 The additional keyword arguments, e.g., custom_hpo_args = {"points_to_evaluate": [{
                 "num_train_epochs": 1, "per_device_train_batch_size": 128, }]}
+                all allowed keys in custom_hpo_args:
+                 - points_to_evaluate:
+                 - grid_search_space:
+                 -
 
         Returns:
 
@@ -995,6 +1014,8 @@ class AutoTransformers:
         """
         if len(custom_hpo_args) > 0:
             self.jobid_config.set_jobid_from_console_args(console_args=custom_hpo_args)
+
+        self._check_input_args(**custom_hpo_args)
 
         self._resources_per_trial = resources_per_trial
         self._set_metric(custom_metric_name, custom_metric_mode_name)

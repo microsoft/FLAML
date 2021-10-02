@@ -134,6 +134,10 @@ class JobID:
         if console_args:
             self.set_jobid_from_console_args(console_args)
 
+    def reset_pre_full(self, pre_full):
+        self.pre_full = pre_full
+        self.pre = self._extract_model_type_with_keywords_match(pre_full)
+
     def set_unittest_config(self):
         """
         set the JobID config for unit test

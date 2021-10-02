@@ -74,6 +74,18 @@ def get_autohf_settings():
     return autohf_settings
 
 
+def get_autohf_settings_grid():
+    autohf_settings = {
+        "resources_per_trial": {"cpu": 1},
+        "num_samples": 1,
+        "time_budget": 100000,
+        "ckpt_per_epoch": 1,
+        "fp16": False,
+        "grid_search_space": "bert",
+    }
+    return autohf_settings
+
+
 def test_hpo_grid():
     try:
         import ray
@@ -88,19 +100,19 @@ def test_hpo_grid():
     """
     jobid_config = JobID()
     jobid_config.set_unittest_config()
-    # jobid_config.subdat = "stsb"
+    jobid_config.reset_pre_full("albert-base-v1")
+    jobid_config.subdat = "stsb"
     autohf = AutoTransformers()
     jobid_config.mod = "grid"
     jobid_config.alg = "grid"
     jobid_config.spa = "grid"
-    jobid_config.pre = "bert"
     jobid_config.spt = "rspt"
     autohf = AutoTransformers()
 
     preparedata_setting = get_preparedata_setting(jobid_config)
     autohf.prepare_data(**preparedata_setting)
 
-    autohf_settings = get_autohf_settings()
+    autohf_settings = get_autohf_settings_grid()
     validation_metric, analysis = autohf.fit(**autohf_settings)
     autohf._load_model()
 
