@@ -157,7 +157,7 @@ def get_bert_space_for_test(
         "glue": {
             "learning_rate": [5e-5, 4e-5, 3e-5, 2e-5],
             "per_device_train_batch_size": [4],
-            "num_train_epochs": [3],
+            "num_train_epochs": [0.1],
         },
     }
     return get_space_union_and_unique(
