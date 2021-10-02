@@ -756,7 +756,7 @@ class AzureUtils:
         import math
 
         log_max_epoch = math.log(max_epoch / min_epoch, 2)
-        return (
+        return bool(
             max_epoch < this_trial_config["num_train_epochs"]
             and int(log_max_epoch) == log_max_epoch
         )
