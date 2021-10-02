@@ -620,6 +620,7 @@ class AutoML:
             X_train_all = X_train_all.tocsr()
         if (
             self._state.task in CLASSIFICATION
+            and self._auto_augment
             and self._state.fit_kwargs.get("sample_weight") is None
             and self._split_type not in ["time", "group"]
         ):
@@ -1291,8 +1292,9 @@ class AutoML:
         seed=None,
         n_concurrent_trials=1,
         keep_search_state=False,
-        append_log=False,
         early_stop=False,
+        append_log=False,
+        auto_augment=True,
         **fit_kwargs,
     ):
         """Find a model for a given task
@@ -1412,8 +1414,10 @@ class AutoML:
                 saving.
             early_stop: boolean, default=False | Whether to stop early if the
                 search is considered to converge.
-            append_log: boolean, default=False | whetehr to directly append the log
+            append_log: boolean, default=False | Whetehr to directly append the log
                 records to the input log file if it exists.
+            auto_augment: boolean, default=True | Whether to automatically
+                augment rare classes.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Include period as
                 a key word argument for 'forecast' task.
@@ -1457,6 +1461,7 @@ class AutoML:
             and (eval_method == "holdout" and self._state.X_val is None)
             or (eval_method == "cv")
         )
+        self._auto_augment = auto_augment
         self._prepare_data(eval_method, split_ratio, n_splits)
         self._sample = (
             sample
