@@ -909,6 +909,7 @@ class AutoML:
         train_best=True,
         train_full=False,
         record_id=-1,
+        auto_augment=True,
         **fit_kwargs,
     ):
         """Retrain from log file
@@ -953,6 +954,8 @@ class AutoML:
                 be retrained. By default `record_id = -1` which means this will be
                 ignored. `record_id = 0` corresponds to the first trial, and
                 when `record_id >= 0`, `time_budget` will be ignored.
+            auto_augment: boolean, default=True | Whether to automatically
+                augment rare classes.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight.
         """
@@ -1019,6 +1022,7 @@ class AutoML:
         elif eval_method == "auto":
             eval_method = self._decide_eval_method(time_budget)
         self.modelcount = 0
+        self._auto_augment = auto_augment
         self._prepare_data(eval_method, split_ratio, n_splits)
         self._state.time_budget = None
         self._state.n_jobs = n_jobs
