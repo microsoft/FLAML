@@ -81,7 +81,7 @@ def get_autohf_settings_grid():
         "time_budget": 100000,
         "ckpt_per_epoch": 1,
         "fp16": False,
-        "grid_search_space": "bert",
+        "grid_search_space": "bert_test",
     }
     return autohf_settings
 
@@ -100,7 +100,6 @@ def test_hpo_grid():
     """
     jobid_config = JobID()
     jobid_config.set_unittest_config()
-    jobid_config.reset_pre_full("albert-base-v1")
     jobid_config.subdat = "stsb"
     autohf = AutoTransformers()
     jobid_config.mod = "grid"

@@ -9,12 +9,14 @@ from .get_grid_search_space import (
     get_albert_space,
     get_longformer_space,
     get_mobilebert_space,
+    get_bert_space_for_test,
 )
 
 GRID_SEARCH_SPACE_MAPPING = OrderedDict(
     [
         ("electra", get_electra_space),
         ("bert", get_bert_space),
+        ("bert_test", get_bert_space_for_test),
         ("roberta", get_roberta_space),
         ("funnel", get_funnel_space),
         ("deberta", get_deberta_space),

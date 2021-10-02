@@ -144,6 +144,27 @@ def get_funnel_space(
     )
 
 
+def get_bert_space_for_test(
+    model_size_type=None,
+    dataset_name_list: list = None,
+    subdataset_name=None,
+    algo_mode=None,
+):
+    search_space_common = {}
+    search_space_unique = {
+        # Section 4.1: We use a batch size of 32 and fine-tune for 3 epochs over the data for all GLUE tasks. For each
+        # task, we selected the best fine-tuning learning rate (among 5e-5, 4e-5, 3e-5, and 2e-5) on the Dev set
+        "glue": {
+            "learning_rate": [5e-5, 4e-5, 3e-5, 2e-5],
+            "per_device_train_batch_size": [4],
+            "num_train_epochs": [3],
+        },
+    }
+    return get_space_union_and_unique(
+        search_space_common, search_space_unique, dataset_name_list
+    )
+
+
 def get_bert_space(
     model_size_type=None,
     dataset_name_list: list = None,
@@ -160,7 +181,7 @@ def get_bert_space(
         # task, we selected the best fine-tuning learning rate (among 5e-5, 4e-5, 3e-5, and 2e-5) on the Dev set
         "glue": {
             "learning_rate": [5e-5, 4e-5, 3e-5, 2e-5],
-            "per_device_train_batch_size": [4],
+            "per_device_train_batch_size": [32],
             "num_train_epochs": [3],
         },
         # Section 4.2: We fine-tune for 3 epochs with a learning rate of 5e-5 and a batch size of 32
