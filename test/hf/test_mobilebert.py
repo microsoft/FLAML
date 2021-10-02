@@ -74,7 +74,7 @@ def get_autohf_settings():
     return autohf_settings
 
 
-def test_hpo_grid():
+def _test_hpo_grid():
     try:
         import ray
     except ImportError:
@@ -105,7 +105,7 @@ def test_hpo_grid():
     autohf._load_model()
 
 
-def test_foldname():
+def _test_foldname():
     try:
         import ray
     except ImportError:
@@ -132,7 +132,7 @@ def test_foldname():
     autohf._load_model()
 
 
-def test_one_sentence_key():
+def _test_one_sentence_key():
     try:
         import ray
     except ImportError:
@@ -157,7 +157,7 @@ def test_one_sentence_key():
     validation_metric, analysis = autohf.fit(**autohf_settings)
 
 
-def test_cv():
+def _test_cv():
     try:
         import ray
     except ImportError:
@@ -275,7 +275,7 @@ def test_hpo():
         )
 
 
-def test_transformers_verbosity():
+def _test_transformers_verbosity():
     try:
         import ray
     except ImportError:
