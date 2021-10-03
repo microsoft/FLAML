@@ -8,20 +8,39 @@ An example of using AutoTransformers:
 from flaml.nlp.autotransformers import AutoTransformers
 
 autohf = AutoTransformers()
+
+from flaml.nlp.result_analysis.azure_utils import JobID
+jobid_config = JobID()
+jobid_config.set_dataset_and_model(dat=["glue"],
+                                   subdat="mrpc",
+                                   pre_full="google/electra-small-discriminator",
+                                   pre="electra",
+                                   presz="small")
+
 preparedata_setting = {
-    "dataset_subdataset_name": "glue:mrpc",
-    "pretrained_model_size": "electra-base-discriminator:base",
+    "server_name": "tmdev",
     "data_root_path": "data/",
     "max_seq_length": 128,
+    "jobid_config": jobid_config,
+    "resplit_portion": {
+        "source": ["train", "validation"],
+        "train": [0, 0.001],
+        "validation": [0.001, 0.002],
+        "test": [0.002, 0.003],
+    }
 }
 autohf.prepare_data(**preparedata_setting)
-autohf_settings = {"resources_per_trial": {"gpu": 1, "cpu": 1},
-                    "num_samples": -1,  # unlimited sample size
-                    "time_budget": 3600,
-                    "ckpt_per_epoch": 1,
-                    "fp16": False,
-                   }
+
+autohf_settings = {
+    "resources_per_trial": {"cpu": 1, "gpu": 1},
+    "num_samples": -1,
+    "time_budget": 300,
+}
+
 validation_metric, analysis = autohf.fit(**autohf_settings)
+if validation_metric is not None:
+    predictions, test_metric = autohf.predict()
+
 
 ```
 

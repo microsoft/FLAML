@@ -141,7 +141,51 @@ class JobID:
     def check_model_type_consistency(self):
         assert (
             self._extract_model_type_with_keywords_match(self.pre_full) == self.pre
-        ), "The full name and the model type of the pre-trained model must be consistent"
+        ), (
+            "The full name and the model type of the pre-trained model"
+            " must be consistent"
+        )
+
+    def set_dataset_and_model(
+        self,
+        dat: List[str],
+        subdat: str,
+        pre_full: str,
+        pre: str,
+        presz: str,
+        alg=None,
+        arg=None,
+    ):
+        """
+        set the dataset and model only for the JobID config
+
+        Args:
+            dat:
+                A list of string. For example, ["glue"], ["race","high"]
+            subdat:
+                The name of the sub dataset. For example, "mrpc"
+            pre_full:
+                The full name of the pre-trained language model in HuggingFace,
+                e.g., "google/electra-small-discriminator"
+            pre:
+                The model type of the pre-trained language model, e.g., "electra"
+            presz:
+                The size of the pre-trained language model, e.g., "small"
+        """
+        self.dat = dat
+        self.subdat = subdat
+        self.mod = "hpo"
+        self.spa = "gnr"
+        self.arg = "dft" if arg is None else arg
+        self.alg = "bs" if alg is None else alg
+        self.pru = "asha"
+        self.pre_full = pre_full
+        self.pre = pre
+        self.presz = presz
+        self.spt = "rspt"
+        self.rep = 0
+        self.sddt = 43
+        self.sdhf = 42
 
     def set_unittest_config(self):
         """
