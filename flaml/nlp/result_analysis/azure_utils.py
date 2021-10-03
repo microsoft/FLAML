@@ -617,10 +617,11 @@ class AzureUtils:
     def get_azure_key(key_path):
         try:
             try:
-                key_json = json.load(open(os.path.join(key_path, "key.json"), "r"))
-                azure_key = key_json["azure_key"]
-                azure_container_name = key_json["container_name"]
-                return azure_key, azure_container_name
+                with open(os.path.join(key_path, "key.json"), "r") as fin:
+                    key_json = json.load(fin)
+                    azure_key = key_json["azure_key"]
+                    azure_container_name = key_json["container_name"]
+                    return azure_key, azure_container_name
             except FileNotFoundError:
                 print(
                     "Your output will not be synced to azure because key.json is not found under key_path"
@@ -1040,18 +1041,19 @@ class AzureUtils:
         matched_config_score_lists = []
         for (each_jobconfig, each_blob) in matched_blob_list:
             self.download_azure_blob(each_blob.name)
-            data_json = json.load(open(each_blob.name, "r"))
-            test_metric = data_json.get("valid_metric", {}).get("test")
-            each_config_and_score_list = ConfigScoreList(
-                jobid_config=each_jobconfig,
-                blob_file=each_blob,
-                config_score_list=[
-                    ConfigScore(**each_dict)
-                    for each_dict in data_json.get("val_log", [])
-                ],
-                test_metric=test_metric,
-            )
-            matched_config_score_lists.append(each_config_and_score_list)
+            with open(each_blob.name, "r") as fin:
+                data_json = json.load(fin)
+                test_metric = data_json.get("valid_metric", {}).get("test")
+                each_config_and_score_list = ConfigScoreList(
+                    jobid_config=each_jobconfig,
+                    blob_file=each_blob,
+                    config_score_list=[
+                        ConfigScore(**each_dict)
+                        for each_dict in data_json.get("val_log", [])
+                    ],
+                    test_metric=test_metric,
+                )
+                matched_config_score_lists.append(each_config_and_score_list)
         return matched_config_score_lists
 
     def get_plot_data(self, sorted_ts, this_ts2score):

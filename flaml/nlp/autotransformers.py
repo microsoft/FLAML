@@ -762,28 +762,30 @@ class AutoTransformers:
         return subdirs[0]
 
     def _save_ckpt_json(self, best_ckpt):
-        json.dump(
-            {"best_ckpt": best_ckpt},
-            open(
-                os.path.join(
-                    self.path_utils.result_dir_per_run,
-                    "save_ckpt_" + self.jobid_config.to_jobid_string() + ".json",
-                ),
-                "w",
+        with open(
+            os.path.join(
+                self.path_utils.result_dir_per_run,
+                "save_ckpt_" + self.jobid_config.to_jobid_string() + ".json",
             ),
-        )
+            "w",
+        ) as fout:
+            json.dump(
+                {"best_ckpt": best_ckpt},
+                fout,
+            )
 
     def _save_output_metric(self, output_metrics):
-        json.dump(
-            output_metrics,
-            open(
-                os.path.join(
-                    self.path_utils.result_dir_per_run,
-                    "output_metric_" + self.jobid_config.to_jobid_string() + ".json",
-                ),
-                "w",
+        with open(
+            os.path.join(
+                self.path_utils.result_dir_per_run,
+                "output_metric_" + self.jobid_config.to_jobid_string() + ".json",
             ),
-        )
+            "w",
+        ) as fout:
+            json.dump(
+                output_metrics,
+                fout,
+            )
 
     def _load_ckpt_json(self, ckpt_dir=None, **kwargs):
         if not ckpt_dir:
@@ -792,8 +794,9 @@ class AutoTransformers:
                 "save_ckpt_" + self.jobid_config.to_jobid_string() + ".json",
             )
         try:
-            ckpt_json = json.load(open(ckpt_dir))
-            return ckpt_json["best_ckpt"]
+            with open(ckpt_dir) as fin:
+                ckpt_json = json.load(fin)
+                return ckpt_json["best_ckpt"]
         except FileNotFoundError as err:
             print(
                 "Saved checkpoint not found. Please make sure checkpoint is stored under {}".format(

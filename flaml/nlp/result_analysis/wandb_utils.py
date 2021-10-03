@@ -39,9 +39,10 @@ class WandbUtils:
     def get_wandb_key(key_path):
         try:
             try:
-                key_json = json.load(open(os.path.join(key_path, "key.json"), "r"))
-                wandb_key = key_json["wandb_key"]
-                return wandb_key
+                with open(os.path.join(key_path, "key.json"), "r") as fin:
+                    key_json = json.load(fin)
+                    wandb_key = key_json["wandb_key"]
+                    return wandb_key
             except FileNotFoundError:
                 print(
                     "Cannot use wandb module because key.json is not found under key_path"
