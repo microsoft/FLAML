@@ -8,20 +8,13 @@ An example of using AutoTransformers:
 from flaml.nlp.autotransformers import AutoTransformers
 
 autohf = AutoTransformers()
-
-from flaml.nlp.result_analysis.azure_utils import JobID
-jobid_config = JobID()
-jobid_config.set_dataset_and_model(dat=["glue"],
-                                   subdat="mrpc",
-                                   pre_full="google/electra-small-discriminator",
-                                   pre="electra",
-                                   presz="small")
-
 preparedata_setting = {
+    "dataset_subdataset_name": "glue:mrpc",
+    "pretrained_model_size": ["google/electra-small-discriminator", "small"],
+    "load_config_mode": "args",
     "server_name": "tmdev",
     "data_root_path": "data/",
     "max_seq_length": 128,
-    "jobid_config": jobid_config,
     "resplit_portion": {
         "source": ["train", "validation"],
         "train": [0, 0.001],

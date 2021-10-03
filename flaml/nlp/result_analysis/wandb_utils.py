@@ -38,17 +38,11 @@ class WandbUtils:
     @staticmethod
     def get_wandb_key(key_path):
         try:
-            try:
-                with open(os.path.join(key_path, "key.json"), "r") as fin:
-                    key_json = json.load(fin)
-                    wandb_key = key_json["wandb_key"]
-                    return wandb_key
-            except FileNotFoundError:
-                print(
-                    "Cannot use wandb module because key.json is not found under key_path"
-                )
-                return ""
-        except KeyError:
+            with open(os.path.join(key_path, "key.json"), "r") as fin:
+                key_json = json.load(fin)
+                wandb_key = key_json["wandb_key"]
+                return wandb_key
+        except (KeyError, FileNotFoundError):
             print("Cannot use wandb module because wandb key is not specified")
             return ""
 
@@ -57,20 +51,16 @@ class WandbUtils:
         try:
             import wandb
 
-            try:
-                if os.environ["WANDB_MODE"] == "online":
-                    os.environ["WANDB_SILENT"] = "false"
-                    return wandb.init(
-                        project=self.jobid_config.get_jobid_full_data_name(),
-                        group=self.wandb_group_name,
-                        name=str(WandbUtils._get_next_trial_ids()),
-                        settings=wandb.Settings(_disable_stats=True),
-                        reinit=False,
-                    )
-                else:
-                    return None
-            except wandb.errors.UsageError as err:
-                print(err)
+            if os.environ["WANDB_MODE"] == "online":
+                os.environ["WANDB_SILENT"] = "false"
+                return wandb.init(
+                    project=self.jobid_config.get_jobid_full_data_name(),
+                    group=self.wandb_group_name,
+                    name=str(WandbUtils._get_next_trial_ids()),
+                    settings=wandb.Settings(_disable_stats=True),
+                    reinit=False,
+                )
+            else:
                 return None
         except ImportError:
             print(
@@ -91,19 +81,15 @@ class WandbUtils:
                 self.jobid_config.to_wandb_string() + wandb.util.generate_id()
             )
             self.wandb_group_name = os.environ["WANDB_RUN_GROUP"]
-            try:
-                if os.environ["WANDB_MODE"] == "online":
-                    os.environ["WANDB_SILENT"] = "false"
-                    return wandb.init(
-                        project=self.jobid_config.get_jobid_full_data_name(),
-                        group=os.environ["WANDB_RUN_GROUP"],
-                        settings=wandb.Settings(_disable_stats=True),
-                        reinit=False,
-                    )
-                else:
-                    return None
-            except wandb.errors.UsageError as err:
-                print(err)
+            if os.environ["WANDB_MODE"] == "online":
+                os.environ["WANDB_SILENT"] = "false"
+                return wandb.init(
+                    project=self.jobid_config.get_jobid_full_data_name(),
+                    group=os.environ["WANDB_RUN_GROUP"],
+                    settings=wandb.Settings(_disable_stats=True),
+                    reinit=False,
+                )
+            else:
                 return None
         except ImportError:
             print(

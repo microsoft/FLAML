@@ -89,6 +89,9 @@ def get_autohf_settings_grid():
 def test_hpo_grid():
     try:
         import ray
+
+        ray.shutdown()
+        ray.init(local_mode=False)
     except ImportError:
         return
 
@@ -119,6 +122,9 @@ def test_hpo_grid():
 def test_foldname():
     try:
         import ray
+
+        ray.shutdown()
+        ray.init(local_mode=False)
     except ImportError:
         return
 
@@ -150,6 +156,9 @@ def test_foldname():
 def test_hpo_ori():
     try:
         import ray
+
+        ray.shutdown()
+        ray.init(local_mode=False)
     except ImportError:
         return
     from flaml.nlp import AutoTransformers
@@ -200,6 +209,9 @@ def test_hpo_ori():
 def test_hpo():
     try:
         import ray
+
+        ray.shutdown()
+        ray.init(local_mode=False)
     except ImportError:
         return
     from flaml.nlp import AutoTransformers
@@ -242,6 +254,9 @@ def test_hpo():
 def test_transformers_verbosity():
     try:
         import ray
+
+        ray.shutdown()
+        ray.init(local_mode=False)
     except ImportError:
         return
     import transformers
@@ -264,6 +279,9 @@ def test_transformers_verbosity():
 def test_one_sentence_key():
     try:
         import ray
+
+        ray.shutdown()
+        ray.init(local_mode=False)
     except ImportError:
         return
     from flaml.nlp import AutoTransformers
@@ -288,6 +306,9 @@ def test_one_sentence_key():
 def test_cv():
     try:
         import ray
+
+        ray.shutdown()
+        ray.init(local_mode=False)
     except ImportError:
         return
     from flaml.nlp import AutoTransformers

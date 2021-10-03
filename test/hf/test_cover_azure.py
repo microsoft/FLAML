@@ -87,6 +87,9 @@ def get_console_args():
 def test_get_configblob_from_partial_jobid():
     try:
         import ray
+
+        ray.shutdown()
+        ray.init(local_mode=False)
     except ImportError:
         return
 
@@ -121,6 +124,9 @@ def test_get_configblob_from_partial_jobid():
 def test_jobid():
     try:
         import ray
+
+        ray.shutdown()
+        ray.init(local_mode=False)
     except ImportError:
         return
 
@@ -143,6 +149,9 @@ def test_jobid():
 def test_azureutils():
     try:
         import ray
+
+        ray.shutdown()
+        ray.init(local_mode=False)
     except ImportError:
         return
 

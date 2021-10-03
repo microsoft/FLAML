@@ -61,6 +61,9 @@ def test_dataprocess():
     """
     try:
         import ray
+
+        ray.shutdown()
+        ray.init(local_mode=False)
     except ImportError:
         return
 
@@ -102,6 +105,9 @@ def test_dataprocess():
 def test_gridsearch_space():
     try:
         import ray
+
+        ray.shutdown()
+        ray.init(local_mode=False)
     except ImportError:
         return
 
@@ -123,6 +129,9 @@ def test_gridsearch_space():
 def test_hpo_space():
     try:
         import ray
+
+        ray.shutdown()
+        ray.init(local_mode=False)
     except ImportError:
         return
 
@@ -155,6 +164,9 @@ def test_hpo_space():
 def test_trainer():
     try:
         import ray
+
+        ray.shutdown()
+        ray.init(local_mode=False)
     except ImportError:
         return
     from flaml.nlp.huggingface.trainer import TrainerForAutoTransformers
@@ -201,6 +213,9 @@ def test_trainer():
 def test_switch_head():
     try:
         import ray
+
+        ray.shutdown()
+        ray.init(local_mode=False)
     except ImportError:
         return
     from transformers import AutoConfig
@@ -230,6 +245,9 @@ def test_switch_head():
 def test_wandb_utils():
     try:
         import ray
+
+        ray.shutdown()
+        ray.init(local_mode=False)
     except ImportError:
         return
 
@@ -258,6 +276,9 @@ def test_wandb_utils():
 def test_objective():
     try:
         import ray
+
+        ray.shutdown()
+        ray.init(local_mode=False)
     except ImportError:
         return
 
@@ -301,6 +322,9 @@ def test_objective():
 def test_search_algo_auto():
     try:
         import ray
+
+        ray.shutdown()
+        ray.init(local_mode=False)
     except ImportError:
         return
 

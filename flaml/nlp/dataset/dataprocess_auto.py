@@ -6,16 +6,14 @@ from .sentence_keys_auto import get_sentence_keys
 
 
 def inserting_sepp(sent, start, end, this_tokenizer):
-    return (
-        sent[:start].rstrip()
-        + " "
-        + this_tokenizer.sep_token
-        + " "
-        + sent[start:end]
-        + " "
-        + this_tokenizer.sep_token
-        + " "
-        + sent[end:].lstrip()
+    return " ".join(
+        [
+            sent[:start].rstrip(),
+            this_tokenizer.sep_token,
+            sent[start:end],
+            this_tokenizer.sep_token,
+            sent[end:].lstrip(),
+        ]
     )
 
 
@@ -49,6 +47,7 @@ def tokenize_superglue_wic(
        When underline meets special char such as '"', "'", the tokenized sequence after adding [SEP] needs to be
        aligned with the sequence tokenized without [SEP]. We use a two pointer algorithm for the alignment
     """
+    assert "max_seq_length" in kwargs, "max_seq_length must be provided for glue"
     sent1, sent2 = this_example["sentence1"], this_example["sentence2"]
     start1, end1 = this_example["start1"], this_example["end1"]
     start2, end2 = this_example["start2"], this_example["end2"]
@@ -64,7 +63,6 @@ def tokenize_superglue_wic(
         truncation=True
     )["input_ids"]
     data_pair = (sent1, sent2)
-    assert "max_seq_length" in kwargs, "max_seq_length must be provided for glue"
     this_data = this_tokenizer(
         *data_pair,
         padding="max_length",
@@ -143,6 +141,7 @@ def tokenize_superglue_wic(
 def tokenize_glue(
     this_example, this_tokenizer, dataset_name, subdataset_name=None, **kwargs
 ):
+    assert "max_seq_length" in kwargs, "max_seq_length must be provided for glue"
     sentence_keys = get_sentence_keys(dataset_name, subdataset_name)
 
     if len(sentence_keys) > 1:
@@ -156,7 +155,6 @@ def tokenize_glue(
         if sentence2_key is None
         else (this_example[sentence1_key], this_example[sentence2_key])
     )
-    assert "max_seq_length" in kwargs, "max_seq_length must be provided for glue"
     return this_tokenizer(
         *data_pair,
         padding="max_length",
@@ -222,8 +220,8 @@ class AutoEncodeText:
         tokenized token ids.
 
         Args:
-            data_raw:
-                The raw data (a datasets.Dataset object)
+            subfold_dataset:
+                The subfold of the raw data (a datasets.Dataset object)
 
             model_checkpoint_path:
                 A string variable which specifies the model path, e.g., "google/electra-base-discriminator"

@@ -21,10 +21,9 @@ def get_space_union_and_unique(
     # this difference can be the dataset or model size, etc.
     is_included = False
     from ..utils import merge_dicts
+    from ..utils import _check_dict_keys_overlaps
 
     for each_case in search_space_unique.keys():
-        from ..utils import _check_dict_keys_overlaps
-
         if each_case in this_case_tags:
             is_included = True
             assert not _check_dict_keys_overlaps(
@@ -152,7 +151,7 @@ def get_bert_space_for_test(
 ):
     search_space_common = {}
     search_space_unique = {
-        # Section 4.1: We use a batch size of 32 and fine-tune for 3 epochs over the data for all GLUE tasks. For each
+        # Section 4.1: We use a batch size of 32 and fine-tune for 0.1 epochs over the data for all GLUE tasks. For each
         # task, we selected the best fine-tuning learning rate (among 5e-5, 4e-5, 3e-5, and 2e-5) on the Dev set
         "glue": {
             "learning_rate": [5e-5, 4e-5, 3e-5, 2e-5],

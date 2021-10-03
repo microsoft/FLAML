@@ -33,21 +33,19 @@ class AutoTransformers:
         .. code-block:: python
 
             autohf = AutoTransformers()
-
-            jobid_config = JobID()
-            jobid_config.set_unittest_config()
-
             preparedata_setting = {
+                "dataset_subdataset_name": "glue:mrpc",
+                "pretrained_model_size": ["google/electra-small-discriminator", "small"],
+                "load_config_mode": "args",
                 "server_name": "tmdev",
                 "data_root_path": "data/",
                 "max_seq_length": 128,
-                "jobid_config": jobid_config,
                 "resplit_portion": {
                     "source": ["train", "validation"],
                     "train": [0, 0.001],
                     "validation": [0.001, 0.002],
                     "test": [0.002, 0.003],
-            }
+                }
             autohf.prepare_data(**preparedata_setting)
 
             autohf_settings = {
@@ -142,7 +140,6 @@ class AutoTransformers:
     @staticmethod
     def _get_split_name(data_raw, fold_names=None):
         split_map = {}
-        dft_split_map = {"train": "train", "validation": "validation", "test": "test"}
         default_fold_name_mapping = {
             "train": "train",
             "dev": "validation",
@@ -157,6 +154,7 @@ class AutoTransformers:
                             default_fold_name_mapping[each_dft_fold_name]
                         ] = each_fold_name
             return split_map, split_map["validation"]
+        dft_split_map = {"train": "train", "validation": "validation", "test": "test"}
         fold_keys = data_raw.keys()
         if fold_keys == {"train", "validation", "test"}:
             return dft_split_map, "validation"
@@ -331,13 +329,12 @@ class AutoTransformers:
         )
 
         def autoencodetext_from_model_and_dataset_name():
-            auto_tokentoids_config = {"max_seq_length": self._max_seq_length}
             tokenized_dat = AutoEncodeText.from_model_and_dataset_name(
                 subfold_dataset,
                 self.jobid_config.pre_full,
                 self.jobid_config.dat,
                 self.jobid_config.subdat,
-                **auto_tokentoids_config,
+                **{"max_seq_length": self._max_seq_length},
             )
             return tokenized_dat
 
@@ -379,12 +376,7 @@ class AutoTransformers:
                         self.test_dataset = this_encoded_data
                     _max_seq_length = max(
                         _max_seq_length,
-                        max(
-                            [
-                                sum(this_encoded_data[x]["attention_mask"])
-                                for x in range(len(this_encoded_data))
-                            ]
-                        ),
+                        max([sum(x["attention_mask"]) for x in this_encoded_data]),
                     )
                 self._max_seq_length = int((_max_seq_length + 15) / 16) * 16
             else:
@@ -582,12 +574,8 @@ class AutoTransformers:
         )
         this_model = self._load_model(per_model_config=per_model_config)
 
-        if reporter:
-            # If reporter != None, set trial_id to reporter.trial_id, i.e., when the trainable function is used for hpo
-            trial_id = reporter.trial_id
-        else:
-            # If reporter = None, set trial_id to "0000", i.e., when the trainable function is used for testing only
-            trial_id = "0000"
+        # If reporter != None, set trial_id to reporter.trial_id, i.e., when the trainable function is used for hpo
+        trial_id = reporter.trial_id if reporter else "0000"
 
         self.path_utils.make_dir_per_trial(trial_id)
 
@@ -1021,8 +1009,6 @@ class AutoTransformers:
         self._set_task()
         self._set_num_labels(self.task_name)
         self._fp16 = fp16
-        ray.shutdown()
-        ray.init(local_mode=ray_local_mode, num_cpus=2)
         self._set_search_space(**custom_hpo_args)
 
         search_algo = self._get_search_algo(
@@ -1050,6 +1036,8 @@ class AutoTransformers:
         start_time = time.time()
 
         tune_config = self._search_space_hpo
+        # if the search space does not contain the seed for huggingface,
+        # set the seed to the default value in self.jobid_config
         if "seed" not in tune_config:
             tune_config["seed"] = self.jobid_config.sdhf
 

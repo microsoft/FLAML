@@ -146,65 +146,57 @@ class JobID:
             " must be consistent"
         )
 
-    def set_dataset_and_model(
-        self,
-        dat: List[str],
-        subdat: str,
-        pre_full: str,
-        pre: str,
-        presz: str,
-        alg=None,
-        arg=None,
-    ):
-        """
-        set the dataset and model only for the JobID config
+    @staticmethod
+    def _get_unittest_config():
+        from bidict import bidict
 
-        Args:
-            dat:
-                A list of string. For example, ["glue"], ["race","high"]
-            subdat:
-                The name of the sub dataset. For example, "mrpc"
-            pre_full:
-                The full name of the pre-trained language model in HuggingFace,
-                e.g., "google/electra-small-discriminator"
-            pre:
-                The model type of the pre-trained language model, e.g., "electra"
-            presz:
-                The size of the pre-trained language model, e.g., "small"
-        """
-        self.dat = dat
-        self.subdat = subdat
-        self.mod = "hpo"
-        self.spa = "gnr"
-        self.arg = "dft" if arg is None else arg
-        self.alg = "bs" if alg is None else alg
-        self.pru = "asha"
-        self.pre_full = pre_full
-        self.pre = pre
-        self.presz = presz
-        self.spt = "rspt"
-        self.rep = 0
-        self.sddt = 43
-        self.sdhf = 42
+        return bidict(
+            dat=["glue"],
+            subdat="mrpc",
+            mod="hpo",
+            spa="gnr_test",
+            arg="cus",
+            alg="bs",
+            pru="None",
+            pre_full="albert-base-v1",
+            pre="albert",
+            presz="small",
+            spt="rspt",
+            rep=0,
+            sddt=101,
+            sdhf=42,
+            sdbs=20,
+        )
+
+    @staticmethod
+    def _get_default_config():
+        from bidict import bidict
+
+        return {
+            "dat": ["glue"],
+            "subdat": "mrpc",
+            "mod": "hpo",
+            "spa": "gnr",
+            "arg": "dft",
+            "alg": "bs",
+            "pru": "None",
+            "pre_full": "albert-base-v1",
+            "pre": "albert",
+            "presz": "small",
+            "spt": "rspt",
+            "rep": 0,
+            "sddt": 101,
+            "sdhf": 42,
+            "sdbs": 20,
+        }
 
     def set_unittest_config(self):
         """
         set the JobID config for unit test
         """
-        self.dat = ["glue"]
-        self.subdat = "mrpc"
-        self.mod = "hpo"
-        self.spa = "gnr_test"
-        self.arg = "cus"
-        self.alg = "bs"
-        self.pru = "None"
-        self.pre_full = "albert-base-v1"
-        self.pre = "albert"
-        self.presz = "small"
-        self.spt = "rspt"
-        self.rep = 0
-        self.sddt = 43
-        self.sdhf = 42
+        unittest_config = self._get_unittest_config()
+        for each_key, each_val in unittest_config.items():
+            setattr(self, each_key, each_val)
 
     def is_match(self, partial_jobid):
         """Return a boolean variable whether the current object matches the partial jobid defined in partial_jobid.
@@ -265,7 +257,7 @@ class JobID:
                 JobID.dataset_list_to_str(field_dict[key])
                 if type(field_dict[key]) == list
                 else str(field_dict[key])
-                for key in field_dict.keys()
+                for key in field_dict
                 if key
                 != "pre"  # skip the abbreviated model name in naming of the file, use the full model name instead
             ]
@@ -296,7 +288,7 @@ class JobID:
                         )
                     elif type(field_dict[key]) == set:
                         keytoval_list.append(
-                            key + "=" + JobID.set_to_str(field_dict[key])
+                            key + "=" + JobID.set_to_min_str(field_dict[key])
                         )
                     else:
                         keytoval_list.append(key + "=" + str(field_dict[key]))
@@ -309,18 +301,17 @@ class JobID:
         Convert the current JobID into a blob name string which only contains the fields whose values are not "None"
         """
         list_keys = list(JobID.__dataclass_fields__.keys())
-        field_dict = (
-            self.__dict__
-        )  # field_dict contains fields whose values are not None
+        # field_dict contains fields whose values are not None
+        field_dict = self.__dict__
         keytoval_str = "_".join(
             [
                 key + "=" + JobID.dataset_list_to_str(field_dict[key])
                 if type(field_dict[key]) == list
-                else key + "=" + JobID.set_to_str(field_dict[key])
+                else key + "=" + JobID.set_to_min_str(field_dict[key])
                 if type(field_dict[key]) == set
                 else key + "=" + str(field_dict[key])
                 for key in list_keys
-                if key in field_dict.keys()
+                if key in field_dict
             ]
         )
         return keytoval_str
@@ -338,9 +329,7 @@ class JobID:
                                rep = 0, sddt = 43, sdhf = 42)
         """
         # skip the abbreviated model name in naming of the file, use the full model name instead
-        field_keys = [
-            key for key in list(JobID.__dataclass_fields__.keys()) if key != "pre"
-        ]
+        field_keys = [key for key in list(JobID.__dataclass_fields__) if key != "pre"]
         regex_expression = ".*"
         is_first = True
         for key in field_keys:
@@ -367,17 +356,13 @@ class JobID:
                         result_dict[key] = []
                 elif key in ("rep", "sddt", "sdhf", "sdbs"):
                     try:
-                        try:
-                            try:
-                                result_dict[key] = int(result.group(key))
-                            except TypeError:
-                                # print("int() argument is a NoneType, continuing")
-                                result_dict[key] = -1
-                        except IndexError:
-                            print("No group {} in the regex result".format(key))
-                            result_dict[key] = -1
-                    except ValueError:
-                        print("Cannot parse integer {}".format(result.group(key)))
+                        result_dict[key] = int(result.group(key))
+                    except (TypeError, IndexError, ValueError):
+                        print(
+                            "int() argument is a NoneType, "
+                            "or No group {} in the regex result, "
+                            "or Cannot parse integer {}".format(key, key)
+                        )
                         result_dict[key] = -1
                 else:
                     result_dict[key] = result.group(key)
@@ -400,15 +385,15 @@ class JobID:
             return dataset_name.replace("_", "-")
 
     @staticmethod
-    def set_to_str(value_set):
+    def set_to_min_str(value_set):
         return min(value_set)
 
     def set_jobid_from_arg_list(self, **jobid_list):
         """
         Set the jobid from a dict object
         """
-        for key in jobid_list.keys():
-            assert key in JobID.__dataclass_fields__.keys()
+        for key in jobid_list:
+            assert key in JobID.__dataclass_fields__
             setattr(self, key, jobid_list[key])
         if self.mod == "grid":
             self.alg = "grid"
@@ -480,75 +465,66 @@ class JobID:
         if type(console_args) == argparse.Namespace:
             return getattr(console_args, each_key)
         else:
-            return console_args[each_key]
+            this_key = JobID._get_console_to_jobid_key_mapping()[each_key]
+            try:
+                return console_args[each_key]
+            except KeyError:
+                return JobID._get_default_config()[this_key]
+
+    @staticmethod
+    def _get_console_to_jobid_key_mapping():
+        from bidict import bidict
+
+        return bidict(
+            pretrained_model_size="pre",
+            dataset_subdataset_name="dat",
+            algo_mode="mod",
+            space_mode="spa",
+            search_alg_args_mode="arg",
+            algo_name="alg",
+            pruner="pru",
+            resplit_mode="spt",
+            rep_id="rep",
+            seed_data="sddt",
+            seed_transformers="sdhf",
+            seed_bs="sdbs",
+        )
 
     def set_jobid_from_console_args(
         self, console_args: Union[argparse.ArgumentParser, dict]
     ):
         from ..utils import dataset_subdataset_name_format_check
 
-        console_to_jobid_key_mapping = {
-            "pretrained_model_size": "pre",
-            "dataset_subdataset_name": "dat",
-            "algo_mode": "mod",
-            "space_mode": "spa",
-            "search_alg_args_mode": "arg",
-            "algo_name": "alg",
-            "pruner": "pru",
-            "resplit_mode": "spt",
-            "rep_id": "rep",
-            "seed_data": "sddt",
-            "seed_transformers": "sdhf",
-            "seed_bs": "sdbs",
-        }
-        for each_key in console_to_jobid_key_mapping.keys():
+        console_to_jobid_key_mapping = self._get_console_to_jobid_key_mapping()
+        for each_key in console_to_jobid_key_mapping:
             try:
-                try:
-                    if each_key == "dataset_subdataset_name":
-                        dataset_subdataset_name_format_check(
-                            JobID.get_attrval_from_arg_or_dict(console_args, each_key)
-                        )
-                        try:
-                            self.dat = (
-                                JobID.get_attrval_from_arg_or_dict(
-                                    console_args, each_key
-                                )
-                                .split(":")[0]
-                                .split(",")
-                            )
-                        except AttributeError:
-                            self.dat = []
-                        try:
-                            self.subdat = JobID.get_attrval_from_arg_or_dict(
-                                console_args, each_key
-                            ).split(":")[1]
-                        except AttributeError:
-                            self.subdat = ""
-                    elif each_key == "pretrained_model_size":
-                        try:
-                            self.pre_full = JobID.get_attrval_from_arg_or_dict(
-                                console_args, each_key
-                            )[0]
-                            self.pre = JobID.extract_model_type(self.pre_full)
-                        except IndexError:
-                            self.pre_full = ""
-                            self.pre = ""
-                        try:
-                            self.presz = JobID.get_attrval_from_arg_or_dict(
-                                console_args, each_key
-                            )[1]
-                        except IndexError:
-                            self.presz = ""
-                    else:
-                        jobid_key = console_to_jobid_key_mapping.get(each_key, "")
-                        attrval = JobID.get_attrval_from_arg_or_dict(
-                            console_args, each_key
-                        )
-                        setattr(self, jobid_key, attrval)
-                except AttributeError:
-                    print("console_args has no attribute {}, continue".format(each_key))
-                    continue
-            except KeyError:
+                if each_key == "dataset_subdataset_name":
+                    dataset_subdataset_name_format_check(
+                        JobID.get_attrval_from_arg_or_dict(console_args, each_key)
+                    )
+                    self.dat = (
+                        JobID.get_attrval_from_arg_or_dict(console_args, each_key)
+                        .split(":")[0]
+                        .split(",")
+                    )
+                    self.subdat = JobID.get_attrval_from_arg_or_dict(
+                        console_args, each_key
+                    ).split(":")[1]
+                elif each_key == "pretrained_model_size":
+                    self.pre_full = JobID.get_attrval_from_arg_or_dict(
+                        console_args, each_key
+                    )[0]
+                    self.pre = JobID.extract_model_type(self.pre_full)
+                    self.pre_full = ""
+                    self.pre = ""
+                    self.presz = JobID.get_attrval_from_arg_or_dict(
+                        console_args, each_key
+                    )[1]
+                else:
+                    jobid_key = console_to_jobid_key_mapping.get(each_key, "")
+                    attrval = JobID.get_attrval_from_arg_or_dict(console_args, each_key)
+                    setattr(self, jobid_key, attrval)
+            except (IndexError, AttributeError, KeyError):
                 print("console_args has no attribute {}, continue".format(each_key))
                 continue
         if self.mod == "grid":
@@ -660,18 +636,12 @@ class AzureUtils:
     @staticmethod
     def get_azure_key(key_path):
         try:
-            try:
-                with open(os.path.join(key_path, "key.json"), "r") as fin:
-                    key_json = json.load(fin)
-                    azure_key = key_json["azure_key"]
-                    azure_container_name = key_json["container_name"]
-                    return azure_key, azure_container_name
-            except FileNotFoundError:
-                print(
-                    "Your output will not be synced to azure because key.json is not found under key_path"
-                )
-                return "", ""
-        except KeyError:
+            with open(os.path.join(key_path, "key.json"), "r") as fin:
+                key_json = json.load(fin)
+                azure_key = key_json["azure_key"]
+                azure_container_name = key_json["container_name"]
+                return azure_key, azure_container_name
+        except (FileNotFoundError, KeyError):
             print(
                 "Your output will not be synced to azure because azure key and container name are not specified"
             )
@@ -695,20 +665,15 @@ class AzureUtils:
             from azure.storage.blob import ContainerClient
 
             connection_string = self._get_complete_connection_string()
-            try:
-                container_client = ContainerClient.from_connection_string(
-                    conn_str=connection_string, container_name=self._container_name
-                )
-                return container_client
-            except ValueError:
-                print(
-                    "Your output will not be synced to azure because azure key and container name are not specified"
-                )
-                return None
-        except ImportError:
+            container_client = ContainerClient.from_connection_string(
+                conn_str=connection_string, container_name=self._container_name
+            )
+            return container_client
+        except (ImportError, ValueError):
             print(
                 "Your output will not be synced to azure because azure-blob-storage is not installed"
             )
+            return None
 
     def _init_blob_client(self, local_file_path):
         try:
@@ -718,17 +683,11 @@ class AzureUtils:
             blob_service_client = BlobServiceClient.from_connection_string(
                 connection_string
             )
-            try:
-                blob_client = blob_service_client.get_blob_client(
-                    container=self._container_name, blob=local_file_path
-                )
-                return blob_client
-            except ValueError:
-                print(
-                    "Your output will not be synced to azure because azure key and container name are not specified"
-                )
-                return None
-        except ImportError:
+            blob_client = blob_service_client.get_blob_client(
+                container=self._container_name, blob=local_file_path
+            )
+            return blob_client
+        except (ImportError, ValueError):
             print(
                 "Your output will not be synced to azure because azure-storage-blob is not installed"
             )
@@ -737,18 +696,11 @@ class AzureUtils:
         try:
             from azure.core.exceptions import HttpResponseError
 
-            try:
-                blob_client = self._init_blob_client(local_file_path)
-                if blob_client:
-                    with open(local_file_path, "rb") as fin:
-                        blob_client.upload_blob(fin, overwrite=True)
-            except HttpResponseError as err:
-                print(
-                    "Cannot upload blob due to {}: {}".format(
-                        "azure.core.exceptions.HttpResponseError", err
-                    )
-                )
-        except ImportError:
+            blob_client = self._init_blob_client(local_file_path)
+            if blob_client:
+                with open(local_file_path, "rb") as fin:
+                    blob_client.upload_blob(fin, overwrite=True)
+        except (HttpResponseError, ImportError):
             print(
                 "Your output will not be synced to azure because azure-blob-storage is not installed"
             )
