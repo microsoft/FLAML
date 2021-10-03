@@ -442,11 +442,6 @@ class AutoTransformers:
             subfold_dataset = data_raw[split_mapping["test"]]
             self.test_dataset = autoencodetext_from_model_and_dataset_name()
 
-    def _rename_column(self, ori_col, new_col, data_raw):
-        for each_key in data_raw.keys():
-            data_raw[each_key] = data_raw[each_key].rename_column(ori_col, new_col)
-        return data_raw
-
     def _load_model(self, checkpoint_path=None, per_model_config=None):
         from .dataset.task_auto import get_default_task
         from transformers import AutoConfig
