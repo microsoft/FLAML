@@ -110,7 +110,7 @@ def test_one_sentence_key():
     validation_metric, analysis = autohf.fit(**autohf_settings)
 
 
-def _test_cv():
+def test_cv():
     try:
         import ray
     except ImportError:
@@ -136,3 +136,7 @@ def _test_cv():
 
     autohf_settings = get_autohf_settings()
     validation_metric, analysis = autohf.fit(**autohf_settings)
+
+
+if __name__ == "__main__":
+    test_one_sentence_key()
