@@ -13,7 +13,7 @@ def get_preparedata_setting(jobid_config):
     preparedata_setting = {
         "server_name": "tmdev",
         "data_root_path": "data/",
-        "max_seq_length": 32,
+        "max_seq_length": 10,
         "jobid_config": jobid_config,
         "resplit_portion": {
             "source": ["train", "validation"],
@@ -29,7 +29,7 @@ def get_preparedata_setting_cv(jobid_config):
     preparedata_setting = {
         "server_name": "tmdev",
         "data_root_path": "data/",
-        "max_seq_length": 32,
+        "max_seq_length": 10,
         "jobid_config": jobid_config,
         "resplit_portion": {
             "source": ["train", "validation"],
@@ -46,7 +46,7 @@ def get_preparedata_setting_mnli(jobid_config):
     preparedata_setting = {
         "server_name": "tmdev",
         "data_root_path": "data/",
-        "max_seq_length": 32,
+        "max_seq_length": 10,
         "jobid_config": jobid_config,
         "resplit_portion": {
             "source": ["train", "validation"],
