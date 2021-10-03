@@ -33,6 +33,23 @@ class AutoTransformers:
         .. code-block:: python
 
             autohf = AutoTransformers()
+
+            jobid_config = JobID()
+            jobid_config.set_unittest_config()
+
+            preparedata_setting = {
+                "server_name": "tmdev",
+                "data_root_path": "data/",
+                "max_seq_length": 128,
+                "jobid_config": jobid_config,
+                "resplit_portion": {
+                    "source": ["train", "validation"],
+                    "train": [0, 0.001],
+                    "validation": [0.001, 0.002],
+                    "test": [0.002, 0.003],
+        }
+            autohf.prepare_data(**preparedata_setting)
+
             autohf_settings = {
                 "resources_per_trial": {"cpu": 1, "gpu": 1},
                 "num_samples": -1,
@@ -922,14 +939,8 @@ class AutoTransformers:
         #     )
         return best_trial
 
-    def _check_jobid_config(self):
-        assert (
-            JobID._extract_model_type_with_keywords_match(self.jobid_config.pre_full)
-            == self.jobid_config.pre
-        ), "The full name and abbreviation of the pre-trained model must be consistent"
-
     def _check_input_args(self, **custom_hpo_args):
-        self._check_jobid_config()
+        self.jobid_config.check_jobid_config()
 
     def fit(
         self,
