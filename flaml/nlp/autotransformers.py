@@ -940,7 +940,7 @@ class AutoTransformers:
         return best_trial
 
     def _check_input_args(self, **custom_hpo_args):
-        self.jobid_config.check_jobid_config()
+        self.jobid_config.check_model_type_consistency()
 
     def fit(
         self,
@@ -1034,7 +1034,7 @@ class AutoTransformers:
         self._set_num_labels(self.task_name)
         self._fp16 = fp16
         ray.shutdown()
-        ray.init(local_mode=ray_local_mode)
+        ray.init(local_mode=ray_local_mode, num_cpus=2)
         self._set_search_space(**custom_hpo_args)
 
         search_algo = self._get_search_algo(

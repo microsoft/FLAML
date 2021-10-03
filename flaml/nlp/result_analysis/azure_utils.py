@@ -138,7 +138,7 @@ class JobID:
         self.pre_full = pre_full
         self.pre = self._extract_model_type_with_keywords_match(pre_full)
 
-    def check_model_type_constency(self):
+    def check_model_type_consistency(self):
         assert (
             self._extract_model_type_with_keywords_match(self.pre_full) == self.pre
         ), "The full name and the model type of the pre-trained model must be consistent"
