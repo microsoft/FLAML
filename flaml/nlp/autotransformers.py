@@ -940,7 +940,7 @@ class AutoTransformers:
         return best_trial
 
     def _check_input_args(self, **custom_hpo_args):
-        self.jobid_config.check_jobid_config()
+        self.jobid_config.check_model_type_consistency()
 
     def fit(
         self,
