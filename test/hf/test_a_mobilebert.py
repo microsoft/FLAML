@@ -33,9 +33,9 @@ def get_preparedata_setting_cv(jobid_config):
         "jobid_config": jobid_config,
         "resplit_portion": {
             "source": ["train", "validation"],
-            "train": [0, 0.00001],
-            "validation": [0.00001, 0.00002],
-            "test": [0.00002, 0.00003],
+            "train": [0, 0.001],
+            "validation": [0.001, 0.002],
+            "test": [0.002, 0.003],
         },
         "foldnum": 2,
     }
@@ -139,4 +139,4 @@ def test_cv():
 
 
 if __name__ == "__main__":
-    test_one_sentence_key()
+    test_cv()
