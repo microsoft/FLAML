@@ -322,8 +322,6 @@ class AutoTransformers:
         else:
             data_raw = load_dataset(*self.jobid_config.dat)
 
-        data_raw = self._rename_cols(data_raw)
-
         split_mapping, self._dev_name = AutoTransformers._get_split_name(
             data_raw, fold_names=fold_name
         )
@@ -443,14 +441,6 @@ class AutoTransformers:
             self.eval_dataset = autoencodetext_from_model_and_dataset_name()
             subfold_dataset = data_raw[split_mapping["test"]]
             self.test_dataset = autoencodetext_from_model_and_dataset_name()
-
-    def _rename_cols(self, data_raw):
-        if self.jobid_config.dat[0] == "hyperpartisan_news_detection":
-            ori_col = "bias"
-            new_col = "label"
-            return self._rename_column(ori_col, new_col, data_raw)
-        else:
-            return data_raw
 
     def _rename_column(self, ori_col, new_col, data_raw):
         for each_key in data_raw.keys():

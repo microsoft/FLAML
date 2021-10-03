@@ -86,7 +86,7 @@ def get_autohf_settings_grid():
     return autohf_settings
 
 
-def _test_hpo_grid():
+def test_hpo_grid():
     try:
         import ray
     except ImportError:
@@ -116,7 +116,7 @@ def _test_hpo_grid():
     autohf._load_model()
 
 
-def _test_foldname():
+def test_foldname():
     try:
         import ray
     except ImportError:
