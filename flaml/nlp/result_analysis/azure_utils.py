@@ -154,8 +154,8 @@ class JobID:
         self.arg = "cus"
         self.alg = "bs"
         self.pru = "None"
-        self.pre_full = "google/mobilebert-uncased"
-        self.pre = "mobilebert"
+        self.pre_full = "albert-base-v1"
+        self.pre = "albert"
         self.presz = "small"
         self.spt = "rspt"
         self.rep = 0

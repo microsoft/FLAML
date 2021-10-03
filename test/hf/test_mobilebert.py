@@ -86,7 +86,7 @@ def get_autohf_settings_grid():
     return autohf_settings
 
 
-def _test_hpo_grid():
+def test_hpo_grid():
     try:
         import ray
     except ImportError:
@@ -116,7 +116,7 @@ def _test_hpo_grid():
     autohf._load_model()
 
 
-def _test_foldname():
+def test_foldname():
     try:
         import ray
     except ImportError:
@@ -142,7 +142,7 @@ def _test_foldname():
     autohf._load_model()
 
 
-def _test_one_sentence_key():
+def test_one_sentence_key():
     try:
         import ray
     except ImportError:
@@ -194,7 +194,7 @@ def test_cv():
     validation_metric, analysis = autohf.fit(**autohf_settings)
 
 
-def _test_hpo_ori():
+def test_hpo_ori():
     try:
         import ray
     except ImportError:
@@ -244,7 +244,7 @@ def _test_hpo_ori():
         )
 
 
-def _test_hpo():
+def test_hpo():
     try:
         import ray
     except ImportError:
@@ -261,7 +261,9 @@ def _test_hpo():
     autohf.prepare_data(**preparedata_setting)
 
     autohf_settings = get_autohf_settings()
-    autohf_settings["points_to_evaluate"] = [{"learning_rate": 2e-5}]
+    autohf_settings["points_to_evaluate"] = [
+        {"learning_rate": 2e-5, "per_device_train_batch_size": 1}
+    ]
     validation_metric, analysis = autohf.fit(**autohf_settings)
 
     if validation_metric is not None:
@@ -284,7 +286,7 @@ def _test_hpo():
         )
 
 
-def _test_transformers_verbosity():
+def test_transformers_verbosity():
     try:
         import ray
     except ImportError:
@@ -307,6 +309,10 @@ def _test_transformers_verbosity():
 
 
 if __name__ == "__main__":
-    # test_hpo_grid()
-    # test_foldname()
+    test_hpo_grid()
+    test_foldname()
+    test_one_sentence_key()
     test_cv()
+    test_hpo_ori()
+    test_hpo()
+    test_transformers_verbosity()
