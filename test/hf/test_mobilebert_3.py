@@ -86,7 +86,7 @@ def get_autohf_settings_grid():
     return autohf_settings
 
 
-def test_hpo_ori():
+def _test_hpo_ori():
     try:
         import ray
     except ImportError:
@@ -136,7 +136,7 @@ def test_hpo_ori():
         )
 
 
-def test_hpo():
+def _test_hpo():
     try:
         import ray
     except ImportError:
@@ -178,7 +178,7 @@ def test_hpo():
         )
 
 
-def test_transformers_verbosity():
+def _test_transformers_verbosity():
     try:
         import ray
     except ImportError:

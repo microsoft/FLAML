@@ -86,7 +86,7 @@ def get_autohf_settings_grid():
     return autohf_settings
 
 
-def test_hpo_grid():
+def _test_hpo_grid():
     try:
         import ray
     except ImportError:
@@ -116,7 +116,7 @@ def test_hpo_grid():
     autohf._load_model()
 
 
-def test_foldname():
+def _test_foldname():
     try:
         import ray
     except ImportError:
@@ -140,7 +140,3 @@ def test_foldname():
     autohf_settings = get_autohf_settings()
     validation_metric, analysis = autohf.fit(**autohf_settings)
     autohf._load_model()
-
-
-if __name__ == "__main__":
-    test_hpo_grid()

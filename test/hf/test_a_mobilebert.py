@@ -13,7 +13,7 @@ def get_preparedata_setting(jobid_config):
     preparedata_setting = {
         "server_name": "tmdev",
         "data_root_path": "data/",
-        "max_seq_length": 10,
+        "max_seq_length": 1,
         "jobid_config": jobid_config,
         "resplit_portion": {
             "source": ["train", "validation"],
@@ -110,7 +110,7 @@ def test_one_sentence_key():
     validation_metric, analysis = autohf.fit(**autohf_settings)
 
 
-def test_cv():
+def _test_cv():
     try:
         import ray
     except ImportError:
@@ -136,7 +136,3 @@ def test_cv():
 
     autohf_settings = get_autohf_settings()
     validation_metric, analysis = autohf.fit(**autohf_settings)
-
-
-if __name__ == "__main__":
-    test_cv()
