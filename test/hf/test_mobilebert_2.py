@@ -86,42 +86,11 @@ def get_autohf_settings_grid():
     return autohf_settings
 
 
-def test_hpo_grid():
+def test_one_sentence_key():
     try:
         import ray
     except ImportError:
         return
-
-    from flaml.nlp import AutoTransformers
-    from flaml.nlp import JobID
-
-    """
-        test grid search
-    """
-    jobid_config = JobID()
-    jobid_config.set_unittest_config()
-    jobid_config.subdat = "stsb"
-    autohf = AutoTransformers()
-    jobid_config.mod = "grid"
-    jobid_config.alg = "grid"
-    jobid_config.spa = "grid"
-    jobid_config.spt = "rspt"
-    autohf = AutoTransformers()
-
-    preparedata_setting = get_preparedata_setting(jobid_config)
-    autohf.prepare_data(**preparedata_setting)
-
-    autohf_settings = get_autohf_settings_grid()
-    validation_metric, analysis = autohf.fit(**autohf_settings)
-    autohf._load_model()
-
-
-def test_foldname():
-    try:
-        import ray
-    except ImportError:
-        return
-
     from flaml.nlp import AutoTransformers
     from flaml.nlp import JobID
     from flaml.nlp import AzureUtils
@@ -133,10 +102,37 @@ def test_foldname():
     jobid_config.set_unittest_config()
     jobid_config.reset_pre_full("roberta-base")
     autohf = AutoTransformers()
-    jobid_config.subdat = "mnli"
-    preparedata_setting = get_preparedata_setting_mnli(jobid_config)
+    jobid_config.subdat = "cola"
+    preparedata_setting = get_preparedata_setting(jobid_config)
     autohf.prepare_data(**preparedata_setting)
 
     autohf_settings = get_autohf_settings()
     validation_metric, analysis = autohf.fit(**autohf_settings)
-    autohf._load_model()
+
+
+def test_cv():
+    try:
+        import ray
+    except ImportError:
+        return
+    from flaml.nlp import AutoTransformers
+    from flaml.nlp import JobID
+    from flaml.nlp import AzureUtils
+
+    """
+        test cv
+    """
+    jobid_config = JobID()
+    jobid_config.set_unittest_config()
+    jobid_config.dat = ["hyperpartisan_news_detection"]
+    jobid_config.subdat = "bypublisher"
+    autohf = AutoTransformers()
+    jobid_config.spt = "cv"
+    preparedata_setting = get_preparedata_setting_cv(jobid_config)
+    autohf.prepare_data(**preparedata_setting)
+
+    autohf.eval_dataset = autohf.eval_datasets[0]
+    autohf.train_dataset = autohf.train_datasets[0]
+
+    autohf_settings = get_autohf_settings()
+    validation_metric, analysis = autohf.fit(**autohf_settings)
