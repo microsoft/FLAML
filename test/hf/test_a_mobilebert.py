@@ -124,8 +124,8 @@ def test_cv():
     """
     jobid_config = JobID()
     jobid_config.set_unittest_config()
-    jobid_config.dat = ["hyperpartisan_news_detection"]
-    jobid_config.subdat = "bypublisher"
+    # jobid_config.dat = ["hyperpartisan_news_detection"]
+    # jobid_config.subdat = "bypublisher"
     autohf = AutoTransformers()
     jobid_config.spt = "cv"
     preparedata_setting = get_preparedata_setting_cv(jobid_config)
