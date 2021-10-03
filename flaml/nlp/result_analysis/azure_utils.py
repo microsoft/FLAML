@@ -138,10 +138,10 @@ class JobID:
         self.pre_full = pre_full
         self.pre = self._extract_model_type_with_keywords_match(pre_full)
 
-    def check_jobid_config(self):
+    def check_model_type_constency(self):
         assert (
             self._extract_model_type_with_keywords_match(self.pre_full) == self.pre
-        ), "The full name and abbreviation of the pre-trained model must be consistent"
+        ), "The full name and the model type of the pre-trained model must be consistent"
 
     def set_unittest_config(self):
         """

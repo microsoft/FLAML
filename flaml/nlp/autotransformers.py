@@ -47,7 +47,7 @@ class AutoTransformers:
                     "train": [0, 0.001],
                     "validation": [0.001, 0.002],
                     "test": [0.002, 0.003],
-        }
+            }
             autohf.prepare_data(**preparedata_setting)
 
             autohf_settings = {
