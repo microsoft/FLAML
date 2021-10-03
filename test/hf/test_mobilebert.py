@@ -13,7 +13,7 @@ def get_preparedata_setting(jobid_config):
     preparedata_setting = {
         "server_name": "tmdev",
         "data_root_path": "data/",
-        "max_seq_length": 10,
+        "max_seq_length": 5,
         "jobid_config": jobid_config,
         "resplit_portion": {
             "source": ["train", "validation"],
@@ -29,7 +29,7 @@ def get_preparedata_setting_cv(jobid_config):
     preparedata_setting = {
         "server_name": "tmdev",
         "data_root_path": "data/",
-        "max_seq_length": 10,
+        "max_seq_length": 5,
         "jobid_config": jobid_config,
         "resplit_portion": {
             "source": ["train", "validation"],
@@ -46,7 +46,7 @@ def get_preparedata_setting_mnli(jobid_config):
     preparedata_setting = {
         "server_name": "tmdev",
         "data_root_path": "data/",
-        "max_seq_length": 10,
+        "max_seq_length": 5,
         "jobid_config": jobid_config,
         "resplit_portion": {
             "source": ["train", "validation"],
@@ -131,7 +131,7 @@ def test_foldname():
     """
     jobid_config = JobID()
     jobid_config.set_unittest_config()
-    jobid_config.reset_pre_full("roberta-base")
+    jobid_config.reset_pre_full("google/electra-small-discriminator")
     autohf = AutoTransformers()
     jobid_config.subdat = "mnli"
     preparedata_setting = get_preparedata_setting_mnli(jobid_config)
@@ -140,3 +140,7 @@ def test_foldname():
     autohf_settings = get_autohf_settings()
     validation_metric, analysis = autohf.fit(**autohf_settings)
     autohf._load_model()
+
+
+if __name__ == "__main__":
+    test_hpo_grid()
