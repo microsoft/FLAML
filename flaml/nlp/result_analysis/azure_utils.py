@@ -70,7 +70,7 @@ class ConfigScoreList:
         ]
         return max(
             filtered_config_score_list,
-            key=lambda x: getattr(x, "metric_score")[metric_mode],
+            key=lambda x: x.metric_score[metric_mode],
         )
 
 
