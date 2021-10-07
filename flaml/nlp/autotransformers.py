@@ -62,32 +62,30 @@ class AutoTransformers:
         search_space = {}
 
         if mode == "grid":
-            for each_hp in config_json.keys():
-                this_config = config_json[each_hp]
-                assert isinstance(this_config, dict) or isinstance(this_config, list), (
+            for each_hp, val in config_json.items():
+                assert isinstance(val, dict) or isinstance(val, list), (
                     "config of " + each_hp + " must be dict or list for grid search"
                 )
-                search_space[each_hp] = ray.tune.grid_search(this_config)
+                search_space[each_hp] = ray.tune.grid_search(val)
         else:
-            for each_hp in config_json.keys():
-                this_config = config_json[each_hp]
-                assert isinstance(this_config, dict) or isinstance(this_config, list), (
+            for each_hp, val in config_json.items():
+                assert isinstance(val, dict) or isinstance(val, list), (
                     "config of " + each_hp + " must be dict or list"
                 )
-                if isinstance(this_config, dict):
-                    lower = this_config["l"]
-                    upper = this_config["u"]
-                    space = this_config["space"]
+                if isinstance(val, dict):
+                    lower = val["l"]
+                    upper = val["u"]
+                    space = val["space"]
                     if space == "log":
                         search_space[each_hp] = ray.tune.loguniform(lower, upper)
                     elif space == "linear":
                         search_space[each_hp] = ray.tune.uniform(lower, upper)
                     elif space == "quniform":
                         search_space[each_hp] = ray.tune.quniform(
-                            lower, upper, this_config["interval"]
+                            lower, upper, val["interval"]
                         )
                 else:
-                    search_space[each_hp] = ray.tune.choice(this_config)
+                    search_space[each_hp] = ray.tune.choice(val)
 
         return search_space
 
@@ -96,9 +94,9 @@ class AutoTransformers:
         from .hpo.grid_searchspace_auto import GRID_SEARCH_SPACE_MAPPING
 
         if self.jobid_config.mod == "grid":
-            if "grid_search_space" in custom_hpo_args.keys():
+            if "grid_search_space" in custom_hpo_args:
                 grid_space_model_type = custom_hpo_args["grid_search_space"]
-            elif self.jobid_config.pre in GRID_SEARCH_SPACE_MAPPING.keys():
+            elif self.jobid_config.pre in GRID_SEARCH_SPACE_MAPPING:
                 grid_space_model_type = self.jobid_config.pre
             else:
                 # grid mode is not designed for user to use. Therefore we only allow
@@ -195,15 +193,15 @@ class AutoTransformers:
         upper_bound_portion=1.0,
     ):
         def crange(start_pos, end_pos, lower_bound, upper_bound):
+            from itertools import chain
+
             assert (
                 start_pos >= lower_bound and end_pos <= upper_bound
             ), "start and end portion must be within [lower_bound, upper_bound]"
             if start_pos <= end_pos:
                 return range(start_pos, end_pos)
             else:
-                return [x for x in range(start_pos, upper_bound)] + [
-                    x for x in range(lower_bound, end_pos)
-                ]
+                return chain(range(start_pos, upper_bound), range(lower_bound, end_pos))
 
         (
             target_fold_start,
@@ -217,12 +215,7 @@ class AutoTransformers:
             upper_bound_portion,
         )
         subfold_dataset = concatenated_data.select(
-            [
-                x
-                for x in crange(
-                    target_fold_start, target_fold_end, lower_bound, upper_bound
-                )
-            ]
+            crange(target_fold_start, target_fold_end, lower_bound, upper_bound)
         ).flatten_indices()
         return subfold_dataset
 
@@ -339,7 +332,7 @@ class AutoTransformers:
             return tokenized_dat
 
         if self.jobid_config.spt in ("rspt", "cv", "cvrspt"):
-            assert "source" in resplit_portion.keys(), (
+            assert "source" in resplit_portion, (
                 "Must specify the source for resplitting the dataset in"
                 "resplit_portion, which is a list of folder names, e.g., "
                 "resplit_portion = {'source': ['train']}"
@@ -460,7 +453,7 @@ class AutoTransformers:
             )
 
         def is_pretrained_model_in_classification_head_list():
-            return self.jobid_config.pre in MODEL_CLASSIFICATION_HEAD_MAPPING.keys()
+            return self.jobid_config.pre in MODEL_CLASSIFICATION_HEAD_MAPPING
 
         def _set_model_config():
             if per_model_config and len(per_model_config) > 0:
@@ -557,11 +550,11 @@ class AutoTransformers:
         training_args_config = {}
         per_model_config = {}
 
-        for key in config.keys():
-            if key in TrainingArguments.__dict__.keys():
-                training_args_config[key] = config[key]
+        for key, val in config.items():
+            if key in TrainingArguments.__dict__:
+                training_args_config[key] = val
             else:
-                per_model_config[key] = config[key]
+                per_model_config[key] = val
 
         return training_args_config, per_model_config
 
@@ -854,21 +847,13 @@ class AutoTransformers:
                 "ExperimentAnalysis: attempting to get best trial for "
                 'metric {} for scope {} not in ["all", "last", "avg", '
                 '"last-5-avg", "last-10-avg"]. '
-                "If you didn't pass a `metric` parameter to `tune.run()`, "
-                "you have to pass one when fetching the best trial.".format(
-                    metric, scope
-                )
+                '"'.format(metric, scope)
             )
         best_trial = None
         best_metric_score = None
         for trial in analysis.trials:
-            try:
-                best_ckpt = analysis.get_best_checkpoint(
-                    trial, metric=metric, mode=mode
-                )
-                if best_ckpt is None:
-                    continue
-            except Exception:
+            best_ckpt = analysis.get_best_checkpoint(trial, metric=metric, mode=mode)
+            if best_ckpt is None:
                 continue
 
             if scope in ["last", "avg", "last-5-avg", "last-10-avg"]:
@@ -1104,7 +1089,7 @@ class AutoTransformers:
         test_trainer = TrainerForAutoTransformers(best_model, training_args)
 
         if self.jobid_config.spt == "ori":
-            if "label" in self.test_dataset.features.keys():
+            if "label" in self.test_dataset.features:
                 self.test_dataset.remove_columns_(["label"])
                 print("Cleaning the existing label column from test data")
 
@@ -1121,6 +1106,8 @@ class AutoTransformers:
             else np.argmax(predictions, axis=1)
         )
 
+        # If the split mode is resplit, return the output metric of prediction
+        # If the split mode is origin, return the prediction without computing the metric
         if self.jobid_config.spt.endswith("rspt"):
             assert labels is not None
             metric = self._get_metric_func()
