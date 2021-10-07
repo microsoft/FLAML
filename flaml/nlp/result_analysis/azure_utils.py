@@ -228,9 +228,8 @@ class JobID:
         """
         is_not_match = False
         for key, val in partial_jobid.__dict__.items():
-            if (
-                key == "pre"
-            ):  # skip matching the abbreviated model name, only match the full model name
+            if key == "pre":
+                # skip matching the abbreviated model name, only match the full model name
                 continue
             if val is None:
                 continue
