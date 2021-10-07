@@ -108,7 +108,7 @@ class AutoTransformers:
                 # grid search in the following two cases: (1) if
                 # user has specified a model, and the model contains a grid space in FLAML
                 # or (2) the user has specified which model's grid space to use
-                raise NotImplementedError("The grid space is not implemented in FLAML")
+                raise NotImplementedError(f"The grid space for {self.jobid_config.pre} is not implemented in FLAML.")
         else:
             grid_space_model_type = self.jobid_config.pre
 
