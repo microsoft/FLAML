@@ -226,7 +226,7 @@ class JobID:
 
          return False for partial_jobid1 and True for partial_jobid2
         """
-        is_not_match = False
+        match = True
         for key, val in partial_jobid.__dict__.items():
             if key == "pre":
                 # skip matching the abbreviated model name, only match the full model name
