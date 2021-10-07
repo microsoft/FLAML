@@ -399,7 +399,7 @@ class AutoTransformers:
                     concatenated_data=merged_folds,
                     resplit_portion_key=resplit_portion["test"],
                 )
-                self.test_dataset = autoencodetext_from_model_and_dataset_name()
+                self.test_dataset = autoencodetext_from_model_and_dataset_name(subfold_dataset)
                 train_val_lower = min(
                     resplit_portion["train"][0], resplit_portion["validation"][0]
                 )
