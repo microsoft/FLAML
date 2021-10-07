@@ -678,7 +678,7 @@ class AutoTransformers:
                         ), "Every hp space must either be categorical, integer or float"
 
                         if isinstance(
-                            self._search_space_hpo[each_hp], ray.tune.sample.Categorical
+                            domain, ray.tune.sample.Categorical
                         ):
                             assert (
                                 hp_value
