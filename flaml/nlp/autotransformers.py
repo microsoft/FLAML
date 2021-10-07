@@ -198,7 +198,7 @@ class AutoTransformers:
         def crange(start_pos, end_pos, lower_bound, upper_bound):
             assert (
                 start_pos >= lower_bound and end_pos <= upper_bound
-            ), "start and end portion must be within 1.0"
+            ), "start and end portion must be within [lower_bound, upper_bound]"
             if start_pos <= end_pos:
                 return range(start_pos, end_pos)
             else:
