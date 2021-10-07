@@ -766,9 +766,7 @@ class AutoTransformers:
                 return ckpt_json["best_ckpt"]
         except FileNotFoundError as err:
             print(
-                "Saved checkpoint not found. Please make sure checkpoint is stored under {}".format(
-                    ckpt_dir
-                )
+                "Saved checkpoint not found. Please make sure checkpoint is stored under", ckpt_dir
             )
             raise err
 
