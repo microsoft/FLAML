@@ -35,8 +35,6 @@ class AutoTransformers:
             preparedata_setting = {
                 "dataset_subdataset_name": "glue:mrpc",
                 "pretrained_model_size": ["google/electra-small-discriminator", "small"],
-                "load_config_mode": "args",
-                "server_name": "tmdev",
                 "data_root_path": "data/",
                 "max_seq_length": 128,
                 "resplit_portion": {
@@ -237,32 +235,74 @@ class AutoTransformers:
 
             .. code-block:: python
 
-                preparedata_setting = {"server_name": "tmdev", "data_root_path": "data/", "max_seq_length": 128,
-                                           "jobid_config": jobid_config, "wandb_utils": wandb_utils,
-                                           "resplit_portion": {"source": ["train", "validation"],
-                                           "train": [0, 0.8], "validation": [0.8, 0.9], "test": [0.9, 1.0]}}
+                preparedata_setting = {
+                    "dataset_subdataset_name": "glue:mrpc",
+                    "pretrained_model_size": ["google/electra-small-discriminator", "small"],
+                    "data_root_path": "data/",
+                    "max_seq_length": 128,
+                    "resplit_portion": {
+                        "source": ["train", "validation"],
+                        "train": [0, 0.001],
+                        "validation": [0.001, 0.002],
+                        "test": [0.002, 0.003],
+                }
 
                 autohf.prepare_data(**preparedata_setting)
 
         Args:
-            server_name:
-                A string variable, which can be tmdev or azureml
             data_root_path:
                 The root path for storing the checkpoints and output results, e.g., "data/"
             jobid_config:
-                A JobID object describing the profile of job
-            wandb_utils:
-                A WandbUtils object for wandb operations
+                A JobID object describing the profile of job, optional to the user
+            is_wandb_on:
+                A boolean variable indicating whether wandb is used
+            server_name:
+                A string variable, which can be tmdev or azureml
             max_seq_length (optional):
                 Max_seq_lckpt_per_epochength for the huggingface, this hyperparameter must be specified
                 at the data processing step
+            fold_name:
+                The fold name of the datasets. For the majority of datasets, the fold names are
+                "train", "validation", "test". However, there are exceptions. For example, in some
+                datasets, only "train" fold is available. In other datasets, the validation and test
+                fold are under different names (e.g., glue/mnli).
             resplit_portion:
                 The proportion for resplitting the train and dev data when split_mode="resplit".
                 If args.resplit_mode = "rspt", resplit_portion is required
-            is_wandb_on:
-                A boolean variable indicating whether wandb is used
             load_config_mode:
-                console, args
+                A string variable of the load config mode. This mode specifies the mode for reading the
+                HPO configuration. There are three modes. For the user mode (args), please refer to flaml/nlp/utils:load_data_args()
+                function for all defined configurations. For the developer mode (console and jobid), please refer to
+                the flaml/nlp/result_analysis/azure_utils:JobID class for all defined configurations.
+
+                    | args (user mode): specifying the HPO configuration through the **custom_data_args arguments of
+                    prepare_data. An example of this mode is below:
+
+                    .. code-block:: python
+
+                    preparedata_setting = {
+                        "dataset_subdataset_name": "glue:mrpc",
+                        "pretrained_model_size": ["google/electra-small-discriminator", "small"],
+                        "data_root_path": "data/",
+                        "max_seq_length": 128,
+                        "resplit_portion": {
+                            "source": ["train", "validation"],
+                            "train": [0, 0.001],
+                            "validation": [0.001, 0.002],
+                            "test": [0.002, 0.003],
+                    }
+
+                    autohf.prepare_data(**preparedata_setting)
+
+                    | console (developer mode): specifying the HPO configuration through the console argument.
+
+                    | jobid (developer mode): specifying the HPO configuration through a JobID object
+
+            custom_data_args:
+                Optional keyword arguments that are not included in the other arguments, which includes
+
+                    | all arguments for specifying the configuration. in flaml/nlp/
+
         """
         from flaml.nlp.result_analysis.azure_utils import JobID
         from .dataset.dataprocess_auto import AutoEncodeText
@@ -278,7 +318,11 @@ class AutoTransformers:
         """
             loading the jobid config from console args
         """
-        if jobid_config:
+        if load_config_mode == "jobid":
+            assert jobid_config is not None, (
+                "to load HPO arguments using the jobid mode, "
+                "you must specify the jobid_config"
+            )
             self.jobid_config = jobid_config
         elif load_config_mode == "args":
             self.jobid_config = JobID()

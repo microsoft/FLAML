@@ -14,6 +14,7 @@ def get_preparedata_setting(jobid_config):
         "data_root_path": "data/",
         "max_seq_length": 10,
         "jobid_config": jobid_config,
+        "load_config_mode": "jobid",
         "resplit_portion": {
             "source": ["train", "validation"],
             "train": [0, 0.01],
@@ -30,6 +31,7 @@ def get_preparedata_setting_mnli_1(jobid_config):
         "data_root_path": "data/",
         "max_seq_length": 10,
         "jobid_config": jobid_config,
+        "load_config_mode": "jobid",
         "resplit_portion": {
             "source": ["train", "validation"],
             "train": [0, 0.0001],
@@ -51,6 +53,7 @@ def get_preparedata_setting_mnli_2(jobid_config):
         "data_root_path": "data/",
         "max_seq_length": 10,
         "jobid_config": jobid_config,
+        "load_config_mode": "jobid",
         "resplit_portion": {
             "source": ["train", "validation"],
             "train": [0, 0.0001],

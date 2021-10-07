@@ -506,8 +506,6 @@ class JobID:
                         console_args, each_key
                     )[0]
                     self.pre = JobID.extract_model_type(self.pre_full)
-                    self.pre_full = ""
-                    self.pre = ""
                     self.presz = JobID.get_attrval_from_arg_or_dict(
                         console_args, each_key
                     )[1]

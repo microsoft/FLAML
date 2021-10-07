@@ -45,6 +45,7 @@ def get_preparedata_setting(jobid_config):
         "data_root_path": "data/",
         "max_seq_length": 10,
         "jobid_config": jobid_config,
+        "load_config_mode": "jobid",
         "resplit_portion": {
             "source": ["train", "validation"],
             "train": [0, 0.1],
