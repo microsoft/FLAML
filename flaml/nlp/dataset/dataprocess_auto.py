@@ -57,17 +57,19 @@ def tokenize_superglue_wic(
     altered_sent1 = inserting_sepp(sent1, start1, end1, this_tokenizer)
     altered_sent2 = inserting_sepp(sent2, start2, end2, this_tokenizer)
     input_ids_sepp = this_tokenizer(
-        *(altered_sent1, altered_sent2),
+        altered_sent1,
+        altered_sent2,
         padding="max_length",
         max_length=1024,
-        truncation=True
+        truncation=True,
     )["input_ids"]
-    data_pair = (sent1, sent2)
+    assert "max_seq_length" in kwargs, "max_seq_length must be provided for glue"
     this_data = this_tokenizer(
-        *data_pair,
+        sent1,
+        sent2,
         padding="max_length",
         max_length=kwargs["max_seq_length"],
-        truncation=True
+        truncation=True,
     )
     input_ids = this_data["input_ids"]
     which_sepp = 0
@@ -126,11 +128,9 @@ def tokenize_superglue_wic(
     word_indices = []
     for idx1 in range(2):
         if span_start_end[idx1][1] < kwargs["max_seq_length"]:
-            first_span = [
-                x
-                for x in range(span_start_end[idx1][0], span_start_end[idx1][1])
-                if x < kwargs["max_seq_length"]
-            ] + [0] * (
+            first_span = list(
+                range(span_start_end[idx1][0], span_start_end[idx1][1])
+            ) + [0] * (
                 max_word_span - span_start_end[idx1][1] + span_start_end[idx1][0]
             )
             word_indices.append(first_span)
@@ -265,6 +265,6 @@ class AutoEncodeText:
                 dataset_name,
                 subdataset_name,
                 cls.__name__,
-                ", ".join(c[0] for c in TOKENIZER_MAPPING.keys()),
+                ", ".join(c[0] for c in TOKENIZER_MAPPING),
             )
         )

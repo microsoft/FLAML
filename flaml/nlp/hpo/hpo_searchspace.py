@@ -43,12 +43,11 @@ def hpo_space_gridunion(
         from transformers import TrainingArguments
 
         training_args = TrainingArguments(output_dir=".")
-        for each_hp in output_config.keys():
+        for each_hp in output_config:
             try:
                 default_values[each_hp] = [getattr(training_args, each_hp)]
             except AttributeError:
                 print("training args do not contain {}, passed".format(each_hp))
-                pass
 
         output_config = merge_dicts(output_config, default_values)
 
@@ -87,7 +86,7 @@ def hpo_space_generic(
         "warmup_ratio": {"l": 0.0, "u": 0.3, "space": "linear"},
         "weight_decay": {"l": 0.0, "u": 0.3, "space": "linear"},
         "adam_epsilon": {"l": 1e-8, "u": 1e-6, "space": "linear"},
-        "seed": [x for x in range(40, 45)],
+        "seed": list(range(40, 45)),
     }
     return output_config
 
@@ -107,7 +106,7 @@ def hpo_space_generic_test(
         "warmup_ratio": {"l": 0.0, "u": 0.3, "space": "linear"},
         "weight_decay": {"l": 0.0, "u": 0.3, "space": "linear"},
         "adam_epsilon": {"l": 1e-8, "u": 1e-6, "space": "linear"},
-        "seed": [x for x in range(40, 45)],
+        "seed": list(range(40, 45)),
     }
     return output_config
 

@@ -75,7 +75,7 @@ class AutoSearchAlgorithm:
         ), "hpo_search_space needs to be specified for calling AutoSearchAlgorithm.from_method_name"
         if not search_algo_name:
             search_algo_name = "grid"
-        if search_algo_name in SEARCH_ALGO_MAPPING.keys():
+        if search_algo_name in SEARCH_ALGO_MAPPING:
             if SEARCH_ALGO_MAPPING[search_algo_name] is None:
                 return None
             """
@@ -89,14 +89,14 @@ class AutoSearchAlgorithm:
                 search_algo_name
             ].__init__.__code__.co_varnames
             allowed_custom_args = {
-                key: custom_hpo_args[key]
-                for key in custom_hpo_args.keys()
+                key: value
+                for key, value in custom_hpo_args.items()
                 if key in allowed_arguments
             }
 
             """
-             If the search_algo_args_mode is "dft", set the args to the default args, e.g.,the default args for
-             BlendSearch is "low_cost_partial_config": {"num_train_epochs": min_epoch,"per_device_train_batch_size"
+             If the search_algo_args_mode is "dft", set the args to the default args, e.g., the default args for
+             BlendSearch is "low_cost_partial_config": {"num_train_epochs": min_epoch, "per_device_train_batch_size"
              : max(hpo_search_space["per_device_train_batch_size"].categories)},
             """
             if search_algo_args_mode == "dft":

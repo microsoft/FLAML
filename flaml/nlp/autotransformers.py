@@ -18,9 +18,8 @@ try:
     from .huggingface.trainer import TrainerForAutoTransformers
     from typing import Optional
     from ray.tune.trial import Trial
-except ImportError as err:
-    print("To use the nlp component in flaml, run pip install flaml[nlp]")
-    raise err
+except ImportError:
+    raise ImportError("To use the nlp component in flaml, run pip install flaml[nlp]")
 
 task_list = ["seq-classification", "regression", "question-answering"]
 
@@ -106,7 +105,9 @@ class AutoTransformers:
                 # grid search in the following two cases: (1) if
                 # user has specified a model, and the model contains a grid space in FLAML
                 # or (2) the user has specified which model's grid space to use
-                raise NotImplementedError("The grid space is not implemented in FLAML")
+                raise NotImplementedError(
+                    f"The grid space for {self.jobid_config.pre} is not implemented in FLAML."
+                )
         else:
             grid_space_model_type = self.jobid_config.pre
 
@@ -147,12 +148,11 @@ class AutoTransformers:
             "val": "validation",
         }
         if fold_names:
-            for each_fold_name in fold_names:
-                for each_dft_fold_name in default_fold_name_mapping:
+            for each_dft_fold_name, value in default_fold_name_mapping.items():
+                for each_fold_name in fold_names:
                     if each_fold_name.startswith(each_dft_fold_name):
-                        split_map[
-                            default_fold_name_mapping[each_dft_fold_name]
-                        ] = each_fold_name
+                        split_map[value] = each_fold_name
+                        break
             return split_map, split_map["validation"]
         dft_split_map = {"train": "train", "validation": "validation", "test": "test"}
         fold_keys = data_raw.keys()
@@ -163,7 +163,7 @@ class AutoTransformers:
                 assert not (
                     each_key.startswith(each_split_name) and each_key != each_split_name
                 ), (
-                    "Dataset split must be within {}, must be explicitly specified in dataset_config, e.g.,"
+                    "Dataset split keys must be within {}, or explicitly specified in dataset_config, e.g., "
                     "'fold_name': ['train','validation_matched','test_matched']. Please refer to the example in the "
                     "documentation of AutoTransformers.prepare_data()".format(
                         ",".join(fold_keys)
@@ -197,7 +197,7 @@ class AutoTransformers:
         def crange(start_pos, end_pos, lower_bound, upper_bound):
             assert (
                 start_pos >= lower_bound and end_pos <= upper_bound
-            ), "start and end portion must be within 1.0"
+            ), "start and end portion must be within [lower_bound, upper_bound]"
             if start_pos <= end_pos:
                 return range(start_pos, end_pos)
             else:
@@ -236,7 +236,7 @@ class AutoTransformers:
         fold_name=None,
         resplit_portion=None,
         load_config_mode="console",
-        **custom_data_args
+        **custom_data_args,
     ):
         """Prepare data
 
@@ -328,7 +328,7 @@ class AutoTransformers:
             self.jobid_config.pre_full, use_fast=True
         )
 
-        def autoencodetext_from_model_and_dataset_name():
+        def autoencodetext_from_model_and_dataset_name(subfold_dataset):
             tokenized_dat = AutoEncodeText.from_model_and_dataset_name(
                 subfold_dataset,
                 self.jobid_config.pre_full,
@@ -339,7 +339,6 @@ class AutoTransformers:
             return tokenized_dat
 
         if self.jobid_config.spt in ("rspt", "cv", "cvrspt"):
-            all_folds_from_source = []
             assert "source" in resplit_portion.keys(), (
                 "Must specify the source for resplitting the dataset in"
                 "resplit_portion, which is a list of folder names, e.g., "
@@ -347,17 +346,18 @@ class AutoTransformers:
             )
 
             source_fold_names = resplit_portion["source"]
-            for each_fold_name in source_fold_names:
-                this_fold_dataset = data_raw[split_mapping[each_fold_name]]
-                all_folds_from_source.append(this_fold_dataset)
+            all_folds_from_source = [
+                data_raw[split_mapping[each_fold_name]]
+                for each_fold_name in source_fold_names
+            ]
 
             merged_folds = datasets.concatenate_datasets(all_folds_from_source)
             merged_folds = merged_folds.shuffle(seed=self.jobid_config.sddt)
 
             assert (
-                "train" in resplit_portion.keys()
-                and "validation" in resplit_portion.keys()
-                and "test" in resplit_portion.keys()
+                "train" in resplit_portion
+                and "validation" in resplit_portion
+                and "test" in resplit_portion
             ), "train, validation, test must exist in resplit_portion"
 
             if self.jobid_config.spt.endswith("rspt"):
@@ -367,7 +367,9 @@ class AutoTransformers:
                         concatenated_data=merged_folds,
                         resplit_portion_key=resplit_portion[key],
                     )
-                    this_encoded_data = autoencodetext_from_model_and_dataset_name()
+                    this_encoded_data = autoencodetext_from_model_and_dataset_name(
+                        subfold_dataset
+                    )
                     if key == "train":
                         self.train_dataset = this_encoded_data
                     elif key == "validation":
@@ -380,10 +382,9 @@ class AutoTransformers:
                     )
                 self._max_seq_length = int((_max_seq_length + 15) / 16) * 16
             else:
-                assert "foldnum" in custom_data_args, (
-                    "if the split mode is cross validation, foldnum must be"
-                    " specified"
-                )
+                assert (
+                    "foldnum" in custom_data_args
+                ), "if the split mode is cross validation, foldnum must be specified"
 
                 def get_cv_split_points(lower_bound, upper_bound, idx, k):
                     return (upper_bound - lower_bound) / k * idx + lower_bound, (
@@ -394,7 +395,9 @@ class AutoTransformers:
                     concatenated_data=merged_folds,
                     resplit_portion_key=resplit_portion["test"],
                 )
-                self.test_dataset = autoencodetext_from_model_and_dataset_name()
+                self.test_dataset = autoencodetext_from_model_and_dataset_name(
+                    subfold_dataset
+                )
                 train_val_lower = min(
                     resplit_portion["train"][0], resplit_portion["validation"][0]
                 )
@@ -415,7 +418,7 @@ class AutoTransformers:
                         upper_bound_portion=train_val_upper,
                     )
                     self.eval_datasets.append(
-                        autoencodetext_from_model_and_dataset_name()
+                        autoencodetext_from_model_and_dataset_name(subfold_dataset)
                     )
                     subfold_dataset = self._get_targetfold_start_end(
                         concatenated_data=merged_folds,
@@ -424,15 +427,18 @@ class AutoTransformers:
                         upper_bound_portion=train_val_upper,
                     )
                     self.train_datasets.append(
-                        autoencodetext_from_model_and_dataset_name()
+                        autoencodetext_from_model_and_dataset_name(subfold_dataset)
                     )
         else:
-            subfold_dataset = data_raw[split_mapping["train"]]
-            self.train_dataset = autoencodetext_from_model_and_dataset_name()
-            subfold_dataset = data_raw[split_mapping["validation"]]
-            self.eval_dataset = autoencodetext_from_model_and_dataset_name()
-            subfold_dataset = data_raw[split_mapping["test"]]
-            self.test_dataset = autoencodetext_from_model_and_dataset_name()
+            self.train_dataset = autoencodetext_from_model_and_dataset_name(
+                data_raw[split_mapping["train"]]
+            )
+            self.eval_dataset = autoencodetext_from_model_and_dataset_name(
+                data_raw[split_mapping["validation"]]
+            )
+            self.test_dataset = autoencodetext_from_model_and_dataset_name(
+                data_raw[split_mapping["test"]]
+            )
 
     def _load_model(self, checkpoint_path=None, per_model_config=None):
         from .dataset.task_auto import get_default_task
@@ -648,52 +654,30 @@ class AutoTransformers:
             run.finish()
 
     def _verify_init_config(self, **custom_hpo_args):
-        for key in custom_hpo_args.keys():
+        for key, value in custom_hpo_args.items():
             if key == "points_to_evaluate":
-                for each_init_config in custom_hpo_args[key]:
+                for each_init_config in value:
                     for each_hp in list(each_init_config.keys()):
-                        if each_hp not in self._search_space_hpo.keys():
+                        if each_hp not in self._search_space_hpo:
                             del each_init_config[each_hp]
-                        print(
-                            "{} is not in the search space, deleting from init config".format(
-                                each_hp
+                            print(
+                                each_hp,
+                                "is not in the search space, deleting from init config",
                             )
-                        )
+                            continue
+                        hp_value = each_init_config[each_hp]
+                        domain = self._search_space_hpo[each_hp]
 
-                    for each_hp in list(each_init_config.keys()):
-                        assert (
-                            isinstance(each_init_config[each_hp], int)
-                            or isinstance(each_init_config[each_hp], float)
-                            or isinstance(each_init_config[each_hp], str)
-                            or isinstance(each_init_config[each_hp], bool)
-                        ), " points_to_evaluate must be a scalar"
-
-                        assert (
-                            isinstance(
-                                self._search_space_hpo[each_hp],
-                                ray.tune.sample.Categorical,
-                            )
-                            or isinstance(
-                                self._search_space_hpo[each_hp], ray.tune.sample.Float
-                            )
-                            or isinstance(
-                                self._search_space_hpo[each_hp], ray.tune.sample.Integer
-                            )
-                        ), "Every hp space must either be categorical, integer or float"
-
-                        if isinstance(
-                            self._search_space_hpo[each_hp], ray.tune.sample.Categorical
+                        if isinstance(domain, ray.tune.sample.Categorical):
+                            assert (
+                                hp_value in domain.categories
+                            ), f"points_to_evaluate {each_hp} value must be within the search space"
+                        elif isinstance(domain, ray.tune.sample.Float) or isinstance(
+                            domain, ray.tune.sample.Integer
                         ):
                             assert (
-                                each_init_config[each_hp]
-                                in self._search_space_hpo[each_hp].categories
-                            ), "points_to_evaluate {each_hp} value must be within the search space"
-                        else:
-                            assert (
-                                self._search_space_hpo[each_hp].lower
-                                <= each_init_config[each_hp]
-                                <= self._search_space_hpo[each_hp].upper
-                            ), "points_to_evaluate {each_hp} value must be within the search space"
+                                domain.lower <= hp_value <= domain.upper
+                            ), f"points_to_evaluate {each_hp} value must be within the search space"
 
     def _get_search_algo(
         self,
@@ -703,7 +687,7 @@ class AutoTransformers:
         metric_name,
         metric_mode_name,
         seed_bs=None,
-        **custom_hpo_args
+        **custom_hpo_args,
     ):
         from .hpo.searchalgo_auto import AutoSearchAlgorithm
 
@@ -772,9 +756,8 @@ class AutoTransformers:
                 return ckpt_json["best_ckpt"]
         except FileNotFoundError as err:
             print(
-                "Saved checkpoint not found. Please make sure checkpoint is stored under {}".format(
-                    ckpt_dir
-                )
+                "Saved checkpoint not found. Please make sure checkpoint is stored under",
+                ckpt_dir,
             )
             raise err
 
@@ -932,7 +915,7 @@ class AutoTransformers:
         ray_local_mode=False,
         keep_checkpoints_num=1,
         seed_bs=None,
-        **custom_hpo_args
+        **custom_hpo_args,
     ):
         """Fine tuning the huggingface using the hpo setting
 
@@ -972,7 +955,7 @@ class AutoTransformers:
                 transformers.logging.ERROR, transformers.logging.INFO, transformers.logging.WARNING,
                 or transformers.logging.DEBUG
             fp16:
-                A boolean, default = True | whether to use fp16
+                boolean, default = True | whether to use fp16.
             ray_local_mode:
                 boolean, default = False | whether to use the local mode (debugging mode) for ray tune.run
             keep_checkpoints_num:
@@ -1080,10 +1063,10 @@ class AutoTransformers:
                     self.metric_mode_name
                 ]
             }
-            for x in range(len(self._all_metrics)):
-                validation_metric[
-                    "eval_" + self._all_metrics[x]
-                ] = best_trial.metric_analysis[self._all_metrics[x]][self._all_modes[x]]
+            for i, metric in enumerate(self._all_metrics):
+                validation_metric["eval_" + metric] = best_trial.metric_analysis[
+                    metric
+                ][self._all_modes[i]]
 
             get_best_ckpt = analysis.get_best_checkpoint(
                 best_trial, metric=self.metric_name, mode=self.metric_mode_name
