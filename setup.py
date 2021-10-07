@@ -57,6 +57,7 @@ setuptools.setup(
             "datasets==1.4.1",
             "azure-storage-blob",
             "statsmodels>=0.12.2",
+            "bidict",
         ],
         "blendsearch": ["optuna==2.8.0"],
         "ray": [
@@ -79,6 +80,7 @@ setuptools.setup(
             "datasets==1.4.1",
             "tensorboardX<=2.2",
             "torch",
+            "bidict",
         ],
         "forecast": ["prophet>=1.0.1", "statsmodels>=0.12.2"],
     },
