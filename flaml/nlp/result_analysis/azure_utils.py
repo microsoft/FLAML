@@ -161,7 +161,7 @@ class JobID:
 
         Args:
             dat:
-                A list of string. For example, ["glue"], ["race","high"]
+                A list of string. For example, ["glue"], ["race", "high"]
             subdat:
                 The name of the sub dataset. For example, "mrpc"
             pre_full:
