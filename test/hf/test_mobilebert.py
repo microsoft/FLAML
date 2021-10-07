@@ -139,13 +139,8 @@ def test_foldname():
         test fold_name
     """
     jobid_config = JobID()
-    jobid_config.set_dataset_and_model(
-        dat=["glue"],
-        subdat="mrpc",
-        pre_full="google/electra-small-discriminator",
-        pre="electra",
-        presz="small",
-    )
+    jobid_config.set_unittest_config()
+    jobid_config.reset_pre_full("google/electra-small-discriminator", "small")
     autohf = AutoTransformers()
     jobid_config.subdat = "mnli"
     preparedata_setting = get_preparedata_setting_mnli(jobid_config)
@@ -296,7 +291,7 @@ def test_one_sentence_key():
     """
     jobid_config = JobID()
     jobid_config.set_unittest_config()
-    jobid_config.reset_pre_full("google/electra-small-discriminator")
+    jobid_config.reset_pre_full("google/electra-small-discriminator", "small")
     autohf = AutoTransformers()
     jobid_config.subdat = "cola"
     preparedata_setting = get_preparedata_setting(jobid_config)

@@ -132,9 +132,10 @@ class JobID:
         if console_args:
             self.set_jobid_from_console_args(console_args)
 
-    def reset_pre_full(self, pre_full):
+    def reset_pre_full(self, pre_full, presz):
         self.pre_full = pre_full
         self.pre = self._extract_model_type_with_keywords_match(pre_full)
+        self.presz = presz
 
     def check_model_type_consistency(self):
         assert (

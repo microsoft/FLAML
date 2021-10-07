@@ -246,6 +246,7 @@ def test_switch_head():
 def test_wandb_utils():
     try:
         import ray
+        import wandb
 
         ray.shutdown()
         ray.init(local_mode=False)
@@ -267,9 +268,14 @@ def test_wandb_utils():
     wandb_utils.wandb_group_name = "test"
     wandb_utils._get_next_trial_ids()
     wandb_utils.set_wandb_per_run()
-    wandb_utils.set_wandb_per_trial()
+    try:
+        wandb_utils.set_wandb_per_trial()
+    except wandb.errors.UsageError:
+        print(
+            "wandb.errors.UsageError: api_key not configured (no-tty).  Run wandb login"
+        )
 
-    wandb_utils = WandbUtils(
+    WandbUtils(
         is_wandb_on=False, wandb_key_path=args.key_path, jobid_config=jobid_config
     )
 
@@ -390,5 +396,5 @@ def test_search_algo_auto():
     )
 
 
-# if __name__ == "__main__":
-#     test_objective()
+if __name__ == "__main__":
+    test_wandb_utils()
