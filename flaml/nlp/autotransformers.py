@@ -682,7 +682,7 @@ class AutoTransformers:
                         ):
                             assert (
                                 hp_value
-                                in self._search_space_hpo[each_hp].categories
+                                in domin.categories
                             ), f"points_to_evaluate {each_hp} value must be within the search space"
                         else:
                             assert (
