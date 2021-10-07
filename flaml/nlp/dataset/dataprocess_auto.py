@@ -127,11 +127,7 @@ def tokenize_superglue_wic(
     word_indices = []
     for idx1 in range(2):
         if span_start_end[idx1][1] < kwargs["max_seq_length"]:
-            first_span = [
-                x
-                for x in range(span_start_end[idx1][0], span_start_end[idx1][1])
-                if x < kwargs["max_seq_length"]
-            ] + [0] * (
+            first_span = list(range(span_start_end[idx1][0], span_start_end[idx1][1])) + [0] * (
                 max_word_span - span_start_end[idx1][1] + span_start_end[idx1][0]
             )
             word_indices.append(first_span)
