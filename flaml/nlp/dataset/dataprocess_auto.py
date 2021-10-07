@@ -151,7 +151,7 @@ def tokenize_glue(
         sentence2_key = None
 
     data_pair = (
-        (this_example[sentence1_key],)
+        (this_example[sentence1_key], )
         if sentence2_key is None
         else (this_example[sentence1_key], this_example[sentence2_key])
     )
