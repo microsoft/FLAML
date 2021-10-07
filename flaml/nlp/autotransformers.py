@@ -329,7 +329,7 @@ class AutoTransformers:
             self.jobid_config.pre_full, use_fast=True
         )
 
-        def autoencodetext_from_model_and_dataset_name():
+        def autoencodetext_from_model_and_dataset_name(subfold_dataset):
             auto_tokentoids_config = {"max_seq_length": self._max_seq_length}
             tokenized_dat = AutoEncodeText.from_model_and_dataset_name(
                 subfold_dataset,
