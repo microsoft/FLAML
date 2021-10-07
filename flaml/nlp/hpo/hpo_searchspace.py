@@ -106,7 +106,7 @@ def hpo_space_generic_test(
         "warmup_ratio": {"l": 0.0, "u": 0.3, "space": "linear"},
         "weight_decay": {"l": 0.0, "u": 0.3, "space": "linear"},
         "adam_epsilon": {"l": 1e-8, "u": 1e-6, "space": "linear"},
-        "seed": [x for x in range(40, 45)],
+        "seed": list(range(40, 45)),
     }
     return output_config
 
