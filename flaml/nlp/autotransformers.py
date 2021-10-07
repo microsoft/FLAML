@@ -695,7 +695,7 @@ class AutoTransformers:
                             self._search_space_hpo[each_hp], ray.tune.sample.Categorical
                         ):
                             assert (
-                                each_init_config[each_hp]
+                                hp_value
                                 in self._search_space_hpo[each_hp].categories
                             ), "points_to_evaluate {each_hp} value must be within the search space"
                         else:
