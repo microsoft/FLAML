@@ -28,7 +28,7 @@ def get_space_union_and_unique(
         if each_case in this_case_tags:
             is_included = True
             assert not _check_dict_keys_overlaps(
-                this_search_space, search_space_unique[each_case]
+                this_search_space, value
             ), "the hyperparameters of common and unique search spaces should not have overlaps"
             this_search_space.update(value)
         search_space_union = merge_dicts(
