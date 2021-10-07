@@ -37,7 +37,7 @@ def get_space_union_and_unique(
     if is_included:
         return this_search_space
     else:
-        if "other" in search_space_unique.keys():
+        if "other" in search_space_unique:
             search_space_union = merge_dicts(
                 search_space_union, search_space_unique["other"]
             )
