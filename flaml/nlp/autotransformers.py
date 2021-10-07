@@ -341,7 +341,6 @@ class AutoTransformers:
             return tokenized_dat
 
         if self.jobid_config.spt in ("rspt", "cv", "cvrspt"):
-            all_folds_from_source = []
             assert "source" in resplit_portion.keys(), (
                 "Must specify the source for resplitting the dataset in"
                 "resplit_portion, which is a list of folder names, e.g., "
