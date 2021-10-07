@@ -240,7 +240,7 @@ class JobID:
                     this_value = set([str(this_value)])
                 is_subset = this_value.issubset(val)
                 if is_subset is False:
-                    is_not_match = True
+                    match = False
             else:
                 each_val = getattr(self, key)
                 if key == "dat":  # replace underline with dash for dataset name
