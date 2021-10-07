@@ -267,8 +267,8 @@ def test_wandb_utils():
     os.environ["WANDB_MODE"] = "online"
     wandb_utils.wandb_group_name = "test"
     wandb_utils._get_next_trial_ids()
-    wandb_utils.set_wandb_per_run()
     try:
+        wandb_utils.set_wandb_per_run()
         wandb_utils.set_wandb_per_trial()
     except wandb.errors.UsageError:
         print(
