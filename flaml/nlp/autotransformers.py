@@ -654,7 +654,7 @@ class AutoTransformers:
             run.finish()
 
     def _verify_init_config(self, **custom_hpo_args):
-        for key in custom_hpo_args.keys():
+        for key, value in custom_hpo_args.items():
             if key == "points_to_evaluate":
                 for each_init_config in custom_hpo_args[key]:
                     for each_hp in list(each_init_config.keys()):
