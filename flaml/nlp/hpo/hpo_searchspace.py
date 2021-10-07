@@ -43,7 +43,7 @@ def hpo_space_gridunion(
         from transformers import TrainingArguments
 
         training_args = TrainingArguments(output_dir=".")
-        for each_hp in output_config.keys():
+        for each_hp in output_config:
             try:
                 default_values[each_hp] = [getattr(training_args, each_hp)]
             except AttributeError:
