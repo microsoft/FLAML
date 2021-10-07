@@ -964,7 +964,7 @@ class AutoTransformers:
                 transformers.logging.ERROR, transformers.logging.INFO, transformers.logging.WARNING,
                 or transformers.logging.DEBUG
             fp16:
-                A boolean, default = True | whether to use fp16
+                boolean, default = True | whether to use fp16.
             ray_local_mode:
                 boolean, default = False | whether to use the local mode (debugging mode) for ray tune.run
             keep_checkpoints_num:
