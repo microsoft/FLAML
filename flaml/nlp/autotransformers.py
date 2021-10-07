@@ -658,7 +658,7 @@ class AutoTransformers:
             if key == "points_to_evaluate":
                 for each_init_config in custom_hpo_args[key]:
                     for each_hp in list(each_init_config.keys()):
-                        if each_hp not in self._search_space_hpo.keys():
+                        if each_hp not in self._search_space_hpo:
                             del each_init_config[each_hp]
                         print(
                             "{} is not in the search space, deleting from init config".format(
