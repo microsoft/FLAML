@@ -1008,14 +1008,7 @@ class AutoTransformers:
         from .hpo.scheduler_auto import AutoScheduler
 
         self._transformers_verbose = transformers_verbose
-
-        """
-         Specify the other parse of jobid configs from custom_hpo_args, e.g., if the search algorithm was not specified
-         previously, can specify the algorithm here
-        """
-        if len(custom_hpo_args) > 0:
-            self.jobid_config.set_jobid_from_console_args(console_args=custom_hpo_args)
-
+        assert self.jobid_config is not None
         self._check_input_args(**custom_hpo_args)
 
         self._resources_per_trial = resources_per_trial

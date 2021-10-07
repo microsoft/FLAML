@@ -335,3 +335,7 @@ def test_cv():
 
     autohf_settings = get_autohf_settings()
     validation_metric, analysis = autohf.fit(**autohf_settings)
+
+
+if __name__ == "__main__":
+    test_hpo_grid()
