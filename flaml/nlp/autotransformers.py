@@ -656,7 +656,7 @@ class AutoTransformers:
     def _verify_init_config(self, **custom_hpo_args):
         for key, value in custom_hpo_args.items():
             if key == "points_to_evaluate":
-                for each_init_config in custom_hpo_args[key]:
+                for each_init_config in value:
                     for each_hp in list(each_init_config.keys()):
                         if each_hp not in self._search_space_hpo:
                             del each_init_config[each_hp]
