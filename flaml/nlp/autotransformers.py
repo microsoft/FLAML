@@ -301,7 +301,13 @@ class AutoTransformers:
             custom_data_args:
                 Optional keyword arguments that are not included in the other arguments, which includes
 
-                    | all arguments for specifying the configuration. in flaml/nlp/
+                    | all arguments for specifying the configuration. If local_config_mode="args" (i.e., user mode)
+                    use custom_data_args to set the HPO configuration by following the definition in flaml/nlp/utils.py
+                    For how to set HPO configuration parameters, please refer to the documentation in
+                    flaml/nlp/utils: load_data_args()
+
+                    | fold_num: the number of folds of cross validation under the cross validation mode, i.e., when
+                    jobid_config.mod = cv or cvrspt, or console_args.split_mode = cv or cvrspt
 
         """
         from flaml.nlp.result_analysis.azure_utils import JobID
@@ -943,7 +949,6 @@ class AutoTransformers:
         ray_verbose=1,
         transformers_verbose=10,
         resources_per_trial=None,
-        ray_local_mode=False,
         keep_checkpoints_num=1,
         seed_bs=None,
         **custom_hpo_args,
@@ -964,9 +969,6 @@ class AutoTransformers:
                 validation_metric, analysis = autohf.fit(**autohf_settings)
 
         Args:
-            resources_per_trial:
-                A dict showing the resources used by each trial,
-                e.g., {"gpu": 4, "cpu": 4}
             num_samples:
                 An int variable of the maximum number of trials
             time_budget:
@@ -979,18 +981,21 @@ class AutoTransformers:
                 e.g., "max", "min", "last", "all"
             ckpt_per_epoch:
                 An integer value of number of checkpoints per epoch, default = 1
+            fp16:
+                boolean, default = True | whether to use fp16.
             ray_verbose:
                 An integer, default=1 | verbosit of ray,
             transformers_verbose:
                 An integer, default=transformers.logging.INFO | verbosity of transformers, must be chosen from one of
                 transformers.logging.ERROR, transformers.logging.INFO, transformers.logging.WARNING,
                 or transformers.logging.DEBUG
-            fp16:
-                boolean, default = True | whether to use fp16.
-            ray_local_mode:
-                boolean, default = False | whether to use the local mode (debugging mode) for ray tune.run
+            resources_per_trial:
+                A dict showing the resources used by each trial,
+                e.g., {"gpu": 4, "cpu": 4}
             keep_checkpoints_num:
                 int, default = 1 | the number of checkpoints to keep for ray tune.run
+            seed_bs:
+                int,
             custom_hpo_args:
                 The additional keyword arguments, e.g., custom_hpo_args = {"points_to_evaluate": [{
                 "num_train_epochs": 1, "per_device_train_batch_size": 128, }]}
