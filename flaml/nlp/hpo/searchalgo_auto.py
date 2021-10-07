@@ -75,7 +75,7 @@ class AutoSearchAlgorithm:
         ), "hpo_search_space needs to be specified for calling AutoSearchAlgorithm.from_method_name"
         if not search_algo_name:
             search_algo_name = "grid"
-        if search_algo_name in SEARCH_ALGO_MAPPING.keys():
+        if search_algo_name in SEARCH_ALGO_MAPPING:
             if SEARCH_ALGO_MAPPING[search_algo_name] is None:
                 return None
             """
