@@ -406,7 +406,7 @@ class JobID:
         """
         Set the jobid from a dict object
         """
-        for key in jobid_list.keys():
+        for key in jobid_list:
             assert key in JobID.__dataclass_fields__.keys()
             setattr(self, key, jobid_list[key])
         if self.mod == "grid":
