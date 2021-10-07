@@ -150,12 +150,11 @@ class AutoTransformers:
             "val": "validation",
         }
         if fold_names:
-            for each_fold_name in fold_names:
-                for each_dft_fold_name in default_fold_name_mapping:
+            for each_dft_fold_name, value in default_fold_name_mapping.items():
+                for each_fold_name in fold_names:
                     if each_fold_name.startswith(each_dft_fold_name):
-                        split_map[
-                            default_fold_name_mapping[each_dft_fold_name]
-                        ] = each_fold_name
+                        split_map[value] = each_fold_name
+                        break
             return split_map, split_map["validation"]
         fold_keys = data_raw.keys()
         if fold_keys == {"train", "validation", "test"}:
