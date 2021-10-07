@@ -32,7 +32,7 @@ def get_space_union_and_unique(
             ), "the hyperparameters of common and unique search spaces should not have overlaps"
             this_search_space.update(value)
         search_space_union = merge_dicts(
-            search_space_union, search_space_unique[each_case]
+            search_space_union, value
         )
     if is_included:
         return this_search_space
