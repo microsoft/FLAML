@@ -19,7 +19,7 @@ try:
     from typing import Optional
     from ray.tune.trial import Trial
 except ImportError as err:
-    print("To use the nlp component in flaml, run pip install flaml[nlp]")
+    raise ImportError("To use the nlp component in flaml, run pip install flaml[nlp]")
     raise err
 
 task_list = ["seq-classification", "regression", "question-answering"]
