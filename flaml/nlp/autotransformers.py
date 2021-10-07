@@ -420,7 +420,7 @@ class AutoTransformers:
                         upper_bound_portion=train_val_upper,
                     )
                     self.eval_datasets.append(
-                        autoencodetext_from_model_and_dataset_name()
+                        autoencodetext_from_model_and_dataset_name(subfold_dataset)
                     )
                     subfold_dataset = self._get_targetfold_start_end(
                         concatenated_data=merged_folds,
