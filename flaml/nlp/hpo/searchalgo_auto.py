@@ -89,8 +89,8 @@ class AutoSearchAlgorithm:
                 search_algo_name
             ].__init__.__code__.co_varnames
             allowed_custom_args = {
-                key: custom_hpo_args[key]
-                for key in custom_hpo_args.keys()
+                key: value
+                for key, value in custom_hpo_args.items()
                 if key in allowed_arguments
             }
 
