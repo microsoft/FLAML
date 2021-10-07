@@ -348,7 +348,7 @@ class AutoTransformers:
             )
 
             source_fold_names = resplit_portion["source"]
-            for each_fold_name in source_fold_names:
+            all_folds_from_source = [data_raw[split_mapping[each_fold_name]] for each_fold_name in source_fold_names]
                 this_fold_dataset = data_raw[split_mapping[each_fold_name]]
                 all_folds_from_source.append(this_fold_dataset)
 
