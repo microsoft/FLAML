@@ -252,7 +252,7 @@ class JobID:
                     val = val.replace("/", "-")
                 if each_val != val:
                     match = False
-        return not is_not_match
+        return match
 
     def to_wandb_string(self):
         """
