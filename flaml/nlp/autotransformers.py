@@ -387,8 +387,7 @@ class AutoTransformers:
                 self._max_seq_length = int((_max_seq_length + 15) / 16) * 16
             else:
                 assert "foldnum" in custom_data_args, (
-                    "if the split mode is cross validation, foldnum must be"
-                    " specified"
+                    "if the split mode is cross validation, foldnum must be specified"
                 )
 
                 def get_cv_split_points(lower_bound, upper_bound, idx, k):
