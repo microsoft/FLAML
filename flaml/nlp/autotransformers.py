@@ -336,7 +336,7 @@ class AutoTransformers:
                 self.jobid_config.pre_full,
                 self.jobid_config.dat,
                 self.jobid_config.subdat,
-                **auto_tokentoids_config,
+                max_seq_length=self._max_seq_length,
             )
             return tokenized_dat
 
