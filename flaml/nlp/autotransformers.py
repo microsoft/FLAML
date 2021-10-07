@@ -1072,10 +1072,10 @@ class AutoTransformers:
                     self.metric_mode_name
                 ]
             }
-            for x in range(len(self._all_metrics)):
+            for i, metric in enumerate(self._all_metrics):
                 validation_metric[
-                    "eval_" + self._all_metrics[x]
-                ] = best_trial.metric_analysis[self._all_metrics[x]][self._all_modes[x]]
+                    "eval_" + metric
+                ] = best_trial.metric_analysis[metric][self._all_modes[i]]
 
             get_best_ckpt = analysis.get_best_checkpoint(
                 best_trial, metric=self.metric_name, mode=self.metric_mode_name
