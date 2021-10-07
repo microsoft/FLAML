@@ -22,7 +22,7 @@ def get_space_union_and_unique(
     is_included = False
     from ..utils import merge_dicts
 
-    for each_case in search_space_unique.keys():
+    for each_case, value in search_space_unique.items():
         from ..utils import _check_dict_keys_overlaps
 
         if each_case in this_case_tags:
