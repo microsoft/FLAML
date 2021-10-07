@@ -432,12 +432,9 @@ class AutoTransformers:
                         autoencodetext_from_model_and_dataset_name(subfold_dataset)
                     )
         else:
-            subfold_dataset = data_raw[split_mapping["train"]]
-            self.train_dataset = autoencodetext_from_model_and_dataset_name()
-            subfold_dataset = data_raw[split_mapping["validation"]]
-            self.eval_dataset = autoencodetext_from_model_and_dataset_name()
-            subfold_dataset = data_raw[split_mapping["test"]]
-            self.test_dataset = autoencodetext_from_model_and_dataset_name()
+            self.train_dataset = autoencodetext_from_model_and_dataset_name(data_raw[split_mapping["train"]])
+            self.eval_dataset = autoencodetext_from_model_and_dataset_name(data_raw[split_mapping["validation"]])
+            self.test_dataset = autoencodetext_from_model_and_dataset_name(data_raw[split_mapping["test"]])
 
     def _load_model(self, checkpoint_path=None, per_model_config=None):
         from .dataset.task_auto import get_default_task
