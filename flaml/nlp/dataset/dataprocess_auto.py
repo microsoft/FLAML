@@ -63,7 +63,6 @@ def tokenize_superglue_wic(
         max_length=1024,
         truncation=True
     )["input_ids"]
-    data_pair = (sent1, sent2)
     assert "max_seq_length" in kwargs, "max_seq_length must be provided for glue"
     this_data = this_tokenizer(
         *data_pair,
