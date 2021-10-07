@@ -164,7 +164,7 @@ class AutoTransformers:
                 assert not (
                     each_key.startswith(each_split_name) and each_key != each_split_name
                 ), (
-                    "Dataset split must be within {}, must be explicitly specified in dataset_config, e.g.,"
+                    "Dataset split keys must be within {}, or explicitly specified in dataset_config, e.g., "
                     "'fold_name': ['train','validation_matched','test_matched']. Please refer to the example in the "
                     "documentation of AutoTransformers.prepare_data()".format(
                         ",".join(fold_keys)
