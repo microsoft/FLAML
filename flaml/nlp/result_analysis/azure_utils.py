@@ -261,10 +261,10 @@ class JobID:
         field_dict = self.__dict__
         keytoval_str = "_".join(
             [
-                JobID.dataset_list_to_str(field_dict[key])
-                if type(field_dict[key]) == list
-                else str(field_dict[key])
-                for key in field_dict.keys()
+                JobID.dataset_list_to_str(value)
+                if type(value) == list
+                else str(value)
+                for key, value in field_dict.items()
                 if key
                 != "pre"  # skip the abbreviated model name in naming of the file, use the full model name instead
             ]
