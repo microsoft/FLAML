@@ -684,7 +684,7 @@ class AutoTransformers:
                                 hp_value
                                 in domin.categories
                             ), f"points_to_evaluate {each_hp} value must be within the search space"
-                        else:
+                        elif isinstance(domain, ray.tune.sample.Float) or isinstance(domain, ray.tune.sample.Integer):
                             assert (
                                 self._search_space_hpo[each_hp].lower
                                 <= each_init_config[each_hp]
