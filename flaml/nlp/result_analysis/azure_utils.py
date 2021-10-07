@@ -66,7 +66,7 @@ class ConfigScoreList:
         filtered_config_score_list = [
             x
             for x in self._config_score_list
-            if isinstance(getattr(x, "metric_score"), dict)
+            if isinstance(x.metric_score, dict)
         ]
         return max(
             filtered_config_score_list,
