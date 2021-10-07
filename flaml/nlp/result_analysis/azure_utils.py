@@ -64,13 +64,11 @@ class ConfigScoreList:
 
     def get_best_config(self, metric_mode="max"):
         filtered_config_score_list = [
-            x
-            for x in self._config_score_list
-            if isinstance(getattr(x, "metric_score"), dict)
+            x for x in self._config_score_list if isinstance(x.metric_score, dict)
         ]
         return max(
             filtered_config_score_list,
-            key=lambda x: getattr(x, "metric_score")[metric_mode],
+            key=lambda x: x.metric_score[metric_mode],
         )
 
 
@@ -148,30 +146,26 @@ class JobID:
 
     @staticmethod
     def _get_unittest_config():
-        from bidict import bidict
-
-        return bidict(
-            dat=["glue"],
-            subdat="mrpc",
-            mod="hpo",
-            spa="gnr_test",
-            arg="cus",
-            alg="bs",
-            pru="None",
-            pre_full="albert-base-v1",
-            pre="albert",
-            presz="small",
-            spt="rspt",
-            rep=0,
-            sddt=101,
-            sdhf=42,
-            sdbs=20,
-        )
+        return {
+            "dat": ["glue"],
+            "subdat": "mrpc",
+            "mod": "hpo",
+            "spa": "gnr_test",
+            "arg": "cus",
+            "alg": "bs",
+            "pru": "None",
+            "pre_full": "albert-base-v1",
+            "pre": "albert",
+            "presz": "small",
+            "spt": "rspt",
+            "rep": 0,
+            "sddt": 101,
+            "sdhf": 42,
+            "sdbs": 20,
+        }
 
     @staticmethod
     def _get_default_config():
-        from bidict import bidict
-
         return {
             "dat": ["glue"],
             "subdat": "mrpc",
@@ -218,11 +212,10 @@ class JobID:
 
          return False for partial_jobid1 and True for partial_jobid2
         """
-        is_not_match = False
+        match = True
         for key, val in partial_jobid.__dict__.items():
-            if (
-                key == "pre"
-            ):  # skip matching the abbreviated model name, only match the full model name
+            if key == "pre":
+                # skip matching the abbreviated model name, only match the full model name
                 continue
             if val is None:
                 continue
@@ -233,7 +226,7 @@ class JobID:
                     this_value = set([str(this_value)])
                 is_subset = this_value.issubset(val)
                 if is_subset is False:
-                    is_not_match = True
+                    match = False
             else:
                 each_val = getattr(self, key)
                 if key == "dat":  # replace underline with dash for dataset name
@@ -244,8 +237,8 @@ class JobID:
                     # because "/" is the directory separator of the azure file system
                     val = val.replace("/", "-")
                 if each_val != val:
-                    is_not_match = True
-        return not is_not_match
+                    match = False
+        return match
 
     def to_wandb_string(self):
         """
@@ -254,10 +247,8 @@ class JobID:
         field_dict = self.__dict__
         keytoval_str = "_".join(
             [
-                JobID.dataset_list_to_str(field_dict[key])
-                if type(field_dict[key]) == list
-                else str(field_dict[key])
-                for key in field_dict
+                JobID.dataset_list_to_str(value) if type(value) == list else str(value)
+                for key, value in field_dict.items()
                 if key
                 != "pre"  # skip the abbreviated model name in naming of the file, use the full model name instead
             ]
@@ -329,7 +320,7 @@ class JobID:
                                rep = 0, sddt = 43, sdhf = 42)
         """
         # skip the abbreviated model name in naming of the file, use the full model name instead
-        field_keys = [key for key in list(JobID.__dataclass_fields__) if key != "pre"]
+        field_keys = [key for key in JobID.__dataclass_fields__ if key != "pre"]
         regex_expression = ".*"
         is_first = True
         for key in field_keys:
