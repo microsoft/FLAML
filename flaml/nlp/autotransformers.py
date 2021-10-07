@@ -660,20 +660,10 @@ class AutoTransformers:
                     for each_hp in list(each_init_config.keys()):
                         if each_hp not in self._search_space_hpo:
                             del each_init_config[each_hp]
-                        print(
-                            "{} is not in the search space, deleting from init config".format(
-                                each_hp
-                            )
-                        )
-
-                    for each_hp in list(each_init_config.keys()):
-                        assert (
-                            isinstance(each_init_config[each_hp], int)
-                            or isinstance(each_init_config[each_hp], float)
-                            or isinstance(each_init_config[each_hp], str)
-                            or isinstance(each_init_config[each_hp], bool)
-                        ), " points_to_evaluate must be a scalar"
-
+                            print(each_hp, "is not in the search space, deleting from init config")
+                            continue
+                        hp_value = each_init_config[each_hp]
+                        domain = self._search_space_hpo[each_hp]
                         assert (
                             isinstance(
                                 self._search_space_hpo[each_hp],
