@@ -11,10 +11,9 @@ autohf = AutoTransformers()
 preparedata_setting = {
     "dataset_subdataset_name": "glue:mrpc",
     "pretrained_model_size": ["google/electra-small-discriminator", "small"],
-    "load_config_mode": "args",
-    "server_name": "tmdev",
     "data_root_path": "data/",
     "max_seq_length": 128,
+    "split_mode": "cvrspt",
     "resplit_portion": {
         "source": ["train", "validation"],
         "train": [0, 0.001],
@@ -22,6 +21,7 @@ preparedata_setting = {
         "test": [0.002, 0.003],
     }
 }
+
 autohf.prepare_data(**preparedata_setting)
 
 autohf_settings = {

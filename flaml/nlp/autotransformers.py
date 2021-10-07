@@ -224,11 +224,11 @@ class AutoTransformers:
         data_root_path,
         jobid_config=None,
         is_wandb_on=False,
-        server_name=None,
+        server_name="azure",
         max_seq_length=128,
         fold_name=None,
         resplit_portion=None,
-        load_config_mode="console",
+        load_config_mode="args",
         **custom_data_args,
     ):
         """Prepare data
@@ -261,6 +261,8 @@ class AutoTransformers:
                 If args.resplit_mode = "rspt", resplit_portion is required
             is_wandb_on:
                 A boolean variable indicating whether wandb is used
+            load_config_mode:
+                console, args
         """
         from flaml.nlp.result_analysis.azure_utils import JobID
         from .dataset.dataprocess_auto import AutoEncodeText
