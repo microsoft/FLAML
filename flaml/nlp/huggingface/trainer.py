@@ -26,9 +26,25 @@ class TrainerForAutoTransformers(TFTrainer):
         for key in list(output.metrics.keys()):
             if key.startswith("eval_"):
                 output.metrics[key[5:]] = output.metrics[key]
-        tune.report(**output.metrics)
-
         return output.metrics
+
+    @staticmethod
+    def tune_report(mode="holdout", output_metrics=None):
+        from ray import tune
+        import numpy as np
+
+        if mode == "holdout":
+            tune.report(**output_metrics)
+        else:
+            avg_metrics = {}
+            for each_output_metrics in output_metrics:
+                for key, val in each_output_metrics.items():
+                    if key.startswith("eval_"):
+                        avg_metrics.setdefault(key[5:], [])
+                        avg_metrics[key[5:]].append(val)
+            for key in list(avg_metrics.keys()):
+                avg_metrics[key] = np.mean(avg_metrics[key])
+            tune.report(**avg_metrics)
 
     def save_state(self):
         """

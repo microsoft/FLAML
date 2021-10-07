@@ -241,8 +241,7 @@ def compute_kl_div(pk, qk):
 
 
 def output_csv(console_args):
-    from flaml.nlp.result_analysis.azure_utils import JobID, ConfigScoreList
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils, ConfigScoreList
 
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "grid"
@@ -295,8 +294,7 @@ def output_csv(console_args):
 
 
 def analyze_small_large(console_args):
-    from flaml.nlp.result_analysis.azure_utils import JobID, ConfigScoreList
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import JobID, ConfigScoreList, AzureUtils
 
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "grid"
@@ -394,8 +392,7 @@ def create_partial_config_bestnn():
 def get_exhaustive_sweep_result(
     console_args, each_root_log_path, partial_jobid_config, topk
 ):
-    from flaml.nlp.result_analysis.azure_utils import ConfigScoreList
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import ConfigScoreList, AzureUtils
 
     azure_utils = AzureUtils(
         root_log_path=each_root_log_path,
@@ -460,8 +457,7 @@ def plot_boxplot(console_args):
     # mod=hpo_spa=gnr_arg=dft_alg=rs
     # _pru=None_pre_full=facebook-muppet-roberta-large
     # _presz=large_spt=rspt_rep=0_sddt=43_sdhf=42_var1=_var2=.json
-    from flaml.nlp.result_analysis.azure_utils import JobID
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils
     import json
 
     partial_jobid_config = JobID()
@@ -510,8 +506,7 @@ def plot(spread, legend):
 
 
 def print_modelhub_result(console_args):
-    from flaml.nlp.result_analysis.azure_utils import JobID
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils
     import json
     import re
 
@@ -625,8 +620,7 @@ def print_modelhub_result(console_args):
 
 
 def compare_muppet(console_args):
-    from flaml.nlp.result_analysis.azure_utils import JobID, ConfigScoreList
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import JobID, ConfigScoreList, AzureUtils
 
     dats = ["yelp-polarity", "glue", "amazon-polarity", "imdb"]
     subdats = [None, "sst2", None, None]
@@ -682,8 +676,7 @@ def is_dominating(config2score1, config2score2):
 
 
 def print_crossvalidation_result(console_args):
-    from flaml.nlp.result_analysis.azure_utils import JobID
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils
     import json
 
     partial_jobid_config = JobID()
@@ -712,8 +705,7 @@ def print_crossvalidation_result(console_args):
 
 
 def compare_learningrate(console_args):
-    from flaml.nlp.result_analysis.azure_utils import JobID
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils
 
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "grid"
@@ -797,7 +789,7 @@ def randomly_sample_gridunion():
 
 def rename_azure_file(console_args):
     import copy
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import AzureUtils
 
     dat_name = ["amazon_polarity"]
     subdat_name = ""
@@ -839,8 +831,7 @@ def rename_azure_file(console_args):
 
 
 def print_benchmark(console_args):
-    from flaml.nlp.result_analysis.azure_utils import JobID
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils
 
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "hpo"
@@ -904,8 +895,7 @@ def print_benchmark(console_args):
 
 
 def print_by_method(console_args):
-    from flaml.nlp.result_analysis.azure_utils import JobID
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils
 
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "hpo"
@@ -970,8 +960,7 @@ def print_by_method(console_args):
 
 
 def print_asha(console_args):
-    from flaml.nlp.result_analysis.azure_utils import JobID
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils
 
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "hpo"
@@ -1014,8 +1003,7 @@ def print_asha(console_args):
 
 
 def analyze_asha(console_args):
-    from flaml.nlp.result_analysis.azure_utils import JobID
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils
 
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "hpo"
@@ -1059,8 +1047,7 @@ def analyze_asha(console_args):
 
 
 def count_pruned_trials(console_args):
-    from flaml.nlp.result_analysis.azure_utils import JobID
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils
 
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "hpo"
@@ -1112,8 +1099,7 @@ def plot_trials_with_plt(matched_config_score_list):
 
 
 def plot_hpo_trials(console_args):
-    from flaml.nlp.result_analysis.azure_utils import JobID
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils
 
     partial_jobid_config = JobID()
     partial_jobid_config.mod = "hpo"
@@ -1146,7 +1132,7 @@ def round_val(val):
 
 
 if __name__ == "__main__":
-    from flaml.nlp.utils import load_dft_args
+    from flaml.nlp import HPOArgs
 
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument(
@@ -1159,7 +1145,7 @@ if __name__ == "__main__":
         required=True,
         default="logs_azure/",
     )
-    console_args = load_dft_args()
+    console_args = HPOArgs.load_args()
 
     plot_hpo_trials(console_args=console_args)
     # analyze_small_large(console_args=args)

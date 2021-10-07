@@ -43,7 +43,7 @@ class AutoSearchAlgorithm:
         metric_name,
         metric_mode_name,
         seed_bs=None,
-        **custom_hpo_args
+        custom_hpo_args=None,
     ):
         """
         Instantiating one of the search algorithm classes based on the search algorithm name, search algorithm
@@ -88,11 +88,13 @@ class AutoSearchAlgorithm:
             allowed_arguments = SEARCH_ALGO_MAPPING[
                 search_algo_name
             ].__init__.__code__.co_varnames
-            allowed_custom_args = {
-                key: value
-                for key, value in custom_hpo_args.items()
-                if key in allowed_arguments
-            }
+            allowed_custom_args = {}
+            if custom_hpo_args is not None:
+                allowed_custom_args = {
+                    key: value
+                    for key, value in custom_hpo_args.__dict__.items()
+                    if key in allowed_arguments
+                }
 
             """
              If the search_algo_args_mode is "dft", set the args to the default args, e.g., the default args for

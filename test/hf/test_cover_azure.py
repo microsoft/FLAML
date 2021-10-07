@@ -8,83 +8,16 @@
   import errors in the library code accordingly. """
 
 
-def get_preparedata_setting(jobid_config):
-    preparedata_setting = {
-        "server_name": "tmdev",
-        "data_root_path": "data/",
-        "max_seq_length": 10,
-        "jobid_config": jobid_config,
-        "load_config_mode": "jobid",
-        "resplit_portion": {
-            "source": ["train", "validation"],
-            "train": [0, 0.01],
-            "validation": [0.01, 0.011],
-            "test": [0.011, 0.012],
-        },
+def get_autohf_setting():
+    autohf_settings = {
+        "output_dir": "data/input/",
+        "dataset_config": ["glue", "mrpc"],
+        "space_mode": "uni",
+        "search_alg_args_mode": "dft",
+        "model_path": "google/electra-base-discriminator",
+        "key_path": ".",
     }
-    return preparedata_setting
-
-
-def get_preparedata_setting_mnli_1(jobid_config):
-    preparedata_setting = {
-        "server_name": "tmdev",
-        "data_root_path": "data/",
-        "max_seq_length": 10,
-        "jobid_config": jobid_config,
-        "load_config_mode": "jobid",
-        "resplit_portion": {
-            "source": ["train", "validation"],
-            "train": [0, 0.0001],
-            "validation": [0.0001, 0.00011],
-            "test": [0.00011, 0.00012],
-        },
-        "fold_name": [
-            "train",
-            "validation_matched",
-            "test_matched",
-        ],
-    }
-    return preparedata_setting
-
-
-def get_preparedata_setting_mnli_2(jobid_config):
-    preparedata_setting = {
-        "server_name": "tmdev",
-        "data_root_path": "data/",
-        "max_seq_length": 10,
-        "jobid_config": jobid_config,
-        "load_config_mode": "jobid",
-        "resplit_portion": {
-            "source": ["train", "validation"],
-            "train": [0, 0.0001],
-            "validation": [0.0001, 0.00011],
-            "test": [0.00011, 0.00012],
-        },
-        "fold_name": [
-            "train",
-            "validation_mismatched",
-            "test_mismatched",
-        ],
-    }
-    return preparedata_setting
-
-
-def get_console_args():
-    from flaml.nlp.utils import load_dft_args
-
-    args = load_dft_args()
-    args.dataset_subdataset_name = "glue:mrpc"
-    args.algo_mode = "hpo"
-    args.space_mode = "uni"
-    args.search_alg_args_mode = "dft"
-    args.algo_name = "bs"
-    args.pruner = "None"
-    args.pretrained_model_size = ["google/electra-base-discriminator", "base"]
-    args.resplit_mode = "rspt"
-    args.rep_id = 0
-    args.seed_data = 43
-    args.seed_transformers = 42
-    return args
+    return autohf_settings
 
 
 def test_get_configblob_from_partial_jobid():
@@ -96,7 +29,7 @@ def test_get_configblob_from_partial_jobid():
     except ImportError:
         return
 
-    from flaml.nlp import JobID
+    from flaml.nlp.result_analysis.azure_utils import JobID
 
     each_blob_name = (
         "dat=glue_subdat=cola_mod=grid_spa=cus_arg=dft_alg=grid"
@@ -133,9 +66,9 @@ def test_jobid():
     except ImportError:
         return
 
-    from flaml.nlp import JobID
+    from flaml.nlp.result_analysis.azure_utils import JobID
 
-    args = get_console_args()
+    args = get_autohf_setting()
 
     jobid_config = JobID(args)
     jobid_config.to_partial_jobid_string()
@@ -158,7 +91,7 @@ def test_azureutils():
     except ImportError:
         return
 
-    from flaml.nlp import AzureUtils, JobID
+    from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils
     from flaml.nlp.result_analysis.azure_utils import ConfigScore, ConfigScoreList
     from flaml.nlp import AutoTransformers
     from datetime import datetime
@@ -168,22 +101,11 @@ def test_azureutils():
     for subdat in ["mrpc", "rte", "stsb", "cola", "mnli", "mnli"]:
         if subdat == "mnli":
             mnli_count += 1
-        args = get_console_args()
-        args.key_path = "."
+        args = get_autohf_setting()
         jobid_config = JobID(args)
-        jobid_config.subdat = subdat
 
         autohf = AutoTransformers()
         autohf.jobid_config = jobid_config
-
-        if subdat == "mnli":
-            if mnli_count == 1:
-                preparedata_setting = get_preparedata_setting_mnli_1(jobid_config)
-            else:
-                preparedata_setting = get_preparedata_setting_mnli_2(jobid_config)
-        else:
-            preparedata_setting = get_preparedata_setting(jobid_config)
-        autohf.prepare_data(**preparedata_setting)
 
         each_configscore = ConfigScore(
             trial_id="test",
@@ -199,8 +121,8 @@ def test_azureutils():
         configscore_list.get_best_config()
 
         azureutils = AzureUtils(
-            azure_key_path=args.key_path,
-            data_root_dir=args.data_root_dir,
+            azure_key_path=args["key_path"],
+            output_dir=args["output_dir"],
             autohf=autohf,
         )
         azureutils.download_azure_blob(
@@ -226,7 +148,7 @@ def test_azureutils():
             predictions=predictions,
             duration=0,
         )
-        azureutils.data_root_dir = None
+        azureutils.output_dir = None
         azureutils.write_autohf_output(
             configscore_list=[each_configscore],
             valid_metric={},
@@ -255,13 +177,6 @@ def test_azureutils():
         matched_blob_list = [(None, this_blob)]
         azureutils.get_config_and_score_from_matched_blob_list(matched_blob_list)
 
-        from flaml.nlp.utils import load_dft_args
-
-        jobid_config.mod = "grid"
-        console_args = load_dft_args()
-        console_args.algo_mode = "grid"
-        jobid_config.set_jobid_from_console_args(console_args)
-
         azureutils = AzureUtils(
             jobid_config_rename=None, autohf=None, jobid_config=jobid_config
         )
@@ -285,4 +200,4 @@ def test_azureutils():
 
 
 if __name__ == "__main__":
-    test_azureutils()
+    test_get_configblob_from_partial_jobid()

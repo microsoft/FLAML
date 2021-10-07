@@ -7,53 +7,31 @@
   import errors in the library code accordingly. """
 
 
-def get_console_args():
-    from flaml.nlp.utils import load_dft_args
-
-    args = load_dft_args()
-    args.dataset_subdataset_name = "glue:mrpc"
-    args.algo_mode = "hpo"
-    args.space_mode = "uni"
-    args.search_alg_args_mode = "dft"
-    args.algo_name = "bs"
-    args.pruner = "None"
-    args.pretrained_model_size = ["google/electra-base-discriminator", "base"]
-    args.resplit_mode = "rspt"
-    args.rep_id = 0
-    args.seed_data = 43
-    args.seed_transformers = 42
-    return args
+def get_autohf_setting():
+    autohf_settings = {
+        "output_dir": "data/input/",
+        "dataset_config": ["glue", "mrpc"],
+        "space_mode": "uni",
+        "search_alg_args_mode": "dft",
+        "model_path": "google/electra-base-discriminator",
+        "model_size": "base",
+        "key_path": ".",
+        "resplit_portion": [0, 0.1, 0.1, 0.11, 0.11, 0.12],
+    }
+    return autohf_settings
 
 
 def model_init():
-    from flaml.nlp import JobID
-
-    jobid_config = JobID()
-    jobid_config.set_unittest_config()
+    from flaml.nlp.utils import HPOArgs
     from flaml.nlp import AutoTransformers
 
     autohf = AutoTransformers()
+    args = get_autohf_setting()
+    HPOArgs()
 
-    preparedata_setting = get_preparedata_setting(jobid_config)
-    autohf.prepare_data(**preparedata_setting)
+    set_autohf_setting(autohf, args)
+    autohf._num_labels = 2
     return autohf._load_model()
-
-
-def get_preparedata_setting(jobid_config):
-    preparedata_setting = {
-        "server_name": "tmdev",
-        "data_root_path": "data/",
-        "max_seq_length": 10,
-        "jobid_config": jobid_config,
-        "load_config_mode": "jobid",
-        "resplit_portion": {
-            "source": ["train", "validation"],
-            "train": [0, 0.1],
-            "validation": [0.1, 0.11],
-            "test": [0.11, 0.12],
-        },
-    }
-    return preparedata_setting
 
 
 def test_dataprocess():
@@ -69,15 +47,10 @@ def test_dataprocess():
         return
 
     from flaml.nlp import AutoTransformers
-    from flaml.nlp import JobID
     from flaml.nlp.dataset.dataprocess_auto import TOKENIZER_MAPPING
 
-    jobid_config = JobID()
-    jobid_config.set_unittest_config()
     autohf = AutoTransformers()
-
-    dataset_name = JobID.dataset_list_to_str(jobid_config.dat)
-    default_func = TOKENIZER_MAPPING[(dataset_name, jobid_config.subdat)]
+    default_func = TOKENIZER_MAPPING[("glue", "mrpc")]
 
     funcs_to_eval = set(
         [
@@ -88,19 +61,13 @@ def test_dataprocess():
     )
 
     for (dat, subdat) in funcs_to_eval:
-        print("loading dataset for {}, {}".format(dat, subdat))
-        jobid_config.dat = dat.split(",")
-        jobid_config.subdat = subdat
-
-        preparedata_setting = get_preparedata_setting(jobid_config)
-        autohf.prepare_data(**preparedata_setting)
+        args = get_autohf_setting()
+        args["dataset_config"] = [dat, subdat]
+        set_autohf_setting(autohf, args)
 
         if subdat == "wic":
-            jobid_config.pre_full = "xlnet-base-cased"
-            jobid_config.pre = "xlnet"
-
-            preparedata_setting = get_preparedata_setting(jobid_config)
-            autohf.prepare_data(**preparedata_setting)
+            args["model_path"] = "xlnet-base-cased"
+            set_autohf_setting(autohf, args)
 
 
 def test_gridsearch_space():
@@ -116,14 +83,10 @@ def test_gridsearch_space():
         GRID_SEARCH_SPACE_MAPPING,
         AutoGridSearchSpace,
     )
-    from flaml.nlp import JobID
-
-    jobid_config = JobID()
-    jobid_config.set_unittest_config()
 
     for each_model_type in GRID_SEARCH_SPACE_MAPPING.keys():
         AutoGridSearchSpace.from_model_and_dataset_name(
-            each_model_type, "base", jobid_config.dat, jobid_config.subdat, "hpo"
+            each_model_type, "base", ["glue"], "mrpc", "hpo"
         )
 
 
@@ -140,25 +103,31 @@ def test_hpo_space():
         AutoHPOSearchSpace,
         HPO_SEARCH_SPACE_MAPPING,
     )
-    from flaml.nlp import JobID
+    from flaml.nlp.utils import HPOArgs
+    from flaml.nlp import AutoTransformers
 
-    jobid_config = JobID()
-    jobid_config.set_unittest_config()
+    autohf = AutoTransformers()
+
+    args = get_autohf_setting()
+    HPOArgs()
+
+    set_autohf_setting(autohf, args)
 
     for spa in HPO_SEARCH_SPACE_MAPPING.keys():
-        jobid_config.spa = spa
-        if jobid_config.spa == "cus":
-            custom_hpo_args = {"hpo_space": {"learning_rate": [1e-5]}}
+        args["space_mode"] = spa
+        if spa == "cus":
+            custom_search_space = {"learning_rate": [1e-5]}
         else:
-            custom_hpo_args = {}
+            custom_search_space = {}
 
         AutoHPOSearchSpace.from_model_and_dataset_name(
-            jobid_config.spa,
-            jobid_config.pre,
-            jobid_config.presz,
-            jobid_config.dat,
-            jobid_config.subdat,
-            **custom_hpo_args
+            autohf.jobid_config.spa,
+            autohf.jobid_config.pre,
+            autohf.jobid_config.presz,
+            autohf.jobid_config.dat,
+            autohf.jobid_config.subdat,
+            autohf.jobid_config.mod,
+            custom_search_space=custom_search_space,
         )
 
 
@@ -225,11 +194,15 @@ def test_switch_head():
         AutoSeqClassificationHead,
         MODEL_CLASSIFICATION_HEAD_MAPPING,
     )
-    from flaml.nlp import JobID
+    from flaml.nlp import AutoTransformers
+    from flaml.nlp.utils import HPOArgs
 
-    jobid_config = JobID()
-    jobid_config.set_unittest_config()
-    checkpoint_path = jobid_config.pre_full
+    autohf = AutoTransformers()
+    args = get_autohf_setting()
+    HPOArgs()
+
+    set_autohf_setting(autohf, args)
+    checkpoint_path = autohf.jobid_config.pre_full
 
     model_config = AutoConfig.from_pretrained(
         checkpoint_path,
@@ -237,9 +210,9 @@ def test_switch_head():
     )
 
     for model in list(MODEL_CLASSIFICATION_HEAD_MAPPING.keys()):
-        jobid_config.pre = model
+        autohf.jobid_config.pre = model
         AutoSeqClassificationHead.from_model_type_and_config(
-            jobid_config.pre, model_config
+            autohf.jobid_config.pre, model_config
         )
 
 
@@ -254,15 +227,14 @@ def test_wandb_utils():
         return
 
     from flaml.nlp.result_analysis.wandb_utils import WandbUtils
-    from flaml.nlp import JobID
+    from flaml.nlp.result_analysis.azure_utils import JobID
     import os
 
-    args = get_console_args()
-    args.key_path = "."
+    args = get_autohf_setting()
     jobid_config = JobID(args)
 
     wandb_utils = WandbUtils(
-        is_wandb_on=True, wandb_key_path=args.key_path, jobid_config=jobid_config
+        is_wandb_on=True, wandb_key_path=args["key_path"], jobid_config=jobid_config
     )
     os.environ["WANDB_MODE"] = "online"
     wandb_utils.wandb_group_name = "test"
@@ -276,8 +248,19 @@ def test_wandb_utils():
         )
 
     WandbUtils(
-        is_wandb_on=False, wandb_key_path=args.key_path, jobid_config=jobid_config
+        is_wandb_on=False, wandb_key_path=args["key_path"], jobid_config=jobid_config
     )
+
+
+def set_autohf_setting(autohf, args):
+    from flaml.nlp.utils import HPOArgs
+    from flaml.nlp.result_analysis.azure_utils import JobID
+
+    hpo_args = HPOArgs()
+    autohf.custom_hpo_args = hpo_args.load_args("args", **args)
+    autohf.jobid_config = JobID()
+    autohf.jobid_config.set_jobid_from_console_args(console_args=autohf.custom_hpo_args)
+    autohf._prepare_data()
 
 
 def test_objective():
@@ -290,29 +273,17 @@ def test_objective():
         return
 
     from flaml.nlp import AutoTransformers
-    from flaml.nlp import JobID
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.utils import HPOArgs
 
     """
         test grid search
     """
-    jobid_config = JobID()
-    jobid_config.set_unittest_config()
     autohf = AutoTransformers()
-    jobid_config.mod = "hpo"
-    jobid_config.alg = "bs"
-    jobid_config.spa = "gnr"
-    jobid_config.pre = "bert"
-    jobid_config.arg = "cus"
-    autohf = AutoTransformers()
+    args = get_autohf_setting()
+    HPOArgs()
 
-    preparedata_setting = get_preparedata_setting(jobid_config)
-    autohf.prepare_data(**preparedata_setting)
-    autohf._transformers_verbose = 10
-    autohf._resources_per_trial = {"cpu": 1}
-    autohf.ckpt_per_epoch = 1
-    autohf._fp16 = False
-    autohf.task_name = "seq-classification"
+    set_autohf_setting(autohf, args)
+    autohf._num_labels = 2
 
     autohf._objective(
         config={
@@ -336,11 +307,7 @@ def test_search_algo_auto():
         return
 
     from flaml.nlp import AutoTransformers
-    from flaml.nlp import JobID
     from flaml.nlp.hpo.searchalgo_auto import AutoSearchAlgorithm
-
-    jobid_config = JobID()
-    jobid_config.set_unittest_config()
 
     _search_space_hpo = AutoTransformers._convert_dict_to_ray_tune_space(
         {
@@ -397,4 +364,4 @@ def test_search_algo_auto():
 
 
 if __name__ == "__main__":
-    test_wandb_utils()
+    test_search_algo_auto()

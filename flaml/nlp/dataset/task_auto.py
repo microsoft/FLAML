@@ -49,8 +49,11 @@ TASK_MAPPING = OrderedDict(
 )
 
 
-def get_default_task(dataset_name_list: list, subdataset_name=None):
+def get_default_task(dataset_name_list: list, subdataset_name=None, custom_task=None):
     from ..result_analysis.azure_utils import JobID
+
+    if custom_task is not None:
+        return custom_task
 
     dataset_name = JobID.dataset_list_to_str(dataset_name_list)
     assert dataset_name in TASK_MAPPING, (

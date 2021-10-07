@@ -8,14 +8,15 @@ def hpo_space_custom(
     dataset_name_list: list = None,
     subdataset_name=None,
     algo_mode=None,
-    **custom_hpo_args
+    custom_search_space=None,
 ):
     """
     The 5 arguments here cannot be deleted, they need to be kept consistent with
     other functions in HPO_SEARCH_SPACE_MAPPING
     """
-    assert "hpo_space" in custom_hpo_args
-    custom_search_space = custom_hpo_args["hpo_space"]
+    assert (
+        custom_search_space is not None
+    ), "If search_alg_args_mode is set to cus, search_space must be specified"
     return custom_search_space
 
 
@@ -25,7 +26,7 @@ def hpo_space_gridunion(
     dataset_name_list: list = None,
     subdataset_name=None,
     algo_mode=None,
-    **custom_hpo_args
+    custom_search_space=None,
 ):
     output_config = {}
     for each_model_type in ["bert", "roberta", "electra"]:
@@ -60,7 +61,7 @@ def hpo_space_gridunion_smoke_test(
     dataset_name_list: list = None,
     subdataset_name=None,
     algo_mode=None,
-    **custom_hpo_args
+    custom_search_space=None,
 ):
     return {
         "learning_rate": {"l": 1e-6, "u": 1e-3, "space": "log"},
@@ -77,7 +78,7 @@ def hpo_space_generic(
     dataset_name_list: list = None,
     subdataset_name=None,
     algo_mode=None,
-    **custom_hpo_args
+    custom_search_space=None,
 ):
     output_config = {
         "learning_rate": {"l": 1e-6, "u": 1e-3, "space": "log"},
@@ -97,7 +98,7 @@ def hpo_space_generic_test(
     dataset_name_list: list = None,
     subdataset_name=None,
     algo_mode=None,
-    **custom_hpo_args
+    custom_search_space=None,
 ):
     output_config = {
         "learning_rate": {"l": 1e-6, "u": 1e-3, "space": "log"},
@@ -117,7 +118,7 @@ def hpo_space_grid(
     dataset_name_list: list = None,
     subdataset_name=None,
     algo_mode=None,
-    **custom_hpo_args
+    custom_search_space=None,
 ):
     return AutoGridSearchSpace.from_model_and_dataset_name(
         model_type, model_size_type, dataset_name_list, subdataset_name, algo_mode
@@ -161,7 +162,7 @@ class AutoHPOSearchSpace:
         dataset_name_list: list = None,
         subdataset_name=None,
         algo_mode=None,
-        **custom_hpo_args
+        custom_search_space=None,
     ):
         """
         Instantiate one of the classes for getting the hpo search space from the search space name, model type,
@@ -203,7 +204,7 @@ class AutoHPOSearchSpace:
                 dataset_name_list,
                 subdataset_name,
                 algo_mode,
-                **custom_hpo_args
+                custom_search_space,
             )
             return hpo_space
         raise ValueError(

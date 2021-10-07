@@ -125,8 +125,6 @@ class JobID:
     sddt: int = field(default=None)
     sdhf: int = field(default=None)
     sdbs: int = field(default=None)
-    var1: Optional[set] = field(default=None)
-    var2: Optional[set] = field(default=None)
 
     def __init__(self, console_args=None):
         if console_args:
@@ -144,54 +142,6 @@ class JobID:
             "The full name and the model type of the pre-trained model"
             " must be consistent"
         )
-
-    @staticmethod
-    def _get_unittest_config():
-        return {
-            "dat": ["glue"],
-            "subdat": "mrpc",
-            "mod": "hpo",
-            "spa": "gnr_test",
-            "arg": "cus",
-            "alg": "bs",
-            "pru": "None",
-            "pre_full": "albert-base-v1",
-            "pre": "albert",
-            "presz": "small",
-            "spt": "rspt",
-            "rep": 0,
-            "sddt": 101,
-            "sdhf": 42,
-            "sdbs": 20,
-        }
-
-    @staticmethod
-    def _get_default_config():
-        return {
-            "dat": ["glue"],
-            "subdat": "mrpc",
-            "mod": "hpo",
-            "spa": "gnr",
-            "arg": "dft",
-            "alg": "bs",
-            "pru": "None",
-            "pre_full": "albert-base-v1",
-            "pre": "albert",
-            "presz": "small",
-            "spt": "rspt",
-            "rep": 0,
-            "sddt": 101,
-            "sdhf": 42,
-            "sdbs": 20,
-        }
-
-    def set_unittest_config(self):
-        """
-        set the JobID config for unit test
-        """
-        unittest_config = self._get_unittest_config()
-        for each_key, each_val in unittest_config.items():
-            setattr(self, each_key, each_val)
 
     def is_match(self, partial_jobid):
         """Return a boolean variable whether the current object matches the partial jobid defined in partial_jobid.
@@ -341,11 +291,6 @@ class JobID:
             for key in field_keys:
                 if key == "dat":
                     result_dict[key] = [result.group(key)]
-                elif key in ("var1", "var2"):
-                    if result.group(key) != "":
-                        result_dict[key] = sorted(list(set([result.group(key)])))
-                    else:
-                        result_dict[key] = []
                 elif key in ("rep", "sddt", "sdhf", "sdbs"):
                     try:
                         result_dict[key] = int(result.group(key))
@@ -451,25 +396,13 @@ class JobID:
         return model_type
 
     @staticmethod
-    def get_attrval_from_arg_or_dict(
-        console_args: Union[argparse.ArgumentParser, dict], each_key
-    ):
-        if type(console_args) == argparse.Namespace:
-            return getattr(console_args, each_key)
-        else:
-            this_key = JobID._get_console_to_jobid_key_mapping()[each_key]
-            try:
-                return console_args[each_key]
-            except KeyError:
-                return JobID._get_default_config()[this_key]
-
-    @staticmethod
     def _get_console_to_jobid_key_mapping():
         from bidict import bidict
 
         return bidict(
-            pretrained_model_size="pre",
-            dataset_subdataset_name="dat",
+            model_path="pre",
+            model_size="presz",
+            dataset_config="dat",
             algo_mode="mod",
             space_mode="spa",
             search_alg_args_mode="arg",
@@ -485,34 +418,27 @@ class JobID:
     def set_jobid_from_console_args(
         self, console_args: Union[argparse.ArgumentParser, dict]
     ):
-        from ..utils import dataset_subdataset_name_format_check
+        from ..utils import dataset_config_format_check
 
         console_to_jobid_key_mapping = self._get_console_to_jobid_key_mapping()
         for each_key in console_to_jobid_key_mapping:
             try:
-                if each_key == "dataset_subdataset_name":
-                    dataset_subdataset_name_format_check(
-                        JobID.get_attrval_from_arg_or_dict(console_args, each_key)
-                    )
-                    self.dat = (
-                        JobID.get_attrval_from_arg_or_dict(console_args, each_key)
-                        .split(":")[0]
-                        .split(",")
-                    )
-                    self.subdat = JobID.get_attrval_from_arg_or_dict(
-                        console_args, each_key
-                    ).split(":")[1]
-                elif each_key == "pretrained_model_size":
-                    self.pre_full = JobID.get_attrval_from_arg_or_dict(
-                        console_args, each_key
-                    )[0]
+                if each_key == "dataset_config":
+                    this_dataset_config = getattr(console_args, each_key)
+                    dataset_config_format_check(this_dataset_config)
+                    if isinstance(this_dataset_config, list):
+                        self.dat = this_dataset_config[0]
+                        self.subdat = "-".join(this_dataset_config[1:])
+                    else:
+                        assert isinstance(this_dataset_config, dict)
+                        self.dat = this_dataset_config["path"]
+                        self.subdat = this_dataset_config["name"]
+                elif each_key == "model_path":
+                    self.pre_full = getattr(console_args, each_key)
                     self.pre = JobID.extract_model_type(self.pre_full)
-                    self.presz = JobID.get_attrval_from_arg_or_dict(
-                        console_args, each_key
-                    )[1]
                 else:
                     jobid_key = console_to_jobid_key_mapping.get(each_key, "")
-                    attrval = JobID.get_attrval_from_arg_or_dict(console_args, each_key)
+                    attrval = getattr(console_args, each_key)
                     setattr(self, jobid_key, attrval)
             except (IndexError, AttributeError, KeyError):
                 print("console_args has no attribute {}, continue".format(each_key))
@@ -526,7 +452,7 @@ class AzureUtils:
         self,
         root_log_path=None,
         azure_key_path=None,
-        data_root_dir=None,
+        output_dir=None,
         autohf=None,
         jobid_config=None,
         jobid_config_rename=None,
@@ -588,7 +514,7 @@ class AzureUtils:
                 If the container name and azure key are not specified, the output will only be saved locally,
                 not synced to azure blob.
 
-            data_root_dir:
+            output_dir:
                 The directory for outputing the predictions, e.g., packing the predictions into a .zip file for
                 uploading to the glue website
 
@@ -614,7 +540,7 @@ class AzureUtils:
                 " or jobid_config"
             )
             self.jobid = jobid_config
-        self.data_root_dir = data_root_dir
+        self.output_dir = output_dir
         self.autohf = autohf
         if azure_key_path:
             azure_key, container_name = AzureUtils.get_azure_key(azure_key_path)
@@ -854,17 +780,17 @@ class AzureUtils:
         Store predictions (a .zip file) locally and upload
         """
         azure_save_file_name = local_json_file.split("/")[-1][:-5]
-        if self.data_root_dir is None:
-            from ..utils import load_dft_args
+        if self.output_dir is None:
+            from ..utils import HPOArgs
 
-            console_args = load_dft_args()
-            output_dir = getattr(console_args, "data_root_dir")
+            console_args = HPOArgs.load_args()
+            output_dir = getattr(console_args, "output_dir")
             print(
                 "The path for saving the prediction .zip file is not specified, "
                 "setting to {} by default".format(output_dir)
             )
         else:
-            output_dir = self.data_root_dir
+            output_dir = self.output_dir
         local_archive_path = self.autohf.output_prediction(
             predictions,
             output_prediction_path=output_dir + "result/",

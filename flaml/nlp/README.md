@@ -8,23 +8,11 @@ An example of using AutoTransformers:
 from flaml.nlp.autotransformers import AutoTransformers
 
 autohf = AutoTransformers()
-preparedata_setting = {
-    "dataset_subdataset_name": "glue:mrpc",
-    "pretrained_model_size": ["google/electra-small-discriminator", "small"],
-    "data_root_path": "data/",
-    "max_seq_length": 128,
-    "split_mode": "cvrspt",
-    "resplit_portion": {
-        "source": ["train", "validation"],
-        "train": [0, 0.001],
-        "validation": [0.001, 0.002],
-        "test": [0.002, 0.003],
-    }
-}
-
-autohf.prepare_data(**preparedata_setting)
 
 autohf_settings = {
+    "dataset_config": ["glue", "mrpc"],
+    "pretrained_model": "google/electra-small-discriminator",
+    "output_dir": "data/",
     "resources_per_trial": {"cpu": 1, "gpu": 1},
     "num_samples": -1,
     "time_budget": 300,

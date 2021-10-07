@@ -9,67 +9,15 @@ is for telling user to install flaml[nlp]. In future, if flaml/nlp contains a mo
   import errors in the library code accordingly. """
 
 
-def get_preparedata_setting(jobid_config):
-    preparedata_setting = {
-        "server_name": "tmdev",
-        "data_root_path": "data/",
-        "max_seq_length": 10,
-        "jobid_config": jobid_config,
-        "load_config_mode": "jobid",
-        "resplit_portion": {
-            "source": ["train", "validation"],
-            "train": [0, 0.001],
-            "validation": [0.001, 0.002],
-            "test": [0.002, 0.003],
-        },
-    }
-    return preparedata_setting
-
-
-def get_preparedata_setting_cv(jobid_config):
-    preparedata_setting = {
-        "server_name": "tmdev",
-        "data_root_path": "data/",
-        "max_seq_length": 10,
-        "jobid_config": jobid_config,
-        "load_config_mode": "jobid",
-        "resplit_portion": {
-            "source": ["train", "validation"],
-            "train": [0, 0.001],
-            "validation": [0.001, 0.002],
-            "test": [0.002, 0.003],
-        },
-        "foldnum": 2,
-    }
-    return preparedata_setting
-
-
-def get_preparedata_setting_mnli(jobid_config):
-    preparedata_setting = {
-        "server_name": "tmdev",
-        "data_root_path": "data/",
-        "max_seq_length": 5,
-        "load_config_mode": "jobid",
-        "jobid_config": jobid_config,
-        "resplit_portion": {
-            "source": ["train", "validation"],
-            "train": [0, 0.0001],
-            "validation": [0.0001, 0.00011],
-            "test": [0.00011, 0.00012],
-        },
-        "fold_name": [
-            "train",
-            "validation_matched",
-            "test_matched",
-        ],
-    }
-    return preparedata_setting
-
-
 def get_autohf_settings():
     autohf_settings = {
+        "output_dir": "data/input/",
+        "max_seq_length": 10,
+        "load_config_mode": "args",
+        "source_fold": ["train", "validation"],
+        "split_portion": [0, 0.001, 0.001, 0.002, 0.002, 0.003],
         "resources_per_trial": {"cpu": 1},
-        "num_samples": 1,
+        "sample_num": 1,
         "time_budget": 100000,
         "ckpt_per_epoch": 1,
         "fp16": False,
@@ -77,14 +25,53 @@ def get_autohf_settings():
     return autohf_settings
 
 
-def get_autohf_settings_grid():
+def get_autohf_settings_cv():
     autohf_settings = {
+        "output_dir": "data/input/",
+        "max_seq_length": 10,
+        "load_config_mode": "args",
+        "source_fold": ["train", "validation"],
+        "split_portion": [0, 0.001, 0.001, 0.002, 0.002, 0.003],
         "resources_per_trial": {"cpu": 1},
-        "num_samples": 1,
+        "sample_num": 1,
         "time_budget": 100000,
         "ckpt_per_epoch": 1,
         "fp16": False,
-        "grid_search_space": "bert_test",
+        "cv_k": 2,
+    }
+    return autohf_settings
+
+
+def get_autohf_settings_grid():
+    autohf_settings = {
+        "output_dir": "data/input/",
+        "max_seq_length": 10,
+        "load_config_mode": "args",
+        "source_fold": ["train", "validation"],
+        "split_portion": [0, 0.001, 0.001, 0.002, 0.002, 0.003],
+        "resources_per_trial": {"cpu": 1},
+        "sample_num": 1,
+        "time_budget": 100000,
+        "ckpt_per_epoch": 1,
+        "fp16": False,
+        "grid_space_model_type": "bert_test",
+    }
+    return autohf_settings
+
+
+def get_autohf_settings_mnli():
+    autohf_settings = {
+        "output_dir": "data/input/",
+        "max_seq_length": 5,
+        "load_config_mode": "args",
+        "source_fold": ["train", "validation"],
+        "fold_names": ["train", "validation_matched", "test_matched"],
+        "split_portion": [0, 0.0001, 0.0001, 0.00011, 0.00011, 0.00012],
+        "resources_per_trial": {"cpu": 1},
+        "sample_num": 1,
+        "time_budget": 100000,
+        "ckpt_per_epoch": 1,
+        "fp16": False,
     }
     return autohf_settings
 
@@ -99,25 +86,23 @@ def test_hpo_grid():
         return
 
     from flaml.nlp import AutoTransformers
-    from flaml.nlp import JobID
+    from flaml.nlp.result_analysis.azure_utils import JobID
+    from flaml.nlp.utils import HPOArgs
 
     """
         test grid search
     """
-    jobid_config = JobID()
-    jobid_config.set_unittest_config()
-    jobid_config.subdat = "stsb"
     autohf = AutoTransformers()
-    jobid_config.mod = "grid"
-    jobid_config.alg = "grid"
-    jobid_config.spa = "grid"
-    jobid_config.spt = "rspt"
-    autohf = AutoTransformers()
-
-    preparedata_setting = get_preparedata_setting(jobid_config)
-    autohf.prepare_data(**preparedata_setting)
-
     autohf_settings = get_autohf_settings_grid()
+    unittest_setting = HPOArgs._get_unittest_config()
+    for key, val in unittest_setting.items():
+        autohf_settings[key] = val
+    autohf_settings["dataset_config"] = ["glue", "stsb"]
+    autohf_settings["algo_mode"] = "grid"
+    autohf_settings["algo_name"] = "grid"
+    autohf_settings["space_mode"] = "grid"
+    autohf_settings["resplit_mode"] = "rspt"
+
     validation_metric, analysis = autohf.fit(**autohf_settings)
     autohf._load_model()
 
@@ -132,21 +117,22 @@ def test_foldname():
         return
 
     from flaml.nlp import AutoTransformers
-    from flaml.nlp import JobID
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import JobID
+    from flaml.nlp.utils import HPOArgs
 
     """
         test fold_name
     """
-    jobid_config = JobID()
-    jobid_config.set_unittest_config()
-    jobid_config.reset_pre_full("google/electra-small-discriminator", "small")
     autohf = AutoTransformers()
-    jobid_config.subdat = "mnli"
-    preparedata_setting = get_preparedata_setting_mnli(jobid_config)
-    autohf.prepare_data(**preparedata_setting)
 
-    autohf_settings = get_autohf_settings()
+    autohf_settings = get_autohf_settings_mnli()
+    unittest_setting = HPOArgs._get_unittest_config()
+    for key, val in unittest_setting.items():
+        autohf_settings[key] = val
+    autohf_settings["model_path"] = "google/electra-small-discriminator"
+    autohf_settings["model_size"] = "small"
+    autohf_settings["dataset_config"] = ["glue", "mnli"]
+
     validation_metric, analysis = autohf.fit(**autohf_settings)
     autohf._load_model()
 
@@ -160,20 +146,17 @@ def test_hpo_ori():
     except ImportError:
         return
     from flaml.nlp import AutoTransformers
-    from flaml.nlp import JobID
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils
+    from flaml.nlp.utils import HPOArgs
 
-    jobid_config = JobID()
-    jobid_config.set_unittest_config()
-    jobid_config.spt = "ori"
-    jobid_config.subdat = "wnli"
-    jobid_config.spa = "gnr_test"
     autohf = AutoTransformers()
-
-    preparedata_setting = get_preparedata_setting(jobid_config)
-    autohf.prepare_data(**preparedata_setting)
-
     autohf_settings = get_autohf_settings()
+    unittest_setting = HPOArgs._get_unittest_config()
+    for key, val in unittest_setting.items():
+        autohf_settings[key] = val
+    autohf_settings["resplit_mode"] = "ori"
+    autohf_settings["dataset_config"] = ["glue", "wnli"]
+    autohf_settings["space_mode"] = "gnr_test"
     autohf_settings["points_to_evaluate"] = [
         {
             "learning_rate": 2e-5,
@@ -190,7 +173,7 @@ def test_hpo_ori():
             validation_metric.update({"test": test_metric})
 
         azure_utils = AzureUtils(
-            root_log_path="logs_test/", data_root_dir="data/", autohf=autohf
+            root_log_path="logs_test/", output_dir="data/", autohf=autohf
         )
         azure_utils._azure_key = "test"
         azure_utils._container_name = "test"
@@ -213,17 +196,16 @@ def test_hpo():
     except ImportError:
         return
     from flaml.nlp import AutoTransformers
-    from flaml.nlp import JobID
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils
+    from flaml.nlp.utils import HPOArgs
 
-    jobid_config = JobID()
-    jobid_config.set_unittest_config()
     autohf = AutoTransformers()
 
-    preparedata_setting = get_preparedata_setting(jobid_config)
-    autohf.prepare_data(**preparedata_setting)
-
     autohf_settings = get_autohf_settings()
+    unittest_setting = HPOArgs._get_unittest_config()
+    for key, val in unittest_setting.items():
+        autohf_settings[key] = val
+
     autohf_settings["points_to_evaluate"] = [
         {"learning_rate": 2e-5, "per_device_train_batch_size": 1}
     ]
@@ -235,7 +217,7 @@ def test_hpo():
             validation_metric.update({"test": test_metric})
 
         azure_utils = AzureUtils(
-            root_log_path="logs_test/", data_root_dir="data/", autohf=autohf
+            root_log_path="logs_test/", output_dir="data/", autohf=autohf
         )
         azure_utils._azure_key = "test"
         azure_utils._container_name = "test"
@@ -259,10 +241,7 @@ def test_transformers_verbosity():
         return
     import transformers
     from flaml.nlp import AutoTransformers
-    from flaml.nlp import JobID
 
-    jobid_config = JobID()
-    jobid_config.set_unittest_config()
     autohf = AutoTransformers()
 
     for verbose in [
@@ -283,21 +262,21 @@ def test_one_sentence_key():
     except ImportError:
         return
     from flaml.nlp import AutoTransformers
-    from flaml.nlp import JobID
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import JobID
+    from flaml.nlp.utils import HPOArgs
 
     """
         test fold_name
     """
-    jobid_config = JobID()
-    jobid_config.set_unittest_config()
-    jobid_config.reset_pre_full("google/electra-small-discriminator", "small")
     autohf = AutoTransformers()
-    jobid_config.subdat = "cola"
-    preparedata_setting = get_preparedata_setting(jobid_config)
-    autohf.prepare_data(**preparedata_setting)
-
     autohf_settings = get_autohf_settings()
+    unittest_setting = HPOArgs._get_unittest_config()
+    for key, val in unittest_setting.items():
+        autohf_settings[key] = val
+    autohf_settings["model_path"] = "google/electra-small-discriminator"
+    autohf_settings["model_size"] = "small"
+    autohf_settings["dataset_config"] = ["glue", "cola"]
+
     validation_metric, analysis = autohf.fit(**autohf_settings)
 
 
@@ -310,25 +289,19 @@ def test_cv():
     except ImportError:
         return
     from flaml.nlp import AutoTransformers
-    from flaml.nlp import JobID
-    from flaml.nlp import AzureUtils
+    from flaml.nlp.result_analysis.azure_utils import JobID
+    from flaml.nlp.utils import HPOArgs
 
     """
         test cv
     """
-    jobid_config = JobID()
-    jobid_config.set_unittest_config()
-    # jobid_config.dat = ["hyperpartisan_news_detection"]
-    # jobid_config.subdat = "bypublisher"
     autohf = AutoTransformers()
-    jobid_config.spt = "cv"
-    preparedata_setting = get_preparedata_setting_cv(jobid_config)
-    autohf.prepare_data(**preparedata_setting)
+    autohf_settings = get_autohf_settings_cv()
+    unittest_setting = HPOArgs._get_unittest_config()
+    for key, val in unittest_setting.items():
+        autohf_settings[key] = val
+    autohf_settings["resplit_mode"] = "cv"
 
-    autohf.eval_dataset = autohf.eval_datasets[0]
-    autohf.train_dataset = autohf.train_datasets[0]
-
-    autohf_settings = get_autohf_settings()
     validation_metric, analysis = autohf.fit(**autohf_settings)
 
 
