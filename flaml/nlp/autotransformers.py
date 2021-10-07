@@ -356,9 +356,9 @@ class AutoTransformers:
             merged_folds = merged_folds.shuffle(seed=self.jobid_config.sddt)
 
             assert (
-                "train" in resplit_portion.keys()
-                and "validation" in resplit_portion.keys()
-                and "test" in resplit_portion.keys()
+                "train" in resplit_portion
+                and "validation" in resplit_portion
+                and "test" in resplit_portion
             ), "train, validation, test must exist in resplit_portion"
 
             if self.jobid_config.spt.endswith("rspt"):
