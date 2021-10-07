@@ -338,7 +338,7 @@ class JobID:
         """
         # skip the abbreviated model name in naming of the file, use the full model name instead
         field_keys = [
-            key for key in list(JobID.__dataclass_fields__.keys()) if key != "pre"
+            key for key in JobID.__dataclass_fields__ if key != "pre"
         ]
         regex_expression = ".*"
         is_first = True
