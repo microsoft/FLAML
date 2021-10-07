@@ -429,7 +429,7 @@ class AutoTransformers:
                         upper_bound_portion=train_val_upper,
                     )
                     self.train_datasets.append(
-                        autoencodetext_from_model_and_dataset_name()
+                        autoencodetext_from_model_and_dataset_name(subfold_dataset)
                     )
         else:
             subfold_dataset = data_raw[split_mapping["train"]]
