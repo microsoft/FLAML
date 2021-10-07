@@ -58,7 +58,7 @@ def tokenize_superglue_wic(
     altered_sent1 = inserting_sepp(sent1, start1, end1, this_tokenizer)
     altered_sent2 = inserting_sepp(sent2, start2, end2, this_tokenizer)
     input_ids_sepp = this_tokenizer(
-        *(altered_sent1, altered_sent2),
+        altered_sent1, altered_sent2,
         padding="max_length",
         max_length=1024,
         truncation=True
