@@ -251,7 +251,7 @@ class JobID:
                     # because "/" is the directory separator of the azure file system
                     val = val.replace("/", "-")
                 if each_val != val:
-                    is_not_match = True
+                    match = False
         return not is_not_match
 
     def to_wandb_string(self):
