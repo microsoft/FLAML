@@ -129,14 +129,16 @@ class ChampionFrontierSearcher(BaseSearcher):
 
         self._random_state = np.random.RandomState(self._seed)
         self._searcher_for_nonpoly_hp = {}
-        self._space_of_nonpoly_hp = {}
+
         # dicts to remember the mapping between searcher_trial_id and trial_id
-        self._searcher_trialid_to_trialid = (
-            {}
-        )  # key: searcher_trial_id, value: trial_id
-        self._trialid_to_searcher_trial_id = (
-            {}
-        )  # value: trial_id, key: searcher_trial_id
+        self._space_of_nonpoly_hp = {}
+
+        # key: searcher_trial_id, value: trial_id
+        self._searcher_trialid_to_trialid = {}
+
+        # value: trial_id, key: searcher_trial_id
+        self._trialid_to_searcher_trial_id = {}
+        
         self._challenger_list = []
         # initialize the search in set_search_properties
         self.set_search_properties(

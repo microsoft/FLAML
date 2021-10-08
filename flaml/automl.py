@@ -945,7 +945,8 @@ class AutoML:
             groups: None or array-like | Group labels (with matching length to
                 y_train) or groups counts (with sum equal to length of y_train)
                 for training data.
-            n_jobs: An integer of the number of threads for training.
+            n_jobs: An integer of the number of threads for training. Use all
+                available resources when n_jobs == -1.
             train_best: A boolean of whether to train the best config in the
                 time budget; if false, train the last config in the budget.
             train_full: A boolean of whether to train on the full data. If true,
