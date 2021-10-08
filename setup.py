@@ -40,7 +40,6 @@ setuptools.setup(
             "jupyter",
             "matplotlib==3.2.0",
             "rgf-python",
-            "catboost>=0.23",
         ],
         "test": [
             "flake8>=3.8.4",
