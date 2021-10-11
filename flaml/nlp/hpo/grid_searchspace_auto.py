@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from typing import Tuple
 
 from .get_grid_search_space import (
     get_electra_space,
@@ -52,7 +53,7 @@ class AutoGridSearchSpace:
         raise EnvironmentError(
             "AutoGridSearchSpace is designed to be instantiated "
             "using the `AutoGridSearchSpace.from_config_and_method_name(cls, model_type, model_size_type,"
-            "dataset_name,subdataset_name = None,algo_mode = None)` methods."
+            "dataset_name,algo_mode = None)` methods."
         )
 
     @classmethod
@@ -60,8 +61,7 @@ class AutoGridSearchSpace:
         cls,
         model_type,
         model_size_type,
-        dataset_name_list: list = None,
-        subdataset_name=None,
+        dataset_name_list: Tuple = None,
         algo_mode=None,
     ):
         """
@@ -78,20 +78,17 @@ class AutoGridSearchSpace:
             dataset_name_list:
                 A string variable which is the dataset name, e.g., "glue"
 
-            subdataset_name:
-                A string variable which is the sub dataset name,e.g., "rte"
-
             algo_mode:
                 A string variable which is the algorithm mode for grid search, e.g., "grid"
 
         Example:
-            >>> AutoGridSearchSpace.from_model_and_dataset_name("electra", "small", ["glue"], "rte", "grid")
+            >>> AutoGridSearchSpace.from_model_and_dataset_name("electra", "small", ["glue"], "grid")
 
         """
 
         if model_type in GRID_SEARCH_SPACE_MAPPING.keys():
             this_model_recommended_space = GRID_SEARCH_SPACE_MAPPING[model_type](
-                model_size_type, dataset_name_list, subdataset_name, algo_mode
+                model_size_type, dataset_name_list, algo_mode
             )
             return this_model_recommended_space
         raise ValueError(

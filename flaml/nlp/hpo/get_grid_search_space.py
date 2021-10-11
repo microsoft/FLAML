@@ -1,8 +1,10 @@
 # lookup table for the grid configs in each pre-trained language huggingface for different tasks
 
+from typing import Tuple
+
 
 def get_space_union_and_unique(
-    search_space_common, search_space_unique, this_case_tags: list
+    search_space_common, search_space_unique, this_case_tags: Tuple
 ):
     """
     get the recommended search configs for each pre-trained language models
@@ -43,8 +45,7 @@ def get_space_union_and_unique(
 
 def get_deberta_space(
     model_size_type=None,
-    dataset_name_list: list = None,
-    subdataset_name=None,
+    dataset_name_list: Tuple = None,
     algo_mode=None,
 ):
     """
@@ -74,8 +75,7 @@ def get_deberta_space(
 
 def get_longformer_space(
     model_size_type=None,
-    dataset_name_list: list = None,
-    subdataset_name=None,
+    dataset_name_list: Tuple = None,
     algo_mode=None,
 ):
     """
@@ -86,8 +86,7 @@ def get_longformer_space(
 
 def get_funnel_space(
     model_size_type=None,
-    dataset_name_list: list = None,
-    subdataset_name=None,
+    dataset_name_list: Tuple = None,
     algo_mode=None,
 ):
     """
@@ -137,14 +136,13 @@ def get_funnel_space(
     return get_space_union_and_unique(
         search_space_common,
         search_space_unique,
-        [JobID.get_full_data_name(dataset_name_list, subdataset_name)],
+        [JobID.get_full_data_name(dataset_name_list)],
     )
 
 
 def get_bert_space_for_test(
     model_size_type=None,
-    dataset_name_list: list = None,
-    subdataset_name=None,
+    dataset_name_list: Tuple = None,
     algo_mode=None,
 ):
     search_space_common = {}
@@ -164,8 +162,7 @@ def get_bert_space_for_test(
 
 def get_bert_space(
     model_size_type=None,
-    dataset_name_list: list = None,
-    subdataset_name=None,
+    dataset_name_list: Tuple = None,
     algo_mode=None,
 ):
     """
@@ -217,8 +214,7 @@ def get_bert_space(
 
 def get_roberta_space(
     model_size_type=None,
-    dataset_name_list: list = None,
-    subdataset_name=None,
+    dataset_name_list: Tuple = None,
     algo_mode=None,
 ):
     # RoBERTa: A Robustly Optimized BERT Pretraining Approach
@@ -259,8 +255,7 @@ def get_roberta_space(
 
 def get_electra_space(
     model_size_type=None,
-    dataset_name_list: list = None,
-    subdataset_name=None,
+    dataset_name_list: Tuple = None,
     algo_mode=None,
 ):
     """
@@ -323,14 +318,13 @@ def get_electra_space(
     return get_space_union_and_unique(
         search_space_common,
         search_space_unique,
-        [JobID.get_full_data_name(dataset_name_list, subdataset_name), model_size_type],
+        [JobID.get_full_data_name(dataset_name_list), model_size_type],
     )
 
 
 def get_mobilebert_space(
     model_size_type=None,
-    dataset_name_list: list = None,
-    subdataset_name=None,
+    dataset_name_list: Tuple = None,
     algo_mode=None,
 ):
     """
@@ -351,8 +345,7 @@ def get_mobilebert_space(
 
 def get_albert_space(
     model_size_type=None,
-    dataset_name_list: list = None,
-    subdataset_name=None,
+    dataset_name_list: Tuple = None,
     algo_mode=None,
 ):
     """
@@ -481,5 +474,5 @@ def get_albert_space(
     return get_space_union_and_unique(
         search_space_common,
         search_space_unique,
-        [JobID.get_full_data_name(dataset_name_list, subdataset_name)],
+        [JobID.get_full_data_name(dataset_name_list)],
     )

@@ -1,18 +1,11 @@
 # https://github.com/huggingface/datasets/blob/master/metrics/glue/glue.py
 
 from collections import OrderedDict
+from typing import Tuple
 
-task_mapping_glue = {
-    "cola": "seq-classification",
-    "mnli": "seq-classification",
-    "mrpc": "seq-classification",
-    "qnli": "seq-classification",
-    "qqp": "seq-classification",
-    "rte": "seq-classification",
-    "sst2": "seq-classification",
-    "stsb": "regression",
-    "wnli": "seq-classification",
-}
+task_mapping_glue_stsb = "regression"
+
+task_mapping_glue_other = "seq-classification"
 
 task_mapping_anli = "seq-classification"
 
@@ -22,7 +15,7 @@ task_mapping_squad = "question-answering"
 
 task_mapping_dbpedia = "seq-classification"
 
-task_mapping_super_glue = {"wic": "seq-classification", "rte": "seq-classification"}
+task_mapping_super_glue_other = "seq-classification"
 
 task_mapping_imdb = "seq-classification"
 
@@ -32,45 +25,41 @@ task_mapping_hyperpartisan = "seq-classification"
 
 TASK_MAPPING = OrderedDict(
     [
-        ("squad", task_mapping_squad),
-        ("glue", task_mapping_glue),
-        ("dbpedia_14", task_mapping_dbpedia),
-        ("imdb", task_mapping_imdb),
-        ("super_glue", task_mapping_super_glue),
-        ("hate_speech18", task_mapping_hate_speech18),
-        ("sentiment140", "regression"),
-        ("yelp_review_full", "regression"),
-        ("amazon_polarity", task_mapping_imdb),
-        ("amazon_reviews_multi", "regression"),
-        ("yelp_polarity", task_mapping_imdb),
-        ("anli", task_mapping_anli),
-        ("hyperpartisan_news_detection", task_mapping_hyperpartisan),
+        (("squad", ""), task_mapping_squad),
+        (("glue", "stsb"), task_mapping_glue_stsb),
+        (("glue", "cola"), task_mapping_glue_other),
+        (("glue", "mnli"), task_mapping_glue_other),
+        (("glue", "mrpc"), task_mapping_glue_other),
+        (("glue", "qnli"), task_mapping_glue_other),
+        (("glue", "qqp"), task_mapping_glue_other),
+        (("glue", "rte"), task_mapping_glue_other),
+        (("glue", "sst2"), task_mapping_glue_other),
+        (("glue", "wnli"), task_mapping_glue_other),
+        (("dbpedia_14", ""), task_mapping_dbpedia),
+        (("imdb", ""), task_mapping_imdb),
+        (("super_glue", "rte"), task_mapping_super_glue_other),
+        (("super_glue", "wic"), task_mapping_super_glue_other),
+        (("hate_speech18", ""), task_mapping_hate_speech18),
+        (("sentiment140", ""), "regression"),
+        (("yelp_review_full", ""), "regression"),
+        (("amazon_polarity", ""), task_mapping_imdb),
+        (("amazon_reviews_multi", ""), "regression"),
+        (("yelp_polarity", ""), task_mapping_imdb),
+        (("anli", ""), task_mapping_anli),
+        (("hyperpartisan_news_detection", ""), task_mapping_hyperpartisan),
     ]
 )
 
 
-def get_default_task(dataset_name_list: list, subdataset_name=None, custom_task=None):
-    from ..result_analysis.azure_utils import JobID
-
+def get_default_task(dataset_name_list: Tuple, custom_task):
     if custom_task is not None:
         return custom_task
 
-    dataset_name = JobID.dataset_list_to_str(dataset_name_list)
-    assert dataset_name in TASK_MAPPING, (
+    assert dataset_name_list in TASK_MAPPING, (
         "The dataset is not in {}, you must explicitly specify "
         "the custom_metric_name and custom_metric_mode_name".format(
-            ",".join(TASK_MAPPING.keys())
+            ", ".join(["-".join(x) for x in TASK_MAPPING.keys()])
         )
     )
-    eval_name_mapping = TASK_MAPPING[dataset_name]
-    if isinstance(eval_name_mapping, dict):
-        assert (
-            subdataset_name and subdataset_name in eval_name_mapping
-        ), "dataset_name and subdataset_name not correctly specified"
-        default_task = eval_name_mapping[subdataset_name]
-    else:
-        assert isinstance(
-            eval_name_mapping, str
-        ), "dataset_name and subdataset_name not correctly specified"
-        default_task = eval_name_mapping
-    return default_task
+    eval_name_mapping = TASK_MAPPING[dataset_name_list]
+    return eval_name_mapping

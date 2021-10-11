@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from dataclasses import dataclass, field
 import json
-from typing import Tuple, List, Union, Optional
+from typing import Tuple, List, Union, Optional, Dict
 import argparse
 
 
@@ -82,8 +82,6 @@ class JobID:
 
     dat:
         A list which is the dataset name
-    subdat:
-        A string which is the sub dataset name
     mod:
         A string which is the module, e.g., "grid", "hpo"
     spa:
@@ -110,8 +108,7 @@ class JobID:
         An integer which is the seed for transformers
     """
 
-    dat: list = field(default=None)
-    subdat: str = field(default=None)
+    dat: Tuple = field(default=None)
     mod: str = field(default=None)
     spa: str = field(default=None)
     arg: str = field(default=None)
@@ -143,23 +140,6 @@ class JobID:
             " must be consistent"
         )
 
-    def check_grid_config(self):
-        if self.mod == "grid":
-            assert self.alg == "grid" and self.spa == "grid", (
-                "for grid search, "
-                "you must set all three args to 'grid': algo_mode, algo_name and space_mode"
-            )
-        if self.alg == "grid":
-            assert self.mod == "grid" and self.spa == "grid", (
-                "for grid search, "
-                "you must set all three args to 'grid': algo_mode, algo_name and space_mode"
-            )
-        if self.spa == "grid":
-            assert self.alg == "grid" and self.mod == "grid", (
-                "for grid search, "
-                "you must set all three args to 'grid': algo_mode, algo_name and space_mode"
-            )
-
     def is_match(self, partial_jobid):
         """Return a boolean variable whether the current object matches the partial jobid defined in partial_jobid.
 
@@ -167,15 +147,13 @@ class JobID:
 
             .. code-block:: python
 
-                self = JobID(dat = ['glue'], subdat = 'cola', mod = 'bestnn', spa = 'uni', arg = 'cus', alg = 'bs',
+                self = JobID(dat = ['glue'], mod = 'bestnn', spa = 'uni', arg = 'cus', alg = 'bs',
                              pru = 'None', pre = 'funnel', presz = 'xlarge', spt = 'rspt', rep = 0, sddt = 43, sdhf = 42)
 
                 partial_jobid1 = JobID(dat = ['glue'],
-                                       subdat = 'cola',
                                        mod = 'hpo')
 
                 partial_jobid2 = JobID(dat = ['glue'],
-                                       subdat = 'cola',
                                        mod = 'bestnn')
 
          return False for partial_jobid1 and True for partial_jobid2
@@ -186,6 +164,7 @@ class JobID:
                 # skip matching the abbreviated model name, only match the full model name
                 continue
             if val is None:
+
                 continue
             if isinstance(val, set):
                 val = set([str(x) for x in val])
@@ -215,7 +194,9 @@ class JobID:
         field_dict = self.__dict__
         keytoval_str = "_".join(
             [
-                JobID.dataset_list_to_str(value) if type(value) == list else str(value)
+                JobID.get_full_data_name(value)
+                if isinstance(value, Tuple)
+                else isinstance(value, str)
                 for key, value in field_dict.items()
                 if key
                 != "pre"  # skip the abbreviated model name in naming of the file, use the full model name instead
@@ -239,13 +220,11 @@ class JobID:
                         keytoval_list.append(
                             key + "=" + str(field_dict[key].replace("/", "-"))
                         )
-                    elif type(field_dict[key]) == list:
+                    elif isinstance(field_dict[key], Tuple):
                         keytoval_list.append(
-                            key
-                            + "="
-                            + JobID.dataset_list_to_str_for_output(field_dict[key])
+                            key + "=" + JobID.get_full_data_name(field_dict[key])
                         )
-                    elif type(field_dict[key]) == set:
+                    elif isinstance(field_dict[key], set):
                         keytoval_list.append(
                             key + "=" + JobID.set_to_min_str(field_dict[key])
                         )
@@ -264,10 +243,10 @@ class JobID:
         field_dict = self.__dict__
         keytoval_str = "_".join(
             [
-                key + "=" + JobID.dataset_list_to_str(field_dict[key])
-                if type(field_dict[key]) == list
+                key + "=" + JobID.get_full_data_name(field_dict[key])
+                if isinstance(field_dict[key]) == Tuple
                 else key + "=" + JobID.set_to_min_str(field_dict[key])
-                if type(field_dict[key]) == set
+                if isinstance(field_dict[key]) == set
                 else key + "=" + str(field_dict[key])
                 for key in list_keys
                 if key in field_dict
@@ -279,10 +258,10 @@ class JobID:
     def blobname_to_jobid_dict(keytoval_str):
         """
         Converting an azure blobname to a JobID config,
-        e.g., blobname = "dat=glue_subdat=cola_mod=bestnn_spa=uni_arg=cus_
+        e.g., blobname = "dat=glue_mod=bestnn_spa=uni_arg=cus_
         alg=bs_pru=None_pre=funnel_presz=xlarge_spt=rspt_rep=0.json"
 
-        the converted jobid dict = {dat = ['glue'], subdat = 'cola', mod = 'bestnn',
+        the converted jobid dict = {dat = ['glue'], mod = 'bestnn',
                                spa = 'uni', arg = 'cus', alg = 'bs', pru = 'None',
                                pre = 'funnel', presz = 'xlarge', spt = 'rspt',
                                rep = 0, sddt = 43, sdhf = 42)
@@ -325,20 +304,6 @@ class JobID:
             return None
 
     @staticmethod
-    def dataset_list_to_str(dataset_name, key="dat"):
-        if isinstance(dataset_name, list):
-            return "-".join(dataset_name)
-        else:
-            return dataset_name
-
-    @staticmethod
-    def dataset_list_to_str_for_output(dataset_name, key="dat"):
-        if isinstance(dataset_name, list):
-            return "-".join([x.replace("_", "-") for x in dataset_name])
-        else:
-            return dataset_name.replace("_", "-")
-
-    @staticmethod
     def set_to_min_str(value_set):
         return min(value_set)
 
@@ -366,25 +331,17 @@ class JobID:
             return None
 
     @staticmethod
-    def get_full_data_name(dataset_name: Union[list, str], subdataset_name=None):
+    def get_full_data_name(dataset_name_list: Tuple):
         """
         Convert a dataset name and sub dataset name to a full dataset name
         """
-        if isinstance(dataset_name, list):
-            full_dataset_name = JobID.dataset_list_to_str(dataset_name)
-        else:
-            full_dataset_name = dataset_name
-        if subdataset_name:
-            full_dataset_name = full_dataset_name + "_" + subdataset_name
-        return full_dataset_name
+        return "-".join(dataset_name_list)
 
     def get_jobid_full_data_name(self):
         """
         Get the full dataset name of the current JobID object
         """
-        return JobID.get_full_data_name(
-            JobID.dataset_list_to_str(self.dat), self.subdat
-        )
+        return JobID.get_full_data_name(self.dat)
 
     @staticmethod
     def _extract_model_type_with_keywords_match(pre_full):
@@ -433,23 +390,15 @@ class JobID:
         )
 
     def set_jobid_from_console_args(
-        self, console_args: Union[argparse.ArgumentParser, dict]
+        self, dataset_config: Dict, console_args: Union[argparse.ArgumentParser, Dict]
     ):
-        from ..utils import dataset_config_format_check
+        from ..utils import get_tuple_from_dataset_config
 
         console_to_jobid_key_mapping = self._get_console_to_jobid_key_mapping()
         for each_key in console_to_jobid_key_mapping:
             try:
                 if each_key == "dataset_config":
-                    this_dataset_config = getattr(console_args, each_key)
-                    dataset_config_format_check(this_dataset_config)
-                    if isinstance(this_dataset_config, list):
-                        self.dat = this_dataset_config[0]
-                        self.subdat = "-".join(this_dataset_config[1:])
-                    else:
-                        assert isinstance(this_dataset_config, dict)
-                        self.dat = this_dataset_config["path"]
-                        self.subdat = this_dataset_config["name"]
+                    self.dat = get_tuple_from_dataset_config(dataset_config)
                 elif each_key == "model_path":
                     self.pre_full = getattr(console_args, each_key)
                     self.pre = JobID.extract_model_type(self.pre_full)
@@ -934,7 +883,7 @@ class AzureUtils:
         assert isinstance(partial_jobid, JobID), "partial_jobid must be of type JobID"
         if earliest_time:
             assert isinstance(
-                earliest_time, tuple
+                earliest_time, Tuple
             ), "earliest_time must be a tuple of (YYYY, MM, DD)"
 
         matched_blob_list = self.get_configblob_from_partial_jobid(

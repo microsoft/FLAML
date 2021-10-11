@@ -67,13 +67,14 @@ def test_jobid():
         return
 
     from flaml.nlp.result_analysis.azure_utils import JobID
+    from flaml.nlp.utils import dataset_list_to_str
 
     args = get_autohf_setting()
 
     jobid_config = JobID(args)
     jobid_config.to_partial_jobid_string()
     JobID.convert_blobname_to_jobid("test")
-    JobID.dataset_list_to_str("glue")
+    dataset_list_to_str("glue")
     JobID.get_full_data_name(["glue"], "mrpc")
     JobID._extract_model_type_with_keywords_match(
         "google/electra-base-discriminator:base"

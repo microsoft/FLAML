@@ -6,15 +6,15 @@ An example of using AutoTransformers:
 
 ```python
 from flaml.nlp.autotransformers import AutoTransformers
-
 autohf = AutoTransformers()
 
 autohf_settings = {
     "dataset_config": ["glue", "mrpc"],
-    "pretrained_model": "google/electra-small-discriminator",
+    "model_path": "google/electra-small-discriminator",
     "output_dir": "data/",
     "resources_per_trial": {"cpu": 1, "gpu": 1},
-    "num_samples": -1,
+    "resplit_mode": "rspt",
+    "sample_num": -1,
     "time_budget": 300,
 }
 

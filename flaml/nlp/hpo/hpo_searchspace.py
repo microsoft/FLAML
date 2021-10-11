@@ -1,12 +1,12 @@
 from collections import OrderedDict
 from .grid_searchspace_auto import AutoGridSearchSpace
+from typing import Tuple
 
 
 def hpo_space_custom(
     model_type=None,
     model_size_type=None,
-    dataset_name_list: list = None,
-    subdataset_name=None,
+    dataset_name_list: Tuple = None,
     algo_mode=None,
     custom_search_space=None,
 ):
@@ -23,8 +23,7 @@ def hpo_space_custom(
 def hpo_space_gridunion(
     model_type=None,
     model_size_type=None,
-    dataset_name_list: list = None,
-    subdataset_name=None,
+    dataset_name_list: Tuple = None,
     algo_mode=None,
     custom_search_space=None,
 ):
@@ -32,7 +31,7 @@ def hpo_space_gridunion(
     for each_model_type in ["bert", "roberta", "electra"]:
         # if each_model_type == model_type: continue
         this_config = AutoGridSearchSpace.from_model_and_dataset_name(
-            each_model_type, model_size_type, dataset_name_list, subdataset_name, "hpo"
+            each_model_type, model_size_type, dataset_name_list, "hpo"
         )
         from ..utils import merge_dicts
 
@@ -58,8 +57,7 @@ def hpo_space_gridunion(
 def hpo_space_gridunion_smoke_test(
     model_type=None,
     model_size_type=None,
-    dataset_name_list: list = None,
-    subdataset_name=None,
+    dataset_name_list: Tuple = None,
     algo_mode=None,
     custom_search_space=None,
 ):
@@ -75,8 +73,7 @@ def hpo_space_gridunion_smoke_test(
 def hpo_space_generic(
     model_type=None,
     model_size_type=None,
-    dataset_name_list: list = None,
-    subdataset_name=None,
+    dataset_name_list: Tuple = None,
     algo_mode=None,
     custom_search_space=None,
 ):
@@ -95,8 +92,7 @@ def hpo_space_generic(
 def hpo_space_generic_test(
     model_type=None,
     model_size_type=None,
-    dataset_name_list: list = None,
-    subdataset_name=None,
+    dataset_name_list: Tuple = None,
     algo_mode=None,
     custom_search_space=None,
 ):
@@ -115,13 +111,12 @@ def hpo_space_generic_test(
 def hpo_space_grid(
     model_type=None,
     model_size_type=None,
-    dataset_name_list: list = None,
-    subdataset_name=None,
+    dataset_name_list: Tuple = None,
     algo_mode=None,
     custom_search_space=None,
 ):
     return AutoGridSearchSpace.from_model_and_dataset_name(
-        model_type, model_size_type, dataset_name_list, subdataset_name, algo_mode
+        model_type, model_size_type, dataset_name_list, algo_mode
     )
 
 
@@ -150,7 +145,7 @@ class AutoHPOSearchSpace:
         raise EnvironmentError(
             "AutoHPOSearchSpace is designed to be instantiated "
             "using the `AutoHPOSearchSpace.from_config_and_method_name(cls, hpo_searchspace_name,"
-            "model_type,model_size_type,dataset_name,subdataset_name=None,**custom_hpo_args)` methods."
+            "model_type,model_size_type,dataset_name,**custom_hpo_args)` methods."
         )
 
     @classmethod
@@ -159,8 +154,7 @@ class AutoHPOSearchSpace:
         hpo_searchspace_mode,
         model_type,
         model_size_type,
-        dataset_name_list: list = None,
-        subdataset_name=None,
+        dataset_name_list: Tuple = None,
         algo_mode=None,
         custom_search_space=None,
     ):
@@ -187,9 +181,6 @@ class AutoHPOSearchSpace:
             dataset_name:
                 A string variable which is the dataset name, e.g., "glue"
 
-            subdataset_name:
-                A string variable which is the sub dataset name,e.g., "rte"
-
             custom_hpo_args:
                 Any additional keyword argument to be used for the function for the HPO search space
 
@@ -202,7 +193,6 @@ class AutoHPOSearchSpace:
                 model_type,
                 model_size_type,
                 dataset_name_list,
-                subdataset_name,
                 algo_mode,
                 custom_search_space,
             )

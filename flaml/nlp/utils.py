@@ -4,22 +4,33 @@ import os
 import pathlib
 import re
 from dataclasses import dataclass, field
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 
-def dataset_config_format_check(dataset_config):
-    from datasets import load_dataset
+def get_tuple_from_dataset_config(dataset_config):
+    if isinstance(dataset_config, dict):
+        config_path = dataset_config["path"].replace("_", "-")
+        try:
+            config_name = dataset_config["name"].replace("_", "-")
+        except KeyError:
+            config_name = "custom-data"
+        return (config_path, config_name)
+    else:
+        return tuple(dataset_config[:2] + [""] * (2 - len(dataset_config[:2])))
 
+
+def check_custom_data_format(dataset_config, custom_sentence_keys):
     assert isinstance(dataset_config, dict) or isinstance(dataset_config, list), (
         "dataset_name must either be a dict or list, see the example in the"
         "documentation of HPOArgs::dataset_name"
     )
     if isinstance(dataset_config, dict):
-        args_for_load_dataset = load_dataset.__code__.co_varnames
-        for each_key in dataset_config.keys():
+        assert "path" in dataset_config, "the path for the dataset is required"
+    if isinstance(dataset_config, dict):
+        if dataset_config["path"] == "csv":
             assert (
-                each_key in args_for_load_dataset
-            ), "If HPOArgs::dataset_name is a dict, each key must be from load_dataset's argument list"
+                custom_sentence_keys is not None
+            ), "if the dataset is custom, you must specify the custom_sentence_keys in flaml.nlp.utils:HPOArgs"
 
 
 def points_to_evaluate_format_check(points_to_evaluate_dict):
@@ -72,6 +83,8 @@ class HPOArgs:
             A dict, the first HPO configuration to evaluate for the HPO algorithm. If not set,
             depending on the HPO algorithm, HPO will search for the default initial config (bs
             , CFO), or use a random confi as the first config (Optuna)
+        custom_sentence_keys:
+            one or two keys
         custom_search_space (:obj:`dict`, `optional`, defaults to :obj:`{}`):
             A dict, the custom search space the HPO algorithm. If not set, HPO will use
             the default search space, i.e., :
@@ -86,10 +99,11 @@ class HPOArgs:
                 }
         dataset_config (:obj:`list`, defaults to :obj:`[]`):
             A dict, the input dataset configuration. This configuration follows the same
-            format as HuggingFace's datasets.load_dataset, e.g.:
+            format as HuggingFace's datasets.load_dataset
+            (https://huggingface.co/docs/datasets/package_reference/loading_methods.html#datasets.load_dataset), e.g.:
                 | dataset_config = ["glue", "mrpc"]
                 | dataset_config = {"path": "glue", "name": "mrpc"}
-                | dataset_config = {"csv", "data_files":
+                | dataset_config = {"path": "csv", "data_files":
                                     ["data/output/train.csv",
                                     "data/output/validation.csv",
                                     "data/output/test.csv"]
@@ -165,14 +179,9 @@ class HPOArgs:
         default=None, metadata={"help": "user customized search space"}
     )
 
-    # user cannot only be able to use hf dataset
-    dataset_config: Optional[dataset_config_format_check] = field(
-        default_factory=dft_arg_for_dataset,
-        metadata={
-            "help": "dataset config, which is either a dict or a list, the dict or list must"
-            "be consistent with the argument in datasets.load_dataset, "
-            "See the documentation for HPOArgs::dataset_config"
-        },
+    # show this in doc str, check format
+    custom_sentence_keys: Optional[Tuple[str]] = field(
+        default=None, metadata={"help": "custom sentence keys"}
     )
 
     # show this in doc str
@@ -199,13 +208,16 @@ class HPOArgs:
     )
 
     # show this in doc str
-    custom_metric_name: str = field(
-        default=None, metadata={"help": "custom metric name"}
+    metric_name: str = field(default=None, metadata={"help": "custom metric name"})
+
+    # show this in doc str
+    metric_mode_name: str = field(
+        default=None, metadata={"help": "custom metric mode name"}
     )
 
     # show this in doc str
-    custom_metric_mode_name: str = field(
-        default=None, metadata={"help": "custom metric mode name"}
+    label_name: str = field(
+        default="label", metadata={"help": "custom metric mode name"}
     )
 
     # # show this in doc str
@@ -234,10 +246,6 @@ class HPOArgs:
     )
     root_log_path: str = field(
         default=None, metadata={"help": "root log path for logs on Azure"}
-    )
-    source_fold: List[str] = field(
-        default=None,
-        metadata={"help": "the source folds for the data when resplit_mode='rspt'"},
     )
     fold_names: List[str] = field(
         default_factory=dft_arg_for_fold_names,
@@ -283,13 +291,14 @@ class HPOArgs:
 
     rep_id: int = field(default=0, metadata={"help": "rep id in HPO experiment"})
 
-    resplit_mode: str = field(
-        default="ori",
+    eval_method: str = field(
+        default="holdout",
         metadata={
-            "help": "mode for splitting the data",
-            "choices": ["rspt", "ori", "cv", "cvrspt"],
+            "help": "mode for evaluation method, has two options, cv or holdout",
+            "choices": ["cv", "holdout"],
         },
     )
+
     seed_data: int = field(
         default=101,
         metadata={"help": "seed for data shuffling when resplit_mode='rspt'"},
@@ -314,6 +323,23 @@ class HPOArgs:
     )
 
     model_size: str = field(default="base", metadata={"help": "size of the model path"})
+
+    def check_grid_config(self):
+        if self.algo_mode == "grid":
+            assert self.algo_name == "grid" and self.space_mode == "grid", (
+                "for grid search, "
+                "you must set all three args to 'grid': algo_mode, algo_name and space_mode"
+            )
+        if self.algo_name == "grid":
+            assert self.algo_mode == "grid" and self.space_mode == "grid", (
+                "for grid search, "
+                "you must set all three args to 'grid': algo_mode, algo_name and space_mode"
+            )
+        if self.space_mode == "grid":
+            assert self.algo_name == "grid" and self.algo_mode == "grid", (
+                "for grid search, "
+                "you must set all three args to 'grid': algo_mode, algo_name and space_mode"
+            )
 
     def load_args(self, mode="args", **custom_hpo_args):
         from dataclasses import fields
@@ -344,7 +370,9 @@ class HPOArgs:
         for key, val in custom_hpo_args.items():
             assert (
                 key in self.__dict__
-            ), "The specified key {} is not in the argument list of flaml.nlp.utils::HPOArgs"
+            ), "The specified key {} is not in the argument list of flaml.nlp.utils::HPOArgs".format(
+                key
+            )
             setattr(dft_args, key, val)
 
         return dft_args
@@ -410,18 +438,18 @@ def _variable_override_default_alternative(
     Setting the value of var. If overriding_value is specified, var is set to overriding_value;
     If overriding_value is not specified, var is set to default_value meanwhile showing all_values
     """
-    assert isinstance(all_values, list)
     if overriding_value:
         setattr(obj_ref, var_name, overriding_value)
         print("The value for {} is specified as {}".format(var_name, overriding_value))
     else:
         setattr(obj_ref, var_name, default_value)
-        print(
-            "The value for {} is not specified, setting it to the default value {}. "
-            "Alternatively, you can set it to {}".format(
-                var_name, default_value, ",".join(all_values)
+        if all_values is not None:
+            print(
+                "The value for {} is not specified, setting it to the default value {}. "
+                "Alternatively, you can set it to {}".format(
+                    var_name, default_value, ",".join(all_values)
+                )
             )
-        )
 
 
 @dataclass

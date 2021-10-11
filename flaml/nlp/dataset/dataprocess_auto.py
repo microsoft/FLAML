@@ -3,6 +3,7 @@ from functools import partial
 
 from transformers import AutoTokenizer
 from .sentence_keys_auto import get_sentence_keys
+from typing import Tuple, Dict, List, Union
 
 
 def inserting_sepp(sent, start, end, this_tokenizer):
@@ -18,19 +19,19 @@ def inserting_sepp(sent, start, end, this_tokenizer):
 
 
 def tokenize_superglue_copa(
-    this_example, this_tokenizer, dataset_name, subdataset_name=None, **kwargs
+    this_example, this_tokenizer, dataset_config_str, sentence_keys=None, **kwargs
 ):
     return None
 
 
 def tokenize_superglue_wic_gpt2(
-    this_example, this_tokenizer, dataset_name, subdataset_name=None, **kwargs
+    this_example, this_tokenizer, dataset_config_str, sentence_keys=None, **kwargs
 ):
     return None
 
 
 def tokenize_superglue_wic(
-    this_example, this_tokenizer, dataset_name, subdataset_name=None, **kwargs
+    this_example, this_tokenizer, dataset_config_str, sentence_keys=None, **kwargs
 ):
     """
     tokenize the data from the wic task (word-in-context dataset),
@@ -138,12 +139,18 @@ def tokenize_superglue_wic(
     return this_data
 
 
+def tokenize_csv(
+    this_example, this_tokenizer, dataset_config_str, sentence_keys=None, **kwargs
+):
+    return tokenize_glue(
+        this_example, this_tokenizer, dataset_config_str, sentence_keys, **kwargs
+    )
+
+
 def tokenize_glue(
-    this_example, this_tokenizer, dataset_name, subdataset_name=None, **kwargs
+    this_example, this_tokenizer, dataset_config_str, sentence_keys=None, **kwargs
 ):
     assert "max_seq_length" in kwargs, "max_seq_length must be provided for glue"
-    sentence_keys = get_sentence_keys(dataset_name, subdataset_name)
-
     if len(sentence_keys) > 1:
         sentence1_key, sentence2_key = sentence_keys[0], sentence_keys[1]
     else:
@@ -185,6 +192,7 @@ TOKENIZER_MAPPING = OrderedDict(
         (("anli", ""), tokenize_glue),
         (("super_glue", "wic"), tokenize_superglue_wic),
         (("hyperpartisan_news_detection", "bypublisher"), tokenize_glue),
+        (("csv", "custom-data"), tokenize_csv),
     ]
 )
 
@@ -202,16 +210,51 @@ class AutoEncodeText:
         raise EnvironmentError(
             "AutoEncodeText is designed to be instantiated "
             "using the `AutoEncodeText.from_model_and_dataset_name(cls,"
-            "data_raw,model_checkpoint_path,dataset_name,subdataset_name = None,**kwargs)` methods."
+            "data_raw,model_checkpoint_path,dataset_name,**kwargs)` methods."
         )
+
+    @classmethod
+    def from_model_and_example_list(
+        cls,
+        example_list: Union[List[Tuple], List[Dict]],
+        dataset_name_list: Tuple = None,
+        custom_sentence_keys=None,
+    ):
+        output_list = []
+        for each_example_idx in range(len(example_list)):
+            output_list.append(
+                AutoEncodeText.from_model_and_example(
+                    example_list[each_example_idx],
+                    dataset_name_list,
+                    custom_sentence_keys,
+                )
+            )
+        return output_list
+
+    @classmethod
+    def from_model_and_example(
+        cls,
+        this_example: Union[List, Dict],
+        dataset_name_list: Tuple = None,
+        custom_sentence_keys=None,
+    ):
+        import pandas as pd
+        from datasets import Dataset
+
+        sentence_keys = get_sentence_keys(
+            "-".join(dataset_name_list), custom_sentence_keys=custom_sentence_keys
+        )
+        this_dataset_example = [this_example]
+        pd = pd.DataFrame(this_dataset_example, columns=list(sentence_keys))
+        return Dataset.from_pandas(pd)
 
     @classmethod
     def from_model_and_dataset_name(
         cls,
         subfold_dataset,
         model_checkpoint_path,
-        dataset_name_list: list = None,
-        subdataset_name=None,
+        custom_sentence_keys,
+        dataset_name_list: Tuple = None,
         **kwargs
     ):
         """
@@ -229,9 +272,6 @@ class AutoEncodeText:
             dataset_name_list:
                 A list which is the dataset name, e.g., ["glue"]
 
-            subdataset_name:
-                A string variable which is the sub dataset name,e.g., "rte"
-
             kwargs:
                 The values in kwargs of any keys will be used for the mapping function
 
@@ -241,30 +281,30 @@ class AutoEncodeText:
             >>> AutoEncodeText.from_model_and_dataset_name(data_raw, "google/electra-base-discriminator", ["glue"], "rte")
 
         """
-        from ..result_analysis.azure_utils import JobID
+        sentence_keys = get_sentence_keys(
+            "-".join(dataset_name_list), custom_sentence_keys=custom_sentence_keys
+        )
 
-        dataset_name = JobID.dataset_list_to_str(dataset_name_list)
-        if (dataset_name, subdataset_name) in TOKENIZER_MAPPING.keys():
+        if dataset_name_list in TOKENIZER_MAPPING.keys():
             this_tokenizer = AutoTokenizer.from_pretrained(
                 model_checkpoint_path, use_fast=True
             )
-            token_func = TOKENIZER_MAPPING[(dataset_name, subdataset_name)]
+            token_func = TOKENIZER_MAPPING[dataset_name_list]
             return subfold_dataset.map(
                 partial(
                     token_func,
                     this_tokenizer=this_tokenizer,
-                    dataset_name=dataset_name,
-                    subdataset_name=subdataset_name,
+                    dataset_config_str="-".join(dataset_name_list),
+                    sentence_keys=sentence_keys,
                     **kwargs
                 ),
                 batched=False,
             )
         raise ValueError(
-            "Unrecognized method {},{} for this kind of AutoGridSearchSpace: {}.\n"
+            "Unrecognized dataset name {} for this kind of AutoEncodeText: {}.\n"
             "Method name should be one of {}.".format(
-                dataset_name,
-                subdataset_name,
+                "-".join(dataset_name_list),
                 cls.__name__,
-                ", ".join(c[0] for c in TOKENIZER_MAPPING),
+                ", ".join(["-".join(x) for x in TOKENIZER_MAPPING.keys()]),
             )
         )

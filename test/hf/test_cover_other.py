@@ -87,7 +87,7 @@ def test_gridsearch_space():
 
     for each_model_type in GRID_SEARCH_SPACE_MAPPING.keys():
         AutoGridSearchSpace.from_model_and_dataset_name(
-            each_model_type, "base", ["glue"], "mrpc", "hpo"
+            each_model_type, "base", ["glue", "mrpc"], "hpo"
         )
 
 
@@ -126,7 +126,6 @@ def test_hpo_space():
             autohf.jobid_config.pre,
             autohf.jobid_config.presz,
             autohf.jobid_config.dat,
-            autohf.jobid_config.subdat,
             autohf.jobid_config.mod,
             custom_search_space=custom_search_space,
         )

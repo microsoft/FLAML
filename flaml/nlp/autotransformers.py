@@ -16,7 +16,7 @@ try:
     import datasets
     from .result_analysis.azure_utils import JobID
     from .huggingface.trainer import TrainerForAutoTransformers
-    from typing import Optional, Tuple, List, Union
+    from typing import Optional, Tuple, List, Union, Dict
     from ray.tune.trial import Trial
     import argparse
 except ImportError:
@@ -110,7 +110,6 @@ class AutoTransformers:
             model_type=self.custom_hpo_args.grid_space_model_type,
             model_size_type=self.jobid_config.presz,
             dataset_name_list=self.jobid_config.dat,
-            subdataset_name=self.jobid_config.subdat,
             algo_mode=self.jobid_config.mod,
             custom_search_space=self.custom_hpo_args.custom_search_space,
         )
@@ -125,7 +124,6 @@ class AutoTransformers:
                     model_type="electra",
                     model_size_type="base",
                     dataset_name_list=self.jobid_config.dat,
-                    subdataset_name=self.jobid_config.subdat,
                     algo_mode="grid",
                 )
             )
@@ -133,39 +131,6 @@ class AutoTransformers:
             for key, value in electra_space.items():
                 if key not in self._search_space_hpo:
                     self._search_space_hpo[key] = value
-
-    @staticmethod
-    def _get_split_name(data_raw, fold_names=None):
-        split_map = {}
-        default_fold_name_mapping = {
-            "train": "train",
-            "dev": "validation",
-            "test": "test",
-            "val": "validation",
-        }
-        if fold_names:
-            for each_dft_fold_name, value in default_fold_name_mapping.items():
-                for each_fold_name in fold_names:
-                    if each_fold_name.startswith(each_dft_fold_name):
-                        split_map[value] = each_fold_name
-                        break
-            return split_map, split_map["validation"]
-        dft_split_map = {"train": "train", "validation": "validation", "test": "test"}
-        fold_keys = data_raw.keys()
-        if fold_keys == {"train", "validation", "test"}:
-            return dft_split_map, "validation"
-        for each_key in fold_keys:
-            for each_split_name in {"train", "validation", "test"}:
-                assert not (
-                    each_key.startswith(each_split_name) and each_key != each_split_name
-                ), (
-                    "Dataset split keys must be within {}, or explicitly specified in dataset_config, e.g., "
-                    "'fold_name': ['train','validation_matched','test_matched']. Please refer to the example in the "
-                    "documentation of AutoTransformers.prepare_data()".format(
-                        ",".join(fold_keys)
-                    )
-                )
-        return dft_split_map, "validation"
 
     def _get_start_end_bound(
         self,
@@ -217,14 +182,184 @@ class AutoTransformers:
         ).flatten_indices()
         return subfold_dataset
 
+    def _is_custom_dataset(self, dataset_config):
+        return (
+            (dataset_config is not None)
+            and ("path" in dataset_config)
+            and (dataset_config["path"] in ("csv", "json"))
+            and ("data_files" in dataset_config)
+            and (len(dataset_config["data_files"]) > 0)
+        )
+
+    def _is_huggingface_dataset(self, dataset_config=None, data_mapping=None):
+        return (
+            (dataset_config is not None)
+            and (data_mapping is not None)
+            and ("path" in dataset_config)
+        )
+
+    @staticmethod
+    def get_resplit_portion_key(key, split_portion):
+        key2lb_id = {"train": 0, "validation": 2, "test": 4}
+        key2ub_id = {"train": 1, "validation": 3, "test": 5}
+        return [
+            split_portion[key2lb_id[key]],
+            split_portion[key2ub_id[key]],
+        ]
+
+    def autoencodetext_from_model_and_dataset_name(self, subfold_dataset):
+        from .dataset.dataprocess_auto import AutoEncodeText
+
+        tokenized_dat = AutoEncodeText.from_model_and_dataset_name(
+            subfold_dataset=subfold_dataset,
+            model_checkpoint_path=self.jobid_config.pre_full,
+            dataset_name_list=self.jobid_config.dat,
+            custom_sentence_keys=self.custom_hpo_args.custom_sentence_keys,
+            **{"max_seq_length": self.custom_hpo_args.max_seq_length},
+        )
+        return tokenized_dat
+
+    @staticmethod
+    def _get_cv_split_points(lower_bound, upper_bound, idx, k):
+        return (upper_bound - lower_bound) / k * idx + lower_bound, (
+            upper_bound - lower_bound
+        ) / k * (idx + 1) + lower_bound
+
+    def _split_for_cross_validation(self, train_fold):
+        train_val_lower = min(
+            self.get_resplit_portion_key("train")[0],
+            self.get_resplit_portion_key("validation")[0],
+        )
+        train_val_upper = max(
+            self.get_resplit_portion_key("train")[1],
+            self.get_resplit_portion_key("validation")[1],
+        )
+        cv_k = self.custom_hpo_args.cv_k
+        eval_datasets = []
+        train_datasets = []
+        for idx in range(cv_k):
+            this_fold_lower, this_fold_upper = AutoTransformers._get_cv_split_points(
+                train_val_lower, train_val_upper, idx, cv_k
+            )
+            subfold_dataset = self._get_targetfold_start_end(
+                concatenated_data=train_fold,
+                resplit_portion_key=[this_fold_lower, this_fold_upper],
+                lower_bound_portion=train_val_lower,
+                upper_bound_portion=train_val_upper,
+            )
+            eval_datasets.append(
+                self.autoencodetext_from_model_and_dataset_name(subfold_dataset)
+            )
+            subfold_dataset = self._get_targetfold_start_end(
+                concatenated_data=train_fold,
+                resplit_portion_key=[this_fold_upper, this_fold_lower],
+                lower_bound_portion=train_val_lower,
+                upper_bound_portion=train_val_upper,
+            )
+            train_datasets.append(
+                self.autoencodetext_from_model_and_dataset_name(subfold_dataset)
+            )
+        return train_datasets, eval_datasets
+
+    def _resplit_data(
+        self,
+        data_fold_for_split,
+    ):
+        data_fold_for_split = data_fold_for_split.shuffle(seed=self.jobid_config.sddt)
+
+        for key in ["train", "validation", "test"]:
+            subfold_dataset = self._get_targetfold_start_end(
+                concatenated_data=data_fold_for_split,
+                resplit_portion_key=AutoTransformers.get_resplit_portion_key(key),
+            )
+            this_encoded_data = self.autoencodetext_from_model_and_dataset_name(
+                subfold_dataset
+            )
+            if key == "train":
+                train_dataset = this_encoded_data
+            elif key == "validation":
+                eval_dataset = this_encoded_data
+            else:
+                test_dataset = this_encoded_data
+        return train_dataset, eval_dataset, test_dataset
+
+    def _reset_max_seq_length(self, train_dataset, eval_dataset, test_dataset):
+        all_folds = [train_dataset, eval_dataset, test_dataset]
+        _max_seq_length = 0
+
+        _max_seq_length = max(
+            _max_seq_length,
+            max([sum(x["attention_mask"]) for x in all_folds]),
+        )
+        self.custom_hpo_args._max_seq_length = int((_max_seq_length + 15) / 16) * 16
+
+    def unify_data_raw_and_data_mapping(
+        self,
+        data_raw,
+        dataset_config,
+        data_mapping,
+    ):
+        self.foldname_mapping = {}
+
+        data_mapping_unified = {}
+        if data_mapping is not None:
+            assert isinstance(data_mapping, list) or isinstance(data_mapping, dict)
+            if isinstance(data_mapping, list):
+                assert set(data_mapping).issubset({"train", "validation", "test"}), (
+                    "To select folds from a HuggingFace dataset, the folds must either be {'train', 'validation'}"
+                    " or {'train'} "
+                )
+                for fold_key in data_mapping:
+                    self.foldname_mapping[fold_key] = fold_key
+                    data_mapping_unified[fold_key] = data_raw[fold_key]
+            else:
+                assert set(data_mapping.keys()).issubset(
+                    {"train", "validation", "test"}
+                ), (
+                    "To select folds from a HuggingFace dataset, the folds must either be {'train', 'validation'}"
+                    " or {'train'} "
+                )
+                for fold_key in data_mapping.keys():
+                    if isinstance(data_mapping[fold_key], str):
+                        self.foldname_mapping[fold_key] = data_mapping[fold_key]
+                        try:
+                            data_mapping_unified[fold_key] = data_raw[
+                                data_mapping[fold_key]
+                            ]
+                        except KeyError:
+                            raise KeyError(
+                                "The key {} is not found in the dataset".format(
+                                    data_mapping[fold_key]
+                                )
+                            )
+                    else:
+                        self.foldname_mapping[fold_key] = fold_key
+                        data_mapping_unified[fold_key] = data_mapping[fold_key]
+        else:
+            assert set(dataset_config["data_files"].keys()).issubset(
+                {"train", "validation", "test"}
+            ), "If the dataset is custom, the data fold must be a subset of {'train', 'validation', 'test'} "
+            data_mapping_unified = data_raw
+        return data_mapping_unified
+
+    def tokenize_text(self, data_dict):
+
+        tokenized_data_dict = {}
+        for each_key in data_dict:
+            tokenized_data_dict[
+                each_key
+            ] = self.autoencodetext_from_model_and_dataset_name(
+                data_dict[each_key],
+            )
+        return tokenized_data_dict
+
     def _prepare_data(
         self,
+        dataset_config,
+        data_mapping=None,
     ):
-        from .dataset.dataprocess_auto import AutoEncodeText
-        from transformers import AutoTokenizer
         from datasets import load_dataset
         from .utils import PathUtils
-        import datasets
 
         if self.custom_hpo_args.is_wandb_on:
             from .result_analysis.wandb_utils import WandbUtils
@@ -242,140 +377,54 @@ class AutoTransformers:
             self.jobid_config, hpo_output_dir=self.custom_hpo_args.output_dir
         )
 
-        if self.jobid_config.spt.endswith("rspt"):
-            assert len(self.custom_hpo_args.split_portion) == 6, (
-                "If split mode is 'rspt', the resplit_portion must be provided. Please "
-                "refer to the example in the documentation of HPOArgs::split_mode"
-            )
-        if self.jobid_config.subdat:
-            data_raw = load_dataset(
-                JobID.dataset_list_to_str(self.jobid_config.dat),
-                self.jobid_config.subdat,
-            )
+        if isinstance(dataset_config, dict):
+            data_raw = load_dataset(**dataset_config)
         else:
-            data_raw = load_dataset(*self.jobid_config.dat)
+            data_raw = load_dataset(*dataset_config)
 
-        split_mapping, self._dev_name = AutoTransformers._get_split_name(
-            data_raw=data_raw, fold_names=self.custom_hpo_args.fold_names
+        data_mapping_unified = self.unify_data_raw_and_data_mapping(
+            data_raw, dataset_config, data_mapping
         )
 
-        self._tokenizer = AutoTokenizer.from_pretrained(
-            self.jobid_config.pre_full, use_fast=True
+        tokenized_data_dict = self.tokenize_text(data_dict=data_mapping_unified)
+
+        # decide whether to use holdout or cross validation based on the fold names. If the fold name is {"train"}
+        # must use cross validation; if the fold name is {"train", "validation"}, must use holdout
+
+        assert (
+            set(tokenized_data_dict.keys()) == {"train"}
+            or set(tokenized_data_dict.keys()) == {"train", "validation"}
+            or set(tokenized_data_dict.keys()) == {"test"}
+        ), (
+            "The folds you specify can only be one of the following: "
+            "(1) {'train'} (2) {'train', 'validation'} (3) {'test'}"
         )
 
-        def autoencodetext_from_model_and_dataset_name(subfold_dataset):
-            tokenized_dat = AutoEncodeText.from_model_and_dataset_name(
-                subfold_dataset=subfold_dataset,
-                model_checkpoint_path=self.jobid_config.pre_full,
-                dataset_name_list=self.jobid_config.dat,
-                subdataset_name=self.jobid_config.subdat,
-                **{"max_seq_length": self.custom_hpo_args.max_seq_length},
-            )
-            return tokenized_dat
-
-        def get_resplit_portion_key(key):
-            key2lb_id = {"train": 0, "validation": 2, "test": 4}
-            key2ub_id = {"train": 1, "validation": 3, "test": 5}
-            return [
-                self.custom_hpo_args.split_portion[key2lb_id[key]],
-                self.custom_hpo_args.split_portion[key2ub_id[key]],
-            ]
-
-        if self.jobid_config.spt in ("rspt", "cv", "cvrspt"):
+        if set(tokenized_data_dict) == {"train"}:
             assert (
-                self.custom_hpo_args.source_fold is not None
-            ), "Must specify the fold names for resplitting the dataset"
-
-            all_folds_from_source = [
-                data_raw[split_mapping[each_fold_name]]
-                for each_fold_name in self.custom_hpo_args.source_fold
-            ]
-
-            merged_folds = datasets.concatenate_datasets(all_folds_from_source)
-            merged_folds = merged_folds.shuffle(seed=self.jobid_config.sddt)
-
-            if self.jobid_config.spt == "rspt":
-                _max_seq_length = 0
-
-                for key in ["train", "validation", "test"]:
-                    subfold_dataset = self._get_targetfold_start_end(
-                        concatenated_data=merged_folds,
-                        resplit_portion_key=get_resplit_portion_key(key),
-                    )
-                    this_encoded_data = autoencodetext_from_model_and_dataset_name(
-                        subfold_dataset
-                    )
-                    if key == "train":
-                        self.train_dataset = this_encoded_data
-                    elif key == "validation":
-                        self.eval_dataset = this_encoded_data
-                    else:
-                        self.test_dataset = this_encoded_data
-                    _max_seq_length = max(
-                        _max_seq_length,
-                        max([sum(x["attention_mask"]) for x in this_encoded_data]),
-                    )
-                self._max_seq_length = int((_max_seq_length + 15) / 16) * 16
-            else:
-                assert (
-                    self.custom_hpo_args.cv_k != -1
-                ), "if the split_mode is cv, cv_k must be specified in HPOArgs::cv_k"
-
-                def get_cv_split_points(lower_bound, upper_bound, idx, k):
-                    return (upper_bound - lower_bound) / k * idx + lower_bound, (
-                        upper_bound - lower_bound
-                    ) / k * (idx + 1) + lower_bound
-
-                test_subfold_dataset = self._get_targetfold_start_end(
-                    concatenated_data=merged_folds,
-                    resplit_portion_key=get_resplit_portion_key("test"),
-                )
-                self.test_dataset = autoencodetext_from_model_and_dataset_name(
-                    test_subfold_dataset
-                )
-                train_val_lower = min(
-                    get_resplit_portion_key("train")[0],
-                    get_resplit_portion_key("validation")[0],
-                )
-                train_val_upper = max(
-                    get_resplit_portion_key("train")[1],
-                    get_resplit_portion_key("validation")[1],
-                )
-                cv_k = self.custom_hpo_args.cv_k
-                self.eval_datasets = []
-                self.train_datasets = []
-                for idx in range(cv_k):
-                    this_fold_lower, this_fold_upper = get_cv_split_points(
-                        train_val_lower, train_val_upper, idx, cv_k
-                    )
-                    subfold_dataset = self._get_targetfold_start_end(
-                        concatenated_data=merged_folds,
-                        resplit_portion_key=[this_fold_lower, this_fold_upper],
-                        lower_bound_portion=train_val_lower,
-                        upper_bound_portion=train_val_upper,
-                    )
-                    self.eval_datasets.append(
-                        autoencodetext_from_model_and_dataset_name(subfold_dataset)
-                    )
-                    subfold_dataset = self._get_targetfold_start_end(
-                        concatenated_data=merged_folds,
-                        resplit_portion_key=[this_fold_upper, this_fold_lower],
-                        lower_bound_portion=train_val_lower,
-                        upper_bound_portion=train_val_upper,
-                    )
-                    self.train_datasets.append(
-                        autoencodetext_from_model_and_dataset_name(subfold_dataset)
-                    )
+                self.custom_hpo_args.eval_method == "cv"
+            ), "Because the validation fold is not specified, eval_method must be set to cv"
+            print(
+                "Because the validation fold is not specified, eval_method is set to cv, if you need to use the "
+                "hold out mode, set eval_method to 'holdout'"
+            )
+            train_datasets, eval_datasets = self._split_for_cross_validation(
+                tokenized_data_dict["train"]
+            )
+            self.train_datasets = train_datasets
+            self.eval_datasets = eval_datasets
+        elif set(tokenized_data_dict) == {"train", "validation"}:
+            assert (
+                self.custom_hpo_args.eval_method == "holdout"
+            ), "Because the validation fold is specified, eval_method must be set to holdout"
+            print(
+                "Because the validation fold is specified, eval_method is set to holdout, if you need to use the "
+                "cv mode, set eval_method to 'cv'"
+            )
+            self.train_dataset = tokenized_data_dict["train"]
+            self.eval_dataset = tokenized_data_dict["validation"]
         else:
-            self.train_dataset = autoencodetext_from_model_and_dataset_name(
-                data_raw[split_mapping["train"]]
-            )
-            self.eval_dataset = autoencodetext_from_model_and_dataset_name(
-                data_raw[split_mapping["validation"]]
-            )
-            self.test_dataset = autoencodetext_from_model_and_dataset_name(
-                data_raw[split_mapping["test"]]
-            )
+            self.test_dataset = tokenized_data_dict["test"]
 
     def _load_model(self, checkpoint_path=None, per_model_config=None):
         from .dataset.task_auto import get_default_task
@@ -385,9 +434,7 @@ class AutoTransformers:
             MODEL_CLASSIFICATION_HEAD_MAPPING,
         )
 
-        this_task = get_default_task(
-            self.jobid_config.dat, self.jobid_config.subdat, self.custom_hpo_args.task
-        )
+        this_task = get_default_task(self.jobid_config.dat, self.custom_hpo_args.task)
         if not checkpoint_path:
             checkpoint_path = self.jobid_config.pre_full
 
@@ -437,8 +484,7 @@ class AutoTransformers:
                     this_model = get_this_model()
             else:
                 this_model = get_this_model()
-
-            this_model.resize_token_embeddings(len(self._tokenizer))
+            this_model.resize_token_embeddings(self.vocab_size)
             return this_model
         elif this_task == "regression":
             model_config_num_labels = 1
@@ -447,11 +493,10 @@ class AutoTransformers:
             return this_model
 
     def _get_metric_func(self):
-        data_name = JobID.dataset_list_to_str(self.jobid_config.dat)
-        if data_name in ("glue", "super_glue"):
-            metric = datasets.load.load_metric(data_name, self.jobid_config.subdat)
+        if self.jobid_config.dat[0] in ("glue", "super_glue"):
+            metric = datasets.load.load_metric(self.jobid_config.dat)
         else:
-            metric = datasets.load.load_metric(self.metric_name)
+            metric = datasets.load.load_metric(self.custom_hpo_args.metric_name)
         return metric
 
     def _compute_metrics_by_dataset_name(self, eval_pred):
@@ -505,7 +550,7 @@ class AutoTransformers:
         return training_args_config, per_model_config
 
     def _train_one_fold_routime(
-        self, this_model, training_args, model_init, trial_id, config
+        self, this_model, training_args, model_init, trial_id, tokenizer
     ):
         trainer = TrainerForAutoTransformers(
             model=this_model,
@@ -513,7 +558,7 @@ class AutoTransformers:
             model_init=model_init,
             train_dataset=self.train_dataset,
             eval_dataset=self.eval_dataset,
-            tokenizer=self._tokenizer,
+            tokenizer=tokenizer,
             compute_metrics=self._compute_metrics_by_dataset_name,
         )
         trainer.trial_id = trial_id
@@ -528,7 +573,12 @@ class AutoTransformers:
 
     def _objective(self, config, reporter=None, checkpoint_dir=None):
         from transformers.trainer_utils import set_seed
+        from transformers import AutoTokenizer
 
+        tokenizer = AutoTokenizer.from_pretrained(
+            self.jobid_config.pre_full, use_fast=True
+        )
+        self.vocab_size = len(tokenizer)
         self._set_transformers_verbosity(self.custom_hpo_args.transformers_verbose)
 
         def model_init():
@@ -591,7 +641,7 @@ class AutoTransformers:
         else:
             run = None
 
-        if self.custom_hpo_args.resplit_mode.startswith("cv"):
+        if self.custom_hpo_args.eval_method == "cv":
             import mlflow
 
             all_output_metrics = []
@@ -599,7 +649,7 @@ class AutoTransformers:
                 self.train_dataset = self.train_datasets[cv_idx]
                 self.eval_dataset = self.eval_datasets[cv_idx]
                 trainer, output_metrics = self._train_one_fold_routime(
-                    this_model, training_args, model_init, trial_id, config
+                    this_model, training_args, model_init, trial_id, tokenizer
                 )
                 mlflow.end_run()
                 all_output_metrics.append(output_metrics)
@@ -608,7 +658,7 @@ class AutoTransformers:
             )
         else:
             trainer, output_metrics = self._train_one_fold_routime(
-                this_model, training_args, model_init, trial_id, config
+                this_model, training_args, model_init, trial_id, tokenizer
             )
             TrainerForAutoTransformers.tune_report(
                 mode="holdout", output_metrics=output_metrics
@@ -695,20 +745,7 @@ class AutoTransformers:
                 fout,
             )
 
-    def _save_output_metric(self, output_metrics):
-        with open(
-            os.path.join(
-                self.path_utils.result_dir_per_run,
-                "output_metric_" + self.jobid_config.to_jobid_string() + ".json",
-            ),
-            "w",
-        ) as fout:
-            json.dump(
-                output_metrics,
-                fout,
-            )
-
-    def _load_ckpt_json(self, ckpt_dir=None, **kwargs):
+    def _load_ckpt_json(self, ckpt_dir=None):
         if not ckpt_dir:
             ckpt_dir = os.path.join(
                 self.path_utils.result_dir_per_run,
@@ -725,10 +762,30 @@ class AutoTransformers:
             )
             raise err
 
-    def _set_metric(self):
+    def _set_metric(self, is_custom_data, custom_hpo_args):
         from .dataset.metric_auto import get_default_and_alternative_metric
         from .utils import _variable_override_default_alternative
 
+        if is_custom_data:
+            assert "metric_name" in custom_hpo_args, (
+                "If the dataset is customized, "
+                "you must provide task in flaml.nlp.utils:HPOArgs"
+            )
+            assert "metric_mode_name" in custom_hpo_args, (
+                "If the dataset is customized, "
+                "you must provide task in flaml.nlp.utils:HPOArgs"
+            )
+
+        custom_metric_name = (
+            custom_hpo_args["metric_name"] if "metric_name" in custom_hpo_args else None
+        )
+        custom_metric_mode_name = (
+            custom_hpo_args["metric_mode_name"]
+            if "metric_mode_name" in custom_hpo_args
+            else None
+        )
+
+        # Step 1: get the default metric and all the metrics
         (
             default_metric,
             default_mode,
@@ -736,54 +793,71 @@ class AutoTransformers:
             all_modes,
         ) = get_default_and_alternative_metric(
             dataset_name_list=self.jobid_config.dat,
-            subdataset_name=self.jobid_config.subdat,
-            custom_metric_name=self.custom_hpo_args.custom_metric_name,
-            custom_metric_mode_name=self.custom_hpo_args.custom_metric_mode_name,
+            custom_metric_name=custom_metric_name,
+            custom_metric_mode_name=custom_metric_mode_name,
         )
+
+        # Step 2: override the default metric and mode with the custom metric and mode, if
+        # there exists one
         _variable_override_default_alternative(
             obj_ref=self,
             var_name="metric_name",
             default_value=default_metric,
             all_values=all_metrics,
-            overriding_value=self.custom_hpo_args.custom_metric_name,
+            overriding_value=custom_metric_name,
         )
         _variable_override_default_alternative(
             obj_ref=self,
             var_name="metric_mode_name",
             default_value=default_mode,
             all_values=all_modes,
-            overriding_value=self.custom_hpo_args.custom_metric_mode_name,
+            overriding_value=custom_metric_mode_name,
         )
         self._all_metrics = all_metrics
         self._all_modes = all_modes
 
-    def _set_task(self):
+    def _set_task(self, is_custom_data, custom_hpo_args):
         from .dataset.task_auto import get_default_task
+
+        if is_custom_data:
+            assert "task" in custom_hpo_args, (
+                "If the dataset is customized, "
+                "you must provide task in flaml.nlp.utils:HPOArgs"
+            )
 
         setattr(
             self.custom_hpo_args,
             "task",
-            get_default_task(self.jobid_config.dat, self.jobid_config.subdat),
+            get_default_task(
+                self.jobid_config.dat,
+                custom_hpo_args["task"] if "task" in custom_hpo_args else None,
+            ),
         )
 
     def _get_first_train_fold(self):
-        if self.custom_hpo_args.resplit_mode.startswith("cv"):
+        if self.custom_hpo_args.eval_method == "cv":
             return self.train_datasets[0]
         else:
             return self.train_dataset
 
     def _set_num_labels(self):
-        if self.custom_hpo_args.task == "seq-classification":
+        if self.custom_hpo_args.task == "regression":
+            self._num_labels = 1
+            return
+        elif self.custom_hpo_args.task == "seq-classification":
+            first_train_fold = self._get_first_train_fold()
+            assert self.custom_hpo_args.label_name in first_train_fold.features, (
+                "The label column {} is not specified in the dataset, you need to specify the label column with "
+                "flaml.nlp.utils:HPOArgs::label_name"
+            )
             try:
                 self._num_labels = len(
-                    self._get_first_train_fold().features["label"].names
+                    first_train_fold.features[self.custom_hpo_args.label_name].names
                 )
             except AttributeError:
                 self._num_labels = len(
-                    set([x["label"] for x in self._get_first_train_fold()])
+                    set([x[self.custom_hpo_args.label_name] for x in first_train_fold])
                 )
-        elif self.custom_hpo_args.task == "regression":
-            self._num_labels = 1
 
     def _set_transformers_verbosity(self, transformers_verbose):
         import transformers
@@ -874,12 +948,18 @@ class AutoTransformers:
 
         return best_trial
 
-    def _check_input_args(self):
-        self.jobid_config.check_model_type_consistency()
-        self.jobid_config.check_grid_config()
+    def _check_input_args(self, dataset_config):
+        from .utils import check_custom_data_format
+
+        self.custom_hpo_args.check_grid_config()
+        check_custom_data_format(
+            dataset_config, self.custom_hpo_args.custom_sentence_keys
+        )
 
     def fit(
         self,
+        dataset_config: Dict,
+        data_mapping: Union[Dict, List] = None,
         load_config_mode="args",
         **custom_hpo_args,
     ):
@@ -903,6 +983,12 @@ class AutoTransformers:
                 validation_metric, analysis = autohf.fit(**autohf_settings)
 
         Args:
+            dataset_config:
+                dataset config, which is either a dict or a list, the dict or list must be consistent with the
+                argument in datasets.load_dataset. See the documentation for HPOArgs::dataset_config
+            custom_sentence_keys:
+                the custom sentence key, must be set to a tuple of str if dataset_config["path"] is "csv" or "json"
+                (i.e., custom data files)
             load_config_mode:
                 A string, the mode for loading args. "args" if setting the args from argument, "console"
                 if setting the args from console
@@ -919,19 +1005,32 @@ class AutoTransformers:
 
         hpo_args = HPOArgs()
 
-        self.custom_hpo_args = hpo_args.load_args(load_config_mode, **custom_hpo_args)
-        self.jobid_config = JobID()
-        self.jobid_config.set_jobid_from_console_args(console_args=self.custom_hpo_args)
+        assert self._is_huggingface_dataset(
+            dataset_config, data_mapping
+        ) ^ self._is_custom_dataset(dataset_config), (
+            "The specified data must be in one of the two modes: (1) custom data, by specifying data_files "
+            "in dataset_config; (2) HuggingFace data, by specifying the path argument in dataset_config and "
+            "which fold(s) from the dataset you will be loading with the data_mapping argument"
+        )
 
-        self._prepare_data()
+        self.custom_hpo_args = hpo_args.load_args(load_config_mode, **custom_hpo_args)
+        self._check_input_args(dataset_config)
+
+        self.jobid_config = JobID()
+        self.jobid_config.set_jobid_from_console_args(
+            dataset_config=dataset_config, console_args=self.custom_hpo_args
+        )
+
+        self._prepare_data(dataset_config=dataset_config, data_mapping=data_mapping)
 
         from .hpo.scheduler_auto import AutoScheduler
 
         assert self.jobid_config is not None
-        self._check_input_args()
 
-        self._set_metric()
-        self._set_task()
+        is_custom_data = self._is_custom_dataset(dataset_config)
+
+        self._set_metric(is_custom_data=is_custom_data, custom_hpo_args=custom_hpo_args)
+        self._set_task(is_custom_data=is_custom_data, custom_hpo_args=custom_hpo_args)
         self._set_num_labels()
         self._set_search_space()
 
@@ -939,15 +1038,15 @@ class AutoTransformers:
             search_algo_name=self.jobid_config.alg,
             search_algo_args_mode=self.jobid_config.arg,
             time_budget=self.custom_hpo_args.time_budget,
-            metric_name=self.metric_name,
-            metric_mode_name=self.metric_mode_name,
+            metric_name=self.custom_hpo_args.metric_name,
+            metric_mode_name=self.custom_hpo_args.metric_mode_name,
             points_to_evaluate=self.custom_hpo_args.points_to_evaluate,
         )
         if self.jobid_config.alg == "bs":
             search_algo.set_search_properties(
                 config=self._search_space_hpo,
-                metric=self.metric_name,
-                mode=self.metric_mode_name,
+                metric=self.custom_hpo_args.metric_name,
+                mode=self.custom_hpo_args.metric_mode_name,
             )
             search_algo.set_search_properties(
                 config={"time_budget_s": self.custom_hpo_args.time_budget}
@@ -969,12 +1068,12 @@ class AutoTransformers:
             import numpy as np
 
             np.random.seed(self.jobid_config.sdbs + 7654321)
-        from ray import tune
 
+        self.jobid_config.check_model_type_consistency()
         analysis = ray.tune.run(
             self._objective,
-            metric=self.metric_name,
-            mode=self.metric_mode_name,
+            metric=self.custom_hpo_args.metric_name,
+            mode=self.custom_hpo_args.metric_mode_name,
             name="ray_result",
             resources_per_trial=self.custom_hpo_args.resources_per_trial,
             config=tune_config,
@@ -983,7 +1082,7 @@ class AutoTransformers:
             num_samples=self.custom_hpo_args.sample_num,
             time_budget_s=self.custom_hpo_args.time_budget,
             keep_checkpoints_num=self.custom_hpo_args.keep_checkpoints_num,
-            checkpoint_score_attr=self.metric_name,
+            checkpoint_score_attr=self.custom_hpo_args.metric_name,
             scheduler=scheduler,
             search_alg=search_algo,
             fail_fast=True,
@@ -995,14 +1094,17 @@ class AutoTransformers:
         ray.shutdown()
 
         best_trial = AutoTransformers.get_best_trial_with_checkpoint(
-            analysis, scope="all", metric=self.metric_name, mode=self.metric_mode_name
+            analysis,
+            scope="all",
+            metric=self.custom_hpo_args.metric_name,
+            mode=self.custom_hpo_args.metric_mode_name,
         )
         if best_trial is not None:
             validation_metric = {
                 "eval_"
-                + self.metric_name: best_trial.metric_analysis[self.metric_name][
-                    self.metric_mode_name
-                ]
+                + self.custom_hpo_args.metric_name: best_trial.metric_analysis[
+                    self.custom_hpo_args.metric_name
+                ][self.custom_hpo_args.metric_mode_name]
             }
             for i, metric in enumerate(self._all_metrics):
                 validation_metric["eval_" + metric] = best_trial.metric_analysis[
@@ -1010,17 +1112,25 @@ class AutoTransformers:
                 ][self._all_modes[i]]
 
             get_best_ckpt = analysis.get_best_checkpoint(
-                best_trial, metric=self.metric_name, mode=self.metric_mode_name
+                best_trial,
+                metric=self.custom_hpo_args.metric_name,
+                mode=self.custom_hpo_args.metric_mode_name,
             )
             best_ckpt = AutoTransformers._recover_checkpoint(get_best_ckpt)
 
             self._save_ckpt_json(best_ckpt)
 
-            return validation_metric, analysis
+            return analysis
         else:
-            return None, analysis
+            return analysis
 
-    def predict(self, ckpt_json_dir=None, **kwargs):
+    def predict(
+        self,
+        dataset_config=None,
+        data_mapping: Union[Dict, List] = None,
+        input_text: Union[Dict, List, List[Dict], List[List]] = None,
+        ckpt_json_dir=None,
+    ):
         """Predict label for test data.
 
         An example:
@@ -1036,8 +1146,42 @@ class AutoTransformers:
             label for an instance.
         """
         from .huggingface.trainer import TrainerForAutoTransformers
+        from .dataset.dataprocess_auto import AutoEncodeText
 
-        best_checkpoint = self._load_ckpt_json(ckpt_json_dir, **kwargs)
+        assert (input_text is not None) ^ (
+            self._is_huggingface_dataset(dataset_config, data_mapping)
+            or self._is_custom_dataset(dataset_config)
+        ), (
+            "The specified data must be in one of the three modes: (1) custom data, by specifying data_files "
+            "in dataset_config; (2) HuggingFace data, by specifying the path argument in dataset_config and "
+            "which fold(s) from the dataset you will be loading with the data_mapping argument, and (3) input "
+            "text mode, which is either a sentence or a list of sentences"
+        )
+
+        assert self.jobid_config is not None, (
+            "jobid_config is not set in the AutoTransformers object, "
+            "did you forget to run AutoTransformers.fit before AutoTransformers.predict?"
+        )
+
+        if input_text is not None:
+            if (isinstance(input_text, List) and isinstance(input_text[0], List)) or (
+                isinstance(input_text, List) and isinstance(input_text[0], Dict)
+            ):
+                self.test_dataset = AutoEncodeText.from_model_and_example_list(
+                    example_list=input_text,
+                    dataset_name_list=self.jobid_config.dat,
+                    custom_sentence_keys=self.custom_hpo_args.custom_sentence_keys,
+                )
+            else:
+                self.test_dataset = AutoEncodeText.from_model_and_example(
+                    this_example=input_text,
+                    dataset_name_list=self.jobid_config.dat,
+                    custom_sentence_keys=self.custom_hpo_args.custom_sentence_keys,
+                )
+        else:
+            self._prepare_data(dataset_config=dataset_config, data_mapping=data_mapping)
+
+        best_checkpoint = self._load_ckpt_json(ckpt_json_dir)
         best_model = self._load_model(checkpoint_path=best_checkpoint)
         training_args = TrainingArguments(
             per_device_eval_batch_size=1, output_dir=self.path_utils.result_dir_per_run
@@ -1057,21 +1201,11 @@ class AutoTransformers:
 
         predictions = (
             np.squeeze(predictions)
-            if get_default_task(self.jobid_config.dat, self.jobid_config.subdat)
-            == "regression"
+            if self.custom_hpo_args.task == "regression"
             else np.argmax(predictions, axis=1)
         )
-
-        # If the split mode is resplit, return the output metric of prediction
-        # If the split mode is origin, return the prediction without computing the metric
-        if self.jobid_config.spt.endswith("rspt"):
-            assert labels is not None
-            metric = self._get_metric_func()
-            output_metric = metric.compute(predictions=predictions, references=labels)
-            self._save_output_metric(output_metric)
-            return predictions, output_metric
-        else:
-            return predictions, None
+        # TODO: add another function for post processing
+        return predictions
 
     def output_prediction(
         self, predictions=None, output_prediction_path=None, output_zip_file_name=None
@@ -1104,6 +1238,5 @@ class AutoTransformers:
             output_zip_file_name,
             predictions,
             self.train_dataset,
-            self._dev_name,
-            self.jobid_config.subdat,
+            self.foldname_mapping["validation"],
         )

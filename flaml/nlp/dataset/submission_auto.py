@@ -1,6 +1,7 @@
 import os
 import shutil
 from collections import OrderedDict
+from typing import Tuple
 
 file_name_mapping_glue = {
     "ax": ["AX.tsv"],
@@ -43,7 +44,12 @@ test_size_glue = {
 
 
 def output_prediction_glue(
-    output_path, zip_file_name, predictions, train_data, dev_name, subdataset_name
+    output_path,
+    zip_file_name,
+    predictions,
+    train_data,
+    dev_name,
+    dataset_name_tuple: Tuple,
 ):
     output_dir = os.path.join(output_path, zip_file_name)
     if os.path.exists(output_dir):
@@ -52,15 +58,15 @@ def output_prediction_glue(
         import pathlib
 
         pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
-    if subdataset_name != "stsb":
+    if dataset_name_tuple != ("glue", "stsb"):
         label_list = train_data.features["label"].names
 
     output_blank_tsv(output_dir)
     for each_subdataset_name in file_name_mapping_glue.keys():
         for idx in range(len(file_name_mapping_glue[each_subdataset_name])):
             each_file = file_name_mapping_glue[each_subdataset_name][idx]
-            if subdataset_name != "mnli":
-                is_match = subdataset_name == each_subdataset_name
+            if dataset_name_tuple != ("glue", "mnli"):
+                is_match = dataset_name_tuple[1] == each_subdataset_name
             else:
                 if dev_name == "validation_matched":
                     is_match = each_file == "MNLI-m.tsv"
@@ -70,13 +76,13 @@ def output_prediction_glue(
                 with open(os.path.join(output_dir, each_file), "w") as writer:
                     writer.write("index\tprediction\n")
                     for index, item in enumerate(predictions):
-                        if subdataset_name == "stsb":
+                        if dataset_name_tuple[1] == "stsb":
                             # if the dataset is stsbm the prediction needs to be a float number rounded to [0, 5.0]
                             if item > 5.0:
                                 item = 5.0
                             writer.write(f"{index}\t{item:3.3f}\n")
                         else:
-                            if subdataset_name in ("rte", "qnli", "mnli"):
+                            if dataset_name_tuple[1] in ("rte", "qnli", "mnli"):
                                 # if the dataset is rte, qnli or mnli, the prediction needs to be the string
                                 item = label_list[item]
                                 writer.write(f"{index}\t{item}\n")
@@ -101,20 +107,24 @@ OUTPUT_PREDICTION_MAPPING = OrderedDict(
 
 
 def auto_output_prediction(
-    dataset_name_list: list,
+    dataset_name_list: Tuple,
     output_path,
     zip_file_name,
     predictions,
     train_data,
     dev_name,
-    subset_name,
 ):
     from ..result_analysis.azure_utils import JobID
 
-    dataset_name = JobID.dataset_list_to_str(dataset_name_list)
+    dataset_name = JobID.get_full_data_name(dataset_name_list)
     if dataset_name in OUTPUT_PREDICTION_MAPPING.keys():
         return OUTPUT_PREDICTION_MAPPING[dataset_name](
-            output_path, zip_file_name, predictions, train_data, dev_name, subset_name
+            output_path,
+            zip_file_name,
+            predictions,
+            train_data,
+            dev_name,
+            dataset_name_list,
         )
     else:
         return None
