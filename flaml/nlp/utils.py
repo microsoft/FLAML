@@ -342,6 +342,9 @@ class HPOArgs:
     def _load_custom_hpo_args(self, custom_hpo_args):
         dft_args = self
         for key, val in custom_hpo_args.items():
+            assert (
+                key in self.__dict__
+            ), "The specified key {} is not in the argument list of flaml.nlp.utils::HPOArgs"
             setattr(dft_args, key, val)
 
         return dft_args

@@ -22,10 +22,10 @@ autohf_settings = {
     "model_path": "google/electra-base-discriminator",
     "output_dir": "data/",
     "resources_per_trial": {"gpu": 1, "cpu": 1},
-    "num_samples": -1,
+    "sample_num": -1,
     "time_budget": 100,
     "ckpt_per_epoch": 5,
-    "fp16": True,
+    "fp16": False,
     "algo_mode": "hpo",  # set the search algorithm mode to hpo
     "algo_name": "rs",
     "space_mode": "cus",  # customized search space (this_hpo_space)
