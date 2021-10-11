@@ -899,6 +899,13 @@ class AutoTransformers:
 
                 validation_metric, analysis = autohf.fit(**autohf_settings)
 
+        Args:
+            load_config_mode:
+                A string, the mode for loading args. "args" if setting the args from argument, "console"
+                if setting the args from console
+            **custom_hpo_args:
+                The custom arguments, please find all candidate arguments from ``flaml.nlp.utils::HPOArgs``
+
         Returns:
 
             validation_metric: A dict storing the validation score

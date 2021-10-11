@@ -86,7 +86,7 @@ class HPOArgs:
                 }
         dataset_config (:obj:`list`, defaults to :obj:`[]`):
             A dict, the input dataset configuration. This configuration follows the same
-            format as HuggingFace's datasets.load_dataset, e.g.,
+            format as HuggingFace's datasets.load_dataset, e.g.:
                 | dataset_config = ["glue", "mrpc"]
                 | dataset_config = {"path": "glue", "name": "mrpc"}
                 | dataset_config = {"csv", "data_files":
@@ -100,34 +100,36 @@ class HPOArgs:
             A dict for specifying the resource used by each trial
         fp16 (:obj:`bool`, `optional`, defaults to :obj:`False`):
             A bool, whether to use FP16
-        ray_verbose (: obj: `1`, `optional`, defaults to :obj:`1`):
+        ray_verbose (:obj:`1`, `optional`, defaults to :obj:`1`):
             An int, the verbose level of Ray tune
-        transformers_verbose (: obj: `1`,`optional`,  defaults to :obj:`1`):
+        transformers_verbose (:obj:`1`, `optional`,  defaults to :obj:`1`):
             An int, the verbose level of Transformers
-        custom_metric_name (: obj: `str`,`optional`, defaults to :obj:`accuracy`):
+        custom_metric_name (:obj:`str`, `optional`, defaults to :obj:`accuracy`):
             A string, the custom metric name
-        custom_metric_mode_name (: obj: `str`,`optional`, defaults to :obj:`max`):
+        custom_metric_mode_name (:obj:`str`, `optional`, defaults to :obj:`max`):
             A string, the custom metric mode name
-        task (: obj: `str`,`optional`, defaults to :obj:`seq-classification`):
+        task (:obj:`str`, `optional`, defaults to :obj:`seq-classification`):
             A string, the task in for HPO fine-tuning, e.g., seq-classification
 
-        The following arguments are for developer mode only, user can ignore these arguments:
+    The following arguments are for developer mode only, user can ignore these arguments:
 
-            space_mode (: obj: `str`,`optional`, defaults to :obj:`gnr`):
-                A string, the search space mode for HPO, e.g.:
+    Args:
 
-                |grid: using the recommended space by one pre-trained language model,
+        space_mode (:obj:`str`, `optional`, defaults to :obj:`gnr`):
+            A string, the search space mode for HPO, e.g.:
+
+                grid: using the recommended space by one pre-trained language model,
                 e.g., the grid space recommended by bert. If search_alg_args_mode is set to grid:
                 and grid_space_model_type is specified in custom_hpo_args (can be different from
                 the model specified in the HPO setting), grid search will
                 search within the space of the model of grid_space_model_type. Otherwise, grid search
                 will search within the space of the model in the HPO setting.
 
-                |gnr: generic space, see
-                |uni: grid union space
-                |uni_test: test space for grid union
-                |cus: customized search space
-                |gnr_test: test space for generic space
+                gnr: generic space, see
+                uni: grid union space
+                uni_test: test space for grid union
+                cus: customized search space
+                gnr_test: test space for generic space
 
     """
 
