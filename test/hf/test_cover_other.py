@@ -16,7 +16,8 @@ def get_autohf_setting():
         "model_path": "google/electra-base-discriminator",
         "model_size": "base",
         "key_path": ".",
-        "resplit_portion": [0, 0.1, 0.1, 0.11, 0.11, 0.12],
+        "source_fold": ["train", "validation"],
+        "split_portion": [0, 0.1, 0.1, 0.11, 0.11, 0.12],
     }
     return autohf_settings
 
@@ -296,6 +297,21 @@ def test_objective():
         },
     )
 
+    args["resplit_mode"] = "cvrspt"
+    args["cv_k"] = 2
+    set_autohf_setting(autohf, args)
+
+    autohf._objective(
+        config={
+            "learning_rate": 1e-5,
+            "num_train_epochs": 0.01,
+            "per_device_train_batch_size": 1,
+            "warmup_ratio": 0,
+            "weight_decay": 0,
+            "seed": 42,
+        },
+    )
+
 
 def test_search_algo_auto():
     try:
@@ -364,4 +380,4 @@ def test_search_algo_auto():
 
 
 if __name__ == "__main__":
-    test_search_algo_auto()
+    test_objective()

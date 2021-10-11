@@ -33,25 +33,14 @@ class AutoTransformers:
         .. code-block:: python
 
             autohf = AutoTransformers()
-            preparedata_setting = {
-                "dataset_config": "glue:mrpc",
-                "pretrained_model_size": ["google/electra-small-discriminator", "small"],
-                "output_dir": "data/",
-                "max_seq_length": 128,
-                "resplit_portion": {
-                    "source": ["train", "validation"],
-                    "train": [0, 0.001],
-                    "validation": [0.001, 0.002],
-                    "test": [0.002, 0.003],
-                }
-            autohf.prepare_data(**preparedata_setting)
-
             autohf_settings = {
+                "dataset_config": ["glue", "mrpc"],
+                "pretrained_model": "google/electra-small-discriminator",
+                "output_dir": "data/",
                 "resources_per_trial": {"cpu": 1, "gpu": 1},
                 "num_samples": -1,
-                "time_budget": 60,
+                "time_budget": 300,
             }
-
             validation_metric, analysis = autohf.fit(**autohf_settings)
 
     """
@@ -229,88 +218,6 @@ class AutoTransformers:
     def _prepare_data(
         self,
     ):
-        """Prepare data
-
-        Example:
-
-            .. code-block:: python
-
-                preparedata_setting = {
-                    "dataset_config": "glue:mrpc",
-                    "pretrained_model_size": ["google/electra-small-discriminator", "small"],
-                    "output_dir": "data/",
-                    "max_seq_length": 128,
-                    "resplit_portion": {
-                        "source": ["train", "validation"],
-                        "train": [0, 0.001],
-                        "validation": [0.001, 0.002],
-                        "test": [0.002, 0.003],
-                }
-
-                autohf.prepare_data(**preparedata_setting)
-
-        Args:
-            output_dir:
-                The root path for storing the checkpoints and output results, e.g., "data/"
-            jobid_config:
-                A JobID object describing the profile of job, optional to the user
-            is_wandb_on:
-                A boolean variable indicating whether wandb is used
-            max_seq_length (optional):
-                Max_seq_length for the huggingface, this hyperparameter must be specified
-                at the data processing step
-            fold_name:
-                The fold name of the datasets. For the majority of datasets, the fold names are
-                "train", "validation", "test". However, there are exceptions. For example, in some
-                datasets, only "train" fold is available. In other datasets, the validation and test
-                fold are under different names (e.g., glue/mnli).
-            resplit_portion:
-                The proportion for resplitting the train and dev data when split_mode="resplit".
-                If args.resplit_mode = "rspt", resplit_portion is required
-            load_config_mode:
-                A string variable of the load config mode. This mode specifies the mode for reading the
-                HPO setting (e.g., dataset, pre-trained model(. There are three modes.
-                For the user mode (args), please refer to flaml/nlp/utils:load_data_args()
-                function for all defined configurations. For the developer mode (console and jobid),
-                please refer to the flaml/nlp/result_analysis/azure_utils:JobID class for all defined
-                configurations.
-
-                    | args (user mode): specifying the HPO setting through the **custom_data_args arguments of
-                    prepare_data. An example of this mode is below:
-
-                    .. code-block:: python
-
-                    preparedata_setting = {
-                        "dataset_config": "glue:mrpc",
-                        "pretrained_model_size": ["google/electra-small-discriminator", "small"],
-                        "output_dir": "data/",
-                        "max_seq_length": 128,
-                        "resplit_portion": {
-                            "source": ["train", "validation"],
-                            "train": [0, 0.001],
-                            "validation": [0.001, 0.002],
-                            "test": [0.002, 0.003],
-                    }
-
-                    autohf.prepare_data(**preparedata_setting)
-
-                    | console (developer mode): specifying the HPO setting through the console argument.
-
-                    | jobid (developer mode): specifying the HPO setting through a JobID object
-
-            custom_data_args:
-                Optional keyword arguments that are not included in the other arguments, which includes
-
-                    | all arguments for specifying the configuration. If local_config_mode="args" (i.e., user mode)
-                    use custom_data_args to set the HPO setting by following the definition in flaml/nlp/utils.py
-                    For how to set HPO setting parameters, please refer to the documentation in
-                    flaml/nlp/utils: load_data_args()
-
-                    | fold_num: the number of folds of cross validation under the cross validation mode, i.e., when
-                    jobid_config.mod = cv or cvrspt, or console_args.split_mode = cv or cvrspt
-
-        """
-        from flaml.nlp.result_analysis.azure_utils import JobID
         from .dataset.dataprocess_auto import AutoEncodeText
         from transformers import AutoTokenizer
         from datasets import load_dataset
@@ -385,7 +292,7 @@ class AutoTransformers:
             merged_folds = datasets.concatenate_datasets(all_folds_from_source)
             merged_folds = merged_folds.shuffle(seed=self.jobid_config.sddt)
 
-            if self.jobid_config.spt.endswith("rspt"):
+            if self.jobid_config.spt == "rspt":
                 _max_seq_length = 0
 
                 for key in ["train", "validation", "test"]:
@@ -979,51 +886,18 @@ class AutoTransformers:
 
             .. code-block:: python
 
-                autohf_settings = {"resources_per_trial": {"cpu": 1},
-                           "num_samples": 1,
-                           "time_budget": 100000,
-                           "ckpt_per_epoch": 1,
-                           "fp16": False,
-                          }
+                autohf = AutoTransformers()
+
+                autohf_settings = {
+                    "dataset_config": ["glue", "mrpc"],
+                    "pretrained_model": "google/electra-small-discriminator",
+                    "output_dir": "data/",
+                    "resources_per_trial": {"cpu": 1, "gpu": 1},
+                    "num_samples": -1,
+                    "time_budget": 300,
+                }
 
                 validation_metric, analysis = autohf.fit(**autohf_settings)
-
-        Args:
-            num_samples:
-                An int variable of the maximum number of trials
-            time_budget:
-                An int variable of the maximum time budget
-            custom_metric_name:
-                A string of the dataset name or a function,
-                e.g., 'accuracy', 'f1', 'loss'
-            custom_metric_mode_name:
-                A string of the mode name,
-                e.g., "max", "min", "last", "all"
-            ckpt_per_epoch:
-                An integer value of number of checkpoints per epoch, default = 1
-            fp16:
-                boolean, default = True | whether to use fp16.
-            ray_verbose:
-                An integer, default=1 | verbosit of ray,
-            transformers_verbose:
-                An integer, default=transformers.logging.INFO | verbosity of transformers, must be chosen from one of
-                transformers.logging.ERROR, transformers.logging.INFO, transformers.logging.WARNING,
-                or transformers.logging.DEBUG
-            resources_per_trial:
-                A dict showing the resources used by each trial,
-                e.g., {"gpu": 4, "cpu": 4}
-            keep_checkpoints_num:
-                int, default = 1 | the number of checkpoints to keep for ray tune.run
-            grid_space_model_type:
-                A string, the model type of grid search space, if search_alg_args_mode=grid. That is, if
-                this argument is set to "bert", autohf.fit will search for the grid search space recommended by bert
-            custom_search_space:
-                A dict, the custom search space specified by user
-            points_to_evaluate:
-                A dict, the first HPO configuration to evaluate in the search space. points_to_evaluate must
-                be within the search space.
-            custom_hpo_args:
-                The additional keyword arguments for the HPO algorithm
 
         Returns:
 

@@ -198,6 +198,7 @@ def test_hpo():
     from flaml.nlp import AutoTransformers
     from flaml.nlp.result_analysis.azure_utils import JobID, AzureUtils
     from flaml.nlp.utils import HPOArgs
+    import os
 
     autohf = AutoTransformers()
 
@@ -209,6 +210,10 @@ def test_hpo():
     autohf_settings["points_to_evaluate"] = [
         {"learning_rate": 2e-5, "per_device_train_batch_size": 1}
     ]
+    # autohf_settings["is_wandb_on"] = True
+    # autohf_settings["key_path"] = "."
+    # os.environ["WANDB_MODE"] = "online"
+
     validation_metric, analysis = autohf.fit(**autohf_settings)
 
     if validation_metric is not None:
@@ -306,4 +311,4 @@ def test_cv():
 
 
 if __name__ == "__main__":
-    test_cv()
+    test_hpo()
