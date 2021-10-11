@@ -131,7 +131,7 @@ class AutoSearchAlgorithm:
                 **this_search_algo_kwargs
             )
             if search_algo_name == "bs":
-                search_algo.set_search_properties(config={"time_budget_s": time_budget})
+                search_algo.set_search_properties()
             return search_algo
         raise ValueError(
             "Unrecognized method {} for this kind of AutoSearchAlgorithm: {}.\n"
