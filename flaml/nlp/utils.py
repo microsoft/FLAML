@@ -188,7 +188,7 @@ class HPOArgs:
     )
 
     # show this in doc str
-    fp16: str = field(default=True, metadata={"help": "whether to use the FP16 mode"})
+    fp16: bool = field(default=True, metadata={"help": "whether to use the FP16 mode"})
 
     # show this in doc str
     ray_verbose: int = field(default=1, metadata={"help": "ray verbose level"})

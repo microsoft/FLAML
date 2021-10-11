@@ -281,6 +281,7 @@ def test_objective():
     """
     autohf = AutoTransformers()
     args = get_autohf_setting()
+    args["fp16"] = False
     HPOArgs()
 
     set_autohf_setting(autohf, args)
