@@ -118,18 +118,25 @@ class HPOArgs:
         space_mode (:obj:`str`, `optional`, defaults to :obj:`gnr`):
             A string, the search space mode for HPO, e.g.:
 
-                grid: using the recommended space by one pre-trained language model,
+                | grid: using the recommended space by one pre-trained language model,
                 e.g., the grid space recommended by bert. If search_alg_args_mode is set to grid:
                 and grid_space_model_type is specified in custom_hpo_args (can be different from
                 the model specified in the HPO setting), grid search will
                 search within the space of the model of grid_space_model_type. Otherwise, grid search
                 will search within the space of the model in the HPO setting.
-
-                gnr: generic space, see
-                uni: grid union space
-                uni_test: test space for grid union
-                cus: customized search space
-                gnr_test: test space for generic space
+                | gnr: the generic continuous space, i.e., {
+                        "learning_rate": {"l": 1e-6, "u": 1e-3, "space": "log"},
+                        "num_train_epochs": {"l": 0.001, "u": 0.1, "space": "log"},
+                        "per_device_train_batch_size": [1],
+                        "warmup_ratio": {"l": 0.0, "u": 0.3, "space": "linear"},
+                        "weight_decay": {"l": 0.0, "u": 0.3, "space": "linear"},
+                        "adam_epsilon": {"l": 1e-8, "u": 1e-6, "space": "linear"},
+                        "seed": list(range(40, 45)),
+                    }
+                | uni: grid union space
+                | uni_test: test space for grid union
+                | cus: customized search space
+                | gnr_test: test space for generic space
 
     """
 
