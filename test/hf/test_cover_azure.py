@@ -82,6 +82,17 @@ def test_jobid():
     jobid_config.to_wandb_string()
 
 
+def set_autohf_setting(autohf, args):
+    from flaml.nlp.utils import HPOArgs
+    from flaml.nlp.result_analysis.azure_utils import JobID
+
+    hpo_args = HPOArgs()
+    autohf.custom_hpo_args = hpo_args.load_args("args", **args)
+    autohf.jobid_config = JobID()
+    autohf.jobid_config.set_jobid_from_console_args(console_args=autohf.custom_hpo_args)
+    autohf._prepare_data()
+
+
 def test_azureutils():
     try:
         import ray
@@ -95,17 +106,18 @@ def test_azureutils():
     from flaml.nlp.result_analysis.azure_utils import ConfigScore, ConfigScoreList
     from flaml.nlp import AutoTransformers
     from datetime import datetime
+    from flaml.nlp.utils import HPOArgs
 
     mnli_count = 0
 
     for subdat in ["mrpc", "rte", "stsb", "cola", "mnli", "mnli"]:
         if subdat == "mnli":
             mnli_count += 1
-        args = get_autohf_setting()
-        jobid_config = JobID(args)
 
         autohf = AutoTransformers()
-        autohf.jobid_config = jobid_config
+        args = get_autohf_setting()
+        HPOArgs()
+        set_autohf_setting(autohf, args)
 
         each_configscore = ConfigScore(
             trial_id="test",
@@ -157,7 +169,7 @@ def test_azureutils():
         )
 
         azureutils.get_config_and_score_from_partial_jobid(
-            root_log_path="data/", partial_jobid=jobid_config
+            root_log_path="data/", partial_jobid=autohf.jobid_config
         )
 
         this_blob = type("", (), {})()
@@ -178,7 +190,7 @@ def test_azureutils():
         azureutils.get_config_and_score_from_matched_blob_list(matched_blob_list)
 
         azureutils = AzureUtils(
-            jobid_config_rename=None, autohf=None, jobid_config=jobid_config
+            jobid_config_rename=None, autohf=None, jobid_config=autohf.jobid_config
         )
 
         setattr(
@@ -200,4 +212,4 @@ def test_azureutils():
 
 
 if __name__ == "__main__":
-    test_get_configblob_from_partial_jobid()
+    test_azureutils()

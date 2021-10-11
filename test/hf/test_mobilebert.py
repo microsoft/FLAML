@@ -306,4 +306,4 @@ def test_cv():
 
 
 if __name__ == "__main__":
-    test_hpo_grid()
+    test_cv()

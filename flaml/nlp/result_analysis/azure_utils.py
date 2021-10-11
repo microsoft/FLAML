@@ -780,20 +780,9 @@ class AzureUtils:
         Store predictions (a .zip file) locally and upload
         """
         azure_save_file_name = local_json_file.split("/")[-1][:-5]
-        if self.output_dir is None:
-            from ..utils import HPOArgs
-
-            console_args = HPOArgs.load_args()
-            output_dir = getattr(console_args, "output_dir")
-            print(
-                "The path for saving the prediction .zip file is not specified, "
-                "setting to {} by default".format(output_dir)
-            )
-        else:
-            output_dir = self.output_dir
         local_archive_path = self.autohf.output_prediction(
             predictions,
-            output_prediction_path=output_dir + "result/",
+            output_prediction_path=self.autohf.custom_hpo_args.output_dir + "result/",
             output_zip_file_name=azure_save_file_name,
         )
         if local_archive_path is not None:

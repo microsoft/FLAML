@@ -683,6 +683,8 @@ class AutoTransformers:
             run = None
 
         if self.custom_hpo_args.resplit_mode.startswith("cv"):
+            import mlflow
+
             all_output_metrics = []
             for cv_idx in range(self.custom_hpo_args.cv_k):
                 self.train_dataset = self.train_datasets[cv_idx]
@@ -690,6 +692,7 @@ class AutoTransformers:
                 trainer, output_metrics = self._train_one_fold_routime(
                     this_model, training_args, model_init, trial_id, config
                 )
+                mlflow.end_run()
                 all_output_metrics.append(output_metrics)
             TrainerForAutoTransformers.tune_report(
                 mode="cv", output_metrics=all_output_metrics
