@@ -216,7 +216,7 @@ class HPOArgs:
 
     # the arguments below are used for developer mode only, do not include them in doc str
     grid_space_model_type: str = field(
-        default="bert",
+        default=None,
         metadata={
             "help": "which model's grid configuration to use"
             "for grid search. Only set this argument when "

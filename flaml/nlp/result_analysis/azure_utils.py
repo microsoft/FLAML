@@ -143,6 +143,23 @@ class JobID:
             " must be consistent"
         )
 
+    def check_grid_config(self):
+        if self.mod == "grid":
+            assert self.alg == "grid" and self.spa == "grid", (
+                "for grid search, "
+                "you must set all three args to 'grid': algo_mode, algo_name and space_mode"
+            )
+        if self.alg == "grid":
+            assert self.mod == "grid" and self.spa == "grid", (
+                "for grid search, "
+                "you must set all three args to 'grid': algo_mode, algo_name and space_mode"
+            )
+        if self.spa == "grid":
+            assert self.alg == "grid" and self.mod == "grid", (
+                "for grid search, "
+                "you must set all three args to 'grid': algo_mode, algo_name and space_mode"
+            )
+
     def is_match(self, partial_jobid):
         """Return a boolean variable whether the current object matches the partial jobid defined in partial_jobid.
 
@@ -444,7 +461,9 @@ class JobID:
                 print("console_args has no attribute {}, continue".format(each_key))
                 continue
         if self.mod == "grid":
+            # if algo_mode is grid search, algo_name and space_mode should both be reset to grid
             self.alg = "grid"
+            self.spa = "grid"
 
 
 class AzureUtils:

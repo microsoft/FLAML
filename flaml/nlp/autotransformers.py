@@ -106,25 +106,27 @@ class AutoTransformers:
             self.jobid_config.spa = "cus"
 
         search_space_hpo_json = AutoHPOSearchSpace.from_model_and_dataset_name(
-            self.jobid_config.spa,
-            self.custom_hpo_args.grid_space_model_type,
-            self.jobid_config.presz,
-            self.jobid_config.dat,
-            self.jobid_config.subdat,
-            self.custom_hpo_args.custom_search_space,
+            hpo_searchspace_mode=self.jobid_config.spa,
+            model_type=self.custom_hpo_args.grid_space_model_type,
+            model_size_type=self.jobid_config.presz,
+            dataset_name_list=self.jobid_config.dat,
+            subdataset_name=self.jobid_config.subdat,
+            algo_mode=self.jobid_config.mod,
+            custom_search_space=self.custom_hpo_args.custom_search_space,
         )
         self._search_space_hpo = AutoTransformers._convert_dict_to_ray_tune_space(
-            search_space_hpo_json, mode=self.jobid_config.mod
+            config_json=search_space_hpo_json, mode=self.jobid_config.mod
         )
 
         if self.jobid_config.spa == "grid":
             electra_space = AutoTransformers._convert_dict_to_ray_tune_space(
                 AutoHPOSearchSpace.from_model_and_dataset_name(
-                    "grid",
-                    "electra",
-                    "base",
-                    self.jobid_config.dat,
-                    self.jobid_config.subdat,
+                    hpo_searchspace_mode="grid",
+                    model_type="electra",
+                    model_size_type="base",
+                    dataset_name_list=self.jobid_config.dat,
+                    subdataset_name=self.jobid_config.subdat,
+                    algo_mode="grid",
                 )
             )
 
@@ -254,7 +256,7 @@ class AutoTransformers:
             data_raw = load_dataset(*self.jobid_config.dat)
 
         split_mapping, self._dev_name = AutoTransformers._get_split_name(
-            data_raw, fold_names=self.custom_hpo_args.fold_names
+            data_raw=data_raw, fold_names=self.custom_hpo_args.fold_names
         )
 
         self._tokenizer = AutoTokenizer.from_pretrained(
@@ -263,10 +265,10 @@ class AutoTransformers:
 
         def autoencodetext_from_model_and_dataset_name(subfold_dataset):
             tokenized_dat = AutoEncodeText.from_model_and_dataset_name(
-                subfold_dataset,
-                self.jobid_config.pre_full,
-                self.jobid_config.dat,
-                self.jobid_config.subdat,
+                subfold_dataset=subfold_dataset,
+                model_checkpoint_path=self.jobid_config.pre_full,
+                dataset_name_list=self.jobid_config.dat,
+                subdataset_name=self.jobid_config.subdat,
                 **{"max_seq_length": self.custom_hpo_args.max_seq_length},
             )
             return tokenized_dat
@@ -656,14 +658,14 @@ class AutoTransformers:
         if search_algo_name in ("bs", "cfo"):
             self._verify_init_config(points_to_evaluate)
         search_algo = AutoSearchAlgorithm.from_method_name(
-            search_algo_name,
-            search_algo_args_mode,
-            self._search_space_hpo,
-            time_budget,
-            metric_name,
-            metric_mode_name,
-            self.jobid_config.sdbs,
-            self.custom_hpo_args,
+            search_algo_name=search_algo_name,
+            search_algo_args_mode=search_algo_args_mode,
+            hpo_search_space=self._search_space_hpo,
+            time_budget=time_budget,
+            metric_name=metric_name,
+            metric_mode_name=metric_mode_name,
+            seed_bs=self.jobid_config.sdbs,
+            custom_hpo_args=self.custom_hpo_args,
         )
         return search_algo
 
@@ -739,18 +741,18 @@ class AutoTransformers:
             custom_metric_mode_name=self.custom_hpo_args.custom_metric_mode_name,
         )
         _variable_override_default_alternative(
-            self,
-            "metric_name",
-            default_metric,
-            all_metrics,
-            self.custom_hpo_args.custom_metric_name,
+            obj_ref=self,
+            var_name="metric_name",
+            default_value=default_metric,
+            all_values=all_metrics,
+            overriding_value=self.custom_hpo_args.custom_metric_name,
         )
         _variable_override_default_alternative(
-            self,
-            "metric_mode_name",
-            default_mode,
-            all_modes,
-            self.custom_hpo_args.custom_metric_mode_name,
+            obj_ref=self,
+            var_name="metric_mode_name",
+            default_value=default_mode,
+            all_values=all_modes,
+            overriding_value=self.custom_hpo_args.custom_metric_mode_name,
         )
         self._all_metrics = all_metrics
         self._all_modes = all_modes
@@ -874,6 +876,7 @@ class AutoTransformers:
 
     def _check_input_args(self):
         self.jobid_config.check_model_type_consistency()
+        self.jobid_config.check_grid_config()
 
     def fit(
         self,
@@ -933,12 +936,12 @@ class AutoTransformers:
         self._set_search_space()
 
         search_algo = self._get_search_algo(
-            self.jobid_config.alg,
-            self.jobid_config.arg,
-            self.custom_hpo_args.time_budget,
-            self.metric_name,
-            self.metric_mode_name,
-            self.custom_hpo_args.points_to_evaluate,
+            search_algo_name=self.jobid_config.alg,
+            search_algo_args_mode=self.jobid_config.arg,
+            time_budget=self.custom_hpo_args.time_budget,
+            metric_name=self.metric_name,
+            metric_mode_name=self.metric_mode_name,
+            points_to_evaluate=self.custom_hpo_args.points_to_evaluate,
         )
         if self.jobid_config.alg == "bs":
             search_algo.set_search_properties(
