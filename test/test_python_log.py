@@ -71,11 +71,12 @@ class TestLogging(unittest.TestCase):
             from flaml.automl import size
             from functools import partial
 
+            low_cost_partial_config = automl.low_cost_partial_config
             search_alg = BlendSearch(
                 metric="val_loss",
                 mode="min",
                 space=automl.search_space,
-                low_cost_partial_config=automl.low_cost_partial_config,
+                low_cost_partial_config=low_cost_partial_config,
                 points_to_evaluate=automl.points_to_evaluate,
                 cat_hp_cost=automl.cat_hp_cost,
                 prune_attr=automl.prune_attr,
@@ -86,6 +87,9 @@ class TestLogging(unittest.TestCase):
                 ],
                 metric_constraints=automl.metric_constraints,
             )
+            print(search_alg._ls.complete_config(low_cost_partial_config))
+            print(search_alg._ls.complete_config(low_cost_partial_config))
+            print(search_alg._ls.complete_config(low_cost_partial_config))
             analysis = tune.run(
                 automl.trainable,
                 search_alg=search_alg,  # verbose=2,

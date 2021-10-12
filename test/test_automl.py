@@ -628,7 +628,7 @@ class TestAutoML(unittest.TestCase):
             "log_file_name": "test/california.log",
             "log_type": "all",
             "n_jobs": 1,
-            "n_concurrent_trials": 2,
+            "n_concurrent_trials": 10,
             "hpo_method": hpo_method,
         }
         X_train, y_train = fetch_california_housing(return_X_y=True)

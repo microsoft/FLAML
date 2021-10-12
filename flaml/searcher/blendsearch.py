@@ -583,6 +583,7 @@ class BlendSearch(Searcher):
             )
 
     def _expand_admissible_region(self, lower, upper, space):
+        """expand the admissible region for the subspace `space`"""
         for key in upper:
             ub = upper[key]
             if isinstance(ub, list):

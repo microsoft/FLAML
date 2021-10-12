@@ -1104,7 +1104,7 @@ class AutoML:
             (b) otherwise, it is a nested dict with 'ml' as the key, and
             a list of the low_cost_partial_configs as the value, corresponding
             to each learner's low_cost_partial_config; the estimator index as
-            an integer corresponding to the cheapest learner is appeneded to the
+            an integer corresponding to the cheapest learner is appended to the
             list at the end.
 
         """
