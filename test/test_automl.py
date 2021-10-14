@@ -13,10 +13,9 @@ import pandas as pd
 from datetime import datetime
 
 from flaml import AutoML
-from flaml.data import get_output_from_log
+from flaml.data import CLASSIFICATION, get_output_from_log
 
 from flaml.model import LGBMEstimator, SKLearnEstimator, XGBoostEstimator
-from rgf.sklearn import RGFClassifier, RGFRegressor
 from flaml import tune
 from flaml.training_log import training_log_reader
 
@@ -26,9 +25,13 @@ class MyRegularizedGreedyForest(SKLearnEstimator):
 
         super().__init__(task, **config)
 
-        if task in ("binary", "multi"):
+        if task in CLASSIFICATION:
+            from rgf.sklearn import RGFClassifier
+
             self.estimator_class = RGFClassifier
         else:
+            from rgf.sklearn import RGFRegressor
+            
             self.estimator_class = RGFRegressor
 
     @classmethod
