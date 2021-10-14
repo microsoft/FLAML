@@ -64,9 +64,10 @@ class TestLogging(unittest.TestCase):
                 automl.search_space, automl.low_cost_partial_config, automl.cat_hp_cost
             )
             logger.info(automl.search_space["ml"].categories)
-            config = automl.best_config.copy()
-            config["learner"] = automl.best_estimator
-            automl.trainable({"ml": config})
+            if automl.best_config:
+                config = automl.best_config.copy()
+                config["learner"] = automl.best_estimator
+                automl.trainable({"ml": config})
             from flaml import tune, BlendSearch
             from flaml.automl import size
             from functools import partial

@@ -395,7 +395,8 @@ class AutoML:
     @property
     def best_config(self):
         """A dictionary of the best configuration."""
-        return self._search_states[self._best_estimator].best_config
+        state = self._search_states.get(self._best_estimator)
+        return state and getattr(state, "best_config", None)
 
     @property
     def best_config_per_estimator(self):
