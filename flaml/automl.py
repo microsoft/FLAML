@@ -518,6 +518,8 @@ class AutoML:
             assert (
                 X_train_all.size != 0 and y_train_all.size != 0
             ), "Input data must not be empty."
+            if isinstance(X_train_all, np.ndarray) and len(X_train_all.shape) == 1:
+                X_train_all = np.reshape(X_train_all, (X_train_all.size, 1))
             if isinstance(y_train_all, np.ndarray):
                 y_train_all = y_train_all.flatten()
             assert (
