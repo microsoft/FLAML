@@ -458,7 +458,8 @@
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">best_config</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;A dictionary of the best configuration.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_best_estimator</span><span class="p">]</span><span class="o">.</span><span class="n">best_config</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_best_estimator</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">state</span> <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="s2">&quot;best_config&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">best_config_per_estimator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1167,7 +1168,7 @@
 <span class="sd">            (b) otherwise, it is a nested dict with &#39;ml&#39; as the key, and</span>
 <span class="sd">            a list of the low_cost_partial_configs as the value, corresponding</span>
 <span class="sd">            to each learner&#39;s low_cost_partial_config; the estimator index as</span>
-<span class="sd">            an integer corresponding to the cheapest learner is appeneded to the</span>
+<span class="sd">            an integer corresponding to the cheapest learner is appended to the</span>
 <span class="sd">            list at the end.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
