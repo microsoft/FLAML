@@ -81,7 +81,7 @@ setuptools.setup(
             "tensorboardX<=2.2",
             "torch",
         ],
-        "forecast": ["prophet>=1.0.1", "statsmodels>=0.12.2"],
+        "ts_forecast": ["prophet>=1.0.1", "statsmodels>=0.12.2"],
     },
     classifiers=[
         "Programming Language :: Python :: 3",
