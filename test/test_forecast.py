@@ -75,8 +75,6 @@ def test_forecast_automl(budget=5):
     print(automl.max_resource)
     print(automl.min_resource)
 
-    import pandas as pd
-
     X_train = df[["ds"]]
     y_train = df["y"]
     automl = AutoML()
@@ -126,8 +124,10 @@ def test_numpy():
         print(automl.predict(12))
 
 
-def test_multivariate_forecast_num(budget=5):
+def load_multi_dataset():
+    """multivariate time series forecasting dataset"""
     import pandas as pd
+
     # pd.set_option("display.max_rows", None, "display.max_columns", None)
     df = pd.read_csv("https://raw.githubusercontent.com/srivatsan88/YouTubeLI/master/dataset/nyc_energy_consumption.csv")
     # preprocessing data
@@ -136,8 +136,14 @@ def test_multivariate_forecast_num(budget=5):
     df = df.resample("D").mean()
     df["temp"] = df["temp"].fillna(method="ffill")
     df["precip"] = df["precip"].fillna(method="ffill")
-    df = df[:-2] # last two rows are NaN for 'demand' column so remove them
+    df = df[:-2]  # last two rows are NaN for 'demand' column so remove them
     df = df.reset_index()
+
+    return df
+
+
+def test_multivariate_forecast_num(budget=5):
+    df = load_multi_dataset()
     # split data into train and test
     time_horizon = 180
     num_samples = df.shape[0]
@@ -178,6 +184,7 @@ def test_multivariate_forecast_num(budget=5):
     print(automl.model.estimator)
     """ pickle and save the automl object """
     import pickle
+
     with open("automl.pkl", "wb") as f:
         pickle.dump(automl, f, pickle.HIGHEST_PROTOCOL)
     """ compute predictions of testing dataset """
@@ -186,8 +193,10 @@ def test_multivariate_forecast_num(budget=5):
     print("True labels", y_test)
     """ compute different metric values on testing dataset"""
     from flaml.ml import sklearn_metric_loss_score
+
     print("mape", "=", sklearn_metric_loss_score("mape", y_pred, y_test))
     from flaml.data import get_output_from_log
+
     time_history, best_valid_loss_history, valid_loss_history, config_history, metric_history = \
         get_output_from_log(filename=settings["log_file_name"], time_budget=budget)
     for config in config_history:
@@ -197,6 +206,7 @@ def test_multivariate_forecast_num(budget=5):
     print(automl.min_resource)
 
     # import matplotlib.pyplot as plt
+    #
     # plt.figure()
     # plt.plot(X_test["timeStamp"], y_test, label="Actual Demand")
     # plt.plot(X_test["timeStamp"], y_pred, label="FLAML Forecast")
@@ -207,17 +217,7 @@ def test_multivariate_forecast_num(budget=5):
 
 
 def load_multi_dataset_cat(time_horizon):
-    """categorical multivariate time series forecasting"""
-    import pandas as pd
-    df = pd.read_csv("https://raw.githubusercontent.com/srivatsan88/YouTubeLI/master/dataset/nyc_energy_consumption.csv")
-    # preprocessing data
-    df["timeStamp"] = pd.to_datetime(df["timeStamp"])
-    df = df.set_index("timeStamp")
-    df = df.resample("D").mean()
-    df["temp"] = df["temp"].fillna(method="ffill")
-    df["precip"] = df["precip"].fillna(method="ffill")
-    df = df[:-2] # last two rows are NaN for 'demand' column so remove them
-    df = df.reset_index()
+    df = load_multi_dataset()
 
     df = df[["timeStamp", "demand", "temp"]]
 
@@ -229,13 +229,13 @@ def load_multi_dataset_cat(time_horizon):
         fall = (9, 22)
         winter = (12, 21)
         if date < spring or date >= winter:
-            return "winter" # winter 0
+            return "winter"  # winter 0
         elif spring <= date < summer:
-            return "spring" # spring 1
+            return "spring"  # spring 1
         elif summer <= date < fall:
-            return "summer" # summer 2
+            return "summer"  # summer 2
         elif fall <= date < winter:
-            return "fall" # fall 3
+            return "fall"  # fall 3
 
     def get_monthly_avg(data):
         data["month"] = data["timeStamp"].dt.month
@@ -243,9 +243,7 @@ def load_multi_dataset_cat(time_horizon):
         data = data.agg({"temp": "mean"})
         return data
 
-
     monthly_avg = get_monthly_avg(df).to_dict().get("temp")
-
 
     def above_monthly_avg(date, temp):
         month = date.month
@@ -254,12 +252,10 @@ def load_multi_dataset_cat(time_horizon):
         else:
             return 0
 
-
     df["season"] = df["timeStamp"].apply(season)
     df["above_monthly_avg"] = df.apply(lambda x: above_monthly_avg(x["timeStamp"], x["temp"]), axis=1)
 
     # split data into train and test
-    time_horizon = time_horizon
     num_samples = df.shape[0]
     split_idx = num_samples - time_horizon
     train_df = df[:split_idx]
@@ -276,7 +272,6 @@ def test_multivariate_forecast_cat(budget=5):
     print(train_df)
     X_test = test_df[["timeStamp", "season", "above_monthly_avg"]]  # test dataframe must contain values for the regressors / multivariate variables
     y_test = test_df["demand"]
-    # return
     automl = AutoML()
     settings = {
         "time_budget": budget,  # total running time in seconds
@@ -308,6 +303,7 @@ def test_multivariate_forecast_cat(budget=5):
     print(automl.model.estimator)
     """ pickle and save the automl object """
     import pickle
+
     with open("automl.pkl", "wb") as f:
         pickle.dump(automl, f, pickle.HIGHEST_PROTOCOL)
     """ compute predictions of testing dataset """
@@ -316,11 +312,13 @@ def test_multivariate_forecast_cat(budget=5):
     print("True labels", y_test)
     """ compute different metric values on testing dataset"""
     from flaml.ml import sklearn_metric_loss_score
+
     print("mape", "=", sklearn_metric_loss_score("mape", y_pred, y_test))
     print("rmse", "=", sklearn_metric_loss_score("rmse", y_pred, y_test))
     print("mse", "=", sklearn_metric_loss_score("mse", y_pred, y_test))
     print("mae", "=", sklearn_metric_loss_score("mae", y_pred, y_test))
     from flaml.data import get_output_from_log
+
     time_history, best_valid_loss_history, valid_loss_history, config_history, metric_history = \
         get_output_from_log(filename=settings["log_file_name"], time_budget=budget)
     for config in config_history:
@@ -330,6 +328,7 @@ def test_multivariate_forecast_cat(budget=5):
     print(automl.min_resource)
 
     # import matplotlib.pyplot as plt
+    #
     # plt.figure()
     # plt.plot(X_test["timeStamp"], y_test, label="Actual Demand")
     # plt.plot(X_test["timeStamp"], y_pred, label="FLAML Forecast")

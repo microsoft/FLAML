@@ -483,9 +483,8 @@ class AutoML:
     def _preprocess(self, X):
         if isinstance(X, int):
             return X
-        if self._state.task == 'ts_forecast':
+        if self._state.task == "ts_forecast":
             X = pd.DataFrame(X)
-            X = X.rename(columns={X.columns[0]: 'ds'})
         if issparse(X):
             X = X.tocsr()
         if self._transformer:
@@ -530,8 +529,7 @@ class AutoML:
             if self._state.task == "ts_forecast":
                 X_train_all = pd.DataFrame(X_train_all)
                 assert X_train_all[X_train_all.columns[0]].dtype.name == 'datetime64[ns]', (
-                    "For 'ts_forecast' task, the first column must contain "
-                       "timestamp values.")
+                    "For 'ts_forecast' task, the first column must contain timestamp values.")
             X, y = X_train_all, y_train_all
         elif dataframe is not None and label is not None:
             assert isinstance(
@@ -541,8 +539,7 @@ class AutoML:
             self._df = True
             if self._state.task == "ts_forecast":
                 assert dataframe[dataframe.columns[0]].dtype.name == 'datetime64[ns]', (
-                    "For 'ts_forecast' task, the first column must contain "
-                       "timestamp values.")
+                    "For 'ts_forecast' task, the first column must contain timestamp values.")
             X = dataframe.drop(columns=label)
             self._nrow, self._ndim = X.shape
             y = dataframe[label]
@@ -1020,11 +1017,6 @@ class AutoML:
         self.modelcount = 0
         self._auto_augment = auto_augment
         self._prepare_data(eval_method, split_ratio, n_splits)
-        if self._state.task != "ts_forecast":
-            self._prepare_data(eval_method, split_ratio, n_splits)
-        else:
-            self._prepare_data(eval_method, split_ratio, n_splits,
-                               period=self._state.fit_kwargs["period"])
         self._state.time_budget = None
         self._state.n_jobs = n_jobs
         self._trained_estimator = self._state._train_with_config(

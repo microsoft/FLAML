@@ -12,6 +12,7 @@ from .training_log import training_log_reader
 from datetime import datetime
 
 CLASSIFICATION = ("binary", "multi", "classification")
+TS_FORECAST = "ts_forecast"
 
 
 def load_openml_dataset(
@@ -212,12 +213,12 @@ class DataTransformer:
             n = X.shape[0]
             cat_columns, num_columns, datetime_columns = [], [], []
             drop = False
-            if task == "ts_forecast":
+            if task == TS_FORECAST:
                 ds_col_name = "ds"
                 X = X.rename(columns={X.columns[0]: ds_col_name})
                 ds_col = X.pop(ds_col_name)
                 if isinstance(y, pd.Series):
-                    y = y.copy().rename("y")
+                    y = y.rename("y")
             for column in X.columns:
                 # sklearn\utils\validation.py needs int/float values
                 if X[column].dtype.name in ("object", "category"):
@@ -276,7 +277,7 @@ class DataTransformer:
                             X[column] = X[column].fillna(np.nan)
                             num_columns.append(column)
             X = X[cat_columns + num_columns]
-            if task == "ts_forecast":
+            if task == TS_FORECAST:
                 X.insert(0, ds_col_name, ds_col)
             if cat_columns:
                 X[cat_columns] = X[cat_columns].astype("category")
@@ -328,7 +329,7 @@ class DataTransformer:
                 self._num_columns,
                 self._datetime_columns,
             )
-            if task == "ts_forecast":
+            if task == TS_FORECAST:
                 ds_col_name = "ds"
                 X = X.rename(columns={X.columns[0]: ds_col_name})
                 ds_col = X.pop(ds_col_name)
@@ -356,7 +357,7 @@ class DataTransformer:
                     X[column] = X[column].map(datetime.toordinal)
                     del tmp_dt
             X = X[cat_columns + num_columns].copy()
-            if task == "ts_forecast":
+            if task == TS_FORECAST:
                 X.insert(0, ds_col_name, ds_col)
             for column in cat_columns:
                 if X[column].dtype.name == "object":

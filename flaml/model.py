@@ -903,9 +903,8 @@ class Prophet(SKLearnEstimator):
         cols = list(train_df)
         cols.remove("ds")
         cols.remove("y")
-        regressors = cols
         model = Prophet(**self.params)
-        for regressor in regressors:
+        for regressor in cols:
             model.add_regressor(regressor)
         model.fit(train_df)
         train_time = time.time() - current_time
@@ -995,9 +994,8 @@ class ARIMA(Prophet):
                 start = X_test.iloc[0, 0]
                 end = X_test.iloc[-1, 0]
                 if len(X_test.columns) > 1:
-                    cols = list(X_test)
-                    cols.remove("ds")
-                    regressors = cols
+                    regressors = list(X_test)
+                    regressors.remove("ds")
                     X_test = self._preprocess(X_test)
                     forecast = self._model.predict(start=start, end=end, exog=X_test[regressors])
                 else:
