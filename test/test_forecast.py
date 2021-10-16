@@ -98,7 +98,7 @@ def test_numpy():
     y_train = np.random.random(size=len(X_train))
     automl = AutoML()
     try:
-        import prophets
+        import prophet
 
         automl.fit(
             X_train=X_train[:72],  # a single column of timestamp
