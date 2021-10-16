@@ -385,8 +385,10 @@ class AutoML:
 
         Args:
             X_test: A numpy array of featurized instances, shape n * m,
-                or for 'forecasting' task:
-                    a pandas dataframe with one column of timestamp values
+                or for 'ts_forecast' task:
+                    a pandas dataframe with the first column containing
+                    timestamp values and for multivariate ts_forecast
+                    other columns containing exogenous variable values
                     or an integer n for the predict steps (only valid when
                     the estimator is arima or sarimax).
 
@@ -426,34 +428,17 @@ class AutoML:
     def _preprocess(self, X):
         if isinstance(X, int):
             return X
-        if self._state.task == 'forecast':
+        if self._state.task == 'ts_forecast':
             X = pd.DataFrame(X)
             X = X.rename(columns={X.columns[0]: 'ds'})
-        else:
-            if issparse(X):
-                X = X.tocsr()
-            if self._transformer:
-                X = self._transformer.transform(X)
+        if issparse(X):
+            X = X.tocsr()
+        if self._transformer:
+            X = self._transformer.transform(X, self._state.task)
         return X
 
     def _validate_data(self, X_train_all, y_train_all, dataframe, label,
                        X_val=None, y_val=None, groups_val=None, groups=None):
-        if self._state.task == 'forecast':
-            if dataframe is not None and label is not None:
-                dataframe = dataframe.copy()
-                dataframe = dataframe.rename(columns={label[0]: 'ds', label[1]: 'y'})
-            elif dataframe is not None:
-                if ('ds' not in dataframe) or ('y' not in dataframe):
-                    raise ValueError(
-                        'For forecasting task, dataframe must have columns "ds" and "y" '
-                        'with the dates and values respectively.')
-            elif (X_train_all is not None) and (y_train_all is not None):
-                dataframe = pd.DataFrame(X_train_all)
-                dataframe = dataframe.rename(columns={dataframe.columns[0]: 'ds'})
-                dataframe['y'] = pd.Series(y_train_all)
-                X_train_all = None
-                y_train_all = None
-            label = 'y'
 
         if X_train_all is not None and y_train_all is not None:
             if not (isinstance(X_train_all, np.ndarray) or issparse(X_train_all)
@@ -474,6 +459,11 @@ class AutoML:
                     "# rows in X_train must match length of y_train.")
             self._df = isinstance(X_train_all, pd.DataFrame)
             self._nrow, self._ndim = X_train_all.shape
+            if self._state.task == 'ts_forecast':
+                X_train_all = pd.DataFrame(X_train_all)
+                assert X_train_all[X_train_all.columns[0]].dtype.name == 'datetime64[ns]', (
+                    "For 'ts_forecast' task, the first column must contain "
+                       "timestamp values.")
             X, y = X_train_all, y_train_all
         elif dataframe is not None and label is not None:
             if not isinstance(dataframe, pd.DataFrame):
@@ -481,13 +471,17 @@ class AutoML:
             if label not in dataframe.columns:
                 raise ValueError("label must a column name in dataframe")
             self._df = True
+            if self._state.task == 'ts_forecast':
+                assert dataframe[dataframe.columns[0]].dtype.name == 'datetime64[ns]', (
+                    "For 'ts_forecast' task, the first column must contain "
+                       "timestamp values.")
             X = dataframe.drop(columns=label)
             self._nrow, self._ndim = X.shape
             y = dataframe[label]
         else:
             raise ValueError(
                 "either X_train+y_train or dataframe+label are required")
-        if issparse(X_train_all) or self._state.task == 'forecast':
+        if issparse(X_train_all):
             self._transformer = self._label_transformer = False
             self._X_train_all, self._y_train_all = X, y
         else:
@@ -598,7 +592,7 @@ class AutoML:
         if X_val is None and eval_method == 'holdout':
             # if eval_method = holdout, make holdout data
             if self._split_type == 'time':
-                if self._state.task == 'forecast':
+                if self._state.task == 'ts_forecast':
                     num_samples = X_train_all.shape[0]
                     period = self._state.fit_kwargs['period']
                     assert period < num_samples, (
@@ -723,12 +717,12 @@ class AutoML:
                 n_splits=n_splits, n_repeats=1, random_state=RANDOM_SEED)
         elif self._split_type == "time":
             # logger.info("Using TimeSeriesSplit")
-            if self._state.task == 'forecast':
+            if self._state.task == 'ts_forecast':
                 period = self._state.fit_kwargs['period']
                 if period * (n_splits + 1) > y_train_all.size:
                     n_splits = int(y_train_all.size / period - 1)
                     assert n_splits >= 2, (
-                        f"cross validation for forecasting period={period}"
+                        f"cross validation for time series forecast period={period}"
                         f" requires input data with at least {3 * period} examples.")
                     logger.info(
                         f"Using nsplits={n_splits} due to data size limit.")
@@ -801,18 +795,18 @@ class AutoML:
             X_train: A numpy array of training data in shape n*m
             y_train: A numpy array of labels in shape n*1
             dataframe: A dataframe of training data including label column.
-                For 'forecast' task, dataframe must be specified and should
+                For 'ts_forecast' task, dataframe must be specified and should
                 have two columns: timestamp and value.
             label: A str of the label column name for 'classification' or
                 'regression' task, e.g., 'label';
                 or a tuple of strings for timestamp and value columns for
-                'forecasting' task, e.g., ('timestamp', 'value').
+                'ts_forecast' task, e.g., ('timestamp', 'value').
                 Note: If X_train and y_train are provided,
                 dataframe and label are ignored;
                 If not, dataframe and label must be provided.
             time_budget: A float number of the time budget in seconds.
             task: A string of the task type, e.g.,
-                'classification', 'regression', 'forecast', 'rank'.
+                'classification', 'regression', 'ts_forecast', 'rank'.
             eval_method: A string of resampling strategy, one of
                 ['auto', 'cv', 'holdout'].
             split_ratio: A float of the validation data percentage for holdout.
@@ -822,7 +816,7 @@ class AutoML:
                     None, 'stratified', 'uniform', 'time']. None -> stratified.
                 For regression tasks, valid choices are [None, 'uniform', 'time'].
                     None -> uniform.
-                For time series forecasting, must be None or 'time'.
+                For ts_forecast tasks, must be None or 'time'.
                 For ranking task, must be None or 'group'.
             groups: None or array-like | Group labels (with matching length to
                 y_train) or groups counts (with sum equal to length of y_train)
@@ -898,7 +892,7 @@ class AutoML:
         elif eval_method == 'auto':
             eval_method = self._decide_eval_method(time_budget)
         self.modelcount = 0
-        if self._state.task != 'forecast':
+        if self._state.task != 'ts_forecast':
             self._prepare_data(eval_method, split_ratio, n_splits)
         else:
             self._prepare_data(eval_method, split_ratio, n_splits,
@@ -919,11 +913,11 @@ class AutoML:
         elif self._state.task == 'regression':
             assert split_type in [None, "uniform", "time"]
             self._split_type = split_type or "uniform"
-        elif self._state.task == 'forecast':
+        elif self._state.task == 'ts_forecast':
             assert split_type in [None, "time"]
             self._split_type = "time"
             assert isinstance(self._state.fit_kwargs.get('period'), int), (
-                "missing a required integer 'period' for forecast.")
+                "missing a required integer 'period' for 'ts_forecast' task.")
         elif self._state.task == 'rank':
             assert self._state.groups is not None, \
                 'groups must be specified for ranking task.'
@@ -1157,16 +1151,14 @@ class AutoML:
 
         Args:
             X_train: A numpy array or a pandas dataframe of training data in
-                shape (n, m). For 'forecast' task, X_train should contain a
-                single column of timestamps.
+                shape (n, m). For 'ts_forecast' task, the first column of X_train
+                must be the timestamp column.
             y_train: A numpy array or a pandas series of labels in shape (n, ).
             dataframe: A dataframe of training data including label column.
-                For 'forecast' task, dataframe must be specified and should
-                have two columns: timestamp and value.
-            label: A str of the label column name for 'classification' or
-                'regression' task, e.g., 'label';
-                or a tuple of strings for timestamp and value columns for
-                'forecasting' task, e.g., ('timestamp', 'value').
+                For 'ts_forecast' task, dataframe must be specified and must have
+                at least two columns, timestamp and label, where the first
+                column is the timestamp column
+            label: A str of the label column name for, e.g., 'label';
                 Note: If X_train and y_train are provided,
                 dataframe and label are ignored;
                 If not, dataframe and label must be provided.
@@ -1189,7 +1181,7 @@ class AutoML:
                 which returns a float number as the minimization objective,
                 and a tuple of floats or a dictionary as the metrics to log.
             task: A string of the task type, e.g.,
-                'classification', 'regression', 'forecast', 'rank'.
+                'classification', 'regression', 'ts_forecast', 'rank'.
             n_jobs: An integer of the number of threads for training.
             log_file_name: A string of the log file name.
             estimator_list: A list of strings for estimator names, or 'auto'
@@ -1245,7 +1237,7 @@ class AutoML:
                     None, 'stratified', 'uniform', 'time']. None -> stratified.
                 For regression tasks, valid choices are [None, 'uniform', 'time'].
                     None -> uniform.
-                For time series forecasting, must be None or 'time'.
+                For ts_forecast tasks, must be None or 'time'.
                 For ranking task, must be None or 'group'.
             hpo_method: str or None, default=None | The hyperparameter
                 optimization method. When it is None, CFO is used.
@@ -1268,7 +1260,7 @@ class AutoML:
                 saving.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Include period as
-                a key word argument for 'forecast' task.
+                a key word argument for 'ts_forecast' task.
         '''
         self._state._start_time_flag = self._start_time_flag = time.time()
         self._state.task = task
@@ -1311,7 +1303,7 @@ class AutoML:
                 metric = 'roc_auc'
             elif 'multi' in self._state.task:
                 metric = 'log_loss'
-            elif self._state.task == 'forecast':
+            elif self._state.task == 'ts_forecast':
                 metric = 'mape'
             elif self._state.task == 'rank':
                 metric = 'ndcg'
@@ -1328,7 +1320,7 @@ class AutoML:
         logger.info(f'Minimizing error metric: {error_metric}')
 
         if 'auto' == estimator_list:
-            if self._state.task == 'forecast':
+            if self._state.task == 'ts_forecast':
                 estimator_list = ['fbprophet', 'arima', 'sarimax']
             elif self._state.task == 'rank':
                 estimator_list = ['lgbm', 'xgboost']
@@ -1820,7 +1812,7 @@ class AutoML:
             elif self._retrain_final:
                 # reset time budget for retraining
                 self._state.time_from_start -= self._state.time_budget
-                if self._state.task == 'forecast' or (
+                if self._state.task == 'ts_forecast' or (
                     self._state.time_budget - self._state.time_from_start
                     > self._selected.est_retrain_time(self.data_size_full)
                     and self._selected.best_config_sample_size == self._state.data_size

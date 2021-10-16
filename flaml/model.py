@@ -865,38 +865,38 @@ class KNeighborsEstimator(BaseEstimator):
         return X
 
 
-class FBProphet(BaseEstimator):
+class FBProphet(SKLearnEstimator):
     @classmethod
     def search_space(cls, **params):
         space = {
             'changepoint_prior_scale': {
-                'domain': tune.loguniform(lower=0.001, upper=1000),
-                'init_value': 0.01,
+                'domain': tune.loguniform(lower=0.001, upper=0.05),
+                'init_value': 0.05,
                 'low_cost_init_value': 0.001,
             },
             'seasonality_prior_scale': {
-                'domain': tune.loguniform(lower=0.01, upper=100),
-                'init_value': 1,
+                'domain': tune.loguniform(lower=0.01, upper=10),
+                'init_value': 10,
             },
             'holidays_prior_scale': {
-                'domain': tune.loguniform(lower=0.01, upper=100),
-                'init_value': 1,
+                'domain': tune.loguniform(lower=0.01, upper=10),
+                'init_value': 10,
             },
             'seasonality_mode': {
                 'domain': tune.choice(['additive', 'multiplicative']),
-                'init_value': 'multiplicative',
+                'init_value': 'additive',
             }
         }
         return space
 
-    def __init__(self, task='forecast', **params):
+    def __init__(self, task='ts_forecast', **params):
         if 'n_jobs' in params:
             params.pop('n_jobs')
         super().__init__(task, **params)
 
     def _join(self, X_train, y_train):
         assert 'ds' in X_train, (
-            'Dataframe for training forecast model must have column'
+            'Dataframe for training ts_forecast model must have column'
             ' "ds" with the dates in X_train.')
         y_train = pd.DataFrame(y_train, columns=['y'])
         train_df = X_train.join(y_train)
@@ -906,7 +906,15 @@ class FBProphet(BaseEstimator):
         from prophet import Prophet
         current_time = time.time()
         train_df = self._join(X_train, y_train)
-        model = Prophet(**self.params).fit(train_df)
+        train_df = self._preprocess(train_df)
+        cols = list(train_df)
+        cols.remove('ds')
+        cols.remove('y')
+        regressors = cols
+        model = Prophet(**self.params)
+        for regressor in regressors:
+            model.add_regressor(regressor)
+        model.fit(train_df)
         train_time = time.time() - current_time
         self._model = model
         return train_time
@@ -917,6 +925,7 @@ class FBProphet(BaseEstimator):
                 "predict() with steps is only supported for arima/sarimax."
                 " For FBProphet, pass a dataframe with a date colum named ds.")
         if self._model is not None:
+            X_test = self._preprocess(X_test)
             forecast = self._model.predict(X_test)
             return forecast['yhat']
         else:
@@ -941,7 +950,7 @@ class ARIMA(FBProphet):
             },
             'q': {
                 'domain': tune.quniform(lower=0, upper=10, q=1),
-                'init_value': 2,
+                'init_value': 1,
                 'low_cost_init_value': 0,
             }
         }
@@ -958,10 +967,20 @@ class ARIMA(FBProphet):
         warnings.filterwarnings("ignore")
         current_time = time.time()
         train_df = self._join(X_train, y_train)
-        model = ARIMA_estimator(
-            train_df, order=(
-                self.params['p'], self.params['d'], self.params['q']),
-            enforce_stationarity=False, enforce_invertibility=False)
+        train_df = self._preprocess(train_df)
+        cols = list(train_df)
+        cols.remove('y')
+        regressors = cols
+        if regressors:
+            model = ARIMA_estimator(
+                train_df[['y']], exog=train_df[regressors], order=(
+                    self.params['p'], self.params['d'], self.params['q']),
+                enforce_stationarity=False, enforce_invertibility=False)
+        else:
+            model = ARIMA_estimator(
+                train_df, order=(
+                    self.params['p'], self.params['d'], self.params['q']),
+                enforce_stationarity=False, enforce_invertibility=False)
         model = model.fit()
         train_time = time.time() - current_time
         self._model = model
@@ -972,9 +991,19 @@ class ARIMA(FBProphet):
             if isinstance(X_test, int):
                 forecast = self._model.forecast(steps=X_test)
             elif isinstance(X_test, pd.DataFrame):
+                first_col_name = 'ds'
+                first_col = X_test.pop(first_col_name)
+                X_test.insert(0, first_col_name, first_col)
                 start = X_test.iloc[0, 0]
                 end = X_test.iloc[-1, 0]
-                forecast = self._model.predict(start=start, end=end)
+                if len(X_test.columns) > 1:
+                    cols = list(X_test)
+                    cols.remove('ds')
+                    regressors = cols
+                    X_test = self._preprocess(X_test)
+                    forecast = self._model.predict(start=start, end=end, exog=X_test[regressors])
+                else:
+                    forecast = self._model.predict(start=start, end=end)
             else:
                 raise ValueError(
                     "X_test needs to be either a pd.Dataframe with dates as column ds)"
@@ -1001,7 +1030,7 @@ class SARIMAX(ARIMA):
             },
             'q': {
                 'domain': tune.quniform(lower=0, upper=10, q=1),
-                'init_value': 2,
+                'init_value': 1,
                 'low_cost_init_value': 0,
             },
             'P': {
@@ -1028,15 +1057,28 @@ class SARIMAX(ARIMA):
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
         from statsmodels.tsa.statespace.sarimax import SARIMAX as SARIMAX_estimator
+        warnings.filterwarnings("ignore")
         current_time = time.time()
         train_df = self._join(X_train, y_train)
-        model = SARIMAX_estimator(
-            train_df, order=(
-                self.params['p'], self.params['d'], self.params['q']),
-            seasonality_order=(
-                self.params['P'], self.params['D'], self.params['Q'],
-                self.params['s']),
-            enforce_stationarity=False, enforce_invertibility=False)
+        train_df = self._preprocess(train_df)
+        regressors = list(train_df)
+        regressors.remove('y')
+        if regressors:
+            model = SARIMAX_estimator(
+                train_df[['y']], exog=train_df[regressors], order=(
+                    self.params['p'], self.params['d'], self.params['q']),
+                seasonality_order=(
+                    self.params['P'], self.params['D'], self.params['Q'],
+                    self.params['s']),
+                enforce_stationarity=False, enforce_invertibility=False)
+        else:
+            model = SARIMAX_estimator(
+                train_df, order=(
+                    self.params['p'], self.params['d'], self.params['q']),
+                seasonality_order=(
+                    self.params['P'], self.params['D'], self.params['Q'],
+                    self.params['s']),
+                enforce_stationarity=False, enforce_invertibility=False)
         model = model.fit()
         train_time = time.time() - current_time
         self._model = model
