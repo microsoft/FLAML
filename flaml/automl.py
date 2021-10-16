@@ -580,11 +580,11 @@ class AutoML:
                 X_val.shape[0] == y_val.shape[0]
             ), "# rows in X_val must match length of y_val."
             if self._transformer:
-                self._state.X_val = self._transformer.transform(X_val)
+                self._state.X_val = self._transformer.transform(X_val, self._state.task)
             else:
                 self._state.X_val = X_val
             if self._label_transformer:
-                self._state.y_val = self._label_transformer.transform(y_val)
+                self._state.y_val = self._label_transformer.transform(y_val, self._state.task)
             else:
                 self._state.y_val = y_val
         else:

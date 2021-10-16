@@ -95,14 +95,14 @@ def test_forecast_automl(budget=5):
 
 def test_numpy():
     X_train = np.arange("2014-01", "2021-01", dtype="datetime64[M]")
-    y_train = np.random.random(size=72)
+    y_train = np.random.random(size=len(X_train))
     automl = AutoML()
     try:
         import prophet
 
         automl.fit(
             X_train=X_train[:60],  # a single column of timestamp
-            y_train=y_train,  # value for each timestamp
+            y_train=y_train[:60],  # value for each timestamp
             period=12,  # time horizon to forecast, e.g., 12 months
             task="ts_forecast",
             time_budget=3,  # time budget in seconds
@@ -117,7 +117,7 @@ def test_numpy():
         automl = AutoML()
         automl.fit(
             X_train=X_train[:72],  # a single column of timestamp
-            y_train=y_train,  # value for each timestamp
+            y_train=y_train[:72],  # value for each timestamp
             period=12,  # time horizon to forecast, e.g., 12 months
             task="ts_forecast",
             time_budget=1,  # time budget in seconds
@@ -164,11 +164,11 @@ def test_multivariate_forecast_num(budget=5):
     try:
         import prophet
 
-        automl.fit(dataframe=df, **settings, period=time_horizon)
+        automl.fit(dataframe=train_df, **settings, period=time_horizon)
     except ImportError:
         print("not using prophet due to ImportError")
         automl.fit(
-            dataframe=df,
+            dataframe=train_df,
             **settings,
             estimator_list=["arima", "sarimax"],
             period=time_horizon,
@@ -199,14 +199,14 @@ def test_multivariate_forecast_num(budget=5):
     print(automl.max_resource)
     print(automl.min_resource)
 
-    import matplotlib.pyplot as plt
-    plt.figure()
-    plt.plot(X_test["timeStamp"], y_test, label="Actual Demand")
-    plt.plot(X_test["timeStamp"], y_pred, label="FLAML Forecast")
-    plt.xlabel("Date")
-    plt.ylabel("Energy Demand")
-    plt.legend()
-    plt.show()
+    # import matplotlib.pyplot as plt
+    # plt.figure()
+    # plt.plot(X_test["timeStamp"], y_test, label="Actual Demand")
+    # plt.plot(X_test["timeStamp"], y_pred, label="FLAML Forecast")
+    # plt.xlabel("Date")
+    # plt.ylabel("Energy Demand")
+    # plt.legend()
+    # plt.show()
 
 
 def load_multi_dataset_cat(time_horizon):
@@ -294,11 +294,11 @@ def test_multivariate_forecast_cat(budget=5):
     try:
         import prophet
 
-        automl.fit(dataframe=df, **settings, period=time_horizon)
+        automl.fit(dataframe=train_df, **settings, period=time_horizon)
     except ImportError:
         print("not using prophet due to ImportError")
         automl.fit(
-            dataframe=df,
+            dataframe=train_df,
             **settings,
             estimator_list=["arima", "sarimax"],
             period=time_horizon,
@@ -332,14 +332,14 @@ def test_multivariate_forecast_cat(budget=5):
     print(automl.max_resource)
     print(automl.min_resource)
 
-    import matplotlib.pyplot as plt
-    plt.figure()
-    plt.plot(X_test["timeStamp"], y_test, label="Actual Demand")
-    plt.plot(X_test["timeStamp"], y_pred, label="FLAML Forecast")
-    plt.xlabel("Date")
-    plt.ylabel("Energy Demand")
-    plt.legend()
-    plt.show()
+    # import matplotlib.pyplot as plt
+    # plt.figure()
+    # plt.plot(X_test["timeStamp"], y_test, label="Actual Demand")
+    # plt.plot(X_test["timeStamp"], y_pred, label="FLAML Forecast")
+    # plt.xlabel("Date")
+    # plt.ylabel("Energy Demand")
+    # plt.legend()
+    # plt.show()
 
 if __name__ == "__main__":
     test_forecast_automl(60)
