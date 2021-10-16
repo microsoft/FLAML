@@ -29,12 +29,11 @@ class AutoTransformers:
         .. code-block:: python
 
             autohf = AutoTransformers()
-            autohf_settings = {"resources_per_trial": {"cpu": 1},
-                       "num_samples": -1,
-                       "time_budget": 100000,
-                       "ckpt_per_epoch": 1,
-                       "fp16": False,
-                      }
+            autohf_settings = {
+                "resources_per_trial": {"cpu": 1, "gpu": 1},
+                "num_samples": -1,
+                "time_budget": 60,
+            }
 
             validation_metric, analysis = autohf.fit(**autohf_settings)
 
@@ -45,10 +44,11 @@ class AutoTransformers:
         search_space = {}
 
         if mode == "grid":
+            # TODO add test
             for each_hp in config_json.keys():
                 this_config = config_json[each_hp]
                 assert isinstance(this_config, dict) or isinstance(this_config, list), \
-                    "config of " + each_hp + " must be dict or list"
+                    "config of " + each_hp + " must be dict or list for grid search"
                 search_space[each_hp] = ray.tune.grid_search(this_config)
         else:
             for each_hp in config_json.keys():
@@ -86,11 +86,8 @@ class AutoTransformers:
             mode=self.jobid_config.mod)
 
     @staticmethod
-    def _wrapper(func, *args):  # with star
-        return func(*args)
-
-    @staticmethod
     def _get_split_name(data_raw, fold_name=None):
+        # TODO coverage
         if fold_name:
             return fold_name
         fold_keys = data_raw.keys()
@@ -179,7 +176,7 @@ class AutoTransformers:
             data_raw = load_dataset(JobID.dataset_list_to_str(self.jobid_config.dat),
                                     self.jobid_config.subdat)
         else:
-            data_raw = AutoTransformers._wrapper(load_dataset, *self.jobid_config.dat)
+            data_raw = load_dataset(*self.jobid_config.dat)
 
         self._train_name, self._dev_name, self._test_name = AutoTransformers._get_split_name(
             data_raw,
@@ -284,6 +281,7 @@ class AutoTransformers:
             model_config = _set_model_config()
 
             if is_pretrained_model_in_classification_head_list():
+                # TODO coverage
                 if self._num_labels != num_labels_old:
                     this_model = get_this_model()
                     model_config.num_labels = self._num_labels
@@ -299,6 +297,7 @@ class AutoTransformers:
             this_model.resize_token_embeddings(len(self._tokenizer))
             return this_model
         elif this_task == "regression":
+            # TODO add test
             model_config_num_labels = 1
             model_config = _set_model_config()
             this_model = get_this_model()
@@ -308,6 +307,7 @@ class AutoTransformers:
         data_name = JobID.dataset_list_to_str(self.jobid_config.dat)
         if data_name in ("glue", "super_glue"):
             metric = datasets.load.load_metric(data_name, self.jobid_config.subdat)
+        # TODO delete
         elif data_name in ("squad", "squad_v2"):
             metric = datasets.load.load_metric(data_name)
         else:
@@ -316,6 +316,7 @@ class AutoTransformers:
 
     def _compute_metrics_by_dataset_name(self,
                                          eval_pred):
+        # TODO coverage
         predictions, labels = eval_pred
         predictions = np.squeeze(predictions) \
             if self.task_name == "regression" else np.argmax(predictions, axis=1)
@@ -325,6 +326,7 @@ class AutoTransformers:
     def _compute_checkpoint_freq(self,
                                  num_train_epochs,
                                  batch_size):
+        # TODO coverage
         if "gpu" in self._resources_per_trial:
             ckpt_step_freq = int(min(num_train_epochs, 1) * len(self.train_dataset) / batch_size
                                  / self._resources_per_trial["gpu"] / self.ckpt_per_epoch) + 1
@@ -349,6 +351,7 @@ class AutoTransformers:
         return training_args_config, per_model_config
 
     def _objective(self, config, reporter, checkpoint_dir=None):
+        # TODO add test
         from transformers.trainer_utils import set_seed
         self._set_transformers_verbosity(self._transformers_verbose)
 
@@ -547,6 +550,7 @@ class AutoTransformers:
                _fp16=True,
                **custom_hpo_args
                ):
+        # TODO remove?
         from transformers.trainer_utils import HPSearchBackend
 
         '''Fine tuning the huggingface using HF's API Transformers.hyperparameter_search (for comparitive purpose).
@@ -660,6 +664,7 @@ class AutoTransformers:
         return validation_metric
 
     def _set_transformers_verbosity(self, transformers_verbose):
+        # TODO coverage
         if transformers_verbose == transformers.logging.ERROR:
             transformers.logging.set_verbosity_error()
         elif transformers_verbose == transformers.logging.WARNING:
@@ -827,6 +832,7 @@ class AutoTransformers:
         test_trainer = TrainerForAutoTransformers(best_model, training_args)
 
         if self.jobid_config.spt == "ori":
+            # TODO add test
             if "label" in self.test_dataset.features.keys():
                 self.test_dataset.remove_columns_("label")
                 print("Cleaning the existing label column from test data")

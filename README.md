@@ -13,7 +13,7 @@
 
 FLAML is a lightweight Python library that finds accurate machine
 learning models automatically, efficiently and economically. It frees users from selecting
-learners and hyperparameters for each learner. It is fast and economical. 
+learners and hyperparameters for each learner. It is fast and economical.
 The simple and lightweight design makes it easy to extend, such as
 adding customized learners or metrics. FLAML is powered by a new, [cost-effective
 hyperparameter optimization](https://github.com/microsoft/FLAML/tree/main/flaml/tune)
@@ -75,7 +75,7 @@ And they can be used in distributed HPO frameworks such as ray tune or nni.
 
 ## Examples
 
-- A basic classification example.
+* A basic classification example.
 
 ```python
 from flaml import AutoML
@@ -99,11 +99,11 @@ print(automl.predict_proba(X_train))
 print(automl.model)
 ```
 
-- A basic regression example.
+* A basic regression example.
 
 ```python
 from flaml import AutoML
-from sklearn.datasets import load_boston
+from sklearn.datasets import fetch_california_housing
 # Initialize an AutoML instance
 automl = AutoML()
 # Specify automl goal and constraint
@@ -111,9 +111,9 @@ automl_settings = {
     "time_budget": 10,  # in seconds
     "metric": 'r2',
     "task": 'regression',
-    "log_file_name": "test/boston.log",
+    "log_file_name": "test/california.log",
 }
-X_train, y_train = load_boston(return_X_y=True)
+X_train, y_train = fetch_california_housing(return_X_y=True)
 # Train with labeled input data
 automl.fit(X_train=X_train, y_train=y_train,
            **automl_settings)
@@ -123,7 +123,7 @@ print(automl.predict(X_train))
 print(automl.model)
 ```
 
-- Time series forecasting.
+* Time series forecasting.
 
 ```python
 # pip install flaml[forecast]
@@ -141,14 +141,15 @@ automl.fit(X_train=X_train[:72],  # a single column of timestamp
 print(automl.predict(X_train[72:]))
 ```
 
-- Learning to rank.
+* Learning to rank.
 
 ```python
 from sklearn.datasets import fetch_openml
 from flaml import AutoML
-X, y = fetch_openml(name="credit-g", return_X_y=True)   
+X_train, y_train = fetch_openml(name="credit-g", return_X_y=True, as_frame=False)
+y_train = y_train.cat.codes
 # not a real learning to rank dataaset
-groups = [200] * 4 + [100] * 2,    # group counts
+groups = [200] * 4 + [100] * 2    # group counts
 automl = AutoML()
 automl.fit(
     X_train, y_train, groups=groups,
@@ -206,9 +207,28 @@ git clone https://github.com/microsoft/FLAML.git
 pip install -e .[test,notebook]
 ```
 
+### Docker
+
+We provide a simple [Dockerfile](https://github.com/microsoft/FLAML/blob/main/Dockerfile).
+
+```bash
+docker build git://github.com/microsoft/FLAML -t flaml-dev
+docker run -it flaml-dev
+```
+
+### Develop in Remote Container
+
+If you use vscode, you can open the FLAML folder in a [Container](https://code.visualstudio.com/docs/remote/containers).
+We have provided the configuration in [.devcontainer]((https://github.com/microsoft/FLAML/blob/main/.devcontainer)).
+
+### Pre-commit
+
+Run `pre-commit install` to install pre-commit into your git hooks. Before you commit, run
+`pre-commit run` to check if you meet the pre-commit requirements. If you use Windows (without WSL) and can't commit after installing pre-commit, you can run `pre-commit uninstall` to uninstall the hook. In WSL or Linux this is supposed to work.
+
 ### Coverage
 
-Any code you commit should generally not significantly impact coverage. To run all unit tests:
+Any code you commit should not decrease coverage. To run all unit tests:
 
 ```bash
 coverage run -m pytest test
