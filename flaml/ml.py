@@ -313,7 +313,7 @@ def evaluate_model_CV(
         groups = kf.groups
         kf = kf.split(X_train_split, y_train_split, groups)
         shuffle = False
-    elif isinstance(kf, TimeSeriesSplit) and task == "forecast":
+    elif isinstance(kf, TimeSeriesSplit) and task == "ts_forecast":
         y_train_all = pd.DataFrame(y_train_all, columns=["y"])
         train = X_train_all.join(y_train_all)
         kf = kf.split(train)

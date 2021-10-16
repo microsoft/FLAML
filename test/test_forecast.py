@@ -98,7 +98,7 @@ def test_numpy():
     y_train = np.random.random(size=len(X_train))
     automl = AutoML()
     try:
-        import prophet
+        import prophets
 
         automl.fit(
             X_train=X_train[:72],  # a single column of timestamp
@@ -106,7 +106,7 @@ def test_numpy():
             period=12,  # time horizon to forecast, e.g., 12 months
             task="ts_forecast",
             time_budget=3,  # time budget in seconds
-            log_file_name="test/forecast.log",
+            log_file_name="test/ts_forecast.log",
         )
         print(automl.predict(X_train[72:]))
     except ImportError:
@@ -119,7 +119,7 @@ def test_numpy():
             task="ts_forecast",
             time_budget=1,  # time budget in seconds
             estimator_list=["arima", "sarimax"],
-            log_file_name="test/forecast.log",
+            log_file_name="test/ts_forecast.log",
         )
         print(automl.predict(X_train[72:]))
         # an alternative way to specify predict steps for arima/sarimax
