@@ -13,6 +13,8 @@ from datetime import datetime
 
 CLASSIFICATION = ("binary", "multi", "classification")
 TS_FORECAST = "ts_forecast"
+TS_TIMESTAMP_COL = "ds"
+TS_VALUE_COL = "y"
 
 
 def load_openml_dataset(
@@ -214,11 +216,10 @@ class DataTransformer:
             cat_columns, num_columns, datetime_columns = [], [], []
             drop = False
             if task == TS_FORECAST:
-                ds_col_name = "ds"
-                X = X.rename(columns={X.columns[0]: ds_col_name})
-                ds_col = X.pop(ds_col_name)
+                X = X.rename(columns={X.columns[0]: TS_TIMESTAMP_COL})
+                ds_col = X.pop(TS_TIMESTAMP_COL)
                 if isinstance(y, pd.Series):
-                    y = y.rename("y")
+                    y = y.rename(TS_VALUE_COL)
             for column in X.columns:
                 # sklearn\utils\validation.py needs int/float values
                 if X[column].dtype.name in ("object", "category"):
@@ -278,7 +279,7 @@ class DataTransformer:
                             num_columns.append(column)
             X = X[cat_columns + num_columns]
             if task == TS_FORECAST:
-                X.insert(0, ds_col_name, ds_col)
+                X.insert(0, TS_TIMESTAMP_COL, ds_col)
             if cat_columns:
                 X[cat_columns] = X[cat_columns].astype("category")
             if num_columns:
@@ -330,9 +331,8 @@ class DataTransformer:
                 self._datetime_columns,
             )
             if task == TS_FORECAST:
-                ds_col_name = "ds"
-                X = X.rename(columns={X.columns[0]: ds_col_name})
-                ds_col = X.pop(ds_col_name)
+                X = X.rename(columns={X.columns[0]: TS_TIMESTAMP_COL})
+                ds_col = X.pop(TS_TIMESTAMP_COL)
             if datetime_columns:
                 for column in datetime_columns:
                     tmp_dt = X[column].dt
@@ -358,7 +358,7 @@ class DataTransformer:
                     del tmp_dt
             X = X[cat_columns + num_columns].copy()
             if task == TS_FORECAST:
-                X.insert(0, ds_col_name, ds_col)
+                X.insert(0, TS_TIMESTAMP_COL, ds_col)
             for column in cat_columns:
                 if X[column].dtype.name == "object":
                     X[column] = X[column].fillna("__NAN__")
