@@ -11,7 +11,7 @@ from sklearn.linear_model import LogisticRegression
 from scipy.sparse import issparse
 import pandas as pd
 from . import tune
-from .data import group_counts, CLASSIFICATION
+from .data import group_counts, CLASSIFICATION, TS_FORECAST, TS_TIMESTAMP_COL, TS_VALUE_COL
 
 import logging
 
@@ -891,15 +891,15 @@ class Prophet(SKLearnEstimator):
         }
         return space
 
-    def __init__(self, task="ts_forecast", n_jobs=1, **params):
+    def __init__(self, task=TS_FORECAST, n_jobs=1, **params):
         super().__init__(task, **params)
 
     def _join(self, X_train, y_train):
-        assert "ds" in X_train, (
+        assert TS_TIMESTAMP_COL in X_train, (
             "Dataframe for training ts_forecast model must have column"
             ' "ds" with the dates in X_train.'
         )
-        y_train = pd.DataFrame(y_train, columns=["y"])
+        y_train = pd.DataFrame(y_train, columns=[TS_VALUE_COL])
         train_df = X_train.join(y_train)
         return train_df
 
@@ -910,8 +910,8 @@ class Prophet(SKLearnEstimator):
         train_df = self._join(X_train, y_train)
         train_df = self._preprocess(train_df)
         cols = list(train_df)
-        cols.remove("ds")
-        cols.remove("y")
+        cols.remove(TS_TIMESTAMP_COL)
+        cols.remove(TS_VALUE_COL)
         model = Prophet(**self.params)
         for regressor in cols:
             model.add_regressor(regressor)
@@ -961,8 +961,8 @@ class ARIMA(Prophet):
 
     def _join(self, X_train, y_train):
         train_df = super()._join(X_train, y_train)
-        train_df.index = pd.to_datetime(train_df["ds"])
-        train_df = train_df.drop("ds", axis=1)
+        train_df.index = pd.to_datetime(train_df[TS_TIMESTAMP_COL])
+        train_df = train_df.drop(TS_TIMESTAMP_COL, axis=1)
         return train_df
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
@@ -975,11 +975,11 @@ class ARIMA(Prophet):
         train_df = self._join(X_train, y_train)
         train_df = self._preprocess(train_df)
         cols = list(train_df)
-        cols.remove("y")
+        cols.remove(TS_VALUE_COL)
         regressors = cols
         if regressors:
             model = ARIMA_estimator(
-                train_df[["y"]], exog=train_df[regressors], order=(
+                train_df[[TS_VALUE_COL]], exog=train_df[regressors], order=(
                     self.params["p"], self.params["d"], self.params["q"]),
                 enforce_stationarity=False, enforce_invertibility=False)
         else:
@@ -997,14 +997,13 @@ class ARIMA(Prophet):
             if isinstance(X_test, int):
                 forecast = self._model.forecast(steps=X_test)
             elif isinstance(X_test, pd.DataFrame):
-                first_col_name = "ds"
-                first_col = X_test.pop(first_col_name)
-                X_test.insert(0, first_col_name, first_col)
+                first_col = X_test.pop(TS_TIMESTAMP_COL)
+                X_test.insert(0, TS_TIMESTAMP_COL, first_col)
                 start = X_test.iloc[0, 0]
                 end = X_test.iloc[-1, 0]
                 if len(X_test.columns) > 1:
                     regressors = list(X_test)
-                    regressors.remove("ds")
+                    regressors.remove(TS_TIMESTAMP_COL)
                     X_test = self._preprocess(X_test)
                     forecast = self._model.predict(start=start, end=end, exog=X_test[regressors])
                 else:
@@ -1070,10 +1069,10 @@ class SARIMAX(ARIMA):
         train_df = self._join(X_train, y_train)
         train_df = self._preprocess(train_df)
         regressors = list(train_df)
-        regressors.remove("y")
+        regressors.remove(TS_VALUE_COL)
         if regressors:
             model = SARIMAX_estimator(
-                train_df[["y"]], exog=train_df[regressors], order=(
+                train_df[[TS_VALUE_COL]], exog=train_df[regressors], order=(
                     self.params["p"], self.params["d"], self.params["q"]),
                 seasonality_order=(
                     self.params["P"],

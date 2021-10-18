@@ -36,7 +36,7 @@ from .config import (
     N_SPLITS,
     SAMPLE_MULTIPLY_FACTOR,
 )
-from .data import concat, CLASSIFICATION
+from .data import concat, CLASSIFICATION, TS_FORECAST
 from . import tune
 from .training_log import training_log_reader, training_log_writer
 
@@ -484,7 +484,7 @@ class AutoML:
     def _preprocess(self, X):
         if isinstance(X, int):
             return X
-        if self._state.task == "ts_forecast":
+        if self._state.task == TS_FORECAST:
             X = pd.DataFrame(X)
         if issparse(X):
             X = X.tocsr()
@@ -527,7 +527,7 @@ class AutoML:
             ), "# rows in X_train must match length of y_train."
             self._df = isinstance(X_train_all, pd.DataFrame)
             self._nrow, self._ndim = X_train_all.shape
-            if self._state.task == "ts_forecast":
+            if self._state.task == TS_FORECAST:
                 X_train_all = pd.DataFrame(X_train_all)
                 assert X_train_all[X_train_all.columns[0]].dtype.name == 'datetime64[ns]', (
                     "For 'ts_forecast' task, the first column must contain timestamp values.")
@@ -538,7 +538,7 @@ class AutoML:
             ), "dataframe must be a pandas DataFrame"
             assert label in dataframe.columns, "label must a column name in dataframe"
             self._df = True
-            if self._state.task == "ts_forecast":
+            if self._state.task == TS_FORECAST:
                 assert dataframe[dataframe.columns[0]].dtype.name == 'datetime64[ns]', (
                     "For 'ts_forecast' task, the first column must contain timestamp values.")
             X = dataframe.drop(columns=label)
@@ -670,7 +670,7 @@ class AutoML:
         if X_val is None and eval_method == "holdout":
             # if eval_method = holdout, make holdout data
             if self._split_type == "time":
-                if self._state.task == "ts_forecast":
+                if self._state.task == TS_FORECAST:
                     num_samples = X_train_all.shape[0]
                     period = self._state.fit_kwargs["period"]
                     assert (
@@ -828,7 +828,7 @@ class AutoML:
             )
         elif self._split_type == "time":
             # logger.info("Using TimeSeriesSplit")
-            if self._state.task == "ts_forecast":
+            if self._state.task == TS_FORECAST:
                 period = self._state.fit_kwargs["period"]
                 if period * (n_splits + 1) > y_train_all.size:
                     n_splits = int(y_train_all.size / period - 1)
@@ -1039,7 +1039,7 @@ class AutoML:
         elif self._state.task == "regression":
             assert split_type in [None, "uniform", "time", "group"]
             self._split_type = split_type or "uniform"
-        elif self._state.task == "ts_forecast":
+        elif self._state.task == TS_FORECAST:
             assert split_type in [None, "time"]
             self._split_type = "time"
             assert isinstance(
@@ -1474,7 +1474,7 @@ class AutoML:
                 metric = "roc_auc"
             elif "multi" in self._state.task:
                 metric = "log_loss"
-            elif self._state.task == "ts_forecast":
+            elif self._state.task == TS_FORECAST:
                 metric = "mape"
             elif self._state.task == "rank":
                 metric = "ndcg"
@@ -1501,7 +1501,7 @@ class AutoML:
         logger.info(f"Minimizing error metric: {error_metric}")
 
         if "auto" == estimator_list:
-            if self._state.task == "ts_forecast":
+            if self._state.task == TS_FORECAST:
                 try:
                     import prophet
 
@@ -2109,7 +2109,7 @@ class AutoML:
             elif self._retrain_final:
                 # reset time budget for retraining
                 self._state.time_from_start -= self._state.time_budget
-                if self._state.task == "ts_forecast" or (
+                if self._state.task == TS_FORECAST or (
                     self._state.time_budget - self._state.time_from_start
                     > self._selected.est_retrain_time(self.data_size_full)
                     and self._selected.best_config_sample_size == self._state.data_size
