@@ -530,7 +530,7 @@ class AutoML:
             if self._state.task == TS_FORECAST:
                 X_train_all = pd.DataFrame(X_train_all)
                 assert X_train_all[X_train_all.columns[0]].dtype.name == 'datetime64[ns]', (
-                    "For 'ts_forecast' task, the first column must contain timestamp values.")
+                    f"For '{TS_FORECAST}' task, the first column must contain timestamp values.")
             X, y = X_train_all, y_train_all
         elif dataframe is not None and label is not None:
             assert isinstance(
@@ -540,7 +540,7 @@ class AutoML:
             self._df = True
             if self._state.task == TS_FORECAST:
                 assert dataframe[dataframe.columns[0]].dtype.name == 'datetime64[ns]', (
-                    "For 'ts_forecast' task, the first column must contain timestamp values.")
+                    f"For '{TS_FORECAST}' task, the first column must contain timestamp values.")
             X = dataframe.drop(columns=label)
             self._nrow, self._ndim = X.shape
             y = dataframe[label]
@@ -1044,7 +1044,7 @@ class AutoML:
             self._split_type = "time"
             assert isinstance(
                 self._state.fit_kwargs.get("period"), int
-            ), "missing a required integer 'period' for 'ts_forecast' task."
+            ), f"missing a required integer 'period' for '{TS_FORECAST}' task."
         elif self._state.task == "rank":
             assert (
                 self._state.groups is not None

@@ -897,7 +897,7 @@ class Prophet(SKLearnEstimator):
     def _join(self, X_train, y_train):
         assert TS_TIMESTAMP_COL in X_train, (
             "Dataframe for training ts_forecast model must have column"
-            ' "ds" with the dates in X_train.'
+            f' "{TS_TIMESTAMP_COL}" with the dates in X_train.'
         )
         y_train = pd.DataFrame(y_train, columns=[TS_VALUE_COL])
         train_df = X_train.join(y_train)
@@ -924,7 +924,8 @@ class Prophet(SKLearnEstimator):
         if isinstance(X_test, int):
             raise ValueError(
                 "predict() with steps is only supported for arima/sarimax."
-                " For Prophet, pass a dataframe with a date colum named ds."
+                " For Prophet, pass a dataframe with the first column containing"
+                " the timestamp values."
             )
         if self._model is not None:
             X_test = self._preprocess(X_test)
@@ -1010,7 +1011,7 @@ class ARIMA(Prophet):
                     forecast = self._model.predict(start=start, end=end)
             else:
                 raise ValueError(
-                    "X_test needs to be either a pd.Dataframe with dates as column ds)"
+                    f"X_test needs to be either a pd.Dataframe with dates as column {TS_TIMESTAMP_COL})"
                     " or an int number of periods for predict()."
                 )
             return forecast
