@@ -1424,8 +1424,7 @@ class AutoML:
 
                     new_automl_experiment = AutoML()
                     new_automl_experiment.fit(X_train, y_train,
-                        starting_points=starting_points
-                        )
+                        starting_points=starting_points)
 
             seed: int or None, default=None | The random seed for np.random.
             n_concurrent_trials: [Experimental] int, default=1 | The number of
