@@ -1412,8 +1412,8 @@ class AutoML:
                 hyperparamter configurations for the corresponding estimators.
                 The value can be a single hyperparamter configuration dict or a list
                 of hyperparamter configuration dicts.
-                In the following code example, we get the starting_points from the
-                automl_experiment and use them in the a new_automl_experiment.
+                In the following code example, we get starting_points from the
+                automl_experiment and use them in the new_automl_experiment.
                 e.g.,
                 .. code-block:: python
                     from flaml import AutoML
