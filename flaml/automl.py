@@ -1412,6 +1412,21 @@ class AutoML:
                 hyperparamter configurations for the corresponding estimators.
                 The value can be a single hyperparamter configuration dict or a list
                 of hyperparamter configuration dicts.
+                In the following code example, we get the starting_points from the
+                automl_experiment and use them in the a new_automl_experiment.
+                e.g.,
+                .. code-block:: python
+                    from flaml import AutoML
+                    automl_experiment = AutoML()
+                    X_train, y_train = load_iris(return_X_y=True)
+                    automl_experiment.fit(X_train, y_train)
+                    starting_points = automl_experiment.best_config_per_estimator
+
+                    new_automl_experiment = AutoML()
+                    new_automl_experiment.fit(X_train, y_train,
+                        starting_points=starting_points
+                        )
+
             seed: int or None, default=None | The random seed for np.random.
             n_concurrent_trials: [Experimental] int, default=1 | The number of
                 concurrent trials. For n_concurrent_trials > 1, installation of
