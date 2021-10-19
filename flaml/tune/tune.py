@@ -202,7 +202,7 @@ def run(
                 ]
                 evaluated_rewards=[3.0, 1.0]
 
-            means that you know the reward for the two configs
+            means that you know the reward for the two configs in
             inpoints_to_evaluate are 3.0 and 1.0 respectively and want to
             inform run()
 
