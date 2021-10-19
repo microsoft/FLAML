@@ -297,12 +297,29 @@ a simple customized search space. When set to ‘bs’, BlendSearch
 is used. BlendSearch can be tried when the search space is
 complex, for example, containing multiple disjoint, discontinuous
 subspaces. When set to ‘random’, random search is used.</p></li>
-<li><p><strong>starting_points</strong> – A dictionary to specify the starting hyperparameter
+<li><p><strong>starting_points</strong> – <p>A dictionary to specify the starting hyperparameter
 config for the estimators.
 Keys are the name of the estimators, and values are the starting
 hyperparamter configurations for the corresponding estimators.
 The value can be a single hyperparamter configuration dict or a list
-of hyperparamter configuration dicts.</p></li>
+of hyperparamter configuration dicts.
+In the following code example, we get starting_points from the
+automl_experiment and use them in the new_automl_experiment.
+e.g.,
+.. code-block:: python</p>
+<blockquote>
+<div><p>from flaml import AutoML
+automl_experiment = AutoML()
+X_train, y_train = load_iris(return_X_y=True)
+automl_experiment.fit(X_train, y_train)
+starting_points = automl_experiment.best_config_per_estimator</p>
+<p>new_automl_experiment = AutoML()
+new_automl_experiment.fit(X_train, y_train,</p>
+<blockquote>
+<div><p>starting_points=starting_points)</p>
+</div></blockquote>
+</div></blockquote>
+</p></li>
 <li><p><strong>seed</strong> – int or None, default=None | The random seed for np.random.</p></li>
 <li><p><strong>n_concurrent_trials</strong> – [Experimental] int, default=1 | The number of
 concurrent trials. For n_concurrent_trials &gt; 1, installation of
@@ -619,12 +636,27 @@ minimization or maximization.</p></li>
 <li><p><strong>time_budget_s</strong> – int or float | The time budget in seconds.</p></li>
 <li><p><strong>points_to_evaluate</strong> – A list of initial hyperparameter
 configurations to run first.</p></li>
-<li><p><strong>evaluated_rewards</strong> (<em>list</em>) – If you have previously evaluated the
+<li><p><strong>evaluated_rewards</strong> (<em>list</em>) – <p>If you have previously evaluated the
 parameters passed in as points_to_evaluate you can avoid
 re-running those trials by passing in the reward attributes
 as a list so the optimiser can be told the results without
 needing to re-compute the trial. Must be the same length as
-points_to_evaluate.</p></li>
+points_to_evaluate.
+e.g.,
+.. code-block:: python</p>
+<blockquote>
+<div><dl class="simple">
+<dt>points_to_evaluate = [</dt><dd><p>{“b”: .99, “cost_related”: {“a”: 3}},
+{“b”: .99, “cost_related”: {“a”: 2}},</p>
+</dd>
+</dl>
+<p>]
+evaluated_rewards=[3.0, 1.0]</p>
+</div></blockquote>
+<p>means that you know the reward for the two configs in
+points_to_evaluate are 3.0 and 1.0 respectively and want to
+inform run()</p>
+</p></li>
 <li><p><strong>prune_attr</strong> – A string of the attribute used for pruning.
 Not necessarily in space.
 When prune_attr is in space, it is a hyperparameter, e.g.,

@@ -257,6 +257,18 @@
 <span class="sd">            as a list so the optimiser can be told the results without</span>
 <span class="sd">            needing to re-compute the trial. Must be the same length as</span>
 <span class="sd">            points_to_evaluate.</span>
+<span class="sd">            e.g.,</span>
+<span class="sd">            .. code-block:: python</span>
+<span class="sd">                points_to_evaluate = [</span>
+<span class="sd">                    {&quot;b&quot;: .99, &quot;cost_related&quot;: {&quot;a&quot;: 3}},</span>
+<span class="sd">                    {&quot;b&quot;: .99, &quot;cost_related&quot;: {&quot;a&quot;: 2}},</span>
+<span class="sd">                ]</span>
+<span class="sd">                evaluated_rewards=[3.0, 1.0]</span>
+
+<span class="sd">            means that you know the reward for the two configs in</span>
+<span class="sd">            points_to_evaluate are 3.0 and 1.0 respectively and want to</span>
+<span class="sd">            inform run()</span>
+
 <span class="sd">        prune_attr: A string of the attribute used for pruning.</span>
 <span class="sd">            Not necessarily in space.</span>
 <span class="sd">            When prune_attr is in space, it is a hyperparameter, e.g.,</span>

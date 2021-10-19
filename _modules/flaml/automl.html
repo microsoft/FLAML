@@ -1465,6 +1465,20 @@
 <span class="sd">                hyperparamter configurations for the corresponding estimators.</span>
 <span class="sd">                The value can be a single hyperparamter configuration dict or a list</span>
 <span class="sd">                of hyperparamter configuration dicts.</span>
+<span class="sd">                In the following code example, we get starting_points from the</span>
+<span class="sd">                automl_experiment and use them in the new_automl_experiment.</span>
+<span class="sd">                e.g.,</span>
+<span class="sd">                .. code-block:: python</span>
+<span class="sd">                    from flaml import AutoML</span>
+<span class="sd">                    automl_experiment = AutoML()</span>
+<span class="sd">                    X_train, y_train = load_iris(return_X_y=True)</span>
+<span class="sd">                    automl_experiment.fit(X_train, y_train)</span>
+<span class="sd">                    starting_points = automl_experiment.best_config_per_estimator</span>
+
+<span class="sd">                    new_automl_experiment = AutoML()</span>
+<span class="sd">                    new_automl_experiment.fit(X_train, y_train,</span>
+<span class="sd">                        starting_points=starting_points)</span>
+
 <span class="sd">            seed: int or None, default=None | The random seed for np.random.</span>
 <span class="sd">            n_concurrent_trials: [Experimental] int, default=1 | The number of</span>
 <span class="sd">                concurrent trials. For n_concurrent_trials &gt; 1, installation of</span>
