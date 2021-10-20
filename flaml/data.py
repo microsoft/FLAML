@@ -10,8 +10,97 @@ import pandas as pd
 from .training_log import training_log_reader
 
 from datetime import datetime
+from typing import Dict, Union, List
 
-CLASSIFICATION = ("binary", "multi", "classification")
+SEQCLASSIFICATION = "seq-classification"
+CLASSIFICATION = ("binary", "multi", "classification", SEQCLASSIFICATION)
+SEQREGRESSION = "seq-regression"
+REGRESSION = ("regression", SEQREGRESSION)
+
+
+def load_hf_dataset(
+    dataset_config: Dict,
+    data_mapping: Union[Dict, List] = None,
+):
+    from datasets import load_dataset
+
+    def _is_custom_dataset(dataset_config):
+        return (
+            (dataset_config is not None)
+            and ("path" in dataset_config)
+            and (dataset_config["path"] in ("csv", "json"))
+            and ("data_files" in dataset_config)
+            and (len(dataset_config["data_files"]) > 0)
+        )
+
+    def _is_huggingface_dataset(dataset_config=None, data_mapping=None):
+        return (
+            (dataset_config is not None)
+            and (data_mapping is not None)
+            and ("path" in dataset_config)
+        )
+
+    def unify_data_raw_and_data_mapping(
+        data_raw,
+        dataset_config,
+        data_mapping,
+    ):
+        data_mapping_unified = {}
+        if data_mapping is not None:
+            assert isinstance(data_mapping, list) or isinstance(data_mapping, dict)
+            if isinstance(data_mapping, list):
+                assert set(data_mapping).issubset({"train", "validation", "test"}), (
+                    "To select folds from a HuggingFace dataset, the folds must either be {'train', 'validation'}"
+                    " or {'train'} "
+                )
+                for fold_key in data_mapping:
+                    data_mapping_unified[fold_key] = data_raw[fold_key]
+            else:
+                assert set(data_mapping.keys()).issubset(
+                    {"train", "validation", "test"}
+                ), (
+                    "To select folds from a HuggingFace dataset, the folds must either be {'train', 'validation'}"
+                    " or {'train'} "
+                )
+                for fold_key in data_mapping.keys():
+                    if isinstance(data_mapping[fold_key], str):
+                        try:
+                            data_mapping_unified[fold_key] = data_raw[
+                                data_mapping[fold_key]
+                            ]
+                        except KeyError:
+                            raise KeyError(
+                                "The key {} is not found in the dataset".format(
+                                    data_mapping[fold_key]
+                                )
+                            )
+                    else:
+                        data_mapping_unified[fold_key] = data_mapping[fold_key]
+        else:
+            assert set(dataset_config["data_files"].keys()).issubset(
+                {"train", "validation", "test"}
+            ), "If the dataset is custom, the data fold must be a subset of {'train', 'validation', 'test'} "
+            data_mapping_unified = data_raw
+        return data_mapping_unified
+
+    assert _is_huggingface_dataset(dataset_config, data_mapping) ^ _is_custom_dataset(
+        dataset_config
+    ), (
+        "The specified data must be in one of the two modes: (1) custom data, by specifying data_files "
+        "in dataset_config; (2) HuggingFace data, by specifying the path argument in dataset_config and "
+        "which fold(s) from the dataset you will be loading with the data_mapping argument"
+    )
+
+    if isinstance(dataset_config, dict):
+        data_raw = load_dataset(**dataset_config)
+    else:
+        data_raw = load_dataset(*dataset_config)
+
+    data_mapping_unified = unify_data_raw_and_data_mapping(
+        data_raw, dataset_config, data_mapping
+    )
+
+    return data_mapping_unified
 
 
 def load_openml_dataset(
@@ -207,101 +296,115 @@ class DataTransformer:
     """transform X, y"""
 
     def fit_transform(self, X, y, task):
-        if isinstance(X, pd.DataFrame):
-            X = X.copy()
-            n = X.shape[0]
-            cat_columns, num_columns, datetime_columns = [], [], []
-            drop = False
-            for column in X.columns:
-                # sklearn\utils\validation.py needs int/float values
-                if X[column].dtype.name in ("object", "category"):
-                    if (
-                        X[column].nunique() == 1
-                        or X[column].nunique(dropna=True)
-                        == n - X[column].isnull().sum()
-                    ):
-                        X.drop(columns=column, inplace=True)
-                        drop = True
-                    elif X[column].dtype.name == "category":
-                        current_categories = X[column].cat.categories
-                        if "__NAN__" not in current_categories:
-                            X[column] = (
-                                X[column]
-                                .cat.add_categories("__NAN__")
-                                .fillna("__NAN__")
-                            )
-                        cat_columns.append(column)
-                    else:
-                        X[column] = X[column].fillna("__NAN__")
-                        cat_columns.append(column)
-                else:
-                    # print(X[column].dtype.name)
-                    if X[column].nunique(dropna=True) < 2:
-                        X.drop(columns=column, inplace=True)
-                        drop = True
-                    else:
-                        if X[column].dtype.name == "datetime64[ns]":
-                            tmp_dt = X[column].dt
-                            new_columns_dict = {
-                                f"year_{column}": tmp_dt.year,
-                                f"month_{column}": tmp_dt.month,
-                                f"day_{column}": tmp_dt.day,
-                                f"hour_{column}": tmp_dt.hour,
-                                f"minute_{column}": tmp_dt.minute,
-                                f"second_{column}": tmp_dt.second,
-                                f"dayofweek_{column}": tmp_dt.dayofweek,
-                                f"dayofyear_{column}": tmp_dt.dayofyear,
-                                f"quarter_{column}": tmp_dt.quarter,
-                            }
-                            for new_col_name in new_columns_dict.keys():
-                                if (
-                                    new_col_name not in X.columns
-                                    and new_columns_dict.get(new_col_name).nunique(
-                                        dropna=False
-                                    )
-                                    >= 2
-                                ):
-                                    X[new_col_name] = new_columns_dict.get(new_col_name)
-                                    num_columns.append(new_col_name)
-                            X[column] = X[column].map(datetime.toordinal)
-                            datetime_columns.append(column)
-                            del tmp_dt
-                        else:
-                            X[column] = X[column].fillna(np.nan)
-                            num_columns.append(column)
-            X = X[cat_columns + num_columns]
-            if cat_columns:
-                X[cat_columns] = X[cat_columns].astype("category")
-            if num_columns:
-                X_num = X[num_columns]
-                if np.issubdtype(X_num.columns.dtype, np.integer) and (
-                    drop
-                    or min(X_num.columns) != 0
-                    or max(X_num.columns) != X_num.shape[1] - 1
-                ):
-                    X_num.columns = range(X_num.shape[1])
-                    drop = True
-                else:
-                    drop = False
-                from sklearn.impute import SimpleImputer
-                from sklearn.compose import ColumnTransformer
+        from .nlp.utils import _is_nlp_task
 
-                self.transformer = ColumnTransformer(
-                    [
-                        (
-                            "continuous",
-                            SimpleImputer(missing_values=np.nan, strategy="median"),
-                            X_num.columns,
-                        )
-                    ]
+        if _is_nlp_task(task):
+            # if the mode is NLP, check the type of input, each column must be either string or
+            # ids (input ids, token type id, attention mask, etc.)
+            for column in X.columns:
+                is_str = [
+                    isinstance(each_cell, str) for each_cell in X[column] if each_cell
+                ][0]
+                if is_str:
+                    X = X.astype({column: "string"})
+        else:
+            if isinstance(X, pd.DataFrame):
+                X = X.copy()
+                n = X.shape[0]
+                cat_columns, num_columns, datetime_columns = [], [], []
+                drop = False
+                for column in X.columns:
+                    # sklearn\utils\validation.py needs int/float values
+                    if X[column].dtype.name in ("object", "category"):
+                        if (
+                            X[column].nunique() == 1
+                            or X[column].nunique(dropna=True)
+                            == n - X[column].isnull().sum()
+                        ):
+                            X.drop(columns=column, inplace=True)
+                            drop = True
+                        elif X[column].dtype.name == "category":
+                            current_categories = X[column].cat.categories
+                            if "__NAN__" not in current_categories:
+                                X[column] = (
+                                    X[column]
+                                    .cat.add_categories("__NAN__")
+                                    .fillna("__NAN__")
+                                )
+                            cat_columns.append(column)
+                        else:
+                            X[column] = X[column].fillna("__NAN__")
+                            cat_columns.append(column)
+                    else:
+                        # print(X[column].dtype.name)
+                        if X[column].nunique(dropna=True) < 2:
+                            X.drop(columns=column, inplace=True)
+                            drop = True
+                        else:
+                            if X[column].dtype.name == "datetime64[ns]":
+                                tmp_dt = X[column].dt
+                                new_columns_dict = {
+                                    f"year_{column}": tmp_dt.year,
+                                    f"month_{column}": tmp_dt.month,
+                                    f"day_{column}": tmp_dt.day,
+                                    f"hour_{column}": tmp_dt.hour,
+                                    f"minute_{column}": tmp_dt.minute,
+                                    f"second_{column}": tmp_dt.second,
+                                    f"dayofweek_{column}": tmp_dt.dayofweek,
+                                    f"dayofyear_{column}": tmp_dt.dayofyear,
+                                    f"quarter_{column}": tmp_dt.quarter,
+                                }
+                                for new_col_name in new_columns_dict.keys():
+                                    if (
+                                        new_col_name not in X.columns
+                                        and new_columns_dict.get(new_col_name).nunique(
+                                            dropna=False
+                                        )
+                                        >= 2
+                                    ):
+                                        X[new_col_name] = new_columns_dict.get(
+                                            new_col_name
+                                        )
+                                        num_columns.append(new_col_name)
+                                X[column] = X[column].map(datetime.toordinal)
+                                datetime_columns.append(column)
+                                del tmp_dt
+                            else:
+                                X[column] = X[column].fillna(np.nan)
+                                num_columns.append(column)
+                X = X[cat_columns + num_columns]
+                if cat_columns:
+                    X[cat_columns] = X[cat_columns].astype("category")
+                if num_columns:
+                    X_num = X[num_columns]
+                    if np.issubdtype(X_num.columns.dtype, np.integer) and (
+                        drop
+                        or min(X_num.columns) != 0
+                        or max(X_num.columns) != X_num.shape[1] - 1
+                    ):
+                        X_num.columns = range(X_num.shape[1])
+                        drop = True
+                    else:
+                        drop = False
+                    from sklearn.impute import SimpleImputer
+                    from sklearn.compose import ColumnTransformer
+
+                    self.transformer = ColumnTransformer(
+                        [
+                            (
+                                "continuous",
+                                SimpleImputer(missing_values=np.nan, strategy="median"),
+                                X_num.columns,
+                            )
+                        ]
+                    )
+                    X[num_columns] = self.transformer.fit_transform(X_num)
+                self._cat_columns, self._num_columns, self._datetime_columns = (
+                    cat_columns,
+                    num_columns,
+                    datetime_columns,
                 )
-                X[num_columns] = self.transformer.fit_transform(X_num)
-            self._cat_columns, self._num_columns, self._datetime_columns = (
-                cat_columns,
-                num_columns,
-                datetime_columns,
-            )
-            self._drop = drop
+                self._drop = drop
 
         if task in CLASSIFICATION or not pd.api.types.is_numeric_dtype(y):
             from sklearn.preprocessing import LabelEncoder
@@ -310,56 +413,73 @@ class DataTransformer:
             y = self.label_transformer.fit_transform(y)
         else:
             self.label_transformer = None
+        self._task = task
         return X, y
 
     def transform(self, X):
         X = X.copy()
-        if isinstance(X, pd.DataFrame):
-            cat_columns, num_columns, datetime_columns = (
-                self._cat_columns,
-                self._num_columns,
-                self._datetime_columns,
-            )
-            if datetime_columns:
-                for column in datetime_columns:
-                    tmp_dt = X[column].dt
-                    new_columns_dict = {
-                        f"year_{column}": tmp_dt.year,
-                        f"month_{column}": tmp_dt.month,
-                        f"day_{column}": tmp_dt.day,
-                        f"hour_{column}": tmp_dt.hour,
-                        f"minute_{column}": tmp_dt.minute,
-                        f"second_{column}": tmp_dt.second,
-                        f"dayofweek_{column}": tmp_dt.dayofweek,
-                        f"dayofyear_{column}": tmp_dt.dayofyear,
-                        f"quarter_{column}": tmp_dt.quarter,
-                    }
-                    for new_col_name in new_columns_dict.keys():
-                        if (
-                            new_col_name not in X.columns
-                            and new_columns_dict.get(new_col_name).nunique(dropna=False)
-                            >= 2
-                        ):
-                            X[new_col_name] = new_columns_dict.get(new_col_name)
-                    X[column] = X[column].map(datetime.toordinal)
-                    del tmp_dt
-            X = X[cat_columns + num_columns].copy()
-            for column in cat_columns:
-                if X[column].dtype.name == "object":
-                    X[column] = X[column].fillna("__NAN__")
-                elif X[column].dtype.name == "category":
-                    current_categories = X[column].cat.categories
-                    if "__NAN__" not in current_categories:
-                        X[column] = (
-                            X[column].cat.add_categories("__NAN__").fillna("__NAN__")
-                        )
-            if cat_columns:
-                X[cat_columns] = X[cat_columns].astype("category")
-            if num_columns:
-                X_num = X[num_columns].fillna(np.nan)
-                if self._drop:
-                    X_num.columns = range(X_num.shape[1])
-                X[num_columns] = self.transformer.transform(X_num)
+        from .nlp.utils import _is_nlp_task
+
+        if _is_nlp_task(self._task):
+            # if the mode is NLP, check the type of input, each column must be either string or
+            # ids (input ids, token type id, attention mask, etc.)
+            for column in X.columns:
+                is_str = [
+                    isinstance(each_cell, str) for each_cell in X[column] if each_cell
+                ][0]
+                if is_str:
+                    X = X.astype({column: "string"})
+        else:
+            if isinstance(X, pd.DataFrame):
+                cat_columns, num_columns, datetime_columns = (
+                    self._cat_columns,
+                    self._num_columns,
+                    self._datetime_columns,
+                )
+                if datetime_columns:
+                    for column in datetime_columns:
+                        tmp_dt = X[column].dt
+                        new_columns_dict = {
+                            f"year_{column}": tmp_dt.year,
+                            f"month_{column}": tmp_dt.month,
+                            f"day_{column}": tmp_dt.day,
+                            f"hour_{column}": tmp_dt.hour,
+                            f"minute_{column}": tmp_dt.minute,
+                            f"second_{column}": tmp_dt.second,
+                            f"dayofweek_{column}": tmp_dt.dayofweek,
+                            f"dayofyear_{column}": tmp_dt.dayofyear,
+                            f"quarter_{column}": tmp_dt.quarter,
+                        }
+                        for new_col_name in new_columns_dict.keys():
+                            if (
+                                new_col_name not in X.columns
+                                and new_columns_dict.get(new_col_name).nunique(
+                                    dropna=False
+                                )
+                                >= 2
+                            ):
+                                X[new_col_name] = new_columns_dict.get(new_col_name)
+                        X[column] = X[column].map(datetime.toordinal)
+                        del tmp_dt
+                X = X[cat_columns + num_columns].copy()
+                for column in cat_columns:
+                    if X[column].dtype.name == "object":
+                        X[column] = X[column].fillna("__NAN__")
+                    elif X[column].dtype.name == "category":
+                        current_categories = X[column].cat.categories
+                        if "__NAN__" not in current_categories:
+                            X[column] = (
+                                X[column]
+                                .cat.add_categories("__NAN__")
+                                .fillna("__NAN__")
+                            )
+                if cat_columns:
+                    X[cat_columns] = X[cat_columns].astype("category")
+                if num_columns:
+                    X_num = X[num_columns].fillna(np.nan)
+                    if self._drop:
+                        X_num.columns = range(X_num.shape[1])
+                    X[num_columns] = self.transformer.transform(X_num)
         return X
 
 

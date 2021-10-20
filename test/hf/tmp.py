@@ -60,52 +60,77 @@ autohf_settings = {
 #
 
 
-def case2():
+def case1():
     import ray
     from flaml import AutoML
 
-    ray.init(local_mode=True)
-    automl = AutoML()
+    ray.init(local_mode=False)
 
-    # for custom dataset_config:
-    #    if only train exist, resplit_mode must be rspt but users will not see it
-    #    if only train and validation exist, resplit_mode is ori and users will not see it
-    #    remove resplit_mode for user
+    from datasets import load_dataset
+
+    train_dataset = load_dataset("glue", "mrpc", split="train").to_pandas()
+    dev_dataset = load_dataset("glue", "mrpc", split="validation").to_pandas()
+
+    custom_sent_keys = ["#1 String", "#2 String"]
+    label_key = "Quality"
+
+    X_train = train_dataset[custom_sent_keys]
+    y_train = train_dataset[label_key]
+
+    X_val = dev_dataset[custom_sent_keys]
+    y_val = dev_dataset[label_key]
+
+    automl = AutoML()
 
     automl_settings = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
         "resources_per_trial": {"cpu": 1, "gpu": 1},
-        "sample_num": -1,
-        "time_budget": 10,
-        "metric_name": "accuracy",
-        "metric_mode_name": "max",
+        "metric": "accuracy",
         "task": "seq-classification",
-        "label_name": "Quality",
+        "time_budget": 300,
     }
 
     automl.fit(
-        dataset_config={
-            "path": "csv",
-            "data_files": {
-                "train": "data/input/train.tsv",
-                "validation": "data/input/dev.tsv",
-            },
-            "delimiter": "\t",
-            "quoting": 3,
-        },
-        custom_sentence_keys=("#1 String", "#2 String"),
-        **automl_settings
+        X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
     )
 
-    # predict input can only be one sentence (pair) or a list of sentence (pairs) or huggingface Dataset
-    # predictions = automl.predict(input_text=["the sun rises ", "the sun set"])
-    # predictions = autohf.predict(dataset_config=
-    #                  {"path": "csv",
-    #                   "data_files": {"test": "data/input/test.tsv"},
-    #                   "delimiter": "\t",
-    #                   "quoting": 3
-    #                   })
+
+def case2():
+    import ray
+    from flaml import AutoML
+
+    ray.init(local_mode=True)
+
+    import pandas as pd
+
+    train_dataset = pd.read_csv("data/input/train.tsv", delimiter="\t", quoting=3)
+    dev_dataset = pd.read_csv("data/input/dev.tsv", delimiter="\t", quoting=3)
+
+    custom_sent_keys = ["#1 String", "#2 String"]
+    label_key = "Quality"
+
+    X_train = train_dataset[custom_sent_keys]
+    y_train = train_dataset[label_key]
+
+    X_val = dev_dataset[custom_sent_keys]
+    y_val = dev_dataset[label_key]
+
+    automl = AutoML()
+
+    automl_settings = {
+        "model_path": "google/electra-small-discriminator",
+        "output_dir": "data/output/",
+        "gpu_per_trial": 1,
+        "max_iter": -1,
+        "time_budget": 300,
+        "task": "seq-classification",
+    }
+
+    automl.fit(
+        X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
+    )
+
     automl.output_prediction()
     # predictions = autohf.predict(
     #     dataset_config={"path": "csv",

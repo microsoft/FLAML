@@ -36,7 +36,7 @@ from .config import (
     N_SPLITS,
     SAMPLE_MULTIPLY_FACTOR,
 )
-from .data import concat, CLASSIFICATION
+from .data import concat, CLASSIFICATION, REGRESSION
 from . import tune
 from .training_log import training_log_reader, training_log_writer
 
@@ -89,6 +89,7 @@ class SearchState:
                 and starting_point.get(name) is not None
             ):
                 self.init_config[name] = starting_point[name]
+
         if isinstance(starting_point, list):
             self.init_config = starting_point
         self._hp_names = list(self._search_space_domain.keys())
@@ -118,16 +119,11 @@ class SearchState:
             trained_estimator = result["trained_estimator"]
             del result["trained_estimator"]  # free up RAM
             n_iter = trained_estimator and trained_estimator.params.get("n_estimators")
-            if (
-                n_iter is not None
-                and "n_estimators" in config
-                and n_iter >= self._search_space_domain["n_estimators"].lower
-            ):
+            if n_iter is not None and "n_estimators" in config:
                 config["n_estimators"] = n_iter
-                n_iter = None
         else:
             obj, time2eval, trained_estimator = np.inf, 0.0, None
-            metric_for_logging = config = n_iter = None
+            metric_for_logging = config = None
         self.trial_time = time2eval
         self.total_time_used += time_used
         self.total_iter += 1
@@ -155,10 +151,8 @@ class SearchState:
                 self.trained_estimator.cleanup()
             if trained_estimator:
                 self.trained_estimator = trained_estimator
-            self.best_n_iter = n_iter
         self.metric_for_logging = metric_for_logging
         self.val_loss, self.config = obj, config
-        self.n_iter = n_iter
 
     def get_hist_config_sig(self, sample_size, config):
         config_values = tuple([config[k] for k in self._hp_names])
@@ -245,6 +239,7 @@ class AutoMLState:
             self.metric,
             self.best_loss,
             self.n_jobs,
+            self.resources_per_trial,
             self.learner_classes.get(estimator),
             self.log_training_metric,
             self.fit_kwargs,
@@ -258,12 +253,9 @@ class AutoMLState:
         }
         if sampled_weight is not None:
             self.fit_kwargs["sample_weight"] = weight
-        #     tune.report(**result)
         return result
 
-    def _train_with_config(
-        self, estimator, config_w_resource, sample_size=None, n_iter=None
-    ):
+    def _train_with_config(self, estimator, config_w_resource, sample_size=None):
         if not sample_size:
             sample_size = config_w_resource.get(
                 "FLAML_sample_size", len(self.y_train_all)
@@ -298,9 +290,9 @@ class AutoMLState:
             self.task,
             estimator,
             self.n_jobs,
+            self.resources_per_trial,
             self.learner_classes.get(estimator),
             budget,
-            n_iter,
             self.fit_kwargs,
         )
         if sampled_weight is not None:
@@ -395,7 +387,8 @@ class AutoML:
     @property
     def best_config(self):
         """A dictionary of the best configuration."""
-        return self._search_states[self._best_estimator].best_config
+        state = self._search_states.get(self._best_estimator)
+        return state and getattr(state, "best_config", None)
 
     @property
     def best_config_per_estimator(self):
@@ -429,7 +422,7 @@ class AutoML:
 
     @property
     def time_to_find_best_model(self) -> float:
-        """time taken to find best model in seconds"""
+        """Time taken to find best model in seconds"""
         return self.__dict__.get("_time_taken_best_iter")
 
     def predict(self, X_test):
@@ -502,6 +495,8 @@ class AutoML:
         groups_val=None,
         groups=None,
     ):
+        from .nlp.utils import _is_nlp_task
+
         if self._state.task == "forecast":
             if dataframe is not None and label is not None:
                 dataframe = dataframe.copy()
@@ -553,6 +548,36 @@ class AutoML:
             y = dataframe[label]
         else:
             raise ValueError("either X_train+y_train or dataframe+label are required")
+
+        # check the validity of input dimensions under the nlp mode
+        if _is_nlp_task(self._state.task):
+            is_all_str = []
+            is_all_list = []
+            for column in X.columns:
+                assert X[column].dtype.name in (
+                    "object",
+                    "string",
+                ), "If the task is an NLP task, X can only contain text columns"
+                for each_cell in X[column]:
+                    if each_cell:
+                        is_str = isinstance(each_cell, str)
+                        is_list_of_int = isinstance(each_cell, list) and sum(
+                            [isinstance(x, int) for x in each_cell]
+                        ) == len(X[column])
+                        assert is_str or is_list_of_int, (
+                            "Each column of the input must either be str (untokenized) "
+                            "or a list of integers (tokenized)"
+                        )
+                        is_all_str.append(is_str)
+                        is_all_list.append(is_list_of_int)
+                        break
+            assert sum(is_all_str) == len(is_all_str) or sum(is_all_list) == len(
+                is_all_list
+            ), (
+                "Currently FLAML only supports two modes for NLP: either all columns of X are string (non-tokenized), "
+                "or all columns of X are integer ids (tokenized)"
+            )
+
         if issparse(X_train_all) or self._state.task == "forecast":
             self._transformer = self._label_transformer = False
             self._X_train_all, self._y_train_all = X, y
@@ -781,7 +806,7 @@ class AutoML:
                     if self._df
                     else np.concatenate([label_set, y_val])
                 )
-            elif self._state.task == "regression":
+            elif self._state.task in REGRESSION:
                 if "sample_weight" in self._state.fit_kwargs:
                     (
                         X_train,
@@ -810,6 +835,7 @@ class AutoML:
         self._state.X_val, self._state.y_val = X_val, y_val
         self._state.X_train_all = X_train_all
         self._state.y_train_all = y_train_all
+        self._state.fit_kwargs["X_val"], self._state.fit_kwargs["y_val"] = X_val, y_val
         if self._split_type == "group":
             # logger.info("Using GroupKFold")
             assert (
@@ -906,6 +932,7 @@ class AutoML:
         split_type=None,
         groups=None,
         n_jobs=-1,
+        resources_per_trial=None,
         train_best=True,
         train_full=False,
         record_id=-1,
@@ -947,6 +974,7 @@ class AutoML:
                 for training data.
             n_jobs: An integer of the number of threads for training. Use all
                 available resources when n_jobs == -1.
+            resources_per_trial: An integer of the number of gpus per trial. Only used by TransformersEstimator.
             train_best: A boolean of whether to train the best config in the
                 time budget; if false, train the last config in the budget.
             train_full: A boolean of whether to train on the full data. If true,
@@ -1027,8 +1055,9 @@ class AutoML:
         self._prepare_data(eval_method, split_ratio, n_splits)
         self._state.time_budget = None
         self._state.n_jobs = n_jobs
+        self._state.resources_per_trial = resources_per_trial
         self._trained_estimator = self._state._train_with_config(
-            best_estimator, best_config, sample_size, best.n_iter
+            best_estimator, best_config, sample_size
         )[0]
         logger.info("retrain from log succeeded")
         return training_duration
@@ -1043,7 +1072,7 @@ class AutoML:
             self._split_type = (
                 split_type or self._state.groups is None and "stratified" or "group"
             )
-        elif self._state.task == "regression":
+        elif self._state.task in REGRESSION:
             assert split_type in [None, "uniform", "time", "group"]
             self._split_type = split_type or "uniform"
         elif self._state.task == "forecast":
@@ -1104,7 +1133,7 @@ class AutoML:
             (b) otherwise, it is a nested dict with 'ml' as the key, and
             a list of the low_cost_partial_configs as the value, corresponding
             to each learner's low_cost_partial_config; the estimator index as
-            an integer corresponding to the cheapest learner is appeneded to the
+            an integer corresponding to the cheapest learner is appended to the
             list at the end.
 
         """
@@ -1268,6 +1297,7 @@ class AutoML:
         metric="auto",
         task="classification",
         n_jobs=-1,
+        gpu_per_trial=0,
         log_file_name="flaml.log",
         estimator_list="auto",
         time_budget=60,
@@ -1341,6 +1371,7 @@ class AutoML:
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'forecast', 'rank'.
             n_jobs: An integer of the number of threads for training.
+            gpu_per_trial: An integer of the number of gpus per trial, only used by TransformersEstimator.
             log_file_name: A string of the log file name.
             estimator_list: A list of strings for estimator names, or 'auto'
                 e.g.,
@@ -1411,6 +1442,20 @@ class AutoML:
                 hyperparamter configurations for the corresponding estimators.
                 The value can be a single hyperparamter configuration dict or a list
                 of hyperparamter configuration dicts.
+                In the following code example, we get starting_points from the
+                automl_experiment and use them in the new_automl_experiment.
+                e.g.,
+                .. code-block:: python
+                    from flaml import AutoML
+                    automl_experiment = AutoML()
+                    X_train, y_train = load_iris(return_X_y=True)
+                    automl_experiment.fit(X_train, y_train)
+                    starting_points = automl_experiment.best_config_per_estimator
+
+                    new_automl_experiment = AutoML()
+                    new_automl_experiment.fit(X_train, y_train,
+                        starting_points=starting_points)
+
             seed: int or None, default=None | The random seed for np.random.
             n_concurrent_trials: [Experimental] int, default=1 | The number of
                 concurrent trials. For n_concurrent_trials > 1, installation of
@@ -1430,6 +1475,8 @@ class AutoML:
                 the searched learners, such as sample_weight. Include period as
                 a key word argument for 'forecast' task.
         """
+        from .nlp.utils import _is_nlp_task
+
         self._state._start_time_flag = self._start_time_flag = time.time()
         self._state.task = task
         self._state.log_training_metric = log_training_metric
@@ -1519,6 +1566,8 @@ class AutoML:
                     estimator_list = ["arima", "sarimax"]
             elif self._state.task == "rank":
                 estimator_list = ["lgbm", "xgboost"]
+            elif _is_nlp_task(self._state.task):
+                estimator_list = ["transformer"]
             else:
                 try:
                     import catboost
@@ -1537,7 +1586,12 @@ class AutoML:
         # set up learner search space
         for estimator_name in estimator_list:
             estimator_class = self._state.learner_classes[estimator_name]
-            estimator_class.init()
+            if estimator_name == "transformer":
+                estimator_class.init(
+                    hpo_method=hpo_method, metric_name=metric, **self._state.fit_kwargs
+                )
+            else:
+                estimator_class.init()
             self._search_states[estimator_name] = SearchState(
                 learner_class=estimator_class,
                 data_size=self._state.data_size,
@@ -1558,6 +1612,11 @@ class AutoML:
         self.split_ratio = split_ratio
         self._save_model_history = model_history
         self._state.n_jobs = n_jobs
+        self._state.resources_per_trial = (
+            {"cpu": max(self._state.n_jobs, 1), "gpu": gpu_per_trial}
+            if (self._state.n_jobs > 1 or gpu_per_trial > 0)
+            else None
+        )
         self._n_concurrent_trials = n_concurrent_trials
         self._early_stop = early_stop
         if log_file_name:
@@ -1664,9 +1723,7 @@ class AutoML:
                 time_budget_s=time_left,
             )
             search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
-        resources_per_trial = (
-            {"cpu": self._state.n_jobs} if self._state.n_jobs > 1 else None
-        )
+        resources_per_trial = self.resources_per_trial
         analysis = ray.tune.run(
             self.trainable,
             search_alg=search_alg,
@@ -1729,7 +1786,6 @@ class AutoML:
                         config,
                         estimator,
                         search_state.sample_size,
-                        search_state.n_iter,
                     )
 
     def _search_sequential(self):
@@ -1767,6 +1823,18 @@ class AutoML:
         better = True  # whether we find a better model in one trial
         if self._ensemble:
             self.best_model = {}
+        if self._max_iter < 2 and self.estimator_list:
+            # when max_iter is 1, no need to search
+            # TODO: otherwise, need to make sure SearchStates.init_config is inside search space
+            self._max_iter = 0
+            self._best_estimator = estimator = self.estimator_list[0]
+            self._selected = state = self._search_states[estimator]
+            state.best_config_sample_size = self._state.data_size
+            state.best_config = (
+                state.init_config
+                if isinstance(state.init_config, dict)
+                else state.init_config[0]
+            )
         for self._track_iter in range(self._max_iter):
             if self._estimator_index is None:
                 estimator = self._active_estimators[0]
@@ -1843,9 +1911,9 @@ class AutoML:
                         metric="val_loss",
                         mode="min",
                         space=search_space,
-                        points_to_evaluate=points_to_evaluate
-                        if len(search_state.init_config) == len(search_space)
-                        else None,
+                        points_to_evaluate=[
+                            p for p in points_to_evaluate if len(p) == len(search_space)
+                        ],
                     )
                 search_state.search_alg = ConcurrencyLimiter(algo, max_concurrent=1)
                 # search_state.search_alg = algo
@@ -1940,7 +2008,6 @@ class AutoML:
                             search_state.config,
                             estimator,
                             search_state.sample_size,
-                            search_state.n_iter,
                         )
                     if mlflow is not None and mlflow.active_run():
                         with mlflow.start_run(nested=True):
@@ -2018,7 +2085,6 @@ class AutoML:
                     self._best_estimator,
                     state.best_config,
                     self.data_size_full,
-                    state.best_n_iter,
                 )
                 logger.info(
                     "retrain {} for {:.1f}s".format(self._best_estimator, retrain_time)
@@ -2131,7 +2197,6 @@ class AutoML:
                         self._best_estimator,
                         state.best_config,
                         self.data_size_full,
-                        state.best_n_iter,
                     )
                     logger.info(
                         "retrain {} for {:.1f}s".format(

@@ -4,18 +4,18 @@
 """
 
 import numpy as np
-import xgboost as xgb
 import time
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.ensemble import ExtraTreesRegressor, ExtraTreesClassifier
 from sklearn.linear_model import LogisticRegression
-from lightgbm import LGBMClassifier, LGBMRegressor, LGBMRanker
 from scipy.sparse import issparse
 import pandas as pd
 from . import tune
 from .data import group_counts, CLASSIFICATION
 
 import logging
+from typing import Union, List
+from pandas import DataFrame, Series
 
 logger = logging.getLogger("flaml.automl")
 
@@ -36,8 +36,9 @@ class BaseEstimator:
         Args:
             task: A string of the task type, one of
                 'binary', 'multi', 'regression', 'rank', 'forecast'
-            config: A dictionary containing the hyperparameter names
-                and 'n_jobs' as keys. n_jobs is the number of parallel threads.
+            config: A dictionary containing the hyperparameter names, 'n_jobs' and 'resources_per_trial' as keys.
+                n_jobs is the number of parallel threads. resources_per_trial is the number of gpus per trial.
+                resources_per_trial is only used by TransformersEstimator.
         """
         self.params = self.config2params(config)
         self.estimator_class = self._model = None
@@ -116,7 +117,7 @@ class BaseEstimator:
         """
         return self._fit(X_train, y_train, **kwargs)
 
-    def predict(self, X_test):
+    def predict(self, X_test, is_test=True):
         """Predict label from features
 
         Args:
@@ -132,7 +133,7 @@ class BaseEstimator:
         else:
             return np.ones(X_test.shape[0])
 
-    def predict_proba(self, X_test):
+    def predict_proba(self, X_test, is_test=True):
         """Predict the probability of each class from features
 
         Only works for classification problems
@@ -201,7 +202,164 @@ class BaseEstimator:
         Returns:
             A dict that will be passed to self.estimator_class's constructor.
         """
-        return config.copy()
+        params = config.copy()
+        if "resources_per_trial" in params:
+            params.pop("resources_per_trial")
+        return params
+
+
+class TransformersEstimator(BaseEstimator):
+    def __init__(self, task="seq-classification", resources_per_trial=None, **config):
+        super().__init__(task, **config)
+        self._resources_per_trial = resources_per_trial
+
+    @classmethod
+    def init(cls, hpo_method=None, metric_name=None, **kwargs):
+        from .nlp.utils import HPOArgs
+
+        custom_hpo_args = HPOArgs()
+        for key, val in kwargs.items():
+            if key in ("X_val", "y_val"):
+                continue
+            assert (
+                key in custom_hpo_args.__dict__
+            ), "The specified key {} is not in the argument list of flaml.nlp.utils::HPOArgs".format(
+                key
+            )
+            setattr(custom_hpo_args, key, val)
+        kwargs["custom_hpo_args"] = custom_hpo_args
+        cls._metric_name = metric_name
+
+    @classmethod
+    def _preprocess(cls, X, **kwargs):
+        from .nlp.utils import tokenize_text
+
+        return tokenize_text(X, kwargs["custom_hpo_args"])
+
+    def _split_train_val(self, X_train, y_train, **kwargs):
+        if "X_val" in kwargs and "y_val" in kwargs:
+            return X_train, y_train, kwargs["X_val"], kwargs["y_val"]
+        n = max(int(len(y_train) * 0.9), len(y_train) - 1000)
+        X_tr, y_tr = X_train[:n], y_train[:n]
+        X_val, y_val = X_train[n:], y_train[n:]
+        return X_tr, y_tr, X_val, y_val
+
+    def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
+        import pdb
+
+        pdb.set_trace()
+        import transformers
+        from transformers import TrainingArguments
+        from transformers.trainer_utils import set_seed
+        from transformers import AutoTokenizer
+        from .nlp.utils import (
+            separate_config,
+            load_model,
+            get_num_labels,
+            compute_checkpoint_freq,
+        )
+        from .nlp.huggingface.trainer import TrainerForAutoTransformers
+        from datasets import Dataset
+
+        X_train, y_train, X_val, y_val = self._split_train_val(X_train, **kwargs)
+        if X_train.dtypes[0] == "string":
+            X_train = self._preprocess(X_train, **kwargs)
+            train_dataset = Dataset.from_pandas(X_train)
+            X_val = self._preprocess(X_val, **kwargs)
+            eval_dataset = Dataset.from_pandas(X_val)
+        else:
+            train_dataset = Dataset.from_pandas(X_train)
+            eval_dataset = Dataset.from_pandas(X_val)
+
+        tokenizer = AutoTokenizer.from_pretrained(
+            kwargs["custom_hpo_args"].model_path, use_fast=True
+        )
+        set_seed(self.params["seed"])
+
+        num_labels = get_num_labels(self._task, y_train)
+
+        training_args_config, per_model_config = separate_config(self.params)
+        this_model = load_model(
+            checkpoint_path=kwargs["custom_hpo_args"].model_path,
+            task=self._task,
+            num_labels=num_labels,
+            per_model_config=per_model_config,
+        )
+        ckpt_freq = compute_checkpoint_freq(
+            self._resources_per_trial,
+            train_data_size=len(X_train),
+            custom_hpo_args=kwargs["custom_hpo_args"],
+            num_train_epochs=self.params["num_train_epochs"],
+            batch_size=self.params["batch_size"],
+        )
+        if transformers.__version__.startswith("3"):
+            training_args = TrainingArguments(
+                output_dir=kwargs["custom_hpo_args"].output_dir,
+                do_train=True,
+                do_eval=True,
+                eval_steps=ckpt_freq,
+                evaluate_during_training=True,
+                save_steps=ckpt_freq,
+                save_total_limit=0,
+                fp16=kwargs["custom_hpo_args"].fp16,
+                **training_args_config,
+            )
+        else:
+            from transformers import IntervalStrategy
+
+            training_args = TrainingArguments(
+                output_dir=kwargs["custom_hpo_args"].output_dir,
+                do_train=True,
+                do_eval=True,
+                per_device_eval_batch_size=1,
+                eval_steps=ckpt_freq,
+                evaluation_strategy=IntervalStrategy.STEPS,
+                save_steps=ckpt_freq,
+                save_total_limit=0,
+                fp16=kwargs["custom_hpo_args"].fp16,
+                **training_args_config,
+            )
+
+        trainer = TrainerForAutoTransformers(
+            model=this_model,
+            args=training_args,
+            model_init=load_model,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            tokenizer=tokenizer,
+            compute_metrics=self._compute_metrics_by_dataset_name,
+        )
+        trainer.train()
+        self._best_ckpt_path = self._ckpt_to_metric
+
+    def _compute_metrics_by_dataset_name(self, eval_pred):
+        import datasets
+        from .data import SEQREGRESSION
+
+        predictions, labels = eval_pred
+        predictions = (
+            np.squeeze(predictions)
+            if self._task == SEQREGRESSION
+            else np.argmax(predictions, axis=1)
+        )
+        metric_func = datasets.load.load_metric(self._metric_name)
+        return metric_func.compute(predictions=predictions, references=labels)
+
+    def predict(self, X_test: Union[DataFrame, List[str], List[List[str]]], **kwargs):
+        if isinstance(X_test, List) and isinstance(X_test[0], List):
+            unzipped_X_test = [x for x in zip(*X_test)]
+            X_test = DataFrame(
+                {
+                    "key_" + str(idx): unzipped_X_test[idx]
+                    for idx in range(len(unzipped_X_test))
+                }
+            )
+        elif isinstance(X_test, List):
+            X_test = DataFrame(
+                {"key_" + str(idx): [X_test[idx]] for idx in range(len(X_test))}
+            )
+        if X_test.dtypes[0] == "string":
+            X_test = self._preprocess(X_test, **kwargs)
 
 
 class SKLearnEstimator(BaseEstimator):
@@ -270,7 +428,7 @@ class LGBMEstimator(BaseEstimator):
         }
 
     def config2params(cls, config: dict) -> dict:
-        params = config.copy()
+        params = super().config2params(config)
         if "log_max_bin" in params:
             params["max_bin"] = (1 << params.pop("log_max_bin")) - 1
         return params
@@ -286,10 +444,16 @@ class LGBMEstimator(BaseEstimator):
         if "verbose" not in self.params:
             self.params["verbose"] = -1
         if "regression" == task:
+            from lightgbm import LGBMRegressor
+
             self.estimator_class = LGBMRegressor
         elif "rank" == task:
+            from lightgbm import LGBMRanker
+
             self.estimator_class = LGBMRanker
         else:
+            from lightgbm import LGBMClassifier
+
             self.estimator_class = LGBMClassifier
         self._time_per_iter = None
         self._train_size = 0
@@ -321,7 +485,7 @@ class LGBMEstimator(BaseEstimator):
         ):
             self.params["n_estimators"] = 1
             self._t1 = self._fit(X_train, y_train, **kwargs)
-            if self._t1 >= budget:
+            if self._t1 >= budget or n_iter == 1:
                 # self.params["n_estimators"] = n_iter
                 return self._t1
             self.params["n_estimators"] = min(n_iter, 4)
@@ -413,7 +577,7 @@ class XGBoostEstimator(SKLearnEstimator):
         return 1.6
 
     def config2params(cls, config: dict) -> dict:
-        params = config.copy()
+        params = super().config2params(config)
         params["max_depth"] = params.get("max_depth", 0)
         params["grow_policy"] = params.get("grow_policy", "lossguide")
         params["booster"] = params.get("booster", "gbtree")
@@ -432,6 +596,8 @@ class XGBoostEstimator(SKLearnEstimator):
         self.params["verbosity"] = 0
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
+        import xgboost as xgb
+
         start_time = time.time()
         if issparse(X_train):
             self.params["tree_method"] = "auto"
@@ -458,6 +624,8 @@ class XGBoostEstimator(SKLearnEstimator):
         return train_time
 
     def predict(self, X_test):
+        import xgboost as xgb
+
         if not issparse(X_test):
             X_test = self._preprocess(X_test)
         dtest = xgb.DMatrix(X_test)
@@ -476,7 +644,8 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         return XGBoostEstimator.cost_relative2lgbm()
 
     def config2params(cls, config: dict) -> dict:
-        params = config.copy()
+        # TODO: test
+        params = super(BaseEstimator).config2params(config)
         params["max_depth"] = 0
         params["grow_policy"] = params.get("grow_policy", "lossguide")
         params["booster"] = params.get("booster", "gbtree")
@@ -492,6 +661,7 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         super().__init__(task, **config)
         del self.params["verbose"]
         self.params["verbosity"] = 0
+        import xgboost as xgb
 
         self.estimator_class = xgb.XGBRegressor
         if "rank" == task:
@@ -538,7 +708,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         return 2.0
 
     def config2params(cls, config: dict) -> dict:
-        params = config.copy()
+        params = super(BaseEstimator).config2params(config)
         if "max_leaves" in params:
             params["max_leaf_nodes"] = params.get(
                 "max_leaf_nodes", params.pop("max_leaves")
@@ -585,7 +755,7 @@ class LRL1Classifier(SKLearnEstimator):
         return 160
 
     def config2params(cls, config: dict) -> dict:
-        params = config.copy()
+        params = super().config2params(config)
         params["tol"] = params.get("tol", 0.0001)
         params["solver"] = params.get("solver", "saga")
         params["penalty"] = params.get("penalty", "l1")
@@ -607,7 +777,7 @@ class LRL2Classifier(SKLearnEstimator):
         return 25
 
     def config2params(cls, config: dict) -> dict:
-        params = config.copy()
+        params = super().config2params(config)
         params["tol"] = params.get("tol", 0.0001)
         params["solver"] = params.get("solver", "lbfgs")
         params["penalty"] = params.get("penalty", "l2")
@@ -636,11 +806,15 @@ class CatBoostEstimator(BaseEstimator):
                 "domain": tune.loguniform(lower=0.005, upper=0.2),
                 "init_value": 0.1,
             },
+            "n_estimators": {
+                "domain": 8192,
+                "init_value": 8192,
+            },
         }
 
     @classmethod
     def size(cls, config):
-        n_estimators = 8192
+        n_estimators = config.get("n_estimators", 8192)
         max_leaves = 64
         return (max_leaves * 3 + (max_leaves - 1) * 4 + 1.0) * n_estimators * 8
 
@@ -676,7 +850,7 @@ class CatBoostEstimator(BaseEstimator):
         return X
 
     def config2params(cls, config: dict) -> dict:
-        params = config.copy()
+        params = super().config2params(config)
         params["n_estimators"] = params.get("n_estimators", 8192)
         if "n_jobs" in params:
             params["thread_count"] = params.pop("n_jobs")
@@ -733,7 +907,7 @@ class CatBoostEstimator(BaseEstimator):
                 X_train, y_train, cat_features=cat_features, **kwargs
             )
             CatBoostEstimator._t1 = time.time() - start_time
-            if CatBoostEstimator._t1 >= budget:
+            if CatBoostEstimator._t1 >= budget or n_iter == 1:
                 # self.params["n_estimators"] = n_iter
                 self._model = CatBoostEstimator._smallmodel
                 shutil.rmtree(train_dir, ignore_errors=True)
@@ -825,7 +999,7 @@ class KNeighborsEstimator(BaseEstimator):
         return 30
 
     def config2params(cls, config: dict) -> dict:
-        params = config.copy()
+        params = super().config2params(config)
         params["weights"] = params.get("weights", "distance")
         return params
 
@@ -882,7 +1056,7 @@ class Prophet(BaseEstimator):
         }
         return space
 
-    def __init__(self, task="forecast", n_jobs=1, **params):
+    def __init__(self, task="forecast", n_jobs=1, resources_per_trial=None, **params):
         super().__init__(task, **params)
 
     def _join(self, X_train, y_train):

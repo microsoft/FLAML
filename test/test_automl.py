@@ -13,10 +13,9 @@ import pandas as pd
 from datetime import datetime
 
 from flaml import AutoML
-from flaml.data import get_output_from_log
+from flaml.data import CLASSIFICATION, get_output_from_log
 
 from flaml.model import LGBMEstimator, SKLearnEstimator, XGBoostEstimator
-from rgf.sklearn import RGFClassifier, RGFRegressor
 from flaml import tune
 from flaml.training_log import training_log_reader
 
@@ -26,9 +25,13 @@ class MyRegularizedGreedyForest(SKLearnEstimator):
 
         super().__init__(task, **config)
 
-        if task in ("binary", "multi"):
+        if task in CLASSIFICATION:
+            from rgf.sklearn import RGFClassifier
+
             self.estimator_class = RGFClassifier
         else:
+            from rgf.sklearn import RGFRegressor
+
             self.estimator_class = RGFRegressor
 
     @classmethod
@@ -503,7 +506,7 @@ class TestAutoML(unittest.TestCase):
         automl_settings = {
             "time_budget": 2,
             "task": "regression",
-            "log_file_name": "test/boston.log",
+            "log_file_name": "test/california.log",
             "log_training_metric": True,
             "n_jobs": 1,
             "model_history": True,
@@ -625,10 +628,10 @@ class TestAutoML(unittest.TestCase):
         automl_settings = {
             "time_budget": 10,
             "task": "regression",
-            "log_file_name": "test/boston.log",
+            "log_file_name": "test/california.log",
             "log_type": "all",
             "n_jobs": 1,
-            "n_concurrent_trials": 2,
+            "n_concurrent_trials": 10,
             "hpo_method": hpo_method,
         }
         X_train, y_train = fetch_california_housing(return_X_y=True)
@@ -640,6 +643,18 @@ class TestAutoML(unittest.TestCase):
             print(automl_experiment.model_history)
             print(automl_experiment.best_iteration)
             print(automl_experiment.best_estimator)
+        except ImportError:
+            return
+
+    def test_parallel_classification(self):
+        from sklearn.datasets import make_classification
+
+        X, y = make_classification(1000, 10)
+        automl = AutoML()
+        try:
+            automl.fit(
+                X, y, time_budget=10, task="classification", n_concurrent_trials=2
+            )
         except ImportError:
             return
 

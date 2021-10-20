@@ -7,6 +7,10 @@ except ImportError:
 
 
 class TrainerForAutoTransformers(TFTrainer):
+    def __init__(self):
+        super().__init__()
+        self._ckpt_to_metric = {}
+
     def evaluate(self, eval_dataset=None):
         """
         Overriding transformers.Trainer.evaluate by saving state with save_state
@@ -21,12 +25,12 @@ class TrainerForAutoTransformers(TFTrainer):
         output = self.prediction_loop(eval_dataloader, description="Evaluation")
         self.log(output.metrics)
 
-        self.save_state()
+        ckpt_dir = self.save_state()
 
         for key in list(output.metrics.keys()):
             if key.startswith("eval_"):
                 output.metrics[key[5:]] = output.metrics[key]
-        return output.metrics
+        self._ckpt_to_metric[ckpt_dir] = output.metrics
 
     @staticmethod
     def tune_report(mode="holdout", output_metrics=None):
@@ -69,6 +73,7 @@ class TrainerForAutoTransformers(TFTrainer):
             torch.save(
                 self.lr_scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt")
             )
+            return output_dir
 
     @staticmethod
     def convert_num_train_epochs_to_max_steps(

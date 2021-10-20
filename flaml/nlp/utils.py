@@ -5,6 +5,7 @@ import pathlib
 import re
 from dataclasses import dataclass, field
 from typing import Optional, List, Tuple
+from ..data import SEQCLASSIFICATION, SEQREGRESSION
 
 
 def get_tuple_from_dataset_config(dataset_config):
@@ -66,6 +67,160 @@ def dft_arg_for_fold_names():
 
 def dft_arg_for_resources_per_trial():
     return {"cpu": 1, "gpu": 1}
+
+
+def _is_nlp_task(task):
+    if task in (SEQCLASSIFICATION):
+        return True
+    else:
+        return False
+
+
+def tokenize_text(X, custom_hpo_args):
+    tokenized_X = autoencodetext_from_model_and_dataset_name(X, custom_hpo_args)
+    return tokenized_X
+
+
+def tokenize_glue(this_row, this_tokenizer, **kwargs):
+    assert "max_seq_length" in kwargs, "max_seq_length must be provided for glue"
+
+    return this_tokenizer(
+        *tuple(this_row),
+        padding="max_length",
+        max_length=kwargs["max_seq_length"],
+        truncation=True,
+    )
+
+
+def autoencodetext_from_model_and_dataset_name(X, custom_hpo_args):
+    from functools import partial
+    from transformers import AutoTokenizer
+
+    this_tokenizer = AutoTokenizer.from_pretrained(
+        custom_hpo_args.model_path, use_fast=True
+    )
+    return X.map(
+        partial(tokenize_glue, this_tokenizer=this_tokenizer, **custom_hpo_args),
+        batched=False,
+    )
+
+
+def separate_config(config):
+    from transformers import TrainingArguments
+
+    training_args_config = {}
+    per_model_config = {}
+
+    for key, val in config.items():
+        if key in TrainingArguments.__dict__:
+            training_args_config[key] = val
+        else:
+            per_model_config[key] = val
+
+    return training_args_config, per_model_config
+
+
+def get_num_labels(task, y_train):
+    if task == SEQREGRESSION:
+        return 1
+    elif task == SEQCLASSIFICATION:
+        return len(set(y_train))
+
+
+def load_model(checkpoint_path, task, num_labels, per_model_config=None):
+    from transformers import AutoConfig
+    from .huggingface.switch_head_auto import (
+        AutoSeqClassificationHead,
+        MODEL_CLASSIFICATION_HEAD_MAPPING,
+    )
+
+    this_model_type = AutoConfig.from_pretrained(checkpoint_path).model_type
+    this_vocab_size = AutoConfig.from_pretrained(checkpoint_path).vocab_size
+
+    def get_this_model():
+        from transformers import AutoModelForSequenceClassification
+
+        return AutoModelForSequenceClassification.from_pretrained(
+            checkpoint_path, config=model_config
+        )
+
+    def is_pretrained_model_in_classification_head_list(model_type):
+        return model_type in MODEL_CLASSIFICATION_HEAD_MAPPING
+
+    def _set_model_config(checkpoint_path):
+        if per_model_config and len(per_model_config) > 0:
+            model_config = AutoConfig.from_pretrained(
+                checkpoint_path,
+                num_labels=model_config_num_labels,
+                **per_model_config,
+            )
+        else:
+            model_config = AutoConfig.from_pretrained(
+                checkpoint_path, num_labels=model_config_num_labels
+            )
+        return model_config
+
+    if task == SEQCLASSIFICATION:
+        num_labels_old = AutoConfig.from_pretrained(checkpoint_path).num_labels
+        if is_pretrained_model_in_classification_head_list(this_model_type):
+            model_config_num_labels = num_labels_old
+        else:
+            model_config_num_labels = num_labels
+        model_config = _set_model_config(checkpoint_path)
+
+        if is_pretrained_model_in_classification_head_list(this_model_type):
+            if num_labels != num_labels_old:
+                this_model = get_this_model()
+                model_config.num_labels = num_labels
+                this_model.num_labels = num_labels
+                this_model.classifier = (
+                    AutoSeqClassificationHead.from_model_type_and_config(
+                        this_model_type, model_config
+                    )
+                )
+            else:
+                this_model = get_this_model()
+        else:
+            this_model = get_this_model()
+        this_model.resize_token_embeddings(this_vocab_size)
+        return this_model
+    elif task == SEQCLASSIFICATION:
+        model_config_num_labels = 1
+        model_config = _set_model_config(checkpoint_path)
+        this_model = get_this_model()
+        return this_model
+
+
+def compute_checkpoint_freq(
+    resources_per_trial,
+    train_data_size,
+    custom_hpo_args,
+    num_train_epochs,
+    batch_size,
+):
+    if resources_per_trial["gpu"] > 0:
+        ckpt_step_freq = (
+            int(
+                min(num_train_epochs, 1)
+                * train_data_size
+                / batch_size
+                / resources_per_trial["gpu"]
+                / custom_hpo_args.ckpt_per_epoch
+            )
+            + 1
+        )
+    else:
+        ckpt_step_freq = (
+            int(
+                min(num_train_epochs, 1)
+                * train_data_size
+                / batch_size
+                / resources_per_trial["cpu"]
+                / custom_hpo_args.ckpt_per_epoch
+            )
+            + 1
+        )
+    return ckpt_step_freq
 
 
 @dataclass
@@ -159,31 +314,6 @@ class HPOArgs:
         default="data/output/", metadata={"help": "data dir", "required": True}
     )
 
-    # show this in docs str
-    sample_num: Optional[int] = field(
-        default=-1, metadata={"help": "sample number for HPO"}
-    )
-
-    # show this in doc str
-    time_budget: Optional[int] = field(
-        default=None, metadata={"help": "time budget for HPO"}
-    )
-
-    # show this in doc str, check format
-    points_to_evaluate: Optional[points_to_evaluate_format_check] = field(
-        default=None, metadata={"help": "init config for HPO to evaluate"}
-    )
-
-    # show this in doc str, check format
-    custom_search_space: Optional[custom_search_space_format_check] = field(
-        default=None, metadata={"help": "user customized search space"}
-    )
-
-    # show this in doc str, check format
-    custom_sentence_keys: Optional[Tuple[str]] = field(
-        default=None, metadata={"help": "custom sentence keys"}
-    )
-
     # show this in doc str
     model_path: str = field(
         default="facebook/muppet-roberta-base",
@@ -191,161 +321,15 @@ class HPOArgs:
     )
 
     # show this in doc str
-    resources_per_trial: dict = field(
-        default_factory=dft_arg_for_resources_per_trial,
-        metadata={"help": "resources per trial"},
-    )
-
-    # show this in doc str
     fp16: bool = field(default=True, metadata={"help": "whether to use the FP16 mode"})
 
-    # show this in doc str
-    ray_verbose: int = field(default=1, metadata={"help": "ray verbose level"})
-
-    # show this in doc str
-    transformers_verbose: int = field(
-        default=10, metadata={"help": "transformers verbose level"}
-    )
-
-    # show this in doc str
-    metric_name: str = field(default=None, metadata={"help": "custom metric name"})
-
-    # show this in doc str
-    metric_mode_name: str = field(
-        default=None, metadata={"help": "custom metric mode name"}
-    )
-
-    # show this in doc str
-    label_name: str = field(
-        default="label", metadata={"help": "custom metric mode name"}
-    )
-
-    # # show this in doc str
-    task: str = field(
-        default="seq-classification",
-        metadata={"help": "NLP task specified by user (user mode)"},
-    )
-
-    # the arguments below are used for developer mode only, do not include them in doc str
-    grid_space_model_type: str = field(
-        default=None,
-        metadata={
-            "help": "which model's grid configuration to use"
-            "for grid search. Only set this argument when "
-            "algo_mode=grid "
-        },
-    )
     max_seq_length: int = field(default=128, metadata={"help": "max seq length"})
-
-    key_path: str = field(
-        default=None,
-        metadata={
-            "help": "path for storing key.json which contains"
-            "the container key for Azure"
-        },
-    )
-    root_log_path: str = field(
-        default=None, metadata={"help": "root log path for logs on Azure"}
-    )
-    fold_names: List[str] = field(
-        default_factory=dft_arg_for_fold_names,
-        metadata={"help": "the fold names for the data when resplit_mode='rspt'"},
-    )
-
-    split_portion: List[str] = field(
-        default=None, metadata={"help": "the resplit portion when resplit_mode='rspt'"}
-    )
-
-    algo_mode: str = field(
-        default="hpo",
-        metadata={
-            "help": "hpo or grid search",
-            "choices": ["grid", "hpo", "hfhpo", "gridcv", "hpocv", "eval"],
-        },
-    )
-
-    space_mode: str = field(
-        default="gnr",
-        metadata={
-            "help": "space mode",
-            "choices": ["grid", "gnr", "uni", "uni_test", "cus", "gnr_test"],
-        },
-    )
-    search_alg_args_mode: str = field(
-        default="dft",
-        metadata={
-            "help": "search algorithm args mode",
-            "choices": ["dft", "exp", "cus"],
-        },
-    )
-    algo_name: str = field(
-        default="bs",
-        metadata={
-            "help": "algorithm",
-            "choices": ["bs", "optuna", "cfo", "rs", "grid"],
-        },
-    )
-    pruner: str = field(
-        default="asha", metadata={"help": "pruner for HPO", "choices": ["asha", "None"]}
-    )
-
-    rep_id: int = field(default=0, metadata={"help": "rep id in HPO experiment"})
-
-    eval_method: str = field(
-        default="holdout",
-        metadata={
-            "help": "mode for evaluation method, has two options, cv or holdout",
-            "choices": ["cv", "holdout"],
-        },
-    )
-
-    seed_data: int = field(
-        default=101,
-        metadata={"help": "seed for data shuffling when resplit_mode='rspt'"},
-    )
-
-    seed_bs: int = field(default=20, metadata={"help": "the seed for blend search"})
-
-    seed_transformers: int = field(
-        default=42, metadata={"help": "seed for HuggingFace transformers class"}
-    )
 
     ckpt_per_epoch: int = field(default=1, metadata={"help": "checkpoint per epoch"})
 
-    keep_checkpoints_num: int = field(
-        default=1, metadata={"help": "number of checkpoints to keep"}
-    )
-
-    cv_k: int = field(default=-1, metadata={"help": "cv fold number"})
-
-    is_wandb_on: bool = field(
-        default=False, metadata={"help": "whether to use the wandb mode for logging"}
-    )
-
-    model_size: str = field(default="base", metadata={"help": "size of the model path"})
-
-    def check_grid_config(self):
-        if self.algo_mode == "grid":
-            assert self.algo_name == "grid" and self.space_mode == "grid", (
-                "for grid search, "
-                "you must set all three args to 'grid': algo_mode, algo_name and space_mode"
-            )
-        if self.algo_name == "grid":
-            assert self.algo_mode == "grid" and self.space_mode == "grid", (
-                "for grid search, "
-                "you must set all three args to 'grid': algo_mode, algo_name and space_mode"
-            )
-        if self.space_mode == "grid":
-            assert self.algo_name == "grid" and self.algo_mode == "grid", (
-                "for grid search, "
-                "you must set all three args to 'grid': algo_mode, algo_name and space_mode"
-            )
-
-    def load_args(self, mode="args", **custom_hpo_args):
+    @staticmethod
+    def load_args():
         from dataclasses import fields
-
-        if mode == "args":
-            return self._load_custom_hpo_args(custom_hpo_args)
 
         arg_parser = argparse.ArgumentParser()
         for each_field in fields(HPOArgs):
@@ -364,54 +348,6 @@ class HPOArgs:
             )
         console_args, unknown = arg_parser.parse_known_args()
         return console_args
-
-    def _load_custom_hpo_args(self, custom_hpo_args):
-        dft_args = self
-        for key, val in custom_hpo_args.items():
-            assert (
-                key in self.__dict__
-            ), "The specified key {} is not in the argument list of flaml.nlp.utils::HPOArgs".format(
-                key
-            )
-            setattr(dft_args, key, val)
-
-        return dft_args
-
-    @staticmethod
-    def _get_default_config():
-        return {
-            "dataset_config": ["glue", "mrpc"],
-            "algo_mode": "hpo",
-            "space_mode": "gnr",
-            "search_alg_args_mode": "dft",
-            "algo_name": "bs",
-            "pruner": "None",
-            "model_path": "albert-base-v1",
-            "model_size": "small",
-            "resplit_mode": "rspt",
-            "rep_id": 0,
-            "seed_data": 101,
-            "seed_transformers": 42,
-            "seed_bs": 20,
-        }
-
-    @staticmethod
-    def _get_unittest_config():
-        return {
-            "dataset_config": ["glue", "mrpc"],
-            "algo_mode": "hpo",
-            "space_mode": "gnr_test",
-            "search_alg_args_mode": "cus",
-            "algo_name": "bs",
-            "pruner": "None",
-            "model_path": "albert-base-v1",
-            "model_size": "small",
-            "resplit_mode": "rspt",
-            "rep_id": 0,
-            "seed_data": 101,
-            "seed_transformers": 42,
-            "seed_bs": 20,
-        }
 
 
 def merge_dicts(dict1, dict2):
@@ -450,54 +386,3 @@ def _variable_override_default_alternative(
                     var_name, default_value, ",".join(all_values)
                 )
             )
-
-
-@dataclass
-class PathUtils:
-    hpo_ckpt_path: str = field(metadata={"help": "the directory for hpo output"})
-    hpo_result_path: str = field(metadata={"help": "the directory for hpo result"})
-    hpo_log_path: str = field(metadata={"help": "the directory for log"})
-    hpo_config_path: str = field(metadata={"help": "the directory for log"})
-
-    log_dir_per_run: str = field(metadata={"help": "log directory for each run."})
-    result_dir_per_run: str = field(metadata={"help": "result directory for each run."})
-    ckpt_dir_per_run: str = field(
-        metadata={"help": "checkpoint directory for each run."}
-    )
-    ckpt_dir_per_trial: str = field(
-        metadata={"help": "checkpoint directory for each trial."}
-    )
-
-    def __init__(
-        self,
-        jobid_config,
-        hpo_output_dir,
-    ):
-        self.jobid_config = jobid_config
-        self.hpo_output_dir = hpo_output_dir
-        self.hpo_ckpt_path = os.path.join(hpo_output_dir, "checkpoint")
-        self.hpo_result_path = os.path.join(hpo_output_dir, "result")
-        self.hpo_log_path = self.hpo_result_path
-
-    @staticmethod
-    def init_and_make_one_dir(dir_path):
-        assert dir_path
-        if not os.path.exists(dir_path):
-            pathlib.Path(dir_path).mkdir(parents=True, exist_ok=True)
-
-    def make_dir_per_run(self):
-        jobid_str = self.jobid_config.to_jobid_string()
-        self.ckpt_dir_per_run = os.path.join(self.hpo_ckpt_path, jobid_str)
-        PathUtils.init_and_make_one_dir(self.ckpt_dir_per_run)
-
-        self.result_dir_per_run = os.path.join(self.hpo_result_path, jobid_str)
-        PathUtils.init_and_make_one_dir(self.result_dir_per_run)
-
-        self.log_dir_per_run = os.path.join(self.hpo_log_path, jobid_str)
-        PathUtils.init_and_make_one_dir(self.log_dir_per_run)
-
-    def make_dir_per_trial(self, trial_id):
-        jobid_str = self.jobid_config.to_jobid_string()
-        ckpt_dir_per_run = os.path.join(self.hpo_ckpt_path, jobid_str)
-        self.ckpt_dir_per_trial = os.path.join(ckpt_dir_per_run, jobid_str, trial_id)
-        PathUtils.init_and_make_one_dir(self.ckpt_dir_per_trial)
