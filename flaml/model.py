@@ -325,7 +325,7 @@ class LGBMEstimator(BaseEstimator):
         ):
             self.params["n_estimators"] = 1
             self._t1 = self._fit(X_train, y_train, **kwargs)
-            if self._t1 >= budget:
+            if self._t1 >= budget or n_iter == 1:
                 # self.params["n_estimators"] = n_iter
                 return self._t1
             self.params["n_estimators"] = min(n_iter, 4)
@@ -465,7 +465,7 @@ class XGBoostEstimator(SKLearnEstimator):
 
     def predict(self, X_test):
         import xgboost as xgb
-        
+
         if not issparse(X_test):
             X_test = self._preprocess(X_test)
         dtest = xgb.DMatrix(X_test)
@@ -645,11 +645,15 @@ class CatBoostEstimator(BaseEstimator):
                 "domain": tune.loguniform(lower=0.005, upper=0.2),
                 "init_value": 0.1,
             },
+            "n_estimators": {
+                "domain": 8192,
+                "init_value": 8192,
+            },
         }
 
     @classmethod
     def size(cls, config):
-        n_estimators = 8192
+        n_estimators = config.get("n_estimators", 8192)
         max_leaves = 64
         return (max_leaves * 3 + (max_leaves - 1) * 4 + 1.0) * n_estimators * 8
 
@@ -742,7 +746,7 @@ class CatBoostEstimator(BaseEstimator):
                 X_train, y_train, cat_features=cat_features, **kwargs
             )
             CatBoostEstimator._t1 = time.time() - start_time
-            if CatBoostEstimator._t1 >= budget:
+            if CatBoostEstimator._t1 >= budget or n_iter == 1:
                 # self.params["n_estimators"] = n_iter
                 self._model = CatBoostEstimator._smallmodel
                 shutil.rmtree(train_dir, ignore_errors=True)

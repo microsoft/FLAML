@@ -89,6 +89,7 @@ class SearchState:
                 and starting_point.get(name) is not None
             ):
                 self.init_config[name] = starting_point[name]
+
         if isinstance(starting_point, list):
             self.init_config = starting_point
         self._hp_names = list(self._search_space_domain.keys())
@@ -118,16 +119,11 @@ class SearchState:
             trained_estimator = result["trained_estimator"]
             del result["trained_estimator"]  # free up RAM
             n_iter = trained_estimator and trained_estimator.params.get("n_estimators")
-            if (
-                n_iter is not None
-                and "n_estimators" in config
-                and n_iter >= self._search_space_domain["n_estimators"].lower
-            ):
+            if n_iter is not None and "n_estimators" in config:
                 config["n_estimators"] = n_iter
-                n_iter = None
         else:
             obj, time2eval, trained_estimator = np.inf, 0.0, None
-            metric_for_logging = config = n_iter = None
+            metric_for_logging = config = None
         self.trial_time = time2eval
         self.total_time_used += time_used
         self.total_iter += 1
@@ -155,10 +151,8 @@ class SearchState:
                 self.trained_estimator.cleanup()
             if trained_estimator:
                 self.trained_estimator = trained_estimator
-            self.best_n_iter = n_iter
         self.metric_for_logging = metric_for_logging
         self.val_loss, self.config = obj, config
-        self.n_iter = n_iter
 
     def get_hist_config_sig(self, sample_size, config):
         config_values = tuple([config[k] for k in self._hp_names])
@@ -258,12 +252,9 @@ class AutoMLState:
         }
         if sampled_weight is not None:
             self.fit_kwargs["sample_weight"] = weight
-        #     tune.report(**result)
         return result
 
-    def _train_with_config(
-        self, estimator, config_w_resource, sample_size=None, n_iter=None
-    ):
+    def _train_with_config(self, estimator, config_w_resource, sample_size=None):
         if not sample_size:
             sample_size = config_w_resource.get(
                 "FLAML_sample_size", len(self.y_train_all)
@@ -300,7 +291,6 @@ class AutoMLState:
             self.n_jobs,
             self.learner_classes.get(estimator),
             budget,
-            n_iter,
             self.fit_kwargs,
         )
         if sampled_weight is not None:
@@ -430,7 +420,7 @@ class AutoML:
 
     @property
     def time_to_find_best_model(self) -> float:
-        """time taken to find best model in seconds"""
+        """Time taken to find best model in seconds"""
         return self.__dict__.get("_time_taken_best_iter")
 
     def predict(self, X_test):
@@ -1021,7 +1011,7 @@ class AutoML:
         self._state.time_budget = None
         self._state.n_jobs = n_jobs
         self._trained_estimator = self._state._train_with_config(
-            best_estimator, best_config, sample_size, best.n_iter
+            best_estimator, best_config, sample_size
         )[0]
         logger.info("retrain from log succeeded")
         return training_duration
@@ -1402,6 +1392,20 @@ class AutoML:
                 hyperparamter configurations for the corresponding estimators.
                 The value can be a single hyperparamter configuration dict or a list
                 of hyperparamter configuration dicts.
+                In the following code example, we get starting_points from the
+                automl_experiment and use them in the new_automl_experiment.
+                e.g.,
+                .. code-block:: python
+                    from flaml import AutoML
+                    automl_experiment = AutoML()
+                    X_train, y_train = load_iris(return_X_y=True)
+                    automl_experiment.fit(X_train, y_train)
+                    starting_points = automl_experiment.best_config_per_estimator
+
+                    new_automl_experiment = AutoML()
+                    new_automl_experiment.fit(X_train, y_train,
+                        starting_points=starting_points)
+
             seed: int or None, default=None | The random seed for np.random.
             n_concurrent_trials: [Experimental] int, default=1 | The number of
                 concurrent trials. For n_concurrent_trials > 1, installation of
@@ -1720,7 +1724,6 @@ class AutoML:
                         config,
                         estimator,
                         search_state.sample_size,
-                        search_state.n_iter,
                     )
 
     def _search_sequential(self):
@@ -1758,6 +1761,18 @@ class AutoML:
         better = True  # whether we find a better model in one trial
         if self._ensemble:
             self.best_model = {}
+        if self._max_iter < 2 and self.estimator_list:
+            # when max_iter is 1, no need to search
+            # TODO: otherwise, need to make sure SearchStates.init_config is inside search space
+            self._max_iter = 0
+            self._best_estimator = estimator = self.estimator_list[0]
+            self._selected = state = self._search_states[estimator]
+            state.best_config_sample_size = self._state.data_size
+            state.best_config = (
+                state.init_config
+                if isinstance(state.init_config, dict)
+                else state.init_config[0]
+            )
         for self._track_iter in range(self._max_iter):
             if self._estimator_index is None:
                 estimator = self._active_estimators[0]
@@ -1834,9 +1849,9 @@ class AutoML:
                         metric="val_loss",
                         mode="min",
                         space=search_space,
-                        points_to_evaluate=points_to_evaluate
-                        if len(search_state.init_config) == len(search_space)
-                        else None,
+                        points_to_evaluate=[
+                            p for p in points_to_evaluate if len(p) == len(search_space)
+                        ],
                     )
                 search_state.search_alg = ConcurrencyLimiter(algo, max_concurrent=1)
                 # search_state.search_alg = algo
@@ -1931,7 +1946,6 @@ class AutoML:
                             search_state.config,
                             estimator,
                             search_state.sample_size,
-                            search_state.n_iter,
                         )
                     if mlflow is not None and mlflow.active_run():
                         with mlflow.start_run(nested=True):
@@ -2009,7 +2023,6 @@ class AutoML:
                     self._best_estimator,
                     state.best_config,
                     self.data_size_full,
-                    state.best_n_iter,
                 )
                 logger.info(
                     "retrain {} for {:.1f}s".format(self._best_estimator, retrain_time)
@@ -2122,7 +2135,6 @@ class AutoML:
                         self._best_estimator,
                         state.best_config,
                         self.data_size_full,
-                        state.best_n_iter,
                     )
                     logger.info(
                         "retrain {} for {:.1f}s".format(

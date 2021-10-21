@@ -31,7 +31,7 @@ class MyRegularizedGreedyForest(SKLearnEstimator):
             self.estimator_class = RGFClassifier
         else:
             from rgf.sklearn import RGFRegressor
-            
+
             self.estimator_class = RGFRegressor
 
     @classmethod
@@ -643,6 +643,18 @@ class TestAutoML(unittest.TestCase):
             print(automl_experiment.model_history)
             print(automl_experiment.best_iteration)
             print(automl_experiment.best_estimator)
+        except ImportError:
+            return
+
+    def test_parallel_classification(self):
+        from sklearn.datasets import make_classification
+
+        X, y = make_classification(1000, 10)
+        automl = AutoML()
+        try:
+            automl.fit(
+                X, y, time_budget=10, task="classification", n_concurrent_trials=2
+            )
         except ImportError:
             return
 
