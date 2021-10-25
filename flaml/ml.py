@@ -15,7 +15,6 @@ from sklearn.metrics import (
     log_loss,
     average_precision_score,
     f1_score,
-    mean_absolute_percentage_error,
     ndcg_score,
 )
 from sklearn.model_selection import RepeatedStratifiedKFold, GroupKFold, TimeSeriesSplit
