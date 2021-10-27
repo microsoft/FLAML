@@ -1020,14 +1020,11 @@ class CFO(BlendSearchTuner):
             return False
         if self._candidate_start_points and self._thread_count == 1:
             # result needs to match or exceed the best candidate start point
-            try:
-                obj_best = min(
-                    self._ls.metric_op * r[self._ls.metric]
-                    for r in self._candidate_start_points.values()
-                    if r
-                )
-            except ValueError:
-                obj_best = np.inf
+            obj_best = min(
+                (self._ls.metric_op * r[self._ls.metric]
+                for r in self._candidate_start_points.values()
+                if r), default=-np.inf
+            )
             return result[self._ls.metric] * self._ls.metric_op <= obj_best
         else:
             return True
