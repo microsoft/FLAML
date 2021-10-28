@@ -430,10 +430,11 @@ class AutoML:
             X_test: A numpy array of featurized instances, shape n * m,
                 or for 'ts_forecast' task:
                     a pandas dataframe with the first column containing
-                    timestamp values and for multivariate ts_forecast
-                    other columns containing exogenous variable values
-                    or an integer n for the predict steps (only valid when
-                    the estimator is arima or sarimax).
+                    timestamp values (datetime type) and for multivariate
+                    ts_forecast other columns containing exogenous variable
+                    values (str or int for categorical and int or float for
+                    continuous) or an integer n for the predict steps (only
+                    valid when the estimator is arima or sarimax).
 
         Returns:
             A array-like of shape n * 1 - - each element is a predicted
@@ -900,14 +901,14 @@ class AutoML:
         Args:
             log_file_name: A string of the log file name
             X_train: A numpy array of training data in shape n*m
+                For 'ts_forecast' task, the first column of X_train
+                must be the timestamp column (datetime type).
             y_train: A numpy array of labels in shape n*1
             dataframe: A dataframe of training data including label column.
                 For 'ts_forecast' task, dataframe must be specified and should
-                have two columns: timestamp and value.
-            label: A str of the label column name for 'classification' or
-                'regression' task, e.g., 'label';
-                or a tuple of strings for timestamp and value columns for
-                'ts_forecast' task, e.g., ('timestamp', 'value').
+                have at least two columns: timestamp and label, where the first
+                column is the timestamp column (datetime type).
+            label: A str of the label column name, e.g., 'label';
                 Note: If X_train and y_train are provided,
                 dataframe and label are ignored;
                 If not, dataframe and label must be provided.
@@ -1291,12 +1292,12 @@ class AutoML:
         Args:
             X_train: A numpy array or a pandas dataframe of training data in
                 shape (n, m). For 'ts_forecast' task, the first column of X_train
-                must be the timestamp column.
+                must be the timestamp column (datetime type).
             y_train: A numpy array or a pandas series of labels in shape (n, ).
             dataframe: A dataframe of training data including label column.
                 For 'ts_forecast' task, dataframe must be specified and must have
                 at least two columns, timestamp and label, where the first
-                column is the timestamp column
+                column is the timestamp column (datetime type).
             label: A str of the label column name for, e.g., 'label';
                 Note: If X_train and y_train are provided,
                 dataframe and label are ignored;
