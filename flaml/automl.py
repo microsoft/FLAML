@@ -944,7 +944,10 @@ class AutoML:
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight.
         """
-        self._state.task = task
+        if task == FORECAST:
+            self._state.task = TS_FORECAST
+        else:
+            self._state.task = task
         self._state.fit_kwargs = fit_kwargs
         self._validate_data(X_train, y_train, dataframe, label, groups=groups)
 
@@ -1000,7 +1003,10 @@ class AutoML:
         )
         # Partially copied from fit() function
         # Initilize some attributes required for retrain_from_log
-        self._state.task = task
+        if task == FORECAST:
+            self._state.task = TS_FORECAST
+        else:
+            self._state.task = task
         self._decide_split_type(split_type)
         if record_id >= 0:
             eval_method = "cv"
