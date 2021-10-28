@@ -36,7 +36,7 @@ from .config import (
     N_SPLITS,
     SAMPLE_MULTIPLY_FACTOR,
 )
-from .data import concat, CLASSIFICATION, TS_FORECAST
+from .data import concat, CLASSIFICATION, TS_FORECAST, FORECAST
 from . import tune
 from .training_log import training_log_reader, training_log_writer
 
@@ -1427,7 +1427,10 @@ class AutoML:
                 a key word argument for 'ts_forecast' task.
         """
         self._state._start_time_flag = self._start_time_flag = time.time()
-        self._state.task = task
+        if task == FORECAST:
+            self._state.task = TS_FORECAST
+        else:
+            self._state.task = task
         self._state.log_training_metric = log_training_metric
         self._state.fit_kwargs = fit_kwargs
         self._state.weight_val = sample_weight_val

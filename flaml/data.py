@@ -15,6 +15,7 @@ CLASSIFICATION = ("binary", "multi", "classification")
 TS_FORECAST = "ts_forecast"
 TS_TIMESTAMP_COL = "ds"
 TS_VALUE_COL = "y"
+FORECAST = "forecast"
 
 
 def load_openml_dataset(
