@@ -292,6 +292,31 @@ class TestClassification(unittest.TestCase):
             print("skipping concurrency test as ray is not installed")
             return
 
+    def test_sparse_matrix_lr(self):
+        automl_experiment = AutoML()
+        automl_settings = {
+            "time_budget": 3,
+            "metric": "f1",
+            "task": "classification",
+            "log_file_name": "test/sparse_classification.log",
+            "estimator_list": ["lrl1", "lrl2"],
+            "log_type": "all",
+            "n_jobs": 1,
+        }
+        X_train = scipy.sparse.random(3000, 3000, density=0.1)
+        y_train = np.random.randint(2, size=3000)
+        automl_experiment.fit(
+            X_train=X_train, y_train=y_train, train_time_limit=1, **automl_settings
+        )
+        automl_settings["time_budget"] = 5
+        automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
+        print(automl_experiment.predict(X_train))
+        print(automl_experiment.model)
+        print(automl_experiment.config_history)
+        print(automl_experiment.model_history)
+        print(automl_experiment.best_iteration)
+        print(automl_experiment.best_estimator)
+
 
 if __name__ == "__main__":
     unittest.main()

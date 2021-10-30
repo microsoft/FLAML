@@ -142,6 +142,8 @@ class BaseEstimator:
             train_time: A float of the training time in seconds
         """
         try:
+            if isinstance(self, LRL1Classifier):  # lrl1 can't be limited this way
+                raise ImportError
             import psutil
             import resource
 
