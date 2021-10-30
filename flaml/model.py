@@ -142,8 +142,9 @@ class BaseEstimator:
             train_time: A float of the training time in seconds
         """
         try:
-            if isinstance(self, LRL1Classifier):  # lrl1 can't be limited this way
-                raise ImportError
+            if not self.limit_resource:
+                # Some can't be limited this way
+                raise AttributeError
             import psutil
             import resource
 
@@ -164,7 +165,7 @@ class BaseEstimator:
                 model.fit(X_train, y_train)
                 self._model = model
                 train_time = time.time() - start_time
-        except ImportError:
+        except (ImportError, AttributeError):
             # logger.info("not enforcing time and mem limit")
             train_time = self._fit(X_train, y_train, **kwargs)
         return train_time
@@ -682,6 +683,8 @@ class LRL1Classifier(SKLearnEstimator):
 
 
 class LRL2Classifier(SKLearnEstimator):
+    limit_resource = True
+
     @classmethod
     def search_space(cls, **params):
         return LRL1Classifier.search_space(**params)
