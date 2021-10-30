@@ -196,16 +196,16 @@ model is updated each time.</p>
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>X_train</strong> – A numpy array or a pandas dataframe of training data in
-shape (n, m). For ‘forecast’ task, X_train should contain a
-single column of timestamps.</p></li>
+shape (n, m). For ‘ts_forecast’ task, the first column of X_train
+must be the timestamp column (datetime type). Other columns in
+the dataframe are assumed to be exogenous variables (categorical or numeric).</p></li>
 <li><p><strong>y_train</strong> – A numpy array or a pandas series of labels in shape (n, ).</p></li>
 <li><p><strong>dataframe</strong> – A dataframe of training data including label column.
-For ‘forecast’ task, dataframe must be specified and should
-have two columns: timestamp and value.</p></li>
-<li><p><strong>label</strong> – A str of the label column name for ‘classification’ or
-‘regression’ task, e.g., ‘label’;
-or a tuple of strings for timestamp and value columns for
-‘forecasting’ task, e.g., (‘timestamp’, ‘value’).
+For ‘ts_forecast’ task, dataframe must be specified and must have
+at least two columns, timestamp and label, where the first
+column is the timestamp column (datetime type). Other columns in
+the dataframe are assumed to be exogenous variables (categorical or numeric).</p></li>
+<li><p><strong>label</strong> – A str of the label column name for, e.g., ‘label’;
 Note: If X_train and y_train are provided,
 dataframe and label are ignored;
 If not, dataframe and label must be provided.</p></li>
@@ -227,7 +227,7 @@ have the follwing signature:</p>
 and a dictionary as the metrics to log.</p>
 </p></li>
 <li><p><strong>task</strong> – A string of the task type, e.g.,
-‘classification’, ‘regression’, ‘forecast’, ‘rank’.</p></li>
+‘classification’, ‘regression’, ‘ts_forecast’, ‘rank’.</p></li>
 <li><p><strong>n_jobs</strong> – An integer of the number of threads for training.</p></li>
 <li><p><strong>log_file_name</strong> – A string of the log file name.</p></li>
 <li><p><strong>estimator_list</strong> – <p>A list of strings for estimator names, or ‘auto’
@@ -286,7 +286,7 @@ For classification tasks, valid choices are [</p>
 <dt>For regression tasks, valid choices are [None, ‘uniform’, ‘time’].</dt><dd><p>None -&gt; uniform.</p>
 </dd>
 </dl>
-<p>For time series forecasting, must be None or ‘time’.
+<p>For ts_forecast tasks, must be None or ‘time’.
 For ranking task, must be None or ‘group’.</p>
 </p></li>
 <li><p><strong>hpo_method</strong> – str or None, default=None | The hyperparameter
@@ -337,7 +337,7 @@ augment rare classes.</p></li>
 size when sample=True.</p></li>
 <li><p><strong>**fit_kwargs</strong> – Other key word arguments to pass to fit() function of
 the searched learners, such as sample_weight. Include period as
-a key word argument for ‘forecast’ task.</p></li>
+a key word argument for ‘ts_forecast’ task.</p></li>
 </ul>
 </dd>
 </dl>
@@ -354,7 +354,7 @@ a key word argument for ‘forecast’ task.</p></li>
 <li><p><strong>record_id</strong> – An integer of the record ID in the file,
 0 corresponds to the first trial</p></li>
 <li><p><strong>task</strong> – A string of the task type,
-‘binary’, ‘multi’, ‘regression’, ‘forecast’, ‘rank’</p></li>
+‘binary’, ‘multi’, ‘regression’, ‘ts_forecast’, ‘rank’</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -446,11 +446,22 @@ the best model is updated each time.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>X_test</strong> – <p>A numpy array of featurized instances, shape n * m,
-or for ‘forecasting’ task:</p>
+or for ‘ts_forecast’ task:</p>
 <blockquote>
-<div><p>a pandas dataframe with one column of timestamp values
-or an integer n for the predict steps (only valid when
-the estimator is arima or sarimax).</p>
+<div><p>a pandas dataframe with the first column containing
+timestamp values (datetime type) or an integer n for
+the predict steps (only valid when the estimator is
+arima or sarimax). Other columns in the dataframe
+are assumed to be exogenous variables (categorical
+or numeric).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">multivariate_X_test</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s1">&#39;timeStamp&#39;</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="s1">&#39;1/1/2022&#39;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s1">&#39;1/07/2022&#39;</span><span class="p">),</span>
+    <span class="s1">&#39;categorical_col&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;yes&#39;</span><span class="p">,</span> <span class="s1">&#39;yes&#39;</span><span class="p">,</span> <span class="s1">&#39;no&#39;</span><span class="p">,</span> <span class="s1">&#39;no&#39;</span><span class="p">,</span> <span class="s1">&#39;yes&#39;</span><span class="p">,</span> <span class="s1">&#39;no&#39;</span><span class="p">,</span> <span class="s1">&#39;yes&#39;</span><span class="p">],</span>
+    <span class="s1">&#39;continuous_col&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">105</span><span class="p">,</span> <span class="mi">107</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="mi">118</span><span class="p">,</span> <span class="mi">110</span><span class="p">,</span> <span class="mi">112</span><span class="p">,</span> <span class="mi">115</span><span class="p">]</span>
+<span class="p">})</span>
+<span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">multivariate_X_test</span><span class="p">)</span>
+</pre></div>
+</div>
 </div></blockquote>
 </p>
 </dd>
@@ -496,21 +507,25 @@ classification problems.</p>
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>log_file_name</strong> – A string of the log file name</p></li>
-<li><p><strong>X_train</strong> – A numpy array of training data in shape n*m</p></li>
+<li><p><strong>X_train</strong> – A numpy array of training data in shape n*m
+For ‘ts_forecast’ task, the first column of X_train
+must be the timestamp column (datetime type). Other
+columns in the dataframe are assumed to be exogenous
+variables (categorical or numeric).</p></li>
 <li><p><strong>y_train</strong> – A numpy array of labels in shape n*1</p></li>
 <li><p><strong>dataframe</strong> – A dataframe of training data including label column.
-For ‘forecast’ task, dataframe must be specified and should
-have two columns: timestamp and value.</p></li>
-<li><p><strong>label</strong> – A str of the label column name for ‘classification’ or
-‘regression’ task, e.g., ‘label’;
-or a tuple of strings for timestamp and value columns for
-‘forecasting’ task, e.g., (‘timestamp’, ‘value’).
+For ‘ts_forecast’ task, dataframe must be specified and should
+have at least two columns: timestamp and label, where the first
+column is the timestamp column (datetime type). Other columns
+in the dataframe are assumed to be exogenous variables
+(categorical or numeric).</p></li>
+<li><p><strong>label</strong> – A str of the label column name, e.g., ‘label’;
 Note: If X_train and y_train are provided,
 dataframe and label are ignored;
 If not, dataframe and label must be provided.</p></li>
 <li><p><strong>time_budget</strong> – A float number of the time budget in seconds.</p></li>
 <li><p><strong>task</strong> – A string of the task type, e.g.,
-‘classification’, ‘regression’, ‘forecast’, ‘rank’.</p></li>
+‘classification’, ‘regression’, ‘ts_forecast’, ‘rank’.</p></li>
 <li><p><strong>eval_method</strong> – A string of resampling strategy, one of
 [‘auto’, ‘cv’, ‘holdout’].</p></li>
 <li><p><strong>split_ratio</strong> – A float of the validation data percentage for holdout.</p></li>
@@ -524,7 +539,7 @@ For classification tasks, valid choices are [</p>
 <dt>For regression tasks, valid choices are [None, ‘uniform’, ‘time’].</dt><dd><p>None -&gt; uniform.</p>
 </dd>
 </dl>
-<p>For time series forecasting, must be None or ‘time’.
+<p>For ts_forecast tasks, must be None or ‘time’.
 For ranking task, must be None or ‘group’.</p>
 </p></li>
 <li><p><strong>groups</strong> – None or array-like | Group labels (with matching length to
