@@ -44,6 +44,7 @@ def limit_resource(memory_limit, time_limit):
     finally:
         if main_thread:
             signal.alarm(0)
+        resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
 
 
 class BaseEstimator:
