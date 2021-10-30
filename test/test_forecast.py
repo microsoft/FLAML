@@ -337,6 +337,7 @@ def test_multivariate_forecast_cat(budget=5):
     # plt.legend()
     # plt.show()
 
+
 if __name__ == "__main__":
     test_forecast_automl(60)
     test_multivariate_forecast_num(60)

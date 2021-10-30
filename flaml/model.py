@@ -1015,7 +1015,7 @@ class ARIMA(Prophet):
                     forecast = self._model.predict(start=start, end=end)
             else:
                 raise ValueError(
-                    f"X_test needs to be either a pd.Dataframe with dates as the first column"
+                    "X_test needs to be either a pd.Dataframe with dates as the first column"
                     " or an int number of periods for predict()."
                 )
             return forecast
