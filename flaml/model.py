@@ -4,6 +4,7 @@
 """
 from contextlib import contextmanager
 import signal
+import os
 import numpy as np
 import time
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
@@ -30,13 +31,19 @@ def limit_resource(memory_limit, time_limit):
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
     if soft < 0 or memory_limit < soft:
         resource.setrlimit(resource.RLIMIT_AS, (memory_limit, hard))
+    main_thread = False
     if time_limit is not None:
-        signal.signal(signal.SIGALRM, TimeoutHandler)
-        signal.alarm(int(time_limit))
+        try:
+            signal.signal(signal.SIGALRM, TimeoutHandler)
+            signal.alarm(int(time_limit) or 1)
+            main_thread = True
+        except ValueError:
+            pass
     try:
         yield
     finally:
-        signal.alarm(0)
+        if main_thread:
+            signal.alarm(0)
 
 
 class BaseEstimator:
@@ -140,7 +147,10 @@ class BaseEstimator:
             start_time = time.time()
             mem = psutil.virtual_memory()
             try:
-                with limit_resource(mem.available, budget):
+                with limit_resource(
+                    mem.available * 0.9 + psutil.Process(os.getpid()).memory_info().rss,
+                    budget,
+                ):
                     train_time = self._fit(X_train, y_train, **kwargs)
             except (MemoryError, TimeoutError) as e:
                 logger.warning(f"{e.__class__} {e}")
@@ -376,11 +386,11 @@ class LGBMEstimator(BaseEstimator):
         ):
             self.params[self.ITER_HP] = 1
             self._t1 = self._fit(X_train, y_train, **kwargs)
-            mem1 = psutil.virtual_memory().available if psutil is not None else 1
-            self._mem1 = max(mem0 - mem1, 1)
             if self._t1 >= budget or n_iter == 1:
                 # self.params[self.ITER_HP] = n_iter
                 return self._t1
+            mem1 = psutil.virtual_memory().available if psutil is not None else 1
+            self._mem1 = max(mem0 - mem1, 1)
             self.params[self.ITER_HP] = min(n_iter, 4)
             self._t2 = self._fit(X_train, y_train, **kwargs)
             mem2 = psutil.virtual_memory().available if psutil is not None else 1
@@ -693,6 +703,7 @@ class LRL2Classifier(SKLearnEstimator):
 class CatBoostEstimator(BaseEstimator):
     _time_per_iter = None
     _train_size = 0
+    ITER_HP = "n_estimators"
 
     @classmethod
     def search_space(cls, data_size, **params):
@@ -782,14 +793,19 @@ class CatBoostEstimator(BaseEstimator):
 
         start_time = time.time()
         train_dir = f"catboost_{str(start_time)}"
-        n_iter = self.params["n_estimators"]
+        n_iter = self.params[self.ITER_HP]
         X_train = self._preprocess(X_train)
         if isinstance(X_train, pd.DataFrame):
             cat_features = list(X_train.select_dtypes(include="category").columns)
         else:
             cat_features = []
-        # from catboost import CatBoostError
-        # try:
+        try:
+            import psutil
+
+            mem0 = psutil.virtual_memory().available
+        except ImportError:
+            mem0 = 1
+            psutil = None
         trained = False
         if (
             (
@@ -800,7 +816,7 @@ class CatBoostEstimator(BaseEstimator):
             and n_iter > 4
         ):
             # measure the time per iteration
-            self.params["n_estimators"] = 1
+            self.params[self.ITER_HP] = 1
             CatBoostEstimator._smallmodel = self.estimator_class(
                 train_dir=train_dir, **self.params
             )
@@ -809,32 +825,43 @@ class CatBoostEstimator(BaseEstimator):
             )
             CatBoostEstimator._t1 = time.time() - start_time
             if CatBoostEstimator._t1 >= budget or n_iter == 1:
-                # self.params["n_estimators"] = n_iter
+                # self.params[self.ITER_HP] = n_iter
                 self._model = CatBoostEstimator._smallmodel
                 shutil.rmtree(train_dir, ignore_errors=True)
                 return CatBoostEstimator._t1
-            self.params["n_estimators"] = min(n_iter, 4)
+            mem1 = psutil.virtual_memory().available if psutil is not None else 1
+            CatBoostEstimator._mem1 = max(mem0 - mem1, 1)
+            self.params[self.ITER_HP] = min(n_iter, 4)
             CatBoostEstimator._smallmodel = self.estimator_class(
                 train_dir=train_dir, **self.params
             )
             CatBoostEstimator._smallmodel.fit(
                 X_train, y_train, cat_features=cat_features, **kwargs
             )
+            mem2 = psutil.virtual_memory().available if psutil is not None else 1
+            CatBoostEstimator._mem2 = max(mem0 - mem2, 1)
+            CatBoostEstimator._mem_per_iter = min(
+                CatBoostEstimator._mem1,
+                CatBoostEstimator._mem2 / (self.params[self.ITER_HP] + 1),
+            )
             CatBoostEstimator._time_per_iter = (
                 time.time() - start_time - CatBoostEstimator._t1
-            ) / (self.params["n_estimators"] - 1)
+            ) / (self.params[self.ITER_HP] - 1)
             if CatBoostEstimator._time_per_iter <= 0:
                 CatBoostEstimator._time_per_iter = CatBoostEstimator._t1
             CatBoostEstimator._train_size = len(y_train)
             if (
                 time.time() - start_time >= budget
-                or n_iter == self.params["n_estimators"]
+                or n_iter == self.params[self.ITER_HP]
             ):
-                # self.params["n_estimators"] = n_iter
+                # self.params[self.ITER_HP] = n_iter
                 self._model = CatBoostEstimator._smallmodel
                 shutil.rmtree(train_dir, ignore_errors=True)
                 return time.time() - start_time
             trained = True
+        mem_available = (
+            psutil.virtual_memory().available if psutil is not None else n_iter
+        )
         if budget and n_iter > 4:
             train_times = 1
             max_iter = min(
@@ -845,12 +872,13 @@ class CatBoostEstimator(BaseEstimator):
                     / CatBoostEstimator._time_per_iter
                     + 1
                 ),
+                int(mem_available / CatBoostEstimator._mem_per_iter),
             )
             self._model = CatBoostEstimator._smallmodel
-            if trained and max_iter <= self.params["n_estimators"]:
+            if trained and max_iter <= self.params[self.ITER_HP]:
                 return time.time() - start_time
-            self.params["n_estimators"] = max_iter
-        if self.params["n_estimators"] > 0:
+            self.params[self.ITER_HP] = max_iter
+        if self.params[self.ITER_HP] > 0:
             n = max(int(len(y_train) * 0.9), len(y_train) - 1000)
             X_tr, y_tr = X_train[:n], y_train[:n]
             if "sample_weight" in kwargs:
@@ -876,7 +904,7 @@ class CatBoostEstimator(BaseEstimator):
                 kwargs["sample_weight"] = weight
             self._model = model
         else:
-            self.params["n_estimators"] = self._model.tree_count_
+            self.params[self.ITER_HP] = self._model.tree_count_
         # except CatBoostError:
         #     self._model = None
         train_time = time.time() - start_time
