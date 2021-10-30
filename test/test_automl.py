@@ -688,7 +688,7 @@ class TestAutoML(unittest.TestCase):
         # use random search as the hpo_method
         self.test_parallel_xgboost(hpo_method="random")
 
-    def test_random_out_of_memory(self):
+    def _test_memory_limit(self):
         automl_experiment = AutoML()
         automl_experiment.add_learner(
             learner_name="large_lgbm", learner_class=MyLargeLGBM
@@ -699,24 +699,32 @@ class TestAutoML(unittest.TestCase):
             "log_file_name": "test/classification_oom.log",
             "estimator_list": ["large_lgbm"],
             "log_type": "all",
-            "n_jobs": 1,
             "hpo_method": "random",
         }
         X_train, y_train = load_iris(return_X_y=True, as_frame=True)
-        # X_train = scipy.sparse.eye(900000)
-        # y_train = np.random.randint(2, size=900000)
 
         automl_experiment.fit(
-            X_train=X_train,
-            y_train=y_train,
-            max_iter=1,
-            mem_thres=1024 ** 4,
-            **automl_settings
+            X_train=X_train, y_train=y_train, max_iter=1, **automl_settings
         )
         print(automl_experiment.model)
 
-        automl_settings["n_concurrent_trials"] = 2
-        automl_settings["time_budget"] = 2
+    def test_random_skip_oom(self):
+        automl_experiment = AutoML()
+        automl_experiment.add_learner(
+            learner_name="large_lgbm", learner_class=MyLargeLGBM
+        )
+        automl_settings = {
+            "time_budget": 2,
+            "task": "classification",
+            "log_file_name": "test/sparse_classification_oom.log",
+            "estimator_list": ["large_lgbm"],
+            "log_type": "all",
+            "n_jobs": 1,
+            "hpo_method": "random",
+            "n_concurrent_trials": 2,
+        }
+        X_train = scipy.sparse.eye(900000)
+        y_train = np.random.randint(2, size=900000)
 
         try:
             automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
