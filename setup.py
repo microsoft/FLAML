@@ -58,6 +58,7 @@ setuptools.setup(
             "datasets==1.4.1",
             "azure-storage-blob",
             "statsmodels>=0.12.2",
+            "psutil==5.8.0",
         ],
         "catboost": ["catboost>=0.23"],
         "blendsearch": ["optuna==2.8.0"],
@@ -82,6 +83,7 @@ setuptools.setup(
             "torch",
         ],
         "forecast": ["prophet>=1.0.1", "statsmodels>=0.12.2"],
+        "benchmark": ["catboost>=0.23", "psutil==5.8.0"],
     },
     classifiers=[
         "Programming Language :: Python :: 3",

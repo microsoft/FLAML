@@ -1055,7 +1055,8 @@ class AutoML:
             return "holdout"
         nrow, dim = self._nrow, self._ndim
         if (
-            nrow * dim / 0.9 < SMALL_LARGE_THRES * (time_budget / 3600)
+            time_budget is None
+            or nrow * dim / 0.9 < SMALL_LARGE_THRES * (time_budget / 3600)
             and nrow < CV_HOLDOUT_THRESHOLD
         ):
             # time allows or sampling can be used and cv is necessary
@@ -1552,7 +1553,7 @@ class AutoML:
         logger.info("List of ML learners in AutoML Run: {}".format(estimator_list))
         self.estimator_list = estimator_list
         self._hpo_method = hpo_method or ("cfo" if n_concurrent_trials == 1 else "bs")
-        self._state.time_budget = time_budget
+        self._state.time_budget = time_budget or 1e10
         self._active_estimators = estimator_list.copy()
         self._ensemble = ensemble
         self._max_iter = max_iter

@@ -2,20 +2,41 @@
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
 """
-
+from contextlib import contextmanager
+import signal
 import numpy as np
 import time
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.ensemble import ExtraTreesRegressor, ExtraTreesClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.dummy import DummyClassifier, DummyRegressor
 from scipy.sparse import issparse
 import pandas as pd
+import logging
 from . import tune
 from .data import group_counts, CLASSIFICATION
 
-import logging
-
 logger = logging.getLogger("flaml.automl")
+
+
+def TimeoutHandler(sig, frame):
+    raise TimeoutError(sig, frame)
+
+
+@contextmanager
+def limit_resource(memory_limit, time_limit):
+    import resource
+
+    soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+    if soft < 0 or memory_limit < soft:
+        resource.setrlimit(resource.RLIMIT_AS, (memory_limit, hard))
+    if time_limit is not None:
+        signal.signal(signal.SIGALRM, TimeoutHandler)
+        signal.alarm(int(time_limit))
+    try:
+        yield
+    finally:
+        signal.alarm(0)
 
 
 class BaseEstimator:
@@ -112,7 +133,28 @@ class BaseEstimator:
         Returns:
             train_time: A float of the training time in seconds
         """
-        return self._fit(X_train, y_train, **kwargs)
+        try:
+            import psutil
+            import resource
+
+            start_time = time.time()
+            mem = psutil.virtual_memory()
+            try:
+                with limit_resource(mem.available, budget):
+                    train_time = self._fit(X_train, y_train, **kwargs)
+            except (MemoryError, TimeoutError) as e:
+                logger.warning(f"{e.__class__} {e}")
+                if self._task in CLASSIFICATION:
+                    model = DummyClassifier()
+                else:
+                    model = DummyRegressor()
+                model.fit(X_train, y_train)
+                self._model = model
+                train_time = time.time() - start_time
+        except ImportError:
+            # logger.info("not enforcing time and mem limit")
+            train_time = self._fit(X_train, y_train, **kwargs)
+        return train_time
 
     def predict(self, X_test):
         """Predict label from features
@@ -223,6 +265,8 @@ class SKLearnEstimator(BaseEstimator):
 
 
 class LGBMEstimator(BaseEstimator):
+    ITER_HP = "n_estimators"
+
     @classmethod
     def search_space(cls, data_size, **params):
         upper = min(32768, int(data_size))
@@ -316,32 +360,49 @@ class LGBMEstimator(BaseEstimator):
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
         start_time = time.time()
-        n_iter = self.params["n_estimators"]
+        n_iter = self.params[self.ITER_HP]
         trained = False
+        try:
+            import psutil
+
+            mem0 = psutil.virtual_memory().available
+        except ImportError:
+            mem0 = 1
+            psutil = None
         if (
             (not self._time_per_iter or abs(self._train_size - X_train.shape[0]) > 4)
             and budget is not None
             and n_iter > 1
         ):
-            self.params["n_estimators"] = 1
+            self.params[self.ITER_HP] = 1
             self._t1 = self._fit(X_train, y_train, **kwargs)
+            mem1 = psutil.virtual_memory().available if psutil is not None else 1
+            self._mem1 = max(mem0 - mem1, 1)
             if self._t1 >= budget or n_iter == 1:
-                # self.params["n_estimators"] = n_iter
+                # self.params[self.ITER_HP] = n_iter
                 return self._t1
-            self.params["n_estimators"] = min(n_iter, 4)
+            self.params[self.ITER_HP] = min(n_iter, 4)
             self._t2 = self._fit(X_train, y_train, **kwargs)
+            mem2 = psutil.virtual_memory().available if psutil is not None else 1
+            self._mem2 = max(mem0 - mem2, 1)
+            self._mem_per_iter = min(
+                self._mem1, self._mem2 / (self.params[self.ITER_HP] + 1)
+            )
             self._time_per_iter = (
-                (self._t2 - self._t1) / (self.params["n_estimators"] - 1)
+                (self._t2 - self._t1) / (self.params[self.ITER_HP] - 1)
                 if self._t2 > self._t1
                 else self._t1
                 if self._t1
                 else 0.001
             )
             self._train_size = X_train.shape[0]
-            if self._t1 + self._t2 >= budget or n_iter == self.params["n_estimators"]:
-                # self.params["n_estimators"] = n_iter
+            if self._t1 + self._t2 >= budget or n_iter == self.params[self.ITER_HP]:
+                # self.params[self.ITER_HP] = n_iter
                 return time.time() - start_time
             trained = True
+        mem_available = (
+            psutil.virtual_memory().available if psutil is not None else n_iter
+        )
         if budget is not None and n_iter > 1:
             max_iter = min(
                 n_iter,
@@ -349,14 +410,15 @@ class LGBMEstimator(BaseEstimator):
                     (budget - time.time() + start_time - self._t1) / self._time_per_iter
                     + 1
                 ),
+                int(mem_available / self._mem_per_iter),
             )
-            if trained and max_iter <= self.params["n_estimators"]:
+            if trained and max_iter <= self.params[self.ITER_HP]:
                 return time.time() - start_time
-            self.params["n_estimators"] = max_iter
-        if self.params["n_estimators"] > 0:
+            self.params[self.ITER_HP] = max_iter
+        if self.params[self.ITER_HP] > 0:
             self._fit(X_train, y_train, **kwargs)
         else:
-            self.params["n_estimators"] = self._model.n_estimators
+            self.params[self.ITER_HP] = self._model.n_estimators
         train_time = time.time() - start_time
         return train_time
 

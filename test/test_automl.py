@@ -694,19 +694,30 @@ class TestAutoML(unittest.TestCase):
             learner_name="large_lgbm", learner_class=MyLargeLGBM
         )
         automl_settings = {
-            "time_budget": 2,
-            "metric": "ap",
+            "time_budget": None,
             "task": "classification",
-            "log_file_name": "test/sparse_classification_oom.log",
+            "log_file_name": "test/classification_oom.log",
             "estimator_list": ["large_lgbm"],
             "log_type": "all",
             "n_jobs": 1,
-            "n_concurrent_trials": 2,
             "hpo_method": "random",
         }
+        X_train, y_train = load_iris(return_X_y=True, as_frame=True)
+        # X_train = scipy.sparse.eye(900000)
+        # y_train = np.random.randint(2, size=900000)
 
-        X_train = scipy.sparse.eye(900000)
-        y_train = np.random.randint(2, size=900000)
+        automl_experiment.fit(
+            X_train=X_train,
+            y_train=y_train,
+            max_iter=1,
+            mem_thres=1024 ** 4,
+            **automl_settings
+        )
+        print(automl_experiment.model)
+
+        automl_settings["n_concurrent_trials"] = 2
+        automl_settings["time_budget"] = 2
+
         try:
             automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
             print(automl_experiment.predict(X_train))
@@ -716,21 +727,26 @@ class TestAutoML(unittest.TestCase):
             print(automl_experiment.best_iteration)
             print(automl_experiment.best_estimator)
         except ImportError:
+            print("skipping concurrency test as ray is not installed")
             return
 
     def test_sparse_matrix_lr(self):
         automl_experiment = AutoML()
         automl_settings = {
-            "time_budget": 2,
+            "time_budget": 3,
             "metric": "f1",
             "task": "classification",
             "log_file_name": "test/sparse_classification.log",
-            "estimator_list": ["lrl1", "lrl2"],
+            "estimator_list": ["lrl2", "lrl1"],
             "log_type": "all",
             "n_jobs": 1,
         }
-        X_train = scipy.sparse.random(3000, 900, density=0.1)
+        X_train = scipy.sparse.random(3000, 10000, density=0.1)
         y_train = np.random.randint(2, size=3000)
+        automl_experiment.fit(
+            X_train=X_train, y_train=y_train, train_time_limit=1, **automl_settings
+        )
+        automl_settings["time_budget"] = 5
         automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)
