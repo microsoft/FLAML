@@ -400,16 +400,15 @@ class LGBMEstimator(BaseEstimator):
             if (
                 (
                     not self._time_per_iter
-                    or self._mem_per_iter <= 1
-                    and psutil is not None
                     or abs(self._train_size - X_train.shape[0]) > 4
                 )
                 and budget is not None
-                and n_iter > 1
-            ):
+                or self._mem_per_iter <= 1
+                and psutil is not None
+            ) and n_iter > 1:
                 self.params[self.ITER_HP] = 1
                 self._t1 = self._fit(X_train, y_train, **kwargs)
-                if self._t1 >= budget or n_iter == 1:
+                if budget is not None and self._t1 >= budget or n_iter == 1:
                     # self.params[self.ITER_HP] = n_iter
                     return self._t1
                 mem1 = psutil.virtual_memory().available if psutil is not None else 1
@@ -436,25 +435,31 @@ class LGBMEstimator(BaseEstimator):
                     else 0.001
                 )
                 self._train_size = X_train.shape[0]
-                if self._t1 + self._t2 >= budget or n_iter == self.params[self.ITER_HP]:
+                if (
+                    budget is not None
+                    and self._t1 + self._t2 >= budget
+                    or n_iter == self.params[self.ITER_HP]
+                ):
                     # self.params[self.ITER_HP] = n_iter
                     return time.time() - start_time
                 trained = True
             logger.debug(mem0)
             logger.debug(self._mem_per_iter)
-            if budget is not None and n_iter > 1:
+            if n_iter > 1:
                 max_iter = min(
                     n_iter,
                     int(
                         (budget - time.time() + start_time - self._t1)
                         / self._time_per_iter
                         + 1
-                    ),
+                    )
+                    if budget is not None
+                    else n_iter,
                     int(mem0 / self._mem_per_iter) if psutil is not None else n_iter,
                 )
                 if trained and max_iter <= self.params[self.ITER_HP]:
                     return time.time() - start_time
-            self.params[self.ITER_HP] = max_iter
+                self.params[self.ITER_HP] = max_iter
         if self.params[self.ITER_HP] > 0:
             if self.HAS_CALLBACK:
                 self._fit(
