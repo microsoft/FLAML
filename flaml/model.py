@@ -26,7 +26,7 @@ from .data import (
 )
 
 logger = logging.getLogger("flaml.automl")
-FREE_MEM_RATIO = 0.3
+FREE_MEM_RATIO = 0.1
 
 
 def TimeoutHandler(sig, frame):
