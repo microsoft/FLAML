@@ -366,6 +366,7 @@ class LGBMEstimator(BaseEstimator):
         self._time_per_iter = None
         self._train_size = 0
         self._mem_per_iter = 1
+        self.HAS_CALLBACK = self.HAS_CALLBACK and self._callbacks(0) is not None
 
     def _preprocess(self, X):
         if (
@@ -455,8 +456,10 @@ class LGBMEstimator(BaseEstimator):
                     return time.time() - start_time
             self.params[self.ITER_HP] = max_iter
         if self.params[self.ITER_HP] > 0:
-            self._fit(X_train, y_train, callbacks=self._callbacks(deadline), **kwargs)
             if self.HAS_CALLBACK:
+                self._fit(
+                    X_train, y_train, callbacks=self._callbacks(deadline), **kwargs
+                )
                 best_iteration = (
                     self._model.get_booster().best_iteration
                     if isinstance(self, XGBoostSklearnEstimator)
@@ -464,13 +467,15 @@ class LGBMEstimator(BaseEstimator):
                 )
                 if best_iteration is not None:
                     self._model.set_params(n_estimators=best_iteration + 1)
+            else:
+                self._fit(X_train, y_train, **kwargs)
         else:
             self.params[self.ITER_HP] = self._model.n_estimators
         train_time = time.time() - start_time
         return train_time
 
     def _callbacks(self, deadline) -> List[Callable]:
-        return [partial(self._callback, deadline)] if self.HAS_CALLBACK else None
+        return [partial(self._callback, deadline)]
 
     def _callback(self, deadline, env) -> None:
         from lightgbm.callback import EarlyStopException
@@ -583,13 +588,18 @@ class XGBoostEstimator(SKLearnEstimator):
             if "objective" in self.params:
                 del self.params["objective"]
         _n_estimators = self.params.pop("n_estimators")
-        self._model = xgb.train(
-            self.params,
-            dtrain,
-            _n_estimators,
-            obj=obj,
-            callbacks=XGBoostEstimator._callbacks(deadline),
-        )
+        callbacks = XGBoostEstimator._callbacks(deadline)
+        if callbacks:
+            self._model = xgb.train(
+                self.params,
+                dtrain,
+                _n_estimators,
+                obj=obj,
+                callbacks=callbacks,
+            )
+        else:
+            self._model = xgb.train(self.params, dtrain, _n_estimators, obj=obj)
+
         self.params["objective"] = objective
         self.params["n_estimators"] = self._model.best_iteration + 1
         del dtrain
@@ -606,9 +616,12 @@ class XGBoostEstimator(SKLearnEstimator):
 
     @classmethod
     def _callbacks(cls, deadline):
-        import xgboost as xgb
+        try:
+            from xgboost.callback import TrainingCallback
+        except ImportError:  # for xgboost<1.3
+            return None
 
-        class ResourceLimit(xgb.callback.TrainingCallback):
+        class ResourceLimit(TrainingCallback):
             def after_iteration(self, model, epoch, evals_log) -> bool:
                 if time.time() >= deadline:
                     return True
