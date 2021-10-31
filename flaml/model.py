@@ -445,8 +445,8 @@ class LGBMEstimator(BaseEstimator):
                     # self.params[self.ITER_HP] = n_iter
                     return time.time() - start_time
                 trained = True
-            logger.debug(mem0)
-            logger.debug(self._mem_per_iter)
+            # logger.debug(mem0)
+            # logger.debug(self._mem_per_iter)
             if n_iter > 1:
                 max_iter = min(
                     n_iter,

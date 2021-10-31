@@ -94,7 +94,7 @@ class TestClassification(unittest.TestCase):
             "n_splits": 3,
             "metric": "accuracy",
             "log_training_metric": True,
-            "verbose": 4,
+            # "verbose": 4,
             "ensemble": True,
         }
         automl.fit(X, y, **automl_settings)
@@ -124,7 +124,7 @@ class TestClassification(unittest.TestCase):
             "n_splits": 3,
             "metric": "accuracy",
             "log_training_metric": True,
-            "verbose": 4,
+            # "verbose": 4,
             "ensemble": True,
         }
         automl.fit(X, y, **automl_settings)
@@ -139,7 +139,7 @@ class TestClassification(unittest.TestCase):
             "n_splits": 3,
             "metric": "accuracy",
             "log_training_metric": True,
-            "verbose": 4,
+            # "verbose": 4,
             "ensemble": True,
         }
         automl.fit(X, y, **automl_settings)
