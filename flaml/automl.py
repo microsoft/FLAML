@@ -248,7 +248,7 @@ class AutoMLState:
             "wall_clock_time": time.time() - self._start_time_flag,
             "metric_for_logging": metric_for_logging,
             "val_loss": val_loss,
-            "trained_estimator": None,  # TODO: remove
+            "trained_estimator": trained_estimator if self.save_model_history else None,
         }
         if sampled_weight is not None:
             self.fit_kwargs["sample_weight"] = weight
@@ -1581,7 +1581,7 @@ class AutoML:
         self._state.train_time_limit = train_time_limit
         self._log_type = log_type
         self.split_ratio = split_ratio
-        self._save_model_history = model_history
+        self._state.save_model_history = model_history
         self._state.n_jobs = n_jobs
         self._n_concurrent_trials = n_concurrent_trials
         self._early_stop = early_stop
@@ -1720,7 +1720,7 @@ class AutoML:
                 config = result["config"]
                 estimator = config.get("ml", config)["learner"]
                 search_state = self._search_states[estimator]
-                search_state.update(result, 0, self._save_model_history)
+                search_state.update(result, 0, self._state.save_model_history)
                 if result["wall_clock_time"] is not None:
                     self._state.time_from_start = result["wall_clock_time"]
                 if search_state.sample_size == self._state.data_size:
@@ -1735,7 +1735,7 @@ class AutoML:
                         config,
                         self._time_taken_best_iter,
                     )
-                    if self._save_model_history:
+                    if self._state.save_model_history:
                         self._model_history[
                             _track_iter
                         ] = search_state.trained_estimator
@@ -1910,7 +1910,7 @@ class AutoML:
                 search_state.update(
                     result,
                     time_used=time_used,
-                    save_model_history=self._save_model_history,
+                    save_model_history=self._state.save_model_history,
                 )
                 if self._estimator_index is None:
                     # update init eci estimate
@@ -1953,7 +1953,7 @@ class AutoML:
                         search_state.best_config,
                         self._state.time_from_start,
                     )
-                    if self._save_model_history:
+                    if self._state.save_model_history:
                         self._model_history[
                             self._track_iter
                         ] = search_state.trained_estimator
@@ -1967,7 +1967,7 @@ class AutoML:
                     better = True
                     next_trial_time = search_state.time2eval_best
                 if search_state.trained_estimator and not (
-                    self._save_model_history or self._ensemble
+                    self._state.save_model_history or self._ensemble
                 ):
                     # free RAM
                     if search_state.trained_estimator != self._trained_estimator:
