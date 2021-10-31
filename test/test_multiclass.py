@@ -357,7 +357,7 @@ class TestMultiClass(unittest.TestCase):
         )
         print(automl_experiment.model)
 
-    def test_time_limit(self):
+    def _test_time_limit(self):
         automl_experiment = AutoML()
         automl_experiment.add_learner(
             learner_name="large_lgbm", learner_class=MyLargeLGBM
