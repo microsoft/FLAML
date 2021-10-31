@@ -26,6 +26,7 @@ from .data import (
 )
 
 logger = logging.getLogger("flaml.automl")
+FREE_MEM_RATIO = 0.2
 
 
 def TimeoutHandler(sig, frame):
@@ -160,7 +161,8 @@ class BaseEstimator:
             mem = psutil.virtual_memory()
             try:
                 with limit_resource(
-                    mem.available * 0.9 + psutil.Process(os.getpid()).memory_info().rss,
+                    mem.available * (1 - FREE_MEM_RATIO)
+                    + psutil.Process(os.getpid()).memory_info().rss,
                     budget,
                 ):
                     train_time = self._fit(X_train, y_train, **kwargs)
@@ -455,7 +457,9 @@ class LGBMEstimator(BaseEstimator):
                     )
                     if budget is not None
                     else n_iter,
-                    int(mem0 / self._mem_per_iter) if psutil is not None else n_iter,
+                    int((1 - FREE_MEM_RATIO) * mem0 / self._mem_per_iter)
+                    if psutil is not None
+                    else n_iter,
                 )
                 if trained and max_iter <= self.params[self.ITER_HP]:
                     return time.time() - start_time
@@ -491,7 +495,7 @@ class LGBMEstimator(BaseEstimator):
             import psutil
 
             mem = psutil.virtual_memory()
-            if mem.available / mem.total < 0.1:
+            if mem.available / mem.total < FREE_MEM_RATIO:
                 raise EarlyStopException(env.iteration, env.evaluation_result_list)
         except ImportError:
             return
@@ -634,7 +638,7 @@ class XGBoostEstimator(SKLearnEstimator):
                     import psutil
 
                     mem = psutil.virtual_memory()
-                    if mem.available / mem.total < 0.1:
+                    if mem.available / mem.total < FREE_MEM_RATIO:
                         return True
                 except ImportError:
                     pass
@@ -937,7 +941,7 @@ class CatBoostEstimator(BaseEstimator):
                     import psutil
 
                     mem = psutil.virtual_memory()
-                    if mem.available / mem.total < 0.1:
+                    if mem.available / mem.total < FREE_MEM_RATIO:
                         return False
                 except ImportError:
                     pass

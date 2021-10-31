@@ -6,10 +6,9 @@ from sklearn.datasets import load_iris, load_wine
 
 from flaml import AutoML
 from flaml.data import CLASSIFICATION, get_output_from_log
-from flaml.model import XGBoostSklearnEstimator, SKLearnEstimator
+from flaml.model import LGBMEstimator, XGBoostSklearnEstimator, SKLearnEstimator
 from flaml import tune
 from flaml.training_log import training_log_reader
-from .test_classification import MyLargeLGBM
 
 
 class MyRegularizedGreedyForest(SKLearnEstimator):
@@ -74,8 +73,25 @@ class MyLargeXGB(XGBoostSklearnEstimator):
                 "low_cost_init_value": 4,
             },
             "max_leaves": {
+                "domain": tune.lograndint(lower=4, upper=3276),
+                "init_value": 3276,
+                "low_cost_init_value": 4,
+            },
+        }
+
+
+class MyLargeLGBM(LGBMEstimator):
+    @classmethod
+    def search_space(cls, **params):
+        return {
+            "n_estimators": {
                 "domain": tune.lograndint(lower=4, upper=32768),
                 "init_value": 32768,
+                "low_cost_init_value": 4,
+            },
+            "num_leaves": {
+                "domain": tune.lograndint(lower=4, upper=3276),
+                "init_value": 3276,
                 "low_cost_init_value": 4,
             },
         }
