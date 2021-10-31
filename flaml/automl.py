@@ -1491,8 +1491,8 @@ class AutoML:
         )
         self._retrain_final = (
             retrain_full is True
-            and (eval_method == "holdout" and self._state.X_val is None)
-            or (eval_method == "cv")
+            and eval_method == "holdout" and self._state.X_val is None
+            or eval_method == "cv" or max_iter == 1
         )
         self._auto_augment = auto_augment
         self._min_sample_size = min_sample_size
