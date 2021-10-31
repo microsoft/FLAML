@@ -26,7 +26,7 @@ from .data import (
 )
 
 logger = logging.getLogger("flaml.automl")
-FREE_MEM_RATIO = 0.1
+FREE_MEM_RATIO = 0.2
 
 
 def TimeoutHandler(sig, frame):
@@ -910,19 +910,30 @@ class CatBoostEstimator(BaseEstimator):
                 kwargs["sample_weight"] = weight[:n]
         else:
             weight = None
-        from catboost import Pool
+        from catboost import Pool, __version__
 
         model = self.estimator_class(train_dir=train_dir, **self.params)
-        model.fit(
-            X_tr,
-            y_tr,
-            cat_features=cat_features,
-            eval_set=Pool(
-                data=X_train[n:], label=y_train[n:], cat_features=cat_features
-            ),
-            callbacks=CatBoostEstimator._callbacks(deadline),
-            **kwargs,
-        )  # model.get_best_iteration()
+        if __version__ >= "0.26":
+            model.fit(
+                X_tr,
+                y_tr,
+                cat_features=cat_features,
+                eval_set=Pool(
+                    data=X_train[n:], label=y_train[n:], cat_features=cat_features
+                ),
+                callbacks=CatBoostEstimator._callbacks(deadline),
+                **kwargs,
+            )
+        else:
+            model.fit(
+                X_tr,
+                y_tr,
+                cat_features=cat_features,
+                eval_set=Pool(
+                    data=X_train[n:], label=y_train[n:], cat_features=cat_features
+                ),
+                **kwargs,
+            )
         shutil.rmtree(train_dir, ignore_errors=True)
         if weight is not None:
             kwargs["sample_weight"] = weight

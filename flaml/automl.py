@@ -248,7 +248,7 @@ class AutoMLState:
             "wall_clock_time": time.time() - self._start_time_flag,
             "metric_for_logging": metric_for_logging,
             "val_loss": val_loss,
-            "trained_estimator": trained_estimator,  # TODO: option for moving out of RAM
+            "trained_estimator": None,  # TODO: remove
         }
         if sampled_weight is not None:
             self.fit_kwargs["sample_weight"] = weight
@@ -2120,12 +2120,18 @@ class AutoML:
                 "regression",
             ):
                 search_states = list(
-                    x for x in self._search_states.items() if x[1].trained_estimator
+                    x for x in self._search_states.items() if x[1].best_config
                 )
                 search_states.sort(key=lambda x: x[1].best_loss)
-                estimators = [(x[0], x[1].trained_estimator) for x in search_states[:2]]
+                estimators = [
+                    (x[0], x[1].learner_class(
+                        task=self._state.task, n_jobs=self._state.n_jobs, **x[1].best_config
+                    )) for x in search_states[:2]
+                ]
                 estimators += [
-                    (x[0], x[1].trained_estimator)
+                    (x[0], x[1].learner_class(
+                        task=self._state.task, n_jobs=self._state.n_jobs, **x[1].best_config
+                    ))
                     for x in search_states[2:]
                     if x[1].best_loss < 4 * self._selected.best_loss
                 ]
