@@ -15,7 +15,13 @@ from scipy.sparse import issparse
 import pandas as pd
 import logging
 from . import tune
-from .data import group_counts, CLASSIFICATION, TS_FORECAST, TS_TIMESTAMP_COL, TS_VALUE_COL
+from .data import (
+    group_counts,
+    CLASSIFICATION,
+    TS_FORECAST,
+    TS_TIMESTAMP_COL,
+    TS_VALUE_COL,
+)
 
 logger = logging.getLogger("flaml.automl")
 
@@ -355,6 +361,7 @@ class LGBMEstimator(BaseEstimator):
             self.estimator_class = LGBMClassifier
         self._time_per_iter = None
         self._train_size = 0
+        self._mem_per_iter = 0
 
     def _preprocess(self, X):
         if (
@@ -384,7 +391,11 @@ class LGBMEstimator(BaseEstimator):
             mem0 = 1
             psutil = None
         if (
-            (not self._time_per_iter or abs(self._train_size - X_train.shape[0]) > 4)
+            (
+                not self._time_per_iter
+                or self._mem_per_iter <= 0
+                or abs(self._train_size - X_train.shape[0]) > 4
+            )
             and budget is not None
             and n_iter > 1
         ):
@@ -394,14 +405,19 @@ class LGBMEstimator(BaseEstimator):
                 # self.params[self.ITER_HP] = n_iter
                 return self._t1
             mem1 = psutil.virtual_memory().available if psutil is not None else 1
-            self._mem1 = max(mem0 - mem1, 1)
+            self._mem1 = mem0 - mem1
             self.params[self.ITER_HP] = min(n_iter, 4)
             self._t2 = self._fit(X_train, y_train, **kwargs)
             mem2 = psutil.virtual_memory().available if psutil is not None else 1
-            self._mem2 = max(mem0 - mem2, 1)
-            self._mem_per_iter = min(
-                self._mem1, self._mem2 / (self.params[self.ITER_HP] + 1)
-            )
+            self._mem2 = max(mem0 - mem2, self._mem1)
+            # if self._mem1 <= 0:
+            #     self._mem_per_iter = self._mem2 / (self.params[self.ITER_HP] + 1)
+            # elif self._mem2 <= 0:
+            #     self._mem_per_iter = self._mem1
+            # else:
+            self._mem_per_iter = min(self._mem1, self._mem2 / self.params[self.ITER_HP])
+            if self._mem_per_iter <= 0:
+                n_iter = self.params[self.ITER_HP]
             self._time_per_iter = (
                 (self._t2 - self._t1) / (self.params[self.ITER_HP] - 1)
                 if self._t2 > self._t1
@@ -415,8 +431,10 @@ class LGBMEstimator(BaseEstimator):
                 return time.time() - start_time
             trained = True
         mem_available = (
-            psutil.virtual_memory().available if psutil is not None else n_iter
+            0.9 * psutil.virtual_memory().available if psutil is not None else n_iter
         )
+        logger.debug(mem_available)
+        logger.debug(self._mem_per_iter)
         if budget is not None and n_iter > 1:
             max_iter = min(
                 n_iter,
@@ -744,6 +762,7 @@ class CatBoostEstimator(BaseEstimator):
     def init(cls):
         CatBoostEstimator._time_per_iter = None
         CatBoostEstimator._train_size = 0
+        CatBoostEstimator._mem_per_iter = 0
 
     def _preprocess(self, X):
         if isinstance(X, pd.DataFrame):
@@ -816,6 +835,7 @@ class CatBoostEstimator(BaseEstimator):
         if (
             (
                 not CatBoostEstimator._time_per_iter
+                or CatBoostEstimator._mem_per_iter <= 0
                 or abs(CatBoostEstimator._train_size - len(y_train)) > 4
             )
             and budget
@@ -836,7 +856,7 @@ class CatBoostEstimator(BaseEstimator):
                 shutil.rmtree(train_dir, ignore_errors=True)
                 return CatBoostEstimator._t1
             mem1 = psutil.virtual_memory().available if psutil is not None else 1
-            CatBoostEstimator._mem1 = max(mem0 - mem1, 1)
+            CatBoostEstimator._mem1 = mem0 - mem1
             self.params[self.ITER_HP] = min(n_iter, 4)
             CatBoostEstimator._smallmodel = self.estimator_class(
                 train_dir=train_dir, **self.params
@@ -845,11 +865,13 @@ class CatBoostEstimator(BaseEstimator):
                 X_train, y_train, cat_features=cat_features, **kwargs
             )
             mem2 = psutil.virtual_memory().available if psutil is not None else 1
-            CatBoostEstimator._mem2 = max(mem0 - mem2, 1)
+            CatBoostEstimator._mem2 = max(mem0 - mem2, self._mem1)
             CatBoostEstimator._mem_per_iter = min(
                 CatBoostEstimator._mem1,
-                CatBoostEstimator._mem2 / (self.params[self.ITER_HP] + 1),
+                CatBoostEstimator._mem2 / self.params[self.ITER_HP],
             )
+            if CatBoostEstimator._mem_per_iter <= 0:
+                n_iter = self.params[self.ITER_HP]
             CatBoostEstimator._time_per_iter = (
                 time.time() - start_time - CatBoostEstimator._t1
             ) / (self.params[self.ITER_HP] - 1)
@@ -866,7 +888,7 @@ class CatBoostEstimator(BaseEstimator):
                 return time.time() - start_time
             trained = True
         mem_available = (
-            psutil.virtual_memory().available if psutil is not None else n_iter
+            0.9 * psutil.virtual_memory().available if psutil is not None else n_iter
         )
         if budget and n_iter > 4:
             train_times = 1
@@ -1080,14 +1102,19 @@ class ARIMA(Prophet):
         regressors = cols
         if regressors:
             model = ARIMA_estimator(
-                train_df[[TS_VALUE_COL]], exog=train_df[regressors], order=(
-                    self.params["p"], self.params["d"], self.params["q"]),
-                enforce_stationarity=False, enforce_invertibility=False)
+                train_df[[TS_VALUE_COL]],
+                exog=train_df[regressors],
+                order=(self.params["p"], self.params["d"], self.params["q"]),
+                enforce_stationarity=False,
+                enforce_invertibility=False,
+            )
         else:
             model = ARIMA_estimator(
-                train_df, order=(
-                    self.params["p"], self.params["d"], self.params["q"]),
-                enforce_stationarity=False, enforce_invertibility=False)
+                train_df,
+                order=(self.params["p"], self.params["d"], self.params["q"]),
+                enforce_stationarity=False,
+                enforce_invertibility=False,
+            )
         model = model.fit()
         train_time = time.time() - current_time
         self._model = model
@@ -1106,7 +1133,9 @@ class ARIMA(Prophet):
                     regressors = list(X_test)
                     regressors.remove(TS_TIMESTAMP_COL)
                     X_test = self._preprocess(X_test)
-                    forecast = self._model.predict(start=start, end=end, exog=X_test[regressors])
+                    forecast = self._model.predict(
+                        start=start, end=end, exog=X_test[regressors]
+                    )
                 else:
                     forecast = self._model.predict(start=start, end=end)
             else:
@@ -1173,24 +1202,31 @@ class SARIMAX(ARIMA):
         regressors.remove(TS_VALUE_COL)
         if regressors:
             model = SARIMAX_estimator(
-                train_df[[TS_VALUE_COL]], exog=train_df[regressors], order=(
-                    self.params["p"], self.params["d"], self.params["q"]),
+                train_df[[TS_VALUE_COL]],
+                exog=train_df[regressors],
+                order=(self.params["p"], self.params["d"], self.params["q"]),
                 seasonality_order=(
                     self.params["P"],
                     self.params["D"],
                     self.params["Q"],
-                    self.params["s"]),
-                enforce_stationarity=False, enforce_invertibility=False)
+                    self.params["s"],
+                ),
+                enforce_stationarity=False,
+                enforce_invertibility=False,
+            )
         else:
             model = SARIMAX_estimator(
-                train_df, order=(
-                    self.params["p"], self.params["d"], self.params["q"]),
+                train_df,
+                order=(self.params["p"], self.params["d"], self.params["q"]),
                 seasonality_order=(
                     self.params["P"],
                     self.params["D"],
                     self.params["Q"],
-                    self.params["s"]),
-                enforce_stationarity=False, enforce_invertibility=False)
+                    self.params["s"],
+                ),
+                enforce_stationarity=False,
+                enforce_invertibility=False,
+            )
         model = model.fit()
         train_time = time.time() - current_time
         self._model = model

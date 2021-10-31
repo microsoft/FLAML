@@ -248,7 +248,7 @@ class AutoMLState:
             "wall_clock_time": time.time() - self._start_time_flag,
             "metric_for_logging": metric_for_logging,
             "val_loss": val_loss,
-            "trained_estimator": trained_estimator,
+            "trained_estimator": trained_estimator,  # TODO: option for moving out of RAM
         }
         if sampled_weight is not None:
             self.fit_kwargs["sample_weight"] = weight
@@ -403,9 +403,10 @@ class AutoML:
 
     @property
     def best_config_train_time(self):
-        """A float of the seconds taken by training the
-        best config."""
-        return self._search_states[self._best_estimator].best_config_train_time
+        """A float of the seconds taken by training the best config."""
+        return getattr(
+            self._search_states[self._best_estimator], "best_config_train_time", None
+        )
 
     @property
     def classes_(self):
@@ -529,8 +530,9 @@ class AutoML:
             self._nrow, self._ndim = X_train_all.shape
             if self._state.task == TS_FORECAST:
                 X_train_all = pd.DataFrame(X_train_all)
-                assert X_train_all[X_train_all.columns[0]].dtype.name == 'datetime64[ns]', (
-                    f"For '{TS_FORECAST}' task, the first column must contain timestamp values.")
+                assert (
+                    X_train_all[X_train_all.columns[0]].dtype.name == "datetime64[ns]"
+                ), f"For '{TS_FORECAST}' task, the first column must contain timestamp values."
             X, y = X_train_all, y_train_all
         elif dataframe is not None and label is not None:
             assert isinstance(
@@ -539,8 +541,9 @@ class AutoML:
             assert label in dataframe.columns, "label must a column name in dataframe"
             self._df = True
             if self._state.task == TS_FORECAST:
-                assert dataframe[dataframe.columns[0]].dtype.name == 'datetime64[ns]', (
-                    f"For '{TS_FORECAST}' task, the first column must contain timestamp values.")
+                assert (
+                    dataframe[dataframe.columns[0]].dtype.name == "datetime64[ns]"
+                ), f"For '{TS_FORECAST}' task, the first column must contain timestamp values."
             X = dataframe.drop(columns=label)
             self._nrow, self._ndim = X.shape
             y = dataframe[label]
@@ -584,7 +587,9 @@ class AutoML:
             else:
                 self._state.X_val = X_val
             if self._label_transformer:
-                self._state.y_val = self._label_transformer.transform(y_val, self._state.task)
+                self._state.y_val = self._label_transformer.transform(
+                    y_val, self._state.task
+                )
             else:
                 self._state.y_val = y_val
         else:
@@ -1415,7 +1420,9 @@ class AutoML:
                 In the following code example, we get starting_points from the
                 automl_experiment and use them in the new_automl_experiment.
                 e.g.,
+
                 .. code-block:: python
+
                     from flaml import AutoML
                     automl_experiment = AutoML()
                     X_train, y_train = load_iris(return_X_y=True)
@@ -1953,11 +1960,20 @@ class AutoML:
                     elif self._trained_estimator:
                         del self._trained_estimator
                         self._trained_estimator = None
-                    self._trained_estimator = search_state.trained_estimator
+                    if not self._retrain_final:
+                        self._trained_estimator = search_state.trained_estimator
                     self._best_iteration = self._track_iter
                     self._time_taken_best_iter = self._state.time_from_start
                     better = True
                     next_trial_time = search_state.time2eval_best
+                if search_state.trained_estimator and not (
+                    self._save_model_history or self._ensemble
+                ):
+                    # free RAM
+                    if search_state.trained_estimator != self._trained_estimator:
+                        search_state.trained_estimator.cleanup()
+                    del search_state.trained_estimator
+                    search_state.trained_estimator = None
                 if better or self._log_type == "all":
                     if self._training_log:
                         self._training_log.append(
