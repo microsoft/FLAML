@@ -597,11 +597,11 @@ class XGBoostEstimator(SKLearnEstimator):
                 obj=obj,
                 callbacks=callbacks,
             )
+            self.params["n_estimators"] = self._model.best_iteration + 1
         else:
             self._model = xgb.train(self.params, dtrain, _n_estimators, obj=obj)
-
+            self.params["n_estimators"] = _n_estimators
         self.params["objective"] = objective
-        self.params["n_estimators"] = self._model.best_iteration + 1
         del dtrain
         train_time = time.time() - start_time
         return train_time
