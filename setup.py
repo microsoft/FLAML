@@ -60,7 +60,7 @@ setuptools.setup(
             "statsmodels>=0.12.2",
             "psutil==5.8.0",
         ],
-        "catboost": ["catboost>=0.23"],
+        "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],
         "ray": [
             "ray[tune]==1.6.0",

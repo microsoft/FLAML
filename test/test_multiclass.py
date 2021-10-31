@@ -6,9 +6,10 @@ from sklearn.datasets import load_iris, load_wine
 
 from flaml import AutoML
 from flaml.data import CLASSIFICATION, get_output_from_log
-from flaml.model import LGBMEstimator, SKLearnEstimator
+from flaml.model import XGBoostSklearnEstimator, SKLearnEstimator
 from flaml import tune
 from flaml.training_log import training_log_reader
+from .test_classification import MyLargeLGBM
 
 
 class MyRegularizedGreedyForest(SKLearnEstimator):
@@ -63,7 +64,7 @@ class MyRegularizedGreedyForest(SKLearnEstimator):
         return 1.0
 
 
-class MyLargeLGBM(LGBMEstimator):
+class MyLargeXGB(XGBoostSklearnEstimator):
     @classmethod
     def search_space(cls, **params):
         return {
@@ -72,7 +73,7 @@ class MyLargeLGBM(LGBMEstimator):
                 "init_value": 32768,
                 "low_cost_init_value": 4,
             },
-            "num_leaves": {
+            "max_leaves": {
                 "domain": tune.lograndint(lower=4, upper=32768),
                 "init_value": 32768,
                 "low_cost_init_value": 4,
@@ -338,6 +339,32 @@ class TestMultiClass(unittest.TestCase):
         automl_experiment.fit(
             X_train=X_train, y_train=y_train, max_iter=1, **automl_settings
         )
+        print(automl_experiment.model)
+
+    def test_time_limit(self):
+        automl_experiment = AutoML()
+        automl_experiment.add_learner(
+            learner_name="large_lgbm", learner_class=MyLargeLGBM
+        )
+        automl_experiment.add_learner(
+            learner_name="large_xgb", learner_class=MyLargeXGB
+        )
+        automl_settings = {
+            "time_budget": 0.5,
+            "task": "classification",
+            "log_file_name": "test/classification_timeout.log",
+            "estimator_list": ["catboost"],
+            "log_type": "all",
+            "hpo_method": "random",
+        }
+        X_train, y_train = load_iris(return_X_y=True, as_frame=True)
+        automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
+        print(automl_experiment.model.params)
+        automl_settings["estimator_list"] = ["large_xgb"]
+        automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
+        print(automl_experiment.model)
+        automl_settings["estimator_list"] = ["large_lgbm"]
+        automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
         print(automl_experiment.model)
 
     def test_fit_w_starting_point(self, as_frame=True):

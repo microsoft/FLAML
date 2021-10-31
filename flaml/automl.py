@@ -2161,7 +2161,7 @@ class AutoML:
                     logger.info(f"ensemble: {stacker}")
                     self._trained_estimator = stacker
                     self._trained_estimator.model = stacker
-                except ValueError:
+                except ValueError as e:
                     if passthrough:
                         logger.warning(
                             "Using passthrough=False for ensemble because the data contain categorical features."
@@ -2180,9 +2180,12 @@ class AutoML:
                         logger.info(f"ensemble: {stacker}")
                         self._trained_estimator = stacker
                         self._trained_estimator.model = stacker
+                    else:
+                        raise e
             elif self._retrain_final:
                 # reset time budget for retraining
-                self._state.time_from_start -= self._state.time_budget
+                if self._max_iter > 1:
+                    self._state.time_from_start -= self._state.time_budget
                 if (
                     self._state.task == TS_FORECAST
                     or self._trained_estimator is None
