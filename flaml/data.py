@@ -6,6 +6,7 @@
 import numpy as np
 from scipy.sparse import vstack, issparse
 import pandas as pd
+from pandas import DataFrame
 
 from .training_log import training_log_reader
 
@@ -16,6 +17,10 @@ SEQCLASSIFICATION = "seq-classification"
 CLASSIFICATION = ("binary", "multi", "classification", SEQCLASSIFICATION)
 SEQREGRESSION = "seq-regression"
 REGRESSION = ("regression", SEQREGRESSION)
+TS_FORECAST = "ts_forecast"
+TS_TIMESTAMP_COL = "ds"
+TS_VALUE_COL = "y"
+FORECAST = "forecast"
 
 
 def load_hf_dataset(
@@ -313,6 +318,11 @@ class DataTransformer:
                 n = X.shape[0]
                 cat_columns, num_columns, datetime_columns = [], [], []
                 drop = False
+                if task == TS_FORECAST:
+                    X = X.rename(columns={X.columns[0]: TS_TIMESTAMP_COL})
+                    ds_col = X.pop(TS_TIMESTAMP_COL)
+                    if isinstance(y, pd.Series):
+                        y = y.rename(TS_VALUE_COL)
                 for column in X.columns:
                     # sklearn\utils\validation.py needs int/float values
                     if X[column].dtype.name in ("object", "category"):
@@ -373,6 +383,8 @@ class DataTransformer:
                                 X[column] = X[column].fillna(np.nan)
                                 num_columns.append(column)
                 X = X[cat_columns + num_columns]
+                if task == TS_FORECAST:
+                    X.insert(0, TS_TIMESTAMP_COL, ds_col)
                 if cat_columns:
                     X[cat_columns] = X[cat_columns].astype("category")
                 if num_columns:
@@ -416,13 +428,24 @@ class DataTransformer:
         self._task = task
         return X, y
 
-    def transform(self, X):
+    def transform(self, X: Union[DataFrame, List[str], List[List[str]]]):
         X = X.copy()
+
         from .nlp.utils import _is_nlp_task
 
         if _is_nlp_task(self._task):
             # if the mode is NLP, check the type of input, each column must be either string or
             # ids (input ids, token type id, attention mask, etc.)
+            if isinstance(X, List) and isinstance(X[0], List):
+                unzipped_X_test = [x for x in zip(*X)]
+                X = DataFrame(
+                    {
+                        "key_" + str(idx): unzipped_X_test[idx]
+                        for idx in range(len(unzipped_X_test))
+                    }
+                )
+            elif isinstance(X, List):
+                X = DataFrame({"key_" + str(idx): [X[idx]] for idx in range(len(X))})
             for column in X.columns:
                 is_str = [
                     isinstance(each_cell, str) for each_cell in X[column] if each_cell
@@ -436,6 +459,9 @@ class DataTransformer:
                     self._num_columns,
                     self._datetime_columns,
                 )
+                if self._task == TS_FORECAST:
+                    X = X.rename(columns={X.columns[0]: TS_TIMESTAMP_COL})
+                    ds_col = X.pop(TS_TIMESTAMP_COL)
                 if datetime_columns:
                     for column in datetime_columns:
                         tmp_dt = X[column].dt
@@ -462,6 +488,8 @@ class DataTransformer:
                         X[column] = X[column].map(datetime.toordinal)
                         del tmp_dt
                 X = X[cat_columns + num_columns].copy()
+                if self._task == TS_FORECAST:
+                    X.insert(0, TS_TIMESTAMP_COL, ds_col)
                 for column in cat_columns:
                     if X[column].dtype.name == "object":
                         X[column] = X[column].fillna("__NAN__")

@@ -7,10 +7,6 @@ except ImportError:
 
 
 class TrainerForAutoTransformers(TFTrainer):
-    def __init__(self):
-        super().__init__()
-        self._ckpt_to_metric = {}
-
     def evaluate(self, eval_dataset=None):
         """
         Overriding transformers.Trainer.evaluate by saving state with save_state
@@ -29,8 +25,11 @@ class TrainerForAutoTransformers(TFTrainer):
 
         for key in list(output.metrics.keys()):
             if key.startswith("eval_"):
-                output.metrics[key[5:]] = output.metrics[key]
-        self._ckpt_to_metric[ckpt_dir] = output.metrics
+                output.metrics[key[5:]] = output.metrics.pop(key)
+
+        if not hasattr(self, "ckpt_to_metric"):
+            self.ckpt_to_metric = {}
+        self.ckpt_to_metric[ckpt_dir] = output.metrics
 
     @staticmethod
     def tune_report(mode="holdout", output_metrics=None):

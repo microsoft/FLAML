@@ -11,7 +11,13 @@ from sklearn.linear_model import LogisticRegression
 from scipy.sparse import issparse
 import pandas as pd
 from . import tune
-from .data import group_counts, CLASSIFICATION
+from .data import (
+    group_counts,
+    CLASSIFICATION,
+    TS_FORECAST,
+    TS_TIMESTAMP_COL,
+    TS_VALUE_COL,
+)
 
 import logging
 from typing import Union, List
@@ -213,12 +219,41 @@ class TransformersEstimator(BaseEstimator):
         super().__init__(task, **config)
         self._resources_per_trial = resources_per_trial
 
+    def _join(self, X_train, y_train):
+        y_train = pd.DataFrame(y_train, columns=["label"])
+        train_df = X_train.join(y_train)
+        return train_df
+
     @classmethod
-    def init(cls, hpo_method=None, metric_name=None, **kwargs):
+    def search_space(cls, **params):
+        return {
+            "learning_rate": {
+                "domain": tune.loguniform(lower=1e-6, upper=1e-3),
+            },
+            "num_train_epochs": {
+                "domain": tune.loguniform(lower=0.1, upper=0.2),
+            },
+            "per_device_train_batch_size": {
+                "domain": tune.choice([4, 8, 16, 32]),
+            },
+            "warmup_ratio": {
+                "domain": tune.uniform(lower=0.0, upper=0.3),
+            },
+            "weight_decay": {
+                "domain": tune.uniform(lower=0.0, upper=0.3),
+            },
+            "adam_epsilon": {
+                "domain": tune.loguniform(lower=1e-8, upper=1e-6),
+            },
+            "seed": {"domain": tune.choice(list(range(40, 45)))},
+        }
+
+    @classmethod
+    def init(cls, hpo_method=None, metric_name=None, automl_fit_kwargs: dict = None):
         from .nlp.utils import HPOArgs
 
         custom_hpo_args = HPOArgs()
-        for key, val in kwargs.items():
+        for key, val in automl_fit_kwargs["custom_hpo_args"].items():
             if key in ("X_val", "y_val"):
                 continue
             assert (
@@ -227,16 +262,24 @@ class TransformersEstimator(BaseEstimator):
                 key
             )
             setattr(custom_hpo_args, key, val)
-        kwargs["custom_hpo_args"] = custom_hpo_args
-        cls._metric_name = metric_name
+        automl_fit_kwargs["custom_hpo_args"] = custom_hpo_args
+        automl_fit_kwargs["metric"] = metric_name
 
     @classmethod
     def _preprocess(cls, X, **kwargs):
         from .nlp.utils import tokenize_text
 
+        assert (
+            "custom_hpo_args" in kwargs
+        ), "custom_hpo_args needs to be specified in fit_kwargs of automl.fit"
+
         return tokenize_text(X, kwargs["custom_hpo_args"])
 
     def _split_train_val(self, X_train, y_train, **kwargs):
+        """
+        If the validation fold is already defined (in kwargs), set it directly
+        Otherwise, split the train fold and reserve 10% dataset for validation
+        """
         if "X_val" in kwargs and "y_val" in kwargs:
             return X_train, y_train, kwargs["X_val"], kwargs["y_val"]
         n = max(int(len(y_train) * 0.9), len(y_train) - 1000)
@@ -245,9 +288,6 @@ class TransformersEstimator(BaseEstimator):
         return X_tr, y_tr, X_val, y_val
 
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
-        import pdb
-
-        pdb.set_trace()
         import transformers
         from transformers import TrainingArguments
         from transformers.trainer_utils import set_seed
@@ -261,15 +301,19 @@ class TransformersEstimator(BaseEstimator):
         from .nlp.huggingface.trainer import TrainerForAutoTransformers
         from datasets import Dataset
 
-        X_train, y_train, X_val, y_val = self._split_train_val(X_train, **kwargs)
+        self._metric_name = kwargs["metric"]
+
+        X_train, y_train, X_val, y_val = self._split_train_val(
+            X_train, y_train, **kwargs
+        )
         if X_train.dtypes[0] == "string":
             X_train = self._preprocess(X_train, **kwargs)
-            train_dataset = Dataset.from_pandas(X_train)
+            train_dataset = Dataset.from_pandas(self._join(X_train, y_train))
             X_val = self._preprocess(X_val, **kwargs)
-            eval_dataset = Dataset.from_pandas(X_val)
+            eval_dataset = Dataset.from_pandas(self._join(X_val, y_val))
         else:
-            train_dataset = Dataset.from_pandas(X_train)
-            eval_dataset = Dataset.from_pandas(X_val)
+            train_dataset = Dataset.from_pandas(self._join(X_train, y_train))
+            eval_dataset = Dataset.from_pandas(self._join(X_val, y_val))
 
         tokenizer = AutoTokenizer.from_pretrained(
             kwargs["custom_hpo_args"].model_path, use_fast=True
@@ -290,7 +334,7 @@ class TransformersEstimator(BaseEstimator):
             train_data_size=len(X_train),
             custom_hpo_args=kwargs["custom_hpo_args"],
             num_train_epochs=self.params["num_train_epochs"],
-            batch_size=self.params["batch_size"],
+            batch_size=self.params["per_device_train_batch_size"],
         )
         if transformers.__version__.startswith("3"):
             training_args = TrainingArguments(
@@ -320,20 +364,34 @@ class TransformersEstimator(BaseEstimator):
                 **training_args_config,
             )
 
+        def _model_init():
+            return load_model(
+                checkpoint_path=kwargs["custom_hpo_args"].model_path,
+                task=self._task,
+                num_labels=num_labels,
+                per_model_config=per_model_config,
+            )
+
         trainer = TrainerForAutoTransformers(
             model=this_model,
             args=training_args,
-            model_init=load_model,
+            model_init=_model_init,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             tokenizer=tokenizer,
             compute_metrics=self._compute_metrics_by_dataset_name,
         )
         trainer.train()
-        self._best_ckpt_path = self._ckpt_to_metric
+        self._checkpoint_path, _ = self._get_checkpoint(trainer.ckpt_to_metric)
+        self._kwargs = kwargs
+        self._num_labels = num_labels
+        self._per_model_config = per_model_config
+
+    def _get_checkpoint(self, ckpt_to_score):
+        return min(ckpt_to_score.items(), key=lambda x: x[1][self._metric_name])
 
     def _compute_metrics_by_dataset_name(self, eval_pred):
-        import datasets
+        from .ml import sklearn_metric_loss_score
         from .data import SEQREGRESSION
 
         predictions, labels = eval_pred
@@ -342,24 +400,35 @@ class TransformersEstimator(BaseEstimator):
             if self._task == SEQREGRESSION
             else np.argmax(predictions, axis=1)
         )
-        metric_func = datasets.load.load_metric(self._metric_name)
-        return metric_func.compute(predictions=predictions, references=labels)
+        return {
+            self._metric_name: sklearn_metric_loss_score(
+                metric_name=self._metric_name, y_predict=predictions, y_true=labels
+            )
+        }
 
-    def predict(self, X_test: Union[DataFrame, List[str], List[List[str]]], **kwargs):
-        if isinstance(X_test, List) and isinstance(X_test[0], List):
-            unzipped_X_test = [x for x in zip(*X_test)]
-            X_test = DataFrame(
-                {
-                    "key_" + str(idx): unzipped_X_test[idx]
-                    for idx in range(len(unzipped_X_test))
-                }
-            )
-        elif isinstance(X_test, List):
-            X_test = DataFrame(
-                {"key_" + str(idx): [X_test[idx]] for idx in range(len(X_test))}
-            )
+    def predict(self, X_test):
+        from datasets import Dataset
+        from .nlp.utils import load_model
+        from transformers import TrainingArguments
+        from .nlp.huggingface.trainer import TrainerForAutoTransformers
+
         if X_test.dtypes[0] == "string":
-            X_test = self._preprocess(X_test, **kwargs)
+            X_test = self._preprocess(X_test, **self._kwargs)
+            test_dataset = Dataset.from_pandas(X_test)
+
+        best_model = load_model(
+            checkpoint_path=self._checkpoint_path,
+            task=self._task,
+            num_labels=self._num_labels,
+            per_model_config=self._per_model_config,
+        )
+        training_args = TrainingArguments(
+            per_device_eval_batch_size=1,
+            output_dir=self._kwargs["custom_hpo_args"].output_dir,
+        )
+        test_trainer = TrainerForAutoTransformers(model=best_model, args=training_args)
+        predictions = test_trainer.predict(test_dataset)
+        return np.array([0 if x[0] > x[1] else 1 for x in predictions.predictions])
 
 
 class SKLearnEstimator(BaseEstimator):
@@ -1032,22 +1101,22 @@ class KNeighborsEstimator(BaseEstimator):
         return X
 
 
-class Prophet(BaseEstimator):
+class Prophet(SKLearnEstimator):
     @classmethod
     def search_space(cls, **params):
         space = {
             "changepoint_prior_scale": {
-                "domain": tune.loguniform(lower=0.001, upper=1000),
-                "init_value": 0.01,
+                "domain": tune.loguniform(lower=0.001, upper=0.05),
+                "init_value": 0.05,
                 "low_cost_init_value": 0.001,
             },
             "seasonality_prior_scale": {
-                "domain": tune.loguniform(lower=0.01, upper=100),
-                "init_value": 1,
+                "domain": tune.loguniform(lower=0.01, upper=10),
+                "init_value": 10,
             },
             "holidays_prior_scale": {
-                "domain": tune.loguniform(lower=0.01, upper=100),
-                "init_value": 1,
+                "domain": tune.loguniform(lower=0.01, upper=10),
+                "init_value": 10,
             },
             "seasonality_mode": {
                 "domain": tune.choice(["additive", "multiplicative"]),
@@ -1056,15 +1125,15 @@ class Prophet(BaseEstimator):
         }
         return space
 
-    def __init__(self, task="forecast", n_jobs=1, resources_per_trial=None, **params):
+    def __init__(self, task=TS_FORECAST, n_jobs=1, resources_per_trial=None, **params):
         super().__init__(task, **params)
 
     def _join(self, X_train, y_train):
-        assert "ds" in X_train, (
-            "Dataframe for training forecast model must have column"
-            ' "ds" with the dates in X_train.'
+        assert TS_TIMESTAMP_COL in X_train, (
+            "Dataframe for training ts_forecast model must have column"
+            f' "{TS_TIMESTAMP_COL}" with the dates in X_train.'
         )
-        y_train = pd.DataFrame(y_train, columns=["y"])
+        y_train = pd.DataFrame(y_train, columns=[TS_VALUE_COL])
         train_df = X_train.join(y_train)
         return train_df
 
@@ -1073,7 +1142,14 @@ class Prophet(BaseEstimator):
 
         current_time = time.time()
         train_df = self._join(X_train, y_train)
-        model = Prophet(**self.params).fit(train_df)
+        train_df = self._preprocess(train_df)
+        cols = list(train_df)
+        cols.remove(TS_TIMESTAMP_COL)
+        cols.remove(TS_VALUE_COL)
+        model = Prophet(**self.params)
+        for regressor in cols:
+            model.add_regressor(regressor)
+        model.fit(train_df)
         train_time = time.time() - current_time
         self._model = model
         return train_time
@@ -1082,9 +1158,11 @@ class Prophet(BaseEstimator):
         if isinstance(X_test, int):
             raise ValueError(
                 "predict() with steps is only supported for arima/sarimax."
-                " For Prophet, pass a dataframe with a date colum named ds."
+                " For Prophet, pass a dataframe with the first column containing"
+                " the timestamp values."
             )
         if self._model is not None:
+            X_test = self._preprocess(X_test)
             forecast = self._model.predict(X_test)
             return forecast["yhat"]
         else:
@@ -1110,7 +1188,7 @@ class ARIMA(Prophet):
             },
             "q": {
                 "domain": tune.quniform(lower=0, upper=10, q=1),
-                "init_value": 2,
+                "init_value": 1,
                 "low_cost_init_value": 0,
             },
         }
@@ -1118,8 +1196,8 @@ class ARIMA(Prophet):
 
     def _join(self, X_train, y_train):
         train_df = super()._join(X_train, y_train)
-        train_df.index = pd.to_datetime(train_df["ds"])
-        train_df = train_df.drop("ds", axis=1)
+        train_df.index = pd.to_datetime(train_df[TS_TIMESTAMP_COL])
+        train_df = train_df.drop(TS_TIMESTAMP_COL, axis=1)
         return train_df
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
@@ -1130,12 +1208,25 @@ class ARIMA(Prophet):
 
         current_time = time.time()
         train_df = self._join(X_train, y_train)
-        model = ARIMA_estimator(
-            train_df,
-            order=(self.params["p"], self.params["d"], self.params["q"]),
-            enforce_stationarity=False,
-            enforce_invertibility=False,
-        )
+        train_df = self._preprocess(train_df)
+        cols = list(train_df)
+        cols.remove(TS_VALUE_COL)
+        regressors = cols
+        if regressors:
+            model = ARIMA_estimator(
+                train_df[[TS_VALUE_COL]],
+                exog=train_df[regressors],
+                order=(self.params["p"], self.params["d"], self.params["q"]),
+                enforce_stationarity=False,
+                enforce_invertibility=False,
+            )
+        else:
+            model = ARIMA_estimator(
+                train_df,
+                order=(self.params["p"], self.params["d"], self.params["q"]),
+                enforce_stationarity=False,
+                enforce_invertibility=False,
+            )
         model = model.fit()
         train_time = time.time() - current_time
         self._model = model
@@ -1146,12 +1237,22 @@ class ARIMA(Prophet):
             if isinstance(X_test, int):
                 forecast = self._model.forecast(steps=X_test)
             elif isinstance(X_test, pd.DataFrame):
+                first_col = X_test.pop(TS_TIMESTAMP_COL)
+                X_test.insert(0, TS_TIMESTAMP_COL, first_col)
                 start = X_test.iloc[0, 0]
                 end = X_test.iloc[-1, 0]
-                forecast = self._model.predict(start=start, end=end)
+                if len(X_test.columns) > 1:
+                    regressors = list(X_test)
+                    regressors.remove(TS_TIMESTAMP_COL)
+                    X_test = self._preprocess(X_test)
+                    forecast = self._model.predict(
+                        start=start, end=end, exog=X_test[regressors]
+                    )
+                else:
+                    forecast = self._model.predict(start=start, end=end)
             else:
                 raise ValueError(
-                    "X_test needs to be either a pd.Dataframe with dates as column ds)"
+                    "X_test needs to be either a pd.Dataframe with dates as the first column"
                     " or an int number of periods for predict()."
                 )
             return forecast
@@ -1175,7 +1276,7 @@ class SARIMAX(ARIMA):
             },
             "q": {
                 "domain": tune.quniform(lower=0, upper=10, q=1),
-                "init_value": 2,
+                "init_value": 1,
                 "low_cost_init_value": 0,
             },
             "P": {
@@ -1201,22 +1302,43 @@ class SARIMAX(ARIMA):
         return space
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
+        import warnings
+
+        warnings.filterwarnings("ignore")
         from statsmodels.tsa.statespace.sarimax import SARIMAX as SARIMAX_estimator
 
         current_time = time.time()
         train_df = self._join(X_train, y_train)
-        model = SARIMAX_estimator(
-            train_df,
-            order=(self.params["p"], self.params["d"], self.params["q"]),
-            seasonality_order=(
-                self.params["P"],
-                self.params["D"],
-                self.params["Q"],
-                self.params["s"],
-            ),
-            enforce_stationarity=False,
-            enforce_invertibility=False,
-        )
+        train_df = self._preprocess(train_df)
+        regressors = list(train_df)
+        regressors.remove(TS_VALUE_COL)
+        if regressors:
+            model = SARIMAX_estimator(
+                train_df[[TS_VALUE_COL]],
+                exog=train_df[regressors],
+                order=(self.params["p"], self.params["d"], self.params["q"]),
+                seasonality_order=(
+                    self.params["P"],
+                    self.params["D"],
+                    self.params["Q"],
+                    self.params["s"],
+                ),
+                enforce_stationarity=False,
+                enforce_invertibility=False,
+            )
+        else:
+            model = SARIMAX_estimator(
+                train_df,
+                order=(self.params["p"], self.params["d"], self.params["q"]),
+                seasonality_order=(
+                    self.params["P"],
+                    self.params["D"],
+                    self.params["Q"],
+                    self.params["s"],
+                ),
+                enforce_stationarity=False,
+                enforce_invertibility=False,
+            )
         model = model.fit()
         train_time = time.time() - current_time
         self._model = model

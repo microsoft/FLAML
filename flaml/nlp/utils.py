@@ -76,33 +76,42 @@ def _is_nlp_task(task):
         return False
 
 
+global tokenized_column_names
+
+
 def tokenize_text(X, custom_hpo_args):
-    tokenized_X = autoencodetext_from_model_and_dataset_name(X, custom_hpo_args)
-    return tokenized_X
-
-
-def tokenize_glue(this_row, this_tokenizer, **kwargs):
-    assert "max_seq_length" in kwargs, "max_seq_length must be provided for glue"
-
-    return this_tokenizer(
-        *tuple(this_row),
-        padding="max_length",
-        max_length=kwargs["max_seq_length"],
-        truncation=True,
-    )
-
-
-def autoencodetext_from_model_and_dataset_name(X, custom_hpo_args):
-    from functools import partial
     from transformers import AutoTokenizer
+    import pandas
+
+    global tokenized_column_names
 
     this_tokenizer = AutoTokenizer.from_pretrained(
         custom_hpo_args.model_path, use_fast=True
     )
-    return X.map(
-        partial(tokenize_glue, this_tokenizer=this_tokenizer, **custom_hpo_args),
-        batched=False,
+    d = X.apply(
+        lambda x: tokenize_glue(x, this_tokenizer, custom_hpo_args),
+        axis=1,
+        result_type="expand",
     )
+    X_tokenized = pandas.DataFrame(columns=tokenized_column_names)
+    X_tokenized[tokenized_column_names] = d
+    return X_tokenized
+
+
+def tokenize_glue(this_row, this_tokenizer, custom_hpo_args):
+    global tokenized_column_names
+    assert (
+        "max_seq_length" in custom_hpo_args.__dict__
+    ), "max_seq_length must be provided for glue"
+
+    tokenized_example = this_tokenizer(
+        *tuple(this_row),
+        padding="max_length",
+        max_length=custom_hpo_args.max_seq_length,
+        truncation=True,
+    )
+    tokenized_column_names = sorted(tokenized_example.keys())
+    return [tokenized_example[x] for x in tokenized_column_names]
 
 
 def separate_config(config):
