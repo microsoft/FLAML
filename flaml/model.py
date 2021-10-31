@@ -168,6 +168,7 @@ class BaseEstimator:
                     model = DummyClassifier()
                 else:
                     model = DummyRegressor()
+                X_train = self._preprocess(X_train)
                 model.fit(X_train, y_train)
                 self._model = model
                 train_time = time.time() - start_time

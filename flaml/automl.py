@@ -2152,19 +2152,46 @@ class AutoML:
                 )
                 if self._sample_weight_full is not None:
                     self._state.fit_kwargs["sample_weight"] = self._sample_weight_full
-                stacker.fit(
-                    self._X_train_all, self._y_train_all, **self._state.fit_kwargs
-                )
-                logger.info(f"ensemble: {stacker}")
-                self._trained_estimator = stacker
-                self._trained_estimator.model = stacker
+                for e in estimators:
+                    e[1].__class__.init()
+                try:
+                    stacker.fit(
+                        self._X_train_all, self._y_train_all, **self._state.fit_kwargs
+                    )
+                    logger.info(f"ensemble: {stacker}")
+                    self._trained_estimator = stacker
+                    self._trained_estimator.model = stacker
+                except ValueError:
+                    if passthrough:
+                        logger.warning(
+                            "Using passthrough=False for ensemble because the data contain categorical features."
+                        )
+                        stacker = Stacker(
+                            estimators,
+                            final_estimator,
+                            n_jobs=self._state.n_jobs,
+                            passthrough=False,
+                        )
+                        stacker.fit(
+                            self._X_train_all,
+                            self._y_train_all,
+                            **self._state.fit_kwargs,
+                        )
+                        logger.info(f"ensemble: {stacker}")
+                        self._trained_estimator = stacker
+                        self._trained_estimator.model = stacker
             elif self._retrain_final:
                 # reset time budget for retraining
                 self._state.time_from_start -= self._state.time_budget
-                if self._state.task == TS_FORECAST or (
-                    self._state.time_budget - self._state.time_from_start
-                    > self._selected.est_retrain_time(self.data_size_full)
-                    and self._selected.best_config_sample_size == self._state.data_size
+                if (
+                    self._state.task == TS_FORECAST
+                    or self._trained_estimator is None
+                    or (
+                        self._state.time_budget - self._state.time_from_start
+                        > self._selected.est_retrain_time(self.data_size_full)
+                        and self._selected.best_config_sample_size
+                        == self._state.data_size
+                    )
                 ):
                     state = self._search_states[self._best_estimator]
                     (
