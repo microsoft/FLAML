@@ -11,6 +11,25 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     except OpenMLServerException:
         print("OpenMLServerException raised")
         return
+    from xgboost import XGBClassifier
+
+    xgb = XGBClassifier(
+        n_estimators=4,
+        max_leaves=4,
+        min_child_weight=1,
+        learning_rate=0.1,
+        subsample=1.0,
+        colsample_bylevel=1.0,
+        colsample_bytree=1.0,
+        reg_alpha=1 / 1024,
+        reg_lambda=1.0,
+        max_depth=0,
+        grow_policy="lossguide",
+        booster="gbtree",
+        use_label_encoder="False",
+        tree_method="hist",
+    )
+    xgb.fit(X_train, y_train)
     """ import AutoML class from flaml package """
     from flaml import AutoML
 
