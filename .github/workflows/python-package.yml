@@ -52,7 +52,7 @@ jobs:
       - name: Test with pytest
         if: ${{ matrix.python-version != '3.7' || matrix.os == 'macos-latest' }}
         run: |
-          pytest test -k test_automl
+          pytest test -k test_automl_array
       - name: Coverage
         if: ${{ matrix.python-version == '3.7' && matrix.os != 'macos-latest' }}
         run: |
