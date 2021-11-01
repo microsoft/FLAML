@@ -24,6 +24,7 @@ from .data import (
     TS_TIMESTAMP_COL,
     TS_VALUE_COL,
 )
+
 try:
     import psutil
 except ImportError:
@@ -43,9 +44,10 @@ def TimeoutHandler(sig, frame):
 
 @contextmanager
 def limit_resource(memory_limit, time_limit):
-    soft, hard = resource.getrlimit(resource.RLIMIT_AS)
-    if soft < 0 or memory_limit < soft:
-        resource.setrlimit(resource.RLIMIT_AS, (memory_limit, hard))
+    if resource is not None and memory_limit > 0:
+        soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+        if soft < 0 or memory_limit < soft:
+            resource.setrlimit(resource.RLIMIT_AS, (memory_limit, hard))
     main_thread = False
     if time_limit is not None:
         try:
@@ -59,7 +61,8 @@ def limit_resource(memory_limit, time_limit):
     finally:
         if main_thread:
             signal.alarm(0)
-        resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
+        if resource is not None:
+            resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
 
 
 class BaseEstimator:
@@ -156,13 +159,17 @@ class BaseEstimator:
         Returns:
             train_time: A float of the training time in seconds
         """
-        if psutil is not None and resource is not None and getattr(self, "limit_resource", None):
+        if getattr(self, "limit_resource", None) and (
+            budget is not None or resource is not None and psutil is not None
+        ):
             start_time = time.time()
-            mem = psutil.virtual_memory()
+            mem = psutil.virtual_memory() if psutil is not None else None
             try:
                 with limit_resource(
                     mem.available * (1 - FREE_MEM_RATIO)
-                    + psutil.Process(os.getpid()).memory_info().rss,
+                    + psutil.Process(os.getpid()).memory_info().rss
+                    if mem is not None
+                    else -1,
                     budget,
                 ):
                     train_time = self._fit(X_train, y_train, **kwargs)
