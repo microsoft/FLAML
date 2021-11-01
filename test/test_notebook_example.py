@@ -25,6 +25,7 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     }
     """The main flaml automl API"""
     automl.fit(X_train=X_train, y_train=y_train, **settings)
+    return
     """ retrieve best config and best learner """
     print("Best ML leaner:", automl.best_estimator)
     print("Best hyperparmeter config:", automl.best_config)
