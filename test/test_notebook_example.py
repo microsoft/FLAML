@@ -72,7 +72,7 @@ def _test_automl_array():
     _test_automl(5, "array", "bs")
 
 
-def test_mlflow():
+def _test_mlflow():
     import subprocess
     import sys
 
