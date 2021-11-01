@@ -11,25 +11,6 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     except OpenMLServerException:
         print("OpenMLServerException raised")
         return
-    from xgboost import XGBClassifier
-
-    xgb = XGBClassifier(
-        n_estimators=4,
-        max_leaves=4,
-        min_child_weight=1,
-        learning_rate=0.1,
-        subsample=1.0,
-        colsample_bylevel=1.0,
-        colsample_bytree=1.0,
-        reg_alpha=1 / 1024,
-        reg_lambda=1.0,
-        max_depth=0,
-        grow_policy="lossguide",
-        booster="gbtree",
-        use_label_encoder="False",
-        tree_method="hist",
-    )
-    xgb.fit(X_train, y_train)
     """ import AutoML class from flaml package """
     from flaml import AutoML
 
@@ -41,8 +22,6 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
         "log_file_name": "airlines_experiment.log",  # flaml log file
         "seed": 7654321,  # random seed
         "hpo_method": hpo_method,
-        "estimator_list": ["xgboost"],
-        "max_iter": 1,
     }
     """The main flaml automl API"""
     automl.fit(X_train=X_train, y_train=y_train, **settings)
@@ -93,7 +72,7 @@ def test_automl_array():
     test_automl(5, "array", "bs")
 
 
-def _test_mlflow():
+def test_mlflow():
     import subprocess
     import sys
 
