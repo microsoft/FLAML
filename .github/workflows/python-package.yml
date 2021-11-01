@@ -27,6 +27,7 @@ jobs:
       - name: If mac, install libomp to facilitate lgbm install
         if: matrix.os == 'macOS-latest'
         run: |
+          wget https://raw.githubusercontent.com/Homebrew/homebrew-core/679923b4eb48a8dc7ecc1f05d06063cd79b3fc00/Formula/libomp.rb -O $(find $(brew --repository) -name libomp.rb)
           brew install libomp
           export CC=/usr/bin/clang
           export CXX=/usr/bin/clang++
