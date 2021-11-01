@@ -1,7 +1,7 @@
 from openml.exceptions import OpenMLServerException
 
 
-def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
+def _test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     from flaml.data import load_openml_dataset
 
     try:
@@ -69,7 +69,7 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
 
 
 def test_automl_array():
-    test_automl(5, "array", "bs")
+    _test_automl(5, "array", "bs")
 
 
 def test_mlflow():
@@ -109,4 +109,4 @@ def test_mlflow():
 
 
 if __name__ == "__main__":
-    test_automl(120)
+    _test_automl(120)
