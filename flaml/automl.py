@@ -1491,8 +1491,10 @@ class AutoML:
         )
         self._retrain_final = (
             retrain_full is True
-            and eval_method == "holdout" and self._state.X_val is None
-            or eval_method == "cv" or max_iter == 1
+            and eval_method == "holdout"
+            and self._state.X_val is None
+            or eval_method == "cv"
+            or max_iter == 1
         )
         self._auto_augment = auto_augment
         self._min_sample_size = min_sample_size
@@ -2067,7 +2069,9 @@ class AutoML:
                 logger.info(
                     "retrain {} for {:.1f}s".format(self._best_estimator, retrain_time)
                 )
-                self._retrained_config[best_config_sig] = retrain_time
+                self._retrained_config[
+                    best_config_sig
+                ] = state.best_config_train_time = retrain_time
                 est_retrain_time = 0
             self._state.time_from_start = time.time() - self._start_time_flag
             if (
@@ -2125,14 +2129,25 @@ class AutoML:
                 )
                 search_states.sort(key=lambda x: x[1].best_loss)
                 estimators = [
-                    (x[0], x[1].learner_class(
-                        task=self._state.task, n_jobs=self._state.n_jobs, **x[1].best_config
-                    )) for x in search_states[:2]
+                    (
+                        x[0],
+                        x[1].learner_class(
+                            task=self._state.task,
+                            n_jobs=self._state.n_jobs,
+                            **x[1].best_config,
+                        ),
+                    )
+                    for x in search_states[:2]
                 ]
                 estimators += [
-                    (x[0], x[1].learner_class(
-                        task=self._state.task, n_jobs=self._state.n_jobs, **x[1].best_config
-                    ))
+                    (
+                        x[0],
+                        x[1].learner_class(
+                            task=self._state.task,
+                            n_jobs=self._state.n_jobs,
+                            **x[1].best_config,
+                        ),
+                    )
                     for x in search_states[2:]
                     if x[1].best_loss < 4 * self._selected.best_loss
                 ]
@@ -2217,6 +2232,7 @@ class AutoML:
                             self._best_estimator, retrain_time
                         )
                     )
+                    state.best_config_train_time = retrain_time
                     if self._trained_estimator:
                         logger.info(f"retrained model: {self._trained_estimator.model}")
                 else:
