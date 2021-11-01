@@ -68,7 +68,7 @@ def _test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     print(automl.min_resource)
 
 
-def test_automl_array():
+def _test_automl_array():
     _test_automl(5, "array", "bs")
 
 

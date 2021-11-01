@@ -1701,7 +1701,8 @@ class AutoML:
             resources_per_trial=resources_per_trial,
             time_budget_s=self._state.time_budget,
             num_samples=self._max_iter,
-            verbose=self.verbose,
+            verbose=max(self.verbose - 3, 0),
+            raise_on_failed_trial = False,
         )
         # logger.info([trial.last_result for trial in analysis.trials])
         trials = sorted(
