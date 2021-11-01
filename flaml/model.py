@@ -24,6 +24,14 @@ from .data import (
     TS_TIMESTAMP_COL,
     TS_VALUE_COL,
 )
+try:
+    import psutil
+except ImportError:
+    psutil = None
+try:
+    import resource
+except ImportError:
+    resource = None
 
 logger = logging.getLogger("flaml.automl")
 FREE_MEM_RATIO = 0.2
@@ -35,8 +43,6 @@ def TimeoutHandler(sig, frame):
 
 @contextmanager
 def limit_resource(memory_limit, time_limit):
-    import resource
-
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
     if soft < 0 or memory_limit < soft:
         resource.setrlimit(resource.RLIMIT_AS, (memory_limit, hard))
@@ -150,13 +156,7 @@ class BaseEstimator:
         Returns:
             train_time: A float of the training time in seconds
         """
-        try:
-            if not self.limit_resource:
-                # Some can't be limited this way
-                raise AttributeError
-            import psutil
-            import resource
-
+        if psutil is not None and resource is not None and getattr(self, "limit_resource", None):
             start_time = time.time()
             mem = psutil.virtual_memory()
             try:
@@ -176,8 +176,7 @@ class BaseEstimator:
                 model.fit(X_train, y_train)
                 self._model = model
                 train_time = time.time() - start_time
-        except (ImportError, AttributeError):
-            # logger.info("not enforcing time and mem limit")
+        else:
             train_time = self._fit(X_train, y_train, **kwargs)
         return train_time
 
@@ -392,13 +391,7 @@ class LGBMEstimator(BaseEstimator):
         n_iter = self.params[self.ITER_HP]
         trained = False
         if not self.HAS_CALLBACK:
-            try:
-                import psutil
-
-                mem0 = psutil.virtual_memory().available
-            except ImportError:
-                mem0 = 1
-                psutil = None
+            mem0 = psutil.virtual_memory().available if psutil is not None else 1
             if (
                 (
                     not self._time_per_iter
@@ -491,14 +484,10 @@ class LGBMEstimator(BaseEstimator):
 
         if time.time() >= deadline:
             raise EarlyStopException(env.iteration, env.evaluation_result_list)
-        try:
-            import psutil
-
+        if psutil is not None:
             mem = psutil.virtual_memory()
             if mem.available / mem.total < FREE_MEM_RATIO:
                 raise EarlyStopException(env.iteration, env.evaluation_result_list)
-        except ImportError:
-            return
 
 
 class XGBoostEstimator(SKLearnEstimator):
@@ -634,14 +623,10 @@ class XGBoostEstimator(SKLearnEstimator):
             def after_iteration(self, model, epoch, evals_log) -> bool:
                 if time.time() >= deadline:
                     return True
-                try:
-                    import psutil
-
+                if psutil is not None:
                     mem = psutil.virtual_memory()
                     if mem.available / mem.total < FREE_MEM_RATIO:
                         return True
-                except ImportError:
-                    pass
                 return False
 
         return [ResourceLimit()]
@@ -948,14 +933,10 @@ class CatBoostEstimator(BaseEstimator):
             def after_iteration(self, info) -> bool:
                 if time.time() >= deadline:
                     return False
-                try:
-                    import psutil
-
+                if psutil is not None:
                     mem = psutil.virtual_memory()
                     if mem.available / mem.total < FREE_MEM_RATIO:
                         return False
-                except ImportError:
-                    pass
                 return True  # can continue
 
         return [ResourceLimit()]
