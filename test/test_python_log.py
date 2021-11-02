@@ -113,3 +113,8 @@ class TestLogging(unittest.TestCase):
         with open("automl.pkl", "wb") as f:
             pickle.dump(automl, f, pickle.HIGHEST_PROTOCOL)
         print(automl.__version__)
+        pred1 = automl.predict(X_train)
+        automl = pickle.load(open("automl.pkl", "rb"))
+        pred2 = automl.predict(X_train)
+        delta = pred1 - pred2
+        assert max(delta) == 0 and min(delta) == 0
