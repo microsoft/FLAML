@@ -1449,6 +1449,10 @@ class AutoML:
                 augment rare classes.
             min_sample_size: int, default=MIN_SAMPLE_TRAIN | the minimal sample
                 size when sample=True.
+            use_ray: boolean, default=False | Whether to use ray to run the training
+                in separate processes. This can be used to prevent OOM for large
+                datasets, but will incur more overhead in time. Only use it if
+                you run into OOM failures.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Include period as
                 a key word argument for 'ts_forecast' task.
