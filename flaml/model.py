@@ -1049,7 +1049,8 @@ class Prophet(SKLearnEstimator):
         model = Prophet(**self.params)
         for regressor in cols:
             model.add_regressor(regressor)
-        model.fit(train_df)
+        with suppress_stdout_stderr():
+            model.fit(train_df)
         train_time = time.time() - current_time
         self._model = model
         return train_time
@@ -1127,7 +1128,8 @@ class ARIMA(Prophet):
                 enforce_stationarity=False,
                 enforce_invertibility=False,
             )
-        model = model.fit()
+        with suppress_stdout_stderr():
+            model = model.fit()
         train_time = time.time() - current_time
         self._model = model
         return train_time
@@ -1239,7 +1241,39 @@ class SARIMAX(ARIMA):
                 enforce_stationarity=False,
                 enforce_invertibility=False,
             )
-        model = model.fit()
+        with suppress_stdout_stderr():
+            model = model.fit()
         train_time = time.time() - current_time
         self._model = model
         return train_time
+
+
+class suppress_stdout_stderr(object):
+    """
+    A context manager for doing a "deep suppression" of stdout and stderr in
+    Python, i.e. will suppress all print, even if the print originates in a
+    compiled C/Fortran sub-function.
+       This will not suppress raised exceptions, since exceptions are printed
+    to stderr just before a script exits, and after the context manager has
+    exited.
+
+    """
+
+    def __init__(self):
+        # Open a pair of null files
+        self.null_fds = [os.open(os.devnull, os.O_RDWR) for x in range(2)]
+        # Save the actual stdout (1) and stderr (2) file descriptors.
+        self.save_fds = (os.dup(1), os.dup(2))
+
+    def __enter__(self):
+        # Assign the null pointers to stdout and stderr.
+        os.dup2(self.null_fds[0], 1)
+        os.dup2(self.null_fds[1], 2)
+
+    def __exit__(self, *_):
+        # Re-assign the real stdout/stderr back to (1) and (2)
+        os.dup2(self.save_fds[0], 1)
+        os.dup2(self.save_fds[1], 2)
+        # Close the null files
+        os.close(self.null_fds[0])
+        os.close(self.null_fds[1])
