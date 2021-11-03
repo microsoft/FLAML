@@ -46,7 +46,7 @@ def TimeoutHandler(sig, frame):
 def limit_resource(memory_limit, time_limit):
     if memory_limit > 0:
         soft, hard = resource.getrlimit(resource.RLIMIT_AS)
-        if soft < 0 or memory_limit < soft:
+        if soft < 0 and (hard < 0 or memory_limit <= hard) or memory_limit < soft:
             resource.setrlimit(resource.RLIMIT_AS, (memory_limit, hard))
     main_thread = False
     if time_limit is not None:
