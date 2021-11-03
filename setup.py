@@ -38,8 +38,9 @@ setuptools.setup(
         "notebook": [
             "openml==0.10.2",
             "jupyter",
-            "matplotlib==3.2.0",
+            "matplotlib",
             "rgf-python",
+            "catboost>=0.26",
         ],
         "test": [
             "flake8>=3.8.4",
