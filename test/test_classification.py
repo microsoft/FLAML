@@ -220,12 +220,13 @@ class TestClassification(unittest.TestCase):
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
 
-    def test_parallel_classification(self):
+    def test_ray_classification(self):
         from sklearn.datasets import make_classification
 
         X, y = make_classification(1000, 10)
         automl = AutoML()
         try:
+            automl.fit(X, y, time_budget=10, task="classification", use_ray=True)
             automl.fit(
                 X, y, time_budget=10, task="classification", n_concurrent_trials=2
             )

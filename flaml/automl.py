@@ -1307,6 +1307,7 @@ class AutoML:
         append_log=False,
         auto_augment=True,
         min_sample_size=MIN_SAMPLE_TRAIN,
+        use_ray=False,
         **fit_kwargs,
     ):
         """Find a model for a given task
@@ -1587,6 +1588,7 @@ class AutoML:
         self._state.n_jobs = n_jobs
         self._n_concurrent_trials = n_concurrent_trials
         self._early_stop = early_stop
+        self._use_ray = use_ray or self._n_concurrent_trials > 1
         if log_file_name:
             with training_log_writer(log_file_name, append_log) as save_helper:
                 self._training_log = save_helper
@@ -1637,7 +1639,7 @@ class AutoML:
             from ray.tune.suggest import ConcurrencyLimiter
         except (ImportError, AssertionError):
             raise ImportError(
-                "n_concurrent_trial > 1 requires installation of ray. "
+                "n_concurrent_trial>1 or use_ray=True requires installation of ray. "
                 "Please run pip install flaml[ray]"
             )
         if self._hpo_method in ("cfo", "grid"):
@@ -2105,7 +2107,7 @@ class AutoML:
         self._selected = None
         self.modelcount = 0
 
-        if self._n_concurrent_trials == 1:
+        if not self._use_ray:
             self._search_sequential()
         else:
             self._search_parallel()
