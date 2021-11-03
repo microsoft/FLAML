@@ -376,7 +376,7 @@ class LGBMEstimator(BaseEstimator):
         self._time_per_iter = None
         self._train_size = 0
         self._mem_per_iter = 1
-        self.HAS_CALLBACK = self.HAS_CALLBACK and self._callbacks(0) is not None
+        self.HAS_CALLBACK = self.HAS_CALLBACK and self._callbacks(0, 0) is not None
 
     def _preprocess(self, X):
         if (
@@ -469,7 +469,7 @@ class LGBMEstimator(BaseEstimator):
         if self.params[self.ITER_HP] > 0:
             if self.HAS_CALLBACK:
                 self._fit(
-                    X_train, y_train, callbacks=self._callbacks(deadline), **kwargs
+                    X_train, y_train, callbacks=self._callbacks(start_time, deadline), **kwargs
                 )
                 best_iteration = (
                     self._model.get_booster().best_iteration
@@ -485,13 +485,16 @@ class LGBMEstimator(BaseEstimator):
         train_time = time.time() - start_time
         return train_time
 
-    def _callbacks(self, deadline) -> List[Callable]:
-        return [partial(self._callback, deadline)]
+    def _callbacks(self, start_time, deadline) -> List[Callable]:
+        return [partial(self._callback, start_time, deadline)]
 
-    def _callback(self, deadline, env) -> None:
+    def _callback(self, start_time, deadline, env) -> None:
         from lightgbm.callback import EarlyStopException
 
-        if time.time() >= deadline:
+        now = time.time()
+        if env.iteration == 0:
+            self._time_per_iter = now - start_time
+        if now + self._time_per_iter > deadline:
             raise EarlyStopException(env.iteration, env.evaluation_result_list)
         if psutil is not None:
             mem = psutil.virtual_memory()
@@ -595,7 +598,7 @@ class XGBoostEstimator(SKLearnEstimator):
             if "objective" in self.params:
                 del self.params["objective"]
         _n_estimators = self.params.pop("n_estimators")
-        callbacks = XGBoostEstimator._callbacks(deadline)
+        callbacks = XGBoostEstimator._callbacks(start_time, deadline)
         if callbacks:
             self._model = xgb.train(
                 self.params,
@@ -622,7 +625,7 @@ class XGBoostEstimator(SKLearnEstimator):
         return super().predict(dtest)
 
     @classmethod
-    def _callbacks(cls, deadline):
+    def _callbacks(cls, start_time, deadline):
         try:
             from xgboost.callback import TrainingCallback
         except ImportError:  # for xgboost<1.3
@@ -630,7 +633,10 @@ class XGBoostEstimator(SKLearnEstimator):
 
         class ResourceLimit(TrainingCallback):
             def after_iteration(self, model, epoch, evals_log) -> bool:
-                if time.time() >= deadline:
+                now = time.time()
+                if epoch == 0:
+                    self._time_per_iter = now - start_time
+                if now + self._time_per_iter > deadline:
                     return True
                 if psutil is not None:
                     mem = psutil.virtual_memory()
@@ -682,8 +688,8 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
             self.params["tree_method"] = "auto"
         return super().fit(X_train, y_train, budget, **kwargs)
 
-    def _callbacks(self, deadline) -> List[Callable]:
-        return XGBoostEstimator._callbacks(deadline)
+    def _callbacks(self, start_time, deadline) -> List[Callable]:
+        return XGBoostEstimator._callbacks(start_time, deadline)
 
 
 class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
@@ -915,7 +921,7 @@ class CatBoostEstimator(BaseEstimator):
                 eval_set=Pool(
                     data=X_train[n:], label=y_train[n:], cat_features=cat_features
                 ),
-                callbacks=CatBoostEstimator._callbacks(deadline),
+                callbacks=CatBoostEstimator._callbacks(start_time, deadline),
                 **kwargs,
             )
         else:
@@ -937,10 +943,13 @@ class CatBoostEstimator(BaseEstimator):
         return train_time
 
     @classmethod
-    def _callbacks(cls, deadline):
+    def _callbacks(cls, start_time, deadline):
         class ResourceLimit:
             def after_iteration(self, info) -> bool:
-                if time.time() >= deadline:
+                now = time.time()
+                if info.iteration == 1:
+                    self._time_per_iter = now - start_time
+                if now + self._time_per_iter > deadline:
                     return False
                 if psutil is not None:
                     mem = psutil.virtual_memory()
