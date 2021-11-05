@@ -1592,7 +1592,9 @@ class AutoML:
         self._n_concurrent_trials = n_concurrent_trials
         self._early_stop = early_stop
         self._use_ray = use_ray or n_concurrent_trials > 1
-        self._hpo_method = hpo_method or ("bs" if self._use_ray else "cfo")
+        self._hpo_method = hpo_method or (
+            "bs" if self._use_ray and len(estimator_list) > 1 else "cfo"
+        )
         if log_file_name:
             with training_log_writer(log_file_name, append_log) as save_helper:
                 self._training_log = save_helper
