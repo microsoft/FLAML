@@ -164,11 +164,13 @@ class JobID:
             Preparing for the job ID for wandb
         """
         field_dict = self.__dict__
-        keytoval_str = "_".join([JobID.dataset_list_to_str(field_dict[key])
-                                 if type(field_dict[key]) == list
-                                 else str(field_dict[key])
-                                 for key in field_dict.keys() if not key.endswith("_full")])
-        return keytoval_str
+        return "_".join(
+            JobID.dataset_list_to_str(field_dict[key])
+            if type(field_dict[key]) == list
+            else str(field_dict[key])
+            for key in field_dict.keys()
+            if not key.endswith("_full")
+        )
 
     def to_jobid_string(self):
         """
@@ -176,11 +178,13 @@ class JobID:
         """
         list_keys = list(JobID.__dataclass_fields__.keys())
         field_dict = self.__dict__
-        keytoval_str = "_".join([key + "=" + JobID.dataset_list_to_str(field_dict[key])
-                                 if type(field_dict[key]) == list
-                                 else key + "=" + str(field_dict[key])
-                                 for key in list_keys if not key.endswith("_full")])
-        return keytoval_str
+        return "_".join(
+            key + "=" + JobID.dataset_list_to_str(field_dict[key])
+            if type(field_dict[key]) == list
+            else key + "=" + str(field_dict[key])
+            for key in list_keys
+            if not key.endswith("_full")
+        )
 
     def to_partial_jobid_string(self):
         """
@@ -188,11 +192,13 @@ class JobID:
         """
         list_keys = list(JobID.__dataclass_fields__.keys())
         field_dict = self.__dict__  # field_dict contains fields whose values are not None
-        keytoval_str = "_".join([key + "=" + JobID.dataset_list_to_str(field_dict[key])
-                                 if type(field_dict[key]) == list
-                                 else key + "=" + str(field_dict[key])
-                                 for key in list_keys if key in field_dict.keys()])
-        return keytoval_str
+        return "_".join(
+            key + "=" + JobID.dataset_list_to_str(field_dict[key])
+            if type(field_dict[key]) == list
+            else key + "=" + str(field_dict[key])
+            for key in list_keys
+            if key in field_dict.keys()
+        )
 
     @staticmethod
     def blobname_to_jobid_dict(keytoval_str):
@@ -221,26 +227,25 @@ class JobID:
                 regex_expression += prefix + key + "=(?P<" + key + ">[^_]*)"
         regex_expression += ".(json|zip)"
         result = re.search(regex_expression, keytoval_str)
-        if result:
-            result_dict = {}
-            for key in field_keys:
-                if key == "dat":
-                    result_dict[key] = [result.group(key)]
-                elif key == "rep":
-                    try:
-                        try:
-                            result_dict[key] = int(result.group(key))
-                        except IndexError:
-                            print("No group {} in the regex result".format(key))
-                            result_dict[key] = -1
-                    except ValueError:
-                        print("Cannot parse integer {}".format(result.group(key)))
-                        result_dict[key] = -1
-                else:
-                    result_dict[key] = result.group(key)
-            return result_dict
-        else:
+        if not result:
             return None
+        result_dict = {}
+        for key in field_keys:
+            if key == "dat":
+                result_dict[key] = [result.group(key)]
+            elif key == "rep":
+                try:
+                    try:
+                        result_dict[key] = int(result.group(key))
+                    except IndexError:
+                        print("No group {} in the regex result".format(key))
+                        result_dict[key] = -1
+                except ValueError:
+                    print("Cannot parse integer {}".format(result.group(key)))
+                    result_dict[key] = -1
+            else:
+                result_dict[key] = result.group(key)
+        return result_dict
 
     @staticmethod
     def dataset_list_to_str(dataset_name, key="dat"):
@@ -296,10 +301,12 @@ class JobID:
     @staticmethod
     def _extract_model_type_with_keywords_match(pre_full):
         from ..hpo.grid_searchspace_auto import HF_MODEL_LIST
-        matched_model_type = []
-        for each_model_type in HF_MODEL_LIST:
-            if each_model_type in pre_full:
-                matched_model_type.append(each_model_type)
+        matched_model_type = [
+            each_model_type
+            for each_model_type in HF_MODEL_LIST
+            if each_model_type in pre_full
+        ]
+
         assert len(matched_model_type) > 0
         return max(enumerate(matched_model_type), key=lambda x: len(x[1]))[1]
 
@@ -337,7 +344,7 @@ class JobID:
             "seed_data": "sddt",
             "seed_transformers": "sdhf",
         }
-        for each_key in console_to_jobid_key_mapping.keys():
+        for each_key, jobid_key in console_to_jobid_key_mapping.items():
             try:
                 try:
                     if each_key == "dataset_subdataset_name":
@@ -350,7 +357,6 @@ class JobID:
                         self.pre = JobID.extract_model_type(self.pre_full)
                         self.presz = JobID.get_attrval_from_arg_or_dict(console_args, each_key).split(":")[1]
                     else:
-                        jobid_key = console_to_jobid_key_mapping[each_key]
                         attrval = JobID.get_attrval_from_arg_or_dict(console_args, each_key)
                         setattr(self, jobid_key, attrval)
                 except AttributeError:
@@ -441,10 +447,7 @@ class AzureUtils:
                     The jobid config for analysis. jobid_config specifies the jobid config of azure blob files
                     to be analyzed, if autohf is specified, jobid_config will be overwritten by autohf.jobid_config
         '''
-        if root_log_path:
-            self.root_log_path = root_log_path
-        else:
-            self.root_log_path = "logs_azure/"
+        self.root_log_path = root_log_path or "logs_azure/"
         if autohf is not None:
             self.jobid = autohf.jobid_config
         else:
@@ -489,9 +492,10 @@ class AzureUtils:
             from azure.storage.blob import ContainerClient
             connection_string = self._get_complete_connection_string()
             try:
-                container_client = ContainerClient.from_connection_string(conn_str=connection_string,
-                                                                          container_name=self._container_name)
-                return container_client
+                return ContainerClient.from_connection_string(
+                    conn_str=connection_string, container_name=self._container_name
+                )
+
             except ValueError:
                 print("Your output will not be synced to azure because azure key and container name are not specified")
                 return None
@@ -506,8 +510,10 @@ class AzureUtils:
             connection_string = self._get_complete_connection_string()
             blob_service_client = BlobServiceClient.from_connection_string(connection_string)
             try:
-                blob_client = blob_service_client.get_blob_client(container=self._container_name, blob=local_file_path)
-                return blob_client
+                return blob_service_client.get_blob_client(
+                    container=self._container_name, blob=local_file_path
+                )
+
             except ValueError:
                 print("Your output will not be synced to azure because azure key and container name are not specified")
                 return None
@@ -583,7 +589,7 @@ class AzureUtils:
             output_json["valid_metric"] = valid_metric
         if duration:
             output_json["duration"] = duration
-        if len(output_json) > 0:
+        if output_json:
             self.create_local_json_and_upload(output_json, local_file_path)
         if predictions is not None:
             self.create_local_prediction_and_upload(local_file_path, predictions)
@@ -630,9 +636,9 @@ class AzureUtils:
         # TODO coverage
         import pytz
         utc = pytz.UTC
-        if this_blob.last_modified >= utc.localize(datetime(earliest_time[0], earliest_time[1], earliest_time[2])):
-            return True
-        return False
+        return this_blob.last_modified >= utc.localize(
+            datetime(earliest_time[0], earliest_time[1], earliest_time[2])
+        )
 
     def get_configblob_from_partial_jobid(self,
                                           root_log_path,

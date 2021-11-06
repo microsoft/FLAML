@@ -44,8 +44,7 @@ class WandbUtils:
         try:
             try:
                 key_json = json.load(open(os.path.join(key_path, "key.json"), "r"))
-                wandb_key = key_json["wandb_key"]
-                return wandb_key
+                return key_json["wandb_key"]
             except FileNotFoundError:
                 print("Cannot use wandb module because key.json is not found under key_path")
                 return ""
@@ -59,16 +58,15 @@ class WandbUtils:
         try:
             import wandb
             try:
-                if os.environ["WANDB_MODE"] == "online":
-                    os.environ["WANDB_SILENT"] = "false"
-                    return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
-                                      group=self.wandb_group_name,
-                                      name=str(WandbUtils._get_next_trial_ids()),
-                                      settings=wandb.Settings(
-                                          _disable_stats=True),
-                                      reinit=False)
-                else:
+                if os.environ["WANDB_MODE"] != "online":
                     return None
+                os.environ["WANDB_SILENT"] = "false"
+                return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
+                                  group=self.wandb_group_name,
+                                  name=str(WandbUtils._get_next_trial_ids()),
+                                  settings=wandb.Settings(
+                                      _disable_stats=True),
+                                  reinit=False)
             except wandb.errors.UsageError as err:
                 print(err)
                 return None
@@ -87,15 +85,14 @@ class WandbUtils:
             os.environ["WANDB_RUN_GROUP"] = self.jobid_config.to_wandb_string() + wandb.util.generate_id()
             self.wandb_group_name = os.environ["WANDB_RUN_GROUP"]
             try:
-                if os.environ["WANDB_MODE"] == "online":
-                    os.environ["WANDB_SILENT"] = "false"
-                    return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
-                                      group=os.environ["WANDB_RUN_GROUP"],
-                                      settings=wandb.Settings(
-                                          _disable_stats=True),
-                                      reinit=False)
-                else:
+                if os.environ["WANDB_MODE"] != "online":
                     return None
+                os.environ["WANDB_SILENT"] = "false"
+                return wandb.init(project=self.jobid_config.get_jobid_full_data_name(),
+                                  group=os.environ["WANDB_RUN_GROUP"],
+                                  settings=wandb.Settings(
+                                      _disable_stats=True),
+                                  reinit=False)
             except wandb.errors.UsageError as err:
                 print(err)
                 return None
