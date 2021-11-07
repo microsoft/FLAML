@@ -1655,7 +1655,13 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_n_concurrent_trials</span> <span class="o">=</span> <span class="n">n_concurrent_trials</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_early_stop</span> <span class="o">=</span> <span class="n">early_stop</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_use_ray</span> <span class="o">=</span> <span class="n">use_ray</span> <span class="ow">or</span> <span class="n">n_concurrent_trials</span> <span class="o">&gt;</span> <span class="mi">1</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_hpo_method</span> <span class="o">=</span> <span class="n">hpo_method</span> <span class="ow">or</span> <span class="p">(</span><span class="s2">&quot;bs&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_use_ray</span> <span class="k">else</span> <span class="s2">&quot;cfo&quot;</span><span class="p">)</span>
+        <span class="c1"># use the following condition if we have an estimation of average_trial_time and average_trial_overhead</span>
+        <span class="c1"># self._use_ray = use_ray or n_concurrent_trials &gt; ( average_trail_time + average_trial_overhead) / (average_trial_time)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_hpo_method</span> <span class="o">=</span> <span class="n">hpo_method</span> <span class="ow">or</span> <span class="p">(</span>
+            <span class="s2">&quot;bs&quot;</span>
+            <span class="k">if</span> <span class="n">n_concurrent_trials</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_use_ray</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">estimator_list</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span>
+            <span class="k">else</span> <span class="s2">&quot;cfo&quot;</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="n">log_file_name</span><span class="p">:</span>
             <span class="k">with</span> <span class="n">training_log_writer</span><span class="p">(</span><span class="n">log_file_name</span><span class="p">,</span> <span class="n">append_log</span><span class="p">)</span> <span class="k">as</span> <span class="n">save_helper</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_training_log</span> <span class="o">=</span> <span class="n">save_helper</span>
