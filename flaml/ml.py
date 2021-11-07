@@ -20,7 +20,6 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import RepeatedStratifiedKFold, GroupKFold, TimeSeriesSplit
 from .model import (
-    XGBoostEstimator,
     XGBoostSklearnEstimator,
     RandomForestEstimator,
     LGBMEstimator,
