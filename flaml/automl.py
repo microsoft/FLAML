@@ -36,7 +36,7 @@ from .config import (
     N_SPLITS,
     SAMPLE_MULTIPLY_FACTOR,
 )
-from .data import concat, CLASSIFICATION
+from .data import concat, CLASSIFICATION, TS_FORECAST, FORECAST
 from . import tune
 from .training_log import training_log_reader, training_log_writer
 
@@ -248,7 +248,7 @@ class AutoMLState:
             "wall_clock_time": time.time() - self._start_time_flag,
             "metric_for_logging": metric_for_logging,
             "val_loss": val_loss,
-            "trained_estimator": trained_estimator,
+            "trained_estimator": trained_estimator if self.save_model_history else None,
         }
         if sampled_weight is not None:
             self.fit_kwargs["sample_weight"] = weight
@@ -403,9 +403,10 @@ class AutoML:
 
     @property
     def best_config_train_time(self):
-        """A float of the seconds taken by training the
-        best config."""
-        return self._search_states[self._best_estimator].best_config_train_time
+        """A float of the seconds taken by training the best config."""
+        return getattr(
+            self._search_states[self._best_estimator], "best_config_train_time", None
+        )
 
     @property
     def classes_(self):
@@ -428,10 +429,22 @@ class AutoML:
 
         Args:
             X_test: A numpy array of featurized instances, shape n * m,
-                or for 'forecasting' task:
-                    a pandas dataframe with one column of timestamp values
-                    or an integer n for the predict steps (only valid when
-                    the estimator is arima or sarimax).
+                or for 'ts_forecast' task:
+                    a pandas dataframe with the first column containing
+                    timestamp values (datetime type) or an integer n for
+                    the predict steps (only valid when the estimator is
+                    arima or sarimax). Other columns in the dataframe
+                    are assumed to be exogenous variables (categorical
+                    or numeric).
+
+                    .. code-block:: python
+
+                        multivariate_X_test = pd.DataFrame({
+                            'timeStamp': pd.date_range(start='1/1/2022', end='1/07/2022'),
+                            'categorical_col': ['yes', 'yes', 'no', 'no', 'yes', 'no', 'yes'],
+                            'continuous_col': [105, 107, 120, 118, 110, 112, 115]
+                        })
+                        model.predict(multivariate_X_test)
 
         Returns:
             A array-like of shape n * 1 - - each element is a predicted
@@ -472,14 +485,12 @@ class AutoML:
     def _preprocess(self, X):
         if isinstance(X, int):
             return X
-        if self._state.task == "forecast":
+        if self._state.task == TS_FORECAST:
             X = pd.DataFrame(X)
-            X = X.rename(columns={X.columns[0]: "ds"})
-        else:
-            if issparse(X):
-                X = X.tocsr()
-            if self._transformer:
-                X = self._transformer.transform(X)
+        if issparse(X):
+            X = X.tocsr()
+        if self._transformer:
+            X = self._transformer.transform(X, self._state.task)
         return X
 
     def _validate_data(
@@ -493,23 +504,6 @@ class AutoML:
         groups_val=None,
         groups=None,
     ):
-        if self._state.task == "forecast":
-            if dataframe is not None and label is not None:
-                dataframe = dataframe.copy()
-                dataframe = dataframe.rename(columns={label[0]: "ds", label[1]: "y"})
-            elif dataframe is not None:
-                assert "ds" in dataframe and "y" in dataframe, (
-                    "For forecasting task, dataframe must have columns "
-                    '"ds" and "y" with the dates and values respectively.'
-                )
-            elif (X_train_all is not None) and (y_train_all is not None):
-                dataframe = pd.DataFrame(X_train_all)
-                dataframe = dataframe.rename(columns={dataframe.columns[0]: "ds"})
-                dataframe["y"] = pd.Series(y_train_all)
-                X_train_all = None
-                y_train_all = None
-            label = "y"
-
         if X_train_all is not None and y_train_all is not None:
             assert (
                 isinstance(X_train_all, np.ndarray)
@@ -525,6 +519,8 @@ class AutoML:
             assert (
                 X_train_all.size != 0 and y_train_all.size != 0
             ), "Input data must not be empty."
+            if isinstance(X_train_all, np.ndarray) and len(X_train_all.shape) == 1:
+                X_train_all = np.reshape(X_train_all, (X_train_all.size, 1))
             if isinstance(y_train_all, np.ndarray):
                 y_train_all = y_train_all.flatten()
             assert (
@@ -532,6 +528,11 @@ class AutoML:
             ), "# rows in X_train must match length of y_train."
             self._df = isinstance(X_train_all, pd.DataFrame)
             self._nrow, self._ndim = X_train_all.shape
+            if self._state.task == TS_FORECAST:
+                X_train_all = pd.DataFrame(X_train_all)
+                assert (
+                    X_train_all[X_train_all.columns[0]].dtype.name == "datetime64[ns]"
+                ), f"For '{TS_FORECAST}' task, the first column must contain timestamp values."
             X, y = X_train_all, y_train_all
         elif dataframe is not None and label is not None:
             assert isinstance(
@@ -539,12 +540,16 @@ class AutoML:
             ), "dataframe must be a pandas DataFrame"
             assert label in dataframe.columns, "label must a column name in dataframe"
             self._df = True
+            if self._state.task == TS_FORECAST:
+                assert (
+                    dataframe[dataframe.columns[0]].dtype.name == "datetime64[ns]"
+                ), f"For '{TS_FORECAST}' task, the first column must contain timestamp values."
             X = dataframe.drop(columns=label)
             self._nrow, self._ndim = X.shape
             y = dataframe[label]
         else:
             raise ValueError("either X_train+y_train or dataframe+label are required")
-        if issparse(X_train_all) or self._state.task == "forecast":
+        if issparse(X_train_all):
             self._transformer = self._label_transformer = False
             self._X_train_all, self._y_train_all = X, y
         else:
@@ -578,11 +583,13 @@ class AutoML:
                 X_val.shape[0] == y_val.shape[0]
             ), "# rows in X_val must match length of y_val."
             if self._transformer:
-                self._state.X_val = self._transformer.transform(X_val)
+                self._state.X_val = self._transformer.transform(X_val, self._state.task)
             else:
                 self._state.X_val = X_val
             if self._label_transformer:
-                self._state.y_val = self._label_transformer.transform(y_val)
+                self._state.y_val = self._label_transformer.transform(
+                    y_val, self._state.task
+                )
             else:
                 self._state.y_val = y_val
         else:
@@ -668,7 +675,7 @@ class AutoML:
         if X_val is None and eval_method == "holdout":
             # if eval_method = holdout, make holdout data
             if self._split_type == "time":
-                if self._state.task == "forecast":
+                if self._state.task == TS_FORECAST:
                     num_samples = X_train_all.shape[0]
                     period = self._state.fit_kwargs["period"]
                     assert (
@@ -826,7 +833,7 @@ class AutoML:
             )
         elif self._split_type == "time":
             # logger.info("Using TimeSeriesSplit")
-            if self._state.task == "forecast":
+            if self._state.task == TS_FORECAST:
                 period = self._state.fit_kwargs["period"]
                 if period * (n_splits + 1) > y_train_all.size:
                     n_splits = int(y_train_all.size / period - 1)
@@ -861,7 +868,7 @@ class AutoML:
             record_id: An integer of the record ID in the file,
                 0 corresponds to the first trial
             task: A string of the task type,
-                'binary', 'multi', 'regression', 'forecast', 'rank'
+                'binary', 'multi', 'regression', 'ts_forecast', 'rank'
 
         Returns:
             An estimator object for the given configuration
@@ -908,20 +915,24 @@ class AutoML:
         Args:
             log_file_name: A string of the log file name
             X_train: A numpy array of training data in shape n*m
+                For 'ts_forecast' task, the first column of X_train
+                must be the timestamp column (datetime type). Other
+                columns in the dataframe are assumed to be exogenous
+                variables (categorical or numeric).
             y_train: A numpy array of labels in shape n*1
             dataframe: A dataframe of training data including label column.
-                For 'forecast' task, dataframe must be specified and should
-                have two columns: timestamp and value.
-            label: A str of the label column name for 'classification' or
-                'regression' task, e.g., 'label';
-                or a tuple of strings for timestamp and value columns for
-                'forecasting' task, e.g., ('timestamp', 'value').
+                For 'ts_forecast' task, dataframe must be specified and should
+                have at least two columns: timestamp and label, where the first
+                column is the timestamp column (datetime type). Other columns
+                in the dataframe are assumed to be exogenous variables
+                (categorical or numeric).
+            label: A str of the label column name, e.g., 'label';
                 Note: If X_train and y_train are provided,
                 dataframe and label are ignored;
                 If not, dataframe and label must be provided.
             time_budget: A float number of the time budget in seconds.
             task: A string of the task type, e.g.,
-                'classification', 'regression', 'forecast', 'rank'.
+                'classification', 'regression', 'ts_forecast', 'rank'.
             eval_method: A string of resampling strategy, one of
                 ['auto', 'cv', 'holdout'].
             split_ratio: A float of the validation data percentage for holdout.
@@ -931,7 +942,7 @@ class AutoML:
                     None, 'stratified', 'uniform', 'time', 'group']. None -> stratified.
                 For regression tasks, valid choices are [None, 'uniform', 'time'].
                     None -> uniform.
-                For time series forecasting, must be None or 'time'.
+                For ts_forecast tasks, must be None or 'time'.
                 For ranking task, must be None or 'group'.
             groups: None or array-like | Group labels (with matching length to
                 y_train) or groups counts (with sum equal to length of y_train)
@@ -951,7 +962,10 @@ class AutoML:
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight.
         """
-        self._state.task = task
+        if task == FORECAST:
+            self._state.task = TS_FORECAST
+        else:
+            self._state.task = task
         self._state.fit_kwargs = fit_kwargs
         self._validate_data(X_train, y_train, dataframe, label, groups=groups)
 
@@ -1037,12 +1051,12 @@ class AutoML:
         elif self._state.task == "regression":
             assert split_type in [None, "uniform", "time", "group"]
             self._split_type = split_type or "uniform"
-        elif self._state.task == "forecast":
+        elif self._state.task == TS_FORECAST:
             assert split_type in [None, "time"]
             self._split_type = "time"
             assert isinstance(
                 self._state.fit_kwargs.get("period"), int
-            ), "missing a required integer 'period' for forecast."
+            ), f"missing a required integer 'period' for '{TS_FORECAST}' task."
         elif self._state.task == "rank":
             assert (
                 self._state.groups is not None
@@ -1055,7 +1069,8 @@ class AutoML:
             return "holdout"
         nrow, dim = self._nrow, self._ndim
         if (
-            nrow * dim / 0.9 < SMALL_LARGE_THRES * (time_budget / 3600)
+            time_budget is None
+            or nrow * dim / 0.9 < SMALL_LARGE_THRES * (time_budget / 3600)
             and nrow < CV_HOLDOUT_THRESHOLD
         ):
             # time allows or sampling can be used and cv is necessary
@@ -1292,22 +1307,23 @@ class AutoML:
         append_log=False,
         auto_augment=True,
         min_sample_size=MIN_SAMPLE_TRAIN,
+        use_ray=False,
         **fit_kwargs,
     ):
         """Find a model for a given task
 
         Args:
             X_train: A numpy array or a pandas dataframe of training data in
-                shape (n, m). For 'forecast' task, X_train should contain a
-                single column of timestamps.
+                shape (n, m). For 'ts_forecast' task, the first column of X_train
+                must be the timestamp column (datetime type). Other columns in
+                the dataframe are assumed to be exogenous variables (categorical or numeric).
             y_train: A numpy array or a pandas series of labels in shape (n, ).
             dataframe: A dataframe of training data including label column.
-                For 'forecast' task, dataframe must be specified and should
-                have two columns: timestamp and value.
-            label: A str of the label column name for 'classification' or
-                'regression' task, e.g., 'label';
-                or a tuple of strings for timestamp and value columns for
-                'forecasting' task, e.g., ('timestamp', 'value').
+                For 'ts_forecast' task, dataframe must be specified and must have
+                at least two columns, timestamp and label, where the first
+                column is the timestamp column (datetime type). Other columns in
+                the dataframe are assumed to be exogenous variables (categorical or numeric).
+            label: A str of the label column name for, e.g., 'label';
                 Note: If X_train and y_train are provided,
                 dataframe and label are ignored;
                 If not, dataframe and label must be provided.
@@ -1330,7 +1346,7 @@ class AutoML:
                 which returns a float number as the minimization objective,
                 and a dictionary as the metrics to log.
             task: A string of the task type, e.g.,
-                'classification', 'regression', 'forecast', 'rank'.
+                'classification', 'regression', 'ts_forecast', 'rank'.
             n_jobs: An integer of the number of threads for training.
             log_file_name: A string of the log file name.
             estimator_list: A list of strings for estimator names, or 'auto'
@@ -1386,7 +1402,7 @@ class AutoML:
                     None, 'stratified', 'uniform', 'time']. None -> stratified.
                 For regression tasks, valid choices are [None, 'uniform', 'time'].
                     None -> uniform.
-                For time series forecasting, must be None or 'time'.
+                For ts_forecast tasks, must be None or 'time'.
                 For ranking task, must be None or 'group'.
             hpo_method: str or None, default=None | The hyperparameter
                 optimization method. By default, CFO is used for sequential
@@ -1405,7 +1421,9 @@ class AutoML:
                 In the following code example, we get starting_points from the
                 automl_experiment and use them in the new_automl_experiment.
                 e.g.,
+
                 .. code-block:: python
+
                     from flaml import AutoML
                     automl_experiment = AutoML()
                     X_train, y_train = load_iris(return_X_y=True)
@@ -1431,12 +1449,19 @@ class AutoML:
                 augment rare classes.
             min_sample_size: int, default=MIN_SAMPLE_TRAIN | the minimal sample
                 size when sample=True.
+            use_ray: boolean, default=False | Whether to use ray to run the training
+                in separate processes. This can be used to prevent OOM for large
+                datasets, but will incur more overhead in time. Only use it if
+                you run into OOM failures.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Include period as
-                a key word argument for 'forecast' task.
+                a key word argument for 'ts_forecast' task.
         """
         self._state._start_time_flag = self._start_time_flag = time.time()
-        self._state.task = task
+        if task == FORECAST:
+            self._state.task = TS_FORECAST
+        else:
+            self._state.task = task
         self._state.log_training_metric = log_training_metric
         self._state.fit_kwargs = fit_kwargs
         self._state.weight_val = sample_weight_val
@@ -1471,8 +1496,10 @@ class AutoML:
         )
         self._retrain_final = (
             retrain_full is True
-            and (eval_method == "holdout" and self._state.X_val is None)
-            or (eval_method == "cv")
+            and eval_method == "holdout"
+            and self._state.X_val is None
+            or eval_method == "cv"
+            or max_iter == 1
         )
         self._auto_augment = auto_augment
         self._min_sample_size = min_sample_size
@@ -1488,7 +1515,7 @@ class AutoML:
                 metric = "roc_auc"
             elif "multi" in self._state.task:
                 metric = "log_loss"
-            elif self._state.task == "forecast":
+            elif self._state.task == TS_FORECAST:
                 metric = "mape"
             elif self._state.task == "rank":
                 metric = "ndcg"
@@ -1515,7 +1542,7 @@ class AutoML:
         logger.info(f"Minimizing error metric: {error_metric}")
 
         if "auto" == estimator_list:
-            if self._state.task == "forecast":
+            if self._state.task == TS_FORECAST:
                 try:
                     import prophet
 
@@ -1551,8 +1578,7 @@ class AutoML:
             )
         logger.info("List of ML learners in AutoML Run: {}".format(estimator_list))
         self.estimator_list = estimator_list
-        self._hpo_method = hpo_method or ("cfo" if n_concurrent_trials == 1 else "bs")
-        self._state.time_budget = time_budget
+        self._state.time_budget = time_budget or 1e10
         self._active_estimators = estimator_list.copy()
         self._ensemble = ensemble
         self._max_iter = max_iter
@@ -1561,10 +1587,18 @@ class AutoML:
         self._state.train_time_limit = train_time_limit
         self._log_type = log_type
         self.split_ratio = split_ratio
-        self._save_model_history = model_history
+        self._state.save_model_history = model_history
         self._state.n_jobs = n_jobs
         self._n_concurrent_trials = n_concurrent_trials
         self._early_stop = early_stop
+        self._use_ray = use_ray or n_concurrent_trials > 1
+        # use the following condition if we have an estimation of average_trial_time and average_trial_overhead
+        # self._use_ray = use_ray or n_concurrent_trials > ( average_trail_time + average_trial_overhead) / (average_trial_time)
+        self._hpo_method = hpo_method or (
+            "bs"
+            if n_concurrent_trials > 1 or self._use_ray and len(estimator_list) > 1
+            else "cfo"
+        )
         if log_file_name:
             with training_log_writer(log_file_name, append_log) as save_helper:
                 self._training_log = save_helper
@@ -1615,7 +1649,7 @@ class AutoML:
             from ray.tune.suggest import ConcurrencyLimiter
         except (ImportError, AssertionError):
             raise ImportError(
-                "n_concurrent_trial > 1 requires installation of ray. "
+                "n_concurrent_trial>1 or use_ray=True requires installation of ray. "
                 "Please run pip install flaml[ray]"
             )
         if self._hpo_method in ("cfo", "grid"):
@@ -1681,7 +1715,8 @@ class AutoML:
             resources_per_trial=resources_per_trial,
             time_budget_s=self._state.time_budget,
             num_samples=self._max_iter,
-            verbose=self.verbose,
+            verbose=max(self.verbose - 2, 0),
+            raise_on_failed_trial=False,
         )
         # logger.info([trial.last_result for trial in analysis.trials])
         trials = sorted(
@@ -1700,7 +1735,7 @@ class AutoML:
                 config = result["config"]
                 estimator = config.get("ml", config)["learner"]
                 search_state = self._search_states[estimator]
-                search_state.update(result, 0, self._save_model_history)
+                search_state.update(result, 0, self._state.save_model_history)
                 if result["wall_clock_time"] is not None:
                     self._state.time_from_start = result["wall_clock_time"]
                 if search_state.sample_size == self._state.data_size:
@@ -1715,7 +1750,7 @@ class AutoML:
                         config,
                         self._time_taken_best_iter,
                     )
-                    if self._save_model_history:
+                    if self._state.save_model_history:
                         self._model_history[
                             _track_iter
                         ] = search_state.trained_estimator
@@ -1890,7 +1925,7 @@ class AutoML:
                 search_state.update(
                     result,
                     time_used=time_used,
-                    save_model_history=self._save_model_history,
+                    save_model_history=self._state.save_model_history,
                 )
                 if self._estimator_index is None:
                     # update init eci estimate
@@ -1933,18 +1968,27 @@ class AutoML:
                         search_state.best_config,
                         self._state.time_from_start,
                     )
-                    if self._save_model_history:
+                    if self._state.save_model_history:
                         self._model_history[
                             self._track_iter
                         ] = search_state.trained_estimator
                     elif self._trained_estimator:
                         del self._trained_estimator
                         self._trained_estimator = None
-                    self._trained_estimator = search_state.trained_estimator
+                    if not self._retrain_final:
+                        self._trained_estimator = search_state.trained_estimator
                     self._best_iteration = self._track_iter
                     self._time_taken_best_iter = self._state.time_from_start
                     better = True
                     next_trial_time = search_state.time2eval_best
+                if search_state.trained_estimator and not (
+                    self._state.save_model_history or self._ensemble
+                ):
+                    # free RAM
+                    if search_state.trained_estimator != self._trained_estimator:
+                        search_state.trained_estimator.cleanup()
+                    del search_state.trained_estimator
+                    search_state.trained_estimator = None
                 if better or self._log_type == "all":
                     if self._training_log:
                         self._training_log.append(
@@ -2037,7 +2081,9 @@ class AutoML:
                 logger.info(
                     "retrain {} for {:.1f}s".format(self._best_estimator, retrain_time)
                 )
-                self._retrained_config[best_config_sig] = retrain_time
+                self._retrained_config[
+                    best_config_sig
+                ] = state.best_config_train_time = retrain_time
                 est_retrain_time = 0
             self._state.time_from_start = time.time() - self._start_time_flag
             if (
@@ -2071,7 +2117,7 @@ class AutoML:
         self._selected = None
         self.modelcount = 0
 
-        if self._n_concurrent_trials == 1:
+        if not self._use_ray:
             self._search_sequential()
         else:
             self._search_parallel()
@@ -2091,12 +2137,29 @@ class AutoML:
                 "regression",
             ):
                 search_states = list(
-                    x for x in self._search_states.items() if x[1].trained_estimator
+                    x for x in self._search_states.items() if x[1].best_config
                 )
                 search_states.sort(key=lambda x: x[1].best_loss)
-                estimators = [(x[0], x[1].trained_estimator) for x in search_states[:2]]
+                estimators = [
+                    (
+                        x[0],
+                        x[1].learner_class(
+                            task=self._state.task,
+                            n_jobs=self._state.n_jobs,
+                            **x[1].best_config,
+                        ),
+                    )
+                    for x in search_states[:2]
+                ]
                 estimators += [
-                    (x[0], x[1].trained_estimator)
+                    (
+                        x[0],
+                        x[1].learner_class(
+                            task=self._state.task,
+                            n_jobs=self._state.n_jobs,
+                            **x[1].best_config,
+                        ),
+                    )
                     for x in search_states[2:]
                     if x[1].best_loss < 4 * self._selected.best_loss
                 ]
@@ -2123,19 +2186,49 @@ class AutoML:
                 )
                 if self._sample_weight_full is not None:
                     self._state.fit_kwargs["sample_weight"] = self._sample_weight_full
-                stacker.fit(
-                    self._X_train_all, self._y_train_all, **self._state.fit_kwargs
-                )
-                logger.info(f"ensemble: {stacker}")
-                self._trained_estimator = stacker
-                self._trained_estimator.model = stacker
+                for e in estimators:
+                    e[1].__class__.init()
+                try:
+                    stacker.fit(
+                        self._X_train_all, self._y_train_all, **self._state.fit_kwargs
+                    )
+                    logger.info(f"ensemble: {stacker}")
+                    self._trained_estimator = stacker
+                    self._trained_estimator.model = stacker
+                except ValueError as e:
+                    if passthrough:
+                        logger.warning(
+                            "Using passthrough=False for ensemble because the data contain categorical features."
+                        )
+                        stacker = Stacker(
+                            estimators,
+                            final_estimator,
+                            n_jobs=self._state.n_jobs,
+                            passthrough=False,
+                        )
+                        stacker.fit(
+                            self._X_train_all,
+                            self._y_train_all,
+                            **self._state.fit_kwargs,
+                        )
+                        logger.info(f"ensemble: {stacker}")
+                        self._trained_estimator = stacker
+                        self._trained_estimator.model = stacker
+                    else:
+                        raise e
             elif self._retrain_final:
                 # reset time budget for retraining
-                self._state.time_from_start -= self._state.time_budget
-                if self._state.task == "forecast" or (
-                    self._state.time_budget - self._state.time_from_start
-                    > self._selected.est_retrain_time(self.data_size_full)
-                    and self._selected.best_config_sample_size == self._state.data_size
+                if self._max_iter > 1:
+                    self._state.time_from_start -= self._state.time_budget
+                if (
+                    self._state.task == TS_FORECAST
+                    or self._trained_estimator is None
+                    or (
+                        self._state.time_budget - self._state.time_from_start
+                        > self._selected.est_retrain_time(self.data_size_full)
+                        and self._selected.best_config_sample_size
+                        == self._state.data_size
+                    )
                 ):
                     state = self._search_states[self._best_estimator]
                     (
@@ -2151,6 +2244,7 @@ class AutoML:
                             self._best_estimator, retrain_time
                         )
                     )
+                    state.best_config_train_time = retrain_time
                     if self._trained_estimator:
                         logger.info(f"retrained model: {self._trained_estimator.model}")
                 else:
@@ -2209,7 +2303,7 @@ class AutoML:
                     speed = delta_loss / delta_time
                     if speed:
                         estimated_cost = max(2 * gap / speed, estimated_cost)
-                estimated_cost == estimated_cost or 1e-9
+                estimated_cost = estimated_cost or 1e-9
                 inv.append(1 / estimated_cost)
             else:
                 estimated_cost = self._eci[i]
