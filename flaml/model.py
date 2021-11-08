@@ -334,14 +334,14 @@ class TransformersEstimator(BaseEstimator):
         automl_fit_kwargs["metric"] = metric_name
 
     @classmethod
-    def _preprocess(cls, X, **kwargs):
+    def _preprocess(cls, X, task, **kwargs):
         from .nlp.utils import tokenize_text
 
         assert (
             "custom_hpo_args" in kwargs
         ), "custom_hpo_args needs to be specified in fit_kwargs of automl.fit"
 
-        return tokenize_text(X, kwargs["custom_hpo_args"])
+        return tokenize_text(X, task, kwargs["custom_hpo_args"])
 
     def _split_train_val(self, X_train, y_train, **kwargs):
         """
@@ -356,6 +356,7 @@ class TransformersEstimator(BaseEstimator):
         return X_tr, y_tr, X_val, y_val
 
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
+        # TODO: when self.param = {}, ie max_iter = 1, fix the bug
         import transformers
         from transformers import TrainingArguments
         from transformers.trainer_utils import set_seed
@@ -375,9 +376,9 @@ class TransformersEstimator(BaseEstimator):
             X_train, y_train, **kwargs
         )
         if X_train.dtypes[0] == "string":
-            X_train = self._preprocess(X_train, **kwargs)
+            X_train = self._preprocess(X_train, self._task, **kwargs)
             train_dataset = Dataset.from_pandas(self._join(X_train, y_train))
-            X_val = self._preprocess(X_val, **kwargs)
+            X_val = self._preprocess(X_val, self._task, **kwargs)
             eval_dataset = Dataset.from_pandas(self._join(X_val, y_val))
         else:
             train_dataset = Dataset.from_pandas(self._join(X_train, y_train))
@@ -481,7 +482,7 @@ class TransformersEstimator(BaseEstimator):
         from .nlp.huggingface.trainer import TrainerForAutoTransformers
 
         if X_test.dtypes[0] == "string":
-            X_test = self._preprocess(X_test, **self._kwargs)
+            X_test = self._preprocess(X_test, self._task, **self._kwargs)
             test_dataset = Dataset.from_pandas(X_test)
 
         best_model = load_model(

@@ -79,7 +79,14 @@ def _is_nlp_task(task):
 global tokenized_column_names
 
 
-def tokenize_text(X, custom_hpo_args):
+def tokenize_text(X, task, custom_hpo_task):
+    from ..data import SEQCLASSIFICATION
+
+    if task == SEQCLASSIFICATION:
+        return tokenize_text_seqclassification(X, custom_hpo_task)
+
+
+def tokenize_text_seqclassification(X, custom_hpo_args):
     from transformers import AutoTokenizer
     import pandas
 

@@ -1,13 +1,3 @@
-from flaml.nlp.autotransformers import AutoTransformers
-
-autohf_settings = {
-    "model_path": "google/electra-small-discriminator",
-    "output_dir": "data/output/",
-    "resources_per_trial": {"cpu": 1, "gpu": 1},
-    "sample_num": -1,
-    "time_budget": 300,
-}
-
 # def case1():
 #     autohf = AutoTransformers()
 #     # resplit_mode="ori"
@@ -60,40 +50,40 @@ autohf_settings = {
 #
 
 
-def case1():
-    import ray
-    from flaml import AutoML
-
-    ray.init(local_mode=False)
-
-    from datasets import load_dataset
-
-    train_dataset = load_dataset("glue", "mrpc", split="train").to_pandas()
-    dev_dataset = load_dataset("glue", "mrpc", split="validation").to_pandas()
-
-    custom_sent_keys = ["#1 String", "#2 String"]
-    label_key = "Quality"
-
-    X_train = train_dataset[custom_sent_keys]
-    y_train = train_dataset[label_key]
-
-    X_val = dev_dataset[custom_sent_keys]
-    y_val = dev_dataset[label_key]
-
-    automl = AutoML()
-
-    automl_settings = {
-        "model_path": "google/electra-small-discriminator",
-        "output_dir": "data/output/",
-        "resources_per_trial": {"cpu": 1, "gpu": 1},
-        "metric": "accuracy",
-        "task": "seq-classification",
-        "time_budget": 300,
-    }
-
-    automl.fit(
-        X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
-    )
+# def case1():
+#     import ray
+#     from flaml import AutoML
+#
+#     ray.init(local_mode=False)
+#
+#     from datasets import load_dataset
+#
+#     train_dataset = load_dataset("glue", "mrpc", split="train").to_pandas()
+#     dev_dataset = load_dataset("glue", "mrpc", split="validation").to_pandas()
+#
+#     custom_sent_keys = ["#1 String", "#2 String"]
+#     label_key = "Quality"
+#
+#     X_train = train_dataset[custom_sent_keys]
+#     y_train = train_dataset[label_key]
+#
+#     X_val = dev_dataset[custom_sent_keys]
+#     y_val = dev_dataset[label_key]
+#
+#     automl = AutoML()
+#
+#     automl_settings = {
+#         "model_path": "google/electra-small-discriminator",
+#         "output_dir": "data/output/",
+#         "resources_per_trial": {"cpu": 1, "gpu": 1},
+#         "metric": "accuracy",
+#         "task": "seq-classification",
+#         "time_budget": 300,
+#     }
+#
+#     automl.fit(
+#         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
+#     )
 
 
 def case2():

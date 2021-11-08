@@ -433,6 +433,7 @@ class DataTransformer:
             y = self.label_transformer.fit_transform(y)
         else:
             self.label_transformer = None
+        self._task = task
         return X, y
 
     def transform(self, X: Union[DataFrame, List[str], List[List[str]]]):
