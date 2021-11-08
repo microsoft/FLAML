@@ -61,11 +61,10 @@
            <div itemprop="articleBody">
              
   <h1>Source code for flaml.automl</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;!</span>
-<span class="sd"> * Copyright (c) Microsoft Corporation. All rights reserved.</span>
-<span class="sd"> * Licensed under the MIT License. See LICENSE file in the</span>
-<span class="sd"> * project root for license information.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span></span><span class="c1"># !</span>
+<span class="c1">#  * Copyright (c) Microsoft Corporation. All rights reserved.</span>
+<span class="c1">#  * Licensed under the MIT License. See LICENSE file in the</span>
+<span class="c1">#  * project root for license information.</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Optional</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
@@ -374,7 +373,7 @@
 
 
 <div class="viewcode-block" id="AutoML"><a class="viewcode-back" href="../../index.html#flaml.AutoML">[docs]</a><span class="k">class</span> <span class="nc">AutoML</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;The AutoML class</span>
+    <span class="sd">&quot;&quot;&quot;The AutoML class.</span>
 
 <span class="sd">    Example:</span>
 
@@ -422,10 +421,10 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_trained_estimator&quot;</span><span class="p">)</span>
 
 <div class="viewcode-block" id="AutoML.best_model_for_estimator"><a class="viewcode-back" href="../../index.html#flaml.AutoML.best_model_for_estimator">[docs]</a>    <span class="k">def</span> <span class="nf">best_model_for_estimator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">estimator_name</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Return the best model found for a particular estimator</span>
+        <span class="sd">&quot;&quot;&quot;Return the best model found for a particular estimator.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            estimator_name: a str of the estimator&#39;s name</span>
+<span class="sd">            estimator_name: a str of the estimator&#39;s name.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            An object with `predict()` and `predict_proba()` method (for</span>
@@ -461,7 +460,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">best_loss</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;A float of the best loss found&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;A float of the best loss found.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">best_loss</span>
 
     <span class="nd">@property</span>
@@ -484,7 +483,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">time_to_find_best_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Time taken to find best model in seconds&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Time taken to find best model in seconds.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_time_taken_best_iter&quot;</span><span class="p">)</span>
 
 <div class="viewcode-block" id="AutoML.predict"><a class="viewcode-back" href="../../index.html#flaml.AutoML.predict">[docs]</a>    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X_test</span><span class="p">):</span>
@@ -553,7 +552,7 @@
         <span class="k">if</span> <span class="n">issparse</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
             <span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transformer</span><span class="p">:</span>
-            <span class="n">X</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transformer</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span><span class="p">)</span>
+            <span class="n">X</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transformer</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">X</span>
 
     <span class="k">def</span> <span class="nf">_validate_data</span><span class="p">(</span>
@@ -646,13 +645,11 @@
                 <span class="n">X_val</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">y_val</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
             <span class="p">),</span> <span class="s2">&quot;# rows in X_val must match length of y_val.&quot;</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transformer</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">X_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transformer</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">X_val</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">X_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transformer</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">X_val</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">X_val</span> <span class="o">=</span> <span class="n">X_val</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label_transformer</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">y_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label_transformer</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span>
-                    <span class="n">y_val</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span>
-                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">y_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label_transformer</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">y_val</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">y_val</span> <span class="o">=</span> <span class="n">y_val</span>
         <span class="k">else</span><span class="p">:</span>
@@ -915,26 +912,26 @@
             <span class="p">)</span>
 
 <div class="viewcode-block" id="AutoML.add_learner"><a class="viewcode-back" href="../../index.html#flaml.AutoML.add_learner">[docs]</a>    <span class="k">def</span> <span class="nf">add_learner</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">learner_name</span><span class="p">,</span> <span class="n">learner_class</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Add a customized learner</span>
+        <span class="sd">&quot;&quot;&quot;Add a customized learner.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            learner_name: A string of the learner&#39;s name</span>
-<span class="sd">            learner_class: A subclass of flaml.model.BaseEstimator</span>
+<span class="sd">            learner_name: A string of the learner&#39;s name.</span>
+<span class="sd">            learner_class: A subclass of flaml.model.BaseEstimator.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">learner_classes</span><span class="p">[</span><span class="n">learner_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">learner_class</span></div>
 
 <div class="viewcode-block" id="AutoML.get_estimator_from_log"><a class="viewcode-back" href="../../index.html#flaml.AutoML.get_estimator_from_log">[docs]</a>    <span class="k">def</span> <span class="nf">get_estimator_from_log</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">log_file_name</span><span class="p">,</span> <span class="n">record_id</span><span class="p">,</span> <span class="n">task</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Get the estimator from log file</span>
+        <span class="sd">&quot;&quot;&quot;Get the estimator from log file.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            log_file_name: A string of the log file name</span>
+<span class="sd">            log_file_name: A string of the log file name.</span>
 <span class="sd">            record_id: An integer of the record ID in the file,</span>
-<span class="sd">                0 corresponds to the first trial</span>
+<span class="sd">                0 corresponds to the first trial.</span>
 <span class="sd">            task: A string of the task type,</span>
-<span class="sd">                &#39;binary&#39;, &#39;multi&#39;, &#39;regression&#39;, &#39;ts_forecast&#39;, &#39;rank&#39;</span>
+<span class="sd">                &#39;binary&#39;, &#39;multi&#39;, &#39;regression&#39;, &#39;ts_forecast&#39;, &#39;rank&#39;.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            An estimator object for the given configuration</span>
+<span class="sd">            An estimator object for the given configuration.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="k">with</span> <span class="n">training_log_reader</span><span class="p">(</span><span class="n">log_file_name</span><span class="p">)</span> <span class="k">as</span> <span class="n">reader</span><span class="p">:</span>
@@ -973,16 +970,16 @@
         <span class="n">auto_augment</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="o">**</span><span class="n">fit_kwargs</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Retrain from log file</span>
+        <span class="sd">&quot;&quot;&quot;Retrain from log file.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            log_file_name: A string of the log file name</span>
-<span class="sd">            X_train: A numpy array of training data in shape n*m</span>
+<span class="sd">            log_file_name: A string of the log file name.</span>
+<span class="sd">            X_train: A numpy array or dataframe of training data in shape n*m.</span>
 <span class="sd">                For &#39;ts_forecast&#39; task, the first column of X_train</span>
 <span class="sd">                must be the timestamp column (datetime type). Other</span>
 <span class="sd">                columns in the dataframe are assumed to be exogenous</span>
 <span class="sd">                variables (categorical or numeric).</span>
-<span class="sd">            y_train: A numpy array of labels in shape n*1</span>
+<span class="sd">            y_train: A numpy array or series of labels in shape n*1.</span>
 <span class="sd">            dataframe: A dataframe of training data including label column.</span>
 <span class="sd">                For &#39;ts_forecast&#39; task, dataframe must be specified and should</span>
 <span class="sd">                have at least two columns: timestamp and label, where the first</span>
@@ -1143,11 +1140,13 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">search_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Search space</span>
-<span class="sd">        Must be called after fit(...) (use max_iter=0 to prevent actual fitting)</span>
+        <span class="sd">&quot;&quot;&quot;Search space.</span>
+
+<span class="sd">        Must be called after fit(...)</span>
+<span class="sd">        (use max_iter=0 and retrain_final=False to prevent actual fitting).</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            A dict of the search space</span>
+<span class="sd">            A dict of the search space.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">estimator_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">estimator_list</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
@@ -1164,7 +1163,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">low_cost_partial_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Low cost partial config</span>
+        <span class="sd">&quot;&quot;&quot;Low cost partial config.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            A dict.</span>
@@ -1175,7 +1174,6 @@
 <span class="sd">            to each learner&#39;s low_cost_partial_config; the estimator index as</span>
 <span class="sd">            an integer corresponding to the cheapest learner is appended to the</span>
 <span class="sd">            list at the end.</span>
-
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">estimator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -1209,7 +1207,6 @@
 <span class="sd">            a list of the cat_hp_cost&#39;s as the value, corresponding</span>
 <span class="sd">            to each learner&#39;s cat_hp_cost; the cost relative to lgbm for each</span>
 <span class="sd">            learner (as a list itself) is appended to the list at the end.</span>
-
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">estimator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -1261,28 +1258,28 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">min_resource</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Attribute for pruning</span>
+        <span class="sd">&quot;&quot;&quot;Attribute for pruning.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            A float for the minimal sample size or None</span>
+<span class="sd">            A float for the minimal sample size or None.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min_sample_size</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample</span> <span class="k">else</span> <span class="kc">None</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">max_resource</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Attribute for pruning</span>
+        <span class="sd">&quot;&quot;&quot;Attribute for pruning.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            A float for the maximal sample size or None</span>
+<span class="sd">            A float for the maximal sample size or None.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">data_size</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample</span> <span class="k">else</span> <span class="kc">None</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">trainable</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">dict</span><span class="p">],</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]]:</span>
-        <span class="sd">&quot;&quot;&quot;Training function</span>
+        <span class="sd">&quot;&quot;&quot;Training function.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            A function that evaluates each config and returns the loss</span>
+<span class="sd">            A function that evaluates each config and returns the loss.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">time_from_start</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">for</span> <span class="n">estimator</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator_list</span><span class="p">:</span>
@@ -1318,10 +1315,10 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">metric_constraints</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Metric constraints</span>
+        <span class="sd">&quot;&quot;&quot;Metric constraints.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            A list of the metric constraints</span>
+<span class="sd">            A list of the metric constraints.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">constraints</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pred_time_limit</span><span class="p">):</span>
@@ -1373,7 +1370,7 @@
         <span class="n">use_ray</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="o">**</span><span class="n">fit_kwargs</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Find a model for a given task</span>
+        <span class="sd">&quot;&quot;&quot;Find a model for a given task.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            X_train: A numpy array or a pandas dataframe of training data in</span>
@@ -1562,6 +1559,7 @@
             <span class="ow">and</span> <span class="n">eval_method</span> <span class="o">==</span> <span class="s2">&quot;holdout&quot;</span>
             <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">X_val</span> <span class="ow">is</span> <span class="kc">None</span>
             <span class="ow">or</span> <span class="n">eval_method</span> <span class="o">==</span> <span class="s2">&quot;cv&quot;</span>
+            <span class="ow">and</span> <span class="p">(</span><span class="n">max_iter</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">retrain_full</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">)</span>
             <span class="ow">or</span> <span class="n">max_iter</span> <span class="o">==</span> <span class="mi">1</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_auto_augment</span> <span class="o">=</span> <span class="n">auto_augment</span>

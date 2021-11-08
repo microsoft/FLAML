@@ -61,11 +61,10 @@
            <div itemprop="articleBody">
              
   <h1>Source code for flaml.searcher.blendsearch</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;!</span>
-<span class="sd"> * Copyright (c) Microsoft Corporation. All rights reserved.</span>
-<span class="sd"> * Licensed under the MIT License. See LICENSE file in the</span>
-<span class="sd"> * project root for license information.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span></span><span class="c1"># !</span>
+<span class="c1">#  * Copyright (c) Microsoft Corporation. All rights reserved.</span>
+<span class="c1">#  * Licensed under the MIT License. See LICENSE file in the</span>
+<span class="c1">#  * project root for license information.</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Union</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">time</span>
@@ -85,14 +84,13 @@
 <span class="kn">from</span> <span class="nn">.search_thread</span> <span class="kn">import</span> <span class="n">SearchThread</span>
 <span class="kn">from</span> <span class="nn">.flow2</span> <span class="kn">import</span> <span class="n">FLOW2</span>
 <span class="kn">from</span> <span class="nn">..tune.space</span> <span class="kn">import</span> <span class="n">add_cost_to_space</span><span class="p">,</span> <span class="n">indexof</span><span class="p">,</span> <span class="n">normalize</span><span class="p">,</span> <span class="n">define_by_run_func</span>
-
 <span class="kn">import</span> <span class="nn">logging</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="BlendSearch"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch">[docs]</a><span class="k">class</span> <span class="nc">BlendSearch</span><span class="p">(</span><span class="n">Searcher</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;class for BlendSearch algorithm&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;class for BlendSearch algorithm.&quot;&quot;&quot;</span>
 
     <span class="n">cost_attr</span> <span class="o">=</span> <span class="s2">&quot;time_total_s&quot;</span>  <span class="c1"># cost attribute in result</span>
     <span class="n">lagrange</span> <span class="o">=</span> <span class="s2">&quot;_lagrange&quot;</span>  <span class="c1"># suffix for lagrange-modified metric</span>
@@ -122,7 +120,7 @@
         <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
         <span class="n">experimental</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Constructor</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            metric: A string of the metric name to optimize for.</span>
@@ -397,7 +395,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">best_resource</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">min_resource</span>
 
 <div class="viewcode-block" id="BlendSearch.save"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.save">[docs]</a>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">checkpoint_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;save states to a checkpoint path&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;save states to a checkpoint path.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_time_used</span> <span class="o">+=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_time</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
         <span class="n">save_object</span> <span class="o">=</span> <span class="bp">self</span>
@@ -405,7 +403,7 @@
             <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">save_object</span><span class="p">,</span> <span class="n">outputFile</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="BlendSearch.restore"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.restore">[docs]</a>    <span class="k">def</span> <span class="nf">restore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">checkpoint_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;restore states from checkpoint&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;restore states from checkpoint.&quot;&quot;&quot;</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">checkpoint_path</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">inputFile</span><span class="p">:</span>
             <span class="n">state</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">inputFile</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="vm">__dict__</span>
@@ -423,7 +421,7 @@
 <div class="viewcode-block" id="BlendSearch.on_trial_complete"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.on_trial_complete">[docs]</a>    <span class="k">def</span> <span class="nf">on_trial_complete</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">error</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;search thread updater and cleaner&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;search thread updater and cleaner.&quot;&quot;&quot;</span>
         <span class="n">metric_constraint_satisfied</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">if</span> <span class="n">result</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">error</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraints</span><span class="p">:</span>
             <span class="c1"># account for metric constraints if any</span>
@@ -684,7 +682,7 @@
         <span class="k">return</span> <span class="kc">False</span>
 
 <div class="viewcode-block" id="BlendSearch.on_trial_result"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.on_trial_result">[docs]</a>    <span class="k">def</span> <span class="nf">on_trial_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">Dict</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;receive intermediate result&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;receive intermediate result.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">trial_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="p">:</span>
             <span class="k">return</span>
         <span class="n">thread_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trial_proposed_by</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span>
@@ -695,7 +693,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="n">thread_id</span><span class="p">]</span><span class="o">.</span><span class="n">on_trial_result</span><span class="p">(</span><span class="n">trial_id</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="BlendSearch.suggest"><a class="viewcode-back" href="../../../index.html#flaml.BlendSearch.suggest">[docs]</a>    <span class="k">def</span> <span class="nf">suggest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;choose thread, suggest a valid config&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;choose thread, suggest a valid config.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_used</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_points_to_evaluate</span><span class="p">:</span>
             <span class="n">choice</span><span class="p">,</span> <span class="n">backup</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_thread</span><span class="p">()</span>
             <span class="c1"># if choice &lt; 0:  # timeout</span>
@@ -965,14 +963,15 @@
 
 
 <span class="k">class</span> <span class="nc">BlendSearchTuner</span><span class="p">(</span><span class="n">BlendSearch</span><span class="p">,</span> <span class="n">NNITuner</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Tuner class for NNI&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;Tuner class for NNI.&quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="nf">receive_trial_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter_id</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Receive trial&#39;s final result.</span>
-<span class="sd">        parameter_id: int</span>
-<span class="sd">        parameters: object created by &#39;generate_parameters()&#39;</span>
-<span class="sd">        value: final metrics of the trial, including default metric</span>
+        <span class="sd">&quot;&quot;&quot;Receive trial&#39;s final result.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameter_id: int.</span>
+<span class="sd">            parameters: object created by `generate_parameters()`.</span>
+<span class="sd">            value: final metrics of the trial, including default metric.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">result</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="n">parameters</span><span class="p">,</span>
@@ -989,20 +988,24 @@
     <span class="o">...</span>
 
     <span class="k">def</span> <span class="nf">generate_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter_id</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Returns a set of trial (hyper-)parameters, as a serializable object</span>
-<span class="sd">        parameter_id: int</span>
+        <span class="sd">&quot;&quot;&quot;Returns a set of trial (hyper-)parameters, as a serializable object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameter_id: int.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">suggest</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">parameter_id</span><span class="p">))</span>
 
     <span class="o">...</span>
 
     <span class="k">def</span> <span class="nf">update_search_space</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_space</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Required by NNI.</span>
+
 <span class="sd">        Tuners are advised to support updating search space at run-time.</span>
 <span class="sd">        If a tuner can only set search space once before generating first hyper-parameters,</span>
 <span class="sd">        it should explicitly document this behaviour.</span>
-<span class="sd">        search_space: JSON object created by experiment owner</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            search_space: JSON object created by experiment owner.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">config</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">search_space</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -1054,7 +1057,7 @@
 
 
 <div class="viewcode-block" id="CFO"><a class="viewcode-back" href="../../../index.html#flaml.CFO">[docs]</a><span class="k">class</span> <span class="nc">CFO</span><span class="p">(</span><span class="n">BlendSearchTuner</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;class for CFO algorithm&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;class for CFO algorithm.&quot;&quot;&quot;</span>
 
     <span class="vm">__name__</span> <span class="o">=</span> <span class="s2">&quot;CFO&quot;</span>
 
@@ -1108,6 +1111,8 @@
 
 
 <span class="k">class</span> <span class="nc">RandomSearch</span><span class="p">(</span><span class="n">CFO</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Class for random search.&quot;&quot;&quot;</span>
+
     <span class="k">def</span> <span class="nf">suggest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]:</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_points_to_evaluate</span><span class="p">:</span>
             <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">suggest</span><span class="p">(</span><span class="n">trial_id</span><span class="p">)</span>

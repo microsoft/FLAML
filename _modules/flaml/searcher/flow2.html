@@ -61,11 +61,10 @@
            <div itemprop="articleBody">
              
   <h1>Source code for flaml.searcher.flow2</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;!</span>
-<span class="sd"> * Copyright (c) Microsoft Corporation. All rights reserved.</span>
-<span class="sd"> * Licensed under the MIT License. See LICENSE file in the</span>
-<span class="sd"> * project root for license information.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span></span><span class="c1"># !</span>
+<span class="c1">#  * Copyright (c) Microsoft Corporation. All rights reserved.</span>
+<span class="c1">#  * Licensed under the MIT License. See LICENSE file in the</span>
+<span class="c1">#  * project root for license information.</span>
 <span class="kn">from</span> <span class="nn">flaml.tune.sample</span> <span class="kn">import</span> <span class="n">Domain</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
@@ -92,7 +91,7 @@
 
 
 <div class="viewcode-block" id="FLOW2"><a class="viewcode-back" href="../../../index.html#flaml.FLOW2">[docs]</a><span class="k">class</span> <span class="nc">FLOW2</span><span class="p">(</span><span class="n">Searcher</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Local search algorithm FLOW2, with adaptive step size&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;Local search algorithm FLOW2, with adaptive step size.&quot;&quot;&quot;</span>
 
     <span class="n">STEPSIZE</span> <span class="o">=</span> <span class="mf">0.1</span>
     <span class="n">STEP_LOWER_BOUND</span> <span class="o">=</span> <span class="mf">0.0001</span>
@@ -110,13 +109,13 @@
         <span class="n">cost_attr</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;time_total_s&quot;</span><span class="p">,</span>
         <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Constructor</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            init_config: a dictionary of a partial or full initial config,</span>
-<span class="sd">                e.g. from a subset of controlled dimensions</span>
+<span class="sd">                e.g., from a subset of controlled dimensions</span>
 <span class="sd">                to the initial low-cost values.</span>
-<span class="sd">                e.g. {&#39;epochs&#39;: 1}</span>
+<span class="sd">                E.g., {&#39;epochs&#39;: 1}.</span>
 <span class="sd">            metric: A string of the metric name to optimize for.</span>
 <span class="sd">            mode: A string in [&#39;min&#39;, &#39;max&#39;] to specify the objective as</span>
 <span class="sd">                minimization or maximization.</span>
@@ -306,8 +305,9 @@
         <span class="n">lower</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">upper</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;generate a complete config from the partial config input</span>
-<span class="sd">        add minimal resource to config if available</span>
+        <span class="sd">&quot;&quot;&quot;Generate a complete config from the partial config input.</span>
+
+<span class="sd">        Add minimal resource to config if available.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">disturb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reset_times</span> <span class="ow">and</span> <span class="n">partial_config</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_config</span>
         <span class="c1"># if not the first time to complete init_config, use random gaussian</span>
@@ -342,13 +342,13 @@
         <span class="k">return</span> <span class="n">flow2</span>
 
 <div class="viewcode-block" id="FLOW2.normalize"><a class="viewcode-back" href="../../../index.html#flaml.FLOW2.normalize">[docs]</a>    <span class="k">def</span> <span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;normalize each dimension in config to [0,1]&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;normalize each dimension in config to [0,1].&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">normalize</span><span class="p">(</span>
             <span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_space</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">incumbent</span><span class="p">,</span> <span class="n">recursive</span>
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="FLOW2.denormalize"><a class="viewcode-back" href="../../../index.html#flaml.FLOW2.denormalize">[docs]</a>    <span class="k">def</span> <span class="nf">denormalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;denormalize each dimension in config from [0,1]&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;denormalize each dimension in config from [0,1].&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">denormalize</span><span class="p">(</span>
             <span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_space</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">incumbent</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_random</span>
         <span class="p">)</span></div>
@@ -374,12 +374,14 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_init_search</span><span class="p">()</span>
         <span class="k">return</span> <span class="kc">True</span></div>
 
-    <span class="k">def</span> <span class="nf">on_trial_complete</span><span class="p">(</span>
+<div class="viewcode-block" id="FLOW2.on_trial_complete"><a class="viewcode-back" href="../../../index.html#flaml.FLOW2.on_trial_complete">[docs]</a>    <span class="k">def</span> <span class="nf">on_trial_complete</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">error</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="p">):</span>
-        <span class="c1"># compare with incumbent</span>
-        <span class="c1"># if better, move, reset num_complete and num_proposed</span>
-        <span class="c1"># if not better and num_complete &gt;= 2*dim, num_allowed += 2</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compare with incumbent.</span>
+<span class="sd">        If better, move, reset num_complete and num_proposed.</span>
+<span class="sd">        If not better and num_complete &gt;= 2*dim, num_allowed += 2.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">trial_count_complete</span> <span class="o">+=</span> <span class="mi">1</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">error</span> <span class="ow">and</span> <span class="n">result</span><span class="p">:</span>
             <span class="n">obj</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">)</span>
@@ -428,11 +430,11 @@
                 <span class="c1"># check stuck condition if using max resource</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_num_complete4incumbent</span> <span class="o">-=</span> <span class="mi">2</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_allowed4incumbent</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_num_allowed4incumbent</span> <span class="o">=</span> <span class="mi">2</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_num_allowed4incumbent</span> <span class="o">=</span> <span class="mi">2</span></div>
         <span class="c1"># elif proposed_by: del self._proposed_by[trial_id]</span>
 
 <div class="viewcode-block" id="FLOW2.on_trial_result"><a class="viewcode-back" href="../../../index.html#flaml.FLOW2.on_trial_result">[docs]</a>    <span class="k">def</span> <span class="nf">on_trial_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">Dict</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;early update of incumbent&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Early update of incumbent.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">result</span><span class="p">:</span>
             <span class="n">obj</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">obj</span><span class="p">:</span>
@@ -464,12 +466,12 @@
         <span class="k">return</span> <span class="n">vec</span> <span class="o">/</span> <span class="n">mag</span>
 
 <div class="viewcode-block" id="FLOW2.suggest"><a class="viewcode-back" href="../../../index.html#flaml.FLOW2.suggest">[docs]</a>    <span class="k">def</span> <span class="nf">suggest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;suggest a new config, one of the following cases:</span>
-<span class="sd">        1. same incumbent, increase resource</span>
-<span class="sd">        2. same resource, move from the incumbent to a random direction</span>
-<span class="sd">        3. same resource, move from the incumbent to the opposite direction</span>
-<span class="sd">        #TODO: better decouple FLOW2 config suggestion and stepsize update</span>
+        <span class="sd">&quot;&quot;&quot;Suggest a new config, one of the following cases:</span>
+<span class="sd">        1. same incumbent, increase resource.</span>
+<span class="sd">        2. same resource, move from the incumbent to a random direction.</span>
+<span class="sd">        3. same resource, move from the incumbent to the opposite direction.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># TODO: better decouple FLOW2 config suggestion and stepsize update</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">trial_count_proposed</span> <span class="o">+=</span> <span class="mi">1</span>
         <span class="k">if</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_num_complete4incumbent</span> <span class="o">&gt;</span> <span class="mi">0</span>
@@ -579,13 +581,13 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">can_suggest</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;can&#39;t suggest if 2*dim configs have been proposed for the incumbent</span>
-<span class="sd">        while fewer are completed</span>
+        <span class="sd">&quot;&quot;&quot;Can&#39;t suggest if 2*dim configs have been proposed for the incumbent</span>
+<span class="sd">        while fewer are completed.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_allowed4incumbent</span> <span class="o">&gt;</span> <span class="mi">0</span>
 
 <div class="viewcode-block" id="FLOW2.config_signature"><a class="viewcode-back" href="../../../index.html#flaml.FLOW2.config_signature">[docs]</a>    <span class="k">def</span> <span class="nf">config_signature</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">space</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;return the signature tuple of a config&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Return the signature tuple of a config.&quot;&quot;&quot;</span>
         <span class="n">config</span> <span class="o">=</span> <span class="n">flatten_dict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">space</span><span class="p">:</span>
             <span class="n">space</span> <span class="o">=</span> <span class="n">flatten_dict</span><span class="p">(</span><span class="n">space</span><span class="p">)</span>
@@ -621,14 +623,14 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">converged</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;return whether the local search has converged&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Whether the local search has converged.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_complete4incumbent</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">dir</span> <span class="o">-</span> <span class="mi">2</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>
         <span class="c1"># check stepsize after enough configs are completed</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_lower_bound</span>
 
 <div class="viewcode-block" id="FLOW2.reach"><a class="viewcode-back" href="../../../index.html#flaml.FLOW2.reach">[docs]</a>    <span class="k">def</span> <span class="nf">reach</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Searcher</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;whether the incumbent can reach the incumbent of other&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;whether the incumbent can reach the incumbent of other.&quot;&quot;&quot;</span>
         <span class="n">config1</span><span class="p">,</span> <span class="n">config2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_config</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">best_config</span>
         <span class="n">incumbent1</span><span class="p">,</span> <span class="n">incumbent2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">incumbent</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">incumbent</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span> <span class="ow">and</span> <span class="n">config1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">prune_attr</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">config2</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">prune_attr</span><span class="p">]:</span>
