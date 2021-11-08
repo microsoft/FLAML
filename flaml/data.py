@@ -1,8 +1,7 @@
-"""!
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License.
-"""
-
+# !
+#  * Copyright (c) Microsoft Corporation. All rights reserved.
+#  * Licensed under the MIT License. See LICENSE file in the
+#  * project root for license information.
 import numpy as np
 from scipy.sparse import vstack, issparse
 import pandas as pd
@@ -21,91 +20,6 @@ TS_FORECAST = "ts_forecast"
 TS_TIMESTAMP_COL = "ds"
 TS_VALUE_COL = "y"
 FORECAST = "forecast"
-
-
-def load_hf_dataset(
-    dataset_config: Dict,
-    data_mapping: Union[Dict, List] = None,
-):
-    from datasets import load_dataset
-
-    def _is_custom_dataset(dataset_config):
-        return (
-            (dataset_config is not None)
-            and ("path" in dataset_config)
-            and (dataset_config["path"] in ("csv", "json"))
-            and ("data_files" in dataset_config)
-            and (len(dataset_config["data_files"]) > 0)
-        )
-
-    def _is_huggingface_dataset(dataset_config=None, data_mapping=None):
-        return (
-            (dataset_config is not None)
-            and (data_mapping is not None)
-            and ("path" in dataset_config)
-        )
-
-    def unify_data_raw_and_data_mapping(
-        data_raw,
-        dataset_config,
-        data_mapping,
-    ):
-        data_mapping_unified = {}
-        if data_mapping is not None:
-            assert isinstance(data_mapping, list) or isinstance(data_mapping, dict)
-            if isinstance(data_mapping, list):
-                assert set(data_mapping).issubset({"train", "validation", "test"}), (
-                    "To select folds from a HuggingFace dataset, the folds must either be {'train', 'validation'}"
-                    " or {'train'} "
-                )
-                for fold_key in data_mapping:
-                    data_mapping_unified[fold_key] = data_raw[fold_key]
-            else:
-                assert set(data_mapping.keys()).issubset(
-                    {"train", "validation", "test"}
-                ), (
-                    "To select folds from a HuggingFace dataset, the folds must either be {'train', 'validation'}"
-                    " or {'train'} "
-                )
-                for fold_key in data_mapping.keys():
-                    if isinstance(data_mapping[fold_key], str):
-                        try:
-                            data_mapping_unified[fold_key] = data_raw[
-                                data_mapping[fold_key]
-                            ]
-                        except KeyError:
-                            raise KeyError(
-                                "The key {} is not found in the dataset".format(
-                                    data_mapping[fold_key]
-                                )
-                            )
-                    else:
-                        data_mapping_unified[fold_key] = data_mapping[fold_key]
-        else:
-            assert set(dataset_config["data_files"].keys()).issubset(
-                {"train", "validation", "test"}
-            ), "If the dataset is custom, the data fold must be a subset of {'train', 'validation', 'test'} "
-            data_mapping_unified = data_raw
-        return data_mapping_unified
-
-    assert _is_huggingface_dataset(dataset_config, data_mapping) ^ _is_custom_dataset(
-        dataset_config
-    ), (
-        "The specified data must be in one of the two modes: (1) custom data, by specifying data_files "
-        "in dataset_config; (2) HuggingFace data, by specifying the path argument in dataset_config and "
-        "which fold(s) from the dataset you will be loading with the data_mapping argument"
-    )
-
-    if isinstance(dataset_config, dict):
-        data_raw = load_dataset(**dataset_config)
-    else:
-        data_raw = load_dataset(*dataset_config)
-
-    data_mapping_unified = unify_data_raw_and_data_mapping(
-        data_raw, dataset_config, data_mapping
-    )
-
-    return data_mapping_unified
 
 
 def load_openml_dataset(
@@ -220,17 +134,15 @@ def get_output_from_log(filename, time_budget):
     """Get output from log file
 
     Args:
-        filename: A string of the log file name
-        time_budget: A float of the time budget in seconds
+        filename: A string of the log file name.
+        time_budget: A float of the time budget in seconds.
 
     Returns:
-        search_time_list: A list of the finished time of each logged iter
-        best_error_list:
-            A list of the best validation error after each logged iter
-        error_list: A list of the validation error of each logged iter
-        config_list:
-            A list of the estimator, sample size and config of each logged iter
-        logged_metric_list: A list of the logged metric of each logged iter
+        search_time_list: A list of the finished time of each logged iter.
+        best_error_list: A list of the best validation error after each logged iter.
+        error_list: A list of the validation error of each logged iter.
+        config_list: A list of the estimator, sample size and config of each logged iter.
+        logged_metric_list: A list of the logged metric of each logged iter.
     """
 
     best_config = None
@@ -298,9 +210,21 @@ def concat(X1, X2):
 
 
 class DataTransformer:
-    """transform X, y"""
+    """Transform input training data."""
 
     def fit_transform(self, X, y, task):
+        """Fit transformer and process the input training data according to the task type.
+
+        Args:
+            X: A numpy array or a pandas dataframe of training data.
+            y: A numpy array or a pandas series of labels.
+            task: A string of the task type, e.g.,
+                'classification', 'regression', 'ts_forecast', 'rank'.
+
+        Returns:
+            X: Processed numpy array or pandas dataframe of training data.
+            y: Processed numpy array or pandas series of labels.
+        """
         from .nlp.utils import _is_nlp_task
 
         if _is_nlp_task(task):
@@ -379,9 +303,8 @@ class DataTransformer:
                                 X[column] = X[column].map(datetime.toordinal)
                                 datetime_columns.append(column)
                                 del tmp_dt
-                            else:
-                                X[column] = X[column].fillna(np.nan)
-                                num_columns.append(column)
+                            X[column] = X[column].fillna(np.nan)
+                            num_columns.append(column)
                 X = X[cat_columns + num_columns]
                 if task == TS_FORECAST:
                     X.insert(0, TS_TIMESTAMP_COL, ds_col)
@@ -429,6 +352,18 @@ class DataTransformer:
         return X, y
 
     def transform(self, X: Union[DataFrame, List[str], List[List[str]]]):
+        """Process data using fit transformer.
+
+        Args:
+            X: A numpy array or a pandas dataframe of training data.
+            y: A numpy array or a pandas series of labels.
+            task: A string of the task type, e.g.,
+                'classification', 'regression', 'ts_forecast', 'rank'.
+
+        Returns:
+            X: Processed numpy array or pandas dataframe of training data.
+            y: Processed numpy array or pandas series of labels.
+        """
         X = X.copy()
 
         from .nlp.utils import _is_nlp_task

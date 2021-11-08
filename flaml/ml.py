@@ -1,8 +1,7 @@
-"""!
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License.
-"""
-
+# !
+#  * Copyright (c) Microsoft Corporation. All rights reserved.
+#  * Licensed under the MIT License. See LICENSE file in the
+#  * project root for license information.
 import time
 import numpy as np
 import pandas as pd
@@ -27,7 +26,7 @@ from .model import (
     LRL1Classifier,
     LRL2Classifier,
     CatBoostEstimator,
-    ExtraTreeEstimator,
+    ExtraTreesEstimator,
     KNeighborsEstimator,
     Prophet,
     ARIMA,
@@ -35,15 +34,13 @@ from .model import (
     TransformersEstimator,
 )
 from .data import CLASSIFICATION, group_counts, TS_FORECAST, TS_VALUE_COL
-
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 def get_estimator_class(task, estimator_name):
-    """when adding a new learner, need to add an elif branch"""
-
+    # when adding a new learner, need to add an elif branch
     if "xgboost" == estimator_name:
         if "regression" == task:
             estimator_class = XGBoostEstimator
@@ -60,7 +57,7 @@ def get_estimator_class(task, estimator_name):
     elif "catboost" == estimator_name:
         estimator_class = CatBoostEstimator
     elif "extra_tree" == estimator_name:
-        estimator_class = ExtraTreeEstimator
+        estimator_class = ExtraTreesEstimator
     elif "kneighbor" == estimator_name:
         estimator_class = KNeighborsEstimator
     elif "prophet" in estimator_name:
@@ -87,7 +84,7 @@ def sklearn_metric_loss_score(
     sample_weight=None,
     groups=None,
 ):
-    """Loss using the specified metric
+    """Loss using the specified metric.
 
     Args:
         metric_name: A string of the metric name, one of
@@ -474,9 +471,6 @@ def train_estimator(
     budget=None,
     fit_kwargs={},
 ):
-    import pdb
-
-    pdb.set_trace()
     start_time = time.time()
     estimator_class = estimator_class or get_estimator_class(task, estimator_name)
     estimator = estimator_class(
@@ -499,15 +493,15 @@ def get_classification_objective(num_labels: int) -> str:
 
 
 def norm_confusion_matrix(y_true, y_pred):
-    """normalized confusion matrix
+    """normalized confusion matrix.
 
     Args:
-        estimator: A multi-class classification estimator
-        y_true: A numpy array or a pandas series of true labels
-        y_pred: A numpy array or a pandas series of predicted labels
+        estimator: A multi-class classification estimator.
+        y_true: A numpy array or a pandas series of true labels.
+        y_pred: A numpy array or a pandas series of predicted labels.
 
     Returns:
-        A normalized confusion matrix
+        A normalized confusion matrix.
     """
     from sklearn.metrics import confusion_matrix
 
@@ -517,19 +511,19 @@ def norm_confusion_matrix(y_true, y_pred):
 
 
 def multi_class_curves(y_true, y_pred_proba, curve_func):
-    """Binarize the data for multi-class tasks and produce ROC or precision-recall curves
+    """Binarize the data for multi-class tasks and produce ROC or precision-recall curves.
 
     Args:
-        y_true: A numpy array or a pandas series of true labels
-        y_pred_proba: A numpy array or a pandas dataframe of predicted probabilites
-        curve_func: A function to produce a curve (e.g., roc_curve or precision_recall_curve)
+        y_true: A numpy array or a pandas series of true labels.
+        y_pred_proba: A numpy array or a pandas dataframe of predicted probabilites.
+        curve_func: A function to produce a curve (e.g., roc_curve or precision_recall_curve).
 
     Returns:
-        A tuple of two dictionaries with the same set of keys (class indices)
+        A tuple of two dictionaries with the same set of keys (class indices).
         The first dictionary curve_x stores the x coordinates of each curve, e.g.,
-            curve_x[0] is an 1D array of the x coordinates of class 0
+            curve_x[0] is an 1D array of the x coordinates of class 0.
         The second dictionary curve_y stores the y coordinates of each curve, e.g.,
-            curve_y[0] is an 1D array of the y coordinates of class 0
+            curve_y[0] is an 1D array of the y coordinates of class 0.
     """
     from sklearn.preprocessing import label_binarize
 
