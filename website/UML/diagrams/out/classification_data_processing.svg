@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentScriptType="application/ecmascript" contentStyleType="text/css" height="654px" preserveAspectRatio="none" style="width:539px;height:654px;" version="1.1" viewBox="0 0 539 654" width="539px" zoomAndPan="magnify"><defs><filter height="300%" id="f10wtz9v9omfh0" width="300%" x="-1" y="-1"><feGaussianBlur result="blurOut" stdDeviation="2.0"/><feColorMatrix in="blurOut" result="blurOut2" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .4 0"/><feOffset dx="4.0" dy="4.0" in="blurOut2" result="blurOut3"/><feBlend in="SourceGraphic" in2="blurOut3" mode="normal"/></filter></defs><g><text fill="#000000" font-family="sans-serif" font-size="18" lengthAdjust="spacing" textLength="272" x="131" y="30.6855">Tweet Sentiment Data Processing</text><rect fill="#5FAEB6" filter="url(#f10wtz9v9omfh0)" height="547.3281" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="28.5" y="91.3389"/><rect fill="#5FAEB6" filter="url(#f10wtz9v9omfh0)" height="30.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="282.5" y="113.6904"/><rect fill="#5FAEB6" filter="url(#f10wtz9v9omfh0)" height="88.7031" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="282.5" y="295.7998"/><rect fill="#5FAEB6" filter="url(#f10wtz9v9omfh0)" height="137.7578" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="282.5" y="414.8545"/><rect fill="#5FAEB6" filter="url(#f10wtz9v9omfh0)" height="14" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="282.5" y="615.667"/><rect fill="#5FAEB6" filter="url(#f10wtz9v9omfh0)" height="30.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="401.5" y="174.3936"/><rect fill="#5FAEB6" filter="url(#f10wtz9v9omfh0)" height="44.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="401.5" y="326.1514"/><rect fill="#5FAEB6" filter="url(#f10wtz9v9omfh0)" height="30.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="486.5" y="235.0967"/><rect fill="#5FAEB6" filter="url(#f10wtz9v9omfh0)" height="60.7031" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="486.5" y="445.2061"/><line style="stroke:#3F6184;stroke-width:1.0;stroke-dasharray:5.0,5.0;" x1="33" x2="33" y1="81.3389" y2="647.667"/><line style="stroke:#3F6184;stroke-width:1.0;stroke-dasharray:5.0,5.0;" x1="287" x2="287" y1="81.3389" y2="647.667"/><line style="stroke:#3F6184;stroke-width:1.0;stroke-dasharray:5.0,5.0;" x1="406" x2="406" y1="81.3389" y2="647.667"/><line style="stroke:#3F6184;stroke-width:1.0;stroke-dasharray:5.0,5.0;" x1="491" x2="491" y1="81.3389" y2="647.667"/><rect fill="#3F6184" filter="url(#f10wtz9v9omfh0)" height="34.6982" rx="5" ry="5" style="stroke:#323A45;stroke-width:1.5;" width="53" x="5" y="41.6406"/><text fill="#F6F7F9" font-family="Arial" font-size="18" lengthAdjust="spacing" textLength="39" x="12" y="65.8188">Main</text><rect fill="#3F6184" filter="url(#f10wtz9v9omfh0)" height="34.6982" rx="5" ry="5" style="stroke:#323A45;stroke-width:1.5;" width="139" x="216" y="41.6406"/><text fill="#F6F7F9" font-family="Arial" font-size="18" lengthAdjust="spacing" textLength="125" x="223" y="65.8188">TweetSentData</text><rect fill="#3F6184" filter="url(#f10wtz9v9omfh0)" height="34.6982" rx="5" ry="5" style="stroke:#323A45;stroke-width:1.5;" width="71" x="369" y="41.6406"/><text fill="#F6F7F9" font-family="Arial" font-size="18" lengthAdjust="spacing" textLength="57" x="376" y="65.8188">Stage1</text><rect fill="#3F6184" filter="url(#f10wtz9v9omfh0)" height="34.6982" rx="5" ry="5" style="stroke:#323A45;stroke-width:1.5;" width="71" x="454" y="41.6406"/><text fill="#F6F7F9" font-family="Arial" font-size="18" lengthAdjust="spacing" textLength="57" x="461" y="65.8188">Stage2</text><rect fill="#5FAEB6" filter="url(#f10wtz9v9omfh0)" height="547.3281" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="28.5" y="91.3389"/><rect fill="#5FAEB6" filter="url(#f10wtz9v9omfh0)" height="30.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="282.5" y="113.6904"/><rect fill="#5FAEB6" filter="url(#f10wtz9v9omfh0)" height="88.7031" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="282.5" y="295.7998"/><rect fill="#5FAEB6" filter="url(#f10wtz9v9omfh0)" height="137.7578" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="282.5" y="414.8545"/><rect fill="#5FAEB6" filter="url(#f10wtz9v9omfh0)" height="14" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="282.5" y="615.667"/><rect fill="#5FAEB6" filter="url(#f10wtz9v9omfh0)" height="30.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="401.5" y="174.3936"/><rect fill="#5FAEB6" filter="url(#f10wtz9v9omfh0)" height="44.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="401.5" y="326.1514"/><rect fill="#5FAEB6" filter="url(#f10wtz9v9omfh0)" height="30.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="486.5" y="235.0967"/><rect fill="#5FAEB6" filter="url(#f10wtz9v9omfh0)" height="60.7031" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="486.5" y="445.2061"/><polygon fill="#323A45" points="270.5,109.6904,280.5,113.6904,270.5,117.6904,274.5,113.6904" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="38.5" x2="276.5" y1="113.6904" y2="113.6904"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" text-decoration="underline" textLength="17" x="45.5" y="108.834">init</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="208" x="62.5" y="108.834">(data_args:DataInterfaceArguments)</text><polygon fill="#323A45" points="49.5,140.042,39.5,144.042,49.5,148.042,45.5,144.042" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="43.5" x2="286.5" y1="144.042" y2="144.042"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="81" x="55.5" y="139.1855">data_interface</text><polygon fill="#323A45" points="389.5,170.3936,399.5,174.3936,389.5,178.3936,393.5,174.3936" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="38.5" x2="395.5" y1="174.3936" y2="174.3936"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" text-decoration="underline" textLength="17" x="45.5" y="169.5371">init</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="208" x="62.5" y="169.5371">(data_args:DataInterfaceArguments)</text><polygon fill="#323A45" points="49.5,200.7451,39.5,204.7451,49.5,208.7451,45.5,204.7451" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="43.5" x2="405.5" y1="204.7451" y2="204.7451"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="39" x="55.5" y="199.8887">stage1</text><polygon fill="#323A45" points="474.5,231.0967,484.5,235.0967,474.5,239.0967,478.5,235.0967" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="38.5" x2="480.5" y1="235.0967" y2="235.0967"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" text-decoration="underline" textLength="17" x="45.5" y="230.2402">init</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="208" x="62.5" y="230.2402">(data_args:DataInterfaceArguments)</text><polygon fill="#323A45" points="49.5,261.4482,39.5,265.4482,49.5,269.4482,45.5,265.4482" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="43.5" x2="490.5" y1="265.4482" y2="265.4482"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="39" x="55.5" y="260.5918">stage2</text><polygon fill="#323A45" points="270.5,291.7998,280.5,295.7998,270.5,299.7998,274.5,295.7998" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="38.5" x2="276.5" y1="295.7998" y2="295.7998"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="125" x="45.5" y="290.9434">process_data(stage1)</text><polygon fill="#323A45" points="389.5,322.1514,399.5,326.1514,389.5,330.1514,393.5,326.1514" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="292.5" x2="395.5" y1="326.1514" y2="326.1514"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="54" x="299.5" y="321.2949">process()</text><polygon fill="#323A45" points="303.5,336.1514,293.5,340.1514,303.5,344.1514,299.5,340.1514" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="297.5" x2="400.5" y1="340.1514" y2="340.1514"/><polygon fill="#323A45" points="394.5,366.5029,404.5,370.5029,394.5,374.5029,398.5,370.5029" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="292.5" x2="400.5" y1="370.5029" y2="370.5029"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="53" x="299.5" y="365.6465">analyze()</text><polygon fill="#323A45" points="49.5,380.5029,39.5,384.5029,49.5,388.5029,45.5,384.5029" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="43.5" x2="286.5" y1="384.5029" y2="384.5029"/><polygon fill="#323A45" points="270.5,410.8545,280.5,414.8545,270.5,418.8545,274.5,414.8545" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="38.5" x2="276.5" y1="414.8545" y2="414.8545"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="125" x="45.5" y="409.998">process_data(stage2)</text><polygon fill="#323A45" points="474.5,441.2061,484.5,445.2061,474.5,449.2061,478.5,445.2061" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="292.5" x2="480.5" y1="445.2061" y2="445.2061"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="54" x="299.5" y="440.3496">process()</text><polygon fill="#323A45" points="303.5,471.5576,293.5,475.5576,303.5,479.5576,299.5,475.5576" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="297.5" x2="485.5" y1="475.5576" y2="475.5576"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="71" x="309.5" y="470.7012">res_process</text><polygon fill="#323A45" points="479.5,501.9092,489.5,505.9092,479.5,509.9092,483.5,505.9092" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="292.5" x2="485.5" y1="505.9092" y2="505.9092"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="53" x="299.5" y="501.0527">analyze()</text><polygon fill="#323A45" points="49.5,548.6123,39.5,552.6123,49.5,556.6123,45.5,552.6123" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="43.5" x2="286.5" y1="552.6123" y2="552.6123"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="145" x="55.5" y="531.4043">train_ds, val_ds, test_ds,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="188" x="55.5" y="547.7559">labels_to_index, index_to_labels</text><polygon fill="#323A45" points="270.5,611.667,280.5,615.667,270.5,619.667,274.5,615.667" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="38.5" x2="276.5" y1="615.667" y2="615.667"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="187" x="45.5" y="578.1074">setup_datasets(train_ds, val_ds,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="145" x="45.5" y="594.459">test_ds, labels_to_index,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="94" x="45.5" y="610.8105">index_to_labels)</text><polygon fill="#323A45" points="49.5,625.667,39.5,629.667,49.5,633.667,45.5,629.667" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="43.5" x2="286.5" y1="629.667" y2="629.667"/><!--MD5=[0e9954f806f5fa32520e59d383f994c1]
+@startuml classification_data_processing
+
+'Diagram visualization params
+skinparam RoundCorner 10
+skinparam maxmessagesize 200
+
+skinparam sequence {
+    ArrowColor #323a45
+    ArrowThickness 2
+    LifeLineBorderColor #3f6184
+    LifeLineBackgroundColor #5faeb6
+
+    ParticipantBorderColor #323a45
+    ParticipantBackgroundColor #3f6184
+    ParticipantFontName Arial
+    ParticipantFontSize 18
+    ParticipantFontColor #f6f7f9
+}
+
+hide footbox
+title Tweet Sentiment Data Processing
+
+participant "Main" as main
+participant "TweetSentData" as Dmod
+participant "Stage1" as S1
+participant "Stage2" as S2
+
+activate main
+
+main -> Dmod: __init__(data_args:DataInterfaceArguments)
+activate Dmod
+Dmod - -> main: data_interface
+deactivate Dmod
+
+main -> S1: __init__(data_args:DataInterfaceArguments)
+activate S1
+S1 - -> main: stage1
+deactivate S1
+
+main -> S2: __init__(data_args:DataInterfaceArguments)
+activate S2
+S2 - -> main: stage2
+deactivate S2
+
+main -> Dmod: process_data(stage1)
+activate Dmod
+Dmod -> S1: process()
+activate S1
+S1 - -> Dmod
+Dmod -> S1: analyze()
+deactivate S1
+Dmod - -> main
+deactivate Dmod
+
+main -> Dmod: process_data(stage2)
+activate Dmod
+Dmod -> S2: process()
+activate S2
+S2 - -> Dmod: res_process
+Dmod -> S2: analyze()
+deactivate S2
+Dmod - -> main: train_ds, val_ds, test_ds, labels_to_index, index_to_labels
+deactivate Dmod
+
+main -> Dmod: setup_datasets(train_ds, val_ds, test_ds, labels_to_index, index_to_labels)
+activate Dmod
+Dmod - -> main
+deactivate Dmod
+
+@enduml
+
+@startuml classification_data_processing
+
+skinparam RoundCorner 10
+skinparam maxmessagesize 200
+
+skinparam sequence {
+    ArrowColor #323a45
+    ArrowThickness 2
+    LifeLineBorderColor #3f6184
+    LifeLineBackgroundColor #5faeb6
+
+    ParticipantBorderColor #323a45
+    ParticipantBackgroundColor #3f6184
+    ParticipantFontName Arial
+    ParticipantFontSize 18
+    ParticipantFontColor #f6f7f9
+}
+
+hide footbox
+title Tweet Sentiment Data Processing
+
+participant "Main" as main
+participant "TweetSentData" as Dmod
+participant "Stage1" as S1
+participant "Stage2" as S2
+
+activate main
+
+main -> Dmod: __init__(data_args:DataInterfaceArguments)
+activate Dmod
+Dmod - -> main: data_interface
+deactivate Dmod
+
+main -> S1: __init__(data_args:DataInterfaceArguments)
+activate S1
+S1 - -> main: stage1
+deactivate S1
+
+main -> S2: __init__(data_args:DataInterfaceArguments)
+activate S2
+S2 - -> main: stage2
+deactivate S2
+
+main -> Dmod: process_data(stage1)
+activate Dmod
+Dmod -> S1: process()
+activate S1
+S1 - -> Dmod
+Dmod -> S1: analyze()
+deactivate S1
+Dmod - -> main
+deactivate Dmod
+
+main -> Dmod: process_data(stage2)
+activate Dmod
+Dmod -> S2: process()
+activate S2
+S2 - -> Dmod: res_process
+Dmod -> S2: analyze()
+deactivate S2
+Dmod - -> main: train_ds, val_ds, test_ds, labels_to_index, index_to_labels
+deactivate Dmod
+
+main -> Dmod: setup_datasets(train_ds, val_ds, test_ds, labels_to_index, index_to_labels)
+activate Dmod
+Dmod - -> main
+deactivate Dmod
+
+@enduml
+
+PlantUML version 1.2021.00(Sun Jan 10 07:25:05 CLST 2021)
+(GPL source distribution)
+Java Runtime: Java(TM) SE Runtime Environment
+JVM: Java HotSpot(TM) Client VM
+Default Encoding: Cp1252
+Language: en
+Country: US
+--></g></svg>

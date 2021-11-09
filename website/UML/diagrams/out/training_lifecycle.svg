@@ -1,0 +1,366 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentScriptType="application/ecmascript" contentStyleType="text/css" height="2389px" preserveAspectRatio="none" style="width:738px;height:2389px;" version="1.1" viewBox="0 0 738 2389" width="738px" zoomAndPan="magnify"><defs><filter height="300%" id="f6nz6cdjrxvos" width="300%" x="-1" y="-1"><feGaussianBlur result="blurOut" stdDeviation="2.0"/><feColorMatrix in="blurOut" result="blurOut2" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .4 0"/><feOffset dx="4.0" dy="4.0" in="blurOut2" result="blurOut3"/><feBlend in="SourceGraphic" in2="blurOut3" mode="normal"/></filter></defs><g><text fill="#000000" font-family="sans-serif" font-size="18" lengthAdjust="spacing" textLength="141" x="296.5" y="30.6855">Training Lifecycle</text><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="2261.3359" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="28.5" y="112.0371"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="2229.9844" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="105" y="134.3887"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="900.0859" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="110" y="268.4434"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="690.3281" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="110" y="1213.8809"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="266.1094" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="110" y="2009.9121"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="28" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="115" y="2174.6699"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="28" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="115" y="2248.0215"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="195.0918"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="91.0547" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="303.7949"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="177.7578" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="497.2559"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="102.0547" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="269" y="535.6074"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="765.7168"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="1057.8262"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="1249.2324"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="91.0547" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="1309.584"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="177.7578" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="1512.0449"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="102.0547" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="269" y="1550.3965"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="1830.8574"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="1941.5605"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="2045.2637"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="2320.373"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="401" y="334.1465"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="401" y="1339.9355"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="690.625" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="505" y="441.5527"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="28" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="510" y="834.0684"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="155.0547" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="510" y="932.7715"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="28" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="515" y="992.4746"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="344.1641" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="505" y="1456.3418"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="28" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="510" y="1728.1543"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="505" y="2105.9668"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="656" y="570.959"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="656" y="705.3652"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="656" y="1585.748"/><rect fill="#FFFFFF" filter="url(#f6nz6cdjrxvos)" height="2141.6328" rx="5" ry="5" style="stroke:#000000;stroke-width:2.0;" width="672" x="52" y="149.3887"/><rect fill="#FFFFFF" filter="url(#f6nz6cdjrxvos)" height="646.2734" rx="5" ry="5" style="stroke:#000000;stroke-width:2.0;" width="507.5" x="196.5" y="456.5527"/><rect fill="#FFFFFF" filter="url(#f6nz6cdjrxvos)" height="211.7578" rx="5" ry="5" style="stroke:#000000;stroke-width:2.0;" width="459.5" x="206.5" y="884.0684"/><rect fill="#FFFFFF" filter="url(#f6nz6cdjrxvos)" height="453.2188" rx="5" ry="5" style="stroke:#000000;stroke-width:2.0;" width="652" x="62" y="1415.6387"/><rect fill="#FFFFFF" filter="url(#f6nz6cdjrxvos)" height="299.8125" rx="5" ry="5" style="stroke:#000000;stroke-width:2.0;" width="497.5" x="206.5" y="1471.3418"/><line style="stroke:#3F6184;stroke-width:1.0;stroke-dasharray:5.0,5.0;" x1="33" x2="33" y1="102.0371" y2="2382.373"/><line style="stroke:#3F6184;stroke-width:1.0;stroke-dasharray:5.0,5.0;" x1="110" x2="110" y1="102.0371" y2="2382.373"/><line style="stroke:#3F6184;stroke-width:1.0;stroke-dasharray:5.0,5.0;" x1="268.5" x2="268.5" y1="102.0371" y2="2382.373"/><line style="stroke:#3F6184;stroke-width:1.0;stroke-dasharray:5.0,5.0;" x1="405.5" x2="405.5" y1="102.0371" y2="2382.373"/><line style="stroke:#3F6184;stroke-width:1.0;stroke-dasharray:5.0,5.0;" x1="509.5" x2="509.5" y1="102.0371" y2="2382.373"/><line style="stroke:#3F6184;stroke-width:1.0;stroke-dasharray:5.0,5.0;" x1="661" x2="661" y1="102.0371" y2="2382.373"/><rect fill="#3F6184" filter="url(#f6nz6cdjrxvos)" height="55.3965" rx="5" ry="5" style="stroke:#323A45;stroke-width:1.5;" width="53" x="5" y="41.6406"/><text fill="#F6F7F9" font-family="Arial" font-size="18" lengthAdjust="spacing" textLength="39" x="12" y="65.8188">Main</text><text fill="#F6F7F9" font-family="Arial" font-size="18" lengthAdjust="spacing" textLength="0" x="34" y="86.5171"/><rect fill="#3F6184" filter="url(#f6nz6cdjrxvos)" height="55.3965" rx="5" ry="5" style="stroke:#323A45;stroke-width:1.5;" width="72" x="72" y="41.6406"/><text fill="#F6F7F9" font-family="Arial" font-size="18" lengthAdjust="spacing" textLength="58" x="79" y="65.8188">Trainer</text><text fill="#F6F7F9" font-family="Arial" font-size="18" lengthAdjust="spacing" textLength="0" x="110.5" y="86.5171"/><rect fill="#3F6184" filter="url(#f6nz6cdjrxvos)" height="55.3965" rx="5" ry="5" style="stroke:#323A45;stroke-width:1.5;" width="101" x="216.5" y="41.6406"/><text fill="#F6F7F9" font-family="Arial" font-size="18" lengthAdjust="spacing" textLength="87" x="223.5" y="65.8188">TweetSent</text><text fill="#F6F7F9" font-family="Arial" font-size="18" lengthAdjust="spacing" textLength="59" x="237.5" y="86.5171">Module</text><rect fill="#3F6184" filter="url(#f6nz6cdjrxvos)" height="55.3965" rx="5" ry="5" style="stroke:#323A45;stroke-width:1.5;" width="101" x="353.5" y="41.6406"/><text fill="#F6F7F9" font-family="Arial" font-size="18" lengthAdjust="spacing" textLength="87" x="360.5" y="65.8188">TweetSent</text><text fill="#F6F7F9" font-family="Arial" font-size="18" lengthAdjust="spacing" textLength="38" x="385" y="86.5171">Data</text><rect fill="#3F6184" filter="url(#f6nz6cdjrxvos)" height="55.3965" rx="5" ry="5" style="stroke:#323A45;stroke-width:1.5;" width="79" x="468.5" y="41.6406"/><text fill="#F6F7F9" font-family="Arial" font-size="18" lengthAdjust="spacing" textLength="50" x="483" y="65.8188">Single</text><text fill="#F6F7F9" font-family="Arial" font-size="18" lengthAdjust="spacing" textLength="65" x="475.5" y="86.5171">Process</text><rect fill="#3F6184" filter="url(#f6nz6cdjrxvos)" height="55.3965" rx="5" ry="5" style="stroke:#323A45;stroke-width:1.5;" width="62" x="628" y="41.6406"/><text fill="#F6F7F9" font-family="Arial" font-size="18" lengthAdjust="spacing" textLength="36" x="641" y="65.8188">Auto</text><text fill="#F6F7F9" font-family="Arial" font-size="18" lengthAdjust="spacing" textLength="48" x="635" y="86.5171">model</text><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="2261.3359" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="28.5" y="112.0371"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="2229.9844" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="105" y="134.3887"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="900.0859" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="110" y="268.4434"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="690.3281" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="110" y="1213.8809"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="266.1094" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="110" y="2009.9121"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="28" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="115" y="2174.6699"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="28" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="115" y="2248.0215"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="195.0918"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="91.0547" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="303.7949"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="177.7578" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="497.2559"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="102.0547" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="269" y="535.6074"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="765.7168"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="1057.8262"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="1249.2324"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="91.0547" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="1309.584"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="177.7578" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="1512.0449"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="102.0547" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="269" y="1550.3965"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="1830.8574"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="1941.5605"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="2045.2637"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="264" y="2320.373"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="401" y="334.1465"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="401" y="1339.9355"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="690.625" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="505" y="441.5527"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="28" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="510" y="834.0684"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="155.0547" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="510" y="932.7715"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="28" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="515" y="992.4746"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="344.1641" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="505" y="1456.3418"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="28" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="510" y="1728.1543"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="505" y="2105.9668"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="656" y="570.959"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="656" y="705.3652"/><rect fill="#5FAEB6" filter="url(#f6nz6cdjrxvos)" height="30.3516" style="stroke:#3F6184;stroke-width:1.0;" width="10" x="656" y="1585.748"/><polygon fill="#323A45" points="93,130.3887,103,134.3887,93,138.3887,97,134.3887" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="38.5" x2="99" y1="134.3887" y2="134.3887"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="33" x="45.5" y="129.5322">train()</text><path d="M57,149.3887 L125,149.3887 L125,157.3887 L115,167.3887 L52,167.3887 L52,154.3887 " fill="#EEEEEE" style="stroke:#000000;stroke-width:1.0;"/><rect fill="none" height="2141.6328" rx="5" ry="5" style="stroke:#000000;stroke-width:2.0;" width="672" x="52" y="149.3887"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="28" x="67" y="163.8838">loop</text><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacing" textLength="292" x="140" y="162.8076">[from last checkpointed epoch to number of epochs]</text><polygon fill="#323A45" points="252,191.0918,262,195.0918,252,199.0918,256,195.0918" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="115" x2="258" y1="195.0918" y2="195.0918"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="33" x="122" y="190.2354">train()</text><path d="M279,177.7402 L279,193.7402 A5,5 0 0 0 284,198.7402 L395,198.7402 A5,5 0 0 0 400,193.7402 L400,182.7402 L390,172.7402 L284,172.7402 A5,5 0 0 0 279,177.7402 " fill="#FBFB77" filter="url(#f6nz6cdjrxvos)" style="stroke:#A80036;stroke-width:1.0;"/><path d="M390,172.7402 L390,180.2402 A2.5,2.5 0 0 0 392.5,182.7402 L400,182.7402 L390,172.7402 " fill="#FBFB77" style="stroke:#A80036;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="100" x="285" y="191.2354">nn.module.Train()</text><line style="stroke:#323A45;stroke-width:2.0;" x1="115" x2="162" y1="255.4434" y2="255.4434"/><line style="stroke:#323A45;stroke-width:2.0;" x1="162" x2="162" y1="255.4434" y2="268.4434"/><line style="stroke:#323A45;stroke-width:2.0;" x1="121" x2="162" y1="268.4434" y2="268.4434"/><polygon fill="#323A45" points="131,264.4434,121,268.4434,131,272.4434,127,268.4434" style="stroke:#323A45;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="110" x="127" y="250.5869">train_epoch(epoch)</text><polygon fill="#323A45" points="252,299.7949,262,303.7949,252,307.7949,256,303.7949" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="120" x2="258" y1="303.7949" y2="303.7949"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="125" x="127" y="298.9385">get_train_dataloader()</text><polygon fill="#323A45" points="389,330.1465,399,334.1465,389,338.1465,393,334.1465" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="274" x2="395" y1="334.1465" y2="334.1465"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="108" x="281" y="329.29">get_train_dataset()</text><polygon fill="#323A45" points="285,360.498,275,364.498,285,368.498,281,364.498" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="279" x2="405" y1="364.498" y2="364.498"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="43" x="291" y="359.6416">dataset</text><polygon fill="#323A45" points="131,390.8496,121,394.8496,131,398.8496,127,394.8496" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="125" x2="268" y1="394.8496" y2="394.8496"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="60" x="137" y="389.9932">dataloader</text><polygon fill="#323A45" points="493,437.5527,503,441.5527,493,445.5527,497,441.5527" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="120" x2="499" y1="441.5527" y2="441.5527"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="110" x="127" y="420.3447">train_dl(dataloader,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="102" x="127" y="436.6963">module_interface)</text><path d="M201.5,456.5527 L269.5,456.5527 L269.5,464.5527 L259.5,474.5527 L196.5,474.5527 L196.5,461.5527 " fill="#EEEEEE" style="stroke:#000000;stroke-width:1.0;"/><rect fill="none" height="646.2734" rx="5" ry="5" style="stroke:#000000;stroke-width:2.0;" width="507.5" x="196.5" y="456.5527"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="28" x="211.5" y="471.0479">loop</text><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacing" textLength="52" x="284.5" y="469.9717">[batches]</text><polygon fill="#323A45" points="285,493.2559,275,497.2559,285,501.2559,281,497.2559" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="279" x2="504" y1="497.2559" y2="497.2559"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="81" x="291" y="492.3994">forward(batch)</text><line style="stroke:#323A45;stroke-width:2.0;" x1="274" x2="321" y1="522.6074" y2="522.6074"/><line style="stroke:#323A45;stroke-width:2.0;" x1="321" x2="321" y1="522.6074" y2="535.6074"/><line style="stroke:#323A45;stroke-width:2.0;" x1="280" x2="321" y1="535.6074" y2="535.6074"/><polygon fill="#323A45" points="290,531.6074,280,535.6074,290,539.6074,286,535.6074" style="stroke:#323A45;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="97" x="286" y="517.751">train_step(batch)</text><polygon fill="#323A45" points="644,566.959,654,570.959,644,574.959,648,570.959" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="279" x2="650" y1="570.959" y2="570.959"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="81" x="286" y="566.1025">forward(batch)</text><polygon fill="#323A45" points="290,597.3105,280,601.3105,290,605.3105,286,601.3105" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="284" x2="660" y1="601.3105" y2="601.3105"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="43" x="296" y="596.4541">outputs</text><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="279" x2="321" y1="636.6621" y2="636.6621"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="321" x2="321" y1="636.6621" y2="649.6621"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="274" x2="321" y1="649.6621" y2="649.6621"/><polygon fill="#323A45" points="284,645.6621,274,649.6621,284,653.6621,280,649.6621" style="stroke:#323A45;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="24" x="286" y="631.8057">loss</text><polygon fill="#323A45" points="493,671.0137,503,675.0137,493,679.0137,497,675.0137" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="269" x2="499" y1="675.0137" y2="675.0137"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="24" x="276" y="670.1572">loss</text><polygon fill="#323A45" points="644,701.3652,654,705.3652,644,709.3652,648,705.3652" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="515" x2="650" y1="705.3652" y2="705.3652"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="91" x="522" y="700.5088">loss.backward()</text><polygon fill="#323A45" points="285,761.7168,275,765.7168,285,769.7168,281,765.7168" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="279" x2="504" y1="765.7168" y2="765.7168"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="112" x="291" y="760.8604">on_end_backward()</text><line style="stroke:#323A45;stroke-width:2.0;" x1="520" x2="562" y1="826.0684" y2="826.0684"/><line style="stroke:#323A45;stroke-width:2.0;" x1="562" x2="562" y1="826.0684" y2="839.0684"/><line style="stroke:#323A45;stroke-width:2.0;" x1="521" x2="562" y1="839.0684" y2="839.0684"/><polygon fill="#323A45" points="531,835.0684,521,839.0684,531,843.0684,527,839.0684" style="stroke:#323A45;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="96" x="527" y="821.2119">collect_outputs()</text><path d="M211.5,884.0684 L267.5,884.0684 L267.5,892.0684 L257.5,902.0684 L206.5,902.0684 L206.5,889.0684 " fill="#EEEEEE" style="stroke:#000000;stroke-width:1.0;"/><rect fill="none" height="211.7578" rx="5" ry="5" style="stroke:#000000;stroke-width:2.0;" width="459.5" x="206.5" y="884.0684"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="16" x="221.5" y="898.5635">alt</text><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacing" textLength="275" x="282.5" y="897.4873">[batches completed % gradient accumulation == 0]</text><line style="stroke:#323A45;stroke-width:2.0;" x1="515" x2="562" y1="919.7715" y2="919.7715"/><line style="stroke:#323A45;stroke-width:2.0;" x1="562" x2="562" y1="919.7715" y2="932.7715"/><line style="stroke:#323A45;stroke-width:2.0;" x1="521" x2="562" y1="932.7715" y2="932.7715"/><polygon fill="#323A45" points="531,928.7715,521,932.7715,531,936.7715,527,932.7715" style="stroke:#323A45;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="127" x="527" y="914.915">process_global_step()</text><line style="stroke:#323A45;stroke-width:2.0;" x1="525" x2="567" y1="984.4746" y2="984.4746"/><line style="stroke:#323A45;stroke-width:2.0;" x1="567" x2="567" y1="984.4746" y2="997.4746"/><line style="stroke:#323A45;stroke-width:2.0;" x1="526" x2="567" y1="997.4746" y2="997.4746"/><polygon fill="#323A45" points="536,993.4746,526,997.4746,536,1001.4746,532,997.4746" style="stroke:#323A45;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="117" x="532" y="963.2666">optimize(optimizers,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="67" x="532" y="979.6182">schedulers)</text><polygon fill="#323A45" points="285,1053.8262,275,1057.8262,285,1061.8262,281,1057.8262" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="279" x2="509" y1="1057.8262" y2="1057.8262"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="114" x="291" y="1052.9697">on_end_train_step()</text><polygon fill="#323A45" points="131,1128.1777,121,1132.1777,131,1136.1777,127,1132.1777" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="125" x2="509" y1="1132.1777" y2="1132.1777"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="85" x="137" y="1127.3213">epoch_outputs</text><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="120" x2="162" y1="1167.5293" y2="1167.5293"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="162" x2="162" y1="1167.5293" y2="1180.5293"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="115" x2="162" y1="1180.5293" y2="1180.5293"/><polygon fill="#323A45" points="125,1176.5293,115,1180.5293,125,1184.5293,121,1180.5293" style="stroke:#323A45;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="63" x="127" y="1162.6729">all_outputs</text><line style="stroke:#323A45;stroke-width:2.0;" x1="115" x2="162" y1="1200.8809" y2="1200.8809"/><line style="stroke:#323A45;stroke-width:2.0;" x1="162" x2="162" y1="1200.8809" y2="1213.8809"/><line style="stroke:#323A45;stroke-width:2.0;" x1="121" x2="162" y1="1213.8809" y2="1213.8809"/><polygon fill="#323A45" points="131,1209.8809,121,1213.8809,131,1217.8809,127,1213.8809" style="stroke:#323A45;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="51" x="127" y="1196.0244">validate()</text><polygon fill="#323A45" points="252,1245.2324,262,1249.2324,252,1253.2324,256,1249.2324" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="120" x2="258" y1="1249.2324" y2="1249.2324"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="30" x="127" y="1244.376">eval()</text><polygon fill="#323A45" points="252,1305.584,262,1309.584,252,1313.584,256,1309.584" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="120" x2="258" y1="1309.584" y2="1309.584"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="122" x="127" y="1304.7275">get_val_dataloaders()</text><polygon fill="#323A45" points="389,1335.9355,399,1339.9355,389,1343.9355,393,1339.9355" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="274" x2="395" y1="1339.9355" y2="1339.9355"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="98" x="281" y="1335.0791">get_val_dataset()</text><polygon fill="#323A45" points="285,1366.2871,275,1370.2871,285,1374.2871,281,1370.2871" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="279" x2="405" y1="1370.2871" y2="1370.2871"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="43" x="291" y="1365.4307">dataset</text><polygon fill="#323A45" points="131,1396.6387,121,1400.6387,131,1404.6387,127,1400.6387" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="125" x2="268" y1="1400.6387" y2="1400.6387"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="67" x="137" y="1395.7822">dataloaders</text><path d="M67,1415.6387 L135,1415.6387 L135,1423.6387 L125,1433.6387 L62,1433.6387 L62,1420.6387 " fill="#EEEEEE" style="stroke:#000000;stroke-width:1.0;"/><rect fill="none" height="453.2188" rx="5" ry="5" style="stroke:#000000;stroke-width:2.0;" width="652" x="62" y="1415.6387"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="28" x="77" y="1430.1338">loop</text><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacing" textLength="73" x="150" y="1429.0576">[dataloaders]</text><polygon fill="#323A45" points="493,1452.3418,503,1456.3418,493,1460.3418,497,1456.3418" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="120" x2="499" y1="1456.3418" y2="1456.3418"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="128" x="127" y="1451.4854">validate_dl(dataloader)</text><path d="M211.5,1471.3418 L279.5,1471.3418 L279.5,1479.3418 L269.5,1489.3418 L206.5,1489.3418 L206.5,1476.3418 " fill="#EEEEEE" style="stroke:#000000;stroke-width:1.0;"/><rect fill="none" height="299.8125" rx="5" ry="5" style="stroke:#000000;stroke-width:2.0;" width="497.5" x="206.5" y="1471.3418"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="28" x="221.5" y="1485.8369">loop</text><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacing" textLength="52" x="294.5" y="1484.7607">[batches]</text><polygon fill="#323A45" points="285,1508.0449,275,1512.0449,285,1516.0449,281,1512.0449" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="279" x2="504" y1="1512.0449" y2="1512.0449"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="81" x="291" y="1507.1885">forward(batch)</text><line style="stroke:#323A45;stroke-width:2.0;" x1="274" x2="321" y1="1537.3965" y2="1537.3965"/><line style="stroke:#323A45;stroke-width:2.0;" x1="321" x2="321" y1="1537.3965" y2="1550.3965"/><line style="stroke:#323A45;stroke-width:2.0;" x1="280" x2="321" y1="1550.3965" y2="1550.3965"/><polygon fill="#323A45" points="290,1546.3965,280,1550.3965,290,1554.3965,286,1550.3965" style="stroke:#323A45;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="87" x="286" y="1532.54">val_step(batch)</text><polygon fill="#323A45" points="644,1581.748,654,1585.748,644,1589.748,648,1585.748" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="279" x2="650" y1="1585.748" y2="1585.748"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="81" x="286" y="1580.8916">forward(batch)</text><polygon fill="#323A45" points="290,1612.0996,280,1616.0996,290,1620.0996,286,1616.0996" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="284" x2="660" y1="1616.0996" y2="1616.0996"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="43" x="296" y="1611.2432">outputs</text><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="279" x2="321" y1="1651.4512" y2="1651.4512"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="321" x2="321" y1="1651.4512" y2="1664.4512"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="274" x2="321" y1="1664.4512" y2="1664.4512"/><polygon fill="#323A45" points="284,1660.4512,274,1664.4512,284,1668.4512,280,1664.4512" style="stroke:#323A45;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="43" x="286" y="1646.5947">outputs</text><polygon fill="#323A45" points="493,1685.8027,503,1689.8027,493,1693.8027,497,1689.8027" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="269" x2="499" y1="1689.8027" y2="1689.8027"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="43" x="276" y="1684.9463">outputs</text><line style="stroke:#323A45;stroke-width:2.0;" x1="520" x2="562" y1="1720.1543" y2="1720.1543"/><line style="stroke:#323A45;stroke-width:2.0;" x1="562" x2="562" y1="1720.1543" y2="1733.1543"/><line style="stroke:#323A45;stroke-width:2.0;" x1="521" x2="562" y1="1733.1543" y2="1733.1543"/><polygon fill="#323A45" points="531,1729.1543,521,1733.1543,531,1737.1543,527,1733.1543" style="stroke:#323A45;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="96" x="527" y="1715.2979">collect_outputs()</text><polygon fill="#323A45" points="131,1796.5059,121,1800.5059,131,1804.5059,127,1800.5059" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="125" x2="509" y1="1800.5059" y2="1800.5059"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="63" x="137" y="1795.6494">all_outputs</text><polygon fill="#323A45" points="252,1826.8574,262,1830.8574,252,1834.8574,256,1830.8574" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="120" x2="258" y1="1830.8574" y2="1830.8574"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="114" x="127" y="1826.001">on_end_val_epoch()</text><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="120" x2="162" y1="1903.209" y2="1903.209"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="162" x2="162" y1="1903.209" y2="1916.209"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="115" x2="162" y1="1916.209" y2="1916.209"/><polygon fill="#323A45" points="125,1912.209,115,1916.209,125,1920.209,121,1916.209" style="stroke:#323A45;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="63" x="127" y="1898.3525">all_outputs</text><polygon fill="#323A45" points="252,1937.5605,262,1941.5605,252,1945.5605,256,1941.5605" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="115" x2="258" y1="1941.5605" y2="1941.5605"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="124" x="122" y="1936.7041">on_end_train_epoch()</text><line style="stroke:#323A45;stroke-width:2.0;" x1="115" x2="162" y1="1996.9121" y2="1996.9121"/><line style="stroke:#323A45;stroke-width:2.0;" x1="162" x2="162" y1="1996.9121" y2="2009.9121"/><line style="stroke:#323A45;stroke-width:2.0;" x1="121" x2="162" y1="2009.9121" y2="2009.9121"/><polygon fill="#323A45" points="131,2005.9121,121,2009.9121,131,2013.9121,127,2009.9121" style="stroke:#323A45;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="71" x="127" y="1992.0557">checkpoint()</text><polygon fill="#323A45" points="252,2041.2637,262,2045.2637,252,2049.2637,256,2045.2637" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="120" x2="258" y1="2045.2637" y2="2045.2637"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="62" x="127" y="2040.4072">get_state()</text><polygon fill="#323A45" points="131,2071.6152,121,2075.6152,131,2079.6152,127,2075.6152" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="125" x2="268" y1="2075.6152" y2="2075.6152"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="57" x="137" y="2070.7588">state_dict</text><polygon fill="#323A45" points="493,2101.9668,503,2105.9668,493,2109.9668,497,2105.9668" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="120" x2="499" y1="2105.9668" y2="2105.9668"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="62" x="127" y="2101.1104">get_state()</text><polygon fill="#323A45" points="131,2132.3184,121,2136.3184,131,2140.3184,127,2136.3184" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="125" x2="509" y1="2136.3184" y2="2136.3184"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="57" x="137" y="2131.4619">state_dict</text><line style="stroke:#323A45;stroke-width:2.0;" x1="125" x2="167" y1="2166.6699" y2="2166.6699"/><line style="stroke:#323A45;stroke-width:2.0;" x1="167" x2="167" y1="2166.6699" y2="2179.6699"/><line style="stroke:#323A45;stroke-width:2.0;" x1="126" x2="167" y1="2179.6699" y2="2179.6699"/><polygon fill="#323A45" points="136,2175.6699,126,2179.6699,136,2183.6699,132,2179.6699" style="stroke:#323A45;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="62" x="132" y="2161.8135">get_state()</text><line style="stroke:#323A45;stroke-width:2.0;" x1="125" x2="167" y1="2240.0215" y2="2240.0215"/><line style="stroke:#323A45;stroke-width:2.0;" x1="167" x2="167" y1="2240.0215" y2="2253.0215"/><line style="stroke:#323A45;stroke-width:2.0;" x1="126" x2="167" y1="2253.0215" y2="2253.0215"/><polygon fill="#323A45" points="136,2249.0215,126,2253.0215,136,2257.0215,132,2253.0215" style="stroke:#323A45;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="112" x="132" y="2235.165">checkpointer.save()</text><polygon fill="#323A45" points="252,2316.373,262,2320.373,252,2324.373,256,2320.373" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;" x1="115" x2="258" y1="2320.373" y2="2320.373"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="82" x="122" y="2315.5166">on_end_train()</text><polygon fill="#323A45" points="49.5,2360.373,39.5,2364.373,49.5,2368.373,45.5,2364.373" style="stroke:#323A45;stroke-width:1.0;"/><line style="stroke:#323A45;stroke-width:2.0;stroke-dasharray:2.0,2.0;" x1="43.5" x2="109" y1="2364.373" y2="2364.373"/><!--MD5=[793873ef891e4da9339ffca949da212c]
+@startuml training_lifecycle
+
+'Diagram visualization params
+skinparam RoundCorner 10
+skinparam maxmessagesize 120
+skinparam WrapWidth 120
+
+skinparam sequence {
+    ArrowColor #323a45
+    ArrowThickness 2
+    LifeLineBorderColor #3f6184
+    LifeLineBackgroundColor #5faeb6
+
+    ParticipantBorderColor #323a45
+    ParticipantBackgroundColor #3f6184
+    ParticipantFontName Arial
+    ParticipantFontSize 18
+    ParticipantFontColor #f6f7f9
+}
+
+hide footbox
+title Training Lifecycle
+
+participant "Main\n" as main
+participant "Trainer\n" as Tman
+participant "TweetSent\nModule" as Tmod
+participant "TweetSent\nData" as Dmod
+participant "Single\nProcess" as SP
+participant "Auto\nmodel" as Model
+
+activate main
+
+main -> Tman: train()
+activate Tman
+
+
+loop from last checkpointed epoch to number of epochs
+
+    Tman -> Tmod: train()
+    note right: nn.module.Train()
+    activate Tmod
+    deactivate Tmod
+    Tman -> Tman: train_epoch(epoch)
+    activate Tman
+    Tman -> Tmod: get_train_dataloader()
+    activate Tmod
+    Tmod -> Dmod: get_train_dataset()
+    activate Dmod
+    Dmod - -> Tmod: dataset
+    deactivate Dmod
+    Tmod - -> Tman: dataloader
+    deactivate Tmod
+    Tman -> SP: train_dl(dataloader, module_interface)
+    activate SP
+
+    loop batches
+        SP -> Tmod: forward(batch)
+        activate Tmod
+        Tmod -> Tmod: train_step(batch)
+        activate Tmod
+        Tmod -> Model: forward(batch)
+        activate Model
+        Model - -> Tmod: outputs
+        deactivate Model
+        Tmod - -> Tmod: loss
+        deactivate Tmod
+        Tmod - -> SP: loss
+        deactivate Tmod
+        SP -> Model: loss.backward()
+        activate Model
+        deactivate Model
+        SP -> Tmod: on_end_backward()
+        activate Tmod
+        deactivate Tmod
+        SP -> SP: collect_outputs()
+        activate SP
+        deactivate SP
+
+        alt batches completed % gradient accumulation == 0
+            SP -> SP: process_global_step()
+            activate SP
+            SP -> SP: optimize(optimizers, schedulers)
+            activate SP
+            deactivate SP
+            SP -> Tmod: on_end_train_step()
+            activate Tmod
+            deactivate Tmod
+            deactivate SP
+        end
+
+    end
+
+    SP - -> Tman: epoch_outputs
+    deactivate SP
+    Tman - -> Tman: all_outputs
+    deactivate Tman
+
+    Tman -> Tman: validate()
+    activate Tman
+    Tman -> Tmod: eval()
+    activate Tmod
+    deactivate Tmod
+    Tman -> Tmod: get_val_dataloaders()
+    activate Tmod
+    Tmod -> Dmod: get_val_dataset()
+    activate Dmod
+    Dmod - -> Tmod: dataset
+    deactivate Dmod
+    Tmod - -> Tman: dataloaders
+    deactivate Tmod
+
+    loop dataloaders
+        Tman -> SP: validate_dl(dataloader)
+        activate SP
+        
+        loop batches
+
+            SP -> Tmod: forward(batch)
+            activate Tmod
+            Tmod -> Tmod: val_step(batch)
+            activate Tmod
+            Tmod -> Model: forward(batch)
+            activate Model
+            Model - -> Tmod: outputs
+            deactivate Model
+            Tmod - -> Tmod: outputs
+            deactivate Tmod
+            Tmod - -> SP: outputs
+            deactivate Tmod
+
+            SP -> SP: collect_outputs()
+            activate SP
+            deactivate SP
+        end
+
+        SP - -> Tman: all_outputs
+        deactivate SP
+
+        Tman -> Tmod: on_end_val_epoch()
+        activate Tmod
+        deactivate Tmod
+    end
+
+    Tman - -> Tman: all_outputs
+    deactivate Tman
+
+    Tman -> Tmod: on_end_train_epoch()
+    activate Tmod
+    deactivate Tmod
+
+    Tman -> Tman: checkpoint()
+    activate Tman
+    Tman -> Tmod: get_state()
+    activate Tmod
+    Tmod - -> Tman: state_dict
+    deactivate Tmod
+    Tman -> SP: get_state()
+    activate SP
+    SP - -> Tman: state_dict
+    deactivate SP
+    Tman -> Tman: get_state()
+    activate Tman
+    deactivate Tman
+    Tman -> Tman: checkpointer.save()
+    activate Tman
+    deactivate Tman
+    deactivate Tman
+
+end
+
+Tman -> Tmod: on_end_train()
+activate Tmod
+deactivate Tmod
+
+Tman - -> main
+deactivate Tman
+
+@enduml
+
+@startuml training_lifecycle
+
+skinparam RoundCorner 10
+skinparam maxmessagesize 120
+skinparam WrapWidth 120
+
+skinparam sequence {
+    ArrowColor #323a45
+    ArrowThickness 2
+    LifeLineBorderColor #3f6184
+    LifeLineBackgroundColor #5faeb6
+
+    ParticipantBorderColor #323a45
+    ParticipantBackgroundColor #3f6184
+    ParticipantFontName Arial
+    ParticipantFontSize 18
+    ParticipantFontColor #f6f7f9
+}
+
+hide footbox
+title Training Lifecycle
+
+participant "Main\n" as main
+participant "Trainer\n" as Tman
+participant "TweetSent\nModule" as Tmod
+participant "TweetSent\nData" as Dmod
+participant "Single\nProcess" as SP
+participant "Auto\nmodel" as Model
+
+activate main
+
+main -> Tman: train()
+activate Tman
+
+
+loop from last checkpointed epoch to number of epochs
+
+    Tman -> Tmod: train()
+    note right: nn.module.Train()
+    activate Tmod
+    deactivate Tmod
+    Tman -> Tman: train_epoch(epoch)
+    activate Tman
+    Tman -> Tmod: get_train_dataloader()
+    activate Tmod
+    Tmod -> Dmod: get_train_dataset()
+    activate Dmod
+    Dmod - -> Tmod: dataset
+    deactivate Dmod
+    Tmod - -> Tman: dataloader
+    deactivate Tmod
+    Tman -> SP: train_dl(dataloader, module_interface)
+    activate SP
+
+    loop batches
+        SP -> Tmod: forward(batch)
+        activate Tmod
+        Tmod -> Tmod: train_step(batch)
+        activate Tmod
+        Tmod -> Model: forward(batch)
+        activate Model
+        Model - -> Tmod: outputs
+        deactivate Model
+        Tmod - -> Tmod: loss
+        deactivate Tmod
+        Tmod - -> SP: loss
+        deactivate Tmod
+        SP -> Model: loss.backward()
+        activate Model
+        deactivate Model
+        SP -> Tmod: on_end_backward()
+        activate Tmod
+        deactivate Tmod
+        SP -> SP: collect_outputs()
+        activate SP
+        deactivate SP
+
+        alt batches completed % gradient accumulation == 0
+            SP -> SP: process_global_step()
+            activate SP
+            SP -> SP: optimize(optimizers, schedulers)
+            activate SP
+            deactivate SP
+            SP -> Tmod: on_end_train_step()
+            activate Tmod
+            deactivate Tmod
+            deactivate SP
+        end
+
+    end
+
+    SP - -> Tman: epoch_outputs
+    deactivate SP
+    Tman - -> Tman: all_outputs
+    deactivate Tman
+
+    Tman -> Tman: validate()
+    activate Tman
+    Tman -> Tmod: eval()
+    activate Tmod
+    deactivate Tmod
+    Tman -> Tmod: get_val_dataloaders()
+    activate Tmod
+    Tmod -> Dmod: get_val_dataset()
+    activate Dmod
+    Dmod - -> Tmod: dataset
+    deactivate Dmod
+    Tmod - -> Tman: dataloaders
+    deactivate Tmod
+
+    loop dataloaders
+        Tman -> SP: validate_dl(dataloader)
+        activate SP
+        
+        loop batches
+
+            SP -> Tmod: forward(batch)
+            activate Tmod
+            Tmod -> Tmod: val_step(batch)
+            activate Tmod
+            Tmod -> Model: forward(batch)
+            activate Model
+            Model - -> Tmod: outputs
+            deactivate Model
+            Tmod - -> Tmod: outputs
+            deactivate Tmod
+            Tmod - -> SP: outputs
+            deactivate Tmod
+
+            SP -> SP: collect_outputs()
+            activate SP
+            deactivate SP
+        end
+
+        SP - -> Tman: all_outputs
+        deactivate SP
+
+        Tman -> Tmod: on_end_val_epoch()
+        activate Tmod
+        deactivate Tmod
+    end
+
+    Tman - -> Tman: all_outputs
+    deactivate Tman
+
+    Tman -> Tmod: on_end_train_epoch()
+    activate Tmod
+    deactivate Tmod
+
+    Tman -> Tman: checkpoint()
+    activate Tman
+    Tman -> Tmod: get_state()
+    activate Tmod
+    Tmod - -> Tman: state_dict
+    deactivate Tmod
+    Tman -> SP: get_state()
+    activate SP
+    SP - -> Tman: state_dict
+    deactivate SP
+    Tman -> Tman: get_state()
+    activate Tman
+    deactivate Tman
+    Tman -> Tman: checkpointer.save()
+    activate Tman
+    deactivate Tman
+    deactivate Tman
+
+end
+
+Tman -> Tmod: on_end_train()
+activate Tmod
+deactivate Tmod
+
+Tman - -> main
+deactivate Tman
+
+@enduml
+
+PlantUML version 1.2021.00(Sun Jan 10 07:25:05 CLST 2021)
+(GPL source distribution)
+Java Runtime: Java(TM) SE Runtime Environment
+JVM: Java HotSpot(TM) Client VM
+Default Encoding: Cp1252
+Language: en
+Country: US
+--></g></svg>

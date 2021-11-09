@@ -1,0 +1,92 @@
+{
+  "items": [
+    {
+      "items": [
+        {
+          "items": [
+            "reference/nlp/dataset/dataprocess_auto"
+          ],
+          "label": "nlp.dataset",
+          "type": "category"
+        },
+        {
+          "items": [
+            "reference/nlp/hpo/get_grid_search_space",
+            "reference/nlp/hpo/grid_searchspace_auto",
+            "reference/nlp/hpo/hpo_searchspace",
+            "reference/nlp/hpo/scheduler_auto",
+            "reference/nlp/hpo/searchalgo_auto"
+          ],
+          "label": "nlp.hpo",
+          "type": "category"
+        },
+        {
+          "items": [
+            "reference/nlp/huggingface/switch_head_auto",
+            "reference/nlp/huggingface/trainer"
+          ],
+          "label": "nlp.huggingface",
+          "type": "category"
+        },
+        {
+          "items": [
+            "reference/nlp/result_analysis/azure_utils"
+          ],
+          "label": "nlp.result_analysis",
+          "type": "category"
+        },
+        "reference/nlp/autotransformers"
+      ],
+      "label": "nlp",
+      "type": "category"
+    },
+    {
+      "items": [
+        "reference/onlineml/autovw",
+        "reference/onlineml/trial",
+        "reference/onlineml/trial_runner"
+      ],
+      "label": "onlineml",
+      "type": "category"
+    },
+    {
+      "items": [
+        "reference/scheduler/online_scheduler",
+        "reference/scheduler/trial_scheduler"
+      ],
+      "label": "scheduler",
+      "type": "category"
+    },
+    {
+      "items": [
+        "reference/searcher/blendsearch",
+        "reference/searcher/cfo_cat",
+        "reference/searcher/flow2",
+        "reference/searcher/online_searcher",
+        "reference/searcher/search_thread",
+        "reference/searcher/suggestion",
+        "reference/searcher/variant_generator"
+      ],
+      "label": "searcher",
+      "type": "category"
+    },
+    {
+      "items": [
+        "reference/tune/analysis",
+        "reference/tune/sample",
+        "reference/tune/space",
+        "reference/tune/trial",
+        "reference/tune/trial_runner",
+        "reference/tune/tune"
+      ],
+      "label": "tune",
+      "type": "category"
+    },
+    "reference/automl",
+    "reference/data",
+    "reference/ml",
+    "reference/model"
+  ],
+  "label": "Reference",
+  "type": "category"
+}

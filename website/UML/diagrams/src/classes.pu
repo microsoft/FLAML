@@ -1,0 +1,201 @@
+@startuml classes
+
+'Diagram visualization params
+skinparam RoundCorner 10
+skinparam class {
+    AttributeFontColor #2b2b2b
+    AttributeFontName Arial
+    AttributeFontSize 14
+    BackgroundColor #f6f7f9
+    BorderColor #3f6184
+    BorderThickness 2
+    FontColor #f6f7f9
+    FontName Arial
+    FontSize 18
+    HeaderBackgroundColor #3f6184
+}
+
+'Class diagram descriptions
+
+'External classes
+class torch.nn.Module {}
+class transformers.AutoModel {}
+class transformers.AutoTokenizer {}
+
+
+'Marlin classes
+
+'Marlin auto model
+namespace marlin.models.auto.modeling_auto {
+    class MarlinAutoModel 
+}
+
+'Module Interface
+namespace marlin.core.module_interface {
+    class CallbackInterface {
+        on_end_train_step()
+        on_end_train_epoch()
+        on_end_backward()
+        on_end_val_epoch()
+        on_end_train()
+    }
+    abstract class ModuleInterface {
+        forward()
+        {abstract} get_optimizers_schedulers()
+        {abstract} get_train_dataloader()
+        {abstract} get_val_dataloaders()
+        {abstract} train_step()
+        {abstract} val_step()
+    }
+}
+
+'Trainer Backend
+namespace marlin.core.trainer_backend {
+    abstract class TrainerBackend{
+        {abstract} init()
+        {abstract} train_dl()
+        {abstract} validate_dl()
+        {abstract} get_batches_completed()
+        {abstract} get_global_steps_completed()
+        {abstract} train_sampler()
+        {abstract} val_sampler()
+    }
+    note right: Users can implement\ntheir own Trainers
+    class SingleProcess {
+        ModuleInterface model
+    }
+    class AbstractTrainerBackendDecorator
+    class SingleProcessAmp {
+        init()
+        train_dl()
+        validate_dl()
+    }
+    class DDPTrainerBackend{
+        init()
+        setup_distributed_model()
+    }
+}
+
+
+'Trainer
+namespace marlin.core.trainer {
+    class TrainerArgs {
+        DefaultCheckpointerArguments
+        WriterInitArgs
+        StatInitArgs
+    }
+    note top: Customize these and other\n args from config.yaml
+    abstract class AbstractTrainer {
+        {abstract} train()
+        {abstract} validate()
+    }
+    class Trainer{
+        TrainerBackend trainer_backend
+        ModuleInterface module
+        AbstractCheckpointer checkpointer
+        optimizers
+        schedulers
+
+        train()
+        validate()
+        load_checkpoint()
+    }
+}
+
+'Data interface
+namespace marlin.core.data_interface {
+
+    abstract class DataProcessor {
+        analyze()
+        {abstract} process()
+    }
+    abstract class DataInterface {
+        setup_datasets()
+        process_data()
+        multi_process_data()
+        {abstract} get_train_dataset()
+        {abstract} get_val_dataset()
+        {abstract} get_test_dataset()
+    }
+}
+
+'Checkpointer
+namespace marlin.core.utils.checkpoint_utils{
+
+    class Checkpoint{
+        Dict module_interface_state
+        Dict trainer_state
+        Dict trainer_backend_state
+    }
+
+    abstract class AbstractCheckpointer{
+        {abstract} save()
+        {abstract} save_model()
+        {abstract} load()
+
+    } 
+    class DefaultCheckpointer{
+        DefaultCheckpointerArguments args
+    }
+}
+
+'Scenario classes
+class UserModuleInterface {
+    DataInterface data
+    MarlinAutoModel model
+    AutoTokenizer tokenizer
+}
+note top: Training recipe - scenario specific\n and implemented by user
+
+
+class UserDataInterface {
+
+    setup_datasets()
+    get_train_dataset()
+    get_val_dataset()
+    get_test_dataset()
+}
+
+together {
+
+    class UserDataProcessor {}
+    note top: Implements how to load\nand process your data
+    class marlin.core.data_interface.DataProcessor{}
+}
+
+
+
+marlin.core.module_interface.ModuleInterface <|-- marlin.core.module_interface.CallbackInterface
+marlin.core.module_interface.ModuleInterface <|-- torch.nn.Module
+UserModuleInterface <|-- marlin.core.module_interface.ModuleInterface
+UserDataInterface <|-- marlin.core.data_interface.DataInterface
+marlin.core.trainer_backend.SingleProcess <|-- marlin.core.trainer_backend.TrainerBackend
+marlin.core.trainer.Trainer <|-- marlin.core.trainer.AbstractTrainer
+marlin.core.trainer.Trainer o-- marlin.core.trainer_backend.SingleProcess
+marlin.core.trainer_backend.AbstractTrainerBackendDecorator <|-- marlin.core.trainer_backend.TrainerBackend
+marlin.core.trainer_backend.DDPTrainerBackend <|-- marlin.core.trainer_backend.AbstractTrainerBackendDecorator
+marlin.core.trainer_backend.SingleProcessAmp <|-- marlin.core.trainer_backend.SingleProcess
+marlin.core.trainer.Trainer o-- UserModuleInterface
+'UserModuleInterface *-- transformers.AutoModel
+UserModuleInterface *-- transformers.AutoTokenizer
+marlin.core.data_interface.DataInterface -- marlin.core.data_interface.DataProcessor
+UserModuleInterface o-- UserDataInterface
+
+marlin.core.trainer.Trainer o-- marlin.core.trainer.TrainerArgs
+
+UserDataProcessor -- UserDataInterface
+UserDataProcessor <|- marlin.core.data_interface.DataProcessor
+
+transformers.AutoTokenizer -[hidden]up- transformers.AutoModel
+
+marlin.core.utils.checkpoint_utils.Checkpoint -- marlin.core.utils.checkpoint_utils.AbstractCheckpointer
+marlin.core.utils.checkpoint_utils.DefaultCheckpointer <|-- marlin.core.utils.checkpoint_utils.AbstractCheckpointer
+marlin.core.utils.checkpoint_utils.DefaultCheckpointer o-- marlin.core.utils.checkpoint_utils.DefaultCheckpointerArguments
+marlin.core.trainer.Trainer *-- marlin.core.utils.checkpoint_utils.DefaultCheckpointer
+
+marlin.core.utils.checkpoint_utils.Checkpoint -[hidden]up- marlin.core.trainer.AbstractTrainer
+
+marlin.models.auto.modeling_auto.MarlinAutoModel <|-- transformers.AutoModel
+UserModuleInterface *-- marlin.models.auto.modeling_auto.MarlinAutoModel
+
+@enduml

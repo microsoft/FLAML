@@ -1,0 +1,388 @@
+'Data.py
+@startuml classification_data_processing
+
+'Diagram visualization params
+skinparam RoundCorner 10
+skinparam maxmessagesize 200
+
+skinparam sequence {
+    ArrowColor #323a45
+    ArrowThickness 2
+    LifeLineBorderColor #3f6184
+    LifeLineBackgroundColor #5faeb6
+
+    ParticipantBorderColor #323a45
+    ParticipantBackgroundColor #3f6184
+    ParticipantFontName Arial
+    ParticipantFontSize 18
+    ParticipantFontColor #f6f7f9
+}
+
+hide footbox
+title Tweet Sentiment Data Processing
+
+participant "Main" as main
+participant "TweetSentData" as Dmod
+participant "Stage1" as S1
+participant "Stage2" as S2
+
+activate main
+
+main -> Dmod: __init__(data_args:DataInterfaceArguments)
+activate Dmod
+Dmod --> main: data_interface
+deactivate Dmod
+
+main -> S1: __init__(data_args:DataInterfaceArguments)
+activate S1
+S1 --> main: stage1
+deactivate S1
+
+main -> S2: __init__(data_args:DataInterfaceArguments)
+activate S2
+S2 --> main: stage2
+deactivate S2
+
+main -> Dmod: process_data(stage1)
+activate Dmod
+Dmod -> S1: process()
+activate S1
+S1 --> Dmod
+Dmod -> S1: analyze()
+deactivate S1
+Dmod --> main
+deactivate Dmod
+
+main -> Dmod: process_data(stage2)
+activate Dmod
+Dmod -> S2: process()
+activate S2
+S2 --> Dmod: res_process
+Dmod -> S2: analyze()
+deactivate S2
+Dmod --> main: train_ds, val_ds, test_ds, labels_to_index, index_to_labels
+deactivate Dmod
+
+main -> Dmod: setup_datasets(train_ds, val_ds, test_ds, labels_to_index, index_to_labels)
+activate Dmod
+Dmod --> main
+deactivate Dmod
+
+@enduml
+
+'Train.py
+@startuml classification_train
+
+'Diagram visualization params
+skinparam RoundCorner 10
+skinparam maxmessagesize 180
+
+skinparam sequence {
+    ArrowColor #323a45
+    ArrowThickness 2
+    LifeLineBorderColor #3f6184
+    LifeLineBackgroundColor #5faeb6
+
+    ParticipantBorderColor #323a45
+    ParticipantBackgroundColor #3f6184
+    ParticipantFontName Arial
+    ParticipantFontSize 18
+    ParticipantFontColor #f6f7f9
+}
+
+hide footbox
+title Tweet Sentiment Training
+
+participant "Main\n" as main
+participant "CustomArg\nParser" as AP
+participant "TweetSent\nData" as Dmod
+participant "ModuleInterface\nArguments" as TmodArgs
+participant "TweetSent\nModule" as Tmod
+participant "Auto\ntokenizer" as Tok 
+participant "Auto\nmodel" as Model
+participant "Trainer\nArguments" as TmanArgs
+participant "Single\nProcess" as SP
+participant "Trainer\n" as Tman
+
+activate main
+
+main -> AP: __init__(argparse. ArgumentParser())
+activate AP
+main -> AP: merge_config()
+AP --> main: config
+deactivate AP
+
+main -> Dmod: __init__(**config)
+activate Dmod
+ref over Dmod : Tweet Sentiment\nData Processing
+Dmod --> main: data_interface
+deactivate Dmod
+
+main -> TmodArgs: ModuleInterfaceArguments(**config)
+activate TmodArgs
+TmodArgs --> main: module_args
+deactivate TmodArgs
+
+main -> Tmod: __init__(data_interface, module_args)
+activate Tmod
+Tmod -> Tok: from_pretrained()
+activate Tok
+Tok --> Tmod: tokenizer
+deactivate Tok
+Tmod -> Tmod: reset()
+activate Tmod
+deactivate Tmod
+Tmod -> Model: from_pretrained()
+activate Model
+Model --> Tmod: model
+deactivate Model
+Tmod --> main: module_interface
+deactivate Tmod
+
+main -> TmanArgs: TrainerArguments(**config)
+activate TmanArgs
+TmanArgs --> main: trainer_args
+deactivate TmanArgs
+
+main -> SP: __init__()
+activate SP
+SP -> main: trainer_backend
+deactivate SP
+
+main -> Tman: __init__(module_interface, trainer_backend, trainer_args, [optional] checkpointer)
+activate Tman
+Tman -> Tmod: to(device)
+activate Tmod
+deactivate Tmod
+Tman -> Tmod: get_optimizers_schedulers(estimated_global_steps_per_epoch,epochs)
+activate Tmod
+Tmod -> Tman: optimizers, schedulers
+deactivate Tmod
+Tman -> Tman: get_trainer_backend_args()
+activate Tman
+deactivate Tman
+Tman -> SP: init(backend_args)
+note top: model is passed to trainer
+activate SP
+deactivate SP
+Tman -> Tman: init_checkpointer( checkpointer)
+activate Tman
+deactivate Tman
+note left: creates default if none is passed in constructor
+Tman -> Tman: load_checkpoint()
+activate Tman
+Tman -> Tman: checkpointer.load()
+activate Tman
+deactivate Tman
+Tman -> Tmod: update_state()
+activate Tmod
+deactivate Tmod
+Tman -> SP: update_state()
+activate SP
+deactivate SP
+Tman -> Tman: update_state()
+activate Tman
+deactivate Tman
+deactivate Tman
+Tman -> main: trainer
+deactivate Tman
+
+main -> Tman: train()
+activate Dmod
+activate Tmod
+activate Tok
+activate Model
+activate SP
+activate Tman
+ref over Dmod, Tmod, Tok, Model, SP, Tman: Training Lifecycle
+Tman --> main
+deactivate Dmod
+deactivate Tmod
+deactivate Tok
+deactivate Model
+deactivate SP
+deactivate Tman
+
+deactivate main
+@enduml
+
+
+'Training lifecycle
+@startuml training_lifecycle
+
+'Diagram visualization params
+skinparam RoundCorner 10
+skinparam maxmessagesize 120
+skinparam WrapWidth 120
+
+skinparam sequence {
+    ArrowColor #323a45
+    ArrowThickness 2
+    LifeLineBorderColor #3f6184
+    LifeLineBackgroundColor #5faeb6
+
+    ParticipantBorderColor #323a45
+    ParticipantBackgroundColor #3f6184
+    ParticipantFontName Arial
+    ParticipantFontSize 18
+    ParticipantFontColor #f6f7f9
+}
+
+hide footbox
+title Training Lifecycle
+
+participant "Main\n" as main
+participant "Trainer\n" as Tman
+participant "TweetSent\nModule" as Tmod
+participant "TweetSent\nData" as Dmod
+participant "Single\nProcess" as SP
+participant "Auto\nmodel" as Model
+
+activate main
+
+main -> Tman: train()
+activate Tman
+
+
+loop from last checkpointed epoch to number of epochs
+
+    Tman -> Tmod: train()
+    note right: nn.module.Train()
+    activate Tmod
+    deactivate Tmod
+    Tman -> Tman: train_epoch(epoch)
+    activate Tman
+    Tman -> Tmod: get_train_dataloader()
+    activate Tmod
+    Tmod -> Dmod: get_train_dataset()
+    activate Dmod
+    Dmod --> Tmod: dataset
+    deactivate Dmod
+    Tmod --> Tman: dataloader
+    deactivate Tmod
+    Tman -> SP: train_dl(dataloader, module_interface)
+    activate SP
+
+    loop batches
+        SP -> Tmod: forward(batch)
+        activate Tmod
+        Tmod -> Tmod: train_step(batch)
+        activate Tmod
+        Tmod -> Model: forward(batch)
+        activate Model
+        Model --> Tmod: outputs
+        deactivate Model
+        Tmod --> Tmod: loss
+        deactivate Tmod
+        Tmod --> SP: loss
+        deactivate Tmod
+        SP -> Model: loss.backward()
+        activate Model
+        deactivate Model
+        SP -> Tmod: on_end_backward()
+        activate Tmod
+        deactivate Tmod
+        SP -> SP: collect_outputs()
+        activate SP
+        deactivate SP
+
+        alt batches completed % gradient accumulation == 0
+            SP -> SP: process_global_step()
+            activate SP
+            SP -> SP: optimize(optimizers, schedulers)
+            activate SP
+            deactivate SP
+            SP -> Tmod: on_end_train_step()
+            activate Tmod
+            deactivate Tmod
+            deactivate SP
+        end
+
+    end
+
+    SP --> Tman: epoch_outputs
+    deactivate SP
+    Tman --> Tman: all_outputs
+    deactivate Tman
+
+    Tman -> Tman: validate()
+    activate Tman
+    Tman -> Tmod: eval()
+    activate Tmod
+    deactivate Tmod
+    Tman -> Tmod: get_val_dataloaders()
+    activate Tmod
+    Tmod -> Dmod: get_val_dataset()
+    activate Dmod
+    Dmod --> Tmod: dataset
+    deactivate Dmod
+    Tmod --> Tman: dataloaders
+    deactivate Tmod
+
+    loop dataloaders
+        Tman -> SP: validate_dl(dataloader)
+        activate SP
+        
+        loop batches
+
+            SP -> Tmod: forward(batch)
+            activate Tmod
+            Tmod -> Tmod: val_step(batch)
+            activate Tmod
+            Tmod -> Model: forward(batch)
+            activate Model
+            Model --> Tmod: outputs
+            deactivate Model
+            Tmod --> Tmod: outputs
+            deactivate Tmod
+            Tmod --> SP: outputs
+            deactivate Tmod
+
+            SP -> SP: collect_outputs()
+            activate SP
+            deactivate SP
+        end
+
+        SP --> Tman: all_outputs
+        deactivate SP
+
+        Tman -> Tmod: on_end_val_epoch()
+        activate Tmod
+        deactivate Tmod
+    end
+
+    Tman --> Tman: all_outputs
+    deactivate Tman
+
+    Tman -> Tmod: on_end_train_epoch()
+    activate Tmod
+    deactivate Tmod
+
+    Tman -> Tman: checkpoint()
+    activate Tman
+    Tman -> Tmod: get_state()
+    activate Tmod
+    Tmod --> Tman: state_dict
+    deactivate Tmod
+    Tman -> SP: get_state()
+    activate SP
+    SP --> Tman: state_dict
+    deactivate SP
+    Tman -> Tman: get_state()
+    activate Tman
+    deactivate Tman
+    Tman -> Tman: checkpointer.save()
+    activate Tman
+    deactivate Tman
+    deactivate Tman
+
+end
+
+Tman -> Tmod: on_end_train()
+activate Tmod
+deactivate Tmod
+
+Tman --> main
+deactivate Tman
+
+@enduml
