@@ -311,7 +311,6 @@ def size(state: AutoMLState, config: dict) -> float:
 
 class AutoML:
     """The AutoML class.
-    test
     Example:
 
         .. code-block:: python
