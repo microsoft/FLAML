@@ -1,4 +1,4 @@
-### A simple example
+### A simple learning-to-rank example
 
 ```python
 from sklearn.datasets import fetch_openml

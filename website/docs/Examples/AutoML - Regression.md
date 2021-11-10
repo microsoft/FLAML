@@ -21,3 +21,5 @@ print(automl.predict(X_train))
 # Print the best model
 print(automl.model.estimator)
 ```
+
+### Multi-output regression
