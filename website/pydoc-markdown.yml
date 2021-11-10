@@ -1,6 +1,7 @@
 loaders:
    - type: python
-     search_path: [../flaml]
+     search_path: [../flaml/]
+     ignore_when_discovered: [nlp,onlineml]
 processors:
   - type: filter
     skip_empty_modules: true

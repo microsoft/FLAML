@@ -19,7 +19,7 @@ module.exports = {
       items: [
         {
           type: 'doc',
-          docId: 'getting-started',
+          docId: 'Getting-Started',
           position: 'left',
           label: 'Docs',
         },
@@ -28,6 +28,12 @@ module.exports = {
             docId: 'reference/automl',
             position: 'left',
             label: 'SDK',
+        },
+        {
+          type: 'doc',
+          docId: 'FAQ',
+          position: 'left',
+          label: 'FAQ',
         },
         {
           href: 'https://github.com/microsoft/FLAML',
