@@ -14,8 +14,9 @@ npm install --global yarn
 ## Installation
 
 ```console
-yarn install
 pip install pydoc-markdown
+cd website
+yarn install
 ```
 
 ## Local Development
