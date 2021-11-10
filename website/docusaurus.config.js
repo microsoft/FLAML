@@ -30,6 +30,12 @@ module.exports = {
             label: 'SDK',
         },
         {
+          type: 'doc',
+          docId: 'FAQ',
+          position: 'left',
+          label: 'FAQ',
+        },
+        {
           href: 'https://github.com/microsoft/FLAML',
           label: 'GitHub',
           position: 'right',
