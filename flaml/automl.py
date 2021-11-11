@@ -1390,7 +1390,7 @@ class AutoML:
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast', 'rank'.
             n_jobs: An integer of the number of threads for training.
-            gpu_per_trial: An integer of the number of gpus per trial, only used by TransformersEstimator.
+            gpu_per_trial: A float of the number of gpus per trial, only used by TransformersEstimator.
             log_file_name: A string of the log file name.
             estimator_list: A list of strings for estimator names, or 'auto'
                 e.g.,
