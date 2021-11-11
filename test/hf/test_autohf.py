@@ -46,7 +46,7 @@ def test_hf_data():
     )
 
 
-def test_classification_head():
+def _test_classification_head():
     try:
         import ray
     except ImportError:
