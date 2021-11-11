@@ -70,7 +70,7 @@ def dft_arg_for_resources_per_trial():
 
 
 def _is_nlp_task(task):
-    if task in (SEQCLASSIFICATION):
+    if task in [SEQCLASSIFICATION]:
         return True
     else:
         return False
