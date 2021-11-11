@@ -34,6 +34,7 @@ def test_hf_data():
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
         "ckpt_per_epoch": 10,
+        "fp16": False,
     }
 
     automl.fit(
@@ -76,6 +77,7 @@ def test_classification_head():
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
         "ckpt_per_epoch": 10,
+        "fp16": False,
     }
 
     automl.fit(
@@ -167,6 +169,7 @@ def test_rspt():
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
         "ckpt_per_epoch": 10,
+        "fp16": False,
     }
 
     automl.fit(
@@ -219,6 +222,7 @@ def test_cv():
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
         "ckpt_per_epoch": 10,
+        "fp16": False,
     }
 
     automl.fit(
