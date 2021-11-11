@@ -942,7 +942,7 @@ class AutoML:
         split_type=None,
         groups=None,
         n_jobs=-1,
-        resources_per_trial=None,
+        gpu_per_trial=None,
         train_best=True,
         train_full=False,
         record_id=-1,
