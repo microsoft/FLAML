@@ -147,7 +147,7 @@ def _test_custom_data():
     )
 
 
-def _test_rspt():
+def test_rspt():
     try:
         import ray
     except ImportError:
@@ -202,7 +202,7 @@ def _test_rspt():
     )
 
 
-def _test_cv():
+def test_cv():
     try:
         import ray
     except ImportError:
