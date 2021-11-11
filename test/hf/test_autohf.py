@@ -1,5 +1,8 @@
 def test_hf_data():
-    import ray
+    try:
+        import ray
+    except ImportError:
+        return
     from flaml import AutoML
 
     from datasets import load_dataset
@@ -37,8 +40,55 @@ def test_hf_data():
     )
 
 
+def test_classification_head():
+    try:
+        import ray
+    except ImportError:
+        return
+    from flaml import AutoML
+
+    from datasets import load_dataset
+
+    train_dataset = load_dataset("glue", "mnli", split="train[:0.1%]").to_pandas()
+    dev_dataset = load_dataset(
+        "glue", "mrpc", split="validation_matched[:10%]"
+    ).to_pandas()
+
+    custom_sent_keys = ["sentence1", "sentence2"]
+    label_key = "label"
+
+    X_train = train_dataset[custom_sent_keys]
+    y_train = train_dataset[label_key]
+
+    X_val = dev_dataset[custom_sent_keys]
+    y_val = dev_dataset[label_key]
+
+    automl = AutoML()
+
+    automl_settings = {
+        "gpu_per_trial": 0,
+        "max_iter": 10,
+        "time_budget": 60,
+        "task": "seq-classification",
+        "metric": "accuracy",
+    }
+
+    automl_settings["custom_hpo_args"] = {
+        "model_path": "google/electra-small-discriminator",
+        "output_dir": "data/output/",
+        "ckpt_per_epoch": 10,
+    }
+
+    automl.fit(
+        X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
+    )
+
+
 def _test_custom_data():
-    import ray
+    try:
+        import ray
+    except ImportError:
+        return
     from flaml import AutoML
 
     import pandas as pd
@@ -89,7 +139,11 @@ def _test_custom_data():
 
 
 def test_rspt():
-    import ray
+    try:
+        import ray
+    except ImportError:
+        return
+
     from flaml import AutoML
 
     from datasets import load_dataset
@@ -140,7 +194,10 @@ def test_rspt():
 
 
 def test_cv():
-    import ray
+    try:
+        import ray
+    except ImportError:
+        return
     from flaml import AutoML
 
     from datasets import load_dataset
