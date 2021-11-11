@@ -12,8 +12,8 @@ def test_hf_data():
 
     from datasets import load_dataset
 
-    train_dataset = load_dataset("glue", "mrpc", split="train[:5%]").to_pandas()
-    dev_dataset = load_dataset("glue", "mrpc", split="validation[:5%]").to_pandas()
+    train_dataset = load_dataset("glue", "mrpc", split="train[:2%]").to_pandas()
+    dev_dataset = load_dataset("glue", "mrpc", split="validation[:2%]").to_pandas()
 
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
@@ -29,7 +29,7 @@ def test_hf_data():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 10,
-        "time_budget": 60,
+        "time_budget": 40,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -76,7 +76,7 @@ def test_classification_head():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 10,
-        "time_budget": 60,
+        "time_budget": 40,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -156,9 +156,9 @@ def test_rspt():
 
     from datasets import load_dataset
 
-    train_dataset = load_dataset("glue", "mrpc", split="train[:5%]").to_pandas()
-    dev_dataset = load_dataset("glue", "mrpc", split="train[5%:10%]").to_pandas()
-    test_dataset = load_dataset("glue", "mrpc", split="train[10%:15%]").to_pandas()
+    train_dataset = load_dataset("glue", "mrpc", split="train[:2%]").to_pandas()
+    dev_dataset = load_dataset("glue", "mrpc", split="train[2%:4%]").to_pandas()
+    test_dataset = load_dataset("glue", "mrpc", split="train[4%:6%]").to_pandas()
 
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
@@ -176,7 +176,7 @@ def test_rspt():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 10,
-        "time_budget": 60,
+        "time_budget": 40,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -211,9 +211,9 @@ def test_cv():
 
     from datasets import load_dataset
 
-    train_dataset = load_dataset("glue", "mrpc", split="train[:5%]").to_pandas()
-    dev_dataset = load_dataset("glue", "mrpc", split="validation[:5%]").to_pandas()
-    test_dataset = load_dataset("glue", "mrpc", split="test[:5%]").to_pandas()
+    train_dataset = load_dataset("glue", "mrpc", split="train[:2%]").to_pandas()
+    dev_dataset = load_dataset("glue", "mrpc", split="validation[:2%]").to_pandas()
+    test_dataset = load_dataset("glue", "mrpc", split="test[:2%]").to_pandas()
 
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
@@ -231,7 +231,7 @@ def test_cv():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 10,
-        "time_budget": 60,
+        "time_budget": 40,
         "task": "seq-classification",
         "metric": "accuracy",
         "eval_method": "cv",
