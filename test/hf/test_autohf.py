@@ -1,3 +1,8 @@
+import os
+
+os.environ["WANDB_DISABLED"] = "true"
+
+
 def test_hf_data():
     from flaml import AutoML
 
@@ -41,12 +46,14 @@ def test_classification_head():
 
     from datasets import load_dataset
 
-    train_dataset = load_dataset("glue", "mnli", split="train[:0.1%]").to_pandas()
+    train_dataset = load_dataset(
+        "glue", "mnli", split="validation_matched[:50%]"
+    ).to_pandas()
     dev_dataset = load_dataset(
-        "glue", "mrpc", split="validation_matched[:10%]"
+        "glue", "mnli", split="validation_matched[50%:60%]"
     ).to_pandas()
 
-    custom_sent_keys = ["sentence1", "sentence2"]
+    custom_sent_keys = ["premise", "hypothesis"]
     label_key = "label"
 
     X_train = train_dataset[custom_sent_keys]
