@@ -231,9 +231,7 @@ class DataTransformer:
             # if the mode is NLP, check the type of input, each column must be either string or
             # ids (input ids, token type id, attention mask, etc.)
             for column in X.columns:
-                is_str = [
-                    isinstance(each_cell, str) for each_cell in X[column] if each_cell
-                ][0]
+                is_str = isinstance(X[column].iloc[0], str)
                 if is_str:
                     X = X.astype({column: "string"})
         else:
