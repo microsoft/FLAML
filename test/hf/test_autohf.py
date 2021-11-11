@@ -4,6 +4,10 @@ os.environ["WANDB_DISABLED"] = "true"
 
 
 def test_hf_data():
+    try:
+        import ray
+    except ImportError:
+        return
     from flaml import AutoML
 
     from datasets import load_dataset
@@ -43,6 +47,10 @@ def test_hf_data():
 
 
 def test_classification_head():
+    try:
+        import ray
+    except ImportError:
+        return
     from flaml import AutoML
 
     from datasets import load_dataset
@@ -86,6 +94,10 @@ def test_classification_head():
 
 
 def _test_custom_data():
+    try:
+        import ray
+    except ImportError:
+        return
     from flaml import AutoML
 
     import pandas as pd
@@ -136,6 +148,10 @@ def _test_custom_data():
 
 
 def test_rspt():
+    try:
+        import ray
+    except ImportError:
+        return
     from flaml import AutoML
 
     from datasets import load_dataset
@@ -187,6 +203,10 @@ def test_rspt():
 
 
 def test_cv():
+    try:
+        import ray
+    except ImportError:
+        return
     from flaml import AutoML
 
     from datasets import load_dataset
