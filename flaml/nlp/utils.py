@@ -180,82 +180,15 @@ class HPOArgs:
     Args:
         output_dir (:obj:`str`):
             data root directory for outputing the log, etc.
-        sample_num (:obj:`int`, `optional`, defaults to :obj:`-1`):
-            An integer, the upper bound of trial number for HPO.
-        time_budget (:obj:`int`, `optional`, defaults to :obj:`-1`):
-            An integer, the upper bound of time budget for HPO
-        points_to_evaluate (:obj:`dict`, `optional`, defaults to :obj:`{}`):
-            A dict, the first HPO configuration to evaluate for the HPO algorithm. If not set,
-            depending on the HPO algorithm, HPO will search for the default initial config (bs
-            , CFO), or use a random confi as the first config (Optuna)
-        custom_sentence_keys:
-            one or two keys
-        custom_search_space (:obj:`dict`, `optional`, defaults to :obj:`{}`):
-            A dict, the custom search space the HPO algorithm. If not set, HPO will use
-            the default search space, i.e., :
-                output_config = {
-                    "learning_rate": {"l": 1e-6, "u": 1e-3, "space": "log"},
-                    "num_train_epochs": {"l": 1.0, "u": 10.0, "space": "log"},
-                    "per_device_train_batch_size": [4, 8, 16, 32],
-                    "warmup_ratio": {"l": 0.0, "u": 0.3, "space": "linear"},
-                    "weight_decay": {"l": 0.0, "u": 0.3, "space": "linear"},
-                    "adam_epsilon": {"l": 1e-8, "u": 1e-6, "space": "linear"},
-                    "seed": list(range(40, 45)),
-                }
-        dataset_config (:obj:`list`, defaults to :obj:`[]`):
-            A dict, the input dataset configuration. This configuration follows the same
-            format as HuggingFace's datasets.load_dataset
-            (https://huggingface.co/docs/datasets/package_reference/loading_methods.html#datasets.load_dataset), e.g.:
-                | dataset_config = ["glue", "mrpc"]
-                | dataset_config = {"path": "glue", "name": "mrpc"}
-                | dataset_config = {"path": "csv", "data_files":
-                                    ["data/output/train.csv",
-                                    "data/output/validation.csv",
-                                    "data/output/test.csv"]
         model_path (:obj:`str`, `optional`, defaults to :obj:`facebook/muppet-roberta-base`):
             A string, the path of the language model file, either a path from huggingface
             model card huggingface.co/models, or a local path for the model
-        resources_per_trial (:obj:`dict`, `optional`, defaults to :obj:`{"cpu": 1, "gpu": 1}`):
-            A dict for specifying the resource used by each trial
         fp16 (:obj:`bool`, `optional`, defaults to :obj:`False`):
             A bool, whether to use FP16
-        ray_verbose (:obj:`1`, `optional`, defaults to :obj:`1`):
-            An int, the verbose level of Ray tune
-        transformers_verbose (:obj:`1`, `optional`,  defaults to :obj:`1`):
-            An int, the verbose level of Transformers
-        custom_metric_name (:obj:`str`, `optional`, defaults to :obj:`accuracy`):
-            A string, the custom metric name
-        custom_metric_mode_name (:obj:`str`, `optional`, defaults to :obj:`max`):
-            A string, the custom metric mode name
-        task (:obj:`str`, `optional`, defaults to :obj:`seq-classification`):
-            A string, the task in for HPO fine-tuning, e.g., seq-classification
-
-    The following arguments are for developer mode only, user can ignore these arguments:
-
-    Args:
-
-        space_mode (:obj:`str`, `optional`, defaults to :obj:`gnr`):
-            A string, the search space mode for HPO, e.g.:
-
-                | grid: using the recommended space by one pre-trained language model,
-                e.g., the grid space recommended by bert. If search_alg_args_mode is set to grid:
-                and grid_space_model_type is specified in custom_hpo_args (can be different from
-                the model specified in the HPO setting), grid search will
-                search within the space of the model of grid_space_model_type. Otherwise, grid search
-                will search within the space of the model in the HPO setting.
-                | gnr: the generic continuous space, i.e., {
-                        "learning_rate": {"l": 1e-6, "u": 1e-3, "space": "log"},
-                        "num_train_epochs": {"l": 0.001, "u": 0.1, "space": "log"},
-                        "per_device_train_batch_size": [1],
-                        "warmup_ratio": {"l": 0.0, "u": 0.3, "space": "linear"},
-                        "weight_decay": {"l": 0.0, "u": 0.3, "space": "linear"},
-                        "adam_epsilon": {"l": 1e-8, "u": 1e-6, "space": "linear"},
-                        "seed": list(range(40, 45)),
-                    }
-                | uni: grid union space
-                | uni_test: test space for grid union
-                | cus: customized search space
-                | gnr_test: test space for generic space
+        max_seq_length (:obj:`int`, `optional`, defaults to :obj:`128`):
+            An integer, the max length of the sequence
+        ckpt_per_epoch (:obj:`int`, `optional`, defaults to :obj:`1`):
+            An integer, the number of checkpoints per epoch
 
     """
 

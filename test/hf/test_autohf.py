@@ -257,13 +257,3 @@ def test_cv():
             ["test test", "test test"],
         ]
     )
-
-
-def test_load_args():
-    from flaml.nlp.utils import HPOArgs
-
-    HPOArgs.load_args()
-
-
-if __name__ == "__main__":
-    test_load_args()
