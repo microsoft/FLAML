@@ -568,9 +568,8 @@ class AutoML:
                 for each_cell in X[column]:
                     if each_cell:
                         is_str = isinstance(each_cell, str)
-                        is_list_of_int = isinstance(each_cell, list) and sum(
-                            [isinstance(x, int) for x in each_cell]
-                        ) == len(X[column])
+                        is_list_of_int = isinstance(each_cell, list) and all(
+                            isinstance(x, int) for x in each_cell)
                         assert is_str or is_list_of_int, (
                             "Each column of the input must either be str (untokenized) "
                             "or a list of integers (tokenized)"
