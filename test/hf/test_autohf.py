@@ -56,10 +56,10 @@ def test_classification_head():
     from datasets import load_dataset
 
     train_dataset = load_dataset(
-        "glue", "mnli", split="validation_matched[:50%]"
+        "glue", "mnli", split="validation_matched[:5%]"
     ).to_pandas()
     dev_dataset = load_dataset(
-        "glue", "mnli", split="validation_matched[50%:60%]"
+        "glue", "mnli", split="validation_matched[5%:6%]"
     ).to_pandas()
 
     custom_sent_keys = ["premise", "hypothesis"]
