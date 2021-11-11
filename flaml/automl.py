@@ -581,12 +581,6 @@ class AutoML:
                             "or all columns of X are integer ids (tokenized)"
                         )
                         break
-            assert sum(is_all_str) == len(is_all_str) or sum(is_all_list) == len(
-                is_all_list
-            ), (
-                "Currently FLAML only supports two modes for NLP: either all columns of X are string (non-tokenized), "
-                "or all columns of X are integer ids (tokenized)"
-            )
 
         if issparse(X_train_all):
             self._transformer = self._label_transformer = False
