@@ -257,3 +257,14 @@ def test_cv():
             ["test test", "test test"],
         ]
     )
+
+
+def test_load_args():
+    import subprocess
+    import sys
+
+    subprocess.check_call([sys.executable, "load_args.py", "--output_dir", "data/"])
+
+
+if __name__ == "__main__":
+    test_load_args()
