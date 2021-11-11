@@ -55,6 +55,7 @@ setuptools.setup(
             "statsmodels>=0.12.2",
             "bidict",
             "psutil==5.8.0",
+            "dataclasses",
         ],
         "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],
