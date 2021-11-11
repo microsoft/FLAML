@@ -1,6 +1,6 @@
-import os
-
-os.environ["WANDB_DISABLED"] = "true"
+# import os
+#
+# os.environ["WANDB_DISABLED"] = "true"
 
 
 def test_hf_data():
@@ -259,5 +259,11 @@ def test_cv():
     )
 
 
+def test_load_args():
+    from flaml.nlp.utils import HPOArgs
+
+    HPOArgs.load_args()
+
+
 if __name__ == "__main__":
-    test_hf_data()
+    test_load_args()

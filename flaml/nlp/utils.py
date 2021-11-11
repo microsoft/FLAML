@@ -8,67 +8,6 @@ from typing import Optional, List, Tuple
 from ..data import SEQCLASSIFICATION, SEQREGRESSION
 
 
-def get_tuple_from_dataset_config(dataset_config):
-    if isinstance(dataset_config, dict):
-        config_path = dataset_config["path"].replace("_", "-")
-        try:
-            config_name = dataset_config["name"].replace("_", "-")
-        except KeyError:
-            config_name = "custom-data"
-        return (config_path, config_name)
-    else:
-        return tuple(dataset_config[:2] + [""] * (2 - len(dataset_config[:2])))
-
-
-def check_custom_data_format(dataset_config, custom_sentence_keys):
-    assert isinstance(dataset_config, dict) or isinstance(dataset_config, list), (
-        "dataset_name must either be a dict or list, see the example in the"
-        "documentation of HPOArgs::dataset_name"
-    )
-    if isinstance(dataset_config, dict):
-        assert "path" in dataset_config, "the path for the dataset is required"
-    if isinstance(dataset_config, dict):
-        if dataset_config["path"] == "csv":
-            assert (
-                custom_sentence_keys is not None
-            ), "if the dataset is custom, you must specify the custom_sentence_keys in flaml.nlp.utils:HPOArgs"
-
-
-def points_to_evaluate_format_check(points_to_evaluate_dict):
-    assert isinstance(points_to_evaluate_dict, dict), (
-        "points_to_evaluate must be a dict,"
-        "see the example in the documentation of HPOArgs::points_to_evaluate"
-    )
-    return points_to_evaluate_dict
-
-
-def custom_search_space_format_check(custom_search_space_dict):
-    assert isinstance(custom_search_space_dict, dict), (
-        "custom_search_space must be a dict,"
-        "see the example in the documentation of HPOArgs::custom_search_space"
-    )
-    return custom_search_space_dict
-
-
-def dft_arg_for_dataset():
-    return {
-        "path": "csv",
-        "datafiles": [
-            "data/input/train.csv",
-            "data/input/validation.csv",
-            "data/input/test.csv",
-        ],
-    }
-
-
-def dft_arg_for_fold_names():
-    return ["train", "validation", "test"]
-
-
-def dft_arg_for_resources_per_trial():
-    return {"cpu": 1, "gpu": 1}
-
-
 def _is_nlp_task(task):
     if task in [SEQCLASSIFICATION]:
         return True
@@ -200,7 +139,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
             this_model = get_this_model()
         this_model.resize_token_embeddings(this_vocab_size)
         return this_model
-    elif task == SEQCLASSIFICATION:
+    elif task == SEQREGRESSION:
         model_config_num_labels = 1
         model_config = _set_model_config(checkpoint_path)
         this_model = get_this_model()
@@ -364,41 +303,3 @@ class HPOArgs:
             )
         console_args, unknown = arg_parser.parse_known_args()
         return console_args
-
-
-def merge_dicts(dict1, dict2):
-    for key2 in dict2.keys():
-        if key2 in dict1:
-            dict1_vals = set(dict1[key2])
-            dict2_vals = set(dict2[key2])
-            dict1[key2] = list(dict1_vals.union(dict2_vals))
-        else:
-            dict1[key2] = dict2[key2]
-    return dict1
-
-
-def _check_dict_keys_overlaps(dict1: dict, dict2: dict):
-    dict1_keys = set(dict1.keys())
-    dict2_keys = set(dict2.keys())
-    return len(dict1_keys.intersection(dict2_keys)) > 0
-
-
-def _variable_override_default_alternative(
-    obj_ref, var_name, default_value, all_values, overriding_value=None
-):
-    """
-    Setting the value of var. If overriding_value is specified, var is set to overriding_value;
-    If overriding_value is not specified, var is set to default_value meanwhile showing all_values
-    """
-    if overriding_value:
-        setattr(obj_ref, var_name, overriding_value)
-        print("The value for {} is specified as {}".format(var_name, overriding_value))
-    else:
-        setattr(obj_ref, var_name, default_value)
-        if all_values is not None:
-            print(
-                "The value for {} is not specified, setting it to the default value {}. "
-                "Alternatively, you can set it to {}".format(
-                    var_name, default_value, ",".join(all_values)
-                )
-            )
