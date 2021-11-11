@@ -12,8 +12,8 @@ def test_hf_data():
 
     from datasets import load_dataset
 
-    train_dataset = load_dataset("glue", "mrpc", split="train[:2%]").to_pandas()
-    dev_dataset = load_dataset("glue", "mrpc", split="validation[:2%]").to_pandas()
+    train_dataset = load_dataset("glue", "mrpc", split="train[:1%]").to_pandas()
+    dev_dataset = load_dataset("glue", "mrpc", split="validation[:1%]").to_pandas()
 
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
@@ -46,7 +46,7 @@ def test_hf_data():
     )
 
 
-def test_classification_head():
+def _test_classification_head():
     try:
         import ray
     except ImportError:
@@ -156,9 +156,9 @@ def test_rspt():
 
     from datasets import load_dataset
 
-    train_dataset = load_dataset("glue", "mrpc", split="train[:2%]").to_pandas()
-    dev_dataset = load_dataset("glue", "mrpc", split="train[2%:4%]").to_pandas()
-    test_dataset = load_dataset("glue", "mrpc", split="train[4%:6%]").to_pandas()
+    train_dataset = load_dataset("glue", "mrpc", split="train[:1%]").to_pandas()
+    dev_dataset = load_dataset("glue", "mrpc", split="train[1%:2%]").to_pandas()
+    test_dataset = load_dataset("glue", "mrpc", split="train[2%:3%]").to_pandas()
 
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
@@ -211,9 +211,9 @@ def test_cv():
 
     from datasets import load_dataset
 
-    train_dataset = load_dataset("glue", "mrpc", split="train[:2%]").to_pandas()
-    dev_dataset = load_dataset("glue", "mrpc", split="validation[:2%]").to_pandas()
-    test_dataset = load_dataset("glue", "mrpc", split="test[:2%]").to_pandas()
+    train_dataset = load_dataset("glue", "mrpc", split="train[:1%]").to_pandas()
+    dev_dataset = load_dataset("glue", "mrpc", split="validation[:1%]").to_pandas()
+    test_dataset = load_dataset("glue", "mrpc", split="test[:1%]").to_pandas()
 
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
@@ -266,7 +266,3 @@ def test_load_args():
     subprocess.call(
         [sys.executable, "load_args.py", "--output_dir", "data/"], shell=True
     )
-
-
-if __name__ == "__main__":
-    test_load_args()
