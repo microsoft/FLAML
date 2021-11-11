@@ -2,12 +2,10 @@ def test_hf_data():
     import ray
     from flaml import AutoML
 
-    ray.init(local_mode=False)
-
     from datasets import load_dataset
 
-    train_dataset = load_dataset("glue", "mrpc", split="train").to_pandas()
-    dev_dataset = load_dataset("glue", "mrpc", split="validation").to_pandas()
+    train_dataset = load_dataset("glue", "mrpc", split="train[:5%]").to_pandas()
+    dev_dataset = load_dataset("glue", "mrpc", split="validation[:5%]").to_pandas()
 
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
@@ -21,9 +19,9 @@ def test_hf_data():
     automl = AutoML()
 
     automl_settings = {
-        "gpu_per_trial": 1,
+        "gpu_per_trial": 0,
         "max_iter": 10,
-        "time_budget": 300,
+        "time_budget": 60,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -39,11 +37,9 @@ def test_hf_data():
     )
 
 
-def test_custom_data():
+def _test_custom_data():
     import ray
     from flaml import AutoML
-
-    ray.init(local_mode=True)
 
     import pandas as pd
 
@@ -65,7 +61,7 @@ def test_custom_data():
     automl = AutoML()
 
     automl_settings = {
-        "gpu_per_trial": 1,
+        "gpu_per_trial": 0,
         "max_iter": 10,
         "time_budget": 300,
         "task": "seq-classification",
@@ -75,7 +71,7 @@ def test_custom_data():
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
-        "ckpt_per_epoch": 10,
+        "ckpt_per_epoch": 1,
     }
 
     automl.fit(
@@ -96,13 +92,11 @@ def test_rspt():
     import ray
     from flaml import AutoML
 
-    ray.init(local_mode=False)
-
     from datasets import load_dataset
 
-    train_dataset = load_dataset("glue", "mrpc", split="train[:80%]").to_pandas()
-    dev_dataset = load_dataset("glue", "mrpc", split="train[80%:90%]").to_pandas()
-    test_dataset = load_dataset("glue", "mrpc", split="train[90%:]").to_pandas()
+    train_dataset = load_dataset("glue", "mrpc", split="train[:5%]").to_pandas()
+    dev_dataset = load_dataset("glue", "mrpc", split="train[5%:10%]").to_pandas()
+    test_dataset = load_dataset("glue", "mrpc", split="train[10%:15%]").to_pandas()
 
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
@@ -118,9 +112,9 @@ def test_rspt():
     automl = AutoML()
 
     automl_settings = {
-        "gpu_per_trial": 1,
+        "gpu_per_trial": 0,
         "max_iter": 10,
-        "time_budget": 300,
+        "time_budget": 60,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -149,13 +143,11 @@ def test_cv():
     import ray
     from flaml import AutoML
 
-    ray.init(local_mode=False)
-
     from datasets import load_dataset
 
-    train_dataset = load_dataset("glue", "mrpc", split="train").to_pandas()
-    dev_dataset = load_dataset("glue", "mrpc", split="validation").to_pandas()
-    test_dataset = load_dataset("glue", "mrpc", split="test").to_pandas()
+    train_dataset = load_dataset("glue", "mrpc", split="train[:5%]").to_pandas()
+    dev_dataset = load_dataset("glue", "mrpc", split="validation[:5%]").to_pandas()
+    test_dataset = load_dataset("glue", "mrpc", split="test[:5%]").to_pandas()
 
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
@@ -171,9 +163,9 @@ def test_cv():
     automl = AutoML()
 
     automl_settings = {
-        "gpu_per_trial": 1,
+        "gpu_per_trial": 0,
         "max_iter": 10,
-        "time_budget": 300,
+        "time_budget": 60,
         "task": "seq-classification",
         "metric": "accuracy",
         "eval_method": "cv",
@@ -201,4 +193,4 @@ def test_cv():
 
 
 if __name__ == "__main__":
-    test_cv()
+    test_hf_data()

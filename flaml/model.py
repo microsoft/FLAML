@@ -299,7 +299,7 @@ class TransformersEstimator(BaseEstimator):
                 "domain": tune.loguniform(lower=1e-6, upper=1e-3),
             },
             "num_train_epochs": {
-                "domain": tune.loguniform(lower=0.1, upper=0.2),
+                "domain": tune.loguniform(lower=1.0, upper=10.0),
             },
             "per_device_train_batch_size": {
                 "domain": tune.choice([4, 8, 16, 32]),
@@ -890,7 +890,7 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
 
     def config2params(cls, config: dict) -> dict:
         # TODO: test
-        params = super(BaseEstimator).config2params(config)
+        params = BaseEstimator().config2params(config)
         params["max_depth"] = 0
         params["grow_policy"] = params.get("grow_policy", "lossguide")
         params["booster"] = params.get("booster", "gbtree")
@@ -960,7 +960,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         return 2.0
 
     def config2params(cls, config: dict) -> dict:
-        params = super(BaseEstimator).config2params(config)
+        params = BaseEstimator().config2params(config)
         if "max_leaves" in params:
             params["max_leaf_nodes"] = params.get(
                 "max_leaf_nodes", params.pop("max_leaves")

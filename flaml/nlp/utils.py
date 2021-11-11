@@ -214,7 +214,7 @@ def compute_checkpoint_freq(
     num_train_epochs,
     batch_size,
 ):
-    if resources_per_trial["gpu"] > 0:
+    if resources_per_trial.get("gpu", 0) > 0:
         ckpt_step_freq = (
             int(
                 min(num_train_epochs, 1)

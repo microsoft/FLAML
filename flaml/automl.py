@@ -646,6 +646,8 @@ class AutoML:
             self._state.groups = groups
 
     def _prepare_data(self, eval_method, split_ratio, n_splits):
+        from .nlp.utils import _is_nlp_task
+
         X_val, y_val = self._state.X_val, self._state.y_val
         if issparse(X_val):
             X_val = X_val.tocsr()
@@ -844,7 +846,11 @@ class AutoML:
         self._state.X_val, self._state.y_val = X_val, y_val
         self._state.X_train_all = X_train_all
         self._state.y_train_all = y_train_all
-        self._state.fit_kwargs["X_val"], self._state.fit_kwargs["y_val"] = X_val, y_val
+        if _is_nlp_task(self._state.task):
+            self._state.fit_kwargs["X_val"], self._state.fit_kwargs["y_val"] = (
+                X_val,
+                y_val,
+            )
         if self._split_type == "group":
             # logger.info("Using GroupKFold")
             assert (
@@ -1646,7 +1652,7 @@ class AutoML:
         self._state.resources_per_trial = (
             {"cpu": max(self._state.n_jobs, 1), "gpu": gpu_per_trial}
             if (self._state.n_jobs > 1 or gpu_per_trial > 0)
-            else None
+            else {"cpu": max(self._state.n_jobs, 1)}
         )
         self._n_concurrent_trials = n_concurrent_trials
         self._early_stop = early_stop
@@ -1762,7 +1768,7 @@ class AutoML:
                 time_budget_s=time_left,
             )
             search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
-        resources_per_trial = self.resources_per_trial
+        resources_per_trial = self._state.resources_per_trial
         analysis = ray.tune.run(
             self.trainable,
             search_alg=search_alg,
