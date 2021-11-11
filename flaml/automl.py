@@ -558,8 +558,8 @@ class AutoML:
 
         # check the validity of input dimensions under the nlp mode
         if _is_nlp_task(self._state.task):
-            is_all_str = []
-            is_all_list = []
+            is_all_str = True
+            is_all_list = True
             for column in X.columns:
                 assert X[column].dtype.name in (
                     "object",
