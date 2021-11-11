@@ -210,11 +210,15 @@ class AutoMLState:
         config = config_w_resource.copy()
         if "FLAML_sample_size" in config:
             del config["FLAML_sample_size"]
-        time_left = self.time_budget - self.time_from_start
         budget = (
-            time_left
+            None
+            if self.time_budget is None
+            else self.time_budget - self.time_from_start
             if sample_size == self.data_size
-            else time_left / 2 * sample_size / self.data_size
+            else (self.time_budget - self.time_from_start)
+            / 2
+            * sample_size
+            / self.data_size
         )
 
         (
@@ -230,7 +234,9 @@ class AutoMLState:
             self.y_val,
             self.weight_val,
             self.groups_val,
-            min(budget, self.train_time_limit),
+            self.train_time_limit
+            if budget is None
+            else min(budget, self.train_time_limit),
             self.kf,
             config,
             self.task,
@@ -254,7 +260,14 @@ class AutoMLState:
             self.fit_kwargs["sample_weight"] = weight
         return result
 
-    def _train_with_config(self, estimator, config_w_resource, sample_size=None):
+    def _train_with_config(
+        self,
+        estimator,
+        config_w_resource,
+        search_space=None,
+        trainable=None,
+        sample_size=None,
+    ):
         if not sample_size:
             sample_size = config_w_resource.get(
                 "FLAML_sample_size", len(self.y_train_all)
@@ -282,17 +295,39 @@ class AutoMLState:
             if self.time_budget is None
             else self.time_budget - self.time_from_start
         )
-        estimator, train_time = train_estimator(
-            sampled_X_train,
-            sampled_y_train,
-            config,
-            self.task,
-            estimator,
-            self.n_jobs,
-            self.learner_classes.get(estimator),
-            budget,
-            self.fit_kwargs,
-        )
+
+        if search_space and trainable:
+            from flaml import CFO as SearchAlgo
+            from ray.tune.suggest import ConcurrencyLimiter
+
+            algo = SearchAlgo(
+                metric="val_loss",
+                mode="min",
+                space=search_space,
+            )
+            search_alg = ConcurrencyLimiter(algo, max_concurrent=1)
+            tune.run(
+                trainable,
+                search_alg=search_alg,
+                metric="val_loss",
+                mode="min",
+                resources_per_trial=self.resources_per_trial,
+                time_budget_s=10000,
+                num_samples=1,
+                points_to_evaluate=config_w_resource,
+            )
+        else:
+            estimator, train_time = train_estimator(
+                sampled_X_train,
+                sampled_y_train,
+                config,
+                self.task,
+                estimator,
+                self.n_jobs,
+                self.learner_classes.get(estimator),
+                budget,
+                self.fit_kwargs,
+            )
         if sampled_weight is not None:
             self.fit_kwargs["sample_weight"] = weight
         return estimator, train_time
@@ -483,9 +518,6 @@ class AutoML:
         return proba
 
     def _preprocess(self, X):
-        from .data import SEQCLASSIFICATION
-        from pandas import DataFrame
-        from typing import List
 
         if isinstance(X, int):
             return X
@@ -558,8 +590,8 @@ class AutoML:
 
         # check the validity of input dimensions under the nlp mode
         if _is_nlp_task(self._state.task):
-            is_all_str = []
-            is_all_list = []
+            is_all_str = True
+            is_all_list = True
             for column in X.columns:
                 assert X[column].dtype.name in (
                     "object",
@@ -575,12 +607,10 @@ class AutoML:
                             "Each column of the input must either be str (untokenized) "
                             "or a list of integers (tokenized)"
                         )
-                        is_all_str.append(is_str)
-                        is_all_list.append(is_list_of_int)
+                        is_all_str &= is_str
+                        is_all_list &= is_list_of_int
                         break
-            assert sum(is_all_str) == len(is_all_str) or sum(is_all_list) == len(
-                is_all_list
-            ), (
+            assert is_all_str or is_all_list, (
                 "Currently FLAML only supports two modes for NLP: either all columns of X are string (non-tokenized), "
                 "or all columns of X are integer ids (tokenized)"
             )
@@ -945,7 +975,7 @@ class AutoML:
         split_type=None,
         groups=None,
         n_jobs=-1,
-        resources_per_trial=None,
+        gpu_per_trial=-1,
         train_best=True,
         train_full=False,
         record_id=-1,
@@ -991,7 +1021,7 @@ class AutoML:
                 for training data.
             n_jobs: An integer of the number of threads for training. Use all
                 available resources when n_jobs == -1.
-            resources_per_trial: An integer of the number of gpus per trial. Only used by TransformersEstimator.
+            gpu_per_trial: A float of the number of gpus per trial. Only used by TransformersEstimator.
             train_best: A boolean of whether to train the best config in the
                 time budget; if false, train the last config in the budget.
             train_full: A boolean of whether to train on the full data. If true,
@@ -1075,9 +1105,24 @@ class AutoML:
         self._prepare_data(eval_method, split_ratio, n_splits)
         self._state.time_budget = None
         self._state.n_jobs = n_jobs
-        self._state.resources_per_trial = resources_per_trial
+        if gpu_per_trial != -1:
+            import os
+
+            self._state.resources_per_trial = (
+                {"cpu": max(self._state.n_jobs, 1), "gpu": gpu_per_trial}
+                if (self._state.n_jobs > 1 or gpu_per_trial > 0)
+                else {"cpu": os.cpu_count() / self._n_concurrent_trials}
+            )
         self._trained_estimator = self._state._train_with_config(
-            best_estimator, best_config, sample_size
+            best_estimator,
+            best_config,
+            self._search_states[best_estimator].search_space
+            if gpu_per_trial > 0
+            else None,
+            self._search_states[best_estimator].training_function
+            if gpu_per_trial > 0
+            else None,
+            sample_size,
         )[0]
         logger.info("retrain from log succeeded")
         return training_duration
@@ -1276,6 +1321,9 @@ class AutoML:
         mem_res = self._mem_thres
 
         def train(config: dict):
+            import pdb
+
+            pdb.set_trace()
             sample_size = config.get("FLAML_sample_size")
             config = config.get("ml", config).copy()
             if sample_size:
@@ -1393,7 +1441,7 @@ class AutoML:
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast', 'rank'.
             n_jobs: An integer of the number of threads for training.
-            gpu_per_trial: An integer of the number of gpus per trial, only used by TransformersEstimator.
+            gpu_per_trial: A float of the number of gpus per trial, only used by TransformersEstimator.
             log_file_name: A string of the log file name.
             estimator_list: A list of strings for estimator names, or 'auto'
                 e.g.,
@@ -1647,10 +1695,12 @@ class AutoML:
         self.split_ratio = split_ratio
         self._state.save_model_history = model_history
         self._state.n_jobs = n_jobs
+        import os
+
         self._state.resources_per_trial = (
             {"cpu": max(self._state.n_jobs, 1), "gpu": gpu_per_trial}
             if (self._state.n_jobs > 1 or gpu_per_trial > 0)
-            else {"cpu": max(self._state.n_jobs, 1)}
+            else {"cpu": os.cpu_count() / n_concurrent_trials}
         )
         self._n_concurrent_trials = n_concurrent_trials
         self._early_stop = early_stop
@@ -2137,6 +2187,12 @@ class AutoML:
                 self._trained_estimator, retrain_time = self._state._train_with_config(
                     self._best_estimator,
                     state.best_config,
+                    self._search_states[estimator].search_space
+                    if self._state.resources_per_trial.get("gpu", 0) > 0
+                    else None,
+                    self._search_states[estimator].training_function
+                    if self._state.resources_per_trial.get("gpu", 0) > 0
+                    else None,
                     self.data_size_full,
                 )
                 logger.info(
@@ -2298,6 +2354,12 @@ class AutoML:
                     ) = self._state._train_with_config(
                         self._best_estimator,
                         state.best_config,
+                        self._search_states[self._best_estimator].search_space
+                        if self._state.resources_per_trial.get("gpu", 0) > 0
+                        else None,
+                        self._search_states[self._best_estimator].training_function
+                        if self._state.resources_per_trial.get("gpu", 0) > 0
+                        else None,
                         self.data_size_full,
                     )
                     logger.info(

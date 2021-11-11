@@ -142,34 +142,20 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
 
 
 def compute_checkpoint_freq(
-    resources_per_trial,
     train_data_size,
     custom_hpo_args,
     num_train_epochs,
     batch_size,
 ):
-    if resources_per_trial.get("gpu", 0) > 0:
-        ckpt_step_freq = (
-            int(
-                min(num_train_epochs, 1)
-                * train_data_size
-                / batch_size
-                / resources_per_trial["gpu"]
-                / custom_hpo_args.ckpt_per_epoch
-            )
-            + 1
+    ckpt_step_freq = (
+        int(
+            min(num_train_epochs, 1)
+            * train_data_size
+            / batch_size
+            / custom_hpo_args.ckpt_per_epoch
         )
-    else:
-        ckpt_step_freq = (
-            int(
-                min(num_train_epochs, 1)
-                * train_data_size
-                / batch_size
-                / resources_per_trial["cpu"]
-                / custom_hpo_args.ckpt_per_epoch
-            )
-            + 1
-        )
+        + 1
+    )
     return ckpt_step_freq
 
 

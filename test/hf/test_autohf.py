@@ -1,6 +1,6 @@
-# import os
-#
-# os.environ["WANDB_DISABLED"] = "true"
+import os
+
+os.environ["WANDB_DISABLED"] = "true"
 
 
 def test_hf_data():
@@ -27,7 +27,7 @@ def test_hf_data():
     automl = AutoML()
 
     automl_settings = {
-        "gpu_per_trial": 0,
+        "gpu_per_trial": 1,
         "max_iter": 3,
         "time_budget": 40,
         "task": "seq-classification",
@@ -43,6 +43,14 @@ def test_hf_data():
 
     automl.fit(
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
+    )
+    automl.retrain_from_log(
+        log_file_name="flaml.log",
+        X_train=X_train,
+        y_train=y_train,
+        train_full=True,
+        record_id=0,
+        **automl_settings
     )
 
 
@@ -266,3 +274,7 @@ def test_load_args():
     subprocess.call(
         [sys.executable, "load_args.py", "--output_dir", "data/"], shell=True
     )
+
+
+if __name__ == "__main__":
+    test_hf_data()

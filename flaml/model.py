@@ -14,7 +14,6 @@ from sklearn.ensemble import ExtraTreesRegressor, ExtraTreesClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.dummy import DummyClassifier, DummyRegressor
 from scipy.sparse import issparse
-import pandas as pd
 import logging
 from . import tune
 from .data import (
@@ -25,6 +24,7 @@ from .data import (
     TS_VALUE_COL,
 )
 
+import pandas as pd
 from pandas import DataFrame, Series
 
 try:
@@ -83,9 +83,8 @@ class BaseEstimator:
         Args:
             task: A string of the task type, one of
                 'binary', 'multi', 'regression', 'rank', 'forecast'
-            config: A dictionary containing the hyperparameter names, 'n_jobs' and 'resources_per_trial' as keys.
-                n_jobs is the number of parallel threads. resources_per_trial is the number of gpus per trial.
-                resources_per_trial is only used by TransformersEstimator.
+            config: A dictionary containing the hyperparameter names, 'n_jobs' as keys.
+                n_jobs is the number of parallel threads. gpu_per_trial is only used in TransformersEstimator
         """
         self.params = self.config2params(config)
         self.estimator_class = self._model = None
@@ -277,18 +276,17 @@ class BaseEstimator:
             A dict that will be passed to self.estimator_class's constructor.
         """
         params = config.copy()
-        if "resources_per_trial" in params:
-            params.pop("resources_per_trial")
         return params
 
 
 class TransformersEstimator(BaseEstimator):
-    def __init__(self, task="seq-classification", resources_per_trial=None, **config):
+    """The class for fine-tuning language models, using huggingface transformers API."""
+
+    def __init__(self, task="seq-classification", **config):
         super().__init__(task, **config)
-        self._resources_per_trial = resources_per_trial
 
     def _join(self, X_train, y_train):
-        y_train = pd.DataFrame(y_train, columns=["label"])
+        y_train = DataFrame(y_train, columns=["label"])
         train_df = X_train.join(y_train)
         return train_df
 
@@ -333,8 +331,7 @@ class TransformersEstimator(BaseEstimator):
         automl_fit_kwargs["custom_hpo_args"] = custom_hpo_args
         automl_fit_kwargs["metric"] = metric_name
 
-    @classmethod
-    def _preprocess(cls, X, task, **kwargs):
+    def _preprocess(self, X, task, **kwargs):
         from .nlp.utils import tokenize_text
 
         assert (
@@ -399,7 +396,6 @@ class TransformersEstimator(BaseEstimator):
             per_model_config=per_model_config,
         )
         ckpt_freq = compute_checkpoint_freq(
-            self._resources_per_trial,
             train_data_size=len(X_train),
             custom_hpo_args=kwargs["custom_hpo_args"],
             num_train_epochs=self.params["num_train_epochs"],
@@ -507,14 +503,14 @@ class SKLearnEstimator(BaseEstimator):
         super().__init__(task, **config)
 
     def _preprocess(self, X):
-        if isinstance(X, pd.DataFrame):
+        if isinstance(X, DataFrame):
             cat_columns = X.select_dtypes(include=["category"]).columns
             if not cat_columns.empty:
                 X = X.copy()
                 X[cat_columns] = X[cat_columns].apply(lambda x: x.cat.codes)
         elif isinstance(X, np.ndarray) and X.dtype.kind not in "buif":
             # numpy array is not of numeric dtype
-            X = pd.DataFrame(X)
+            X = DataFrame(X)
             for col in X.columns:
                 if isinstance(X[col][0], str):
                     X[col] = X[col].astype("category").cat.codes
@@ -607,14 +603,14 @@ class LGBMEstimator(BaseEstimator):
 
     def _preprocess(self, X):
         if (
-            not isinstance(X, pd.DataFrame)
+            not isinstance(X, DataFrame)
             and issparse(X)
             and np.issubdtype(X.dtype, np.integer)
         ):
             X = X.astype(float)
         elif isinstance(X, np.ndarray) and X.dtype.kind not in "buif":
             # numpy array is not of numeric dtype
-            X = pd.DataFrame(X)
+            X = DataFrame(X)
             for col in X.columns:
                 if isinstance(X[col][0], str):
                     X[col] = X[col].astype("category").cat.codes
@@ -1084,7 +1080,7 @@ class CatBoostEstimator(BaseEstimator):
         return 15
 
     def _preprocess(self, X):
-        if isinstance(X, pd.DataFrame):
+        if isinstance(X, DataFrame):
             cat_columns = X.select_dtypes(include=["category"]).columns
             if not cat_columns.empty:
                 X = X.copy()
@@ -1098,7 +1094,7 @@ class CatBoostEstimator(BaseEstimator):
                 )
         elif isinstance(X, np.ndarray) and X.dtype.kind not in "buif":
             # numpy array is not of numeric dtype
-            X = pd.DataFrame(X)
+            X = DataFrame(X)
             for col in X.columns:
                 if isinstance(X[col][0], str):
                     X[col] = X[col].astype("category").cat.codes
@@ -1139,7 +1135,7 @@ class CatBoostEstimator(BaseEstimator):
         deadline = start_time + budget if budget else np.inf
         train_dir = f"catboost_{str(start_time)}"
         X_train = self._preprocess(X_train)
-        if isinstance(X_train, pd.DataFrame):
+        if isinstance(X_train, DataFrame):
             cat_features = list(X_train.select_dtypes(include="category").columns)
         else:
             cat_features = []
@@ -1234,14 +1230,14 @@ class KNeighborsEstimator(BaseEstimator):
             self.estimator_class = KNeighborsRegressor
 
     def _preprocess(self, X):
-        if isinstance(X, pd.DataFrame):
+        if isinstance(X, DataFrame):
             cat_columns = X.select_dtypes(["category"]).columns
             if X.shape[1] == len(cat_columns):
                 raise ValueError("kneighbor requires at least one numeric feature")
             X = X.drop(cat_columns, axis=1)
         elif isinstance(X, np.ndarray) and X.dtype.kind not in "buif":
             # drop categocial columns if any
-            X = pd.DataFrame(X)
+            X = DataFrame(X)
             cat_columns = []
             for col in X.columns:
                 if isinstance(X[col][0], str):
@@ -1277,7 +1273,7 @@ class Prophet(SKLearnEstimator):
         }
         return space
 
-    def __init__(self, task=TS_FORECAST, n_jobs=1, resources_per_trial=None, **params):
+    def __init__(self, task=TS_FORECAST, n_jobs=1, **params):
         super().__init__(task, **params)
 
     def _join(self, X_train, y_train):
@@ -1285,7 +1281,7 @@ class Prophet(SKLearnEstimator):
             "Dataframe for training ts_forecast model must have column"
             f' "{TS_TIMESTAMP_COL}" with the dates in X_train.'
         )
-        y_train = pd.DataFrame(y_train, columns=[TS_VALUE_COL])
+        y_train = DataFrame(y_train, columns=[TS_VALUE_COL])
         train_df = X_train.join(y_train)
         return train_df
 
@@ -1392,7 +1388,7 @@ class ARIMA(Prophet):
         if self._model is not None:
             if isinstance(X_test, int):
                 forecast = self._model.forecast(steps=X_test)
-            elif isinstance(X_test, pd.DataFrame):
+            elif isinstance(X_test, DataFrame):
                 first_col = X_test.pop(TS_TIMESTAMP_COL)
                 X_test.insert(0, TS_TIMESTAMP_COL, first_col)
                 start = X_test.iloc[0, 0]
@@ -1408,7 +1404,7 @@ class ARIMA(Prophet):
                     forecast = self._model.predict(start=start, end=end)
             else:
                 raise ValueError(
-                    "X_test needs to be either a pd.Dataframe with dates as the first column"
+                    "X_test needs to be either a Dataframe with dates as the first column"
                     " or an int number of periods for predict()."
                 )
             return forecast
