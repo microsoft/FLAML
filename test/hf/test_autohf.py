@@ -263,7 +263,9 @@ def test_load_args():
     import subprocess
     import sys
 
-    subprocess.check_call([sys.executable, "load_args.py", "--output_dir", "data/"])
+    subprocess.call(
+        [sys.executable, "load_args.py", "--output_dir", "data/"], shell=True
+    )
 
 
 if __name__ == "__main__":
