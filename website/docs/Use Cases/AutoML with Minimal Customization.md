@@ -1,6 +1,10 @@
 
 ### AutoML with minimal customization
-
+* Tasks:
+    - Classification: `classification`
+    - Regression: `regression`
+    - Time series forecasting: `ts_forecast`
+    - Rank: `rank`
 
 ### Save and load model
 
