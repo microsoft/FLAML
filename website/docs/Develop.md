@@ -37,7 +37,7 @@ docker run -it flaml-dev
 ### Develop in Remote Container
 
 If you use vscode, you can open the FLAML folder in a [Container](https://code.visualstudio.com/docs/remote/containers).
-We have provided the configuration in [.devcontainer]((https://github.com/microsoft/FLAML/blob/main/.devcontainer)).
+We have provided the configuration in [devcontainer](https://github.com/microsoft/FLAML/blob/main/.devcontainer).
 
 ### Pre-commit
 
