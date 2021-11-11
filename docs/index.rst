@@ -44,16 +44,11 @@ Online AutoML
 .. autoclass:: flaml.AutoVW
    :members:
 
-
 NLP
 ---
 
-.. autoclass:: flaml.nlp.AutoTransformers
-   :members:
-
 .. autoclass:: flaml.nlp.HPOArgs
    :members:
-
 
 .. Indices and tables
 .. ==================
