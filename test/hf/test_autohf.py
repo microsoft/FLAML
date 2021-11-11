@@ -28,7 +28,7 @@ def test_hf_data():
 
     automl_settings = {
         "gpu_per_trial": 0,
-        "max_iter": 10,
+        "max_iter": 3,
         "time_budget": 40,
         "task": "seq-classification",
         "metric": "accuracy",
@@ -75,7 +75,7 @@ def _test_classification_head():
 
     automl_settings = {
         "gpu_per_trial": 0,
-        "max_iter": 10,
+        "max_iter": 3,
         "time_budget": 40,
         "task": "seq-classification",
         "metric": "accuracy",
@@ -147,7 +147,7 @@ def _test_custom_data():
     )
 
 
-def test_rspt():
+def _test_rspt():
     try:
         import ray
     except ImportError:
@@ -175,7 +175,7 @@ def test_rspt():
 
     automl_settings = {
         "gpu_per_trial": 0,
-        "max_iter": 10,
+        "max_iter": 3,
         "time_budget": 40,
         "task": "seq-classification",
         "metric": "accuracy",
@@ -202,7 +202,7 @@ def test_rspt():
     )
 
 
-def test_cv():
+def _test_cv():
     try:
         import ray
     except ImportError:
@@ -230,7 +230,7 @@ def test_cv():
 
     automl_settings = {
         "gpu_per_trial": 0,
-        "max_iter": 10,
+        "max_iter": 3,
         "time_budget": 40,
         "task": "seq-classification",
         "metric": "accuracy",
