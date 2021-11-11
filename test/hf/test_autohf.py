@@ -46,7 +46,7 @@ def test_hf_data():
     )
 
 
-def _test_classification_head():
+def test_classification_head():
     try:
         import ray
     except ImportError:
@@ -56,10 +56,10 @@ def _test_classification_head():
     from datasets import load_dataset
 
     train_dataset = load_dataset(
-        "glue", "mnli", split="validation_matched[:2%]"
+        "glue", "mnli", split="validation_matched[:1%]"
     ).to_pandas()
     dev_dataset = load_dataset(
-        "glue", "mnli", split="validation_matched[2%:3%]"
+        "glue", "mnli", split="validation_matched[1%:2%]"
     ).to_pandas()
 
     custom_sent_keys = ["premise", "hypothesis"]
