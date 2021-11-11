@@ -575,8 +575,12 @@ class AutoML:
                             "Each column of the input must either be str (untokenized) "
                             "or a list of integers (tokenized)"
                         )
-                        is_all_str.append(is_str)
-                        is_all_list.append(is_list_of_int)
+                        is_all_str &= is_str
+                        is_all_list &= is_list_of_int
+                        assert is_all_str or is_all_list, (
+                            "Currently FLAML only supports two modes for NLP: either all columns of X are string (non-tokenized), "
+                            "or all columns of X are integer ids (tokenized)"
+                        )
                         break
             assert sum(is_all_str) == len(is_all_str) or sum(is_all_list) == len(
                 is_all_list
