@@ -202,7 +202,7 @@ def test_rspt():
     )
 
 
-def test_cv():
+def _test_cv():
     try:
         import ray
     except ImportError:
