@@ -10,7 +10,7 @@ automl_settings = {
     "time_budget": 10,  # in seconds
     "metric": 'accuracy',
     "task": 'classification',
-    "log_file_name": "test/iris.log",
+    "log_file_name": "iris.log",
 }
 X_train, y_train = load_iris(return_X_y=True)
 # Train with labeled input data
