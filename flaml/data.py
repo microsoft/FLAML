@@ -230,6 +230,7 @@ class DataTransformer:
         if _is_nlp_task(task):
             # if the mode is NLP, check the type of input, each column must be either string or
             # ids (input ids, token type id, attention mask, etc.)
+            str_columns = []
             if isinstance(X, List) and isinstance(X[0], List):
                 unzipped_X_test = [x for x in zip(*X)]
                 X = DataFrame(
@@ -241,9 +242,11 @@ class DataTransformer:
             elif isinstance(X, List):
                 X = DataFrame({"key_" + str(idx): [X[idx]] for idx in range(len(X))})
             for column in X.columns:
-                is_str = isinstance(X[column].iloc[0], str)
-                if is_str:
-                    X = X.astype({column: "string"})
+                if isinstance(X[column].iloc[0], str):
+                    str_columns.append(column)
+            if len(str_columns) > 0:
+                X[str_columns] = X[str_columns].astype("string")
+            self._str_columns = str_columns
         elif isinstance(X, DataFrame):
             X = X.copy()
             n = X.shape[0]
@@ -386,12 +389,8 @@ class DataTransformer:
                 )
             elif isinstance(X, List):
                 X = DataFrame({"key_" + str(idx): [X[idx]] for idx in range(len(X))})
-            for column in X.columns:
-                is_str = [
-                    isinstance(each_cell, str) for each_cell in X[column] if each_cell
-                ][0]
-                if is_str:
-                    X = X.astype({column: "string"})
+            if len(self._str_columns) > 0:
+                X[self._str_columns] = X[self._str_columns].astype("string")
         elif isinstance(X, DataFrame):
             cat_columns, num_columns, datetime_columns = (
                 self._cat_columns,

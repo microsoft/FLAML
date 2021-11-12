@@ -457,9 +457,9 @@ def compute_estimator(
 
 
 def train_estimator(
+    config_dic,
     X_train,
     y_train,
-    config_dic,
     task,
     estimator_name,
     n_jobs=1,

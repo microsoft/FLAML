@@ -1,27 +1,49 @@
 # Hyperparameter Optimization for Huggingface Transformers
 
-AutoTransformers is an AutoML class for fine-tuning pre-trained language models based on the transformers library.
+Fine-tuning pre-trained language models based on the transformers library.
 
-An example of using AutoTransformers:
+An example:
 
 ```python
-from flaml.nlp.autotransformers import AutoTransformers
-autohf = AutoTransformers()
+from flaml import AutoML
 
-autohf_settings = {
-    "dataset_config": ["glue", "mrpc"],
-    "model_path": "google/electra-small-discriminator",
-    "output_dir": "data/",
-    "resources_per_trial": {"cpu": 1, "gpu": 1},
-    "resplit_mode": "rspt",
-    "sample_num": -1,
+import pandas as pd
+
+train_dataset = pd.read_csv("data/input/train.tsv", delimiter="\t", quoting=3)
+dev_dataset = pd.read_csv("data/input/dev.tsv", delimiter="\t", quoting=3)
+test_dataset = pd.read_csv("data/input/test.tsv", delimiter="\t", quoting=3)
+
+custom_sent_keys = ["#1 String", "#2 String"]
+label_key = "Quality"
+
+X_train = train_dataset[custom_sent_keys]
+y_train = train_dataset[label_key]
+
+X_val = dev_dataset[custom_sent_keys]
+y_val = dev_dataset[label_key]
+
+X_test = test_dataset[custom_sent_keys]
+
+automl = AutoML()
+
+automl_settings = {
+    "gpu_per_trial": 0,
+    "max_iter": 10,
     "time_budget": 300,
+    "task": "seq-classification",
+    "metric": "accuracy",
 }
 
-validation_metric, analysis = autohf.fit(**autohf_settings)
-if validation_metric is not None:
-    predictions, test_metric = autohf.predict()
+automl_settings["custom_hpo_args"] = {
+    "model_path": "google/electra-small-discriminator",
+    "output_dir": "data/output/",
+    "ckpt_per_epoch": 1,
+}
 
+automl.fit(
+    X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
+)
+automl.predict(X_test)
 
 ```
 

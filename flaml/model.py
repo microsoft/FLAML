@@ -314,8 +314,7 @@ class TransformersEstimator(BaseEstimator):
             "seed": {"domain": tune.choice(list(range(40, 45)))},
         }
 
-    @classmethod
-    def init(cls, hpo_method=None, metric_name=None, automl_fit_kwargs: dict = None):
+    def _init_hpo_args(self, automl_fit_kwargs: dict = None):
         from .nlp.utils import HPOArgs
 
         custom_hpo_args = HPOArgs()
@@ -328,25 +327,23 @@ class TransformersEstimator(BaseEstimator):
                 key
             )
             setattr(custom_hpo_args, key, val)
-        automl_fit_kwargs["custom_hpo_args"] = custom_hpo_args
-        automl_fit_kwargs["metric"] = metric_name
+        self.custom_hpo_args = custom_hpo_args
 
     def _preprocess(self, X, task, **kwargs):
         from .nlp.utils import tokenize_text
 
-        assert (
-            "custom_hpo_args" in kwargs
-        ), "custom_hpo_args needs to be specified in fit_kwargs of automl.fit"
-
-        return tokenize_text(X, task, kwargs["custom_hpo_args"])
+        return tokenize_text(X, task, self.custom_hpo_args)
 
     def _split_train_val(self, X_train, y_train, **kwargs):
         """
         If the validation fold is already defined (in kwargs), set it directly
         Otherwise, split the train fold and reserve 10% dataset for validation
         """
-        if "X_val" in kwargs and "y_val" in kwargs:
-            return X_train, y_train, kwargs["X_val"], kwargs["y_val"]
+        try:
+            if "X_val" in kwargs and "y_val" in kwargs:
+                return X_train, y_train, kwargs["X_val"], kwargs["y_val"]
+        except AttributeError:
+            pass
         n = max(int(len(y_train) * 0.9), len(y_train) - 1000)
         X_tr, y_tr = X_train[:n], y_train[:n]
         X_val, y_val = X_train[n:], y_train[n:]
@@ -367,6 +364,7 @@ class TransformersEstimator(BaseEstimator):
         from .nlp.huggingface.trainer import TrainerForAutoTransformers
         from datasets import Dataset
 
+        self._init_hpo_args(kwargs)
         self._metric_name = kwargs["metric"]
 
         X_train, y_train, X_val, y_val = self._split_train_val(
@@ -382,7 +380,7 @@ class TransformersEstimator(BaseEstimator):
             eval_dataset = Dataset.from_pandas(self._join(X_val, y_val))
 
         tokenizer = AutoTokenizer.from_pretrained(
-            kwargs["custom_hpo_args"].model_path, use_fast=True
+            self.custom_hpo_args.model_path, use_fast=True
         )
         set_seed(self.params["seed"])
 
@@ -390,34 +388,34 @@ class TransformersEstimator(BaseEstimator):
 
         training_args_config, per_model_config = separate_config(self.params)
         this_model = load_model(
-            checkpoint_path=kwargs["custom_hpo_args"].model_path,
+            checkpoint_path=self.custom_hpo_args.model_path,
             task=self._task,
             num_labels=num_labels,
             per_model_config=per_model_config,
         )
         ckpt_freq = compute_checkpoint_freq(
             train_data_size=len(X_train),
-            custom_hpo_args=kwargs["custom_hpo_args"],
+            custom_hpo_args=self.custom_hpo_args,
             num_train_epochs=self.params["num_train_epochs"],
             batch_size=self.params["per_device_train_batch_size"],
         )
         if transformers.__version__.startswith("3"):
             training_args = TrainingArguments(
-                output_dir=kwargs["custom_hpo_args"].output_dir,
+                output_dir=self.custom_hpo_args.output_dir,
                 do_train=True,
                 do_eval=True,
                 eval_steps=ckpt_freq,
                 evaluate_during_training=True,
                 save_steps=ckpt_freq,
                 save_total_limit=0,
-                fp16=kwargs["custom_hpo_args"].fp16,
+                fp16=self.custom_hpo_args.fp16,
                 **training_args_config,
             )
         else:
             from transformers import IntervalStrategy
 
             training_args = TrainingArguments(
-                output_dir=kwargs["custom_hpo_args"].output_dir,
+                output_dir=self.custom_hpo_args.output_dir,
                 do_train=True,
                 do_eval=True,
                 per_device_eval_batch_size=1,
@@ -425,13 +423,13 @@ class TransformersEstimator(BaseEstimator):
                 evaluation_strategy=IntervalStrategy.STEPS,
                 save_steps=ckpt_freq,
                 save_total_limit=0,
-                fp16=kwargs["custom_hpo_args"].fp16,
+                fp16=self.custom_hpo_args.fp16,
                 **training_args_config,
             )
 
         def _model_init():
             return load_model(
-                checkpoint_path=kwargs["custom_hpo_args"].model_path,
+                checkpoint_path=self.custom_hpo_args.model_path,
                 task=self._task,
                 num_labels=num_labels,
                 per_model_config=per_model_config,
@@ -489,11 +487,12 @@ class TransformersEstimator(BaseEstimator):
         )
         training_args = TrainingArguments(
             per_device_eval_batch_size=1,
-            output_dir=self._kwargs["custom_hpo_args"].output_dir,
+            output_dir=self.custom_hpo_args.output_dir,
         )
         test_trainer = TrainerForAutoTransformers(model=best_model, args=training_args)
         predictions = test_trainer.predict(test_dataset)
-        return np.array([0 if x[0] > x[1] else 1 for x in predictions.predictions])
+
+        return np.argmax(predictions.predictions, axis=1)
 
 
 class SKLearnEstimator(BaseEstimator):
