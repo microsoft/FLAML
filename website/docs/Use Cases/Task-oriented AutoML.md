@@ -95,11 +95,8 @@ You will see that the time to finish the first and cheapest trial is 2.6 seconds
 
 ### Get best configuration
 
-### Log of trials
+### Plot learning curve
 
-1. `iter_per_learner` means how many models have been tried for each learner. The reason you see records like `iter_per_learner=13` for `record_id=2` is that flaml only logs better configs than the previous iters by default, i.e., `log_type='better'`. 
-2. `trial_time` means the time taken to train and evaluate one config in that trial. `total_search_time` is the total time spent from the beginning of `fit()`.
-3. Because `log_type='better'` by default, `config` is equal to `best_config`. If you use `log_type='all'` instead, all the trials will be logged. And then `config` corresponds to the config in that iteration, and `best_config` is the best config so far.
-4. flaml will adjust the `n_estimators` for lightgbm etc. according to the remaining budget and check the time budget constraint and stop in several places. Most of the time that makes `fit()` stops before the given budget. Occasionally it may run over the time budget slightly. But the log file always contains the best config info and you can recover the best model until any time point using `retrain_from_log()`.
+
 
 
