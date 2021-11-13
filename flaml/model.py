@@ -351,6 +351,25 @@ class TransformersEstimator(BaseEstimator):
 
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
         # TODO: when self.param = {}, ie max_iter = 1, fix the bug
+        from transformers import EarlyStoppingCallback
+
+        class EarlyStoppingCallbackForAuto(EarlyStoppingCallback):
+            def on_train_begin(self, args, state, control, **kwargs):
+                self.train_begin_time = time.time()
+
+            def on_step_begin(self, args, state, control, **kwargs):
+                self.step_begin_time = time.time()
+
+            def on_step_end(self, args, state, control, **kwargs):
+                if state.global_step == 1:
+                    self.time_per_iter = time.time() - self.step_begin_time
+                if budget:
+                    if (
+                        time.time() + self.time_per_iter
+                        > self.train_begin_time + budget
+                    ):
+                        control.should_training_stop = True
+
         import transformers
         from transformers import TrainingArguments
         from transformers.trainer_utils import set_seed
@@ -361,7 +380,7 @@ class TransformersEstimator(BaseEstimator):
             get_num_labels,
             compute_checkpoint_freq,
         )
-        from .nlp.huggingface.trainer import TrainerForAutoTransformers
+        from .nlp.huggingface.trainer import TrainerForAuto
         from datasets import Dataset
 
         self._init_hpo_args(kwargs)
@@ -399,6 +418,7 @@ class TransformersEstimator(BaseEstimator):
             num_train_epochs=self.params["num_train_epochs"],
             batch_size=self.params["per_device_train_batch_size"],
         )
+
         if transformers.__version__.startswith("3"):
             training_args = TrainingArguments(
                 output_dir=self.custom_hpo_args.output_dir,
@@ -409,6 +429,7 @@ class TransformersEstimator(BaseEstimator):
                 save_steps=ckpt_freq,
                 save_total_limit=0,
                 fp16=self.custom_hpo_args.fp16,
+                load_best_model_at_end=True,
                 **training_args_config,
             )
         else:
@@ -424,6 +445,7 @@ class TransformersEstimator(BaseEstimator):
                 save_steps=ckpt_freq,
                 save_total_limit=0,
                 fp16=self.custom_hpo_args.fp16,
+                load_best_model_at_end=True,
                 **training_args_config,
             )
 
@@ -435,7 +457,7 @@ class TransformersEstimator(BaseEstimator):
                 per_model_config=per_model_config,
             )
 
-        trainer = TrainerForAutoTransformers(
+        trainer = TrainerForAuto(
             model=this_model,
             args=training_args,
             model_init=_model_init,
@@ -443,8 +465,11 @@ class TransformersEstimator(BaseEstimator):
             eval_dataset=eval_dataset,
             tokenizer=tokenizer,
             compute_metrics=self._compute_metrics_by_dataset_name,
+            callbacks=[EarlyStoppingCallbackForAuto],
         )
+
         trainer.train()
+
         self._checkpoint_path, _ = self._get_checkpoint(trainer.ckpt_to_metric)
         self._kwargs = kwargs
         self._num_labels = num_labels
@@ -473,7 +498,7 @@ class TransformersEstimator(BaseEstimator):
         from datasets import Dataset
         from .nlp.utils import load_model
         from transformers import TrainingArguments
-        from .nlp.huggingface.trainer import TrainerForAutoTransformers
+        from .nlp.huggingface.trainer import TrainerForAuto
 
         if X_test.dtypes[0] == "string":
             X_test = self._preprocess(X_test, self._task, **self._kwargs)
@@ -489,7 +514,7 @@ class TransformersEstimator(BaseEstimator):
             per_device_eval_batch_size=1,
             output_dir=self.custom_hpo_args.output_dir,
         )
-        test_trainer = TrainerForAutoTransformers(model=best_model, args=training_args)
+        test_trainer = TrainerForAuto(model=best_model, args=training_args)
         predictions = test_trainer.predict(test_dataset)
 
         return np.argmax(predictions.predictions, axis=1)

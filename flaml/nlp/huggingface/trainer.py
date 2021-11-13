@@ -6,7 +6,7 @@ except ImportError:
     TFTrainer = object
 
 
-class TrainerForAutoTransformers(TFTrainer):
+class TrainerForAuto(TFTrainer):
     def evaluate(self, eval_dataset=None):
         """
         Overriding transformers.Trainer.evaluate by saving state with save_state
