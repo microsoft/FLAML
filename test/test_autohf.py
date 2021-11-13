@@ -153,7 +153,7 @@ def _test_multigpu():
     )
 
 
-def _test_classification_head():
+def test_classification_head():
     try:
         import ray
     except ImportError:
