@@ -1,4 +1,4 @@
-def test_hf_data():
+def _test_hf_data():
     try:
         import ray
     except ImportError:
@@ -366,7 +366,7 @@ def _test_cv():
     )
 
 
-def _test_load_args():
+def test_load_args():
     import subprocess
     import sys
 
