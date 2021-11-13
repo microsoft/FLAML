@@ -24,7 +24,7 @@ def test_hf_data():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 10,
+        "time_budget": 30,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -73,7 +73,7 @@ def test_no_train():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 10,
+        "time_budget": 30,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -119,7 +119,7 @@ def _test_multigpu():
     automl_settings = {
         "gpu_per_trial": 2,
         "max_iter": 3,
-        "time_budget": 10,
+        "time_budget": 30,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -185,7 +185,7 @@ def _test_classification_head():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 10,
+        "time_budget": 30,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -285,7 +285,7 @@ def test_rspt():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 10,
+        "time_budget": 30,
         "task": "seq-classification",
         "metric": "accuracy",
     }
