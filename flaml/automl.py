@@ -1115,14 +1115,13 @@ class AutoML:
         self._prepare_data(eval_method, split_ratio, n_splits)
         self._state.time_budget = None
         self._state.n_jobs = n_jobs
-        if gpu_per_trial != -1:
-            import os
+        import os
 
-            self._state.resources_per_trial = (
-                {"cpu": max(self._state.n_jobs, gpu_per_trial), "gpu": gpu_per_trial}
-                if (self._state.n_jobs > 1 or gpu_per_trial > 0)
-                else {"cpu": os.cpu_count() / self._n_concurrent_trials}
-            )
+        self._state.resources_per_trial = (
+            {"cpu": max(self._state.n_jobs, gpu_per_trial), "gpu": gpu_per_trial}
+            if (self._state.n_jobs > 1 or gpu_per_trial > 0)
+            else {"cpu": os.cpu_count() / self._n_concurrent_trials}
+        )
         self._trained_estimator = self._state._train_with_config(
             best_estimator,
             best_config,
