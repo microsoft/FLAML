@@ -264,7 +264,6 @@ class AutoMLState:
         self,
         estimator,
         config_w_resource,
-        search_space=None,
         sample_size=None,
     ):
         if not sample_size:
@@ -295,41 +294,44 @@ class AutoMLState:
             else self.time_budget - self.time_from_start
         )
 
-        def _trainable_function_wrapper(config: dict):
-            _, _ = train_estimator(
-                X_train=sampled_X_train,
-                y_train=sampled_y_train,
-                config_dic=config,
-                task=self.task,
-                estimator_name=estimator,
-                n_jobs=self.n_jobs,
-                estimator_class=self.learner_classes.get(estimator),
-                budget=budget,
-                fit_kwargs=self.fit_kwargs,
-            )
-
         if self.resources_per_trial.get("gpu", 0) > 0:
-            from flaml import CFO as SearchAlgo
-            from ray.tune.suggest import ConcurrencyLimiter
 
-            algo = SearchAlgo(
-                metric="val_loss",
-                mode="min",
-                space=search_space,
-            )
-            search_alg = ConcurrencyLimiter(algo, max_concurrent=1)
-            tune.run(
+            def _trainable_function_wrapper(config: dict):
+                import ray
+
+                return_estimator, train_time = train_estimator(
+                    X_train=sampled_X_train,
+                    y_train=sampled_y_train,
+                    config_dic=config,
+                    task=self.task,
+                    estimator_name=estimator,
+                    n_jobs=self.n_jobs,
+                    estimator_class=self.learner_classes.get(estimator),
+                    budget=budget,
+                    fit_kwargs=self.fit_kwargs,
+                )
+                return {"estimator": return_estimator, "train_time": train_time}
+
+            for estimator_name in [estimator]:
+                if estimator_name not in self.learner_classes:
+                    self.learner_classes[estimator_name] = get_estimator_class(
+                        self.task, estimator_name
+                    )
+
+            analysis = tune.run(
                 _trainable_function_wrapper,
-                search_alg=search_alg,
-                config=search_space,
-                metric="val_loss",
+                config=config_w_resource,
+                metric="train_time",
                 mode="min",
                 resources_per_trial=self.resources_per_trial,
-                time_budget_s=10000,
                 num_samples=1,
-                points_to_evaluate=config_w_resource,
                 use_ray=True,
             )
+            estimator, train_time = (
+                list(analysis.results.values())[0]["estimator"],
+                list(analysis.results.values())[0]["train_time"],
+            )
+
         else:
             estimator, train_time = train_estimator(
                 X_train=sampled_X_train,
@@ -1117,14 +1119,13 @@ class AutoML:
             import os
 
             self._state.resources_per_trial = (
-                {"cpu": max(self._state.n_jobs, 1), "gpu": gpu_per_trial}
+                {"cpu": max(self._state.n_jobs, gpu_per_trial), "gpu": gpu_per_trial}
                 if (self._state.n_jobs > 1 or gpu_per_trial > 0)
                 else {"cpu": os.cpu_count() / self._n_concurrent_trials}
             )
         self._trained_estimator = self._state._train_with_config(
             best_estimator,
             best_config,
-            search_space=self._search_states[best_estimator].search_space,
             sample_size=sample_size,
         )[0]
         logger.info("retrain from log succeeded")
@@ -1604,11 +1605,11 @@ class AutoML:
         self._prepare_data(eval_method, split_ratio, n_splits)
 
         if _is_nlp_task(self._state.task):
-            (
-                self._state.fit_kwargs["X_val"],
-                self._state.fit_kwargs["y_val"],
-                self._state.fit_kwargs["metric"],
-            ) = (X_val, y_val, metric)
+            if X_val is not None:
+                self._state.fit_kwargs["X_val"] = X_val
+            if y_val is not None:
+                self._state.fit_kwargs["y_val"] = y_val
+            self._state.fit_kwargs["metric"] = metric
 
         self._sample = (
             sample
@@ -1700,7 +1701,7 @@ class AutoML:
         import os
 
         self._state.resources_per_trial = (
-            {"cpu": max(self._state.n_jobs, 1), "gpu": gpu_per_trial}
+            {"cpu": max(self._state.n_jobs, gpu_per_trial), "gpu": gpu_per_trial}
             if (self._state.n_jobs > 1 or gpu_per_trial > 0)
             else {"cpu": os.cpu_count() / n_concurrent_trials}
         )
@@ -2189,7 +2190,6 @@ class AutoML:
                 self._trained_estimator, retrain_time = self._state._train_with_config(
                     self._best_estimator,
                     state.best_config,
-                    self._search_states[estimator].search_space,
                     self.data_size_full,
                 )
                 logger.info(

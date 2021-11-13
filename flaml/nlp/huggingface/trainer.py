@@ -17,7 +17,7 @@ class TrainerForAutoTransformers(TFTrainer):
         """
         from ray import tune
 
-        eval_dataloader = self.get_eval_dataloader(eval_dataset)
+        eval_dataloader = self.get_eval_dataloader(self.eval_dataset)
         output = self.prediction_loop(eval_dataloader, description="Evaluation")
         self.log(output.metrics)
 

@@ -1,8 +1,3 @@
-import os
-
-os.environ["WANDB_DISABLED"] = "true"
-
-
 def test_hf_data():
     try:
         import ray
@@ -27,7 +22,7 @@ def test_hf_data():
     automl = AutoML()
 
     automl_settings = {
-        "gpu_per_trial": 1,
+        "gpu_per_trial": 0,
         "max_iter": 3,
         "time_budget": 40,
         "task": "seq-classification",
@@ -56,7 +51,7 @@ def test_hf_data():
     )
 
 
-def test_multigpu():
+def test_no_train():
     try:
         import ray
     except ImportError:
@@ -65,58 +60,7 @@ def test_multigpu():
 
     from datasets import load_dataset
 
-    train_dataset = load_dataset("glue", "mrpc", split="train[:1%]").to_pandas()
-    dev_dataset = load_dataset("glue", "mrpc", split="validation[:1%]").to_pandas()
-
-    custom_sent_keys = ["sentence1", "sentence2"]
-    label_key = "label"
-
-    X_train = train_dataset[custom_sent_keys]
-    y_train = train_dataset[label_key]
-
-    X_val = dev_dataset[custom_sent_keys]
-    y_val = dev_dataset[label_key]
-
-    automl = AutoML()
-
-    automl_settings = {
-        "gpu_per_trial": 1,
-        "max_iter": 3,
-        "time_budget": 40,
-        "task": "seq-classification",
-        "metric": "accuracy",
-    }
-
-    automl_settings["custom_hpo_args"] = {
-        "model_path": "google/electra-small-discriminator",
-        "output_dir": "data/output/",
-        "ckpt_per_epoch": 10,
-        "fp16": False,
-    }
-
-    automl.fit(
-        X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
-    )
-    automl.retrain_from_log(
-        log_file_name="flaml.log",
-        X_train=X_train,
-        y_train=y_train,
-        train_full=True,
-        record_id=0,
-        **automl_settings
-    )
-
-
-def test_no_valid():
-    try:
-        import ray
-    except ImportError:
-        return
-    from flaml import AutoML
-
-    from datasets import load_dataset
-
-    train_dataset = load_dataset("glue", "mrpc", split="train[:1%]").to_pandas()
+    train_dataset = load_dataset("glue", "mrpc", split="train[:10%]").to_pandas()
 
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
@@ -127,7 +71,7 @@ def test_no_valid():
     automl = AutoML()
 
     automl_settings = {
-        "gpu_per_trial": 1,
+        "gpu_per_trial": 0,
         "max_iter": 3,
         "time_budget": 40,
         "task": "seq-classification",
@@ -152,9 +96,14 @@ def test_no_valid():
     )
 
 
-def test_only_retrain():
+def _test_multigpu():
+    import os
+
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
     try:
         import ray
+
+        ray.init(local_mode=False, num_gpus=2)
     except ImportError:
         return
     from flaml import AutoML
@@ -162,6 +111,7 @@ def test_only_retrain():
     from datasets import load_dataset
 
     train_dataset = load_dataset("glue", "mrpc", split="train[:1%]").to_pandas()
+    dev_dataset = load_dataset("glue", "mrpc", split="validation[:1%]").to_pandas()
 
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
@@ -169,10 +119,13 @@ def test_only_retrain():
     X_train = train_dataset[custom_sent_keys]
     y_train = train_dataset[label_key]
 
+    X_val = dev_dataset[custom_sent_keys]
+    y_val = dev_dataset[label_key]
+
     automl = AutoML()
 
     automl_settings = {
-        "gpu_per_trial": 1,
+        "gpu_per_trial": 2,
         "max_iter": 3,
         "time_budget": 40,
         "task": "seq-classification",
@@ -185,11 +138,25 @@ def test_only_retrain():
         "ckpt_per_epoch": 10,
         "fp16": False,
     }
+    import transformers
 
+    transformers.logging.set_verbosity_error()
+
+    automl.fit(
+        X_train=X_train,
+        y_train=y_train,
+        X_val=X_val,
+        y_val=y_val,
+        use_ray=True,
+        verbose=4,
+        **automl_settings
+    )
     automl.retrain_from_log(
         log_file_name="flaml.log",
         X_train=X_train,
         y_train=y_train,
+        X_val=X_val,
+        y_val=y_val,
         train_full=True,
         record_id=0,
         **automl_settings
@@ -419,4 +386,4 @@ def test_load_args():
 
 
 if __name__ == "__main__":
-    test_hf_data()
+    _test_multigpu()

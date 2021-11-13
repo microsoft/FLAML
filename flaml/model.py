@@ -286,7 +286,7 @@ class TransformersEstimator(BaseEstimator):
         super().__init__(task, **config)
 
     def _join(self, X_train, y_train):
-        y_train = DataFrame(y_train, columns=["label"])
+        y_train = DataFrame(y_train, columns=["label"], index=X_train.index)
         train_df = X_train.join(y_train)
         return train_df
 
