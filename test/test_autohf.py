@@ -51,7 +51,7 @@ def test_hf_data():
     )
 
 
-def _test_no_train():
+def test_no_train():
     try:
         import ray
     except ImportError:
@@ -73,7 +73,7 @@ def _test_no_train():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 30,
+        "time_budget": 20,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -81,7 +81,7 @@ def _test_no_train():
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
-        "ckpt_per_epoch": 10,
+        "ckpt_per_epoch": 20,
         "fp16": False,
     }
 
@@ -117,7 +117,7 @@ def _test_multigpu():
     automl_settings = {
         "gpu_per_trial": 2,
         "max_iter": 3,
-        "time_budget": 30,
+        "time_budget": 20,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -125,7 +125,7 @@ def _test_multigpu():
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
-        "ckpt_per_epoch": 10,
+        "ckpt_per_epoch": 20,
         "fp16": False,
     }
     import transformers
@@ -153,7 +153,7 @@ def _test_multigpu():
     )
 
 
-def _test_classification_head():
+def test_classification_head():
     try:
         import ray
     except ImportError:
@@ -183,7 +183,7 @@ def _test_classification_head():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 30,
+        "time_budget": 20,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -191,7 +191,7 @@ def _test_classification_head():
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
-        "ckpt_per_epoch": 10,
+        "ckpt_per_epoch": 20,
         "fp16": False,
     }
 
@@ -254,7 +254,7 @@ def _test_custom_data():
     )
 
 
-def _test_rspt():
+def test_rspt():
     try:
         import ray
     except ImportError:
@@ -283,7 +283,7 @@ def _test_rspt():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 30,
+        "time_budget": 20,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -291,7 +291,7 @@ def _test_rspt():
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
-        "ckpt_per_epoch": 10,
+        "ckpt_per_epoch": 20,
         "fp16": False,
     }
 
@@ -309,7 +309,7 @@ def _test_rspt():
     )
 
 
-def _test_cv():
+def test_cv():
     try:
         import ray
     except ImportError:
@@ -348,7 +348,7 @@ def _test_cv():
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
-        "ckpt_per_epoch": 10,
+        "ckpt_per_epoch": 20,
         "fp16": False,
     }
 
@@ -376,4 +376,4 @@ def test_load_args():
 
 
 if __name__ == "__main__":
-    _test_no_train()
+    test_cv()
