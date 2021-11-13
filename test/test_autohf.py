@@ -378,4 +378,4 @@ def test_load_args():
 
 
 if __name__ == "__main__":
-    test_hf_data()
+    test_no_train()
