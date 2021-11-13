@@ -4,14 +4,79 @@
 1. Your input cannot be represented as X_train + y_train or dataframe + label.
 1. You want to tune a function that may not even be a machine learning procedure.
 
+## Key concepts in the usage of `flaml.tune`
+The usage of `flaml.tune` is, to a large extent, similar to the usage of `ray.tune`.  Interested users can find a more extensive documentation about `ray.tune` [here](https://docs.ray.io/en/latest/tune/key-concepts.html). 
 
-## Sequential tuning
+### **Search space**
+In tuning your hyperparameters, you need to define a search space. In the search space, you need to specify valid values for your hyperparameters and can specify how these values are sampled (e.g. from a uniform distribution or a normal distribution). 
 
+In the following code example, we include a search space with includes two hyperparameters named `x` and `y`, the valid values for both are all integer in the range of [1,10000]. The values for `x` are sampled uniformly in the specified range (using `tune.randit(lower=1, upper=100000)`), and the values for `y` are sampled in log space within the specified range (using `tune.lograndit(lower=1, upper=100000)`).
+
+```python
+config={
+        'x': tune.lograndint(lower=1, upper=100000),
+        'y': tune.randint(lower=1, upper=100000)
+    }, # the search space
+```
+
+### **Objective fucntion**
+
+To use `tune` , you will need to wrap your objective function in a lightweight trainable API. Attached below is an exmaple of how to write your objective into a function-based trainable API. In the following code, we define an objective function regarding the hyperparameters `x` and `y` introduced: $obj := (x-85000)^2 - x/y$. 
+
+
+```python
+# require: pip install flaml[blendsearch]
+from flaml import tune
+import time
+
+def evaluate_config(config):
+    '''evaluate a hyperparameter configuration'''
+    # we uss a toy example with 2 hyperparameters
+    # metric is the target minimization/maximization objective
+    metric = (config['x']-85000)**2 - config['x']/config['y']
+    # usually the evaluation takes an non-neglible cost
+    # and the cost could be related to certain hyperparameters
+    # here we simulate this cost by call the time.sleep() function
+    # in this example, we assume the cost it's proportional to x
+    time.sleep(config['x']/100000)
+    # use tune.report to report the metric to optimize  
+    tune.report(metric=metric)
+```
+
+### **Hyperparameter optimization/search algorithm**
+To tune the hyperparameters toward your objective, you will want to use a hyperparameter optimization or search algorithm which can help suggest hyperparameters with better performance (regarding your objective). `flaml` offers two HPO methods: CFO and BlendSearch. `flaml.tune` uses BlendSearch by default.
+
+
+## Sequential and parallel tuning using `flaml.tune` 
+
+### Sequential tuning
 Recommended when compute resource is limited and each trial can consume all the resources.
 
-## Parallel tuning
+In the following code, we show how to use `flaml.tune` to do hyperparamter search with the pre-defined search space `config` and objective function `evaluate_config` using the default serach algorithm in flaml.
 
-## Tuning algorithm
+```python
+analysis = tune.run(
+    evaluate_config,    # the function to evaluate a config
+    config={
+        'x': tune.lograndint(lower=1, upper=100000),
+        'y': tune.randint(lower=1, upper=100000)
+    }, # the search space
+    low_cost_partial_config={'x':1},    # a initial (partial) config with low cost
+    metric='metric',    # the name of the metric used for optimization
+    mode='min',         # the optimization mode, 'min' or 'max'
+    num_samples=-1,    # the maximal number of configs to try, -1 means infinite
+    time_budget_s=60,   # the time budget in seconds
+    local_dir='logs/',  # the local directory to store logs
+    # verbose=0,          # verbosity  
+    # use_ray=True, # uncomment when performing parallel tuning using ray
+    )
+
+print(analysis.best_trial.last_result)  # the best trial's result
+print(analysis.best_config) # the best config
+```
+### Parallel tuning
+
+## Hyperparameter optimization algorithm choice in `flaml.tune`
 
 `flaml` offers two HPO methods: CFO and BlendSearch.
 `flaml.tune` uses BlendSearch by default.
@@ -20,7 +85,7 @@ Recommended when compute resource is limited and each trial can consume all the 
 :---:|:---: -->
 
 
-### CFO: Frugal Optimization for Cost-related Hyperparameters
+### **CFO: Frugal Optimization for Cost-related Hyperparameters**
 
 CFO uses the randomized direct search method FLOW<sup>2</sup> with adaptive stepsize and random restart.
 It requires a low-cost initial point as input if such point exists.
@@ -56,7 +121,7 @@ initial point is known before optimization.
 If the search space is complex and CFO gets trapped into local optima, consider
 using BlendSearch.
 
-### BlendSearch: Economical Hyperparameter Optimization With Blended Search Strategy
+### **BlendSearch: Economical Hyperparameter Optimization With Blended Search Strategy**
 
 
 
