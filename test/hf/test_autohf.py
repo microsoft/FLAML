@@ -24,7 +24,7 @@ def test_hf_data():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 30,
+        "time_budget": 10,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -39,16 +39,16 @@ def test_hf_data():
     automl.fit(
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
     )
-    automl.retrain_from_log(
-        log_file_name="flaml.log",
-        X_train=X_train,
-        y_train=y_train,
-        X_val=X_val,
-        y_val=y_val,
-        train_full=True,
-        record_id=0,
-        **automl_settings
-    )
+    # automl.retrain_from_log(
+    #     log_file_name="flaml.log",
+    #     X_train=X_train,
+    #     y_train=y_train,
+    #     X_val=X_val,
+    #     y_val=y_val,
+    #     train_full=True,
+    #     record_id=0,
+    #     **automl_settings
+    # )
 
 
 def test_no_train():
@@ -73,7 +73,7 @@ def test_no_train():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 30,
+        "time_budget": 10,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -86,14 +86,6 @@ def test_no_train():
     }
 
     automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
-    automl.retrain_from_log(
-        log_file_name="flaml.log",
-        X_train=X_train,
-        y_train=y_train,
-        train_full=True,
-        record_id=0,
-        **automl_settings
-    )
 
 
 def _test_multigpu():
@@ -127,7 +119,7 @@ def _test_multigpu():
     automl_settings = {
         "gpu_per_trial": 2,
         "max_iter": 3,
-        "time_budget": 30,
+        "time_budget": 10,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -193,7 +185,7 @@ def _test_classification_head():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 30,
+        "time_budget": 10,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -293,7 +285,7 @@ def test_rspt():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 30,
+        "time_budget": 10,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -348,7 +340,7 @@ def _test_cv():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 30,
+        "time_budget": 10,
         "task": "seq-classification",
         "metric": "accuracy",
         "eval_method": "cv",
