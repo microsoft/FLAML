@@ -12,14 +12,14 @@ The usage of `flaml.tune` is, to a large extent, similar to the usage of `ray.tu
 ### **Search space**
 In tuning your hyperparameters, you need to define a search space. In the search space, you need to specify valid values for your hyperparameters and can specify how these values are sampled (e.g. from a uniform distribution or a normal distribution). 
 
-In the following code example, we include a search space with includes two hyperparameters named `x` and `y`, the valid values for both are all integer in the range of [1,10000]. The values for `x` are sampled uniformly in the specified range (using `tune.randit(lower=1, upper=100000)`), and the values for `y` are sampled in log space within the specified range (using `tune.lograndit(lower=1, upper=100000)`).
+In the following code example, we include a search space which includes two hyperparameters named `x` and `y`, the valid values for both are the integers in the range of [1,10000]. The values for `x` are sampled uniformly in the specified range (using `tune.randit(lower=1, upper=100000)`), and the values for `y` are sampled in log space within the specified range (using `tune.lograndit(lower=1, upper=100000)`).
 
 ```python
 from flaml import tune
-config={
+config_search_space = {
         'x': tune.lograndint(lower=1, upper=100000),
         'y': tune.randint(lower=1, upper=100000)
-    }, # the search space
+    }  # the search space
 ```
 
 ### **Objective fucntion**
@@ -59,10 +59,7 @@ In the following code, we show how to use `flaml.tune` to do hyperparamter searc
 # require: pip install flaml[blendsearch]
 analysis = tune.run(
     evaluate_config,    # the function to evaluate a config
-    config={
-        'x': tune.lograndint(lower=1, upper=100000),
-        'y': tune.randint(lower=1, upper=100000)
-    }, # the search space
+    config=config_search_space, # the search space defined
     low_cost_partial_config={'x':1},    # a initial (partial) config with low cost
     metric='metric',    # the name of the metric used for optimization
     mode='min',         # the optimization mode, 'min' or 'max'
