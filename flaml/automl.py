@@ -1120,7 +1120,7 @@ class AutoML:
         self._state.resources_per_trial = (
             {"cpu": max(self._state.n_jobs, gpu_per_trial), "gpu": gpu_per_trial}
             if (self._state.n_jobs > 1 or gpu_per_trial > 0)
-            else {"cpu": os.cpu_count() / self._n_concurrent_trials}
+            else {"cpu": os.cpu_count()}
         )
         self._trained_estimator = self._state._train_with_config(
             best_estimator,
