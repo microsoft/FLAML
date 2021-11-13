@@ -49,6 +49,7 @@ The optimization metric is specified via the `metric` argument. It can be either
 
 The estimator list can contain one or more estimator names, each corresponding to a built-in estimator or a custom estimator. Each estimator has a search space for hyperparameter configurations.
 
+#### Estimator
 * Built-in estimator
     - 'lgbm': LightGBM.
 * Custom estimator. Use custom estimator for:
@@ -97,9 +98,11 @@ class MyRegularizedGreedyForest(SKLearnEstimator):
         return space
 ```
 
-In the constructor, we set `self.estimator_class` as `RGFClassifier` or `RGFRegressor` according to the task type. In the `search_space` function, we return a dictionary that represents the hyperparameters to tune as keys and the domain and init values as values.
+In the constructor, we set `self.estimator_class` as `RGFClassifier` or `RGFRegressor` according to the task type. If the estimator you want to tune does not have a scikit-learn style `fit()` and `predict()` API, you can override the `fit()` and `predict()` function of `flaml.model.BaseEstimator`, like [XGBoostEstimator](https://github.com/microsoft/FLAML/blob/59083fbdcb95c15819a0063a355969203022271c/flaml/model.py#L511).
 
-If the estimator you want to tune does not have a scikit-learn style `fit()` and `predict()` API, you can override the `fit()` and `predict()` function of `flaml.model.BaseEstimator`, like [XGBoostEstimator](https://github.com/microsoft/FLAML/blob/59083fbdcb95c15819a0063a355969203022271c/flaml/model.py#L511).
+#### Search space
+Each estimator, no matter it is a built-in or custom estimator, must have a `search_space` function. In the `search_space` function, we return a dictionary about the hyperparameters, the keys of which are the names of the hyperparameters to tune, and each value is a set of detailed search configurations about the corresponding hyperparameters represented in a dictionary. A search configuration dictionary includes the following fields `domain`, which specifies the possible value of the hyperparameter and how to sample it, `init_value`(optional), which specifies the initial value of the hyperparameter, and `low_cost_init_value`(optional), which specifies the value of the hyperparameter that is associated with low computation cost. For a complete guide about how to set the domain, please refer to [search space](Tune-User-Defined-Function#search-space).
+
 
 To customize the search space for a built-in estimator, use a similar approach to define a class that inherits the existing estimator. For example,
 
@@ -141,7 +144,7 @@ class XGBoost2D(XGBoostSklearnEstimator):
         }
 ```
 
-We override the `search_space` function to tune two hyperparameters only, "n_estimators" and "max_leaves". They are both random integers in the log space, ranging from 4 to data-dependent upper bound. The lower bound for each corresponds to low training cost, hence the "low_cost_init_value" for each is set to 4. For a complete guide about how to set the domain, please refer to [search space](Tune-User-Defined-Function#search-space).
+We override the `search_space` function to tune two hyperparameters only, "n_estimators" and "max_leaves". They are both random integers in the log space, ranging from 4 to data-dependent upper bound. The lower bound for each corresponds to low training cost, hence the "low_cost_init_value" for each is set to 4. 
 
 ### How to set time budget
 
