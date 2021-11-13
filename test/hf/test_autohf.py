@@ -340,7 +340,7 @@ def _test_cv():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 10,
+        "time_budget": 20,
         "task": "seq-classification",
         "metric": "accuracy",
         "eval_method": "cv",
