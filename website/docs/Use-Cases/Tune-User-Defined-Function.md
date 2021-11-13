@@ -22,6 +22,8 @@ config_search_space = {
     }  # the search space
 ```
 
+More details about the search space domain: the corresponding value of a particular hyperparameter in the search space is called a domain, for example, `tune.randint(lower=1, upper=100000)` for `y` in the code example shown above. The domain specifies a type and valid range to sample parameters from. Supported types include float, integer, and categorical. You can also specify how to sample values from certain distributions in linear scale or log scale (e.g., the `tune.lograndint(lower=1, upper=100000)` for `x`). It is a common practice to sample in log scale if the valid value range is large and a large magnititue of change is preferred. Please refer to [ray.tune](https://docs.ray.io/en/latest/tune/api_docs/search_space.html#overview) for a more comprehensive introduction about possible choices of the domain.
+
 ### **Objective fucntion**
 
 To use `tune` , you will need to wrap your objective function in a lightweight trainable API. Attached below is an exmaple of how to write your objective into a function-based trainable API. In the following code, we define an objective function regarding the hyperparameters `x` and `y` introduced: $obj := (x-85000)^2 - x/y$. 
