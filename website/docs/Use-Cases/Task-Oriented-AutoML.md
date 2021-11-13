@@ -83,11 +83,11 @@ class MyRegularizedGreedyForest(SKLearnEstimator):
         space = {
             "max_leaf": {
                 "domain": tune.lograndint(lower=4, upper=data_size),
-                "init_value": 4,
+                "low_cost_init_value": 4,
             },
             "n_iter": {
                 "domain": tune.lograndint(lower=1, upper=data_size),
-                "init_value": 1,
+                "low_cost_init_value": 1,
             },
             "learning_rate": {"domain": tune.loguniform(lower=0.01, upper=20.0)},
             "min_samples_leaf": {
@@ -101,7 +101,15 @@ class MyRegularizedGreedyForest(SKLearnEstimator):
 In the constructor, we set `self.estimator_class` as `RGFClassifier` or `RGFRegressor` according to the task type. If the estimator you want to tune does not have a scikit-learn style `fit()` and `predict()` API, you can override the `fit()` and `predict()` function of `flaml.model.BaseEstimator`, like [XGBoostEstimator](https://github.com/microsoft/FLAML/blob/59083fbdcb95c15819a0063a355969203022271c/flaml/model.py#L511).
 
 #### Search space
-Each estimator, no matter it is a built-in or custom estimator, must have a `search_space` function. In the `search_space` function, we return a dictionary about the hyperparameters, the keys of which are the names of the hyperparameters to tune, and each value is a set of detailed search configurations about the corresponding hyperparameters represented in a dictionary. A search configuration dictionary includes the following fields `domain`, which specifies the possible value of the hyperparameter and how to sample it, `init_value`(optional), which specifies the initial value of the hyperparameter, and `low_cost_init_value`(optional), which specifies the value of the hyperparameter that is associated with low computation cost. For a complete guide about how to set the domain, please refer to [search space](Tune-User-Defined-Function#search-space).
+
+Each estimator class, built-in or not, must have a `search_space` function. In the `search_space` function, we return a dictionary about the hyperparameters, the keys of which are the names of the hyperparameters to tune, and each value is a set of detailed search configurations about the corresponding hyperparameters represented in a dictionary. A search configuration dictionary includes the following fields:
+* `domain`, which specifies the possible values of the hyperparameter and their distribution;
+* `init_value` (optional), which specifies the initial value of the hyperparameter;
+* `low_cost_init_value`(optional), which specifies the value of the hyperparameter that is associated with low computation cost. 
+
+In the example above, we tune four hyperparameters, three integers and one float. They all follow a log-uniform distribution. "max_leaf" and "n_iter" have "low_cost_init_value" specified as their values heavily influence the training cost.
+
+For a complete guide about how to set the domain, please refer to [search space](Tune-User-Defined-Function#search-space).
 
 
 To customize the search space for a built-in estimator, use a similar approach to define a class that inherits the existing estimator. For example,
