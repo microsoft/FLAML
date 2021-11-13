@@ -1,3 +1,5 @@
+# Tune User-defined Function
+
 `flaml.tune` is a module for economical hyperparameter tuning. It is used internally by `flaml.AutoML`. It can be used directly to tune a user-defined function (UDF), and not limited to machine learning model training. You can use `flaml.tune` instead of `flaml.AutoML` if one of the following is true:
 
 1. Your machine learning task is not one of the built-in tasks from `flaml.AutoML`.
