@@ -39,16 +39,16 @@ def test_hf_data():
     automl.fit(
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
     )
-    # automl.retrain_from_log(
-    #     log_file_name="flaml.log",
-    #     X_train=X_train,
-    #     y_train=y_train,
-    #     X_val=X_val,
-    #     y_val=y_val,
-    #     train_full=True,
-    #     record_id=0,
-    #     **automl_settings
-    # )
+    automl.retrain_from_log(
+        log_file_name="flaml.log",
+        X_train=X_train,
+        y_train=y_train,
+        X_val=X_val,
+        y_val=y_val,
+        train_full=True,
+        record_id=0,
+        **automl_settings
+    )
 
 
 def test_no_train():
