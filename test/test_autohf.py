@@ -39,16 +39,16 @@ def test_hf_data():
     automl.fit(
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
     )
-    automl.retrain_from_log(
-        log_file_name="flaml.log",
-        X_train=X_train,
-        y_train=y_train,
-        X_val=X_val,
-        y_val=y_val,
-        train_full=True,
-        record_id=0,
-        **automl_settings
-    )
+    # automl.retrain_from_log(
+    #     log_file_name="flaml.log",
+    #     X_train=X_train,
+    #     y_train=y_train,
+    #     X_val=X_val,
+    #     y_val=y_val,
+    #     train_full=True,
+    #     record_id=0,
+    #     **automl_settings
+    # )
 
 
 def test_no_train():
@@ -60,7 +60,7 @@ def test_no_train():
 
     from datasets import load_dataset
 
-    train_dataset = load_dataset("glue", "mrpc", split="train[:10%]").to_pandas()
+    train_dataset = load_dataset("glue", "mrpc", split="train[:1%]").to_pandas()
 
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
@@ -94,8 +94,6 @@ def _test_multigpu():
     os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
     try:
         import ray
-
-        ray.init(local_mode=False, num_gpus=2)
     except ImportError:
         return
     from flaml import AutoML
