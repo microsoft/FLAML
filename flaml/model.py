@@ -525,6 +525,10 @@ class XGBoostEstimator(SKLearnEstimator):
                 "init_value": 4,
                 "low_cost_init_value": 4,
             },
+            "max_depth": {
+                "domain": tune.choice([0, 6]),
+                "init_value": 0,
+            },
             "min_child_weight": {
                 "domain": tune.loguniform(lower=0.001, upper=128),
                 "init_value": 1,
@@ -565,11 +569,12 @@ class XGBoostEstimator(SKLearnEstimator):
 
     def config2params(cls, config: dict) -> dict:
         params = config.copy()
-        params["max_depth"] = params.get("max_depth", 0)
-        params["grow_policy"] = params.get("grow_policy", "lossguide")
-        params["booster"] = params.get("booster", "gbtree")
+        # params["max_depth"] = params.get("max_depth", 0)
+        if params["max_depth"] == 0:
+            params["grow_policy"] = params.get("grow_policy", "lossguide")
+            params["tree_method"] = params.get("tree_method", "hist")
+        # params["booster"] = params.get("booster", "gbtree")
         params["use_label_encoder"] = params.get("use_label_encoder", False)
-        params["tree_method"] = params.get("tree_method", "hist")
         if "n_jobs" in config:
             params["nthread"] = params.pop("n_jobs")
         return params
@@ -666,11 +671,10 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
 
     def config2params(cls, config: dict) -> dict:
         params = config.copy()
-        params["max_depth"] = 0
-        params["grow_policy"] = params.get("grow_policy", "lossguide")
-        params["booster"] = params.get("booster", "gbtree")
+        if params["max_depth"] == 0:
+            params["grow_policy"] = params.get("grow_policy", "lossguide")
+            params["tree_method"] = params.get("tree_method", "hist")
         params["use_label_encoder"] = params.get("use_label_encoder", False)
-        params["tree_method"] = params.get("tree_method", "hist")
         return params
 
     def __init__(
