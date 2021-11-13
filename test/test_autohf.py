@@ -1,4 +1,4 @@
-def _test_hf_data():
+def test_hf_data():
     try:
         import ray
     except ImportError:
@@ -24,7 +24,7 @@ def _test_hf_data():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 30,
+        "time_budget": 20,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -32,23 +32,23 @@ def _test_hf_data():
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
-        "ckpt_per_epoch": 10,
+        "ckpt_per_epoch": 20,
         "fp16": False,
     }
 
     automl.fit(
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
     )
-    automl.retrain_from_log(
-        log_file_name="flaml.log",
-        X_train=X_train,
-        y_train=y_train,
-        X_val=X_val,
-        y_val=y_val,
-        train_full=True,
-        record_id=0,
-        **automl_settings
-    )
+    # automl.retrain_from_log(
+    #     log_file_name="flaml.log",
+    #     X_train=X_train,
+    #     y_train=y_train,
+    #     X_val=X_val,
+    #     y_val=y_val,
+    #     train_full=True,
+    #     record_id=0,
+    #     **automl_settings
+    # )
 
 
 def _test_no_train():
