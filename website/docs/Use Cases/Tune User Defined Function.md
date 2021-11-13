@@ -13,6 +13,7 @@ In tuning your hyperparameters, you need to define a search space. In the search
 In the following code example, we include a search space with includes two hyperparameters named `x` and `y`, the valid values for both are all integer in the range of [1,10000]. The values for `x` are sampled uniformly in the specified range (using `tune.randit(lower=1, upper=100000)`), and the values for `y` are sampled in log space within the specified range (using `tune.lograndit(lower=1, upper=100000)`).
 
 ```python
+from flaml import tune
 config={
         'x': tune.lograndint(lower=1, upper=100000),
         'y': tune.randint(lower=1, upper=100000)
@@ -25,8 +26,6 @@ To use `tune` , you will need to wrap your objective function in a lightweight t
 
 
 ```python
-# require: pip install flaml[blendsearch]
-from flaml import tune
 import time
 
 def evaluate_config(config):
@@ -55,6 +54,7 @@ Recommended when compute resource is limited and each trial can consume all the 
 In the following code, we show how to use `flaml.tune` to do hyperparamter search with the pre-defined search space `config` and objective function `evaluate_config` using the default serach algorithm in flaml.
 
 ```python
+# require: pip install flaml[blendsearch]
 analysis = tune.run(
     evaluate_config,    # the function to evaluate a config
     config={
