@@ -51,7 +51,17 @@ The estimator list can contain one or more estimator names, each corresponding t
 
 #### Estimator
 * Built-in estimator
-    - 'lgbm': LightGBM.
+    - 'lgbm': LGBMEstimator. Hyperparameters: n_estimators, num_leaves, min_child_samples, learning_rate, log_max_bin (logarithm of (max_bin + 1) with base 2), colsample_bytree, reg_alpha, reg_lambda.
+    - 'xgboost': XGBoostSkLearnEstimator. Hyperparameters: n_estimators, max_leaves, max_depth, min_child_weight, learning_rate, subsample, colsample_bylevel, colsample_bytree, reg_alpha, reg_lambda.
+    - 'rf': RandomForestEstimator. Hyperparameters: n_estimators, max_features, max_leaves, criterion (for classification only).
+    - 'extra_tree': ExtraTreesEstimator. Hyperparameters: n_estimators, max_features, max_leaves, criterion (for classification only).
+    - 'lrl1': LRL1Classifier (sklearn.LogisticRegression with L1 regularization). Hyperparameters: C.
+    - 'lrl2': LRL2Classifier (sklearn.LogisticRegression with L2 regularization). Hyperparameters: C.
+    - 'catboost': CatBoostEstimator. Hyperparameters: early_stopping_rounds, learning_rate, n_estimators.
+    - 'kneighbor': KNeighborsEstimator. Hyperparameters: n_neighbors.
+    - 'prophet': Prophet. Hyperparameters: changepoint_prior_scale, seasonality_prior_scale, holidays_prior_scale, seasonality_mode.
+    - 'arima': ARIMA. Hyperparameters: p, d, q.
+    - 'sarimax': SARIMAX. Hyperparameters: p, d, q, P, D, Q, s.
 * Custom estimator. Use custom estimator for:
     - tuning an estimator that is not built-in
     - customizing search space for a built-in estimator
@@ -248,11 +258,41 @@ flaml will perform 4 trials in parallel, each consuming 4 CPU cores. The paralle
 
 ### Warm start
 
+We can warm start the AutoML by providing starting points of hyperparameter configurstions for each estimator. For example, if you have run AutoML for one hour, after checking the results, you would like to run it for another two hours, then you can use the best configurations found for each estimator as the starting points for the new run.
+
+```python
+automl1 = AutoML()
+automl1.fit(X_train, y_train, time_budget=3600)
+automl2 = AutoML()
+automl2.fit(X_train, y_train, time_budget=7200, starting_points=automl1.best_config_per_estimator)
+```
+
+`starting_points` is a dictionary. The keys are the estimator names. If you do not need to specify starting points for an estimator, exclude its name from the dictionary. The value for each key can be either a dictionary of a list of dictionaries, corresponding to one hyperparameter configuration, or multiple hyperparameter configurations, respectively.
+
 ### Log the trials
+
+The trials are logged in a file if a `log_file_name` is passed.
+Each trial is logged as a json record in one line. The best trial's id is logged in the last line. For example,
+```
+{"record_id": 0, "iter_per_learner": 1, "logged_metric": null, "trial_time": 0.12717914581298828, "wall_clock_time": 0.1728971004486084, "validation_loss": 0.07333333333333332, "config": {"n_estimators": 4, "num_leaves": 4, "min_child_samples": 20, "learning_rate": 0.09999999999999995, "log_max_bin": 8, "colsample_bytree": 1.0, "reg_alpha": 0.0009765625, "reg_lambda": 1.0}, "learner": "lgbm", "sample_size": 150}
+{"record_id": 1, "iter_per_learner": 3, "logged_metric": null, "trial_time": 0.07027268409729004, "wall_clock_time": 0.3756711483001709, "validation_loss": 0.05333333333333332, "config": {"n_estimators": 4, "num_leaves": 4, "min_child_samples": 12, "learning_rate": 0.2677050123105203, "log_max_bin": 7, "colsample_bytree": 1.0, "reg_alpha": 0.001348364934537134, "reg_lambda": 1.4442580148221913}, "learner": "lgbm", "sample_size": 150}
+{"curr_best_record_id": 1}
+```
+
+1. `iter_per_learner` means how many models have been tried for each learner. The reason you see records like `iter_per_learner=3` for `record_id=1` is that flaml only logs better configs than the previous iters by default, i.e., `log_type='better'`. If you use `log_type='all'` instead, all the trials will be logged.
+1. `trial_time` means the time taken to train and evaluate one config in that trial. `total_search_time` is the total time spent from the beginning of `fit()`.
+1. flaml will adjust the `n_estimators` for lightgbm etc. according to the remaining budget and check the time budget constraint and stop in several places. Most of the time that makes `fit()` stops before the given budget. Occasionally it may run over the time budget slightly. But the log file always contains the best config info and you can recover the best model until any time point using `retrain_from_log()`.
+
+We can also use mlflow for logging:
+```python
+mlflow.set_experiment("flaml")
+with mlflow.start_run():
+    automl.fit(X_train=X_train, y_train=y_train, **settings)
+```
 
 ### Extra fit arguments
 
-
+Extra fit arguments that are needed by the estimators can be passed to `AutoML.fit()`. For example, if there is a weight associated with each training example, they can be passed via `sample_weight`. For another example, `period` can be passed for time series forecaster. For any extra keywork argument passed to `AutoML.fit()` which has not been explicitly listed in the function signature, it will be passed to the underlying estimators' `fit()` as is.
 
 ## Retrieve and analyze the outcomes of AutoML.fit()
 
