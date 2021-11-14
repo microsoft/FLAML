@@ -15,7 +15,6 @@ class TrainerForAuto(TFTrainer):
             eval_dataset:
                 the dataset to be evaluated
         """
-        from ray import tune
 
         eval_dataloader = self.get_eval_dataloader(self.eval_dataset)
         output = self.prediction_loop(eval_dataloader, description="Evaluation")
