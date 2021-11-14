@@ -369,6 +369,8 @@ class TransformersEstimator(BaseEstimator):
                         > self.train_begin_time + budget
                     ):
                         control.should_training_stop = True
+                        control.should_save = True
+                        control.should_evaluate = True
 
         import transformers
         from transformers import TrainingArguments

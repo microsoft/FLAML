@@ -228,6 +228,7 @@ class DataTransformer:
         from .nlp.utils import _is_nlp_task
 
         if _is_nlp_task(task):
+            X = X.copy()
             # if the mode is NLP, check the type of input, each column must be either string or
             # ids (input ids, token type id, attention mask, etc.)
             str_columns = []

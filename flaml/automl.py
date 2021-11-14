@@ -981,7 +981,7 @@ class AutoML:
         split_type=None,
         groups=None,
         n_jobs=-1,
-        gpu_per_trial=-1,
+        gpu_per_trial=0,
         train_best=True,
         train_full=False,
         record_id=-1,
@@ -1114,9 +1114,9 @@ class AutoML:
         import os
 
         self._state.resources_per_trial = (
-            {"cpu": max(self._state.n_jobs, 1), "gpu": gpu_per_trial}
-            if (self._state.n_jobs > 1 or gpu_per_trial > 0)
-            else {"cpu": os.cpu_count()}
+            {"cpu": os.cpu_count(), "gpu": gpu_per_trial}
+            if self._state.n_jobs < 0
+            else {"cpu": self._state.n_jobs, "gpu": gpu_per_trial}
         )
         self._trained_estimator = self._state._train_with_config(
             best_estimator,
@@ -1696,9 +1696,9 @@ class AutoML:
         import os
 
         self._state.resources_per_trial = (
-            {"cpu": max(self._state.n_jobs, 1), "gpu": gpu_per_trial}
-            if (self._state.n_jobs > 1 or gpu_per_trial > 0)
-            else {"cpu": int(os.cpu_count() / n_concurrent_trials)}
+            {"cpu": int(os.cpu_count() / n_concurrent_trials), "gpu": gpu_per_trial}
+            if self._state.n_jobs < 0
+            else {"cpu": self._state.n_jobs, "gpu": gpu_per_trial}
         )
         self._n_concurrent_trials = n_concurrent_trials
         self._early_stop = early_stop
