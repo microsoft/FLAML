@@ -1,4 +1,4 @@
-def test_hf_data():
+def _test_hf_data():
     try:
         import ray
     except ImportError:
@@ -153,7 +153,7 @@ def _test_multigpu():
     )
 
 
-def test_classification_head():
+def _test_classification_head():
     try:
         import ray
     except ImportError:
@@ -254,7 +254,7 @@ def _test_custom_data():
     )
 
 
-def test_rspt():
+def _test_rspt():
     try:
         import ray
     except ImportError:
@@ -309,7 +309,7 @@ def test_rspt():
     )
 
 
-def test_cv():
+def _test_cv():
     try:
         import ray
     except ImportError:
@@ -366,7 +366,7 @@ def test_cv():
     )
 
 
-def test_load_args():
+def _test_load_args():
     import subprocess
     import sys
 
@@ -376,4 +376,4 @@ def test_load_args():
 
 
 if __name__ == "__main__":
-    test_cv()
+    _test_multigpu()

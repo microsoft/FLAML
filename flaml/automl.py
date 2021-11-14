@@ -1118,7 +1118,7 @@ class AutoML:
         import os
 
         self._state.resources_per_trial = (
-            {"cpu": max(self._state.n_jobs, gpu_per_trial), "gpu": gpu_per_trial}
+            {"cpu": max(self._state.n_jobs, 1), "gpu": gpu_per_trial}
             if (self._state.n_jobs > 1 or gpu_per_trial > 0)
             else {"cpu": os.cpu_count()}
         )
@@ -1700,9 +1700,11 @@ class AutoML:
         import os
 
         self._state.resources_per_trial = (
-            {"cpu": max(self._state.n_jobs, gpu_per_trial), "gpu": gpu_per_trial}
+            {"cpu": max(self._state.n_jobs, 1), "gpu": gpu_per_trial}
             if (self._state.n_jobs > 1 or gpu_per_trial > 0)
-            else {"cpu": os.cpu_count() / n_concurrent_trials}
+            else {"cpu": int(os.cpu_count() / n_concurrent_trials)}
+            if self._state.n_jobs == 0
+            else os.cpu_count()
         )
         self._n_concurrent_trials = n_concurrent_trials
         self._early_stop = early_stop

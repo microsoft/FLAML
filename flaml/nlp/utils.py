@@ -178,18 +178,15 @@ class HPOArgs:
 
     """
 
-    # show this in doc str
     output_dir: str = field(
         default="data/output/", metadata={"help": "data dir", "required": True}
     )
 
-    # show this in doc str
     model_path: str = field(
         default="facebook/muppet-roberta-base",
         metadata={"help": "model path model for HPO"},
     )
 
-    # show this in doc str
     fp16: bool = field(default=True, metadata={"help": "whether to use the FP16 mode"})
 
     max_seq_length: int = field(default=128, metadata={"help": "max seq length"})

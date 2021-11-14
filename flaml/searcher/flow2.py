@@ -535,11 +535,7 @@ class FLOW2(Searcher):
         # e.g., "eval_metric": ["logloss", "error"].
         keys = sorted(config.keys()) if self.hierarchical else self._space_keys
         for key in keys:
-            try:
-                value = config[key]
-            except KeyError:
-                stop = 0
-                stop += 1
+            value = config[key]
             if key == self.prune_attr:
                 value_list.append(value)
             else:

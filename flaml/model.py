@@ -84,7 +84,7 @@ class BaseEstimator:
             task: A string of the task type, one of
                 'binary', 'multi', 'regression', 'rank', 'forecast'
             config: A dictionary containing the hyperparameter names, 'n_jobs' as keys.
-                n_jobs is the number of parallel threads. gpu_per_trial is only used in TransformersEstimator
+                n_jobs is the number of parallel threads.
         """
         self.params = self.config2params(config)
         self.estimator_class = self._model = None
