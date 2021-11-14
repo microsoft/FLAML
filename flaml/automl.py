@@ -311,11 +311,10 @@ class AutoMLState:
                 )
                 return {"estimator": return_estimator, "train_time": train_time}
 
-            for estimator_name in [estimator]:
-                if estimator_name not in self.learner_classes:
-                    self.learner_classes[estimator_name] = get_estimator_class(
-                        self.task, estimator_name
-                    )
+            if estimator_name not in self.learner_classes:
+                self.learner_classes[estimator_name] = get_estimator_class(
+                    self.task, estimator_name
+                )
 
             analysis = tune.run(
                 _trainable_function_wrapper,
