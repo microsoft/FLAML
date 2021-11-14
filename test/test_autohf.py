@@ -51,7 +51,7 @@ def _test_hf_data():
     )
 
 
-def test_no_train():
+def _test_no_train():
     try:
         import ray
     except ImportError:
@@ -153,7 +153,7 @@ def _test_multigpu():
     )
 
 
-def _test_classification_head():
+def test_classification_head():
     try:
         import ray
     except ImportError:

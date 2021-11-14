@@ -4,4 +4,5 @@ def test_load_args_sub():
     HPOArgs.load_args()
 
 
-test_load_args_sub()
+if __name__ == "__main__":
+    test_load_args_sub()
