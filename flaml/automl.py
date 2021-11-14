@@ -1699,8 +1699,6 @@ class AutoML:
             {"cpu": max(self._state.n_jobs, 1), "gpu": gpu_per_trial}
             if (self._state.n_jobs > 1 or gpu_per_trial > 0)
             else {"cpu": int(os.cpu_count() / n_concurrent_trials)}
-            if self._state.n_jobs == 0
-            else os.cpu_count()
         )
         self._n_concurrent_trials = n_concurrent_trials
         self._early_stop = early_stop
