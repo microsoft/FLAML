@@ -1056,7 +1056,12 @@ class AutoML:
             self._state.task = TS_FORECAST
         else:
             self._state.task = task
-        fit_kwargs["is_retrain"] = True
+
+        from .nlp.utils import _is_nlp_task
+
+        if _is_nlp_task(task):
+            fit_kwargs["is_retrain"] = True
+
         self._state.fit_kwargs = fit_kwargs
         self._validate_data(X_train, y_train, dataframe, label, groups=groups)
 
@@ -1560,7 +1565,6 @@ class AutoML:
                 the searched learners, such as sample_weight. Include period as
                 a key word argument for 'ts_forecast' task.
         """
-        from .nlp.utils import _is_nlp_task
 
         self._state._start_time_flag = self._start_time_flag = time.time()
         if task == FORECAST:
@@ -1568,7 +1572,12 @@ class AutoML:
         else:
             self._state.task = task
         self._state.log_training_metric = log_training_metric
-        fit_kwargs["is_retrain"] = False
+
+        from .nlp.utils import _is_nlp_task
+
+        if _is_nlp_task(task):
+            fit_kwargs["is_retrain"] = False
+
         self._state.fit_kwargs = fit_kwargs
         self._state.weight_val = sample_weight_val
 
