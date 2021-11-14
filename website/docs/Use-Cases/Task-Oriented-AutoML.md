@@ -178,17 +178,80 @@ You will see that the time to finish the first and cheapest trial is 2.6 seconds
 
 ### Constraint
 
+Besides the time budget for model search, users can set other constraints such as the maximal number of models to try, limit on training time and prediction time per model.
+* `max_iter`: maximal number of models to try.
+* `train_time_limit`: training time in seconds.
+* `pred_time_limit`: prediction time per instance in seconds.
+
+For example,
+```python
+automl.fit(X_train, y_train, max_iter=100, train_time_limit=1, pred_time_limit=1e-3)
+```
+
 ### Ensemble
+
+To use stacked ensemble after the model search, set `ensemble=True` or a dict. When `ensemble=True`, the final estimator and `passthrough` in the stacker will be automatically chosen. You can specify customized final estimator or passthrough option:
+* "final_estimator": an instance of the final estimator in the stacker.
+* "passthrough": True (default) or False, whether to pass the original features to the stacker.
+
+For example,
+```python
+automl.fit(
+    X_train, y_train, task="classification",
+    "ensemble": {
+        "final_estimator": LogisticRegression(),
+        "passthrough": False,
+    },
+)
+```
 
 ### Resampling strategy
 
-### Data split method
+By default, flaml decides the resampling automatically according to the data size and the time budget. If you would like to enforce a certain resampling strategy, you can set `eval_method` to be "holdout" or "cv" for holdout or cross-validation.
 
-### Extra fit arguments
+For holdout, you can also set:
+* `split_ratio`: the fraction for validation data, 0.1 by default.
+* `X_val`, `y_val`: a separate validation dataset. When they are passed, the validation metrics will be computed against this given validation dataset. If they are not passed, then a validation dataset will be split from the training data and held out from training during the model search. After the model search, flaml will retrain the model with best configuration on the full training data.
+You can set`retrain_full` to be `False` to skip the final retraining or "budget" to ask flaml to do its best to retrain within the time budget.
+
+For cross validation, you can also set `n_splits` of the number of folds. By default it is 5.
+
+#### Data split method
+
+By default, flaml uses the following method to split the data:
+* stratified split for classification;
+* uniform split for regression;
+* time-based split for time series forecasting;
+* group-based split for learning to rank.
+
+The data split method for classification can be changed into uniform split by setting `split_type="uniform"`. For both classification and regression, time-based split can be enforced if the data are sorted by timestamps, by setting `split_type="time"`.
 
 ### Parallel tuning
 
+When you have parallel resources, you can either spend them in training and keep the model search sequential, or perform parallel search. Following scikit-learn, the parameter `n_jobs` specifies how many CPU cores to use for each training job. The number of parallel trials is specified via the parameter `n_concurrent_trials`. By default, `n_jobs=-1, n_concurrent_trials=1`. That is, all the CPU cores (in a single compute node) are used for training a single model and the search is sequential. When you have more resources than what each single training job needs, you can consider increasing `n_concurrent_trials`.
+
+To do parallel tuning, install the `ray` and `blendsearch` options:
+```bash
+pip install flaml[ray,blendsearch]
+```
+
+`ray` is used to manage the resources. For example,
+```python
+ray.init(n_cpus=16)
+```
+allocates 16 CPU cores. Then, when you run:
+```python
+automl.fit(X_train, y_train, n_jobs=4, n_concurrent_trials=4)
+```
+flaml will perform 4 trials in parallel, each consuming 4 CPU cores. The parallel tuning uses the [BlendSearch](Tune-User-Defined-Function##blendsearch-economical-hyperparameter-optimization-with-blended-search-strategy) algorithm.
+
+
 ### Warm start
+
+### Log the trials
+
+### Extra fit arguments
+
 
 
 ## Retrieve and analyze the outcomes of AutoML.fit()
