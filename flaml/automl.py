@@ -297,7 +297,6 @@ class AutoMLState:
         if self.resources_per_trial.get("gpu", 0) > 0:
 
             def _trainable_function_wrapper(config: dict):
-                import ray
 
                 return_estimator, train_time = train_estimator(
                     X_train=sampled_X_train,
@@ -312,11 +311,10 @@ class AutoMLState:
                 )
                 return {"estimator": return_estimator, "train_time": train_time}
 
-            for estimator_name in [estimator]:
-                if estimator_name not in self.learner_classes:
-                    self.learner_classes[estimator_name] = get_estimator_class(
-                        self.task, estimator_name
-                    )
+            if estimator not in self.learner_classes:
+                self.learner_classes[estimator] = get_estimator_class(
+                    self.task, estimator
+                )
 
             analysis = tune.run(
                 _trainable_function_wrapper,
@@ -327,10 +325,8 @@ class AutoMLState:
                 num_samples=1,
                 use_ray=True,
             )
-            estimator, train_time = (
-                list(analysis.results.values())[0]["estimator"],
-                list(analysis.results.values())[0]["train_time"],
-            )
+            result = list(analysis.results.values())[0]
+            estimator, train_time = result["estimator"], result["train_time"]
 
         else:
             estimator, train_time = train_estimator(

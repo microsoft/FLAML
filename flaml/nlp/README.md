@@ -27,7 +27,7 @@ X_test = test_dataset[custom_sent_keys]
 automl = AutoML()
 
 automl_settings = {
-    "gpu_per_trial": 0,
+    "gpu_per_trial": 0,  # use a value larger than 0 for GPU training
     "max_iter": 10,
     "time_budget": 300,
     "task": "seq-classification",
