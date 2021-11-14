@@ -569,8 +569,8 @@ class XGBoostEstimator(SKLearnEstimator):
 
     def config2params(cls, config: dict) -> dict:
         params = config.copy()
-        # params["max_depth"] = params.get("max_depth", 0)
-        if params["max_depth"] == 0:
+        max_depth = params["max_depth"] = params.get("max_depth", 0)
+        if max_depth == 0:
             params["grow_policy"] = params.get("grow_policy", "lossguide")
             params["tree_method"] = params.get("tree_method", "hist")
         # params["booster"] = params.get("booster", "gbtree")
@@ -671,7 +671,8 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
 
     def config2params(cls, config: dict) -> dict:
         params = config.copy()
-        if params["max_depth"] == 0:
+        max_depth = params["max_depth"] = params.get("max_depth", 0)
+        if max_depth == 0:
             params["grow_policy"] = params.get("grow_policy", "lossguide")
             params["tree_method"] = params.get("tree_method", "hist")
         params["use_label_encoder"] = params.get("use_label_encoder", False)
