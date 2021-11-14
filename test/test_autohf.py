@@ -291,7 +291,7 @@ def test_rspt():
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
-        "ckpt_per_epoch": 20,
+        "ckpt_per_epoch": 10,
         "fp16": False,
     }
 
