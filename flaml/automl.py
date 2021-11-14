@@ -297,7 +297,6 @@ class AutoMLState:
         if self.resources_per_trial.get("gpu", 0) > 0:
 
             def _trainable_function_wrapper(config: dict):
-                import ray
 
                 return_estimator, train_time = train_estimator(
                     X_train=sampled_X_train,
