@@ -153,7 +153,7 @@ def _test_multigpu():
     )
 
 
-def test_classification_head():
+def _test_classification_head():
     try:
         import ray
     except ImportError:
@@ -254,7 +254,7 @@ def _test_custom_data():
     )
 
 
-def _test_rspt():
+def test_rspt():
     try:
         import ray
     except ImportError:
