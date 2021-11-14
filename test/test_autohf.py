@@ -1,4 +1,4 @@
-def _test_hf_data():
+def test_hf_data():
     try:
         import ray
     except ImportError:
@@ -27,31 +27,31 @@ def _test_hf_data():
         "time_budget": 20,
         "task": "seq-classification",
         "metric": "accuracy",
+        "model_history": True,
     }
 
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
-        "ckpt_per_epoch": 20,
+        "ckpt_per_epoch": 10,
         "fp16": False,
     }
 
     automl.fit(
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
     )
+    automl = AutoML()
     automl.retrain_from_log(
         log_file_name="flaml.log",
         X_train=X_train,
         y_train=y_train,
-        X_val=X_val,
-        y_val=y_val,
         train_full=True,
         record_id=0,
         **automl_settings
     )
 
 
-def _test_no_train():
+def test_no_valid():
     try:
         import ray
     except ImportError:
@@ -76,12 +76,13 @@ def _test_no_train():
         "time_budget": 20,
         "task": "seq-classification",
         "metric": "accuracy",
+        "model_history": True,
     }
 
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
-        "ckpt_per_epoch": 20,
+        "ckpt_per_epoch": 10,
         "fp16": False,
     }
 
@@ -153,7 +154,7 @@ def _test_multigpu():
     )
 
 
-def _test_classification_head():
+def test_classification_head():
     try:
         import ray
     except ImportError:
@@ -186,12 +187,13 @@ def _test_classification_head():
         "time_budget": 30,
         "task": "seq-classification",
         "metric": "accuracy",
+        "model_history": True,
     }
 
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
-        "ckpt_per_epoch": 20,
+        "ckpt_per_epoch": 10,
         "fp16": False,
     }
 
@@ -286,6 +288,7 @@ def test_rspt():
         "time_budget": 20,
         "task": "seq-classification",
         "metric": "accuracy",
+        "model_history": True,
     }
 
     automl_settings["custom_hpo_args"] = {
@@ -309,7 +312,7 @@ def test_rspt():
     )
 
 
-def _test_cv():
+def test_cv():
     try:
         import ray
     except ImportError:
@@ -319,7 +322,6 @@ def _test_cv():
     from datasets import load_dataset
 
     train_dataset = load_dataset("glue", "mrpc", split="train[:1%]").to_pandas()
-    dev_dataset = load_dataset("glue", "mrpc", split="validation[:1%]").to_pandas()
     test_dataset = load_dataset("glue", "mrpc", split="test[:1%]").to_pandas()
 
     custom_sent_keys = ["sentence1", "sentence2"]
@@ -327,9 +329,6 @@ def _test_cv():
 
     X_train = train_dataset[custom_sent_keys]
     y_train = train_dataset[label_key]
-
-    X_val = dev_dataset[custom_sent_keys]
-    y_val = dev_dataset[label_key]
 
     X_test = test_dataset[custom_sent_keys]
 
@@ -341,20 +340,18 @@ def _test_cv():
         "time_budget": 20,
         "task": "seq-classification",
         "metric": "accuracy",
-        "eval_method": "cv",
         "n_splits": 2,
+        "model_history": True,
     }
 
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
-        "ckpt_per_epoch": 20,
+        "ckpt_per_epoch": 10,
         "fp16": False,
     }
 
-    automl.fit(
-        X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
-    )
+    automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
     automl.predict(X_test)
     automl.predict(["test test"])
     automl.predict(
@@ -366,7 +363,7 @@ def _test_cv():
     )
 
 
-def _test_load_args():
+def test_load_args():
     import subprocess
     import sys
 
@@ -376,4 +373,4 @@ def _test_load_args():
 
 
 if __name__ == "__main__":
-    _test_multigpu()
+    test_hf_data()

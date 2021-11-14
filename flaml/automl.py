@@ -107,6 +107,8 @@ class SearchState:
         self.trial_time = 0
 
     def update(self, result, time_used, save_model_history=False):
+        from .nlp.utils import _is_nlp_task
+
         if result:
             config = result["config"]
             if config and "FLAML_sample_size" in config:
@@ -118,9 +120,19 @@ class SearchState:
             time2eval = result["time_total_s"]
             trained_estimator = result["trained_estimator"]
             del result["trained_estimator"]  # free up RAM
-            n_iter = trained_estimator and trained_estimator.params.get("n_estimators")
-            if n_iter is not None and "n_estimators" in config:
-                config["n_estimators"] = n_iter
+            if trained_estimator and _is_nlp_task(trained_estimator._task):
+                n_iter = trained_estimator and trained_estimator.params.get(
+                    "final_global_step"
+                )
+                if n_iter is not None and "final_global_step" in config:
+                    config["final_global_step"] = n_iter
+            else:
+                n_iter = trained_estimator and trained_estimator.params.get(
+                    "n_estimators"
+                )
+                if n_iter is not None and "n_estimators" in config:
+                    config["n_estimators"] = n_iter
+
         else:
             obj, time2eval, trained_estimator = np.inf, 0.0, None
             metric_for_logging = config = None
@@ -293,7 +305,6 @@ class AutoMLState:
             if self.time_budget is None
             else self.time_budget - self.time_from_start
         )
-
         if self.resources_per_trial.get("gpu", 0) > 0:
 
             def _trainable_function_wrapper(config: dict):
@@ -1045,6 +1056,7 @@ class AutoML:
             self._state.task = TS_FORECAST
         else:
             self._state.task = task
+        fit_kwargs["is_retrain"] = True
         self._state.fit_kwargs = fit_kwargs
         self._validate_data(X_train, y_train, dataframe, label, groups=groups)
 
@@ -1556,6 +1568,7 @@ class AutoML:
         else:
             self._state.task = task
         self._state.log_training_metric = log_training_metric
+        fit_kwargs["is_retrain"] = False
         self._state.fit_kwargs = fit_kwargs
         self._state.weight_val = sample_weight_val
 

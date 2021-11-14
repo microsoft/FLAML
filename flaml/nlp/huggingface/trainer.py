@@ -16,21 +16,25 @@ class TrainerForAuto(TFTrainer):
                 the dataset to be evaluated
         """
 
-        eval_dataloader = self.get_eval_dataloader(self.eval_dataset)
-        output = self.prediction_loop(eval_dataloader, description="Evaluation")
-        self.log(output.metrics)
+        if self.eval_dataset is not None:
+            eval_dataloader = self.get_eval_dataloader(self.eval_dataset)
+            output = self.prediction_loop(eval_dataloader, description="Evaluation")
+            self.log(output.metrics)
 
-        ckpt_dir = self.save_state()
+            ckpt_dir = self.save_state()
 
-        for key in list(output.metrics.keys()):
-            if key.startswith("eval_"):
-                output.metrics[key[5:]] = output.metrics.pop(key)
+            for key in list(output.metrics.keys()):
+                if key.startswith("eval_"):
+                    output.metrics[key[5:]] = output.metrics.pop(key)
 
-        try:
-            self.ckpt_to_metric[ckpt_dir] = output.metrics
-        except AttributeError:
-            self.ckpt_to_metric = {}
-            self.ckpt_to_metric[ckpt_dir] = output.metrics
+            try:
+                self.ckpt_to_metric[ckpt_dir] = output.metrics
+                self.ckpt_to_global_step[ckpt_dir] = self.state.global_step
+            except AttributeError:
+                self.ckpt_to_metric = {}
+                self.ckpt_to_metric[ckpt_dir] = output.metrics
+                self.ckpt_to_global_step = {}
+                self.ckpt_to_global_step[ckpt_dir] = self.state.global_step
 
     def save_state(self):
         """

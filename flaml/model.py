@@ -292,12 +292,14 @@ class TransformersEstimator(BaseEstimator):
 
     @classmethod
     def search_space(cls, **params):
+        import sys
+
         return {
             "learning_rate": {
                 "domain": tune.loguniform(lower=1e-6, upper=1e-3),
             },
             "num_train_epochs": {
-                "domain": tune.loguniform(lower=1.0, upper=10.0),
+                "domain": tune.loguniform(lower=0.1, upper=0.2),
             },
             "per_device_train_batch_size": {
                 "domain": tune.choice([4, 8, 16, 32]),
@@ -312,6 +314,7 @@ class TransformersEstimator(BaseEstimator):
                 "domain": tune.loguniform(lower=1e-8, upper=1e-6),
             },
             "seed": {"domain": tune.choice(list(range(40, 45)))},
+            "final_global_step": {"domain": tune.choice([sys.maxsize])},
         }
 
     def _init_hpo_args(self, automl_fit_kwargs: dict = None):
@@ -334,7 +337,7 @@ class TransformersEstimator(BaseEstimator):
 
         return tokenize_text(X, task, self.custom_hpo_args)
 
-    def _split_train_val(self, X_train, y_train, **kwargs):
+    def _get_train_val(self, X_train, y_train, **kwargs):
         """
         If the validation fold is already defined (in kwargs), set it directly
         Otherwise, split the train fold and reserve 10% dataset for validation
@@ -344,23 +347,22 @@ class TransformersEstimator(BaseEstimator):
                 return X_train, y_train, kwargs["X_val"], kwargs["y_val"]
         except AttributeError:
             pass
-        n = max(int(len(y_train) * 0.9), len(y_train) - 1000)
-        X_tr, y_tr = X_train[:n], y_train[:n]
-        X_val, y_val = X_train[n:], y_train[n:]
-        return X_tr, y_tr, X_val, y_val
+        return X_train, y_train, None, None
 
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
         # TODO: when self.param = {}, ie max_iter = 1, fix the bug
         from transformers import EarlyStoppingCallback
 
+        this_params = self.params
+
         class EarlyStoppingCallbackForAuto(EarlyStoppingCallback):
-            def on_train_begin(self, args, state, control, **kwargs):
+            def on_train_begin(self, args, state, control, **callback_kwargs):
                 self.train_begin_time = time.time()
 
-            def on_step_begin(self, args, state, control, **kwargs):
+            def on_step_begin(self, args, state, control, **callback_kwargs):
                 self.step_begin_time = time.time()
 
-            def on_step_end(self, args, state, control, **kwargs):
+            def on_step_end(self, args, state, control, **callback_kwargs):
                 if state.global_step == 1:
                     self.time_per_iter = time.time() - self.step_begin_time
                 if budget:
@@ -371,6 +373,9 @@ class TransformersEstimator(BaseEstimator):
                         control.should_training_stop = True
                         control.should_save = True
                         control.should_evaluate = True
+                if state.global_step >= this_params["final_global_step"]:
+                    control.should_training_stop = True
+                return control
 
         import transformers
         from transformers import TrainingArguments
@@ -388,17 +393,22 @@ class TransformersEstimator(BaseEstimator):
         self._init_hpo_args(kwargs)
         self._metric_name = kwargs["metric"]
 
-        X_train, y_train, X_val, y_val = self._split_train_val(
-            X_train, y_train, **kwargs
-        )
+        X_train, y_train, X_val, y_val = self._get_train_val(X_train, y_train, **kwargs)
+
         if X_train.dtypes[0] == "string":
             X_train = self._preprocess(X_train, self._task, **kwargs)
             train_dataset = Dataset.from_pandas(self._join(X_train, y_train))
-            X_val = self._preprocess(X_val, self._task, **kwargs)
-            eval_dataset = Dataset.from_pandas(self._join(X_val, y_val))
+            if X_val is not None:
+                X_val = self._preprocess(X_val, self._task, **kwargs)
+                eval_dataset = Dataset.from_pandas(self._join(X_val, y_val))
+            else:
+                eval_dataset = None
         else:
             train_dataset = Dataset.from_pandas(self._join(X_train, y_train))
-            eval_dataset = Dataset.from_pandas(self._join(X_val, y_val))
+            if X_val is not None:
+                eval_dataset = Dataset.from_pandas(self._join(X_val, y_val))
+            else:
+                eval_dataset = None
 
         tokenizer = AutoTokenizer.from_pretrained(
             self.custom_hpo_args.model_path, use_fast=True
@@ -472,13 +482,31 @@ class TransformersEstimator(BaseEstimator):
 
         trainer.train()
 
-        self._checkpoint_path, _ = self._get_checkpoint(trainer.ckpt_to_metric)
+        if eval_dataset is not None:
+            # if validation data is non empty, select the best checkpoint and save the final global step to self.params
+            self._checkpoint_path = self._select_checkpoint(
+                trainer.ckpt_to_metric, trainer.ckpt_to_global_step
+            )
+        else:
+            # if validation dataset is empty, save the last checkpoint
+            self._checkpoint_path = self._save_last_checkpoint(trainer)
+
         self._kwargs = kwargs
         self._num_labels = num_labels
         self._per_model_config = per_model_config
 
-    def _get_checkpoint(self, ckpt_to_score):
-        return min(ckpt_to_score.items(), key=lambda x: x[1][self._metric_name])
+    def _save_last_checkpoint(self, trainer):
+        this_ckpt = trainer.save_state()
+        self.params["final_global_step"] = trainer.state.global_step
+        return this_ckpt
+
+    def _select_checkpoint(self, ckpt_to_score, ckpt_to_global_step):
+        best_ckpt, best_score = min(
+            ckpt_to_score.items(), key=lambda x: x[1][self._metric_name]
+        )
+        best_ckpt_global_step = ckpt_to_global_step[best_ckpt]
+        self.params["final_global_step"] = best_ckpt_global_step
+        return best_ckpt
 
     def _compute_metrics_by_dataset_name(self, eval_pred):
         from .ml import sklearn_metric_loss_score
