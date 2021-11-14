@@ -325,10 +325,8 @@ class AutoMLState:
                 num_samples=1,
                 use_ray=True,
             )
-            estimator, train_time = (
-                list(analysis.results.values())[0]["estimator"],
-                list(analysis.results.values())[0]["train_time"],
-            )
+            result = list(analysis.results.values())[0]
+            estimator, train_time = result["estimator"], result["train_time"]
 
         else:
             estimator, train_time = train_estimator(
