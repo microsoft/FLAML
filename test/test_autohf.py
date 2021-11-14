@@ -73,7 +73,7 @@ def _test_no_train():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 30,
+        "time_budget": 20,
         "task": "seq-classification",
         "metric": "accuracy",
     }
@@ -183,7 +183,7 @@ def test_classification_head():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 20,
+        "time_budget": 30,
         "task": "seq-classification",
         "metric": "accuracy",
     }
