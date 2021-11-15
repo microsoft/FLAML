@@ -51,44 +51,6 @@ def test_hf_data():
     )
 
 
-def test_no_valid():
-    try:
-        import ray
-    except ImportError:
-        return
-    from flaml import AutoML
-
-    from datasets import load_dataset
-
-    train_dataset = load_dataset("glue", "mrpc", split="train[:1%]").to_pandas()
-
-    custom_sent_keys = ["sentence1", "sentence2"]
-    label_key = "label"
-
-    X_train = train_dataset[custom_sent_keys]
-    y_train = train_dataset[label_key]
-
-    automl = AutoML()
-
-    automl_settings = {
-        "gpu_per_trial": 0,
-        "max_iter": 3,
-        "time_budget": 20,
-        "task": "seq-classification",
-        "metric": "accuracy",
-        "model_history": True,
-    }
-
-    automl_settings["custom_hpo_args"] = {
-        "model_path": "google/electra-small-discriminator",
-        "output_dir": "data/output/",
-        "ckpt_per_epoch": 1,
-        "fp16": False,
-    }
-
-    automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
-
-
 def _test_multigpu():
     import os
 
@@ -184,7 +146,7 @@ def test_classification_head():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 30,
+        "time_budget": 20,
         "task": "seq-classification",
         "metric": "accuracy",
         "model_history": True,
@@ -256,64 +218,6 @@ def _test_custom_data():
     )
 
 
-def test_rspt():
-    try:
-        import ray
-    except ImportError:
-        return
-    from flaml import AutoML
-
-    from datasets import load_dataset
-
-    train_dataset = load_dataset("glue", "mrpc", split="train[:1%]").to_pandas()
-    dev_dataset = load_dataset("glue", "mrpc", split="train[1%:2%]").to_pandas()
-    test_dataset = load_dataset("glue", "mrpc", split="train[2%:3%]").to_pandas()
-
-    custom_sent_keys = ["sentence1", "sentence2"]
-    label_key = "label"
-
-    X_train = train_dataset[custom_sent_keys]
-    y_train = train_dataset[label_key]
-
-    X_val = dev_dataset[custom_sent_keys]
-    y_val = dev_dataset[label_key]
-
-    X_test = test_dataset[custom_sent_keys]
-
-    automl = AutoML()
-
-    automl_settings = {
-        "gpu_per_trial": 0,
-        "max_iter": 3,
-        "time_budget": 20,
-        "task": "seq-classification",
-        "metric": "accuracy",
-        "model_history": True,
-    }
-
-    automl_settings["custom_hpo_args"] = {
-        "model_path": "google/electra-small-discriminator",
-        "output_dir": "data/output/",
-        "ckpt_per_epoch": 1,
-        "fp16": False,
-    }
-
-    automl.fit(
-        X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
-    )
-    automl.predict(X_test)
-
-    automl.predict(["test test", "test test"])
-
-    automl.predict(
-        [
-            ["test test", "test test"],
-            ["test test", "test test"],
-            ["test test", "test test"],
-        ]
-    )
-
-
 def test_cv():
     try:
         import ray
@@ -339,7 +243,7 @@ def test_cv():
         "time_budget": 20,
         "task": "seq-classification",
         "metric": "accuracy",
-        "n_splits": 2,
+        "n_splits": 3,
         "model_history": True,
     }
 
@@ -363,4 +267,4 @@ def test_load_args():
 
 
 if __name__ == "__main__":
-    test_rspt()
+    test_cv()
