@@ -27,14 +27,12 @@ class TrainerForAuto(TFTrainer):
                 if key.startswith("eval_"):
                     output.metrics[key[5:]] = output.metrics.pop(key)
 
-            try:
+            if hasattr(self, "ckpt_to_global_step"):
                 self.ckpt_to_metric[ckpt_dir] = output.metrics
                 self.ckpt_to_global_step[ckpt_dir] = self.state.global_step
-            except AttributeError:
-                self.ckpt_to_metric = {}
-                self.ckpt_to_metric[ckpt_dir] = output.metrics
-                self.ckpt_to_global_step = {}
-                self.ckpt_to_global_step[ckpt_dir] = self.state.global_step
+            else:
+                self.ckpt_to_global_step = {ckpt_dir: self._state.global_step}
+                self.ckpt_to_metric = {ckpt_dir: output.metrics}
 
     def save_state(self):
         """
