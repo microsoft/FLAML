@@ -526,7 +526,7 @@ class XGBoostEstimator(SKLearnEstimator):
                 "low_cost_init_value": 4,
             },
             "max_depth": {
-                "domain": tune.choice([0, 6]),
+                "domain": tune.choice([0, 6, 12]),
                 "init_value": 0,
             },
             "min_child_weight": {
