@@ -242,8 +242,7 @@ class AutoMLState:
             self.fit_kwargs,
         )
         if self.retrain_final and not self.save_best_model_per_estimator:
-            del trained_estimator._model
-            trained_estimator._model = None
+            trained_estimator.cleanup()
         result = {
             "pred_time": pred_time,
             "wall_clock_time": time.time() - self._start_time_flag,
