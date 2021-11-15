@@ -148,7 +148,6 @@ print(automl.predict(X_train[72:]))
 from sklearn.datasets import fetch_openml
 from flaml import AutoML
 X_train, y_train = fetch_openml(name="credit-g", return_X_y=True, as_frame=False)
-y_train = y_train.cat.codes
 # not a real learning to rank dataaset
 groups = [200] * 4 + [100] * 2    # group counts
 automl = AutoML()
