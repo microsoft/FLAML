@@ -82,7 +82,7 @@ def test_no_valid():
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
-        "ckpt_per_epoch": 10,
+        "ckpt_per_epoch": 1,
         "fp16": False,
     }
 
@@ -193,7 +193,7 @@ def test_classification_head():
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
-        "ckpt_per_epoch": 10,
+        "ckpt_per_epoch": 1,
         "fp16": False,
     }
 
@@ -294,7 +294,7 @@ def test_rspt():
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
-        "ckpt_per_epoch": 10,
+        "ckpt_per_epoch": 1,
         "fp16": False,
     }
 
@@ -324,15 +324,12 @@ def test_cv():
     from datasets import load_dataset
 
     train_dataset = load_dataset("glue", "mrpc", split="train[:1%]").to_pandas()
-    test_dataset = load_dataset("glue", "mrpc", split="test[:1%]").to_pandas()
 
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
 
     X_train = train_dataset[custom_sent_keys]
     y_train = train_dataset[label_key]
-
-    X_test = test_dataset[custom_sent_keys]
 
     automl = AutoML()
 
@@ -349,20 +346,11 @@ def test_cv():
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
-        "ckpt_per_epoch": 10,
+        "ckpt_per_epoch": 1,
         "fp16": False,
     }
 
     automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
-    automl.predict(X_test)
-    automl.predict(["test test", "test test"])
-    automl.predict(
-        [
-            ["test test", "test test"],
-            ["test test", "test test"],
-            ["test test", "test test"],
-        ]
-    )
 
 
 def test_load_args():
