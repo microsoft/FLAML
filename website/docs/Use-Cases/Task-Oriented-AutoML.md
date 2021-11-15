@@ -166,6 +166,17 @@ We override the `search_space` function to tune two hyperparameters only, "n_est
 
 ### Constraint
 
+Some constraints on the estimator can be implemented via the custom learner. For example,
+
+```python
+class MonotonicXGBoostEstimator(XGBoostSklearnEstimator):
+    @classmethod
+    def search_space(**args):
+        return super().search_space(**args).update({"monotone_constraints": "(1, -1)"})
+```
+
+It adds a monotonicity constraint to XGBoost. This approach can be used to set any constraint that is a parameter in the underlying estimator's constructor.
+
 Besides the time budget for model search, users can set other constraints such as the maximal number of models to try, limit on training time and prediction time per model.
 * `max_iter`: maximal number of models to try.
 * `train_time_limit`: training time in seconds.
@@ -364,6 +375,8 @@ plt.show()
 ```
 
 ![png](images/curve.png)
+
+The curve suggests that increasing the time budget may further improve the accuracy.
 
 ### How to set time budget
 
