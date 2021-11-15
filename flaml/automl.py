@@ -117,9 +117,13 @@ class SearchState:
             time2eval = result["time_total_s"]
             trained_estimator = result["trained_estimator"]
             del result["trained_estimator"]  # free up RAM
-            n_iter = trained_estimator and trained_estimator.params.get("n_estimators")
-            if n_iter is not None and "n_estimators" in config:
-                config["n_estimators"] = n_iter
+            n_iter = (
+                trained_estimator
+                and hasattr(trained_estimator, "ITER_HP")
+                and trained_estimator.params[trained_estimator.ITER_HP]
+            )
+            if n_iter:
+                config[trained_estimator.ITER_HP] = n_iter
         else:
             obj, time2eval, trained_estimator = np.inf, 0.0, None
             metric_for_logging = config = None
@@ -1906,10 +1910,7 @@ class AutoML:
             better = False
             if analysis.trials:
                 result = analysis.trials[-1].last_result
-                search_state.update(
-                    result,
-                    time_used=time_used
-                )
+                search_state.update(result, time_used=time_used)
                 if self._estimator_index is None:
                     # update init eci estimate
                     eci_base = search_state.init_eci
@@ -1960,7 +1961,10 @@ class AutoML:
                     self._time_taken_best_iter = self._state.time_from_start
                     better = True
                     next_trial_time = search_state.time2eval_best
-                if search_state.trained_estimator and not self._state.save_best_model_per_estimator:
+                if (
+                    search_state.trained_estimator
+                    and not self._state.save_best_model_per_estimator
+                ):
                     # free RAM
                     if search_state.trained_estimator != self._trained_estimator:
                         search_state.trained_estimator.cleanup()
