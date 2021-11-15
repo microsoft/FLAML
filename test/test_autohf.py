@@ -355,7 +355,7 @@ def test_cv():
 
     automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
     automl.predict(X_test)
-    automl.predict(["test test"])
+    automl.predict(["test test", "test test"])
     automl.predict(
         [
             ["test test", "test test"],
