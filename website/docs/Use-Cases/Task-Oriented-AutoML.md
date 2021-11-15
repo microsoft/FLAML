@@ -164,28 +164,6 @@ class XGBoost2D(XGBoostSklearnEstimator):
 
 We override the `search_space` function to tune two hyperparameters only, "n_estimators" and "max_leaves". They are both random integers in the log space, ranging from 4 to data-dependent upper bound. The lower bound for each corresponds to low training cost, hence the "low_cost_init_value" for each is set to 4. 
 
-### How to set time budget
-
-* If you have an exact constraint for the total search time, set it as the time budget.
-* If you have flexible time constraints, for example, your desirable time budget is t1=60s, and the longest time budget you can tolerate is t2=3600s, you can try the following two ways:
-1. set t1 as the time budget, and check the message in the console log in the end. If the budget is too small, you will see a warning like 
-> WARNING - Time taken to find the best model is 91% of the provided time budget and not all estimators' hyperparameter search converged. Consider increasing the time budget.
-2. set t2 as the time budget, and also set `early_stop=True`. If the early stopping is triggered, you will see a warning like
-    > WARNING - All estimator hyperparameters local search has converged at least once, and the total search time exceeds 10 times the time taken to find the best model.
-
-    > WARNING - Stopping search as early_stop is set to True.
-
-### How much time is needed to find the best model
-
-If you want to get a sense of how much time is needed to find the best model, you can use `max_iter=2` to perform two trials first. The message will be like:
-> INFO - iteration 0, current learner lgbm
-
-> INFO - Estimated sufficient time budget=145194s. Estimated necessary time budget=2118s.
-
-> INFO -  at 2.6s,  estimator lgbm's best error=0.4459,     best estimator lgbm's best error=0.4459
-
-You will see that the time to finish the first and cheapest trial is 2.6 seconds. The estimated necessary time budget is 2118 seconds, and the estimated sufficient time budget is 145194 seconds. Note that this is only an estimated range to help you decide your budget.
-
 ### Constraint
 
 Besides the time budget for model search, users can set other constraints such as the maximal number of models to try, limit on training time and prediction time per model.
@@ -298,12 +276,113 @@ Extra fit arguments that are needed by the estimators can be passed to `AutoML.f
 
 ### Get best model
 
-* Feature importance
+The best model can be obtained by the `model` property of an `AutoML` instance. For example,
+
+```python
+automl.fit(X_train, y_train, task="regression")
+print(automl.mdoel)
+# <flaml.model.LGBMEstimator object at 0x7f9b502c4550>
+```
+
+`flaml.model.LGBMEstimator` is a wrapper class for LightGBM models. To access the underlying model, use the `estimator` property of the `flaml.model.LGBMEstimator` instance.
+
+```python
+print(automl.model.estimator)
+'''
+LGBMRegressor(colsample_bytree=0.7610534336273627,
+              learning_rate=0.41929025492645006, max_bin=255,
+              min_child_samples=4, n_estimators=45, num_leaves=4,
+              reg_alpha=0.0009765625, reg_lambda=0.009280655005879943,
+              verbose=-1)
+'''
+```
+
+Just like a normal LightGBM model, we can inspect it. For example, we can plot the feature importance:
+```python
+import matplotlib.pyplot as plt
+plt.barh(automl.model.estimator.feature_name_, automl.model.estimator.feature_importances_)
+```
+![png](images/feature_importance.png)
 
 ### Get best configuration
 
+We can find the best estimator's name and best configuration by:
+
+```python
+print(automl.best_estimator)
+# lgbm
+print(automl.best_config)
+# {'n_estimators': 148, 'num_leaves': 18, 'min_child_samples': 3, 'learning_rate': 0.17402065726724145, 'log_max_bin': 8, 'colsample_bytree': 0.6649148062238498, 'reg_alpha': 0.0009765625, 'reg_lambda': 0.0067613624509965}
+```
+
+We can also find the best configuration per estimator.
+
+```python
+print(automl.best_config_per_estimator)
+# {'lgbm': {'n_estimators': 148, 'num_leaves': 18, 'min_child_samples': 3, 'learning_rate': 0.17402065726724145, 'log_max_bin': 8, 'colsample_bytree': 0.6649148062238498, 'reg_alpha': 0.0009765625, 'reg_lambda': 0.0067613624509965}, 'rf': None, 'catboost': None, 'xgboost': {'n_estimators': 4, 'max_leaves': 4, 'min_child_weight': 1.8630223791106992, 'learning_rate': 1.0, 'subsample': 0.8513627344387318, 'colsample_bylevel': 1.0, 'colsample_bytree': 0.946138073111236, 'reg_alpha': 0.0018311776973217073, 'reg_lambda': 0.27901659190538414}, 'extra_tree': {'n_estimators': 4, 'max_features': 1.0, 'max_leaves': 4}}
+```
+
+The `None` value corresponds to the estimators which have not been tried.
+
+Other useful information:
+```python
+print(automl.best_config_train_time)
+# 0.24841618537902832
+print(automl.best_iteration)
+# 10
+print(automl.best_loss)
+# 0.15448622217577546
+print(automl.time_to_find_best_model)
+# 0.4167296886444092
+print(automl.config_history)
+# {0: ('lgbm', {'n_estimators': 4, 'num_leaves': 4, 'min_child_samples': 20, 'learning_rate': 0.09999999999999995, 'log_max_bin': 8, 'colsample_bytree': 1.0, 'reg_alpha': 0.0009765625, 'reg_lambda': 1.0}, 1.2300517559051514)}
+# Meaning: at iteration 0, the config tried is {'n_estimators': 4, 'num_leaves': 4, 'min_child_samples': 20, 'learning_rate': 0.09999999999999995, 'log_max_bin': 8, 'colsample_bytree': 1.0, 'reg_alpha': 0.0009765625, 'reg_lambda': 1.0} for lgbm, and the wallclock time is 1.23s when this trial is finished.
+```
+
 ### Plot learning curve
 
+To plot how the loss is improved over time during the model search, first load the search history from the log file:
 
+```python
+from flaml.data import get_output_from_log
 
+time_history, best_valid_loss_history, valid_loss_history, config_history, metric_history = \
+    get_output_from_log(filename=settings['log_file_name'], time_budget=120)
+```
 
+Then, assuming the optimization metric is "accuracy", we can plot the accuracy versus wallclock time:
+
+```python
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.title('Learning Curve')
+plt.xlabel('Wall Clock Time (s)')
+plt.ylabel('Validation Accuracy')
+plt.step(time_history, 1 - np.array(best_valid_loss_history), where='post')
+plt.show()
+```
+
+![png](images/curve.png)
+
+### How to set time budget
+
+* If you have an exact constraint for the total search time, set it as the time budget.
+* If you have flexible time constraints, for example, your desirable time budget is t1=60s, and the longest time budget you can tolerate is t2=3600s, you can try the following two ways:
+1. set t1 as the time budget, and check the message in the console log in the end. If the budget is too small, you will see a warning like 
+> WARNING - Time taken to find the best model is 91% of the provided time budget and not all estimators' hyperparameter search converged. Consider increasing the time budget.
+2. set t2 as the time budget, and also set `early_stop=True`. If the early stopping is triggered, you will see a warning like
+    > WARNING - All estimator hyperparameters local search has converged at least once, and the total search time exceeds 10 times the time taken to find the best model.
+
+    > WARNING - Stopping search as early_stop is set to True.
+
+### How much time is needed to find the best model
+
+If you want to get a sense of how much time is needed to find the best model, you can use `max_iter=2` to perform two trials first. The message will be like:
+> INFO - iteration 0, current learner lgbm
+
+> INFO - Estimated sufficient time budget=145194s. Estimated necessary time budget=2118s.
+
+> INFO -  at 2.6s,  estimator lgbm's best error=0.4459,     best estimator lgbm's best error=0.4459
+
+You will see that the time to finish the first and cheapest trial is 2.6 seconds. The estimated necessary time budget is 2118 seconds, and the estimated sufficient time budget is 145194 seconds. Note that this is only an estimated range to help you decide your budget.
