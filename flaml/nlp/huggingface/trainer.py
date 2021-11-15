@@ -31,7 +31,7 @@ class TrainerForAuto(TFTrainer):
                 self.ckpt_to_metric[ckpt_dir] = output.metrics
                 self.ckpt_to_global_step[ckpt_dir] = self.state.global_step
             else:
-                self.ckpt_to_global_step = {ckpt_dir: self._state.global_step}
+                self.ckpt_to_global_step = {ckpt_dir: self.state.global_step}
                 self.ckpt_to_metric = {ckpt_dir: output.metrics}
 
     def save_state(self):

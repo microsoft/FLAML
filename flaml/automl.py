@@ -107,7 +107,6 @@ class SearchState:
         self.trial_time = 0
 
     def update(self, result, time_used, save_model_history=False):
-        from .nlp.utils import _is_nlp_task
 
         if result:
             config = result["config"]
@@ -120,18 +119,12 @@ class SearchState:
             time2eval = result["time_total_s"]
             trained_estimator = result["trained_estimator"]
             del result["trained_estimator"]  # free up RAM
-            if trained_estimator and _is_nlp_task(trained_estimator._task):
-                n_iter = trained_estimator and trained_estimator.params.get(
-                    "final_global_step"
-                )
-                if n_iter is not None and "final_global_step" in config:
-                    config["final_global_step"] = n_iter
-            else:
-                n_iter = trained_estimator and trained_estimator.params.get(
-                    "n_estimators"
-                )
-                if n_iter is not None and "n_estimators" in config:
-                    config["n_estimators"] = n_iter
+
+            n_iter = trained_estimator and trained_estimator.params.get(
+                trained_estimator.ITER_HP
+            )
+            if n_iter is not None and trained_estimator.ITER_HP in config:
+                config[trained_estimator.ITER_HP] = n_iter
 
         else:
             obj, time2eval, trained_estimator = np.inf, 0.0, None
@@ -1059,9 +1052,6 @@ class AutoML:
 
         from .nlp.utils import _is_nlp_task
 
-        if _is_nlp_task(task):
-            fit_kwargs["is_retrain"] = True
-
         self._state.fit_kwargs = fit_kwargs
         self._validate_data(X_train, y_train, dataframe, label, groups=groups)
 
@@ -1574,9 +1564,6 @@ class AutoML:
         self._state.log_training_metric = log_training_metric
 
         from .nlp.utils import _is_nlp_task
-
-        if _is_nlp_task(task):
-            fit_kwargs["is_retrain"] = False
 
         self._state.fit_kwargs = fit_kwargs
         self._state.weight_val = sample_weight_val

@@ -282,6 +282,8 @@ class BaseEstimator:
 class TransformersEstimator(BaseEstimator):
     """The class for fine-tuning language models, using huggingface transformers API."""
 
+    ITER_HP = "final_global_step"
+
     def __init__(self, task="seq-classification", **config):
         super().__init__(task, **config)
 
@@ -315,7 +317,6 @@ class TransformersEstimator(BaseEstimator):
             },
             "seed": {"domain": tune.choice(list(range(40, 45)))},
             "final_global_step": {"domain": sys.maxsize},
-
         }
 
     def _init_hpo_args(self, automl_fit_kwargs: dict = None):
@@ -369,7 +370,7 @@ class TransformersEstimator(BaseEstimator):
                         control.should_training_stop = True
                         control.should_save = True
                         control.should_evaluate = True
-                if state.global_step >= this_params["final_global_step"]:
+                if state.global_step >= this_params[TransformersEstimator.ITER_HP]:
                     control.should_training_stop = True
                 return control
 
@@ -493,7 +494,7 @@ class TransformersEstimator(BaseEstimator):
 
     def _save_last_checkpoint(self, trainer):
         this_ckpt = trainer.save_state()
-        self.params["final_global_step"] = trainer.state.global_step
+        self.params[self.ITER_HP] = trainer.state.global_step
         return this_ckpt
 
     def _select_checkpoint(self, ckpt_to_score, ckpt_to_global_step):
@@ -501,7 +502,7 @@ class TransformersEstimator(BaseEstimator):
             ckpt_to_score.items(), key=lambda x: x[1][self._metric_name]
         )
         best_ckpt_global_step = ckpt_to_global_step[best_ckpt]
-        self.params["final_global_step"] = best_ckpt_global_step
+        self.params[self.ITER_HP] = best_ckpt_global_step
         return best_ckpt
 
     def _compute_metrics_by_dataset_name(self, eval_pred):
@@ -1455,7 +1456,6 @@ class ARIMA(Prophet):
             else:
                 raise ValueError(
                     "X_test needs to be either a pandas Dataframe with dates as the first column"
-
                     " or an int number of periods for predict()."
                 )
             return forecast
