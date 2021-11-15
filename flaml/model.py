@@ -1074,6 +1074,7 @@ class Prophet(SKLearnEstimator):
         cols = list(train_df)
         cols.remove(TS_TIMESTAMP_COL)
         cols.remove(TS_VALUE_COL)
+        logging.getLogger("prophet").setLevel(logging.WARNING)
         model = Prophet(**self.params)
         for regressor in cols:
             model.add_regressor(regressor)
