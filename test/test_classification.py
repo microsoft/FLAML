@@ -152,7 +152,7 @@ class TestClassification(unittest.TestCase):
             "log_file_name": "test/breast_cancer.log",
             "log_training_metric": True,
             "n_jobs": 1,
-            "model_history": True,
+            "save_best_model_per_estimator": True,
         }
         X_train, y_train = load_breast_cancer(return_X_y=True)
         automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
@@ -165,7 +165,7 @@ class TestClassification(unittest.TestCase):
             "log_file_name": "test/datetime_columns.log",
             "log_training_metric": True,
             "n_jobs": 1,
-            "model_history": True,
+            "save_best_model_per_estimator": True,
         }
         fake_df = pd.DataFrame(
             {
@@ -216,7 +216,7 @@ class TestClassification(unittest.TestCase):
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)
         print(automl_experiment.config_history)
-        print(automl_experiment.model_history)
+        print(automl_experiment.best_model_for_estimator("xgboost"))
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
 
@@ -253,7 +253,7 @@ class TestClassification(unittest.TestCase):
             print(automl_experiment.predict(X_train))
             print(automl_experiment.model)
             print(automl_experiment.config_history)
-            print(automl_experiment.model_history)
+            print(automl_experiment.best_model_for_estimator("xgboost"))
             print(automl_experiment.best_iteration)
             print(automl_experiment.best_estimator)
         except ImportError:
@@ -286,7 +286,7 @@ class TestClassification(unittest.TestCase):
             print(automl_experiment.predict(X_train))
             print(automl_experiment.model)
             print(automl_experiment.config_history)
-            print(automl_experiment.model_history)
+            print(automl_experiment.best_model_for_estimator("large_lgbm"))
             print(automl_experiment.best_iteration)
             print(automl_experiment.best_estimator)
         except ImportError:
@@ -314,7 +314,7 @@ class TestClassification(unittest.TestCase):
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)
         print(automl_experiment.config_history)
-        print(automl_experiment.model_history)
+        print(automl_experiment.best_model_for_estimator("lrl2"))
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
 

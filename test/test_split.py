@@ -19,7 +19,7 @@ def _test(split_type):
         # "metric": 'accuracy',
         "task": "classification",
         "log_file_name": "test/{}.log".format(dataset),
-        "model_history": True,
+        "save_best_model_per_estimator": True,
         "log_training_metric": True,
         "split_type": split_type,
     }
@@ -71,7 +71,7 @@ def test_groups():
         "time_budget": 2,
         "task": "classification",
         "log_file_name": "test/{}.log".format(dataset),
-        "model_history": True,
+        "save_best_model_per_estimator": True,
         "eval_method": "cv",
         "groups": np.random.randint(low=0, high=10, size=len(y)),
         "estimator_list": ["lgbm", "rf", "xgboost", "kneighbor"],
@@ -100,7 +100,7 @@ def test_rank():
         "time_budget": 2,
         "task": "rank",
         "log_file_name": "test/{}.log".format(dataset),
-        "model_history": True,
+        "save_best_model_per_estimator": True,
         "eval_method": "cv",
         "groups": np.array(  # group labels
             [0] * 200 + [1] * 200 + [2] * 200 + [3] * 200 + [4] * 100 + [5] * 100
@@ -115,7 +115,7 @@ def test_rank():
         "task": "rank",
         "metric": "ndcg@5",  # 5 can be replaced by any number
         "log_file_name": "test/{}.log".format(dataset),
-        "model_history": True,
+        "save_best_model_per_estimator": True,
         "groups": [200] * 4 + [100] * 2,  # alternative way: group counts
         # "estimator_list": ['lgbm', 'xgboost'],  # list of ML learners
         "learner_selector": "roundrobin",

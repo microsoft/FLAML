@@ -41,7 +41,7 @@ class TestRegression(unittest.TestCase):
             "log_file_name": "test/california.log",
             "log_training_metric": True,
             "n_jobs": 1,
-            "model_history": True,
+            "save_best_model_per_estimator": True,
         }
         X_train, y_train = fetch_california_housing(return_X_y=True)
         n = int(len(y_train) * 9 // 10)
@@ -56,7 +56,7 @@ class TestRegression(unittest.TestCase):
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)
         print(automl_experiment.config_history)
-        print(automl_experiment.model_history)
+        print(automl_experiment.best_model_for_estimator("xgboost"))
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
         print(get_output_from_log(automl_settings["log_file_name"], 1))
@@ -77,28 +77,6 @@ class TestRegression(unittest.TestCase):
             time_budget=0,
         )
 
-    def test_sparse_matrix_classification(self):
-        automl_experiment = AutoML()
-        automl_settings = {
-            "time_budget": 2,
-            "metric": "auto",
-            "task": "classification",
-            "log_file_name": "test/sparse_classification.log",
-            "split_type": "uniform",
-            "n_jobs": 1,
-            "model_history": True,
-        }
-        X_train = scipy.sparse.random(1554, 21, dtype=int)
-        y_train = np.random.randint(3, size=1554)
-        automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
-        print(automl_experiment.classes_)
-        print(automl_experiment.predict_proba(X_train))
-        print(automl_experiment.model)
-        print(automl_experiment.config_history)
-        print(automl_experiment.model_history)
-        print(automl_experiment.best_iteration)
-        print(automl_experiment.best_estimator)
-
     def test_sparse_matrix_regression(self):
         X_train = scipy.sparse.random(300, 900, density=0.0001)
         y_train = np.random.uniform(size=300)
@@ -111,7 +89,7 @@ class TestRegression(unittest.TestCase):
             "task": "regression",
             "log_file_name": "test/sparse_regression.log",
             "n_jobs": 1,
-            "model_history": True,
+            "save_best_model_per_estimator": True,
             "keep_search_state": True,
             "verbose": 0,
             "early_stop": True,
@@ -127,7 +105,7 @@ class TestRegression(unittest.TestCase):
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)
         print(automl_experiment.config_history)
-        print(automl_experiment.model_history)
+        print(automl_experiment.best_model_for_estimator("rf"))
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
         print(automl_experiment.best_config)
@@ -151,7 +129,7 @@ class TestRegression(unittest.TestCase):
             print(automl_experiment.predict(X_train))
             print(automl_experiment.model)
             print(automl_experiment.config_history)
-            print(automl_experiment.model_history)
+            print(automl_experiment.best_model_for_estimator("xgboost"))
             print(automl_experiment.best_iteration)
             print(automl_experiment.best_estimator)
         except ImportError:
@@ -167,7 +145,7 @@ class TestRegression(unittest.TestCase):
             "task": "regression",
             "log_file_name": "test/sparse_regression.log",
             "n_jobs": 1,
-            "model_history": True,
+            "save_best_model_per_estimator": True,
             "metric": "mse",
             "sample_weight": np.ones(len(y_train)),
             "early_stop": True,
@@ -176,7 +154,7 @@ class TestRegression(unittest.TestCase):
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)
         print(automl_experiment.config_history)
-        print(automl_experiment.model_history)
+        print(automl_experiment.best_model_for_estimator("rf"))
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
 
@@ -194,7 +172,7 @@ class TestRegression(unittest.TestCase):
             "task": "regression",
             "log_file_name": "test/regression_xgboost.log",
             "n_jobs": 1,
-            "model_history": True,
+            "save_best_model_per_estimator": True,
             "keep_search_state": True,
             "early_stop": True,
         }
@@ -209,7 +187,7 @@ class TestRegression(unittest.TestCase):
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)
         print(automl_experiment.config_history)
-        print(automl_experiment.model_history)
+        print(automl_experiment.best_model_for_estimator("my_xgb2"))
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
         print(automl_experiment.best_config)

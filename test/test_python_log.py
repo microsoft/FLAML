@@ -34,7 +34,7 @@ class TestLogging(unittest.TestCase):
                 "log_file_name": training_log,
                 "log_training_metric": True,
                 "n_jobs": 1,
-                "model_history": True,
+                "save_best_model_per_estimator": True,
                 "keep_search_state": True,
                 "learner_selector": "roundrobin",
             }

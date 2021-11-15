@@ -24,13 +24,12 @@ class TestTrainingLog(unittest.TestCase):
                 "log_training_metric": True,
                 "mem_thres": 1024 * 1024,
                 "n_jobs": 1,
-                "model_history": True,
+                "save_best_model_per_estimator": True,
                 "train_time_limit": 0.1,
                 "verbose": 3,
                 # "ensemble": True,
                 "keep_search_state": True,
                 "estimator_list": estimator_list,
-                "model_history": True,
             }
             X_train, y_train = fetch_california_housing(return_X_y=True)
             automl.fit(X_train=X_train, y_train=y_train, **automl_settings)

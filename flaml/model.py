@@ -225,7 +225,8 @@ class BaseEstimator:
         return self._model.predict_proba(X_test)
 
     def cleanup(self):
-        pass
+        del self._model
+        self._model = None
 
     @classmethod
     def search_space(cls, **params):
@@ -1139,9 +1140,8 @@ class ARIMA(Prophet):
         current_time = time.time()
         train_df = self._join(X_train, y_train)
         train_df = self._preprocess(train_df)
-        cols = list(train_df)
-        cols.remove(TS_VALUE_COL)
-        regressors = cols
+        regressors = list(train_df)
+        regressors.remove(TS_VALUE_COL)
         if regressors:
             model = ARIMA_estimator(
                 train_df[[TS_VALUE_COL]],
@@ -1168,14 +1168,12 @@ class ARIMA(Prophet):
             if isinstance(X_test, int):
                 forecast = self._model.forecast(steps=X_test)
             elif isinstance(X_test, pd.DataFrame):
-                first_col = X_test.pop(TS_TIMESTAMP_COL)
-                X_test.insert(0, TS_TIMESTAMP_COL, first_col)
-                start = X_test.iloc[0, 0]
-                end = X_test.iloc[-1, 0]
+                start = X_test[TS_TIMESTAMP_COL].iloc[0]
+                end = X_test[TS_TIMESTAMP_COL].iloc[-1]
                 if len(X_test.columns) > 1:
+                    X_test = self._preprocess(X_test.drop(columns=TS_TIMESTAMP_COL))
                     regressors = list(X_test)
-                    regressors.remove(TS_TIMESTAMP_COL)
-                    X_test = self._preprocess(X_test)
+                    print(start, end, X_test.shape)
                     forecast = self._model.predict(
                         start=start, end=end, exog=X_test[regressors]
                     )

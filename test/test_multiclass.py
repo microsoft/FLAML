@@ -189,7 +189,7 @@ class TestMultiClass(unittest.TestCase):
             "log_training_metric": True,
             "log_type": "all",
             "n_jobs": 1,
-            "model_history": True,
+            "save_best_model_per_estimator": True,
             "sample_weight": np.ones(len(y)),
             "pred_time_limit": 1e-5,
             "ensemble": True,
@@ -198,7 +198,7 @@ class TestMultiClass(unittest.TestCase):
         print(automl_experiment.classes_)
         print(automl_experiment.model)
         print(automl_experiment.config_history)
-        print(automl_experiment.model_history)
+        print(automl_experiment.best_model_for_estimator("rf"))
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
         automl_experiment = AutoML()
@@ -226,7 +226,7 @@ class TestMultiClass(unittest.TestCase):
             "log_file_name": "test/iris.log",
             "log_training_metric": True,
             "n_jobs": 1,
-            "model_history": True,
+            "save_best_model_per_estimator": True,
         }
         X_train, y_train = load_iris(return_X_y=True, as_frame=as_frame)
         if as_frame:
@@ -238,11 +238,11 @@ class TestMultiClass(unittest.TestCase):
         print(automl_experiment.predict(X_train)[:5])
         print(automl_experiment.model)
         print(automl_experiment.config_history)
-        print(automl_experiment.model_history)
+        print(automl_experiment.best_model_for_estimator("catboost"))
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
         del automl_settings["metric"]
-        del automl_settings["model_history"]
+        del automl_settings["save_best_model_per_estimator"]
         del automl_settings["log_training_metric"]
         automl_experiment = AutoML()
         duration = automl_experiment.retrain_from_log(
@@ -265,7 +265,7 @@ class TestMultiClass(unittest.TestCase):
             "log_file_name": "test/micro_macro_f1.log",
             "log_training_metric": True,
             "n_jobs": 1,
-            "model_history": True,
+            "save_best_model_per_estimator": True,
         }
         X_train, y_train = load_iris(return_X_y=True)
         automl_experiment_micro.fit(
@@ -297,7 +297,7 @@ class TestMultiClass(unittest.TestCase):
             "n_jobs": 1,
             "sample_weight": np.ones(len(y_train)),
             "eval_method": "holdout",
-            "model_history": True,
+            "save_best_model_per_estimator": True,
         }
         automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
 
@@ -310,7 +310,7 @@ class TestMultiClass(unittest.TestCase):
             "log_file_name": "test/roc_auc_ovo.log",
             "log_training_metric": True,
             "n_jobs": 1,
-            "model_history": True,
+            "save_best_model_per_estimator": True,
         }
         X_train, y_train = load_iris(return_X_y=True)
         automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
@@ -324,7 +324,7 @@ class TestMultiClass(unittest.TestCase):
             "log_file_name": "test/sparse_classification.log",
             "split_type": "uniform",
             "n_jobs": 1,
-            "model_history": True,
+            "save_best_model_per_estimator": True,
         }
         X_train = scipy.sparse.random(1554, 21, dtype=int)
         y_train = np.random.randint(3, size=1554)
@@ -333,7 +333,7 @@ class TestMultiClass(unittest.TestCase):
         print(automl_experiment.predict_proba(X_train))
         print(automl_experiment.model)
         print(automl_experiment.config_history)
-        print(automl_experiment.model_history)
+        print(automl_experiment.best_model_for_estimator("extra_tree"))
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
 
@@ -392,7 +392,7 @@ class TestMultiClass(unittest.TestCase):
             "log_file_name": "test/iris.log",
             "log_training_metric": True,
             "n_jobs": 1,
-            "model_history": True,
+            "save_best_model_per_estimator": True,
         }
         X_train, y_train = load_iris(return_X_y=True, as_frame=as_frame)
         if as_frame:
@@ -419,7 +419,7 @@ class TestMultiClass(unittest.TestCase):
             "log_file_name": "test/iris_resume.log",
             "log_training_metric": True,
             "n_jobs": 1,
-            "model_history": True,
+            "save_best_model_per_estimator": True,
             "log_type": "all",
             "starting_points": starting_points,
         }
@@ -449,7 +449,7 @@ class TestMultiClass(unittest.TestCase):
             "log_file_name": "test/iris.log",
             "log_training_metric": True,
             "n_jobs": 1,
-            "model_history": True,
+            "save_best_model_per_estimator": True,
         }
         X_train, y_train = load_iris(return_X_y=True, as_frame=as_frame)
         if as_frame:
@@ -485,7 +485,7 @@ class TestMultiClass(unittest.TestCase):
             "log_training_metric": True,
             "n_jobs": 1,
             "max_iter": max_iter,
-            "model_history": True,
+            "save_best_model_per_estimator": True,
             "log_type": "all",
             "starting_points": starting_points,
             "append_log": True,
