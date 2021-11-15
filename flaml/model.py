@@ -299,7 +299,7 @@ class TransformersEstimator(BaseEstimator):
                 "domain": tune.loguniform(lower=1e-6, upper=1e-3),
             },
             "num_train_epochs": {
-                "domain": tune.loguniform(lower=1.0, upper=2.0),
+                "domain": tune.loguniform(lower=1.0, upper=10.0),
             },
             "per_device_train_batch_size": {
                 "domain": tune.choice([4, 8, 16, 32]),

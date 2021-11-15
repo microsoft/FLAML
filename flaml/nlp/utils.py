@@ -4,7 +4,7 @@ from ..data import SEQCLASSIFICATION, SEQREGRESSION
 
 
 def _is_nlp_task(task):
-    if task in [SEQCLASSIFICATION]:
+    if task in [SEQCLASSIFICATION, SEQREGRESSION]:
         return True
     else:
         return False
@@ -16,7 +16,7 @@ global tokenized_column_names
 def tokenize_text(X, task, custom_hpo_task):
     from ..data import SEQCLASSIFICATION
 
-    if task == SEQCLASSIFICATION:
+    if task in (SEQCLASSIFICATION, SEQREGRESSION):
         return tokenize_text_seqclassification(X, custom_hpo_task)
 
 
