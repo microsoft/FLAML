@@ -299,7 +299,7 @@ class TransformersEstimator(BaseEstimator):
                 "domain": tune.loguniform(lower=1e-6, upper=1e-3),
             },
             "num_train_epochs": {
-                "domain": tune.loguniform(lower=1.0, upper=10.0),
+                "domain": tune.loguniform(lower=0.5, upper=10.0),
             },
             "per_device_train_batch_size": {
                 "domain": tune.choice([4, 8, 16, 32]),
@@ -618,7 +618,7 @@ class LGBMEstimator(BaseEstimator):
         }
 
     def config2params(cls, config: dict) -> dict:
-        params = super().config2params(config)
+        params = config.copy()
         if "log_max_bin" in params:
             params["max_bin"] = (1 << params.pop("log_max_bin")) - 1
         return params
@@ -833,7 +833,7 @@ class XGBoostEstimator(SKLearnEstimator):
         return 1.6
 
     def config2params(cls, config: dict) -> dict:
-        params = super().config2params(config)
+        params = config.copy()
         params["max_depth"] = params.get("max_depth", 0)
         params["grow_policy"] = params.get("grow_policy", "lossguide")
         params["booster"] = params.get("booster", "gbtree")
@@ -935,7 +935,7 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
 
     def config2params(cls, config: dict) -> dict:
         # TODO: test
-        params = BaseEstimator().config2params(config)
+        params = config.copy()
         params["max_depth"] = 0
         params["grow_policy"] = params.get("grow_policy", "lossguide")
         params["booster"] = params.get("booster", "gbtree")
@@ -1005,7 +1005,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         return 2.0
 
     def config2params(cls, config: dict) -> dict:
-        params = BaseEstimator().config2params(config)
+        params = config.copy()
         if "max_leaves" in params:
             params["max_leaf_nodes"] = params.get(
                 "max_leaf_nodes", params.pop("max_leaves")
@@ -1056,7 +1056,7 @@ class LRL1Classifier(SKLearnEstimator):
         return 160
 
     def config2params(cls, config: dict) -> dict:
-        params = super().config2params(config)
+        params = config.copy()
         params["tol"] = params.get("tol", 0.0001)
         params["solver"] = params.get("solver", "saga")
         params["penalty"] = params.get("penalty", "l1")
@@ -1082,7 +1082,7 @@ class LRL2Classifier(SKLearnEstimator):
         return 25
 
     def config2params(cls, config: dict) -> dict:
-        params = super().config2params(config)
+        params = config.copy()
         params["tol"] = params.get("tol", 0.0001)
         params["solver"] = params.get("solver", "lbfgs")
         params["penalty"] = params.get("penalty", "l2")
@@ -1151,7 +1151,7 @@ class CatBoostEstimator(BaseEstimator):
         return X
 
     def config2params(cls, config: dict) -> dict:
-        params = super().config2params(config)
+        params = config.copy()
         params["n_estimators"] = params.get("n_estimators", 8192)
         if "n_jobs" in params:
             params["thread_count"] = params.pop("n_jobs")
@@ -1263,7 +1263,7 @@ class KNeighborsEstimator(BaseEstimator):
         return 30
 
     def config2params(cls, config: dict) -> dict:
-        params = super().config2params(config)
+        params = config.copy()
         params["weights"] = params.get("weights", "distance")
         return params
 
