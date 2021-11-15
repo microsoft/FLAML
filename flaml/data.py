@@ -212,7 +212,7 @@ def concat(X1, X2):
 class DataTransformer:
     """Transform input training data."""
 
-    def fit_transform(self, X: Union[DataFrame, List[str], List[List[str]]], y, task):
+    def fit_transform(self, X: DataFrame, y, task):
         """Fit transformer and process the input training data according to the task type.
 
         Args:
@@ -231,16 +231,6 @@ class DataTransformer:
             # if the mode is NLP, check the type of input, each column must be either string or
             # ids (input ids, token type id, attention mask, etc.)
             str_columns = []
-            if isinstance(X, List) and isinstance(X[0], List):
-                unzipped_X_test = [x for x in zip(*X)]
-                X = DataFrame(
-                    {
-                        "key_" + str(idx): unzipped_X_test[idx]
-                        for idx in range(len(unzipped_X_test))
-                    }
-                )
-            elif isinstance(X, List):
-                X = DataFrame({"key_" + str(idx): [X[idx]] for idx in range(len(X))})
             for column in X.columns:
                 if isinstance(X[column].iloc[0], str):
                     str_columns.append(column)
@@ -359,7 +349,7 @@ class DataTransformer:
         self._task = task
         return X, y
 
-    def transform(self, X: Union[DataFrame, List[str], List[List[str]]]):
+    def transform(self, X: DataFrame):
         """Process data using fit transformer.
 
         Args:
@@ -379,28 +369,6 @@ class DataTransformer:
         if _is_nlp_task(self._task):
             # if the mode is NLP, check the type of input, each column must be either string or
             # ids (input ids, token type id, attention mask, etc.)
-            if isinstance(X, List) and isinstance(X[0], List):
-                unzipped_X_test = [x for x in zip(*X)]
-                try:
-                    X = DataFrame(
-                        {
-                            self._str_columns[idx]: unzipped_X_test[idx]
-                            for idx in range(len(unzipped_X_test))
-                        }
-                    )
-                except IndexError:
-                    raise IndexError(
-                        "Test data contains more columns than training data, exiting"
-                    )
-            elif isinstance(X, List):
-                try:
-                    X = DataFrame(
-                        {self._str_columns[idx]: [X[idx]] for idx in range(len(X))}
-                    )
-                except IndexError:
-                    raise IndexError(
-                        "Test data contains more columns than training data, exiting"
-                    )
             if len(self._str_columns) > 0:
                 X[self._str_columns] = X[self._str_columns].astype("string")
         elif isinstance(X, DataFrame):

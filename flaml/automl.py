@@ -18,6 +18,8 @@ from sklearn.model_selection import (
 from sklearn.utils import shuffle
 import pandas as pd
 import logging
+from typing import List, Union
+from pandas import DataFrame
 
 from .ml import (
     compute_estimator,
@@ -119,11 +121,12 @@ class SearchState:
             time2eval = result["time_total_s"]
             trained_estimator = result["trained_estimator"]
             del result["trained_estimator"]  # free up RAM
-
-            n_iter = trained_estimator and trained_estimator.params.get(
-                trained_estimator.ITER_HP
+            n_iter = (
+                trained_estimator
+                and hasattr(trained_estimator, "ITER_HP")
+                and trained_estimator.params[trained_estimator.ITER_HP]
             )
-            if n_iter is not None and trained_estimator.ITER_HP in config:
+            if n_iter:
                 config[trained_estimator.ITER_HP] = n_iter
 
         else:
@@ -475,7 +478,7 @@ class AutoML:
         """Time taken to find best model in seconds."""
         return self.__dict__.get("_time_taken_best_iter")
 
-    def predict(self, X_test):
+    def predict(self, X_test: Union[DataFrame, List[str], List[List[str]]]):
         """Predict label from features.
 
         Args:
@@ -507,6 +510,32 @@ class AutoML:
                 "No estimator is trained. Please run fit with enough budget."
             )
             return None
+        if isinstance(X_test, List) and isinstance(X_test[0], List):
+            unzipped_X_test = [x for x in zip(*X_test)]
+            try:
+                X_test = DataFrame(
+                    {
+                        self._transformer._str_columns[idx]: unzipped_X_test[idx]
+                        for idx in range(len(unzipped_X_test))
+                    }
+                )
+            except IndexError:
+                raise IndexError(
+                    "Test data contains more columns than training data, exiting"
+                )
+        elif isinstance(X_test, List):
+            try:
+                X_test = DataFrame(
+                    {
+                        self._transformer._str_columns[idx]: [X_test[idx]]
+                        for idx in range(len(X_test))
+                    }
+                )
+            except IndexError:
+                raise IndexError(
+                    "Test data contains more columns than training data, exiting"
+                )
+
         X_test = self._preprocess(X_test)
         y_pred = estimator.predict(X_test)
         if y_pred.ndim > 1 and isinstance(y_pred, np.ndarray):

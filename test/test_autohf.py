@@ -9,6 +9,7 @@ def test_hf_data():
 
     train_dataset = load_dataset("glue", "mrpc", split="validation[:1%]").to_pandas()
     dev_dataset = load_dataset("glue", "mrpc", split="validation[1%:2%]").to_pandas()
+    test_dataset = load_dataset("glue", "mrpc", split="test[1%:2%]").to_pandas()
 
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
@@ -18,6 +19,8 @@ def test_hf_data():
 
     X_val = dev_dataset[custom_sent_keys]
     y_val = dev_dataset[label_key]
+
+    X_test = test_dataset[custom_sent_keys]
 
     automl = AutoML()
 
@@ -48,6 +51,16 @@ def test_hf_data():
         train_full=True,
         record_id=0,
         **automl_settings
+    )
+
+    automl.predict(X_test)
+    automl.predict(["test test", "test test"])
+    automl.predict(
+        [
+            ["test test", "test test"],
+            ["test test", "test test"],
+            ["test test", "test test"],
+        ]
     )
 
 
@@ -307,4 +320,4 @@ def test_load_args():
 
 
 if __name__ == "__main__":
-    test_regression()
+    test_hf_data()
