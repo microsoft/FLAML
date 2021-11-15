@@ -7,8 +7,8 @@ def test_hf_data():
 
     from datasets import load_dataset
 
-    train_dataset = load_dataset("glue", "mrpc", split="train[:1%]").to_pandas()
-    dev_dataset = load_dataset("glue", "mrpc", split="validation[:1%]").to_pandas()
+    train_dataset = load_dataset("glue", "mrpc", split="validation[:1%]").to_pandas()
+    dev_dataset = load_dataset("glue", "mrpc", split="validation[1%:2%]").to_pandas()
 
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
@@ -33,7 +33,7 @@ def test_hf_data():
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
-        "ckpt_per_epoch": 10,
+        "ckpt_per_epoch": 5,
         "fp16": False,
     }
 
@@ -125,14 +125,10 @@ def test_classification_head():
 
     from datasets import load_dataset
 
-    train_dataset = load_dataset(
-        "glue", "mnli", split="validation_matched[:1%]"
-    ).to_pandas()
-    dev_dataset = load_dataset(
-        "glue", "mnli", split="validation_matched[1%:2%]"
-    ).to_pandas()
+    train_dataset = load_dataset("emotion", split="train[:1%]").to_pandas()
+    dev_dataset = load_dataset("emotion", split="validation[:1%]").to_pandas()
 
-    custom_sent_keys = ["premise", "hypothesis"]
+    custom_sent_keys = ["text"]
     label_key = "label"
 
     X_train = train_dataset[custom_sent_keys]
@@ -155,7 +151,7 @@ def test_classification_head():
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
-        "ckpt_per_epoch": 1,
+        "ckpt_per_epoch": 5,
         "fp16": False,
     }
 
@@ -227,7 +223,7 @@ def test_cv():
 
     from datasets import load_dataset
 
-    train_dataset = load_dataset("glue", "mrpc", split="train[:1%]").to_pandas()
+    train_dataset = load_dataset("glue", "mrpc", split="validation[:1%]").to_pandas()
 
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
@@ -267,4 +263,4 @@ def test_load_args():
 
 
 if __name__ == "__main__":
-    test_cv()
+    test_classification_head()
