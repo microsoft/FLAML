@@ -505,6 +505,4 @@ class TestMultiClass(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    # unittest.main()
-    test = TestMultiClass()
-    test.test_classification()
+    unittest.main()
