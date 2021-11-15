@@ -314,7 +314,8 @@ class TransformersEstimator(BaseEstimator):
                 "domain": tune.loguniform(lower=1e-8, upper=1e-6),
             },
             "seed": {"domain": tune.choice(list(range(40, 45)))},
-            "final_global_step": {"domain": tune.choice([sys.maxsize])},
+            "final_global_step": {"domain": sys.maxsize},
+
         }
 
     def _init_hpo_args(self, automl_fit_kwargs: dict = None):
