@@ -302,7 +302,9 @@ def test_rspt():
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
     )
     automl.predict(X_test)
-    automl.predict(["test test"])
+
+    automl.predict(["test test", "test test"])
+
     automl.predict(
         [
             ["test test", "test test"],
@@ -373,4 +375,4 @@ def test_load_args():
 
 
 if __name__ == "__main__":
-    test_hf_data()
+    test_rspt()

@@ -382,14 +382,26 @@ class DataTransformer:
             # ids (input ids, token type id, attention mask, etc.)
             if isinstance(X, List) and isinstance(X[0], List):
                 unzipped_X_test = [x for x in zip(*X)]
-                X = DataFrame(
-                    {
-                        "key_" + str(idx): unzipped_X_test[idx]
-                        for idx in range(len(unzipped_X_test))
-                    }
-                )
+                try:
+                    X = DataFrame(
+                        {
+                            self._str_columns[idx]: unzipped_X_test[idx]
+                            for idx in range(len(unzipped_X_test))
+                        }
+                    )
+                except IndexError:
+                    raise IndexError(
+                        "Test data contains more columns than training data, exiting"
+                    )
             elif isinstance(X, List):
-                X = DataFrame({"key_" + str(idx): [X[idx]] for idx in range(len(X))})
+                try:
+                    X = DataFrame(
+                        {self._str_columns[idx]: [X[idx]] for idx in range(len(X))}
+                    )
+                except IndexError:
+                    raise IndexError(
+                        "Test data contains more columns than training data, exiting"
+                    )
             if len(self._str_columns) > 0:
                 X[self._str_columns] = X[self._str_columns].astype("string")
         elif isinstance(X, DataFrame):
