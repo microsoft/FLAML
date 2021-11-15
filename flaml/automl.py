@@ -105,7 +105,7 @@ class SearchState:
         self.sample_size = None
         self.trial_time = 0
 
-    def update(self, result, time_used, save_model_history=False):
+    def update(self, result, time_used):
         if result:
             config = result["config"]
             if config and "FLAML_sample_size" in config:
@@ -145,7 +145,6 @@ class SearchState:
                 self.trained_estimator
                 and trained_estimator
                 and self.trained_estimator != trained_estimator
-                and not save_model_history
             ):
                 self.trained_estimator.cleanup()
             if trained_estimator:
@@ -242,12 +241,15 @@ class AutoMLState:
             self.log_training_metric,
             self.fit_kwargs,
         )
+        if self.retrain_final:
+            del trained_estimator._model
+            trained_estimator._model = None
         result = {
             "pred_time": pred_time,
             "wall_clock_time": time.time() - self._start_time_flag,
             "metric_for_logging": metric_for_logging,
             "val_loss": val_loss,
-            "trained_estimator": trained_estimator if self.save_model_history else None,
+            "trained_estimator": trained_estimator,
         }
         if sampled_weight is not None:
             self.fit_kwargs["sample_weight"] = weight
@@ -334,13 +336,6 @@ class AutoML:
         self._track_iter = 0
         self._state = AutoMLState()
         self._state.learner_classes = {}
-
-    @property
-    def model_history(self):
-        """A dictionary of iter->model, storing the models when
-        the best model is updated each time.
-        """
-        return self._model_history
 
     @property
     def config_history(self):
@@ -1279,7 +1274,7 @@ class AutoML:
         ensemble=False,
         eval_method="auto",
         log_type="better",
-        model_history=False,
+        save_best_model_per_estimator=False,
         split_ratio=SPLIT_RATIO,
         n_splits=N_SPLITS,
         log_training_metric=False,
@@ -1369,9 +1364,8 @@ class AutoML:
                 ['better', 'all'].
                 'better' only logs configs with better loss than previos iters
                 'all' logs all the tried configs.
-            model_history: A boolean of whether to keep the history of best
-                models in the history property. Make sure memory is large
-                enough if setting to True.
+            save_best_model_per_estimator: A boolean of whether to keep the best
+                model per estimator. Make sure memory is large enough if setting to True.
             log_training_metric: A boolean of whether to log the training
                 metric for each model.
             mem_thres: A float of the memory size constraint in bytes.
@@ -1488,13 +1482,17 @@ class AutoML:
         self._state.eval_method = eval_method
         logger.info("Evaluation method: {}".format(eval_method))
 
+        self._state.n_jobs = n_jobs
+        self._n_concurrent_trials = n_concurrent_trials
+        self._early_stop = early_stop
+        self._use_ray = use_ray or n_concurrent_trials > 1
         self._retrain_in_budget = retrain_full == "budget" and (
             eval_method == "holdout" and self._state.X_val is None
         )
-        self._retrain_final = (
+        self._state.retrain_final = (
             retrain_full is True
             and eval_method == "holdout"
-            and self._state.X_val is None
+            and (self._state.X_val is None or self._use_ray)
             or eval_method == "cv"
             and (max_iter > 0 or retrain_full is True)
             or max_iter == 1
@@ -1585,11 +1583,7 @@ class AutoML:
         self._state.train_time_limit = train_time_limit
         self._log_type = log_type
         self.split_ratio = split_ratio
-        self._state.save_model_history = model_history
-        self._state.n_jobs = n_jobs
-        self._n_concurrent_trials = n_concurrent_trials
-        self._early_stop = early_stop
-        self._use_ray = use_ray or n_concurrent_trials > 1
+        self._state.save_best_model_per_estimator = save_best_model_per_estimator or ensemble
         # use the following condition if we have an estimation of average_trial_time and average_trial_overhead
         # self._use_ray = use_ray or n_concurrent_trials > ( average_trail_time + average_trial_overhead) / (average_trial_time)
         self._hpo_method = hpo_method or (
@@ -1733,7 +1727,7 @@ class AutoML:
                 config = result["config"]
                 estimator = config.get("ml", config)["learner"]
                 search_state = self._search_states[estimator]
-                search_state.update(result, 0, self._state.save_model_history)
+                search_state.update(result, 0)
                 if result["wall_clock_time"] is not None:
                     self._state.time_from_start = result["wall_clock_time"]
                 if search_state.sample_size == self._state.data_size:
@@ -1748,10 +1742,6 @@ class AutoML:
                         config,
                         self._time_taken_best_iter,
                     )
-                    if self._state.save_model_history:
-                        self._model_history[
-                            _track_iter
-                        ] = search_state.trained_estimator
                     self._trained_estimator = search_state.trained_estimator
                     self._best_iteration = _track_iter
                     self._time_taken_best_iter = self._state.time_from_start
@@ -1804,7 +1794,7 @@ class AutoML:
         better = True  # whether we find a better model in one trial
         if self._ensemble:
             self.best_model = {}
-        if self._max_iter < 2 and self.estimator_list and self._retrain_final:
+        if self._max_iter < 2 and self.estimator_list and self._state.retrain_final:
             # when max_iter is 1, no need to search
             # TODO: otherwise, need to make sure SearchStates.init_config is inside search space
             self._max_iter = 0
@@ -1922,8 +1912,7 @@ class AutoML:
                 result = analysis.trials[-1].last_result
                 search_state.update(
                     result,
-                    time_used=time_used,
-                    save_model_history=self._state.save_model_history,
+                    time_used=time_used
                 )
                 if self._estimator_index is None:
                     # update init eci estimate
@@ -1966,22 +1955,16 @@ class AutoML:
                         search_state.best_config,
                         self._state.time_from_start,
                     )
-                    if self._state.save_model_history:
-                        self._model_history[
-                            self._track_iter
-                        ] = search_state.trained_estimator
-                    elif self._trained_estimator:
+                    if self._trained_estimator:
                         del self._trained_estimator
                         self._trained_estimator = None
-                    if not self._retrain_final:
+                    if not self._state.retrain_final:
                         self._trained_estimator = search_state.trained_estimator
                     self._best_iteration = self._track_iter
                     self._time_taken_best_iter = self._state.time_from_start
                     better = True
                     next_trial_time = search_state.time2eval_best
-                if search_state.trained_estimator and not (
-                    self._state.save_model_history or self._ensemble
-                ):
+                if search_state.trained_estimator and not self._state.save_best_model_per_estimator:
                     # free RAM
                     if search_state.trained_estimator != self._trained_estimator:
                         search_state.trained_estimator.cleanup()
@@ -2103,7 +2086,6 @@ class AutoML:
         self._estimator_index = None
         self._best_iteration = 0
         self._time_taken_best_iter = 0
-        self._model_history = {}
         self._config_history = {}
         self._max_iter_per_learner = 1000000  # TODO
         self._iter_per_learner = dict([(e, 0) for e in self.estimator_list])
@@ -2214,7 +2196,7 @@ class AutoML:
                         self._trained_estimator.model = stacker
                     else:
                         raise e
-            elif self._retrain_final:
+            elif self._state.retrain_final:
                 # reset time budget for retraining
                 if self._max_iter > 1:
                     self._state.time_from_start -= self._state.time_budget
