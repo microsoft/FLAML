@@ -322,8 +322,6 @@ class TransformersEstimator(BaseEstimator):
 
         custom_hpo_args = HPOArgs()
         for key, val in automl_fit_kwargs["custom_hpo_args"].items():
-            if key in ("X_val", "y_val"):
-                continue
             assert (
                 key in custom_hpo_args.__dict__
             ), "The specified key {} is not in the argument list of flaml.nlp.utils::HPOArgs".format(
@@ -342,11 +340,8 @@ class TransformersEstimator(BaseEstimator):
         If the validation fold is already defined (in kwargs), set it directly
         Otherwise, split the train fold and reserve 10% dataset for validation
         """
-        try:
-            if "X_val" in kwargs and "y_val" in kwargs:
-                return X_train, y_train, kwargs["X_val"], kwargs["y_val"]
-        except AttributeError:
-            pass
+        if "X_val" in kwargs and "y_val" in kwargs:
+            return X_train, y_train, kwargs["X_val"], kwargs["y_val"]
         return X_train, y_train, None, None
 
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
