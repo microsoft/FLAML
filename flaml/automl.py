@@ -241,7 +241,7 @@ class AutoMLState:
             self.log_training_metric,
             self.fit_kwargs,
         )
-        if self.retrain_final:
+        if self.retrain_final and not self.save_best_model_per_estimator:
             del trained_estimator._model
             trained_estimator._model = None
         result = {
@@ -1583,7 +1583,7 @@ class AutoML:
         self._state.train_time_limit = train_time_limit
         self._log_type = log_type
         self.split_ratio = split_ratio
-        self._state.save_best_model_per_estimator = save_best_model_per_estimator or ensemble
+        self._state.save_best_model_per_estimator = save_best_model_per_estimator
         # use the following condition if we have an estimation of average_trial_time and average_trial_overhead
         # self._use_ray = use_ray or n_concurrent_trials > ( average_trail_time + average_trial_overhead) / (average_trial_time)
         self._hpo_method = hpo_method or (
