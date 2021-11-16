@@ -320,4 +320,4 @@ def test_load_args():
 
 
 if __name__ == "__main__":
-    test_cv()
+    test_hf_data()

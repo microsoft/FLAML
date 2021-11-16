@@ -34,8 +34,6 @@ class TrainerForAuto(TFTrainer):
                 self.ckpt_to_global_step = {ckpt_dir: self.state.global_step}
                 self.ckpt_to_metric = {ckpt_dir: output.metrics}
 
-            return output.metrics
-
     def save_state(self):
         """
         Overriding transformers.Trainer.save_state. It is only through saving
