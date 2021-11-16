@@ -20,6 +20,7 @@ import pandas as pd
 import logging
 from typing import List, Union
 from pandas import DataFrame
+from .nlp.utils import _is_nlp_task
 
 from .ml import (
     compute_estimator,
@@ -229,6 +230,10 @@ class AutoMLState:
             / self.data_size
         )
 
+        if _is_nlp_task(self.task):
+            self.fit_kwargs["X_val"] = self.X_val
+            self.fit_kwargs["y_val"] = self.y_val
+
         (
             trained_estimator,
             val_loss,
@@ -257,6 +262,11 @@ class AutoMLState:
             self.log_training_metric,
             self.fit_kwargs,
         )
+
+        if _is_nlp_task(self.task):
+            del self.fit_kwargs["X_val"]
+            del self.fit_kwargs["y_val"]
+
         result = {
             "pred_time": pred_time,
             "wall_clock_time": time.time() - self._start_time_flag,
@@ -478,7 +488,7 @@ class AutoML:
         """Time taken to find best model in seconds."""
         return self.__dict__.get("_time_taken_best_iter")
 
-    def predict(self, X_test: Union[DataFrame, List[str], List[List[str]]]):
+    def predict(self, X_test: Union[np.array, DataFrame, List[str], List[List[str]]]):
         """Predict label from features.
 
         Args:
@@ -585,7 +595,6 @@ class AutoML:
         groups_val=None,
         groups=None,
     ):
-        from .nlp.utils import _is_nlp_task
 
         if X_train_all is not None and y_train_all is not None:
             assert (
@@ -718,7 +727,6 @@ class AutoML:
             self._state.groups = groups
 
     def _prepare_data(self, eval_method, split_ratio, n_splits):
-        from .nlp.utils import _is_nlp_task
 
         X_val, y_val = self._state.X_val, self._state.y_val
         if issparse(X_val):
@@ -1078,8 +1086,6 @@ class AutoML:
             self._state.task = TS_FORECAST
         else:
             self._state.task = task
-
-        from .nlp.utils import _is_nlp_task
 
         self._state.fit_kwargs = fit_kwargs
         self._validate_data(X_train, y_train, dataframe, label, groups=groups)
@@ -1592,8 +1598,6 @@ class AutoML:
             self._state.task = task
         self._state.log_training_metric = log_training_metric
 
-        from .nlp.utils import _is_nlp_task
-
         self._state.fit_kwargs = fit_kwargs
         self._state.weight_val = sample_weight_val
 
@@ -1638,10 +1642,6 @@ class AutoML:
         self._prepare_data(eval_method, split_ratio, n_splits)
 
         if _is_nlp_task(self._state.task):
-            if X_val is not None:
-                self._state.fit_kwargs["X_val"] = X_val
-            if y_val is not None:
-                self._state.fit_kwargs["y_val"] = y_val
             self._state.fit_kwargs["metric"] = metric
 
         self._sample = (

@@ -481,9 +481,13 @@ class TransformersEstimator(BaseEstimator):
 
         if eval_dataset is not None:
             # if validation data is non empty, select the best checkpoint and save the final global step to self.params
+
+            trainer.evaluate()
+            self.params[self.ITER_HP] = trainer.state.global_step
             self._checkpoint_path = self._select_checkpoint(
                 trainer.ckpt_to_metric, trainer.ckpt_to_global_step
             )
+
         else:
             # if validation dataset is empty, save the last checkpoint
             self._checkpoint_path = self._save_last_checkpoint(trainer)

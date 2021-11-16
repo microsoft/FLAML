@@ -212,7 +212,7 @@ def concat(X1, X2):
 class DataTransformer:
     """Transform input training data."""
 
-    def fit_transform(self, X: DataFrame, y, task):
+    def fit_transform(self, X: Union[DataFrame, np.array], y, task):
         """Fit transformer and process the input training data according to the task type.
 
         Args:
@@ -349,7 +349,7 @@ class DataTransformer:
         self._task = task
         return X, y
 
-    def transform(self, X: DataFrame):
+    def transform(self, X: Union[DataFrame, np.array]):
         """Process data using fit transformer.
 
         Args:
