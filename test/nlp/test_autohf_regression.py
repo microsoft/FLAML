@@ -31,7 +31,6 @@ def test_regression():
         "time_budget": 20,
         "task": "seq-regression",
         "metric": "rmse",
-        "model_history": True,
     }
 
     automl_settings["custom_hpo_args"] = {

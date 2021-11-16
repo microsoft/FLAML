@@ -27,7 +27,6 @@ def test_classification_head():
         "time_budget": 20,
         "task": "seq-classification",
         "metric": "accuracy",
-        "model_history": True,
     }
 
     automl_settings["custom_hpo_args"] = {

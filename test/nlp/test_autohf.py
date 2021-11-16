@@ -36,7 +36,6 @@ def test_hf_data():
         "time_budget": 20,
         "task": "seq-classification",
         "metric": "accuracy",
-        "model_history": True,
     }
 
     automl_settings["custom_hpo_args"] = {

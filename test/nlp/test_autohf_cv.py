@@ -26,7 +26,6 @@ def test_cv():
         "task": "seq-classification",
         "metric": "accuracy",
         "n_splits": 3,
-        "model_history": True,
     }
 
     automl_settings["custom_hpo_args"] = {

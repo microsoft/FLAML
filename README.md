@@ -127,7 +127,7 @@ print(automl.model.estimator)
 * A basic time series forecasting example.
 
 ```python
-# pip install flaml[ts_forecast]
+# pip install "flaml[ts_forecast]"
 import numpy as np
 from flaml import AutoML
 X_train = np.arange('2014-01', '2021-01', dtype='datetime64[M]')
@@ -160,7 +160,7 @@ automl.fit(
 * Fine tuning language model
 
 ```python
-# pip install flaml[nlp]
+# pip install "flaml[nlp]"
 from flaml import AutoML
 from datasets import load_dataset
 
@@ -175,9 +175,7 @@ X_test = test_dataset[custom_sent_keys]
 
 automl = AutoML()
 automl_settings = {
-    "max_iter": 3,
     "time_budget": 100,
-    "model_history": True,
     "task": "seq-classification",
     "custom_hpo_args": {"output_dir": "data/output/"},
     "gpu_per_trial": 1,  # set to 0 if no GPU is available
