@@ -335,9 +335,10 @@ class TransformersEstimator(BaseEstimator):
     def _preprocess(self, X, task, **kwargs):
         from .nlp.utils import tokenize_text
 
-        assert X.dtypes[0] == "string", "for nlp task, data type must be string"
-
-        return tokenize_text(X, task, self.custom_hpo_args)
+        if X.dtypes[0] == "string":
+            return tokenize_text(X, task, self.custom_hpo_args)
+        else:
+            return X
 
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
         # TODO: when self.param = {}, ie max_iter = 1, fix the bug
@@ -470,7 +471,8 @@ class TransformersEstimator(BaseEstimator):
             # if validation data is non empty, select the best checkpoint and save the final global step to self.params
 
             self.params[self.ITER_HP] = trainer.state.global_step
-            trainer.evaluate()
+            if trainer.state.global_step > max(trainer.ckpt_to_global_step.values()):
+                trainer.evaluate()
 
             self._checkpoint_path = self._select_checkpoint(
                 trainer.ckpt_to_metric, trainer.ckpt_to_global_step
