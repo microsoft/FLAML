@@ -384,8 +384,8 @@ class TransformersEstimator(BaseEstimator):
         self._init_hpo_args(kwargs)
         self._metric_name = kwargs["metric"]
 
-        X_val = kwargs["X_val"] if ("X_val" in kwargs and "y_val" in kwargs) else None
-        y_val = kwargs["y_val"] if ("X_val" in kwargs and "y_val" in kwargs) else None
+        X_val = kwargs.get("X_val", None)
+        y_val = kwargs.get("y_val", None)
 
         X_train = self._preprocess(X_train, self._task, **kwargs)
         train_dataset = Dataset.from_pandas(self._join(X_train, y_train))
