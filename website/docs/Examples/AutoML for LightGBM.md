@@ -189,3 +189,5 @@ automl.add_learner(learner_name='my_lgbm', learner_class=MyLGBM)
 settings["estimator_list"] = ['my_lgbm']  # change the estimator list
 automl.fit(X_train=X_train, y_train=y_train, **settings)
 ```
+
+[Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/flaml_lightgbm.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/flaml_lightgbm.ipynb)

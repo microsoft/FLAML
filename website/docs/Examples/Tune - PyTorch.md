@@ -280,3 +280,5 @@ Files already downloaded and verified
 Files already downloaded and verified
 Best trial test set accuracy: 0.6294
 ```
+
+[Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/flaml_pytorch_cifar10.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/flaml_pytorch_cifar10.ipynb)

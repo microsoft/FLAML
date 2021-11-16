@@ -191,3 +191,5 @@ plt.legend()
 ```
 
 ![png](images/CO2.png)
+
+[Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/flaml_forecast.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/flaml_forecast.ipynb)

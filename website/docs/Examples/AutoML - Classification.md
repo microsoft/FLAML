@@ -54,3 +54,7 @@ print(automl.model.estimator)
 [flaml.automl: 11-12 18:21:45] {1608} INFO - fit succeeded
 [flaml.automl: 11-12 18:21:45] {1610} INFO - Time taken to find the best model: 0.3756711483001709
 ```
+
+### A more advanced example including custom learner and metric
+
+[Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/flaml_automl.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/flaml_automl.ipynb)

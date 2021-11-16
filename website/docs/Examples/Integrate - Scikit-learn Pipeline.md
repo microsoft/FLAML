@@ -59,3 +59,5 @@ print('Best hyperparmeter config:', automl.best_config)
 print('Best accuracy on validation data: {0:.4g}'.format(1 - automl.best_loss))
 print('Training duration of best run: {0:.4g} s'.format(automl.best_config_train_time))
 ```
+
+[Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/automl_in_sklearn_pipeline.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/automl_in_sklearn_pipeline.ipynb)

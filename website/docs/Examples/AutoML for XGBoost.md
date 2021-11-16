@@ -213,3 +213,5 @@ automl.add_learner(learner_name='my_xgb2', learner_class=MyXGB2)
 settings["estimator_list"] = ['my_xgb1', 'my_xgb2']  # change the estimator list
 automl.fit(X_train=X_train, y_train=y_train, **settings)
 ```
+
+[Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/flaml_xgboost.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/flaml_xgboost.ipynb)
