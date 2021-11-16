@@ -7,8 +7,8 @@ def test_classification_head():
 
     from datasets import load_dataset
 
-    train_dataset = load_dataset("emotion", split="train[:1%]").to_pandas()
-    dev_dataset = load_dataset("emotion", split="validation[:1%]").to_pandas()
+    train_dataset = load_dataset("emotion", split="train[:1%]").to_pandas().iloc[0:10]
+    dev_dataset = load_dataset("emotion", split="train[1%:2%]").to_pandas().iloc[0:10]
 
     custom_sent_keys = ["text"]
     label_key = "label"

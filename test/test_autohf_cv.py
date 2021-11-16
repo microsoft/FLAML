@@ -7,7 +7,9 @@ def test_cv():
 
     from datasets import load_dataset
 
-    train_dataset = load_dataset("glue", "mrpc", split="validation[:1%]").to_pandas()
+    train_dataset = (
+        load_dataset("glue", "mrpc", split="train[:1%]").to_pandas().iloc[0:4]
+    )
 
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
