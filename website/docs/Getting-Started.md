@@ -25,7 +25,7 @@ automl.fit(X_train, y_train, task="classification")
 tool for XGBoost, LightGBM, Random Forest etc. or a customized learner.
 
 ```python
-automl.fit(X_train, y_train, task="classification", estimator_list=["lgbm"])
+automl.fit(X_train, y_train, task="regression", estimator_list=["lgbm"])
 ```
 
 * You can also run generic hyperparameter tuning for a custom function (machine learning or beyond).

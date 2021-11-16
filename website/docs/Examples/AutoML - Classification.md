@@ -3,6 +3,7 @@
 ```python
 from flaml import AutoML
 from sklearn.datasets import load_iris
+
 # Initialize an AutoML instance
 automl = AutoML()
 # Specify automl goal and constraint
@@ -22,7 +23,7 @@ print(automl.predict_proba(X_train))
 print(automl.model.estimator)
 ```
 
-### Sample of output
+#### Sample of output
 ```
 [flaml.automl: 11-12 18:21:44] {1485} INFO - Data split method: stratified
 [flaml.automl: 11-12 18:21:44] {1489} INFO - Evaluation method: cv
@@ -53,7 +54,3 @@ print(automl.model.estimator)
 [flaml.automl: 11-12 18:21:45] {1608} INFO - fit succeeded
 [flaml.automl: 11-12 18:21:45] {1610} INFO - Time taken to find the best model: 0.3756711483001709
 ```
-
-<!-- ### Log of trials
-
-Content of "iris.log": -->
