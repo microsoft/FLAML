@@ -335,6 +335,8 @@ class TransformersEstimator(BaseEstimator):
     def _preprocess(self, X, task, **kwargs):
         from .nlp.utils import tokenize_text
 
+        assert X.dtypes[0] == "string", "for nlp task, data type must be string"
+
         return tokenize_text(X, task, self.custom_hpo_args)
 
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
@@ -384,20 +386,13 @@ class TransformersEstimator(BaseEstimator):
         X_val = kwargs["X_val"] if ("X_val" in kwargs and "y_val" in kwargs) else None
         y_val = kwargs["y_val"] if ("X_val" in kwargs and "y_val" in kwargs) else None
 
-        if X_train.dtypes[0] == "string":
-            X_train = self._preprocess(X_train, self._task, **kwargs)
-            train_dataset = Dataset.from_pandas(self._join(X_train, y_train))
-            if X_val is not None:
-                X_val = self._preprocess(X_val, self._task, **kwargs)
-                eval_dataset = Dataset.from_pandas(self._join(X_val, y_val))
-            else:
-                eval_dataset = None
+        X_train = self._preprocess(X_train, self._task, **kwargs)
+        train_dataset = Dataset.from_pandas(self._join(X_train, y_train))
+        if X_val is not None:
+            X_val = self._preprocess(X_val, self._task, **kwargs)
+            eval_dataset = Dataset.from_pandas(self._join(X_val, y_val))
         else:
-            train_dataset = Dataset.from_pandas(self._join(X_train, y_train))
-            if X_val is not None:
-                eval_dataset = Dataset.from_pandas(self._join(X_val, y_val))
-            else:
-                eval_dataset = None
+            eval_dataset = None
 
         tokenizer = AutoTokenizer.from_pretrained(
             self.custom_hpo_args.model_path, use_fast=True
