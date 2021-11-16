@@ -337,15 +337,6 @@ class TransformersEstimator(BaseEstimator):
 
         return tokenize_text(X, task, self.custom_hpo_args)
 
-    def _get_train_val(self, X_train, y_train, **kwargs):
-        """
-        If the validation fold is already defined (in kwargs), set it directly
-        Otherwise, split the train fold and reserve 10% dataset for validation
-        """
-        if "X_val" in kwargs and "y_val" in kwargs:
-            return X_train, y_train, kwargs["X_val"], kwargs["y_val"]
-        return X_train, y_train, None, None
-
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
         # TODO: when self.param = {}, ie max_iter = 1, fix the bug
         from transformers import EarlyStoppingCallback
@@ -390,7 +381,8 @@ class TransformersEstimator(BaseEstimator):
         self._init_hpo_args(kwargs)
         self._metric_name = kwargs["metric"]
 
-        X_train, y_train, X_val, y_val = self._get_train_val(X_train, y_train, **kwargs)
+        X_val = kwargs["X_val"] if ("X_val" in kwargs and "y_val" in kwargs) else None
+        y_val = kwargs["y_val"] if ("X_val" in kwargs and "y_val" in kwargs) else None
 
         if X_train.dtypes[0] == "string":
             X_train = self._preprocess(X_train, self._task, **kwargs)
@@ -482,8 +474,9 @@ class TransformersEstimator(BaseEstimator):
         if eval_dataset is not None:
             # if validation data is non empty, select the best checkpoint and save the final global step to self.params
 
-            trainer.evaluate()
             self.params[self.ITER_HP] = trainer.state.global_step
+            trainer.evaluate()
+
             self._checkpoint_path = self._select_checkpoint(
                 trainer.ckpt_to_metric, trainer.ckpt_to_global_step
             )
