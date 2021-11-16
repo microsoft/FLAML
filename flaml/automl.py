@@ -98,7 +98,7 @@ class SearchState:
         self.total_time_used = 0
         self.total_iter = 0
         self.base_eci = None
-        self.time_best_found = 0
+        self.time_best_found = self.time_best_found_old = 0
         self.time2eval_best = 0
         self.time2eval_best_old = 0
         self.trained_estimator = None
@@ -326,7 +326,7 @@ class AutoML:
                 "time_budget": 60,
                 "metric": 'accuracy',
                 "task": 'classification',
-                "log_file_name": 'test/mylog.log',
+                "log_file_name": 'mylog.log',
             }
             automl.fit(X_train = X_train, y_train = y_train,
                 **automl_settings)
@@ -335,10 +335,169 @@ class AutoML:
 
     from .version import __version__
 
-    def __init__(self):
+    def __init__(self, **settings):
+        """Constructor.
+
+        Many settings in fit() can be passed to the constructor too.
+        If an argument in fit() is provided, it will override the setting passed to the constructor.
+        If an argument in fit() is not provided but provided in the constructor, the value passed to the constructor will be used.
+
+        Args:
+            metric: A string of the metric name or a function,
+                e.g., 'accuracy', 'roc_auc', 'roc_auc_ovr', 'roc_auc_ovo',
+                'f1', 'micro_f1', 'macro_f1', 'log_loss', 'mae', 'mse', 'r2',
+                'mape'. Default is 'auto'.
+                If passing a customized metric function, the function needs to
+                have the follwing signature:
+
+                .. code-block:: python
+
+                    def custom_metric(
+                        X_test, y_test, estimator, labels,
+                        X_train, y_train, weight_test=None, weight_train=None,
+                        config=None, groups_test=None, groups_train=None,
+                    ):
+                        return metric_to_minimize, metrics_to_log
+
+                which returns a float number as the minimization objective,
+                and a dictionary as the metrics to log.
+            task: A string of the task type, e.g.,
+                'classification', 'regression', 'ts_forecast', 'rank'.
+            n_jobs: An integer of the number of threads for training.
+            log_file_name: A string of the log file name. To disable logging,
+                set it to be an empty string "".
+            estimator_list: A list of strings for estimator names, or 'auto'
+                e.g.,
+
+                .. code-block:: python
+
+                    ['lgbm', 'xgboost', 'catboost', 'rf', 'extra_tree']
+
+            time_budget: A float number of the time budget in seconds.
+            max_iter: An integer of the maximal number of iterations.
+            sample: A boolean of whether to sample the training data during
+                search.
+            ensemble: boolean or dict | default=False. Whether to perform
+                ensemble after search. Can be a dict with keys 'passthrough'
+                and 'final_estimator' to specify the passthrough and
+                final_estimator in the stacker.
+            eval_method: A string of resampling strategy, one of
+                ['auto', 'cv', 'holdout'].
+            split_ratio: A float of the valiation data percentage for holdout.
+            n_splits: An integer of the number of folds for cross - validation.
+            log_type: A string of the log type, one of
+                ['better', 'all'].
+                'better' only logs configs with better loss than previos iters
+                'all' logs all the tried configs.
+            save_best_model_per_estimator: A boolean of whether to keep the best
+                model per estimator. Make sure memory is large enough if setting to True.
+            log_training_metric: A boolean of whether to log the training
+                metric for each model.
+            mem_thres: A float of the memory size constraint in bytes.
+            pred_time_limit: A float of the prediction latency constraint in seconds.
+            train_time_limit: A float of the training time constraint in seconds.
+            verbose: int, default=3 | Controls the verbosity, higher means more
+                messages.
+            retrain_full: bool or str, default=True | whether to retrain the
+                selected model on the full training data when using holdout.
+                True - retrain only after search finishes; False - no retraining;
+                'budget' - do best effort to retrain without violating the time
+                budget.
+            split_type: str, default="auto" | the data split type.
+                For classification tasks, valid choices are [
+                    "auto", 'stratified', 'uniform', 'time']. "auto" -> stratified.
+                For regression tasks, valid choices are ["auto", 'uniform', 'time'].
+                    "auto" -> uniform.
+                For ts_forecast tasks, must be "auto" or 'time'.
+                For ranking task, must be "auto" or 'group'.
+            hpo_method: str, default="auto" | The hyperparameter
+                optimization method. By default, CFO is used for sequential
+                search and BlendSearch is used for parallel search.
+                No need to set when using flaml's default search space or using
+                a simple customized search space. When set to 'bs', BlendSearch
+                is used. BlendSearch can be tried when the search space is
+                complex, for example, containing multiple disjoint, discontinuous
+                subspaces. When set to 'random', random search is used.
+            starting_points: A dictionary to specify the starting hyperparameter
+                config for the estimators.
+                Keys are the name of the estimators, and values are the starting
+                hyperparamter configurations for the corresponding estimators.
+                The value can be a single hyperparamter configuration dict or a list
+                of hyperparamter configuration dicts.
+                In the following code example, we get starting_points from the
+                automl_experiment and use them in the new_automl_experiment.
+                e.g.,
+
+                .. code-block:: python
+
+                    from flaml import AutoML
+                    automl_experiment = AutoML()
+                    X_train, y_train = load_iris(return_X_y=True)
+                    automl_experiment.fit(X_train, y_train)
+                    starting_points = automl_experiment.best_config_per_estimator
+
+                    new_automl_experiment = AutoML()
+                    new_automl_experiment.fit(X_train, y_train,
+                        starting_points=starting_points)
+
+            seed: int or None, default=None | The random seed for np.random.
+            n_concurrent_trials: [Experimental] int, default=1 | The number of
+                concurrent trials. For n_concurrent_trials > 1, installation of
+                ray is required: `pip install flaml[ray]`.
+            keep_search_state: boolean, default=False | Whether to keep search
+                state after fit(). By default the state is deleted for space
+                saving.
+            early_stop: boolean, default=False | Whether to stop early if the
+                search is considered to converge.
+            append_log: boolean, default=False | Whetehr to directly append the log
+                records to the input log file if it exists.
+            auto_augment: boolean, default=True | Whether to automatically
+                augment rare classes.
+            min_sample_size: int, default=MIN_SAMPLE_TRAIN | the minimal sample
+                size when sample=True.
+            use_ray: boolean, default=False | Whether to use ray to run the training
+                in separate processes. This can be used to prevent OOM for large
+                datasets, but will incur more overhead in time. Only use it if
+                you run into OOM failures.
+
+        """
         self._track_iter = 0
         self._state = AutoMLState()
         self._state.learner_classes = {}
+        self._settings = settings
+        settings["time_budget"] = settings.get("time_budget", 60)
+        settings["task"] = settings.get("task", "regression")
+        settings["n_jobs"] = settings.get("n_jobs", -1)
+        settings["eval_method"] = settings.get("eval_method", "auto")
+        settings["split_ratio"] = settings.get("split_ratio", SPLIT_RATIO)
+        settings["n_splits"] = settings.get("n_splits", N_SPLITS)
+        settings["auto_augment"] = settings.get("auto_augment", True)
+        settings["metric"] = settings.get("metric", "auto")
+        settings["estimator_list"] = settings.get("estimator_list", "auto")
+        settings["log_file_name"] = settings.get("log_file_name", "")
+        settings["max_iter"] = settings.get("max_iter", 1000000)
+        settings["sample"] = settings.get("sample", True)
+        settings["ensemble"] = settings.get("ensemble", False)
+        settings["log_type"] = settings.get("log_type", "better")
+        settings["save_best_model_per_estimator"] = settings.get(
+            "save_best_model_per_estimator", False
+        )
+        settings["log_training_metric"] = settings.get("log_training_metric", False)
+        settings["mem_thres"] = settings.get("mem_thres", MEM_THRES)
+        settings["pred_time_limit"] = settings.get("pred_time_limit", np.inf)
+        settings["train_time_limit"] = settings.get("train_time_limit", np.inf)
+        settings["verbose"] = settings.get("verbose", 3)
+        settings["retrain_full"] = settings.get("retrain_full", True)
+        settings["split_type"] = settings.get("split_type", "auto")
+        settings["hpo_method"] = settings.get("hpo_method", "auto")
+        settings["learner_selector"] = settings.get("learner_selector", "sample")
+        settings["starting_points"] = settings.get("starting_points", {})
+        settings["n_concurrent_trials"] = settings.get("n_concurrent_trials", 1)
+        settings["keep_search_state"] = settings.get("keep_search_state", False)
+        settings["early_stop"] = settings.get("early_stop", False)
+        settings["append_log"] = settings.get("append_log", False)
+        settings["min_sample_size"] = settings.get("min_sample_size", MIN_SAMPLE_TRAIN)
+        settings["use_ray"] = settings.get("use_ray", False)
 
     @property
     def config_history(self):
@@ -891,18 +1050,18 @@ class AutoML:
         y_train=None,
         dataframe=None,
         label=None,
-        time_budget=0,
-        task="classification",
-        eval_method="auto",
-        split_ratio=SPLIT_RATIO,
-        n_splits=N_SPLITS,
+        time_budget=np.inf,
+        task=None,
+        eval_method=None,
+        split_ratio=None,
+        n_splits=None,
         split_type=None,
         groups=None,
         n_jobs=-1,
         train_best=True,
         train_full=False,
         record_id=-1,
-        auto_augment=True,
+        auto_augment=None,
         **fit_kwargs,
     ):
         """Retrain from log file.
@@ -932,13 +1091,13 @@ class AutoML:
                 ['auto', 'cv', 'holdout'].
             split_ratio: A float of the validation data percentage for holdout.
             n_splits: An integer of the number of folds for cross-validation.
-            split_type: str or None, default=None | the data split type.
+            split_type: str, default="auto" | the data split type.
                 For classification tasks, valid choices are [
-                    None, 'stratified', 'uniform', 'time', 'group']. None -> stratified.
-                For regression tasks, valid choices are [None, 'uniform', 'time'].
-                    None -> uniform.
-                For ts_forecast tasks, must be None or 'time'.
-                For ranking task, must be None or 'group'.
+                    "auto", 'stratified', 'uniform', 'time', 'group']. "auto" -> stratified.
+                For regression tasks, valid choices are ["auto", 'uniform', 'time'].
+                    "auto" -> uniform.
+                For ts_forecast tasks, must be "auto" or 'time'.
+                For ranking task, must be "auto" or 'group'.
             groups: None or array-like | Group labels (with matching length to
                 y_train) or groups counts (with sum equal to length of y_train)
                 for training data.
@@ -957,10 +1116,15 @@ class AutoML:
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight.
         """
-        if task == FORECAST:
-            self._state.task = TS_FORECAST
-        else:
-            self._state.task = task
+        task = task or self._settings.get("task")
+        eval_method = eval_method or self._settings.get("eval_method")
+        split_ratio = split_ratio or self._settings.get("split_ratio")
+        n_splits = n_splits or self._settings.get("n_splits")
+        split_type = split_type or self._settings.get("split_type")
+        auto_augment = (
+            self._settings.get("auto_augment") if auto_augment is None else auto_augment
+        )
+        self._state.task = TS_FORECAST if task == FORECAST else task
         self._state.fit_kwargs = fit_kwargs
         self._validate_data(X_train, y_train, dataframe, label, groups=groups)
 
@@ -1039,15 +1203,17 @@ class AutoML:
                 len(np.unique(self._y_train_all))
             )
         if self._state.task in CLASSIFICATION:
-            assert split_type in [None, "stratified", "uniform", "time", "group"]
+            assert split_type in ["auto", "stratified", "uniform", "time", "group"]
             self._split_type = (
-                split_type or self._state.groups is None and "stratified" or "group"
+                split_type
+                if split_type != "auto"
+                else self._state.groups is None and "stratified" or "group"
             )
         elif self._state.task == "regression":
-            assert split_type in [None, "uniform", "time", "group"]
-            self._split_type = split_type or "uniform"
+            assert split_type in ["auto", "uniform", "time", "group"]
+            self._split_type = split_type if split_type != "auto" else "uniform"
         elif self._state.task == TS_FORECAST:
-            assert split_type in [None, "time"]
+            assert split_type in ["auto", "time"]
             self._split_type = "time"
             assert isinstance(
                 self._state.fit_kwargs.get("period"), int
@@ -1056,7 +1222,7 @@ class AutoML:
             assert (
                 self._state.groups is not None
             ), "groups must be specified for ranking task."
-            assert split_type in [None, "group"]
+            assert split_type in ["auto", "group"]
             self._split_type = "group"
 
     def _decide_eval_method(self, time_budget):
@@ -1266,43 +1432,43 @@ class AutoML:
         y_train=None,
         dataframe=None,
         label=None,
-        metric="auto",
-        task="classification",
-        n_jobs=-1,
-        log_file_name="flaml.log",
-        estimator_list="auto",
-        time_budget=60,
-        max_iter=1000000,
-        sample=True,
-        ensemble=False,
-        eval_method="auto",
-        log_type="better",
-        save_best_model_per_estimator=False,
-        split_ratio=SPLIT_RATIO,
-        n_splits=N_SPLITS,
-        log_training_metric=False,
-        mem_thres=MEM_THRES,
-        pred_time_limit=np.inf,
-        train_time_limit=np.inf,
+        metric=None,
+        task=None,
+        n_jobs=None,
+        log_file_name=None,
+        estimator_list=None,
+        time_budget=None,
+        max_iter=None,
+        sample=None,
+        ensemble=None,
+        eval_method=None,
+        log_type=None,
+        save_best_model_per_estimator=None,
+        split_ratio=None,
+        n_splits=None,
+        log_training_metric=None,
+        mem_thres=None,
+        pred_time_limit=None,
+        train_time_limit=None,
         X_val=None,
         y_val=None,
         sample_weight_val=None,
         groups_val=None,
         groups=None,
-        verbose=3,
-        retrain_full=True,
+        verbose=None,
+        retrain_full=None,
         split_type=None,
-        learner_selector="sample",
+        learner_selector=None,
         hpo_method=None,
-        starting_points={},
+        starting_points=None,
         seed=None,
-        n_concurrent_trials=1,
-        keep_search_state=False,
-        early_stop=False,
-        append_log=False,
-        auto_augment=True,
-        min_sample_size=MIN_SAMPLE_TRAIN,
-        use_ray=False,
+        n_concurrent_trials=None,
+        keep_search_state=None,
+        early_stop=None,
+        append_log=None,
+        auto_augment=None,
+        min_sample_size=None,
+        use_ray=None,
         **fit_kwargs,
     ):
         """Find a model for a given task.
@@ -1325,7 +1491,7 @@ class AutoML:
             metric: A string of the metric name or a function,
                 e.g., 'accuracy', 'roc_auc', 'roc_auc_ovr', 'roc_auc_ovo',
                 'f1', 'micro_f1', 'macro_f1', 'log_loss', 'mae', 'mse', 'r2',
-                'mape'.
+                'mape'. Default is 'auto'.
                 If passing a customized metric function, the function needs to
                 have the follwing signature:
 
@@ -1343,7 +1509,8 @@ class AutoML:
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast', 'rank'.
             n_jobs: An integer of the number of threads for training.
-            log_file_name: A string of the log file name.
+            log_file_name: A string of the log file name. To disable logging,
+                set it to be an empty string "".
             estimator_list: A list of strings for estimator names, or 'auto'
                 e.g.,
 
@@ -1391,14 +1558,14 @@ class AutoML:
                 True - retrain only after search finishes; False - no retraining;
                 'budget' - do best effort to retrain without violating the time
                 budget.
-            split_type: str or None, default=None | the data split type.
+            split_type: str, default="auto" | the data split type.
                 For classification tasks, valid choices are [
-                    None, 'stratified', 'uniform', 'time']. None -> stratified.
-                For regression tasks, valid choices are [None, 'uniform', 'time'].
-                    None -> uniform.
-                For ts_forecast tasks, must be None or 'time'.
-                For ranking task, must be None or 'group'.
-            hpo_method: str or None, default=None | The hyperparameter
+                    "auto", 'stratified', 'uniform', 'time']. "auto" -> stratified.
+                For regression tasks, valid choices are ["auto", 'uniform', 'time'].
+                    "auto" -> uniform.
+                For ts_forecast tasks, must be "auto" or 'time'.
+                For ranking task, must be "auto" or 'group'.
+            hpo_method: str, default="auto" | The hyperparameter
                 optimization method. By default, CFO is used for sequential
                 search and BlendSearch is used for parallel search.
                 No need to set when using flaml's default search space or using
@@ -1452,10 +1619,69 @@ class AutoML:
                 a key word argument for 'ts_forecast' task.
         """
         self._state._start_time_flag = self._start_time_flag = time.time()
-        if task == FORECAST:
-            self._state.task = TS_FORECAST
-        else:
-            self._state.task = task
+        task = task or self._settings.get("task")
+        time_budget = time_budget or self._settings.get("time_budget")
+        n_jobs = n_jobs or self._settings.get("n_jobs")
+        eval_method = eval_method or self._settings.get("eval_method")
+        split_ratio = split_ratio or self._settings.get("split_ratio")
+        n_splits = n_splits or self._settings.get("n_splits")
+        auto_augment = (
+            self._settings.get("auto_augment") if auto_augment is None else auto_augment
+        )
+        metric = metric or self._settings.get("metric")
+        estimator_list = estimator_list or self._settings.get("estimator_list")
+        log_file_name = (
+            self._settings.get("log_file_name")
+            if log_file_name is None
+            else log_file_name
+        )
+        max_iter = self._settings.get("max_iter") if max_iter is None else max_iter
+        sample = self._settings.get("sample") if sample is None else sample
+        ensemble = self._settings.get("ensemble") if ensemble is None else ensemble
+        log_type = log_type or self._settings.get("log_type")
+        save_best_model_per_estimator = (
+            self._settings.get("save_best_model_per_estimator")
+            if save_best_model_per_estimator is None
+            else save_best_model_per_estimator
+        )
+        log_training_metric = (
+            self._settings.get("log_training_metric")
+            if log_training_metric is None
+            else log_training_metric
+        )
+        mem_thres = mem_thres or self._settings.get("mem_thres")
+        pred_time_limit = pred_time_limit or self._settings.get("pred_time_limit")
+        train_time_limit = train_time_limit or self._settings.get("train_time_limit")
+        verbose = self._settings.get("verbose") if verbose is None else verbose
+        retrain_full = (
+            self._settings.get("retrain_full") if retrain_full is None else retrain_full
+        )
+        split_type = split_type or self._settings.get("split_type")
+        hpo_method = hpo_method or self._settings.get("hpo_method")
+        learner_selector = learner_selector or self._settings.get("learner_selector")
+        starting_points = (
+            self._settings.get("starting_points")
+            if starting_points is None
+            else starting_points
+        )
+        n_concurrent_trials = n_concurrent_trials or self._settings.get(
+            "n_concurrent_trials"
+        )
+        keep_search_state = (
+            self._settings.get("keep_search_state")
+            if keep_search_state is None
+            else keep_search_state
+        )
+        early_stop = (
+            self._settings.get("early_stop") if early_stop is None else early_stop
+        )
+        append_log = (
+            self._settings.get("append_log") if append_log is None else append_log
+        )
+        min_sample_size = min_sample_size or self._settings.get("min_sample_size")
+        use_ray = self._settings.get("use_ray") if use_ray is None else use_ray
+
+        self._state.task = TS_FORECAST if task == FORECAST else task
         self._state.log_training_metric = log_training_metric
         self._state.fit_kwargs = fit_kwargs
         self._state.weight_val = sample_weight_val
@@ -1589,10 +1815,14 @@ class AutoML:
         self._state.save_best_model_per_estimator = save_best_model_per_estimator
         # use the following condition if we have an estimation of average_trial_time and average_trial_overhead
         # self._use_ray = use_ray or n_concurrent_trials > ( average_trail_time + average_trial_overhead) / (average_trial_time)
-        self._hpo_method = hpo_method or (
-            "bs"
-            if n_concurrent_trials > 1 or self._use_ray and len(estimator_list) > 1
-            else "cfo"
+        self._hpo_method = (
+            hpo_method
+            if hpo_method != "auto"
+            else (
+                "bs"
+                if n_concurrent_trials > 1 or self._use_ray and len(estimator_list) > 1
+                else "cfo"
+            )
         )
         if log_file_name:
             with training_log_writer(log_file_name, append_log) as save_helper:
@@ -1654,7 +1884,7 @@ class AutoML:
         else:
             raise NotImplementedError(
                 f"hpo_method={self._hpo_method} is not recognized. "
-                "'cfo' and 'bs' are supported."
+                "'auto', 'cfo' and 'bs' are supported."
             )
         space = self.search_space
         if self._hpo_method == "random":

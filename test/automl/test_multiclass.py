@@ -244,7 +244,7 @@ class TestMultiClass(unittest.TestCase):
         del automl_settings["metric"]
         del automl_settings["save_best_model_per_estimator"]
         del automl_settings["log_training_metric"]
-        automl_experiment = AutoML()
+        automl_experiment = AutoML(task="classification")
         duration = automl_experiment.retrain_from_log(
             log_file_name=automl_settings["log_file_name"],
             X_train=X_train,
