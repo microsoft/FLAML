@@ -1,5 +1,4 @@
-# FAQ
-
+# Frequently Asked Questions
 
 ### About `low_cost_init_point` in `AutoML` and `low_cost_partial_config` in `tune`.
 
@@ -21,19 +20,11 @@ Currently FLAML does several things for imbalanced data.
 4. We allow users to pass `sample_weight` to `AutoML.fit()`.
 
 
-### How to interpret model performance?
-Is it possible for me to visualize feature importance, SHAP values, optimization history?
+### How to interpret model performance? Is it possible for me to visualize feature importance, SHAP values, optimization history?
 
-You can use automl.model.estimator.feature_importances_ to get the feature_importances_ for the best model found by automl.
+You can use ```automl.model.estimator.feature_importances_``` to get the `feature_importances_` for the best model found by automl. See an [example](Examples/AutoML-for-XGBoost#plot-feature-importance).
 
-SHAP values are not built-in. But it's frequently asked. Suggestions/contributions are welcome.
+Packages such as `azureml-interpret` and `sklearn.inspection.permutation_importance` can be used on `automl.model.estimator` to explain the selected model.
+Model explanation is frequently asked and adding a native support may be a good feature. Suggestions/contributions are welcome.
 
-get_output_from_log
-
-plot_learning_curve?
-
-In this example only better configurations are logged. You can use log_type='all' in fit() to log all the trials.
-
-azureml-interpret
-
-use sklearn.inspection.permutation_importance on automl.model.estimator
+Optimization history can be checked from the [log](Use-Cases/Task-Oriented-AutoML#log-the-trials). You can also [retrieve the log and plot the learning curve](Use-Cases/Task-Oriented-AutoML#plot-learning-curve).
