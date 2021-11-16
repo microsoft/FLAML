@@ -129,7 +129,7 @@ def _test_multigpu():
     )
 
 
-def test_classification_head():
+def _test_classification_head():
     try:
         import ray
     except ImportError:
@@ -173,7 +173,7 @@ def test_classification_head():
     )
 
 
-def test_regression():
+def _test_regression():
     try:
         import ray
     except ImportError:
@@ -271,7 +271,7 @@ def _test_custom_data():
     )
 
 
-def test_cv():
+def _test_cv():
     try:
         import ray
     except ImportError:
@@ -310,7 +310,7 @@ def test_cv():
     automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
 
 
-def test_load_args():
+def _test_load_args():
     import subprocess
     import sys
 
