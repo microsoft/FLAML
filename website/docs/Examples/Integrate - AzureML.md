@@ -2,9 +2,9 @@ FLAML can be used together with AzureML and mlflow.
 
 ### Prerequisites
 
-Install the "azureml" option.
+Install the [azureml] option.
 ```bash
-pip install flaml[azureml]
+pip install "flaml[azureml]"
 ```
 
 Setup a AzureML workspace:

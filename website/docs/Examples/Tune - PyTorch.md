@@ -4,7 +4,7 @@ This example uses flaml to tune a pytorch model on CIFAR10.
 
 ### Requirements
 ```bash
-pip install torchvision flaml[blendsearch,ray]
+pip install torchvision "flaml[blendsearch,ray]"
 ```
 
 Before we are ready for tuning, we first need to define the neural network that we would like to tune.

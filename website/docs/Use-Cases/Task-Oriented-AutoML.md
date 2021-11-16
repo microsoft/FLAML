@@ -12,6 +12,8 @@
     - 'regression': regression
     - 'ts_forecast': time series forecasting
     - 'rank': learning to rank
+    - 'seq-classification': sequence classification
+    - 'seq-regression': sequence regression
 
 An optional input is `time_budget` for searching models and hyperparameters. When not specified, a default budget of 60 seconds will be used.
 

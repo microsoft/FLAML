@@ -1,7 +1,13 @@
+### Prerequisites
+
+Install the [ts_forecast] option.
+```bash
+pip install "flaml[ts_forecast]"
+```
+
 ### Univariate time series
 
 ```python
-# pip install flaml[ts_forecast]
 import numpy as np
 from flaml import AutoML
 

@@ -4,7 +4,7 @@ This example uses flaml to finetune a transformer model from Huggingface transfo
 
 This example requires GPU. Install dependencies:
 ```python
-pip install torch transformers datasets flaml[blendsearch,ray]
+pip install torch transformers datasets "flaml[blendsearch,ray]"
 ```
 
 ### Prepare for tuning
