@@ -9,10 +9,11 @@
 ## Key concepts in the usage of `flaml.tune`
 The usage of `flaml.tune` is, to a large extent, similar to the usage of `ray.tune`.  Interested users can find a more extensive documentation about `ray.tune` [here](https://docs.ray.io/en/latest/tune/key-concepts.html). 
 
-### **Search space**
+### **1. Search space**
 In tuning your hyperparameters, you need to define a search space. In the search space, you need to specify valid values for your hyperparameters and can specify how these values are sampled (e.g. from a uniform distribution or a normal distribution). 
 
 In the following code example, we include a search space which includes two hyperparameters named `x` and `y`, the valid values for both are the integers in the range of [1,10000]. The values for `x` are sampled uniformly in the specified range (using `tune.randit(lower=1, upper=100000)`), and the values for `y` are sampled in log space within the specified range (using `tune.lograndit(lower=1, upper=100000)`).
+
 
 ```python
 from flaml import tune
@@ -24,9 +25,13 @@ config_search_space = {
 
 More details about the search space domain: the corresponding value of a particular hyperparameter in the search space is called a domain, for example, `tune.randint(lower=1, upper=100000)` for `y` in the code example shown above. The domain specifies a type and valid range to sample parameters from. Supported types include float, integer, and categorical. You can also specify how to sample values from certain distributions in linear scale or log scale (e.g., the `tune.lograndint(lower=1, upper=100000)` for `x`). It is a common practice to sample in log scale if the valid value range is large and a large magnititue of change is preferred. Please refer to [ray.tune](https://docs.ray.io/en/latest/tune/api_docs/search_space.html#overview) for a more comprehensive introduction about possible choices of the domain.
 
-### **Objective fucntion**
+### **2. Objective fucntion and optimization mode**
 
-To use `tune` , you will need to wrap your objective function in a lightweight trainable API. Attached below is an exmaple of how to write your objective into a function-based trainable API. In the following code, we define an objective function regarding the hyperparameters `x` and `y` introduced: $obj := (x-85000)^2 - x/y$. 
+- Objective function
+
+To use `tune` , you will need to define your objective function, which can be a function simply returning a scalar or a function returning a dictionary, or a function-based or class-based [trainable function](https://docs.ray.io/en/latest/tune/api_docs/trainable.html#trainable-docs)
+
+ function wrapped into the lightweight trainable API. Attached below is an exmaple of how to write your objective into a function-based trainable API. In the following code, we define an objective function regarding the hyperparameters `x` and `y` introduced: $obj := (x-85000)^2 - x/y$. 
 
 
 ```python
@@ -34,50 +39,136 @@ import time
 
 def evaluate_config(config):
     '''evaluate a hyperparameter configuration'''
-    # we uss a toy example with 2 hyperparameters
-    # metric is the target minimization/maximization objective
-    metric = (config['x']-85000)**2 - config['x']/config['y']
     # usually the evaluation takes an non-neglible cost
     # and the cost could be related to certain hyperparameters
     # here we simulate this cost by call the time.sleep() function
     # in this example, we assume the cost it's proportional to x
     time.sleep(config['x']/100000)
-    # use tune.report to report the metric to optimize  
-    tune.report(metric=metric)
-```
 
-### **Hyperparameter optimization/search algorithm**
+    # we use a toy example with 2 hyperparameters
+    return (config['x']-85000)**2 - config['x']/config['y']
+```
+- Optimization mode
+
+In addition to the objective function, you need to specify a mode of your optimization/tuning task (maximization or minimization) through the argument `mode` by choosing from "min" or "max".
+
+### **3. Hyperparameter optimization/search algorithm**
 To tune the hyperparameters toward your objective, you will want to use a hyperparameter optimization or search algorithm which can help suggest hyperparameters with better performance (regarding your objective). `flaml` offers two HPO methods: CFO and BlendSearch. `flaml.tune` uses BlendSearch by default.
 
+### **4. Budget**
+A budget defines the stopping criterion of the tuning process. You can speicfiy your budget in terms of the largest number of evaluations allowed through the argument `num_samples`, or in terms of largest wall-clock-time (in seconds) allowed through the argument `time_budget_s`. You can specify both, but the experiment will stop as long as one of them runs out.
 
-## Sequential and parallel tuning using `flaml.tune` 
+## Basic sequential and parallel tuning
+- Sequential tuning
 
-### Sequential tuning
-Recommended when compute resource is limited and each trial can consume all the resources.
-
-In the following code, we show how to use `flaml.tune` to do hyperparamter search with the pre-defined search space `config` and objective function `evaluate_config` using the default serach algorithm in flaml.
+After configuring the aforementioned key concepts, you should be able to perform tuning by calling `flaml.tune.run()`. Below is a quick sequential tuning experiment example using the pre-defined search space `config_search_space` and a minimization (`mode='min'`) objective `evaluate_config` using the default serach algorithm in flaml. The time budget is 10 seconds (`time_budget_s=10`).
 
 ```python
 # require: pip install flaml[blendsearch]
 analysis = tune.run(
     evaluate_config,    # the function to evaluate a config
     config=config_search_space, # the search space defined
-    low_cost_partial_config={'x':1},    # a initial (partial) config with low cost
-    metric='metric',    # the name of the metric used for optimization
     mode='min',         # the optimization mode, 'min' or 'max'
     num_samples=-1,    # the maximal number of configs to try, -1 means infinite
-    time_budget_s=60,   # the time budget in seconds
-    local_dir='logs/',  # the local directory to store logs
-    # verbose=0,          # verbosity  
+    time_budget_s=10,   # the time budget in seconds
     # use_ray=True, # uncomment when performing parallel tuning using ray
     )
-
 print(analysis.best_trial.last_result)  # the best trial's result
 print(analysis.best_config) # the best config
 ```
-### Parallel tuning
+Sequential tuning is recommended when compute resource is limited and each trial can consume all the resources.
 
-## Hyperparameter optimization algorithm choice in `flaml.tune`
+- Parallel tuning
+
+If you want to leverage parallel computing resources to do the tuning, you achieve it by uncommenting `use_ray=True` in the inputs of tune (requires ray.tune to be installed). Under this configuration, you can also limit the amount of resources allocated per trial by specifying `resources_per_trial`, e.g. `resources_per_trial={'cpu': 2}`.
+
+
+```python
+# require: pip install flaml[blendsearch]
+analysis = tune.run(
+    evaluate_config,    # the function to evaluate a config
+    config=config_search_space, # the search space defined
+    mode='min',         # the optimization mode, 'min' or 'max'
+    num_samples=-1,    # the maximal number of configs to try, -1 means infinite
+    time_budget_s=10,   # the time budget in seconds
+    use_ray=True, # uncomment when performing parallel tuning using ray
+    resources_per_trial={'cpu': 2} # limit resources allocated per trial
+    )
+print(analysis.best_trial.last_result)  # the best trial's result
+print(analysis.best_config) # the best config
+```
+
+**A heads up about computation overhead.** When parallel tuning is used, there will be a certain amount of computation overhead in each trial. 
+
+## Advanced tuning options
+There are several advanced tuning options worth mentioning.
+
+### Early stopping and pruning
+Related arguments:
+- `min_resource`: A float of the minimal resource to use for the
+            prune_attr; only valid if prune_attr is not in space.
+
+- `max_resource`: A float of the maximal resource to use for the
+            prune_attr; only valid if prune_attr is not in space.
+- `reduction_factor`: A float of the reduction factor used for incremental pruning.
+- `report_intermediate_result`: A boolean of whether intermediate results are reported. If so, early stopping and pruning can be used.
+- `prune_attr`: A string of the attribute used for pruning.
+            Not necessarily in space.
+            When prune_attr is in space, it is a hyperparameter, e.g.,
+            'n_iters', and the best value is unknown.
+            When prune_attr is not in space, it is a resource dimension,
+            e.g., 'sample_size', and the peak performance is assumed
+            to be at the max_resource.
+
+```python
+def train_breast_cancer(config: dict):
+    # This is a simple training function to be passed into Tune
+    # Load dataset
+    data, labels = sklearn.datasets.load_breast_cancer(return_X_y=True)
+    # Split into train and test set
+    train_x, test_x, train_y, test_y = train_test_split(data, labels, test_size=0.25)
+    # Build input matrices for XGBoost
+    train_set = xgb.DMatrix(train_x, label=train_y)
+    test_set = xgb.DMatrix(test_x, label=test_y)
+    # HyperOpt returns a tuple
+    config = config.copy()
+    config["eval_metric"] = ["logloss", "error"]
+    config["objective"] = "binary:logistic"
+    # Train the classifier, using the Tune callback
+    xgb.train(
+        config,
+        train_set,
+        evals=[(test_set, "eval")],
+        verbose_eval=False,
+        callbacks=[TuneReportCheckpointCallback(filename="model.xgb")],
+    )
+```
+
+```python
+analysis = tune.run(
+    train_breast_cancer,
+    config=search_space,
+    low_cost_partial_config={
+        "max_depth": 1,
+    },
+    cat_hp_cost={
+        "min_child_weight": [6, 3, 2],
+    },
+    metric="eval-logloss",
+    mode="min",
+    max_resource=max_iter,
+    min_resource=1,
+    report_intermediate_result=True,
+    # You can add "gpu": 0.1 to allocate GPUs
+    resources_per_trial={"cpu": 1},
+    local_dir="logs/",
+    num_samples=num_samples * n_cpu,
+    time_budget_s=time_budget_s,
+    use_ray=True,
+    )
+```
+
+## Hyperparameter optimization algorithm details in `flaml.tune`
 
 `flaml` offers two HPO methods: CFO and BlendSearch.
 `flaml.tune` uses BlendSearch by default.
@@ -177,3 +268,6 @@ For more technical details, please check our papers.
     booktitle={ICLR'21},
 }
 ```
+# TODO
+- Advanced tuning options: 1. early stopping with scheduler; 2. constraints; 3. make the description of search space more user-friendly.
+- Move description about algorithm to other places?
