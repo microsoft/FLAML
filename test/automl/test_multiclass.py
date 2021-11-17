@@ -343,7 +343,7 @@ class TestMultiClass(unittest.TestCase):
             learner_name="large_lgbm", learner_class=MyLargeLGBM
         )
         automl_settings = {
-            "time_budget": None,
+            "time_budget": -1,
             "task": "classification",
             "log_file_name": "test/classification_oom.log",
             "estimator_list": ["large_lgbm"],

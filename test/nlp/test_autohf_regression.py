@@ -24,7 +24,7 @@ def test_regression():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 2,
-        "time_budget": -1,
+        "time_budget": 5,
         "task": "seq-regression",
         "metric": "rmse",
         "starting_points": {"transformer": {"num_train_epochs": 1}},

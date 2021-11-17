@@ -84,7 +84,7 @@ class TestTrainingLog(unittest.TestCase):
                         count += 1
                     self.assertGreater(count, 0)
 
-            automl_settings["log_file_name"] = None
+            automl_settings["log_file_name"] = ""
             automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
             automl._selected.update(None, 0)
             automl = AutoML()
