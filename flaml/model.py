@@ -468,35 +468,27 @@ class TransformersEstimator(BaseEstimator):
 
         trainer.train()
 
-        if eval_dataset is not None:
-            # if validation data is non empty, select the best checkpoint and save the final global step to self.params
-
-            self.params[self.ITER_HP] = trainer.state.global_step
-            if trainer.state.global_step > max(trainer.ckpt_to_global_step.values()):
-                trainer.evaluate()
-
-            self._checkpoint_path = self._select_checkpoint(
-                trainer.ckpt_to_metric, trainer.ckpt_to_global_step
-            )
-
-        else:
-            # if validation dataset is empty, save the last checkpoint
-            self._checkpoint_path = self._save_last_checkpoint(trainer)
+        self.params[self.ITER_HP] = trainer.state.global_step
+        self._checkpoint_path = self._select_checkpoint(trainer)
 
         self._kwargs = kwargs
         self._num_labels = num_labels
         self._per_model_config = per_model_config
 
-    def _save_last_checkpoint(self, trainer):
-        this_ckpt = trainer.save_state()
-        self.params[self.ITER_HP] = trainer.state.global_step
-        return this_ckpt
+    def _select_checkpoint(self, trainer):
+        if trainer.ckpt_to_metric:
+            best_ckpt, _ = min(
+                trainer.ckpt_to_metric.items(), key=lambda x: x[1][self._metric_name]
+            )
+            best_ckpt_global_step = trainer.ckpt_to_global_step[best_ckpt]
+        else:
+            best_ckpt_global_step = trainer.state.global_step
+            from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
 
-    def _select_checkpoint(self, ckpt_to_score, ckpt_to_global_step):
-        best_ckpt, best_score = min(
-            ckpt_to_score.items(), key=lambda x: x[1][self._metric_name]
-        )
-        best_ckpt_global_step = ckpt_to_global_step[best_ckpt]
+            best_ckpt = os.path.join(
+                trainer.args.output_dir,
+                f"{PREFIX_CHECKPOINT_DIR}-{best_ckpt_global_step}",
+            )
         self.params[self.ITER_HP] = best_ckpt_global_step
         return best_ckpt
 

@@ -1,8 +1,4 @@
 def test_regression():
-    try:
-        import ray
-    except ImportError:
-        return
     from flaml import AutoML
 
     from datasets import load_dataset
@@ -28,14 +24,14 @@ def test_regression():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 20,
+        "time_budget": 5,
         "task": "seq-regression",
         "metric": "rmse",
     }
 
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
-        "output_dir": "data/output/",
+        "output_dir": "test/data/output/",
         "ckpt_per_epoch": 5,
         "fp16": False,
     }
