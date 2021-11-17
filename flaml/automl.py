@@ -436,6 +436,7 @@ class AutoML:
                     ['lgbm', 'xgboost', 'catboost', 'rf', 'extra_tree']
 
             time_budget: A float number of the time budget in seconds.
+                Use -1 if no time limit.
             max_iter: An integer of the maximal number of iterations.
             sample: A boolean of whether to sample the training data during
                 search.
@@ -1654,6 +1655,7 @@ class AutoML:
                     ['lgbm', 'xgboost', 'catboost', 'rf', 'extra_tree']
 
             time_budget: A float number of the time budget in seconds.
+                Use -1 if no time limit.
             max_iter: An integer of the maximal number of iterations.
             sample: A boolean of whether to sample the training data during
                 search.
@@ -1956,7 +1958,7 @@ class AutoML:
             )
         logger.info("List of ML learners in AutoML Run: {}".format(estimator_list))
         self.estimator_list = estimator_list
-        self._state.time_budget = time_budget or 1e10
+        self._state.time_budget = time_budget if time_budget > 0 else 1e10
         self._active_estimators = estimator_list.copy()
         self._ensemble = ensemble
         self._max_iter = max_iter
@@ -1991,7 +1993,7 @@ class AutoML:
             )
             if (
                 self._hpo_method in ("cfo", "bs")
-                and (self._time_taken_best_iter >= time_budget * 0.7)
+                and (self._time_taken_best_iter >= self._state.time_budget * 0.7)
                 and not all(
                     state.search_alg and state.search_alg.searcher.is_ls_ever_converged
                     for state in self._search_states.values()
@@ -2001,7 +2003,7 @@ class AutoML:
                     "Time taken to find the best model is {0:.0f}% of the "
                     "provided time budget and not all estimators' hyperparameter "
                     "search converged. Consider increasing the time budget.".format(
-                        self._time_taken_best_iter / time_budget * 100
+                        self._time_taken_best_iter / self._state.time_budget * 100
                     )
                 )
 

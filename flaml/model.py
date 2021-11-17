@@ -283,7 +283,7 @@ class BaseEstimator:
 class TransformersEstimator(BaseEstimator):
     """The class for fine-tuning language models, using huggingface transformers API."""
 
-    ITER_HP = "final_global_step"
+    ITER_HP = "global_max_steps"
 
     def __init__(self, task="seq-classification", **config):
         super().__init__(task, **config)
@@ -302,7 +302,7 @@ class TransformersEstimator(BaseEstimator):
                 "domain": tune.loguniform(lower=1e-6, upper=1e-3),
             },
             "num_train_epochs": {
-                "domain": tune.loguniform(lower=0.5, upper=10.0),
+                "domain": tune.loguniform(lower=0.1, upper=10.0),
             },
             "per_device_train_batch_size": {
                 "domain": tune.choice([4, 8, 16, 32]),
@@ -317,7 +317,7 @@ class TransformersEstimator(BaseEstimator):
                 "domain": tune.loguniform(lower=1e-8, upper=1e-6),
             },
             "seed": {"domain": tune.choice(list(range(40, 45)))},
-            "final_global_step": {"domain": sys.maxsize},
+            "global_max_steps": {"domain": sys.maxsize},
         }
 
     def _init_hpo_args(self, automl_fit_kwargs: dict = None):
@@ -357,17 +357,26 @@ class TransformersEstimator(BaseEstimator):
             def on_step_end(self, args, state, control, **callback_kwargs):
                 if state.global_step == 1:
                     self.time_per_iter = time.time() - self.step_begin_time
-                if budget:
-                    if (
+                if (
+                    budget
+                    and (
                         time.time() + self.time_per_iter
                         > self.train_begin_time + budget
-                    ):
-                        control.should_training_stop = True
-                        control.should_save = True
-                        control.should_evaluate = True
-                if state.global_step >= this_params[TransformersEstimator.ITER_HP]:
+                    )
+                    or state.global_step >= this_params[TransformersEstimator.ITER_HP]
+                ):
                     control.should_training_stop = True
+                    control.should_save = True
+                    control.should_evaluate = True
                 return control
+
+            def on_epoch_end(self, args, state, control, **callback_kwargs):
+                if (
+                    control.should_training_stop
+                    or state.epoch + 1 >= this_params["num_train_epochs"]
+                ):
+                    control.should_save = True
+                    control.should_evaluate = True
 
         import transformers
         from transformers import TrainingArguments
@@ -490,6 +499,8 @@ class TransformersEstimator(BaseEstimator):
                 f"{PREFIX_CHECKPOINT_DIR}-{best_ckpt_global_step}",
             )
         self.params[self.ITER_HP] = best_ckpt_global_step
+        print(trainer.state.global_step)
+        print(trainer.ckpt_to_global_step)
         return best_ckpt
 
     def _compute_metrics_by_dataset_name(self, eval_pred):

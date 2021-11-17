@@ -51,7 +51,6 @@ def test_hf_data():
     )
     automl = AutoML()
     automl.retrain_from_log(
-        log_file_name="seqclass.log",
         X_train=X_train,
         y_train=y_train,
         train_full=True,
