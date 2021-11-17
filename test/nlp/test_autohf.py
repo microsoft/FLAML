@@ -1,3 +1,8 @@
+import os
+import pytest
+
+
+@pytest.mark.skipif(os.name == "posix", reason="do not run on mac os")
 def test_hf_data():
     try:
         import ray
