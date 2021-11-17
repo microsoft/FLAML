@@ -1,4 +1,7 @@
 /** @type {import('@docusaurus/types').DocusaurusConfig} */
+const math = require('remark-math');
+const katex = require('rehype-katex');
+
 module.exports = {
   title: 'FLAML',
   tagline: 'Fast and Lightweight AutoML',
@@ -93,6 +96,8 @@ module.exports = {
           // Please change this to your repo.
           editUrl:
             'https://github.com/microsoft/FLAML/edit/master/website/',
+          remarkPlugins: [math],
+          rehypePlugins: [katex],
         },
         // blog: {
         //   showReadingTime: true,
@@ -106,4 +111,11 @@ module.exports = {
       },
     ],
   ],
+  stylesheets: [
+    {
+        href: "https://cdn.jsdelivr.net/npm/katex@0.13.11/dist/katex.min.css",
+        integrity: "sha384-Um5gpz1odJg5Z4HAmzPtgZKdTBHZdw8S29IecapCSB31ligYPhHQZMIlWLYQGVoc",
+        crossorigin: "anonymous",
+    },
+  ],  
 };
