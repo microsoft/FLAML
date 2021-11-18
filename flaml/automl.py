@@ -2336,6 +2336,7 @@ class AutoML:
                         self._state.time_from_start,
                     )
                     if self._trained_estimator:
+                        self._trained_estimator.cleanup()
                         del self._trained_estimator
                         self._trained_estimator = None
                     if not self._state.retrain_final:
@@ -2347,10 +2348,9 @@ class AutoML:
                 if (
                     search_state.trained_estimator
                     and not self._state.model_history
+                    and search_state.trained_estimator != self._trained_estimator
                 ):
-                    # free RAM
-                    if search_state.trained_estimator != self._trained_estimator:
-                        search_state.trained_estimator.cleanup()
+                    search_state.trained_estimator.cleanup()
                 if better or self._log_type == "all":
                     if self._training_log:
                         self._training_log.append(
