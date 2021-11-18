@@ -356,7 +356,7 @@ class LGBMEstimator(BaseEstimator):
 
     @classmethod
     def size(cls, config):
-        num_leaves = int(round(config.get("num_leaves") or config["max_leaves"]))
+        num_leaves = int(round(config.get("num_leaves") or config.get("max_leaves") or 1 << config["max_depth"]))
         n_estimators = int(round(config["n_estimators"]))
         return (num_leaves * 3 + (num_leaves - 1) * 4 + 1.0) * n_estimators * 8
 
@@ -659,11 +659,13 @@ class XGBoostEstimator(SKLearnEstimator):
 
 
 class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
-    """The class for tuning XGBoost (for classification), using sklearn API."""
+    """The class for tuning XGBoost with unlimited depth, using sklearn API."""
 
     @classmethod
     def search_space(cls, data_size, **params):
-        return XGBoostEstimator.search_space(data_size)
+        space = XGBoostEstimator.search_space(data_size)
+        space.pop("max_depth")
+        return space
 
     @classmethod
     def cost_relative2lgbm(cls):
@@ -701,6 +703,22 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
 
     def _callbacks(self, start_time, deadline) -> List[Callable]:
         return XGBoostEstimator._callbacks(start_time, deadline)
+
+
+class XGBoostLimitDepthEstimator(XGBoostSklearnEstimator):
+    """The class for tuning XGBoost with limited depth, using sklearn API."""
+
+    @classmethod
+    def search_space(cls, data_size, **params):
+        space = XGBoostEstimator.search_space(data_size)
+        space.pop("max_leaves")
+        upper = max(3, int(np.log2(data_size)))
+        space["max_depth"] = {
+            "domain": tune.randint(lower=1, upper=min(upper, 16)),
+            "init_value": 1,
+            "low_cost_init_value": 1,
+        }
+        return space
 
 
 class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):

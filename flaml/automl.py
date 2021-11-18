@@ -73,7 +73,7 @@ class SearchState:
         self.learner_class = learner_class
         search_space = learner_class.search_space(data_size=data_size, task=task)
         for name, space in search_space.items():
-            assert "domain" in space
+            assert "domain" in space, f"{name}'s domain is missing in the search space spec {space}"
             self._search_space_domain[name] = space["domain"]
             if "init_value" in space:
                 self.init_config[name] = space["init_value"]
@@ -1548,14 +1548,14 @@ class AutoML:
                 except ImportError:
                     estimator_list = ["arima", "sarimax"]
             elif self._state.task == "rank":
-                estimator_list = ["lgbm", "xgboost"]
+                estimator_list = ["lgbm", "xgboost", "xgb_limitdepth"]
             else:
                 try:
                     import catboost
 
-                    estimator_list = ["lgbm", "rf", "catboost", "xgboost", "extra_tree"]
+                    estimator_list = ["lgbm", "rf", "catboost", "xgboost", "extra_tree", "xgb_limitdepth"]
                 except ImportError:
-                    estimator_list = ["lgbm", "rf", "xgboost", "extra_tree"]
+                    estimator_list = ["lgbm", "rf", "xgboost", "extra_tree", "xgb_limitdepth"]
                 if "regression" != self._state.task:
                     estimator_list += ["lrl1"]
         for estimator_name in estimator_list:
