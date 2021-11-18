@@ -6,15 +6,20 @@
 1. Your input cannot be represented as X_train + y_train or dataframe + label.
 1. You want to tune a function that may not even be a machine learning procedure.
 
-## Key Steps
+## Basic Tuning
+
 <!-- The usage of `flaml.tune` is, to a large extent, similar to the usage of `ray.tune`.  Interested users can find a more extensive documentation about `ray.tune` [here](https://docs.ray.io/en/latest/tune/key-concepts.html).  -->
 
 There are three essential steps to use `flaml.tune`:
 1. Define an objective function to optimize.
 1. Define a search space of hyperparameters.
-1. Specify constraints in search.
+1. Specify requirements/constraints about search.
 
 ### Objective fucntion
+
+Related arguments:
+- `training_function`: A user-defined training function.
+- `mode`:  A string in ['min', 'max'] to specify the objective as minimization or maximization.
 
 The first step is to define your objective function, which can be a function simply returning a scalar or a function returning a dictionary (metric name -> metric value).
 <!-- , or a function-based or class-based [trainable function](https://docs.ray.io/en/latest/tune/api_docs/trainable.html#trainable-docs) -->
@@ -46,6 +51,11 @@ flaml.tune.run(evaluate_config, mode="min", ...)
 ```
 
 ### Search space
+
+Related arguments:
+- `config`: A dictionary to specify the search space.
+- `low_cost_partial_config` (optional): A dictionary from a subset of controlled dimensions to the initial low-cost values.
+- `cat_hp_cost` (optional): A dictionary from a subset of categorical dimensions to the relative cost of each choice.
 
 The second step is to define a search space of the hyperparameters as a dictionary. In the search space, you need to specify valid values for your hyperparameters and can specify how these values are sampled (e.g., from a uniform distribution or a normal distribution). 
 
@@ -117,18 +127,30 @@ config = {
 
 TODO: `low_cost_partial_config`, `cap_hp_cost`
 
-### Constraints
+### Constraints for search
 
 The third step is to specify the constraints for search.
 
-* Search budget.
+Related arguments:
+- `time_budget_s`: The time budget in seconds.
+- `num_samples`: An integer of the number of configs to try. 
+- `config_constraints` (optional): A list of config constraints to be satisfied.
+- `metric_constraints` (optional): A list of metric constraints to be satisfied. e.g., `['precision', '>=', 0.9]`.
+
+<!-- * Search budget.
 A budget defines the stopping criterion of the tuning process. You can speicfiy your budget in terms of the largest number of evaluations allowed through the argument `num_samples`, or in terms of largest wallclock time (in seconds) allowed through the argument `time_budget_s`. You can specify both, then the experiment will stop as long as one of them runs out.
-* Config constraint.
-* Metric constraint.
+* Config constraint (optional).
+You can provide a list of config constraints to be satisfied through the argument `config_constraints`. 
+For example, the following code constrain the memory size for each model (assuming a model is trained) tried in the tuning process. 
+```python
+config_constraints = [(mem_size, '<=', 1024**3)]
+```
+* Metric constraint (optional).
+You can specify a list of metric constraints to be satisfied. e.g., `['precision', '>=', 0.9]` add a constraint on the precision metric (assuming `precision` is your metric).
+TODO: do we need to mention the method used? -->
 
-## Basic Sequential or Parallel Tuning
 
-- Sequential tuning.
+### Putting together
 After the aforementioned key steps, one is ready to perform tuning by calling `flaml.tune.run()`. Below is a quick sequential tuning example using the pre-defined search space `config_search_space` and a minimization (`mode='min'`) objective `evaluate_config` using the default serach algorithm in flaml. The time budget is 10 seconds (`time_budget_s=10`).
 ```python
 # require: pip install flaml[blendsearch]
@@ -144,7 +166,22 @@ print(analysis.best_config)  # the best config
 ```
 Sequential tuning is recommended when compute resource is limited and each trial can consume all the resources.
 
-- Parallel tuning.
+### Result analysis
+
+TODO: add result analysis
+
+## Advanced Tuning Options
+
+There are several advanced tuning options worth mentioning.
+
+### Paralle tuning
+
+Related aruguments:
+
+- `use_ray`: A boolean of whether to use ray as the backend.
+- `resources_per_trial`: A dictionary of the hardware resources to allocate per trial, e.g., `{'cpu': 1}`. Only valid when using ray backend.
+
+
 To leverage extra parallel computing resources to do the tuning, you achieve it by specifying `use_ray=True` (requiring flaml[ray] option installed). You can also limit the amount of resources allocated per trial by specifying `resources_per_trial`, e.g., `resources_per_trial={'cpu': 2}`.
 ```python
 # require: pip install flaml[blendsearch]
@@ -161,11 +198,9 @@ print(analysis.best_trial.last_result)  # the best trial's result
 print(analysis.best_config) # the best config
 ```
 
+
 **A headsup about computation overhead.** When parallel tuning is used, there will be a certain amount of computation overhead in each trial. In case each trial's original cost is much smaller than the overhead, parallel tuning can underperform sequential tuning.
 
-## Advanced Tuning Options
-
-There are several advanced tuning options worth mentioning.
 
 ### Early stopping and pruning
 
@@ -227,6 +262,50 @@ analysis = tune.run(
 
 ### Warm start
 
+You can use previously evaluted configurations to warm start your tuning.
+
+Related arguments:
+
+- `points_to_evaluate`: A list of initial hyperparameter configurations to run first.
+- `evaluated_rewards`: If you have previously evaluated the parameters passed in as points_to_evaluate you can avoid
+re-running those trials by passing in the reward attributes as a list so the optimiser can be told the results without
+needing to re-compute the trial. Must be the same length as points_to_evaluate.
+
+For example, the following code means that you know the reward for the two configs in
+points_to_evaluate are 3.0 and 1.0 respectively and want to
+inform `tune.run()`
+
+```python
+points_to_evaluate = [
+    {"b": .99, "cost_related": {"a": 3}},
+    {"b": .99, "cost_related": {"a": 2}},
+]
+evaluated_rewards=[3.0, 1.0]
+```
+
+### Reproducibility
+
+By default, there is randomness in our tuning process. If reproducibility is desired, you should 
+manually set a random seed before calling `tune.run()`.
+
+For example, in the following code, we call `np.random.seed(100)` to set the random seed.
+With this random seed, runing the following code multiple times will generate exactly the same result.
+
+```python
+import numpy as np
+np.random.seed(100)
+analysis = tune.run(
+    evaluate_config,  # the function to evaluate a config
+    config=config_search_space,  # the search space defined
+    mode='min',  # the optimization mode, 'min' or 'max'
+    num_samples=-1,  # the maximal number of configs to try, -1 means infinite
+    time_budget_s=10,  # the time budget in seconds
+)
+print(analysis.best_trial.last_result)  # the best trial's result
+print(analysis.best_config)  # the best config
+```
+
+            
 ## Hyperparameter Optimization Algorithm
 
 To tune the hyperparameters toward your objective, you will want to use a hyperparameter optimization algorithm which can help suggest hyperparameters with better performance (regarding your objective). `flaml` offers two HPO methods: CFO and BlendSearch. `flaml.tune` uses BlendSearch by default.
