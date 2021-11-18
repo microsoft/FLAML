@@ -205,6 +205,7 @@ print(analysis.best_config) # the best config
 ### Early stopping and pruning
 
 Related arguments:
+
 - `min_resource`: A float of the minimal resource to use for the
     prune_attr; only valid if prune_attr is not in space.
 - `max_resource`: A float of the maximal resource to use for the
