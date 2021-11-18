@@ -524,6 +524,14 @@
         <span class="p">}</span>
 
     <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">best_loss_per_estimator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;A dictionary of all estimators&#39; best loss.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">e</span><span class="p">:</span> <span class="n">e_search_state</span><span class="o">.</span><span class="n">best_loss</span>
+            <span class="k">for</span> <span class="n">e</span><span class="p">,</span> <span class="n">e_search_state</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+
+    <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">best_loss</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;A float of the best loss found.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">best_loss</span>
