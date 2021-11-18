@@ -14,7 +14,6 @@ from sklearn.ensemble import ExtraTreesRegressor, ExtraTreesClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.dummy import DummyClassifier, DummyRegressor
 from scipy.sparse import issparse
-import pandas as pd
 import logging
 from . import tune
 from .data import (
@@ -24,6 +23,9 @@ from .data import (
     TS_TIMESTAMP_COL,
     TS_VALUE_COL,
 )
+
+import pandas as pd
+from pandas import DataFrame, Series
 
 try:
     import psutil
@@ -81,8 +83,8 @@ class BaseEstimator:
         Args:
             task: A string of the task type, one of
                 'binary', 'multi', 'regression', 'rank', 'forecast'
-            config: A dictionary containing the hyperparameter names
-                and 'n_jobs' as keys. n_jobs is the number of parallel threads.
+            config: A dictionary containing the hyperparameter names, 'n_jobs' as keys.
+                n_jobs is the number of parallel threads.
         """
         self.params = self.config2params(config)
         self.estimator_class = self._model = None
@@ -225,7 +227,8 @@ class BaseEstimator:
         return self._model.predict_proba(X_test)
 
     def cleanup(self):
-        pass
+        del self._model
+        self._model = None
 
     @classmethod
     def search_space(cls, **params):
@@ -273,7 +276,273 @@ class BaseEstimator:
         Returns:
             A dict that will be passed to self.estimator_class's constructor.
         """
-        return config.copy()
+        params = config.copy()
+        return params
+
+
+class TransformersEstimator(BaseEstimator):
+    """The class for fine-tuning language models, using huggingface transformers API."""
+
+    ITER_HP = "global_max_steps"
+
+    def __init__(self, task="seq-classification", **config):
+        super().__init__(task, **config)
+
+    def _join(self, X_train, y_train):
+        y_train = DataFrame(y_train, columns=["label"], index=X_train.index)
+        train_df = X_train.join(y_train)
+        return train_df
+
+    @classmethod
+    def search_space(cls, **params):
+        import sys
+
+        return {
+            "learning_rate": {
+                "domain": tune.loguniform(lower=1e-6, upper=1e-3),
+            },
+            "num_train_epochs": {
+                "domain": tune.loguniform(lower=0.1, upper=10.0),
+            },
+            "per_device_train_batch_size": {
+                "domain": tune.choice([4, 8, 16, 32]),
+            },
+            "warmup_ratio": {
+                "domain": tune.uniform(lower=0.0, upper=0.3),
+            },
+            "weight_decay": {
+                "domain": tune.uniform(lower=0.0, upper=0.3),
+            },
+            "adam_epsilon": {
+                "domain": tune.loguniform(lower=1e-8, upper=1e-6),
+            },
+            "seed": {"domain": tune.choice(list(range(40, 45)))},
+            "global_max_steps": {"domain": sys.maxsize},
+        }
+
+    def _init_hpo_args(self, automl_fit_kwargs: dict = None):
+        from .nlp.utils import HPOArgs
+
+        custom_hpo_args = HPOArgs()
+        for key, val in automl_fit_kwargs["custom_hpo_args"].items():
+            assert (
+                key in custom_hpo_args.__dict__
+            ), "The specified key {} is not in the argument list of flaml.nlp.utils::HPOArgs".format(
+                key
+            )
+            setattr(custom_hpo_args, key, val)
+        self.custom_hpo_args = custom_hpo_args
+
+    def _preprocess(self, X, task, **kwargs):
+        from .nlp.utils import tokenize_text
+
+        if X.dtypes[0] == "string":
+            return tokenize_text(X, task, self.custom_hpo_args)
+        else:
+            return X
+
+    def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
+        # TODO: when self.param = {}, ie max_iter = 1, fix the bug
+        from transformers import EarlyStoppingCallback
+
+        this_params = self.params
+
+        class EarlyStoppingCallbackForAuto(EarlyStoppingCallback):
+            def on_train_begin(self, args, state, control, **callback_kwargs):
+                self.train_begin_time = time.time()
+
+            def on_step_begin(self, args, state, control, **callback_kwargs):
+                self.step_begin_time = time.time()
+
+            def on_step_end(self, args, state, control, **callback_kwargs):
+                if state.global_step == 1:
+                    self.time_per_iter = time.time() - self.step_begin_time
+                if (
+                    budget
+                    and (
+                        time.time() + self.time_per_iter
+                        > self.train_begin_time + budget
+                    )
+                    or state.global_step >= this_params[TransformersEstimator.ITER_HP]
+                ):
+                    control.should_training_stop = True
+                    control.should_save = True
+                    control.should_evaluate = True
+                return control
+
+            def on_epoch_end(self, args, state, control, **callback_kwargs):
+                if (
+                    control.should_training_stop
+                    or state.epoch + 1 >= this_params["num_train_epochs"]
+                ):
+                    control.should_save = True
+                    control.should_evaluate = True
+
+        import transformers
+        from transformers import TrainingArguments
+        from transformers.trainer_utils import set_seed
+        from transformers import AutoTokenizer
+        from .nlp.utils import (
+            separate_config,
+            load_model,
+            get_num_labels,
+            compute_checkpoint_freq,
+        )
+        from .nlp.huggingface.trainer import TrainerForAuto
+        from datasets import Dataset
+
+        self._init_hpo_args(kwargs)
+        self._metric_name = kwargs["metric"]
+
+        X_val = kwargs.get("X_val")
+        y_val = kwargs.get("y_val")
+
+        X_train = self._preprocess(X_train, self._task, **kwargs)
+        train_dataset = Dataset.from_pandas(self._join(X_train, y_train))
+        if X_val is not None:
+            X_val = self._preprocess(X_val, self._task, **kwargs)
+            eval_dataset = Dataset.from_pandas(self._join(X_val, y_val))
+        else:
+            eval_dataset = None
+
+        tokenizer = AutoTokenizer.from_pretrained(
+            self.custom_hpo_args.model_path, use_fast=True
+        )
+        set_seed(self.params["seed"])
+
+        num_labels = get_num_labels(self._task, y_train)
+
+        training_args_config, per_model_config = separate_config(self.params)
+        this_model = load_model(
+            checkpoint_path=self.custom_hpo_args.model_path,
+            task=self._task,
+            num_labels=num_labels,
+            per_model_config=per_model_config,
+        )
+        ckpt_freq = compute_checkpoint_freq(
+            train_data_size=len(X_train),
+            custom_hpo_args=self.custom_hpo_args,
+            num_train_epochs=self.params["num_train_epochs"],
+            batch_size=self.params["per_device_train_batch_size"],
+        )
+
+        if transformers.__version__.startswith("3"):
+            training_args = TrainingArguments(
+                output_dir=self.custom_hpo_args.output_dir,
+                do_train=True,
+                do_eval=True,
+                eval_steps=ckpt_freq,
+                evaluate_during_training=True,
+                save_steps=ckpt_freq,
+                save_total_limit=0,
+                fp16=self.custom_hpo_args.fp16,
+                load_best_model_at_end=True,
+                **training_args_config,
+            )
+        else:
+            from transformers import IntervalStrategy
+
+            training_args = TrainingArguments(
+                output_dir=self.custom_hpo_args.output_dir,
+                do_train=True,
+                do_eval=True,
+                per_device_eval_batch_size=1,
+                eval_steps=ckpt_freq,
+                evaluation_strategy=IntervalStrategy.STEPS,
+                save_steps=ckpt_freq,
+                save_total_limit=0,
+                fp16=self.custom_hpo_args.fp16,
+                load_best_model_at_end=True,
+                **training_args_config,
+            )
+
+        def _model_init():
+            return load_model(
+                checkpoint_path=self.custom_hpo_args.model_path,
+                task=self._task,
+                num_labels=num_labels,
+                per_model_config=per_model_config,
+            )
+
+        trainer = TrainerForAuto(
+            model=this_model,
+            args=training_args,
+            model_init=_model_init,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            tokenizer=tokenizer,
+            compute_metrics=self._compute_metrics_by_dataset_name,
+            callbacks=[EarlyStoppingCallbackForAuto],
+        )
+
+        trainer.train()
+
+        self.params[self.ITER_HP] = trainer.state.global_step
+        self._checkpoint_path = self._select_checkpoint(trainer)
+
+        self._kwargs = kwargs
+        self._num_labels = num_labels
+        self._per_model_config = per_model_config
+
+    def _select_checkpoint(self, trainer):
+        if trainer.ckpt_to_metric:
+            best_ckpt, _ = min(
+                trainer.ckpt_to_metric.items(), key=lambda x: x[1][self._metric_name]
+            )
+            best_ckpt_global_step = trainer.ckpt_to_global_step[best_ckpt]
+        else:
+            best_ckpt_global_step = trainer.state.global_step
+            from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
+
+            best_ckpt = os.path.join(
+                trainer.args.output_dir,
+                f"{PREFIX_CHECKPOINT_DIR}-{best_ckpt_global_step}",
+            )
+        self.params[self.ITER_HP] = best_ckpt_global_step
+        print(trainer.state.global_step)
+        print(trainer.ckpt_to_global_step)
+        return best_ckpt
+
+    def _compute_metrics_by_dataset_name(self, eval_pred):
+        from .ml import sklearn_metric_loss_score
+        from .data import SEQREGRESSION
+
+        predictions, labels = eval_pred
+        predictions = (
+            np.squeeze(predictions)
+            if self._task == SEQREGRESSION
+            else np.argmax(predictions, axis=1)
+        )
+        return {
+            self._metric_name: sklearn_metric_loss_score(
+                metric_name=self._metric_name, y_predict=predictions, y_true=labels
+            )
+        }
+
+    def predict(self, X_test):
+        from datasets import Dataset
+        from .nlp.utils import load_model
+        from transformers import TrainingArguments
+        from .nlp.huggingface.trainer import TrainerForAuto
+
+        if X_test.dtypes[0] == "string":
+            X_test = self._preprocess(X_test, self._task, **self._kwargs)
+            test_dataset = Dataset.from_pandas(X_test)
+
+        best_model = load_model(
+            checkpoint_path=self._checkpoint_path,
+            task=self._task,
+            num_labels=self._num_labels,
+            per_model_config=self._per_model_config,
+        )
+        training_args = TrainingArguments(
+            per_device_eval_batch_size=1,
+            output_dir=self.custom_hpo_args.output_dir,
+        )
+        test_trainer = TrainerForAuto(model=best_model, args=training_args)
+        predictions = test_trainer.predict(test_dataset)
+
+        return np.argmax(predictions.predictions, axis=1)
 
 
 class SKLearnEstimator(BaseEstimator):
@@ -283,14 +552,14 @@ class SKLearnEstimator(BaseEstimator):
         super().__init__(task, **config)
 
     def _preprocess(self, X):
-        if isinstance(X, pd.DataFrame):
+        if isinstance(X, DataFrame):
             cat_columns = X.select_dtypes(include=["category"]).columns
             if not cat_columns.empty:
                 X = X.copy()
                 X[cat_columns] = X[cat_columns].apply(lambda x: x.cat.codes)
         elif isinstance(X, np.ndarray) and X.dtype.kind not in "buif":
             # numpy array is not of numeric dtype
-            X = pd.DataFrame(X)
+            X = DataFrame(X)
             for col in X.columns:
                 if isinstance(X[col][0], str):
                     X[col] = X[col].astype("category").cat.codes
@@ -383,14 +652,14 @@ class LGBMEstimator(BaseEstimator):
 
     def _preprocess(self, X):
         if (
-            not isinstance(X, pd.DataFrame)
+            not isinstance(X, DataFrame)
             and issparse(X)
             and np.issubdtype(X.dtype, np.integer)
         ):
             X = X.astype(float)
         elif isinstance(X, np.ndarray) and X.dtype.kind not in "buif":
             # numpy array is not of numeric dtype
-            X = pd.DataFrame(X)
+            X = DataFrame(X)
             for col in X.columns:
                 if isinstance(X[col][0], str):
                     X[col] = X[col].astype("category").cat.codes
@@ -665,6 +934,7 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         return XGBoostEstimator.cost_relative2lgbm()
 
     def config2params(cls, config: dict) -> dict:
+        # TODO: test
         params = config.copy()
         params["max_depth"] = 0
         params["grow_policy"] = params.get("grow_policy", "lossguide")
@@ -859,7 +1129,7 @@ class CatBoostEstimator(BaseEstimator):
         return 15
 
     def _preprocess(self, X):
-        if isinstance(X, pd.DataFrame):
+        if isinstance(X, DataFrame):
             cat_columns = X.select_dtypes(include=["category"]).columns
             if not cat_columns.empty:
                 X = X.copy()
@@ -873,7 +1143,7 @@ class CatBoostEstimator(BaseEstimator):
                 )
         elif isinstance(X, np.ndarray) and X.dtype.kind not in "buif":
             # numpy array is not of numeric dtype
-            X = pd.DataFrame(X)
+            X = DataFrame(X)
             for col in X.columns:
                 if isinstance(X[col][0], str):
                     X[col] = X[col].astype("category").cat.codes
@@ -914,7 +1184,7 @@ class CatBoostEstimator(BaseEstimator):
         deadline = start_time + budget if budget else np.inf
         train_dir = f"catboost_{str(start_time)}"
         X_train = self._preprocess(X_train)
-        if isinstance(X_train, pd.DataFrame):
+        if isinstance(X_train, DataFrame):
             cat_features = list(X_train.select_dtypes(include="category").columns)
         else:
             cat_features = []
@@ -1009,14 +1279,14 @@ class KNeighborsEstimator(BaseEstimator):
             self.estimator_class = KNeighborsRegressor
 
     def _preprocess(self, X):
-        if isinstance(X, pd.DataFrame):
+        if isinstance(X, DataFrame):
             cat_columns = X.select_dtypes(["category"]).columns
             if X.shape[1] == len(cat_columns):
                 raise ValueError("kneighbor requires at least one numeric feature")
             X = X.drop(cat_columns, axis=1)
         elif isinstance(X, np.ndarray) and X.dtype.kind not in "buif":
             # drop categocial columns if any
-            X = pd.DataFrame(X)
+            X = DataFrame(X)
             cat_columns = []
             for col in X.columns:
                 if isinstance(X[col][0], str):
@@ -1060,7 +1330,7 @@ class Prophet(SKLearnEstimator):
             "Dataframe for training ts_forecast model must have column"
             f' "{TS_TIMESTAMP_COL}" with the dates in X_train.'
         )
-        y_train = pd.DataFrame(y_train, columns=[TS_VALUE_COL])
+        y_train = DataFrame(y_train, columns=[TS_VALUE_COL])
         train_df = X_train.join(y_train)
         return train_df
 
@@ -1073,6 +1343,7 @@ class Prophet(SKLearnEstimator):
         cols = list(train_df)
         cols.remove(TS_TIMESTAMP_COL)
         cols.remove(TS_VALUE_COL)
+        logging.getLogger("prophet").setLevel(logging.WARNING)
         model = Prophet(**self.params)
         for regressor in cols:
             model.add_regressor(regressor)
@@ -1139,9 +1410,8 @@ class ARIMA(Prophet):
         current_time = time.time()
         train_df = self._join(X_train, y_train)
         train_df = self._preprocess(train_df)
-        cols = list(train_df)
-        cols.remove(TS_VALUE_COL)
-        regressors = cols
+        regressors = list(train_df)
+        regressors.remove(TS_VALUE_COL)
         if regressors:
             model = ARIMA_estimator(
                 train_df[[TS_VALUE_COL]],
@@ -1167,15 +1437,13 @@ class ARIMA(Prophet):
         if self._model is not None:
             if isinstance(X_test, int):
                 forecast = self._model.forecast(steps=X_test)
-            elif isinstance(X_test, pd.DataFrame):
-                first_col = X_test.pop(TS_TIMESTAMP_COL)
-                X_test.insert(0, TS_TIMESTAMP_COL, first_col)
-                start = X_test.iloc[0, 0]
-                end = X_test.iloc[-1, 0]
+            elif isinstance(X_test, DataFrame):
+                start = X_test[TS_TIMESTAMP_COL].iloc[0]
+                end = X_test[TS_TIMESTAMP_COL].iloc[-1]
                 if len(X_test.columns) > 1:
+                    X_test = self._preprocess(X_test.drop(columns=TS_TIMESTAMP_COL))
                     regressors = list(X_test)
-                    regressors.remove(TS_TIMESTAMP_COL)
-                    X_test = self._preprocess(X_test)
+                    print(start, end, X_test.shape)
                     forecast = self._model.predict(
                         start=start, end=end, exog=X_test[regressors]
                     )
@@ -1183,7 +1451,7 @@ class ARIMA(Prophet):
                     forecast = self._model.predict(start=start, end=end)
             else:
                 raise ValueError(
-                    "X_test needs to be either a pd.Dataframe with dates as the first column"
+                    "X_test needs to be either a pandas Dataframe with dates as the first column"
                     " or an int number of periods for predict()."
                 )
             return forecast
