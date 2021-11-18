@@ -14,6 +14,7 @@ class TrainerForAuto(TFTrainer):
         ckpt_dir = os.path.join(
             self.args.output_dir, f"{PREFIX_CHECKPOINT_DIR}-{self.state.global_step}"
         )
+        eval_dataset = eval_dataset if eval_dataset is not None else self.eval_dataset
         metrics = eval_dataset and super().evaluate(
             eval_dataset, ignore_keys, metric_key_prefix
         )
