@@ -260,7 +260,7 @@ class AutoMLState:
             self.log_training_metric,
             self.fit_kwargs,
         )
-        if self.retrain_final and not self.save_best_model_per_estimator:
+        if self.retrain_final and not self.model_history:
             trained_estimator.cleanup()
 
         if _is_nlp_task(self.task):
@@ -452,7 +452,7 @@ class AutoML:
                 ['better', 'all'].
                 'better' only logs configs with better loss than previos iters
                 'all' logs all the tried configs.
-            save_best_model_per_estimator: A boolean of whether to keep the best
+            model_history: A boolean of whether to keep the best
                 model per estimator. Make sure memory is large enough if setting to True.
             log_training_metric: A boolean of whether to log the training
                 metric for each model.
@@ -529,7 +529,7 @@ class AutoML:
         self._state.learner_classes = {}
         self._settings = settings
         settings["time_budget"] = settings.get("time_budget", 60)
-        settings["task"] = settings.get("task", "regression")
+        settings["task"] = settings.get("task", "classification")
         settings["n_jobs"] = settings.get("n_jobs", -1)
         settings["gpu_per_trial"] = settings.get("gpu_per_trial", 0)
         settings["eval_method"] = settings.get("eval_method", "auto")
@@ -543,8 +543,8 @@ class AutoML:
         settings["sample"] = settings.get("sample", True)
         settings["ensemble"] = settings.get("ensemble", False)
         settings["log_type"] = settings.get("log_type", "better")
-        settings["save_best_model_per_estimator"] = settings.get(
-            "save_best_model_per_estimator", False
+        settings["model_history"] = settings.get(
+            "model_history", False
         )
         settings["log_training_metric"] = settings.get("log_training_metric", False)
         settings["mem_thres"] = settings.get("mem_thres", MEM_THRES)
@@ -1577,7 +1577,7 @@ class AutoML:
         ensemble=None,
         eval_method=None,
         log_type=None,
-        save_best_model_per_estimator=None,
+        model_history=None,
         split_ratio=None,
         n_splits=None,
         log_training_metric=None,
@@ -1671,7 +1671,7 @@ class AutoML:
                 ['better', 'all'].
                 'better' only logs configs with better loss than previos iters
                 'all' logs all the tried configs.
-            save_best_model_per_estimator: A boolean of whether to keep the best
+            model_history: A boolean of whether to keep the best
                 model per estimator. Make sure memory is large enough if setting to True.
             log_training_metric: A boolean of whether to log the training
                 metric for each model.
@@ -1782,10 +1782,10 @@ class AutoML:
         sample = self._settings.get("sample") if sample is None else sample
         ensemble = self._settings.get("ensemble") if ensemble is None else ensemble
         log_type = log_type or self._settings.get("log_type")
-        save_best_model_per_estimator = (
-            self._settings.get("save_best_model_per_estimator")
-            if save_best_model_per_estimator is None
-            else save_best_model_per_estimator
+        model_history = (
+            self._settings.get("model_history")
+            if model_history is None
+            else model_history
         )
         log_training_metric = (
             self._settings.get("log_training_metric")
@@ -1859,6 +1859,8 @@ class AutoML:
         self._n_concurrent_trials = n_concurrent_trials
         self._early_stop = early_stop
         self._use_ray = use_ray or n_concurrent_trials > 1
+        # use the following condition if we have an estimation of average_trial_time and average_trial_overhead
+        # self._use_ray = use_ray or n_concurrent_trials > ( average_trail_time + average_trial_overhead) / (average_trial_time)
         self._state.resources_per_trial = (
             {"cpu": int(os.cpu_count() / n_concurrent_trials), "gpu": gpu_per_trial}
             if n_jobs < 0
@@ -1967,9 +1969,7 @@ class AutoML:
         self._state.train_time_limit = train_time_limit
         self._log_type = log_type
         self.split_ratio = split_ratio
-        self._state.save_best_model_per_estimator = save_best_model_per_estimator
-        # use the following condition if we have an estimation of average_trial_time and average_trial_overhead
-        # self._use_ray = use_ray or n_concurrent_trials > ( average_trail_time + average_trial_overhead) / (average_trial_time)
+        self._state.model_history = model_history
         self._hpo_method = (
             hpo_method
             if hpo_method != "auto"
@@ -2346,7 +2346,7 @@ class AutoML:
                     next_trial_time = search_state.time2eval_best
                 if (
                     search_state.trained_estimator
-                    and not self._state.save_best_model_per_estimator
+                    and not self._state.model_history
                 ):
                     # free RAM
                     if search_state.trained_estimator != self._trained_estimator:

@@ -41,7 +41,7 @@ class TestRegression(unittest.TestCase):
             "log_file_name": "test/california.log",
             "log_training_metric": True,
             "n_jobs": 1,
-            "save_best_model_per_estimator": True,
+            "model_history": True,
         }
         X_train, y_train = fetch_california_housing(return_X_y=True)
         n = int(len(y_train) * 9 // 10)
@@ -89,7 +89,7 @@ class TestRegression(unittest.TestCase):
             "task": "regression",
             "log_file_name": "test/sparse_regression.log",
             "n_jobs": 1,
-            "save_best_model_per_estimator": True,
+            "model_history": True,
             "keep_search_state": True,
             "verbose": 0,
             "early_stop": True,
@@ -145,7 +145,7 @@ class TestRegression(unittest.TestCase):
             "task": "regression",
             "log_file_name": "test/sparse_regression.log",
             "n_jobs": 1,
-            "save_best_model_per_estimator": True,
+            "model_history": True,
             "metric": "mse",
             "sample_weight": np.ones(len(y_train)),
             "early_stop": True,
@@ -172,7 +172,7 @@ class TestRegression(unittest.TestCase):
             "task": "regression",
             "log_file_name": "test/regression_xgboost.log",
             "n_jobs": 1,
-            "save_best_model_per_estimator": True,
+            "model_history": True,
             "keep_search_state": True,
             "early_stop": True,
         }

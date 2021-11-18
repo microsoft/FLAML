@@ -24,7 +24,7 @@ class TestTrainingLog(unittest.TestCase):
                 "log_training_metric": True,
                 "mem_thres": 1024 * 1024,
                 "n_jobs": 1,
-                "save_best_model_per_estimator": True,
+                "model_history": True,
                 "train_time_limit": 0.1,
                 "verbose": 3,
                 # "ensemble": True,
