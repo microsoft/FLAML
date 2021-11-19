@@ -544,9 +544,7 @@ class AutoML(BaseEstimator):
         settings["sample"] = settings.get("sample", True)
         settings["ensemble"] = settings.get("ensemble", False)
         settings["log_type"] = settings.get("log_type", "better")
-        settings["model_history"] = settings.get(
-            "model_history", False
-        )
+        settings["model_history"] = settings.get("model_history", False)
         settings["log_training_metric"] = settings.get("log_training_metric", False)
         settings["mem_thres"] = settings.get("mem_thres", MEM_THRES)
         settings["pred_time_limit"] = settings.get("pred_time_limit", np.inf)
@@ -1267,9 +1265,7 @@ class AutoML(BaseEstimator):
             self._settings.get("auto_augment") if auto_augment is None else auto_augment
         )
         self._state.task = TS_FORECAST if task == FORECAST else task
-        self._estimator_type = (
-            "classifier" if task in CLASSIFICATION else "regressor"
-        )
+        self._estimator_type = "classifier" if task in CLASSIFICATION else "regressor"
 
         self._state.fit_kwargs = fit_kwargs
         self._validate_data(X_train, y_train, dataframe, label, groups=groups)
@@ -1780,9 +1776,7 @@ class AutoML(BaseEstimator):
 
         self._state._start_time_flag = self._start_time_flag = time.time()
         task = task or self._settings.get("task")
-        self._estimator_type = (
-            "classifier" if task in CLASSIFICATION else "regressor"
-        )
+        self._estimator_type = "classifier" if task in CLASSIFICATION else "regressor"
         time_budget = time_budget or self._settings.get("time_budget")
         n_jobs = n_jobs or self._settings.get("n_jobs")
         gpu_per_trial = (

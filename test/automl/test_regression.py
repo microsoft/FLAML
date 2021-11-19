@@ -204,14 +204,16 @@ def test_multioutput():
     X, y = make_regression(n_targets=3)
 
     # split into train and test data
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.30, random_state=42
+    )
 
     # train the model
     model = MultiOutputRegressor(AutoML(task="regression", time_budget=1))
     model.fit(X_train, y_train)
 
     # predict
-    print(model.predict(X_test))    
+    print(model.predict(X_test))
 
 
 if __name__ == "__main__":
