@@ -346,6 +346,8 @@ class AutoMLState:
             estimator, train_time = result["estimator"], result["train_time"]
 
         else:
+            use_ray = self.fit_kwargs["use_ray"]
+            self.fit_kwargs["use_ray"] = False
             estimator, train_time = train_estimator(
                 X_train=sampled_X_train,
                 y_train=sampled_y_train,
@@ -357,6 +359,7 @@ class AutoMLState:
                 budget=budget,
                 fit_kwargs=self.fit_kwargs,
             )
+            self.fit_kwargs["use_ray"] = use_ray
         if sampled_weight is not None:
             self.fit_kwargs["sample_weight"] = weight
         return estimator, train_time
@@ -1891,6 +1894,7 @@ class AutoML:
 
         if _is_nlp_task(self._state.task):
             self._state.fit_kwargs["metric"] = metric
+            self._state.fit_kwargs["use_ray"] = use_ray
 
         self._sample = (
             sample
@@ -2100,6 +2104,8 @@ class AutoML:
             num_samples=self._max_iter,
             verbose=max(self.verbose - 2, 0),
             raise_on_failed_trial=False,
+            keep_checkpoints_num=1,
+            checkpoint_score_attr="val_loss"
         )
         # logger.info([trial.last_result for trial in analysis.trials])
         trials = sorted(
