@@ -95,3 +95,5 @@ model.fit(X_train, y_train)
 # predict
 print(model.predict(X_test))
 ```
+
+It will perform AutoML for each target, each taking 60 seconds.
