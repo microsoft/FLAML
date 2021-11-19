@@ -988,10 +988,10 @@ class XGBoostLimitDepthEstimator(XGBoostSklearnEstimator):
     def search_space(cls, data_size, **params):
         space = XGBoostEstimator.search_space(data_size)
         space.pop("max_leaves")
-        upper = max(3, int(np.log2(data_size)))
+        upper = max(6, int(np.log2(data_size)))
         space["max_depth"] = {
             "domain": tune.randint(lower=1, upper=min(upper, 16)),
-            "init_value": 1,
+            "init_value": 6,
             "low_cost_init_value": 1,
         }
         return space
