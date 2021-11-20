@@ -10,7 +10,7 @@ class TestWarmStart(unittest.TestCase):
     def test_fit_w_freezinghp_starting_point(self, as_frame=True):
         automl_experiment = AutoML()
         automl_settings = {
-            "time_budget": 3,
+            "time_budget": 1,
             "metric": "accuracy",
             "task": "classification",
             "estimator_list": ["lgbm"],
@@ -39,32 +39,54 @@ class TestWarmStart(unittest.TestCase):
         print("starting_points", starting_points)
         print("loss of the starting_points", automl_experiment.best_loss_per_estimator)
 
+        hps_to_freeze = ["colsample_bytree", "reg_alpha", "reg_lambda", "log_max_bin"]
         # 2. Constrct a new class:
-        # (a) write the hps you want to freeze as hps with constant 'domain';
-        # (b) specify the new search space of the other hps accrodingly.
+        # a. write the hps you want to freeze as hps with constant 'domain';
+        # b. specify the new search space of the other hps accrodingly.
         class MyPartiallyFreezedLargeLGBM(LGBMEstimator):
             @classmethod
             def search_space(cls, **params):
-                print(starting_points)
-                space = {}
-                # get the fixed value from hps from the starting point
-                for name, value in starting_points[new_estimator_name].items():
-                    space[name] = {"domain": value}
-
-                # specify the search sapce of the hps to want to tune
-                hps_to_search = {
+                org_space = LGBMEstimator.search_space(**params)
+                # (1) Get the hps in the original search space
+                space = org_space.copy()
+                # (2) Set up the fixed value from hps from the starting point
+                for hp_name in hps_to_freeze:
+                    # if an hp is specifed to be freezed, use tine value provided in the starting_points
+                    # otherwise use the setting from the original search space
+                    if hp_name in starting_points[new_estimator_name]:
+                        space[hp_name] = {
+                            "domain": starting_points[new_estimator_name][hp_name]
+                        }
+                # (3) Specify the hps for which to want to change the search sapce or add
+                # (3.1) Add hps which are in the original search space but you want to change the range
+                revised_hps_to_search = {
                     "n_estimators": {
                         "domain": tune.lograndint(lower=10, upper=32768),
-                        "init_value": 32768,
-                        "low_cost_init_value": 10,
+                        "init_value": starting_points[new_estimator_name].get(
+                            "n_estimators"
+                        )
+                        or org_space["n_estimators"].get("init_value", 10),
+                        "low_cost_init_value": org_space["n_estimators"].get(
+                            "low_cost_init_value", 10
+                        ),
                     },
                     "num_leaves": {
                         "domain": tune.lograndint(lower=10, upper=3276),
-                        "init_value": 3276,
-                        "low_cost_init_value": 10,
+                        "init_value": starting_points[new_estimator_name].get(
+                            "num_leaves"
+                        )
+                        or org_space["num_leaves"].get("init_value", 10),
+                        "low_cost_init_value": org_space["num_leaves"].get(
+                            "low_cost_init_value", 10
+                        ),
+                    },
+                    # (3.2) Add a new hp which is not in the original search space
+                    "subsample": {
+                        "domain": tune.uniform(lower=0.1, upper=1.0),
+                        "init_value": 0.1,
                     },
                 }
-                space.update(hps_to_search)
+                space.update(revised_hps_to_search)
                 return space
 
         new_estimator_name = "large_lgbm"
