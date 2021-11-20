@@ -43,6 +43,7 @@ class TestWarmStart(unittest.TestCase):
         # 2. Constrct a new class:
         # a. write the hps you want to freeze as hps with constant 'domain';
         # b. specify the new search space of the other hps accrodingly.
+
         class MyPartiallyFreezedLargeLGBM(LGBMEstimator):
             @classmethod
             def search_space(cls, **params):
@@ -57,8 +58,8 @@ class TestWarmStart(unittest.TestCase):
                         space[hp_name] = {
                             "domain": starting_points[new_estimator_name][hp_name]
                         }
-                # (3) Specify the hps for which to want to change the search sapce or add
-                # (3.1) Add hps which are in the original search space but you want to change the range
+                # (3.1) Configure the search space for hps that are in the original search space
+                #  but you want to change something, for example the range.
                 revised_hps_to_search = {
                     "n_estimators": {
                         "domain": tune.lograndint(lower=10, upper=32768),
