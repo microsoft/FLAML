@@ -722,8 +722,6 @@ class AutoML(BaseEstimator):
         return proba
 
     def _preprocess(self, X):
-        if self._state.task == TS_FORECAST:
-            X = pd.DataFrame(X)
         if isinstance(X, List):
             try:
                 if isinstance(X[0], List):
@@ -742,6 +740,8 @@ class AutoML(BaseEstimator):
             return X
         elif issparse(X):
             X = X.tocsr()
+        if self._state.task == TS_FORECAST:
+            X = pd.DataFrame(X)
         if self._transformer:
             X = self._transformer.transform(X)
         return X
