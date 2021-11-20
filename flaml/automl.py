@@ -722,24 +722,15 @@ class AutoML(BaseEstimator):
         return proba
 
     def _preprocess(self, X):
-        if isinstance(X, List) and isinstance(X[0], List):
-            unzipped_X = [x for x in zip(*X)]
+        if self._state.task == TS_FORECAST:
+            X = pd.DataFrame(X)
+        if isinstance(X, List):
             try:
+                if isinstance(X[0], List):
+                    X = [x for x in zip(*X)]
                 X = DataFrame(
                     {
-                        self._transformer._str_columns[idx]: unzipped_X[idx]
-                        for idx in range(len(unzipped_X))
-                    }
-                )
-            except IndexError:
-                raise IndexError(
-                    "Test data contains more columns than training data, exiting"
-                )
-        elif isinstance(X, List):
-            try:
-                X = DataFrame(
-                    {
-                        self._transformer._str_columns[idx]: [X[idx]]
+                        self._transformer._str_columns[idx]: X[idx]
                         for idx in range(len(X))
                     }
                 )
@@ -747,11 +738,9 @@ class AutoML(BaseEstimator):
                 raise IndexError(
                     "Test data contains more columns than training data, exiting"
                 )
-        if isinstance(X, int):
+        elif isinstance(X, int):
             return X
-        if self._state.task == TS_FORECAST:
-            X = pd.DataFrame(X)
-        if issparse(X):
+        elif issparse(X):
             X = X.tocsr()
         if self._transformer:
             X = self._transformer.transform(X)
