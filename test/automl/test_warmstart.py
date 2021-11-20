@@ -1,14 +1,9 @@
 import unittest
 import numpy as np
-import scipy.sparse
-from sklearn.datasets import load_iris, load_wine
-
-
+from sklearn.datasets import load_iris
 from flaml import AutoML
-from flaml.data import CLASSIFICATION, get_output_from_log
-from flaml.model import LGBMEstimator, XGBoostSklearnEstimator, SKLearnEstimator
+from flaml.model import LGBMEstimator
 from flaml import tune
-from flaml.training_log import training_log_reader
 
 
 class TestWarmStart(unittest.TestCase):
