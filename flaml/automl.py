@@ -1900,7 +1900,7 @@ class AutoML:
 
         if _is_nlp_task(self._state.task):
             self._state.fit_kwargs["metric"] = metric
-            self._state.fit_kwargs["use_ray"] = use_ray
+            self._state.fit_kwargs["use_ray"] = self._use_ray
 
         self._sample = (
             sample
@@ -2111,7 +2111,7 @@ class AutoML:
             verbose=max(self.verbose - 2, 0),
             raise_on_failed_trial=False,
             keep_checkpoints_num=1,
-            checkpoint_score_attr="val_loss",
+            checkpoint_score_attr="min-val_loss",
         )
         # logger.info([trial.last_result for trial in analysis.trials])
         trials = sorted(
