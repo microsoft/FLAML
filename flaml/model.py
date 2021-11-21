@@ -532,17 +532,9 @@ class TransformersEstimator(BaseEstimator):
                 logger.warning("checkpoint {} not found".format(ckpt_location))
 
     def cleanup(self):
-        with open(
-            "/data/xliu127/projects/hyperopt/FLAML/test/nlp/test.txt", "a"
-        ) as fout:
-            fout.write("aaa")
         if hasattr(self, "_ckpt_remains"):
             for each_ckpt in self._ckpt_remains:
                 self._delete_one_ckpt(each_ckpt)
-                with open(
-                    "/data/xliu127/projects/hyperopt/FLAML/test/nlp/test.txt", "a"
-                ) as fout:
-                    fout.write(each_ckpt + "\n")
 
     def _select_checkpoint(self, trainer):
         if trainer.ckpt_to_metric:

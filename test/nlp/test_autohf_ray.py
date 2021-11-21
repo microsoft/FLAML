@@ -29,7 +29,7 @@ def test_ray():
     automl_settings = {
         "gpu_per_trial": 1,
         "max_iter": 2,
-        "time_budget": 5,
+        "time_budget": 50,
         "task": "seq-classification",
         "metric": "accuracy",
         "log_file_name": "seqclass.log",
@@ -46,3 +46,7 @@ def test_ray():
     automl.fit(
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
     )
+
+
+if __name__ == "__main__":
+    test_ray()
