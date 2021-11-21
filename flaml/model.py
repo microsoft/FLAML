@@ -492,7 +492,7 @@ class TransformersEstimator(BaseEstimator):
                 per_model_config=per_model_config,
             )
 
-        trainer = TrainerForAuto(
+        self._model = TrainerForAuto(
             model=this_model,
             args=training_args,
             model_init=_model_init,
@@ -503,17 +503,17 @@ class TransformersEstimator(BaseEstimator):
             callbacks=[EarlyStoppingCallbackForAuto],
         )
 
-        setattr(trainer, "_use_ray", self.use_ray)
-        trainer.train()
+        setattr(self._model, "_use_ray", self.use_ray)
+        self._model.train()
 
-        self.params[self.ITER_HP] = trainer.state.global_step
-        self._checkpoint_path = self._select_checkpoint(trainer)
+        self.params[self.ITER_HP] = self._model.state.global_step
+        self._checkpoint_path = self._select_checkpoint(self._model)
 
         self._kwargs = kwargs
         self._num_labels = num_labels
         self._per_model_config = per_model_config
 
-        self._ckpt_remains = list(trainer.ckpt_to_metric.keys())
+        self._ckpt_remains = list(self._model.ckpt_to_metric.keys())
 
     def _delete_one_ckpt(self, ckpt_location):
         if self.use_ray is False:
@@ -603,8 +603,8 @@ class TransformersEstimator(BaseEstimator):
             per_device_eval_batch_size=1,
             output_dir=self.custom_hpo_args.output_dir,
         )
-        test_trainer = TrainerForAuto(model=best_model, args=training_args)
-        predictions = test_trainer.predict(test_dataset)
+        self._model = TrainerForAuto(model=best_model, args=training_args)
+        predictions = self._model.predict(test_dataset)
         return predictions.predictions
 
     def predict(self, X_test):
@@ -622,8 +622,8 @@ class TransformersEstimator(BaseEstimator):
             per_device_eval_batch_size=1,
             output_dir=self.custom_hpo_args.output_dir,
         )
-        test_trainer = TrainerForAuto(model=best_model, args=training_args)
-        predictions = test_trainer.predict(test_dataset)
+        self._model = TrainerForAuto(model=best_model, args=training_args)
+        predictions = self._model.predict(test_dataset)
 
         return np.argmax(predictions.predictions, axis=1)
 
