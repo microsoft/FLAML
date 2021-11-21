@@ -2110,7 +2110,7 @@ class AutoML:
             verbose=max(self.verbose - 2, 0),
             raise_on_failed_trial=False,
             keep_checkpoints_num=1,
-            checkpoint_score_attr="val_loss"
+            checkpoint_score_attr="min-val_loss"
         )
         # logger.info([trial.last_result for trial in analysis.trials])
         trials = sorted(
