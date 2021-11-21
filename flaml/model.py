@@ -553,17 +553,20 @@ class TransformersEstimator(BaseEstimator):
             if self._task == SEQREGRESSION
             else np.argmax(predictions, axis=1)
         )
-        from .nlp.utils import load_default_huggingface_metric_for_task
-        import datasets
-        default_metric_name = load_default_huggingface_metric_for_task(self._task)
-        metric = datasets.load_metric(default_metric_name)
-        return {
+
+        if isinstance(self._metric_name, str):
+            return {
             "val_loss": sklearn_metric_loss_score(
                 metric_name=self._metric_name, y_predict=predictions, y_true=labels
-            ) } \
-            if isinstance(self._metric_name, str) else {
-            "val_loss": metric.compute(predictions=predictions, references=labels)[default_metric_name]
-        }
+            ) }
+        else:
+            from .nlp.utils import load_default_huggingface_metric_for_task
+            import datasets
+            default_metric_name = load_default_huggingface_metric_for_task(self._task)
+            metric = datasets.load_metric(default_metric_name)
+            return {
+                "val_loss": metric.compute(predictions=predictions, references=labels)[default_metric_name]
+            }
 
     def predict(self, X_test):
         from datasets import Dataset
