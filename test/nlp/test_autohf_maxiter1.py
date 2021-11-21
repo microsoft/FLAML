@@ -4,10 +4,6 @@ import pytest
 
 @pytest.mark.skipif(os.name == "posix", reason="do not run on mac os")
 def test_max_iter_1():
-    try:
-        import ray
-    except ImportError:
-        return
     from flaml import AutoML
 
     from datasets import load_dataset
@@ -52,7 +48,6 @@ def test_max_iter_1():
         "task": "seq-classification",
         "metric": toy_metric,
         "log_file_name": "seqclass.log",
-        "use_ray": False,
     }
 
     automl_settings["custom_hpo_args"] = {

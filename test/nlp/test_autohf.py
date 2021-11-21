@@ -73,6 +73,8 @@ def test_hf_data():
         ]
     )
 
+    automl.predict_proba(X_test)
+
 
 def _test_custom_data():
     from flaml import AutoML
@@ -122,3 +124,7 @@ def _test_custom_data():
             ["test test", "test test"],
         ]
     )
+
+
+if __name__ == "__main__":
+    test_hf_data()

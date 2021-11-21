@@ -27,6 +27,25 @@ from .data import (
 
 import pandas as pd
 from pandas import DataFrame, Series
+from .nlp.huggingface.trainer import TrainerForAuto
+from transformers import TrainingArguments
+from datasets import Dataset
+from .nlp.utils import (
+    separate_config,
+    load_model,
+    get_num_labels,
+    compute_checkpoint_freq,
+    get_trial_fold_name,
+    date_str,
+    load_default_huggingface_metric_for_task,
+    tokenize_text,
+    HPOArgs,
+)
+from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR, set_seed
+import datasets
+import transformers
+from transformers import AutoTokenizer, EarlyStoppingCallback
+import sys
 
 try:
     import psutil
@@ -87,9 +106,6 @@ class BaseEstimator:
             config: A dictionary containing the hyperparameter names, 'n_jobs' as keys.
                 n_jobs is the number of parallel threads.
         """
-        import uuid
-
-        self.trial_id = str(uuid.uuid1().hex)[:8]
         self.params = self.config2params(config)
         self.estimator_class = self._model = None
         self._task = task
@@ -291,6 +307,9 @@ class TransformersEstimator(BaseEstimator):
 
     def __init__(self, task="seq-classification", **config):
         super().__init__(task, **config)
+        import uuid
+
+        self.trial_id = str(uuid.uuid1().hex)[:8]
 
     def _join(self, X_train, y_train):
         y_train = DataFrame(y_train, columns=["label"], index=X_train.index)
@@ -299,8 +318,6 @@ class TransformersEstimator(BaseEstimator):
 
     @classmethod
     def search_space(cls, **params):
-        import sys
-
         return {
             "learning_rate": {
                 "domain": tune.loguniform(lower=1e-6, upper=1e-3),
@@ -330,8 +347,6 @@ class TransformersEstimator(BaseEstimator):
         }
 
     def _init_hpo_args(self, automl_fit_kwargs: dict = None):
-        from .nlp.utils import HPOArgs
-
         custom_hpo_args = HPOArgs()
         for key, val in automl_fit_kwargs["custom_hpo_args"].items():
             assert (
@@ -343,23 +358,13 @@ class TransformersEstimator(BaseEstimator):
         self.custom_hpo_args = custom_hpo_args
 
     def _preprocess(self, X, task, **kwargs):
-        from .nlp.utils import tokenize_text
-
         if X.dtypes[0] == "string":
             return tokenize_text(X, task, self.custom_hpo_args)
         else:
             return X
 
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
-
-        # TODO: when self.param = {}, ie max_iter = 1, fix the bug
-        from transformers import EarlyStoppingCallback
-        import sys
-
         this_params = self.params
-        this_params[TransformersEstimator.ITER_HP] = this_params.get(
-            TransformersEstimator.ITER_HP, sys.maxsize
-        )
 
         class EarlyStoppingCallbackForAuto(EarlyStoppingCallback):
             def on_train_begin(self, args, state, control, **callback_kwargs):
@@ -392,20 +397,7 @@ class TransformersEstimator(BaseEstimator):
                     control.should_save = True
                     control.should_evaluate = True
 
-        import transformers
-        from transformers import TrainingArguments
-        from transformers.trainer_utils import set_seed
-        from transformers import AutoTokenizer
-        from .nlp.utils import (
-            separate_config,
-            load_model,
-            get_num_labels,
-            compute_checkpoint_freq,
-            get_trial_fold_name,
-            date_str,
-        )
-        from .nlp.huggingface.trainer import TrainerForAuto
-        from datasets import Dataset
+        set_seed(self.params.get("seed", TrainingArguments.seed))
 
         self._init_hpo_args(kwargs)
         self._metric_name = kwargs["metric"]
@@ -447,7 +439,6 @@ class TransformersEstimator(BaseEstimator):
                 TrainingArguments.per_device_train_batch_size,
             ),
         )
-        set_seed(self.params.get("seed", TrainingArguments.seed))
 
         local_dir = os.path.join(
             self.custom_hpo_args.output_dir, "train_{}".format(date_str())
@@ -549,8 +540,6 @@ class TransformersEstimator(BaseEstimator):
                     self._delete_one_ckpt(each_ckpt)
         else:
             best_ckpt_global_step = trainer.state.global_step
-            from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
-
             best_ckpt = os.path.join(
                 trainer.args.output_dir,
                 f"{PREFIX_CHECKPOINT_DIR}-{best_ckpt_global_step}",
@@ -578,23 +567,47 @@ class TransformersEstimator(BaseEstimator):
                 )
             }
         else:
-            from .nlp.utils import load_default_huggingface_metric_for_task
-            import datasets
-
-            default_metric_name = load_default_huggingface_metric_for_task(self._task)
+            (
+                default_metric_name,
+                default_metric_mode,
+            ) = load_default_huggingface_metric_for_task(self._task)
             metric = datasets.load_metric(default_metric_name)
-            return {
-                "val_loss": metric.compute(predictions=predictions, references=labels)[
-                    default_metric_name
-                ]
-            }
+            if default_metric_mode == "max":
+                return {
+                    "val_loss": -metric.compute(
+                        predictions=predictions, references=labels
+                    )[default_metric_name]
+                }
+            else:
+                return {
+                    "val_loss": metric.compute(
+                        predictions=predictions, references=labels
+                    )[default_metric_name]
+                }
+
+    def predict_proba(self, X_test):
+        assert (
+            self._task in CLASSIFICATION
+        ), "predict_proba is only available in classification tasks"
+        if X_test.dtypes[0] == "string":
+            X_test = self._preprocess(X_test, self._task, **self._kwargs)
+            test_dataset = Dataset.from_pandas(X_test)
+
+        best_model = load_model(
+            checkpoint_path=self._checkpoint_path,
+            task=self._task,
+            num_labels=self._num_labels,
+            per_model_config=self._per_model_config,
+        )
+        training_args = TrainingArguments(
+            per_device_eval_batch_size=1,
+            output_dir=self.custom_hpo_args.output_dir,
+        )
+        test_trainer = TrainerForAuto(model=best_model, args=training_args)
+        predictions = test_trainer.predict(test_dataset)
+        return predictions.predictions
 
     def predict(self, X_test):
-        from datasets import Dataset
-        from .nlp.utils import load_model
-        from transformers import TrainingArguments
-        from .nlp.huggingface.trainer import TrainerForAuto
-
         if X_test.dtypes[0] == "string":
             X_test = self._preprocess(X_test, self._task, **self._kwargs)
             test_dataset = Dataset.from_pandas(X_test)
@@ -691,6 +704,9 @@ class LGBMEstimator(BaseEstimator):
         params = config.copy()
         if "log_max_bin" in params:
             params["max_bin"] = (1 << params.pop("log_max_bin")) - 1
+        params[TransformersEstimator.ITER_HP] = params.get(
+            TransformersEstimator.ITER_HP, sys.maxsize
+        )
         return params
 
     @classmethod

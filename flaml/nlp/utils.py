@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from ..data import SEQCLASSIFICATION, SEQREGRESSION
 from typing import Dict, Any
 
+
 def _is_nlp_task(task):
     if task in [SEQCLASSIFICATION, SEQREGRESSION]:
         return True
@@ -12,9 +13,10 @@ def _is_nlp_task(task):
 
 def load_default_huggingface_metric_for_task(task):
     if task == SEQCLASSIFICATION:
-        return "accuracy"
+        return "accuracy", "max"
     elif task == SEQREGRESSION:
-        return "rmse"
+        return "rmse", "max"
+
 
 global tokenized_column_names
 
@@ -108,12 +110,14 @@ def format_vars(resolved_vars: Dict) -> str:
         out.append(_clean_value("_".join(pieces)) + "=" + _clean_value(value))
     return ",".join(out)
 
+
 counter = 0
 
 
 def date_str():
     from datetime import datetime
-    return datetime.today().strftime('%Y-%m-%d_%H-%M-%S')
+
+    return datetime.today().strftime("%Y-%m-%d_%H-%M-%S")
 
 
 def _generate_dirname(experiment_tag, trial_id):
@@ -125,6 +129,7 @@ def _generate_dirname(experiment_tag, trial_id):
 
 def get_logdir_name(dirname, local_dir):
     import os
+
     local_dir = os.path.expanduser(local_dir)
     logdir = os.path.join(local_dir, dirname)
     return logdir
@@ -134,7 +139,9 @@ def get_trial_fold_name(local_dir, trial_config, trial_id):
     global counter
     counter = counter + 1
     experiment_tag = "{0}_{1}".format(str(counter), format_vars(trial_config))
-    logdir = get_logdir_name(_generate_dirname(experiment_tag, trial_id=trial_id), local_dir)
+    logdir = get_logdir_name(
+        _generate_dirname(experiment_tag, trial_id=trial_id), local_dir
+    )
     return logdir
 
 
@@ -253,7 +260,6 @@ class HPOArgs:
     max_seq_length: int = field(default=128, metadata={"help": "max seq length"})
 
     ckpt_per_epoch: int = field(default=1, metadata={"help": "checkpoint per epoch"})
-
 
     @staticmethod
     def load_args():

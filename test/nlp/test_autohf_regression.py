@@ -4,6 +4,10 @@ import pytest
 
 @pytest.mark.skipif(os.name == "posix", reason="do not run on mac os")
 def test_regression():
+    try:
+        import ray
+    except ImportError:
+        return
     from flaml import AutoML
 
     from datasets import load_dataset
@@ -33,6 +37,7 @@ def test_regression():
         "task": "seq-regression",
         "metric": "rmse",
         "starting_points": {"transformer": {"num_train_epochs": 1}},
+        "use_ray": True,
     }
 
     automl_settings["custom_hpo_args"] = {
