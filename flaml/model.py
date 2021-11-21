@@ -88,6 +88,7 @@ class BaseEstimator:
                 n_jobs is the number of parallel threads.
         """
         import uuid
+
         self.trial_id = str(uuid.uuid1().hex)[:8]
         self.params = self.config2params(config)
         self.estimator_class = self._model = None
@@ -303,24 +304,29 @@ class TransformersEstimator(BaseEstimator):
         return {
             "learning_rate": {
                 "domain": tune.loguniform(lower=1e-6, upper=1e-3),
+                "init_value": 1e-5,
             },
             "num_train_epochs": {
                 "domain": tune.loguniform(lower=0.1, upper=10.0),
             },
             "per_device_train_batch_size": {
                 "domain": tune.choice([4, 8, 16, 32]),
+                "init_value": 32,
             },
             "warmup_ratio": {
                 "domain": tune.uniform(lower=0.0, upper=0.3),
+                "init_value": 0.0,
             },
             "weight_decay": {
                 "domain": tune.uniform(lower=0.0, upper=0.3),
+                "init_value": 0.0,
             },
             "adam_epsilon": {
                 "domain": tune.loguniform(lower=1e-8, upper=1e-6),
+                "init_value": 1e-6,
             },
-            "seed": {"domain": tune.choice(list(range(40, 45)))},
-            "global_max_steps": {"domain": sys.maxsize},
+            "seed": {"domain": tune.choice(list(range(40, 45))), "init_value": 42},
+            "global_max_steps": {"domain": sys.maxsize, "init_value": sys.maxsize},
         }
 
     def _init_hpo_args(self, automl_fit_kwargs: dict = None):
@@ -348,8 +354,12 @@ class TransformersEstimator(BaseEstimator):
 
         # TODO: when self.param = {}, ie max_iter = 1, fix the bug
         from transformers import EarlyStoppingCallback
+        import sys
 
         this_params = self.params
+        this_params[TransformersEstimator.ITER_HP] = this_params.get(
+            TransformersEstimator.ITER_HP, sys.maxsize
+        )
 
         class EarlyStoppingCallbackForAuto(EarlyStoppingCallback):
             def on_train_begin(self, args, state, control, **callback_kwargs):
@@ -377,7 +387,7 @@ class TransformersEstimator(BaseEstimator):
             def on_epoch_end(self, args, state, control, **callback_kwargs):
                 if (
                     control.should_training_stop
-                    or state.epoch + 1 >= this_params["num_train_epochs"]
+                    or state.epoch + 1 >= args.num_train_epochs
                 ):
                     control.should_save = True
                     control.should_evaluate = True
@@ -392,7 +402,7 @@ class TransformersEstimator(BaseEstimator):
             get_num_labels,
             compute_checkpoint_freq,
             get_trial_fold_name,
-            date_str
+            date_str,
         )
         from .nlp.huggingface.trainer import TrainerForAuto
         from datasets import Dataset
@@ -416,7 +426,6 @@ class TransformersEstimator(BaseEstimator):
         tokenizer = AutoTokenizer.from_pretrained(
             self.custom_hpo_args.model_path, use_fast=True
         )
-        set_seed(self.params["seed"])
 
         num_labels = get_num_labels(self._task, y_train)
 
@@ -430,18 +439,26 @@ class TransformersEstimator(BaseEstimator):
         ckpt_freq = compute_checkpoint_freq(
             train_data_size=len(X_train),
             custom_hpo_args=self.custom_hpo_args,
-            num_train_epochs=self.params["num_train_epochs"],
-            batch_size=self.params["per_device_train_batch_size"],
+            num_train_epochs=training_args_config.get(
+                "num_train_epochs", TrainingArguments.num_train_epochs
+            ),
+            batch_size=training_args_config.get(
+                "per_device_train_batch_size",
+                TrainingArguments.per_device_train_batch_size,
+            ),
+        )
+        set_seed(self.params.get("seed", TrainingArguments.seed))
+
+        local_dir = os.path.join(
+            self.custom_hpo_args.output_dir, "train_{}".format(date_str())
         )
 
-        local_dir = os.path.join(self.custom_hpo_args.output_dir, "train_{}".format(date_str()))
-
         if not self.use_ray:
-            trial_dir = get_trial_fold_name(local_dir,
-                                        self.params,
-                                        self.trial_id)
+            # if self.params = {}, don't include configuration in trial fold name
+            trial_dir = get_trial_fold_name(local_dir, self.params, self.trial_id)
         else:
             import ray
+
             trial_dir = ray.tune.get_trial_dir()
 
         if transformers.__version__.startswith("3"):
@@ -515,9 +532,17 @@ class TransformersEstimator(BaseEstimator):
                 logger.warning("checkpoint {} not found".format(ckpt_location))
 
     def cleanup(self):
+        with open(
+            "/data/xliu127/projects/hyperopt/FLAML/test/nlp/test.txt", "a"
+        ) as fout:
+            fout.write("aaa")
         if hasattr(self, "_ckpt_remains"):
             for each_ckpt in self._ckpt_remains:
                 self._delete_one_ckpt(each_ckpt)
+                with open(
+                    "/data/xliu127/projects/hyperopt/FLAML/test/nlp/test.txt", "a"
+                ) as fout:
+                    fout.write(each_ckpt + "\n")
 
     def _select_checkpoint(self, trainer):
         if trainer.ckpt_to_metric:
@@ -556,16 +581,20 @@ class TransformersEstimator(BaseEstimator):
 
         if isinstance(self._metric_name, str):
             return {
-            "val_loss": sklearn_metric_loss_score(
-                metric_name=self._metric_name, y_predict=predictions, y_true=labels
-            ) }
+                "val_loss": sklearn_metric_loss_score(
+                    metric_name=self._metric_name, y_predict=predictions, y_true=labels
+                )
+            }
         else:
             from .nlp.utils import load_default_huggingface_metric_for_task
             import datasets
+
             default_metric_name = load_default_huggingface_metric_for_task(self._task)
             metric = datasets.load_metric(default_metric_name)
             return {
-                "val_loss": metric.compute(predictions=predictions, references=labels)[default_metric_name]
+                "val_loss": metric.compute(predictions=predictions, references=labels)[
+                    default_metric_name
+                ]
             }
 
     def predict(self, X_test):

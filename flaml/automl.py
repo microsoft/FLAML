@@ -158,6 +158,9 @@ class SearchState:
                 self.trained_estimator.cleanup()
             if trained_estimator:
                 self.trained_estimator = trained_estimator
+        else:
+            if trained_estimator:
+                trained_estimator.cleanup()
         self.metric_for_logging = metric_for_logging
         self.val_loss, self.config = obj, config
 
@@ -551,9 +554,7 @@ class AutoML:
         settings["sample"] = settings.get("sample", True)
         settings["ensemble"] = settings.get("ensemble", False)
         settings["log_type"] = settings.get("log_type", "better")
-        settings["model_history"] = settings.get(
-            "model_history", False
-        )
+        settings["model_history"] = settings.get("model_history", False)
         settings["log_training_metric"] = settings.get("log_training_metric", False)
         settings["mem_thres"] = settings.get("mem_thres", MEM_THRES)
         settings["pred_time_limit"] = settings.get("pred_time_limit", np.inf)
@@ -2110,7 +2111,7 @@ class AutoML:
             verbose=max(self.verbose - 2, 0),
             raise_on_failed_trial=False,
             keep_checkpoints_num=1,
-            checkpoint_score_attr="val_loss"
+            checkpoint_score_attr="val_loss",
         )
         # logger.info([trial.last_result for trial in analysis.trials])
         trials = sorted(
