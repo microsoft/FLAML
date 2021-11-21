@@ -158,8 +158,7 @@ class SearchState:
                 self.trained_estimator.cleanup()
             if trained_estimator:
                 self.trained_estimator = trained_estimator
-        else:
-            if trained_estimator:
+        elif trained_estimator:
                 trained_estimator.cleanup()
         self.metric_for_logging = metric_for_logging
         self.val_loss, self.config = obj, config
