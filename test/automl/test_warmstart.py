@@ -48,9 +48,8 @@ class TestWarmStart(unittest.TestCase):
         class MyPartiallyFreezedLargeLGBM(LGBMEstimator):
             @classmethod
             def search_space(cls, **params):
-                org_space = LGBMEstimator.search_space(**params)
                 # (1) Get the hps in the original search space
-                space = org_space.copy()
+                space = LGBMEstimator.search_space(**params)
                 # (2) Set up the fixed value from hps from the starting point
                 for hp_name in hps_to_freeze:
                     # if an hp is specifed to be freezed, use tine value provided in the starting_point
@@ -67,8 +66,8 @@ class TestWarmStart(unittest.TestCase):
                         "init_value": starting_point.get(
                             "n_estimators"
                         )
-                        or org_space["n_estimators"].get("init_value", 10),
-                        "low_cost_init_value": org_space["n_estimators"].get(
+                        or space["n_estimators"].get("init_value", 10),
+                        "low_cost_init_value": space["n_estimators"].get(
                             "low_cost_init_value", 10
                         ),
                     },
@@ -77,8 +76,8 @@ class TestWarmStart(unittest.TestCase):
                         "init_value": starting_point.get(
                             "num_leaves"
                         )
-                        or org_space["num_leaves"].get("init_value", 10),
-                        "low_cost_init_value": org_space["num_leaves"].get(
+                        or space["num_leaves"].get("init_value", 10),
+                        "low_cost_init_value": space["num_leaves"].get(
                             "low_cost_init_value", 10
                         ),
                     },
