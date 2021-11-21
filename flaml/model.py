@@ -996,6 +996,10 @@ class XGBoostLimitDepthEstimator(XGBoostSklearnEstimator):
         }
         return space
 
+    @classmethod
+    def cost_relative2lgbm(cls):
+        return 64
+
 
 class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
     """The class for tuning Random Forest."""
