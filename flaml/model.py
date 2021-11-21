@@ -792,7 +792,7 @@ class XGBoostEstimator(SKLearnEstimator):
         return {
             "n_estimators": {
                 "domain": tune.lograndint(lower=4, upper=upper),
-                "init_value": 4,
+                "init_value": 10,
                 "low_cost_init_value": 4,
             },
             "max_leaves": {
@@ -810,7 +810,7 @@ class XGBoostEstimator(SKLearnEstimator):
             },
             "learning_rate": {
                 "domain": tune.loguniform(lower=1 / 1024, upper=1.0),
-                "init_value": 0.1,
+                "init_value": 0.3,
             },
             "subsample": {
                 "domain": tune.uniform(lower=0.1, upper=1.0),
