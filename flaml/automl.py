@@ -1899,7 +1899,7 @@ class AutoML:
 
         if _is_nlp_task(self._state.task):
             self._state.fit_kwargs["metric"] = metric
-            self._state.fit_kwargs["use_ray"] = use_ray
+            self._state.fit_kwargs["use_ray"] = self._use_ray
 
         self._sample = (
             sample
