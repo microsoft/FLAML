@@ -48,7 +48,7 @@ def test_max_iter_1():
     automl_settings = {
         "gpu_per_trial": 1,
         "max_iter": 1,
-        "time_budget": 20,
+        "time_budget": 5,
         "task": "seq-classification",
         "metric": toy_metric,
         "log_file_name": "seqclass.log",

@@ -29,7 +29,7 @@ def test_ray():
     automl_settings = {
         "gpu_per_trial": 1,
         "max_iter": 2,
-        "time_budget": 20,
+        "time_budget": 5,
         "task": "seq-classification",
         "metric": "accuracy",
         "log_file_name": "seqclass.log",
