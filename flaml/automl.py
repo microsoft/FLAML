@@ -346,7 +346,7 @@ class AutoMLState:
             estimator, train_time = result["estimator"], result["train_time"]
 
         else:
-            use_ray = self.fit_kwargs["use_ray"]
+            use_ray = self.fit_kwargs.get("use_ray")
             self.fit_kwargs["use_ray"] = False
             estimator, train_time = train_estimator(
                 X_train=sampled_X_train,
@@ -359,7 +359,10 @@ class AutoMLState:
                 budget=budget,
                 fit_kwargs=self.fit_kwargs,
             )
-            self.fit_kwargs["use_ray"] = use_ray
+            if use_ray:
+                self.fit_kwargs["use_ray"] = use_ray
+            else:
+                del self.fit_kwargs["use_ray"]
         if sampled_weight is not None:
             self.fit_kwargs["sample_weight"] = weight
         return estimator, train_time

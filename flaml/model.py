@@ -345,6 +345,7 @@ class TransformersEstimator(BaseEstimator):
             return X
 
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
+
         # TODO: when self.param = {}, ie max_iter = 1, fix the bug
         from transformers import EarlyStoppingCallback
 

@@ -5,7 +5,7 @@ import pytest
 def _test_ray():
     try:
         import ray
-        ray.init(local_mode=False)
+        ray.init(local_mode=True)
     except ImportError:
         return
     from flaml import AutoML
@@ -55,9 +55,9 @@ def _test_ray():
         }
 
     automl_settings = {
-        "gpu_per_trial": 0,
+        "gpu_per_trial": 1,
         "max_iter": 3,
-        "time_budget": 30,
+        "time_budget": 300,
         "task": "seq-classification",
         "metric": toy_metric,
         "log_file_name": "seqclass.log",
@@ -74,6 +74,7 @@ def _test_ray():
     automl.fit(
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
     )
+    del automl
     automl = AutoML()
     automl.retrain_from_log(
         X_train=X_train,

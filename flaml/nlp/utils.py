@@ -254,6 +254,7 @@ class HPOArgs:
 
     ckpt_per_epoch: int = field(default=1, metadata={"help": "checkpoint per epoch"})
 
+
     @staticmethod
     def load_args():
         from dataclasses import fields
