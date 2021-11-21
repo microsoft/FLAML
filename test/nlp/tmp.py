@@ -56,7 +56,7 @@ def _test_ray():
 
     automl_settings = {
         "gpu_per_trial": 1,
-        "max_iter": 3,
+        "max_iter": 1,
         "time_budget": 300,
         "task": "seq-classification",
         "metric": toy_metric,
