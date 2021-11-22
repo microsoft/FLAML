@@ -4,29 +4,36 @@ import styles from './HomepageFeatures.module.css';
 
 const FeatureList = [
   {
-    title: 'To DO',
+    title: 'Find Quality Model at Your Fingertips',
     Svg: require('../../static/img/undraw_docusaurus_mountain.svg').default,
     description: (
       <>
-        To Do
+        FLAML finds accurate ML models with small computational resources
+        for common ML tasks like classification and regression.
+        It frees users from selecting learners and hyperparameters.
+        {/* It is fast and economical. */}
       </>
     ),
   },
   {
-    title: 'To DO',
+    title: 'Easy to Customize or Extend',
     Svg: require('../../static/img/undraw_docusaurus_tree.svg').default,
     description: (
       <>
-        To DO
+        FLAML is designed easy to extend, such as adding custom learners or metrics.
+        The customizaation level can range from minimal
+(training data and task type as only input) to full (tuning a user-defined function).
       </>
     ),
   },
   {
-    title: 'To DO',
+    title: 'Auto Tuning: Power Up, Cost Down',
     Svg: require('../../static/img/undraw_docusaurus_react.svg').default,
     description: (
       <>
-        To DO
+        FLAML offers a novel cost-effective hyperparameter tuning approach.
+        It leverages the structure of search space
+        to optimize the search order, capable of handling complex constraints/guidance.
       </>
     ),
   },

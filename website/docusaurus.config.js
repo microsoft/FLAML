@@ -4,7 +4,7 @@ const katex = require('rehype-katex');
 
 module.exports = {
   title: 'FLAML',
-  tagline: 'Fast and Lightweight AutoML',
+  tagline: 'A Fast Library for Automated Machine Learning & Tuning',
   url: 'https://shao-kun-zhang.github.io/',
   baseUrl: '/FLAML/',
   onBrokenLinks: 'throw',
