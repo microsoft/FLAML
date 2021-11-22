@@ -572,18 +572,13 @@ class TransformersEstimator(BaseEstimator):
                 default_metric_mode,
             ) = load_default_huggingface_metric_for_task(self._task)
             metric = datasets.load_metric(default_metric_name)
-            if default_metric_mode == "max":
-                return {
-                    "val_loss": -metric.compute(
-                        predictions=predictions, references=labels
-                    )[default_metric_name]
-                }
-            else:
-                return {
-                    "val_loss": metric.compute(
-                        predictions=predictions, references=labels
-                    )[default_metric_name]
-                }
+            multiplier = -1 if default_metric_mode == "max" else 1
+            return {
+                "val_loss": metric.compute(
+                    predictions=predictions, references=labels
+                )[default_metric_name] * multiplier
+            }
+
 
     def predict_proba(self, X_test):
         assert (
