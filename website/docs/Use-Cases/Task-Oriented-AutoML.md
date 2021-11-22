@@ -43,9 +43,59 @@ If users provide the minimal input only, `AutoML` uses the default settings for 
 
 The optimization metric is specified via the `metric` argument. It can be either a string which refers to a built-in metric, or a user-defined function.
 
-* Built-in metric
+* Built-in metric.
     - 'accuracy': 1 - accuracy as the corresponding metric to minimize.
-* User-defined function
+    - 'log_loss'. Default metric for multiclass classification.
+    - 'r2': 1 - r2_score as the corresponding metric to minimize. Default metric for regression.
+    - 'rmse': root mean squared error.
+    - 'mse': mean squared error.
+    - 'mae': mean absolute error.
+    - 'mape': mean absolute percentage error.
+    - 'roc_auc': minimize 1 - roc_auc_score.
+    - 'roc_auc_ovr': minimize 1 - roc_auc_score with `multi_class="ovr"`.
+    - 'roc_auc_ovo': minimize 1 - roc_auc_score with `multi_class="ovo"`.
+    - 'f1': minimize 1 - f1_score.
+    - 'micro_f1': minimize 1 - f1_score with `average="micro"`.
+    - 'micro_f1': minimize 1 - f1_score with `average="micro"`.
+    - 'ap': minimize 1 - average_precision_score.
+    - 'ndcg': minimize 1 - ndcg_score.
+    - 'ndcg@k': minimize 1 - ndcg_score@k. k is an integer.
+* User-defined function.
+A customized metric function needs to have the follwing signature:
+
+```python
+def custom_metric(
+    X_val, y_val, estimator, labels,
+    X_train, y_train, weight_val=None, weight_train=None,
+    config=None, groups_val=None, groups_train=None,
+):
+    return metric_to_minimize, metrics_to_log
+```
+
+For example,
+```python
+def custom_metric(
+    X_val, y_val, estimator, labels,
+    X_train, y_train, weight_val=None, weight_train=None,
+    **args,
+):
+    from sklearn.metrics import log_loss
+    import time
+
+    start = time.time()
+    y_pred = estimator.predict_proba(X_val)
+    pred_time = (time.time() - start) / len(X_val)
+    val_loss = log_loss(y_val, y_pred, labels=labels, sample_weight=weight_val)
+    y_pred = estimator.predict_proba(X_train)
+    train_loss = log_loss(y_train, y_pred, labels=labels, sample_weight=weight_train)
+    alpha = 0.5
+    return val_loss * (1 + alpha) - alpha * train_loss, {
+        "val_loss": val_loss,
+        "train_loss": train_loss,
+        "pred_time": pred_time,
+    }
+```
+It returns the validation loss penalized by the gap between validation and training loss as the metric to minimize, and three metrics to log: val_loss, train_loss and pred_time. The arguments `config`, `groups_val` and `groups_train` are not used in the function.
 
 ### Estimator and search space
 
