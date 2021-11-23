@@ -28,8 +28,6 @@ from .data import (
 import pandas as pd
 from pandas import DataFrame, Series
 from .nlp.huggingface.trainer import TrainerForAuto
-from transformers import TrainingArguments
-from datasets import Dataset
 from .nlp.utils import (
     separate_config,
     load_model,
@@ -362,8 +360,9 @@ class TransformersEstimator(BaseEstimator):
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
         from transformers import EarlyStoppingCallback
         from transformers.trainer_utils import set_seed
-        from transformers import AutoTokenizer
+        from transformers import AutoTokenizer, TrainingArguments
         import transformers
+        from datasets import Dataset
 
         this_params = self.params
 
@@ -585,12 +584,15 @@ class TransformersEstimator(BaseEstimator):
             }
 
     def predict_proba(self, X_test):
+        from datasets import Dataset
+        from transformers import TrainingArguments
+
         assert (
             self._task in CLASSIFICATION
         ), "predict_proba is only available in classification tasks"
-        if X_test.dtypes[0] == "string":
-            X_test = self._preprocess(X_test, self._task, **self._kwargs)
-            test_dataset = Dataset.from_pandas(X_test)
+
+        X_test = self._preprocess(X_test, self._task, **self._kwargs)
+        test_dataset = Dataset.from_pandas(X_test)
 
         best_model = load_model(
             checkpoint_path=self._checkpoint_path,
@@ -607,9 +609,11 @@ class TransformersEstimator(BaseEstimator):
         return predictions.predictions
 
     def predict(self, X_test):
-        if X_test.dtypes[0] == "string":
-            X_test = self._preprocess(X_test, self._task, **self._kwargs)
-            test_dataset = Dataset.from_pandas(X_test)
+        from datasets import Dataset
+        from transformers import TrainingArguments
+
+        X_test = self._preprocess(X_test, self._task, **self._kwargs)
+        test_dataset = Dataset.from_pandas(X_test)
 
         best_model = load_model(
             checkpoint_path=self._checkpoint_path,
