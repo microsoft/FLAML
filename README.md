@@ -267,10 +267,18 @@ If all the tests are passed, please also test run notebook/flaml_automl to make 
 
 ## Authors
 
+This project has many [contributors](https://github.com/microsoft/FLAML/graphs/contributors). The main authors of the library are:
+
 * Chi Wang
 * Qingyun Wu
+* Xueqing Liu
+* Kevin Chen
+* Eric Zhu
 
-Contributors (alphabetical order): Amir Aghaei, Vijay Aski, Sebastien Bubeck, Surajit Chaudhuri, Nadiia Chepurko, Ofer Dekel, Alex Deng, Anshuman Dutt, Nicolo Fusi, Jianfeng Gao, Johannes Gehrke, Niklas Gustafsson, Silu Huang, Dongwoo Kim, Christian Konig, John Langford, Menghao Li, Mingqin Li, Zhe Liu, Naveen Gaur, Paul Mineiro, Vivek Narasayya, Jake Radzikowski, Marco Rossi, Amin Saied, Neil Tenenholtz, Olga Vrousgou, Markus Weimer, Yue Wang, Qingyun Wu, Qiufeng Yin, Haozhe Zhang, Minjia Zhang, XiaoYun Zhang, Eric Zhu, and open-source contributors.
+We look forward to expanding this list. We need help to accelerate the research and development to address user requests.
+
+Many researchers and engineers have contributed to the technology development. In alphabetical order: Amir Aghaei, Vijay Aski, Sebastien Bubeck, Surajit Chaudhuri, Kevin Chen, Nadiia Chepurko, Ofer Dekel, Alex Deng, Anshuman Dutt, Nicolo Fusi, Jianfeng Gao, Johannes Gehrke, Niklas Gustafsson, Silu Huang, Dongwoo Kim, Christian Konig, John Langford, Menghao Li, Mingqin Li, Xueqing Liu, Zhe Liu, Naveen Gaur, Paul Mineiro, Vivek Narasayya, Jake Radzikowski, Marco Rossi, Amin Saied, Neil Tenenholtz, Olga Vrousgou, Chi Wang, Yue Wang, Markus Weimer, Qingyun Wu, Qiufeng Yin, Haozhe Zhang, Minjia Zhang, XiaoYun Zhang, Eric Zhu.
+
 
 ## License
 
