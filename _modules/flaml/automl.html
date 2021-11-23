@@ -85,7 +85,7 @@
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span>
 <span class="kn">from</span> <span class="nn">pandas</span> <span class="kn">import</span> <span class="n">DataFrame</span>
-<span class="kn">from</span> <span class="nn">.nlp.utils</span> <span class="kn">import</span> <span class="n">_is_nlp_task</span>
+<span class="kn">from</span> <span class="nn">.data</span> <span class="kn">import</span> <span class="n">_is_nlp_task</span>
 
 <span class="kn">from</span> <span class="nn">.ml</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">compute_estimator</span><span class="p">,</span>
@@ -224,6 +224,8 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">trained_estimator</span><span class="o">.</span><span class="n">cleanup</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">trained_estimator</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">trained_estimator</span> <span class="o">=</span> <span class="n">trained_estimator</span>
+        <span class="k">elif</span> <span class="n">trained_estimator</span><span class="p">:</span>
+            <span class="n">trained_estimator</span><span class="o">.</span><span class="n">cleanup</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">metric_for_logging</span> <span class="o">=</span> <span class="n">metric_for_logging</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">val_loss</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">obj</span><span class="p">,</span> <span class="n">config</span>
 
@@ -412,6 +414,9 @@
             <span class="n">estimator</span><span class="p">,</span> <span class="n">train_time</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;estimator&quot;</span><span class="p">],</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;train_time&quot;</span><span class="p">]</span>
 
         <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">_is_nlp_task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">task</span><span class="p">):</span>
+                <span class="n">use_ray</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;use_ray&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s2">&quot;use_ray&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="n">estimator</span><span class="p">,</span> <span class="n">train_time</span> <span class="o">=</span> <span class="n">train_estimator</span><span class="p">(</span>
                 <span class="n">X_train</span><span class="o">=</span><span class="n">sampled_X_train</span><span class="p">,</span>
                 <span class="n">y_train</span><span class="o">=</span><span class="n">sampled_y_train</span><span class="p">,</span>
@@ -423,6 +428,11 @@
                 <span class="n">budget</span><span class="o">=</span><span class="n">budget</span><span class="p">,</span>
                 <span class="n">fit_kwargs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">,</span>
             <span class="p">)</span>
+            <span class="k">if</span> <span class="n">_is_nlp_task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">task</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">use_ray</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s2">&quot;use_ray&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">use_ray</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s2">&quot;use_ray&quot;</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">sampled_weight</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s2">&quot;sample_weight&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">weight</span>
         <span class="k">return</span> <span class="n">estimator</span><span class="p">,</span> <span class="n">train_time</span>
@@ -816,10 +826,14 @@
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">List</span><span class="p">):</span>
                     <span class="n">X</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">X</span><span class="p">)]</span>
                 <span class="n">X</span> <span class="o">=</span> <span class="n">DataFrame</span><span class="p">(</span>
-                    <span class="p">{</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">_transformer</span><span class="o">.</span><span class="n">_str_columns</span><span class="p">[</span><span class="n">idx</span><span class="p">]:</span> <span class="n">X</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
-                        <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>
-                    <span class="p">}</span>
+                    <span class="nb">dict</span><span class="p">(</span>
+                        <span class="p">[</span>
+                            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_transformer</span><span class="o">.</span><span class="n">_str_columns</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">X</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+                            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">List</span><span class="p">)</span>
+                            <span class="k">else</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_transformer</span><span class="o">.</span><span class="n">_str_columns</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="p">[</span><span class="n">X</span><span class="p">[</span><span class="n">idx</span><span class="p">]])</span>
+                            <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>
+                        <span class="p">]</span>
+                    <span class="p">)</span>
                 <span class="p">)</span>
             <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">IndexError</span><span class="p">(</span>
@@ -2005,6 +2019,7 @@
 
         <span class="k">if</span> <span class="n">_is_nlp_task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s2">&quot;metric&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s2">&quot;use_ray&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_use_ray</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_sample</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">sample</span>
@@ -2227,6 +2242,8 @@
             <span class="n">num_samples</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_iter</span><span class="p">,</span>
             <span class="n">verbose</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">verbose</span> <span class="o">-</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
             <span class="n">raise_on_failed_trial</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">keep_checkpoints_num</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">checkpoint_score_attr</span><span class="o">=</span><span class="s2">&quot;min-val_loss&quot;</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="c1"># logger.info([trial.last_result for trial in analysis.trials])</span>
         <span class="n">trials</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
