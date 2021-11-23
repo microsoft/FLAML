@@ -22,7 +22,7 @@ import pandas as pd
 import logging
 from typing import List, Union
 from pandas import DataFrame
-from .nlp.utils import _is_nlp_task
+from .data import _is_nlp_task
 
 from .ml import (
     compute_estimator,

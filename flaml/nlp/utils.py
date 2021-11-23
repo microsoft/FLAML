@@ -3,15 +3,6 @@ from dataclasses import dataclass, field
 from typing import Dict, Any
 
 
-def _is_nlp_task(task):
-    from ..data import SEQCLASSIFICATION, SEQREGRESSION
-
-    if task in [SEQCLASSIFICATION, SEQREGRESSION]:
-        return True
-    else:
-        return False
-
-
 def load_default_huggingface_metric_for_task(task):
     from ..data import SEQCLASSIFICATION, SEQREGRESSION
 
