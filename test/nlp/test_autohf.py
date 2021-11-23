@@ -70,6 +70,7 @@ def test_hf_data():
     )
 
     automl.predict_proba(X_test)
+    print(automl.classes_)
 
 
 def _test_custom_data():
