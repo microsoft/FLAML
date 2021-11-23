@@ -436,7 +436,7 @@ class AutoML(BaseEstimator):
 
                 .. code-block:: python
 
-                    ['lgbm', 'xgboost', 'catboost', 'rf', 'extra_tree']
+                    ['lgbm', 'xgboost', 'xgb_limitdepth', 'catboost', 'rf', 'extra_tree']
 
             time_budget: A float number of the time budget in seconds.
                 Use -1 if no time limit.
@@ -1661,7 +1661,7 @@ class AutoML(BaseEstimator):
 
                 .. code-block:: python
 
-                    ['lgbm', 'xgboost', 'catboost', 'rf', 'extra_tree']
+                    ['lgbm', 'xgboost', 'xgb_limitdepth', 'catboost', 'rf', 'extra_tree']
 
             time_budget: A float number of the time budget in seconds.
                 Use -1 if no time limit.

@@ -947,7 +947,6 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         return XGBoostEstimator.cost_relative2lgbm()
 
     def config2params(cls, config: dict) -> dict:
-        # TODO: test
         params = config.copy()
         max_depth = params["max_depth"] = params.get("max_depth", 0)
         if max_depth == 0:
