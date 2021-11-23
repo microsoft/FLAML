@@ -740,7 +740,7 @@ class AutoML(BaseEstimator):
                     {
                         self._transformer._str_columns[idx]: X[idx]
                         if isinstance(X[0], List)
-                        else [X[idx]]
+                        else self._transformer._str_columns[idx]: [X[idx]]
                         for idx in range(len(X))
                     }
                 )
