@@ -160,7 +160,7 @@ class SearchState:
             if trained_estimator:
                 self.trained_estimator = trained_estimator
         elif trained_estimator:
-                trained_estimator.cleanup()
+            trained_estimator.cleanup()
         self.metric_for_logging = metric_for_logging
         self.val_loss, self.config = obj, config
 
@@ -739,6 +739,8 @@ class AutoML(BaseEstimator):
                 X = DataFrame(
                     {
                         self._transformer._str_columns[idx]: X[idx]
+                        if isinstance(X[0], List)
+                        else [X[idx]]
                         for idx in range(len(X))
                     }
                 )
