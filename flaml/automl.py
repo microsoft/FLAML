@@ -737,12 +737,14 @@ class AutoML(BaseEstimator):
                 if isinstance(X[0], List):
                     X = [x for x in zip(*X)]
                 X = DataFrame(
-                    {
-                        self._transformer._str_columns[idx]: X[idx]
-                        if isinstance(X[0], List)
-                        else self._transformer._str_columns[idx]: [X[idx]]
-                        for idx in range(len(X))
-                    }
+                    dict(
+                        [
+                            (self._transformer._str_columns[idx], X[idx])
+                            if isinstance(X[0], List)
+                            else (self._transformer._str_columns[idx], [X[idx]])
+                            for idx in range(len(X))
+                        ]
+                    )
                 )
             except IndexError:
                 raise IndexError(
