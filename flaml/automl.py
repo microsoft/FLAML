@@ -79,7 +79,9 @@ class SearchState:
         self.learner_class = learner_class
         search_space = learner_class.search_space(data_size=data_size, task=task)
         for name, space in search_space.items():
-            assert "domain" in space
+            assert (
+                "domain" in space
+            ), f"{name}'s domain is missing in the search space spec {space}"
             self._search_space_domain[name] = space["domain"]
             if "init_value" in space:
                 self.init_config[name] = space["init_value"]
@@ -424,14 +426,38 @@ class AutoML(BaseEstimator):
                 .. code-block:: python
 
                     def custom_metric(
-                        X_test, y_test, estimator, labels,
-                        X_train, y_train, weight_test=None, weight_train=None,
-                        config=None, groups_test=None, groups_train=None,
+                        X_val, y_val, estimator, labels,
+                        X_train, y_train, weight_val=None, weight_train=None,
+                        config=None, groups_val=None, groups_train=None,
                     ):
                         return metric_to_minimize, metrics_to_log
 
                 which returns a float number as the minimization objective,
-                and a dictionary as the metrics to log.
+                and a dictionary as the metrics to log. E.g.,
+
+                .. code-block:: python
+
+                    def custom_metric(
+                        X_val, y_val, estimator, labels,
+                        X_train, y_train, weight_val=None, weight_train=None,
+                        **args,
+                    ):
+                        from sklearn.metrics import log_loss
+                        import time
+
+                        start = time.time()
+                        y_pred = estimator.predict_proba(X_val)
+                        pred_time = (time.time() - start) / len(X_val)
+                        val_loss = log_loss(y_val, y_pred, labels=labels, sample_weight=weight_val)
+                        y_pred = estimator.predict_proba(X_train)
+                        train_loss = log_loss(y_train, y_pred, labels=labels, sample_weight=weight_train)
+                        alpha = 0.5
+                        return val_loss * (1 + alpha) - alpha * train_loss, {
+                            "val_loss": val_loss,
+                            "train_loss": train_loss,
+                            "pred_time": pred_time,
+                        }
+
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast', 'rank',
                 'seq-classification', 'seq-regression'.
@@ -444,7 +470,7 @@ class AutoML(BaseEstimator):
 
                 .. code-block:: python
 
-                    ['lgbm', 'xgboost', 'catboost', 'rf', 'extra_tree']
+                    ['lgbm', 'xgboost', 'xgb_limitdepth', 'catboost', 'rf', 'extra_tree']
 
             time_budget: A float number of the time budget in seconds.
                 Use -1 if no time limit.
@@ -1653,14 +1679,38 @@ class AutoML(BaseEstimator):
                 .. code-block:: python
 
                     def custom_metric(
-                        X_test, y_test, estimator, labels,
-                        X_train, y_train, weight_test=None, weight_train=None,
-                        config=None, groups_test=None, groups_train=None,
+                        X_val, y_val, estimator, labels,
+                        X_train, y_train, weight_val=None, weight_train=None,
+                        config=None, groups_val=None, groups_train=None,
                     ):
                         return metric_to_minimize, metrics_to_log
 
                 which returns a float number as the minimization objective,
-                and a dictionary as the metrics to log.
+                and a dictionary as the metrics to log. E.g.,
+
+                .. code-block:: python
+
+                    def custom_metric(
+                        X_val, y_val, estimator, labels,
+                        X_train, y_train, weight_val=None, weight_train=None,
+                        **args,
+                    ):
+                        from sklearn.metrics import log_loss
+                        import time
+
+                        start = time.time()
+                        y_pred = estimator.predict_proba(X_val)
+                        pred_time = (time.time() - start) / len(X_val)
+                        val_loss = log_loss(y_val, y_pred, labels=labels, sample_weight=weight_val)
+                        y_pred = estimator.predict_proba(X_train)
+                        train_loss = log_loss(y_train, y_pred, labels=labels, sample_weight=weight_train)
+                        alpha = 0.5
+                        return val_loss * (1 + alpha) - alpha * train_loss, {
+                            "val_loss": val_loss,
+                            "train_loss": train_loss,
+                            "pred_time": pred_time,
+                        }
+
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast', 'rank',
                 'seq-classification', 'seq-regression'.
@@ -1673,7 +1723,7 @@ class AutoML(BaseEstimator):
 
                 .. code-block:: python
 
-                    ['lgbm', 'xgboost', 'catboost', 'rf', 'extra_tree']
+                    ['lgbm', 'xgboost', 'xgb_limitdepth', 'catboost', 'rf', 'extra_tree']
 
             time_budget: A float number of the time budget in seconds.
                 Use -1 if no time limit.
@@ -1954,16 +2004,29 @@ class AutoML(BaseEstimator):
                 except ImportError:
                     estimator_list = ["arima", "sarimax"]
             elif self._state.task == "rank":
-                estimator_list = ["lgbm", "xgboost"]
+                estimator_list = ["lgbm", "xgboost", "xgb_limitdepth"]
             elif _is_nlp_task(self._state.task):
                 estimator_list = ["transformer"]
             else:
                 try:
                     import catboost
 
-                    estimator_list = ["lgbm", "rf", "catboost", "xgboost", "extra_tree"]
+                    estimator_list = [
+                        "lgbm",
+                        "rf",
+                        "catboost",
+                        "xgboost",
+                        "extra_tree",
+                        "xgb_limitdepth",
+                    ]
                 except ImportError:
-                    estimator_list = ["lgbm", "rf", "xgboost", "extra_tree"]
+                    estimator_list = [
+                        "lgbm",
+                        "rf",
+                        "xgboost",
+                        "extra_tree",
+                        "xgb_limitdepth",
+                    ]
                 if "regression" != self._state.task:
                     estimator_list += ["lrl1"]
         for estimator_name in estimator_list:
