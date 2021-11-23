@@ -41,10 +41,6 @@ from .nlp.utils import (
     tokenize_text,
     HPOArgs,
 )
-from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR, set_seed
-import datasets
-import transformers
-from transformers import AutoTokenizer, EarlyStoppingCallback
 import sys
 
 try:
@@ -364,6 +360,11 @@ class TransformersEstimator(BaseEstimator):
             return X
 
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
+        from transformers import EarlyStoppingCallback
+        from transformers.trainer_utils import set_seed
+        from transformers import AutoTokenizer
+        import transformers
+
         this_params = self.params
 
         class EarlyStoppingCallbackForAuto(EarlyStoppingCallback):
@@ -528,6 +529,8 @@ class TransformersEstimator(BaseEstimator):
                 self._delete_one_ckpt(each_ckpt)
 
     def _select_checkpoint(self, trainer):
+        from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
+
         if trainer.ckpt_to_metric:
             best_ckpt, _ = min(
                 trainer.ckpt_to_metric.items(), key=lambda x: x[1]["val_loss"]
@@ -552,6 +555,7 @@ class TransformersEstimator(BaseEstimator):
     def _compute_metrics_by_dataset_name(self, eval_pred):
         from .ml import sklearn_metric_loss_score
         from .data import SEQREGRESSION
+        import datasets
 
         predictions, labels = eval_pred
         predictions = (
@@ -574,11 +578,11 @@ class TransformersEstimator(BaseEstimator):
             metric = datasets.load_metric(default_metric_name)
             multiplier = -1 if default_metric_mode == "max" else 1
             return {
-                "val_loss": metric.compute(
-                    predictions=predictions, references=labels
-                )[default_metric_name] * multiplier
+                "val_loss": metric.compute(predictions=predictions, references=labels)[
+                    default_metric_name
+                ]
+                * multiplier
             }
-
 
     def predict_proba(self, X_test):
         assert (
