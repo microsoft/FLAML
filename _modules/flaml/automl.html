@@ -479,14 +479,38 @@
 <span class="sd">                .. code-block:: python</span>
 
 <span class="sd">                    def custom_metric(</span>
-<span class="sd">                        X_test, y_test, estimator, labels,</span>
-<span class="sd">                        X_train, y_train, weight_test=None, weight_train=None,</span>
-<span class="sd">                        config=None, groups_test=None, groups_train=None,</span>
+<span class="sd">                        X_val, y_val, estimator, labels,</span>
+<span class="sd">                        X_train, y_train, weight_val=None, weight_train=None,</span>
+<span class="sd">                        config=None, groups_val=None, groups_train=None,</span>
 <span class="sd">                    ):</span>
 <span class="sd">                        return metric_to_minimize, metrics_to_log</span>
 
 <span class="sd">                which returns a float number as the minimization objective,</span>
-<span class="sd">                and a dictionary as the metrics to log.</span>
+<span class="sd">                and a dictionary as the metrics to log. E.g.,</span>
+
+<span class="sd">                .. code-block:: python</span>
+
+<span class="sd">                    def custom_metric(</span>
+<span class="sd">                        X_val, y_val, estimator, labels,</span>
+<span class="sd">                        X_train, y_train, weight_val=None, weight_train=None,</span>
+<span class="sd">                        **args,</span>
+<span class="sd">                    ):</span>
+<span class="sd">                        from sklearn.metrics import log_loss</span>
+<span class="sd">                        import time</span>
+
+<span class="sd">                        start = time.time()</span>
+<span class="sd">                        y_pred = estimator.predict_proba(X_val)</span>
+<span class="sd">                        pred_time = (time.time() - start) / len(X_val)</span>
+<span class="sd">                        val_loss = log_loss(y_val, y_pred, labels=labels, sample_weight=weight_val)</span>
+<span class="sd">                        y_pred = estimator.predict_proba(X_train)</span>
+<span class="sd">                        train_loss = log_loss(y_train, y_pred, labels=labels, sample_weight=weight_train)</span>
+<span class="sd">                        alpha = 0.5</span>
+<span class="sd">                        return val_loss * (1 + alpha) - alpha * train_loss, {</span>
+<span class="sd">                            &quot;val_loss&quot;: val_loss,</span>
+<span class="sd">                            &quot;train_loss&quot;: train_loss,</span>
+<span class="sd">                            &quot;pred_time&quot;: pred_time,</span>
+<span class="sd">                        }</span>
+
 <span class="sd">            task: A string of the task type, e.g.,</span>
 <span class="sd">                &#39;classification&#39;, &#39;regression&#39;, &#39;ts_forecast&#39;, &#39;rank&#39;,</span>
 <span class="sd">                &#39;seq-classification&#39;, &#39;seq-regression&#39;.</span>
@@ -1704,14 +1728,38 @@
 <span class="sd">                .. code-block:: python</span>
 
 <span class="sd">                    def custom_metric(</span>
-<span class="sd">                        X_test, y_test, estimator, labels,</span>
-<span class="sd">                        X_train, y_train, weight_test=None, weight_train=None,</span>
-<span class="sd">                        config=None, groups_test=None, groups_train=None,</span>
+<span class="sd">                        X_val, y_val, estimator, labels,</span>
+<span class="sd">                        X_train, y_train, weight_val=None, weight_train=None,</span>
+<span class="sd">                        config=None, groups_val=None, groups_train=None,</span>
 <span class="sd">                    ):</span>
 <span class="sd">                        return metric_to_minimize, metrics_to_log</span>
 
 <span class="sd">                which returns a float number as the minimization objective,</span>
-<span class="sd">                and a dictionary as the metrics to log.</span>
+<span class="sd">                and a dictionary as the metrics to log. E.g.,</span>
+
+<span class="sd">                .. code-block:: python</span>
+
+<span class="sd">                    def custom_metric(</span>
+<span class="sd">                        X_val, y_val, estimator, labels,</span>
+<span class="sd">                        X_train, y_train, weight_val=None, weight_train=None,</span>
+<span class="sd">                        **args,</span>
+<span class="sd">                    ):</span>
+<span class="sd">                        from sklearn.metrics import log_loss</span>
+<span class="sd">                        import time</span>
+
+<span class="sd">                        start = time.time()</span>
+<span class="sd">                        y_pred = estimator.predict_proba(X_val)</span>
+<span class="sd">                        pred_time = (time.time() - start) / len(X_val)</span>
+<span class="sd">                        val_loss = log_loss(y_val, y_pred, labels=labels, sample_weight=weight_val)</span>
+<span class="sd">                        y_pred = estimator.predict_proba(X_train)</span>
+<span class="sd">                        train_loss = log_loss(y_train, y_pred, labels=labels, sample_weight=weight_train)</span>
+<span class="sd">                        alpha = 0.5</span>
+<span class="sd">                        return val_loss * (1 + alpha) - alpha * train_loss, {</span>
+<span class="sd">                            &quot;val_loss&quot;: val_loss,</span>
+<span class="sd">                            &quot;train_loss&quot;: train_loss,</span>
+<span class="sd">                            &quot;pred_time&quot;: pred_time,</span>
+<span class="sd">                        }</span>
+
 <span class="sd">            task: A string of the task type, e.g.,</span>
 <span class="sd">                &#39;classification&#39;, &#39;regression&#39;, &#39;ts_forecast&#39;, &#39;rank&#39;,</span>
 <span class="sd">                &#39;seq-classification&#39;, &#39;seq-regression&#39;.</span>
