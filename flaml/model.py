@@ -27,18 +27,6 @@ from .data import (
 
 import pandas as pd
 from pandas import DataFrame, Series
-from .nlp.huggingface.trainer import TrainerForAuto
-from .nlp.utils import (
-    separate_config,
-    load_model,
-    get_num_labels,
-    compute_checkpoint_freq,
-    get_trial_fold_name,
-    date_str,
-    load_default_huggingface_metric_for_task,
-    tokenize_text,
-    HPOArgs,
-)
 import sys
 
 try:
@@ -341,6 +329,8 @@ class TransformersEstimator(BaseEstimator):
         }
 
     def _init_hpo_args(self, automl_fit_kwargs: dict = None):
+        from .nlp.utils import HPOArgs
+
         custom_hpo_args = HPOArgs()
         for key, val in automl_fit_kwargs["custom_hpo_args"].items():
             assert (
@@ -352,6 +342,8 @@ class TransformersEstimator(BaseEstimator):
         self.custom_hpo_args = custom_hpo_args
 
     def _preprocess(self, X, task, **kwargs):
+        from .nlp.utils import tokenize_text
+
         if X.dtypes[0] == "string":
             return tokenize_text(X, task, self.custom_hpo_args)
         else:
@@ -363,6 +355,15 @@ class TransformersEstimator(BaseEstimator):
         from transformers import AutoTokenizer, TrainingArguments
         import transformers
         from datasets import Dataset
+        from .nlp.utils import (
+            get_num_labels,
+            separate_config,
+            load_model,
+            compute_checkpoint_freq,
+            get_trial_fold_name,
+            date_str,
+        )
+        from .nlp.huggingface.trainer import TrainerForAuto
 
         this_params = self.params
 
@@ -555,6 +556,7 @@ class TransformersEstimator(BaseEstimator):
         from .ml import sklearn_metric_loss_score
         from .data import SEQREGRESSION
         import datasets
+        from .nlp.utils import load_default_huggingface_metric_for_task
 
         predictions, labels = eval_pred
         predictions = (
@@ -585,7 +587,9 @@ class TransformersEstimator(BaseEstimator):
 
     def predict_proba(self, X_test):
         from datasets import Dataset
+        from .nlp.huggingface.trainer import TrainerForAuto
         from transformers import TrainingArguments
+        from .nlp.utils import load_model
 
         assert (
             self._task in CLASSIFICATION
@@ -611,6 +615,8 @@ class TransformersEstimator(BaseEstimator):
     def predict(self, X_test):
         from datasets import Dataset
         from transformers import TrainingArguments
+        from .nlp.utils import load_model
+        from .nlp.huggingface.trainer import TrainerForAuto
 
         X_test = self._preprocess(X_test, self._task, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)

@@ -1,10 +1,11 @@
 import argparse
 from dataclasses import dataclass, field
-from ..data import SEQCLASSIFICATION, SEQREGRESSION
 from typing import Dict, Any
 
 
 def _is_nlp_task(task):
+    from ..data import SEQCLASSIFICATION, SEQREGRESSION
+
     if task in [SEQCLASSIFICATION, SEQREGRESSION]:
         return True
     else:
@@ -12,6 +13,8 @@ def _is_nlp_task(task):
 
 
 def load_default_huggingface_metric_for_task(task):
+    from ..data import SEQCLASSIFICATION, SEQREGRESSION
+
     if task == SEQCLASSIFICATION:
         return "accuracy", "max"
     elif task == SEQREGRESSION:
@@ -22,7 +25,7 @@ global tokenized_column_names
 
 
 def tokenize_text(X, task, custom_hpo_task):
-    from ..data import SEQCLASSIFICATION
+    from ..data import SEQCLASSIFICATION, SEQREGRESSION
 
     if task in (SEQCLASSIFICATION, SEQREGRESSION):
         return tokenize_text_seqclassification(X, custom_hpo_task)
@@ -79,6 +82,8 @@ def separate_config(config):
 
 
 def get_num_labels(task, y_train):
+    from ..data import SEQCLASSIFICATION, SEQREGRESSION
+
     if task == SEQREGRESSION:
         return 1
     elif task == SEQCLASSIFICATION:
@@ -151,6 +156,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
         AutoSeqClassificationHead,
         MODEL_CLASSIFICATION_HEAD_MAPPING,
     )
+    from ..data import SEQCLASSIFICATION, SEQREGRESSION
 
     this_model_type = AutoConfig.from_pretrained(checkpoint_path).model_type
     this_vocab_size = AutoConfig.from_pretrained(checkpoint_path).vocab_size
