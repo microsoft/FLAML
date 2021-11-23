@@ -142,7 +142,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">learner_class</span> <span class="o">=</span> <span class="n">learner_class</span>
         <span class="n">search_space</span> <span class="o">=</span> <span class="n">learner_class</span><span class="o">.</span><span class="n">search_space</span><span class="p">(</span><span class="n">data_size</span><span class="o">=</span><span class="n">data_size</span><span class="p">,</span> <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">space</span> <span class="ow">in</span> <span class="n">search_space</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">assert</span> <span class="s2">&quot;domain&quot;</span> <span class="ow">in</span> <span class="n">space</span>
+            <span class="k">assert</span> <span class="p">(</span>
+                <span class="s2">&quot;domain&quot;</span> <span class="ow">in</span> <span class="n">space</span>
+            <span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;s domain is missing in the search space spec </span><span class="si">{</span><span class="n">space</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_search_space_domain</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">space</span><span class="p">[</span><span class="s2">&quot;domain&quot;</span><span class="p">]</span>
             <span class="k">if</span> <span class="s2">&quot;init_value&quot;</span> <span class="ow">in</span> <span class="n">space</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">init_config</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">space</span><span class="p">[</span><span class="s2">&quot;init_value&quot;</span><span class="p">]</span>
@@ -497,7 +499,7 @@
 
 <span class="sd">                .. code-block:: python</span>
 
-<span class="sd">                    [&#39;lgbm&#39;, &#39;xgboost&#39;, &#39;catboost&#39;, &#39;rf&#39;, &#39;extra_tree&#39;]</span>
+<span class="sd">                    [&#39;lgbm&#39;, &#39;xgboost&#39;, &#39;xgb_limitdepth&#39;, &#39;catboost&#39;, &#39;rf&#39;, &#39;extra_tree&#39;]</span>
 
 <span class="sd">            time_budget: A float number of the time budget in seconds.</span>
 <span class="sd">                Use -1 if no time limit.</span>
@@ -1722,7 +1724,7 @@
 
 <span class="sd">                .. code-block:: python</span>
 
-<span class="sd">                    [&#39;lgbm&#39;, &#39;xgboost&#39;, &#39;catboost&#39;, &#39;rf&#39;, &#39;extra_tree&#39;]</span>
+<span class="sd">                    [&#39;lgbm&#39;, &#39;xgboost&#39;, &#39;xgb_limitdepth&#39;, &#39;catboost&#39;, &#39;rf&#39;, &#39;extra_tree&#39;]</span>
 
 <span class="sd">            time_budget: A float number of the time budget in seconds.</span>
 <span class="sd">                Use -1 if no time limit.</span>
@@ -2002,16 +2004,29 @@
                 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
                     <span class="n">estimator_list</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;arima&quot;</span><span class="p">,</span> <span class="s2">&quot;sarimax&quot;</span><span class="p">]</span>
             <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s2">&quot;rank&quot;</span><span class="p">:</span>
-                <span class="n">estimator_list</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;lgbm&quot;</span><span class="p">,</span> <span class="s2">&quot;xgboost&quot;</span><span class="p">]</span>
+                <span class="n">estimator_list</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;lgbm&quot;</span><span class="p">,</span> <span class="s2">&quot;xgboost&quot;</span><span class="p">,</span> <span class="s2">&quot;xgb_limitdepth&quot;</span><span class="p">]</span>
             <span class="k">elif</span> <span class="n">_is_nlp_task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span><span class="p">):</span>
                 <span class="n">estimator_list</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;transformer&quot;</span><span class="p">]</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="kn">import</span> <span class="nn">catboost</span>
 
-                    <span class="n">estimator_list</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;lgbm&quot;</span><span class="p">,</span> <span class="s2">&quot;rf&quot;</span><span class="p">,</span> <span class="s2">&quot;catboost&quot;</span><span class="p">,</span> <span class="s2">&quot;xgboost&quot;</span><span class="p">,</span> <span class="s2">&quot;extra_tree&quot;</span><span class="p">]</span>
+                    <span class="n">estimator_list</span> <span class="o">=</span> <span class="p">[</span>
+                        <span class="s2">&quot;lgbm&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;rf&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;catboost&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;xgboost&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;extra_tree&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;xgb_limitdepth&quot;</span><span class="p">,</span>
+                    <span class="p">]</span>
                 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-                    <span class="n">estimator_list</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;lgbm&quot;</span><span class="p">,</span> <span class="s2">&quot;rf&quot;</span><span class="p">,</span> <span class="s2">&quot;xgboost&quot;</span><span class="p">,</span> <span class="s2">&quot;extra_tree&quot;</span><span class="p">]</span>
+                    <span class="n">estimator_list</span> <span class="o">=</span> <span class="p">[</span>
+                        <span class="s2">&quot;lgbm&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;rf&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;xgboost&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;extra_tree&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;xgb_limitdepth&quot;</span><span class="p">,</span>
+                    <span class="p">]</span>
                 <span class="k">if</span> <span class="s2">&quot;regression&quot;</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span><span class="p">:</span>
                     <span class="n">estimator_list</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;lrl1&quot;</span><span class="p">]</span>
         <span class="k">for</span> <span class="n">estimator_name</span> <span class="ow">in</span> <span class="n">estimator_list</span><span class="p">:</span>
