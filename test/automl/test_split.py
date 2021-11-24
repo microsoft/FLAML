@@ -88,11 +88,11 @@ def test_rank():
 
     try:
         X, y = fetch_openml(name=dataset, return_X_y=True)
+        y = y.cat.codes
     except (ArffException, ValueError):
         from sklearn.datasets import load_wine
 
         X, y = load_wine(return_X_y=True)
-    y = y.cat.codes
     import numpy as np
 
     automl = AutoML()
