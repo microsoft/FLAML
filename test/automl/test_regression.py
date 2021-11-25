@@ -198,7 +198,7 @@ class TestRegression(unittest.TestCase):
 def test_multioutput():
     from sklearn.datasets import make_regression
     from sklearn.model_selection import train_test_split
-    from sklearn.multioutput import MultiOutputRegressor,RegressorChain
+    from sklearn.multioutput import MultiOutputRegressor, RegressorChain
 
     # create regression data
     X, y = make_regression(n_targets=3)
