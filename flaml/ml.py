@@ -1,8 +1,7 @@
-"""!
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License.
-"""
-
+# !
+#  * Copyright (c) Microsoft Corporation. All rights reserved.
+#  * Licensed under the MIT License. See LICENSE file in the
+#  * project root for license information.
 import time
 import numpy as np
 import pandas as pd
@@ -20,34 +19,32 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import RepeatedStratifiedKFold, GroupKFold, TimeSeriesSplit
 from .model import (
-    XGBoostEstimator,
     XGBoostSklearnEstimator,
+    XGBoostLimitDepthEstimator,
     RandomForestEstimator,
     LGBMEstimator,
     LRL1Classifier,
     LRL2Classifier,
     CatBoostEstimator,
-    ExtraTreeEstimator,
+    ExtraTreesEstimator,
     KNeighborsEstimator,
     Prophet,
     ARIMA,
     SARIMAX,
+    TransformersEstimator,
 )
 from .data import CLASSIFICATION, group_counts, TS_FORECAST, TS_VALUE_COL
-
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 def get_estimator_class(task, estimator_name):
-    """when adding a new learner, need to add an elif branch"""
-
+    # when adding a new learner, need to add an elif branch
     if "xgboost" == estimator_name:
-        if "regression" == task:
-            estimator_class = XGBoostEstimator
-        else:
-            estimator_class = XGBoostSklearnEstimator
+        estimator_class = XGBoostSklearnEstimator
+    elif "xgb_limitdepth" == estimator_name:
+        estimator_class = XGBoostLimitDepthEstimator
     elif "rf" == estimator_name:
         estimator_class = RandomForestEstimator
     elif "lgbm" == estimator_name:
@@ -59,7 +56,7 @@ def get_estimator_class(task, estimator_name):
     elif "catboost" == estimator_name:
         estimator_class = CatBoostEstimator
     elif "extra_tree" == estimator_name:
-        estimator_class = ExtraTreeEstimator
+        estimator_class = ExtraTreesEstimator
     elif "kneighbor" == estimator_name:
         estimator_class = KNeighborsEstimator
     elif "prophet" in estimator_name:
@@ -68,6 +65,8 @@ def get_estimator_class(task, estimator_name):
         estimator_class = ARIMA
     elif estimator_name == "sarimax":
         estimator_class = SARIMAX
+    elif estimator_name == "transformer":
+        estimator_class = TransformersEstimator
     else:
         raise ValueError(
             estimator_name + " is not a built-in learner. "
@@ -84,7 +83,7 @@ def sklearn_metric_loss_score(
     sample_weight=None,
     groups=None,
 ):
-    """Loss using the specified metric
+    """Loss using the specified metric.
 
     Args:
         metric_name: A string of the metric name, one of
@@ -190,10 +189,10 @@ def _eval_estimator(
     estimator,
     X_train,
     y_train,
-    X_test,
-    y_test,
-    weight_test,
-    groups_test,
+    X_val,
+    y_val,
+    weight_val,
+    groups_val,
     eval_metric,
     obj,
     labels=None,
@@ -202,10 +201,10 @@ def _eval_estimator(
 ):
     if isinstance(eval_metric, str):
         pred_start = time.time()
-        test_pred_y = get_y_pred(estimator, X_test, eval_metric, obj)
-        pred_time = (time.time() - pred_start) / X_test.shape[0]
-        test_loss = sklearn_metric_loss_score(
-            eval_metric, test_pred_y, y_test, labels, weight_test, groups_test
+        val_pred_y = get_y_pred(estimator, X_val, eval_metric, obj)
+        pred_time = (time.time() - pred_start) / X_val.shape[0]
+        val_loss = sklearn_metric_loss_score(
+            eval_metric, val_pred_y, y_val, labels, weight_val, groups_val
         )
         metric_for_logging = {}
         if log_training_metric:
@@ -219,34 +218,34 @@ def _eval_estimator(
                 fit_kwargs.get("groups"),
             )
     else:  # customized metric function
-        test_loss, metric_for_logging = eval_metric(
-            X_test,
-            y_test,
+        val_loss, metric_for_logging = eval_metric(
+            X_val,
+            y_val,
             estimator,
             labels,
             X_train,
             y_train,
-            weight_test,
+            weight_val,
             fit_kwargs.get("sample_weight"),
             config,
-            groups_test,
+            groups_val,
             fit_kwargs.get("groups"),
         )
         pred_time = metric_for_logging.get("pred_time", 0)
-        test_pred_y = None
-        # eval_metric may return test_pred_y but not necessarily. Setting None for now.
-    return test_loss, metric_for_logging, pred_time, test_pred_y
+        val_pred_y = None
+        # eval_metric may return val_pred_y but not necessarily. Setting None for now.
+    return val_loss, metric_for_logging, pred_time, val_pred_y
 
 
-def get_test_loss(
+def get_val_loss(
     config,
     estimator,
     X_train,
     y_train,
-    X_test,
-    y_test,
-    weight_test,
-    groups_test,
+    X_val,
+    y_val,
+    weight_val,
+    groups_val,
     eval_metric,
     obj,
     labels=None,
@@ -256,20 +255,20 @@ def get_test_loss(
 ):
 
     start = time.time()
-    # if groups_test is not None:
-    #     fit_kwargs['groups_val'] = groups_test
-    #     fit_kwargs['X_val'] = X_test
-    #     fit_kwargs['y_val'] = y_test
+    # if groups_val is not None:
+    #     fit_kwargs['groups_val'] = groups_val
+    #     fit_kwargs['X_val'] = X_val
+    #     fit_kwargs['y_val'] = y_val
     estimator.fit(X_train, y_train, budget, **fit_kwargs)
-    test_loss, metric_for_logging, pred_time, _ = _eval_estimator(
+    val_loss, metric_for_logging, pred_time, _ = _eval_estimator(
         config,
         estimator,
         X_train,
         y_train,
-        X_test,
-        y_test,
-        weight_test,
-        groups_test,
+        X_val,
+        y_val,
+        weight_val,
+        groups_val,
         eval_metric,
         obj,
         labels,
@@ -277,7 +276,7 @@ def get_test_loss(
         fit_kwargs,
     )
     train_time = time.time() - start
-    return test_loss, metric_for_logging, train_time, pred_time
+    return val_loss, metric_for_logging, train_time, pred_time
 
 
 def evaluate_model_CV(
@@ -350,7 +349,7 @@ def evaluate_model_CV(
             groups_val = groups[val_index]
         else:
             groups_val = None
-        val_loss_i, metric_i, train_time_i, pred_time_i = get_test_loss(
+        val_loss_i, metric_i, train_time_i, pred_time_i = get_val_loss(
             config,
             estimator,
             X_train,
@@ -422,9 +421,13 @@ def compute_estimator(
     fit_kwargs={},
 ):
     estimator_class = estimator_class or get_estimator_class(task, estimator_name)
-    estimator = estimator_class(**config_dic, task=task, n_jobs=n_jobs)
+    estimator = estimator_class(
+        **config_dic,
+        task=task,
+        n_jobs=n_jobs,
+    )
     if "holdout" == eval_method:
-        val_loss, metric_for_logging, train_time, pred_time = get_test_loss(
+        val_loss, metric_for_logging, train_time, pred_time = get_val_loss(
             config_dic,
             estimator,
             X_train,
@@ -457,9 +460,9 @@ def compute_estimator(
 
 
 def train_estimator(
+    config_dic,
     X_train,
     y_train,
-    config_dic,
     task,
     estimator_name,
     n_jobs=1,
@@ -469,7 +472,11 @@ def train_estimator(
 ):
     start_time = time.time()
     estimator_class = estimator_class or get_estimator_class(task, estimator_name)
-    estimator = estimator_class(**config_dic, task=task, n_jobs=n_jobs)
+    estimator = estimator_class(
+        **config_dic,
+        task=task,
+        n_jobs=n_jobs,
+    )
     if X_train is not None:
         train_time = estimator.fit(X_train, y_train, budget, **fit_kwargs)
     else:
@@ -487,15 +494,15 @@ def get_classification_objective(num_labels: int) -> str:
 
 
 def norm_confusion_matrix(y_true, y_pred):
-    """normalized confusion matrix
+    """normalized confusion matrix.
 
     Args:
-        estimator: A multi-class classification estimator
-        y_true: A numpy array or a pandas series of true labels
-        y_pred: A numpy array or a pandas series of predicted labels
+        estimator: A multi-class classification estimator.
+        y_true: A numpy array or a pandas series of true labels.
+        y_pred: A numpy array or a pandas series of predicted labels.
 
     Returns:
-        A normalized confusion matrix
+        A normalized confusion matrix.
     """
     from sklearn.metrics import confusion_matrix
 
@@ -505,19 +512,19 @@ def norm_confusion_matrix(y_true, y_pred):
 
 
 def multi_class_curves(y_true, y_pred_proba, curve_func):
-    """Binarize the data for multi-class tasks and produce ROC or precision-recall curves
+    """Binarize the data for multi-class tasks and produce ROC or precision-recall curves.
 
     Args:
-        y_true: A numpy array or a pandas series of true labels
-        y_pred_proba: A numpy array or a pandas dataframe of predicted probabilites
-        curve_func: A function to produce a curve (e.g., roc_curve or precision_recall_curve)
+        y_true: A numpy array or a pandas series of true labels.
+        y_pred_proba: A numpy array or a pandas dataframe of predicted probabilites.
+        curve_func: A function to produce a curve (e.g., roc_curve or precision_recall_curve).
 
     Returns:
-        A tuple of two dictionaries with the same set of keys (class indices)
+        A tuple of two dictionaries with the same set of keys (class indices).
         The first dictionary curve_x stores the x coordinates of each curve, e.g.,
-            curve_x[0] is an 1D array of the x coordinates of class 0
+            curve_x[0] is an 1D array of the x coordinates of class 0.
         The second dictionary curve_y stores the y coordinates of each curve, e.g.,
-            curve_y[0] is an 1D array of the y coordinates of class 0
+            curve_y[0] is an 1D array of the y coordinates of class 0.
     """
     from sklearn.preprocessing import label_binarize
 

@@ -98,30 +98,30 @@ class MyLargeLGBM(LGBMEstimator):
 
 
 def custom_metric(
-    X_test,
-    y_test,
+    X_val,
+    y_val,
     estimator,
     labels,
     X_train,
     y_train,
-    weight_test=None,
+    weight_val=None,
     weight_train=None,
     config=None,
-    groups_test=None,
+    groups_val=None,
     groups_train=None,
 ):
     from sklearn.metrics import log_loss
     import time
 
     start = time.time()
-    y_pred = estimator.predict_proba(X_test)
-    pred_time = (time.time() - start) / len(X_test)
-    test_loss = log_loss(y_test, y_pred, labels=labels, sample_weight=weight_test)
+    y_pred = estimator.predict_proba(X_val)
+    pred_time = (time.time() - start) / len(X_val)
+    val_loss = log_loss(y_val, y_pred, labels=labels, sample_weight=weight_val)
     y_pred = estimator.predict_proba(X_train)
     train_loss = log_loss(y_train, y_pred, labels=labels, sample_weight=weight_train)
     alpha = 0.5
-    return test_loss * (1 + alpha) - alpha * train_loss, {
-        "test_loss": test_loss,
+    return val_loss * (1 + alpha) - alpha * train_loss, {
+        "val_loss": val_loss,
         "train_loss": train_loss,
         "pred_time": pred_time,
     }
@@ -198,7 +198,7 @@ class TestMultiClass(unittest.TestCase):
         print(automl_experiment.classes_)
         print(automl_experiment.model)
         print(automl_experiment.config_history)
-        print(automl_experiment.model_history)
+        print(automl_experiment.best_model_for_estimator("rf"))
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
         automl_experiment = AutoML()
@@ -238,13 +238,13 @@ class TestMultiClass(unittest.TestCase):
         print(automl_experiment.predict(X_train)[:5])
         print(automl_experiment.model)
         print(automl_experiment.config_history)
-        print(automl_experiment.model_history)
+        print(automl_experiment.best_model_for_estimator("catboost"))
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
         del automl_settings["metric"]
         del automl_settings["model_history"]
         del automl_settings["log_training_metric"]
-        automl_experiment = AutoML()
+        automl_experiment = AutoML(task="classification")
         duration = automl_experiment.retrain_from_log(
             log_file_name=automl_settings["log_file_name"],
             X_train=X_train,
@@ -333,7 +333,7 @@ class TestMultiClass(unittest.TestCase):
         print(automl_experiment.predict_proba(X_train))
         print(automl_experiment.model)
         print(automl_experiment.config_history)
-        print(automl_experiment.model_history)
+        print(automl_experiment.best_model_for_estimator("extra_tree"))
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
 
@@ -343,7 +343,7 @@ class TestMultiClass(unittest.TestCase):
             learner_name="large_lgbm", learner_class=MyLargeLGBM
         )
         automl_settings = {
-            "time_budget": None,
+            "time_budget": -1,
             "task": "classification",
             "log_file_name": "test/classification_oom.log",
             "estimator_list": ["large_lgbm"],
@@ -412,6 +412,7 @@ class TestMultiClass(unittest.TestCase):
 
         starting_points = automl_experiment.best_config_per_estimator
         print("starting_points", starting_points)
+        print("loss of the starting_points", automl_experiment.best_loss_per_estimator)
         automl_settings_resume = {
             "time_budget": 2,
             "metric": "accuracy",

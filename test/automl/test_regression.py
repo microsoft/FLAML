@@ -56,7 +56,7 @@ class TestRegression(unittest.TestCase):
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)
         print(automl_experiment.config_history)
-        print(automl_experiment.model_history)
+        print(automl_experiment.best_model_for_estimator("xgboost"))
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
         print(get_output_from_log(automl_settings["log_file_name"], 1))
@@ -76,28 +76,6 @@ class TestRegression(unittest.TestCase):
             train_full=True,
             time_budget=0,
         )
-
-    def test_sparse_matrix_classification(self):
-        automl_experiment = AutoML()
-        automl_settings = {
-            "time_budget": 2,
-            "metric": "auto",
-            "task": "classification",
-            "log_file_name": "test/sparse_classification.log",
-            "split_type": "uniform",
-            "n_jobs": 1,
-            "model_history": True,
-        }
-        X_train = scipy.sparse.random(1554, 21, dtype=int)
-        y_train = np.random.randint(3, size=1554)
-        automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
-        print(automl_experiment.classes_)
-        print(automl_experiment.predict_proba(X_train))
-        print(automl_experiment.model)
-        print(automl_experiment.config_history)
-        print(automl_experiment.model_history)
-        print(automl_experiment.best_iteration)
-        print(automl_experiment.best_estimator)
 
     def test_sparse_matrix_regression(self):
         X_train = scipy.sparse.random(300, 900, density=0.0001)
@@ -127,7 +105,7 @@ class TestRegression(unittest.TestCase):
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)
         print(automl_experiment.config_history)
-        print(automl_experiment.model_history)
+        print(automl_experiment.best_model_for_estimator("rf"))
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
         print(automl_experiment.best_config)
@@ -151,7 +129,7 @@ class TestRegression(unittest.TestCase):
             print(automl_experiment.predict(X_train))
             print(automl_experiment.model)
             print(automl_experiment.config_history)
-            print(automl_experiment.model_history)
+            print(automl_experiment.best_model_for_estimator("xgboost"))
             print(automl_experiment.best_iteration)
             print(automl_experiment.best_estimator)
         except ImportError:
@@ -176,7 +154,7 @@ class TestRegression(unittest.TestCase):
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)
         print(automl_experiment.config_history)
-        print(automl_experiment.model_history)
+        print(automl_experiment.best_model_for_estimator("rf"))
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
 
@@ -209,13 +187,42 @@ class TestRegression(unittest.TestCase):
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)
         print(automl_experiment.config_history)
-        print(automl_experiment.model_history)
+        print(automl_experiment.best_model_for_estimator("my_xgb2"))
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
         print(automl_experiment.best_config)
         print(automl_experiment.best_loss)
         print(automl_experiment.best_config_train_time)
 
+
+def test_multioutput():
+    from sklearn.datasets import make_regression
+    from sklearn.model_selection import train_test_split
+    from sklearn.multioutput import MultiOutputRegressor, RegressorChain
+
+    # create regression data
+    X, y = make_regression(n_targets=3)
+
+    # split into train and test data
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.30, random_state=42
+    )
+
+    # train the model
+    model = MultiOutputRegressor(AutoML(task="regression", time_budget=1))
+    model.fit(X_train, y_train)
+
+    # predict
+    print(model.predict(X_test))
+    
+    #train the model
+    model = RegressorChain(AutoML(task="regression", time_budget=1))
+    model.fit(X_train, y_train)
+    
+    # predict
+    print(model.predict(X_test))
+
+ 
 
 if __name__ == "__main__":
     unittest.main()

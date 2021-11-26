@@ -1,21 +1,32 @@
-"""!
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License.
-"""
-
+# !
+#  * Copyright (c) Microsoft Corporation. All rights reserved.
+#  * Licensed under the MIT License. See LICENSE file in the
+#  * project root for license information.
 import numpy as np
 from scipy.sparse import vstack, issparse
 import pandas as pd
+from pandas import DataFrame, Series
 
 from .training_log import training_log_reader
 
 from datetime import datetime
+from typing import Dict, Union, List
 
-CLASSIFICATION = ("binary", "multi", "classification")
+SEQCLASSIFICATION = "seq-classification"
+CLASSIFICATION = ("binary", "multi", "classification", SEQCLASSIFICATION)
+SEQREGRESSION = "seq-regression"
+REGRESSION = ("regression", SEQREGRESSION)
 TS_FORECAST = "ts_forecast"
 TS_TIMESTAMP_COL = "ds"
 TS_VALUE_COL = "y"
 FORECAST = "forecast"
+
+
+def _is_nlp_task(task):
+    if task in [SEQCLASSIFICATION, SEQREGRESSION]:
+        return True
+    else:
+        return False
 
 
 def load_openml_dataset(
@@ -130,17 +141,15 @@ def get_output_from_log(filename, time_budget):
     """Get output from log file
 
     Args:
-        filename: A string of the log file name
-        time_budget: A float of the time budget in seconds
+        filename: A string of the log file name.
+        time_budget: A float of the time budget in seconds.
 
     Returns:
-        search_time_list: A list of the finished time of each logged iter
-        best_error_list:
-            A list of the best validation error after each logged iter
-        error_list: A list of the validation error of each logged iter
-        config_list:
-            A list of the estimator, sample size and config of each logged iter
-        logged_metric_list: A list of the logged metric of each logged iter
+        search_time_list: A list of the finished time of each logged iter.
+        best_error_list: A list of the best validation error after each logged iter.
+        error_list: A list of the validation error of each logged iter.
+        config_list: A list of the estimator, sample size and config of each logged iter.
+        logged_metric_list: A list of the logged metric of each logged iter.
     """
 
     best_config = None
@@ -196,7 +205,7 @@ def concat(X1, X2):
     if isinstance(X1, (pd.DataFrame, pd.Series)):
         df = pd.concat([X1, X2], sort=False)
         df.reset_index(drop=True, inplace=True)
-        if isinstance(X1, pd.DataFrame):
+        if isinstance(X1, DataFrame):
             cat_columns = X1.select_dtypes(include="category").columns
             if len(cat_columns):
                 df[cat_columns] = df[cat_columns].astype("category")
@@ -208,10 +217,32 @@ def concat(X1, X2):
 
 
 class DataTransformer:
-    """transform X, y"""
+    """Transform input training data."""
 
-    def fit_transform(self, X, y, task):
-        if isinstance(X, pd.DataFrame):
+    def fit_transform(self, X: Union[DataFrame, np.array], y, task):
+        """Fit transformer and process the input training data according to the task type.
+
+        Args:
+            X: A numpy array or a pandas dataframe of training data.
+            y: A numpy array or a pandas series of labels.
+            task: A string of the task type, e.g.,
+                'classification', 'regression', 'ts_forecast', 'rank'.
+
+        Returns:
+            X: Processed numpy array or pandas dataframe of training data.
+            y: Processed numpy array or pandas series of labels.
+        """
+        if _is_nlp_task(task):
+            # if the mode is NLP, check the type of input, each column must be either string or
+            # ids (input ids, token type id, attention mask, etc.)
+            str_columns = []
+            for column in X.columns:
+                if isinstance(X[column].iloc[0], str):
+                    str_columns.append(column)
+            if len(str_columns) > 0:
+                X[str_columns] = X[str_columns].astype("string")
+            self._str_columns = str_columns
+        elif isinstance(X, DataFrame):
             X = X.copy()
             n = X.shape[0]
             cat_columns, num_columns, datetime_columns = [], [], []
@@ -219,7 +250,7 @@ class DataTransformer:
             if task == TS_FORECAST:
                 X = X.rename(columns={X.columns[0]: TS_TIMESTAMP_COL})
                 ds_col = X.pop(TS_TIMESTAMP_COL)
-                if isinstance(y, pd.Series):
+                if isinstance(y, Series):
                     y = y.rename(TS_VALUE_COL)
             for column in X.columns:
                 # sklearn\utils\validation.py needs int/float values
@@ -246,7 +277,7 @@ class DataTransformer:
                 elif X[column].nunique(dropna=True) < 2:
                     X.drop(columns=column, inplace=True)
                     drop = True
-                else:
+                else:  # datetime or numeric
                     if X[column].dtype.name == "datetime64[ns]":
                         tmp_dt = X[column].dt
                         new_columns_dict = {
@@ -260,16 +291,13 @@ class DataTransformer:
                             f"dayofyear_{column}": tmp_dt.dayofyear,
                             f"quarter_{column}": tmp_dt.quarter,
                         }
-                        for new_col_name in new_columns_dict:
+                        for key, value in new_columns_dict.items():
                             if (
-                                new_col_name not in X.columns
-                                and new_columns_dict.get(new_col_name).nunique(
-                                    dropna=False
-                                )
-                                >= 2
+                                key not in X.columns
+                                and value.nunique(dropna=False) >= 2
                             ):
-                                X[new_col_name] = new_columns_dict.get(new_col_name)
-                                num_columns.append(new_col_name)
+                                X[key] = value
+                                num_columns.append(key)
                         X[column] = X[column].map(datetime.toordinal)
                         datetime_columns.append(column)
                         del tmp_dt
@@ -318,44 +346,58 @@ class DataTransformer:
             y = self.label_transformer.fit_transform(y)
         else:
             self.label_transformer = None
+        self._task = task
         return X, y
 
-    def transform(self, X, task):
+    def transform(self, X: Union[DataFrame, np.array]):
+        """Process data using fit transformer.
+
+        Args:
+            X: A numpy array or a pandas dataframe of training data.
+            y: A numpy array or a pandas series of labels.
+            task: A string of the task type, e.g.,
+                'classification', 'regression', 'ts_forecast', 'rank'.
+
+        Returns:
+            X: Processed numpy array or pandas dataframe of training data.
+            y: Processed numpy array or pandas series of labels.
+        """
         X = X.copy()
-        if isinstance(X, pd.DataFrame):
+
+        if _is_nlp_task(self._task):
+            # if the mode is NLP, check the type of input, each column must be either string or
+            # ids (input ids, token type id, attention mask, etc.)
+            if len(self._str_columns) > 0:
+                X[self._str_columns] = X[self._str_columns].astype("string")
+        elif isinstance(X, DataFrame):
             cat_columns, num_columns, datetime_columns = (
                 self._cat_columns,
                 self._num_columns,
                 self._datetime_columns,
             )
-            if task == TS_FORECAST:
+            if self._task == TS_FORECAST:
                 X = X.rename(columns={X.columns[0]: TS_TIMESTAMP_COL})
                 ds_col = X.pop(TS_TIMESTAMP_COL)
-            if datetime_columns:
-                for column in datetime_columns:
-                    tmp_dt = X[column].dt
-                    new_columns_dict = {
-                        f"year_{column}": tmp_dt.year,
-                        f"month_{column}": tmp_dt.month,
-                        f"day_{column}": tmp_dt.day,
-                        f"hour_{column}": tmp_dt.hour,
-                        f"minute_{column}": tmp_dt.minute,
-                        f"second_{column}": tmp_dt.second,
-                        f"dayofweek_{column}": tmp_dt.dayofweek,
-                        f"dayofyear_{column}": tmp_dt.dayofyear,
-                        f"quarter_{column}": tmp_dt.quarter,
-                    }
-                    for new_col_name in new_columns_dict:
-                        if (
-                            new_col_name not in X.columns
-                            and new_columns_dict.get(new_col_name).nunique(dropna=False)
-                            >= 2
-                        ):
-                            X[new_col_name] = new_columns_dict.get(new_col_name)
-                    X[column] = X[column].map(datetime.toordinal)
-                    del tmp_dt
+            for column in datetime_columns:
+                tmp_dt = X[column].dt
+                new_columns_dict = {
+                    f"year_{column}": tmp_dt.year,
+                    f"month_{column}": tmp_dt.month,
+                    f"day_{column}": tmp_dt.day,
+                    f"hour_{column}": tmp_dt.hour,
+                    f"minute_{column}": tmp_dt.minute,
+                    f"second_{column}": tmp_dt.second,
+                    f"dayofweek_{column}": tmp_dt.dayofweek,
+                    f"dayofyear_{column}": tmp_dt.dayofyear,
+                    f"quarter_{column}": tmp_dt.quarter,
+                }
+                for new_col_name, new_col_value in new_columns_dict.items():
+                    if new_col_name not in X.columns and new_col_name in num_columns:
+                        X[new_col_name] = new_col_value
+                X[column] = X[column].map(datetime.toordinal)
+                del tmp_dt
             X = X[cat_columns + num_columns].copy()
-            if task == TS_FORECAST:
+            if self._task == TS_FORECAST:
                 X.insert(0, TS_TIMESTAMP_COL, ds_col)
             for column in cat_columns:
                 if X[column].dtype.name == "object":
