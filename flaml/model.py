@@ -1110,7 +1110,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
     def search_space(cls, data_size, task, **params):
         nrows = int(data_size[0])
         upper = min(2048, nrows)
-        init = 1 / np.sqrt(data_size[1])
+        init = 1 / np.sqrt(data_size[1]) if task in CLASSIFICATION else 1
         lower = min(0.1, init)
         space = {
             "n_estimators": {
