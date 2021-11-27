@@ -674,7 +674,7 @@ class LGBMEstimator(BaseEstimator):
 
     @classmethod
     def search_space(cls, data_size, **params):
-        upper = min(32768, int(data_size))
+        upper = min(32768, int(data_size[0]))
         return {
             "n_estimators": {
                 "domain": tune.lograndint(lower=4, upper=upper),
@@ -887,7 +887,7 @@ class XGBoostEstimator(SKLearnEstimator):
 
     @classmethod
     def search_space(cls, data_size, **params):
-        upper = min(32768, int(data_size))
+        upper = min(32768, int(data_size[0]))
         return {
             "n_estimators": {
                 "domain": tune.lograndint(lower=4, upper=upper),
@@ -1086,7 +1086,7 @@ class XGBoostLimitDepthEstimator(XGBoostSklearnEstimator):
     def search_space(cls, data_size, **params):
         space = XGBoostEstimator.search_space(data_size)
         space.pop("max_leaves")
-        upper = max(6, int(np.log2(data_size)))
+        upper = max(6, int(np.log2(data_size[0])))
         space["max_depth"] = {
             "domain": tune.randint(lower=1, upper=min(upper, 16)),
             "init_value": 6,
@@ -1108,8 +1108,10 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
 
     @classmethod
     def search_space(cls, data_size, task, **params):
-        data_size = int(data_size)
-        upper = min(2048, data_size)
+        nrows = int(data_size[0])
+        upper = min(2048, nrows)
+        init = 1 / np.sqrt(data_size[1])
+        lower = min(0.1, init)
         space = {
             "n_estimators": {
                 "domain": tune.lograndint(lower=4, upper=upper),
@@ -1117,11 +1119,11 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
                 "low_cost_init_value": 4,
             },
             "max_features": {
-                "domain": tune.loguniform(lower=0.1, upper=1.0),
-                "init_value": 1.0,
+                "domain": tune.loguniform(lower=lower, upper=1.0),
+                "init_value": init,
             },
             "max_leaves": {
-                "domain": tune.lograndint(lower=4, upper=min(32768, data_size)),
+                "domain": tune.lograndint(lower=4, upper=min(32768, nrows)),
                 "init_value": 4,
                 "low_cost_init_value": 4,
             },
@@ -1234,7 +1236,7 @@ class CatBoostEstimator(BaseEstimator):
 
     @classmethod
     def search_space(cls, data_size, **params):
-        upper = max(min(round(1500000 / data_size), 150), 12)
+        upper = max(min(round(1500000 / data_size[0]), 150), 12)
         return {
             "early_stopping_rounds": {
                 "domain": tune.lograndint(lower=10, upper=upper),
@@ -1380,7 +1382,7 @@ class CatBoostEstimator(BaseEstimator):
 class KNeighborsEstimator(BaseEstimator):
     @classmethod
     def search_space(cls, data_size, **params):
-        upper = min(512, int(data_size / 2))
+        upper = min(512, int(data_size[0] / 2))
         return {
             "n_neighbors": {
                 "domain": tune.lograndint(lower=1, upper=upper),
