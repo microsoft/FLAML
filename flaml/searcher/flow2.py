@@ -413,7 +413,7 @@ class FLOW2(Searcher):
                 >= self.cost_incumbent * self.resource_multiple_factor
             )
         ):
-            return self._extracted_from_suggest_16(trial_id)
+            return self._increase_resource(trial_id)
         self._num_allowed4incumbent -= 1
         move = self.incumbent.copy()
         if self._direction_tried is not None:
@@ -486,8 +486,7 @@ class FLOW2(Searcher):
             self.incumbent = move
         return unflatten_dict(config)
 
-    # TODO Rename this here and in `suggest`
-    def _extracted_from_suggest_16(self, trial_id):
+    def _increase_resource(self, trial_id):
         # consider increasing resource using sum eval cost of complete
         # configs
         old_resource = self._resource
