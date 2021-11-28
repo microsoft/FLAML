@@ -183,6 +183,8 @@ class FLOW2(Searcher):
         self._same = False  # whether the proposed config is the same as best_config
         self._init_phase = True  # initial phase to increase initial stepsize
         self._trunc = 0
+        # no truncation by default. when > 0, it means how many
+        # non-zero dimensions to keep in the random unit vector
 
     @property
     def step_lower_bound(self) -> float:
