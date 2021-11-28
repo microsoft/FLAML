@@ -1191,6 +1191,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">X_val</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">y_val</span> <span class="o">=</span> <span class="n">X_val</span><span class="p">,</span> <span class="n">y_val</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">X_train_all</span> <span class="o">=</span> <span class="n">X_train_all</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">y_train_all</span> <span class="o">=</span> <span class="n">y_train_all</span>
+        <span class="k">if</span> <span class="n">eval_method</span> <span class="o">==</span> <span class="s2">&quot;holdout&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">kf</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">return</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="o">==</span> <span class="s2">&quot;group&quot;</span><span class="p">:</span>
             <span class="c1"># logger.info(&quot;Using GroupKFold&quot;)</span>
             <span class="k">assert</span> <span class="p">(</span>
