@@ -232,8 +232,7 @@
         <span class="k">if</span> <span class="n">lb</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">=</span> <span class="n">lb</span> <span class="o">*</span> <span class="mi">2</span>
         <span class="c1"># upper bound</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_ub</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_ub</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_ub</span><span class="p">)</span>
         <span class="c1"># maximal # consecutive no improvements</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dir</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">**</span> <span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_configs</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># dict from trial_id to (config, stepsize)</span>
@@ -296,8 +295,7 @@
         <span class="k">return</span> <span class="n">resource</span>
 
     <span class="k">def</span> <span class="nf">rand_vector_gaussian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">std</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
-        <span class="n">vec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">std</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">vec</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">std</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
 
 <div class="viewcode-block" id="FLOW2.complete_config"><a class="viewcode-back" href="../../../index.html#flaml.FLOW2.complete_config">[docs]</a>    <span class="k">def</span> <span class="nf">complete_config</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -402,8 +400,7 @@
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_K</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                         <span class="c1"># self._oldK must have been set when self._K&gt;0</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">*=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_K</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_oldK</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_ub</span><span class="p">:</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_ub</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_ub</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_iter_best_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trial_count_complete</span>
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trunc</span><span class="p">:</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">_trunc</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_trunc</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
@@ -429,9 +426,7 @@
             <span class="p">):</span>
                 <span class="c1"># check stuck condition if using max resource</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_num_complete4incumbent</span> <span class="o">-=</span> <span class="mi">2</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_allowed4incumbent</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_num_allowed4incumbent</span> <span class="o">=</span> <span class="mi">2</span></div>
-        <span class="c1"># elif proposed_by: del self._proposed_by[trial_id]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_num_allowed4incumbent</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_num_allowed4incumbent</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="FLOW2.on_trial_result"><a class="viewcode-back" href="../../../index.html#flaml.FLOW2.on_trial_result">[docs]</a>    <span class="k">def</span> <span class="nf">on_trial_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">Dict</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Early update of incumbent.&quot;&quot;&quot;</span>
@@ -483,16 +478,7 @@
                 <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cost_incumbent</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource_multiple_factor</span>
             <span class="p">)</span>
         <span class="p">):</span>
-            <span class="c1"># consider increasing resource using sum eval cost of complete</span>
-            <span class="c1"># configs</span>
-            <span class="n">old_resource</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_resource</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource_multiple_factor</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">cost_incumbent</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span> <span class="o">/</span> <span class="n">old_resource</span>
-            <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_config</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-            <span class="n">config</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">prune_attr</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_direction_tried</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_configs</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">unflatten_dict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_increase_resource</span><span class="p">(</span><span class="n">trial_id</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_num_allowed4incumbent</span> <span class="o">-=</span> <span class="mi">1</span>
         <span class="n">move</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">incumbent</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_direction_tried</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -516,24 +502,21 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_phase</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_direction_tried</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_same</span><span class="p">:</span>
-                    <span class="c1"># check if the new config is different from best_config</span>
-                    <span class="n">same</span> <span class="o">=</span> <span class="kc">True</span>
-                    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">best_config</span> <span class="ow">or</span> <span class="n">value</span> <span class="o">!=</span> <span class="n">best_config</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
-                            <span class="n">same</span> <span class="o">=</span> <span class="kc">False</span>
-                            <span class="k">break</span>
+                    <span class="n">same</span> <span class="o">=</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span>
+                        <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">best_config</span> <span class="ow">or</span> <span class="n">value</span> <span class="o">!=</span> <span class="n">best_config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                    <span class="p">)</span>
+
                     <span class="k">if</span> <span class="n">same</span><span class="p">:</span>
                         <span class="c1"># increase step size</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">STEPSIZE</span>
-                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_ub</span><span class="p">:</span>
-                            <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_ub</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_ub</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="c1"># check if the new config is different from best_config</span>
-                <span class="n">same</span> <span class="o">=</span> <span class="kc">True</span>
-                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                    <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">best_config</span> <span class="ow">or</span> <span class="n">value</span> <span class="o">!=</span> <span class="n">best_config</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
-                        <span class="n">same</span> <span class="o">=</span> <span class="kc">False</span>
-                        <span class="k">break</span>
+                <span class="n">same</span> <span class="o">=</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span>
+                    <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">best_config</span> <span class="ow">or</span> <span class="n">value</span> <span class="o">!=</span> <span class="n">best_config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="p">)</span>
+
                 <span class="bp">self</span><span class="o">.</span><span class="n">_same</span> <span class="o">=</span> <span class="n">same</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_proposedby_incumbent</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">dir</span> <span class="ow">and</span> <span class="p">(</span>
             <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_resource</span>
@@ -541,13 +524,12 @@
             <span class="c1"># check stuck condition if using max resource</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_num_proposedby_incumbent</span> <span class="o">-=</span> <span class="mi">2</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_init_phase</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_lower_bound</span><span class="p">:</span>
-                <span class="c1"># decrease step size</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_oldK</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_K</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_K</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_iter_best_config</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_K</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trial_count_proposed</span> <span class="o">+</span> <span class="mi">1</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">*=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_oldK</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_K</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_lower_bound</span><span class="p">:</span>
                 <span class="k">return</span> <span class="kc">None</span>
+                <span class="c1"># decrease step size</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_oldK</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_K</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_iter_best_config</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_K</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trial_count_proposed</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">*=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_oldK</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_K</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_phase</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">unflatten_dict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trunc</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_direction_tried</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -561,15 +543,25 @@
                             <span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">generated</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">]</span>
                             <span class="k">return</span> <span class="n">unflatten_dict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
                         <span class="k">break</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># check if config == best_config</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">best_config</span><span class="p">):</span>
-                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">best_config</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                    <span class="k">if</span> <span class="n">value</span> <span class="o">!=</span> <span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
-                        <span class="k">return</span> <span class="n">unflatten_dict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-                <span class="c1"># print(&#39;move to&#39;, move)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">incumbent</span> <span class="o">=</span> <span class="n">move</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">best_config</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">best_config</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">value</span> <span class="o">!=</span> <span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
+                    <span class="k">return</span> <span class="n">unflatten_dict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+            <span class="c1"># print(&#39;move to&#39;, move)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">incumbent</span> <span class="o">=</span> <span class="n">move</span>
         <span class="k">return</span> <span class="n">unflatten_dict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_increase_resource</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_id</span><span class="p">):</span>
+        <span class="c1"># consider increasing resource using sum eval cost of complete</span>
+        <span class="c1"># configs</span>
+        <span class="n">old_resource</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_resource</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource_multiple_factor</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cost_incumbent</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span> <span class="o">/</span> <span class="n">old_resource</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_config</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">config</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">prune_attr</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_direction_tried</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_configs</span><span class="p">[</span><span class="n">trial_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">unflatten_dict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_project</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;project normalized config in the feasible region and set prune_attr&quot;&quot;&quot;</span>
@@ -589,10 +581,7 @@
 <div class="viewcode-block" id="FLOW2.config_signature"><a class="viewcode-back" href="../../../index.html#flaml.FLOW2.config_signature">[docs]</a>    <span class="k">def</span> <span class="nf">config_signature</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">space</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Return the signature tuple of a config.&quot;&quot;&quot;</span>
         <span class="n">config</span> <span class="o">=</span> <span class="n">flatten_dict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">space</span><span class="p">:</span>
-            <span class="n">space</span> <span class="o">=</span> <span class="n">flatten_dict</span><span class="p">(</span><span class="n">space</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_space</span>
+        <span class="n">space</span> <span class="o">=</span> <span class="n">flatten_dict</span><span class="p">(</span><span class="n">space</span><span class="p">)</span> <span class="k">if</span> <span class="n">space</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_space</span>
         <span class="n">value_list</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="c1"># self._space_keys doesn&#39;t contain keys with const values,</span>
         <span class="c1"># e.g., &quot;eval_metric&quot;: [&quot;logloss&quot;, &quot;error&quot;].</span>
@@ -604,17 +593,14 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="c1"># key must be in space</span>
                 <span class="n">domain</span> <span class="o">=</span> <span class="n">space</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hierarchical</span><span class="p">:</span>
-                    <span class="c1"># can&#39;t remove constant for hierarchical search space,</span>
-                    <span class="c1"># e.g., learner</span>
-                    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span>
-                        <span class="n">domain</span> <span class="ow">is</span> <span class="kc">None</span>
-                        <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
-                        <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">sample</span><span class="o">.</span><span class="n">Domain</span><span class="p">)</span>
-                    <span class="p">):</span>
-                        <span class="c1"># not domain or hashable</span>
-                        <span class="c1"># get rid of list type for hierarchical search space.</span>
-                        <span class="k">continue</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hierarchical</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span>
+                    <span class="n">domain</span> <span class="ow">is</span> <span class="kc">None</span>
+                    <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+                    <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">sample</span><span class="o">.</span><span class="n">Domain</span><span class="p">)</span>
+                <span class="p">):</span>
+                    <span class="c1"># not domain or hashable</span>
+                    <span class="c1"># get rid of list type for hierarchical search space.</span>
+                    <span class="k">continue</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">sample</span><span class="o">.</span><span class="n">Integer</span><span class="p">):</span>
                     <span class="n">value_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">value</span><span class="p">)))</span>
                 <span class="k">else</span><span class="p">:</span>
