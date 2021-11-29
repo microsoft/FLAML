@@ -11,9 +11,11 @@
 <!-- The usage of `flaml.tune` is, to a large extent, similar to the usage of `ray.tune`.  Interested users can find a more extensive documentation about `ray.tune` [here](https://docs.ray.io/en/latest/tune/key-concepts.html).  -->
 
 There are three essential steps (assuming the knowledge of the set of hyperparameters to tune) to use `flaml.tune` to finish a basic tuning task:
-1. Specify the **tuning objective** with respect to the hyperparameters.
-1. Specify a **search space** of the hyperparameters.
-1. Specify **constraints about the search**, including constraints on the resource budget to do the tuning, constraints on the configurations[TODO: not accurate? How should we refer `config_constraints`], or/and constraints on a (or multiple) particular metric(s).
+1. Specify the [tuning objective](#tuning-objective) with respect to the hyperparameters.
+1. Specify a [search space](#search-space) of the hyperparameters.
+1. Specify [tuning constraints](#tuning-constraints), including constraints on the resource budget to do the tuning, constraints on the configurations[TODO: not accurate? How should we refer `config_constraints`], or/and constraints on a (or multiple) particular metric(s).
+
+With these steps, you can [perform a basic tuning task and analyze the results](#putting-together-and-result-analysis) accordingly.
 
 ### Tuning objective
 
@@ -23,10 +25,10 @@ Related arguments:
 - `mode`:  A string in ['min', 'max'] to specify the objective as minimization or maximization.
 
 The first step is to specify your tuning objective.
-To do it, you should first specify your evaluation procedure (e.g., perform a machine learning model training and validation) with respect to the hyperparameters through a user-defined function `training_function`.
+To do it, you should first specify your evaluation procedure (e.g., perform a machine learning model training and validation) with respect to the hyperparameters in a user-defined function `training_function`.
 The function requires a hyperparameter configuration as input, and can simply return a metric value in a scalar or returns a dictionary of metric name and metric value pairs.
 
-In the following code, we define an objective function with respect to two hyperparameters named `x` and `y` according to $obj := (x-85000)^2 - x/y$. In real use cases, the objective function usually cannot be written into this closed form, but instead involves an expensive evaluation procedure. We use this toy example only for illustration purpose.
+In the following code, we define an objective function with respect to two hyperparameters named `x` and `y` according to $obj := (x-85000)^2 - x/y$. In real use cases, the objective function usually cannot be written into this closed form, but instead involves a black-box and  expensive evaluation procedure. We use this toy example only for illustration purpose.
 
 ```python
 import time
@@ -46,7 +48,7 @@ def evaluate_config(config: dict):
     return {"score": score, "evaluation_cost": faked_evaluation_cost, "constraint_metric": x * y}
 ```
 
-When the evaluation function is returning a dictionary of metrics, you need to specify the name of the metric to optimize for through `metric`(this can be skipped when the evaluation function is just returning a scalar). In addition, you need to specify a mode of your optimization/tuning task (maximization or minimization) through the argument `mode` by choosing from "min" or "max". 
+When the evaluation function returns a dictionary of metrics, you need to specify the name of the metric to optimize for via the argument `metric` (this can be skipped when the function is just returning a scalar). In addition, you need to specify a mode of your optimization/tuning task (maximization or minimization) via the argument `mode` by choosing from "min" or "max". 
 
 For example,
 
@@ -176,8 +178,8 @@ flaml.tune.run(training_function=evaluate_config, mode="min",
 ``` -->
 
 
-### Putting together and Result analysis
-After the aforementioned key steps, one is ready to perform tuning by calling `flaml.tune.run()`. Below is a quick sequential tuning example using the pre-defined search space `config_search_space` and a minimization (`mode='min'`) objective `evaluate_config` using the default serach algorithm in flaml. The time budget is 10 seconds (`time_budget_s=10`).
+### Putting together and result analysis
+After the aforementioned key steps, one is ready to perform a tuning task by calling `flaml.tune.run()`. Below is a quick sequential tuning example using the pre-defined search space `config_search_space` and a minimization (`mode='min'`) objective for the `score` metric evaluated in `evaluate_config`, using the default serach algorithm in flaml. The time budget is 10 seconds (`time_budget_s=10`).
 ```python
 # require: pip install flaml[blendsearch]
 analysis = tune.run(
@@ -189,9 +191,9 @@ analysis = tune.run(
     time_budget_s=10,  # the time budget in seconds
 )
 ```
-Sequential tuning is recommended when compute resource is limited and each trial can consume all the resources.
+Sequential tuning is recommended when compute resource is limited, and each trial can consume all the resources.
 
-Once the tuning process finishes, it returns an [Analysis](https://microsoft.github.io/FLAML/docs/reference/tune/analysis) object which provides methods to analyze the tuning. As an example, the following code, we retrive the best configuration found during the tuning, and retive the best trial's result. 
+Once the tuning process finishes, it returns an [Analysis](https://microsoft.github.io/FLAML/docs/reference/tune/analysis) object, which provides methods to analyze the tuning. In the following code example, we retrieve the best configuration found during the tuning, and retrieve the best trial's result. 
 
 ```python
 print(analysis.best_config)  # the best config
