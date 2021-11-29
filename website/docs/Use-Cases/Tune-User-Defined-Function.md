@@ -161,7 +161,8 @@ flaml.tune.run(..., num_samples=100, ...)
 ```
 
 
-Optionally, you can provide a list of config constraints to be satisfied through the argument `config_constraints` and provide a list of metric constraints to be satisfied through the argument `metric_constraints`. We provide more details about related use cases in the [Advanced Tuning Options](#advanced-tuning-options) section.
+Optionally, you can provide a list of config constraints to be satisfied through the argument `config_constraints` and provide a list of metric constraints to be satisfied through the argument `metric_constraints`. We provide more details about related use cases in the [Advanced Tuning Options](#more-constraints-on-the-tuning) section.
+
 <!-- For example, the following code constrain the memory size for each model (assuming a model is trained) tried in the tuning process.  -->
 <!-- ```python
 flaml.tune.run(training_function=evaluate_config, mode="min",
@@ -209,13 +210,11 @@ There are several advanced tuning options worth mentioning.
 TODO: should we add this section now? Reason to add (1) explain `tune.report`; (2) take `best_result` as input; (3) in the future, add preferenced-based evaluation.
 Reason not to add: (1) and (2) can be placed in early stopping; (3) is not there yet.
 
-[TODO: the mismatch between evaluation function and `training_function`. Rename `training_function` to `evaluation_function`]
+[TODO: the mismatch between evaluation function and `training_function`. Rename `training_function`]
 
+In addition to simply returning a scalar metric value or a dictionary of metric name and metric value pairs, in `training_function` you can also call [`tune.report()`](https://microsoft.github.io/FLAML/docs/reference/tune/tune#report) to report the final or intermediate results, which can include one or multiple metrics of interest. The intermediate result can help to do early stopping.
 
-When defining your evaluation function with respect to the hyperparameters through the user-defined function `training_function`, 
-in addition to simply return a scalar metric value or a dictionary of metric name and metric value pairs, you can also use `tune.report()`(https://microsoft.github.io/FLAML/docs/reference/tune/tune#report) to report the final or intermediate results, which can include one or multiple metrics of interest. 
-
-In the following code example, we use `tune.report` to report a intermediate score of interest (with metric name `mean_loss`) at each step according to `config["steps"]`.
+In the following code example, we use `tune.report` to report an intermediate score of interest (with metric name `mean_loss`) at each step according to `config["steps"]`.
 
 ```python
 def evaluation_fn(step, width, height):
@@ -229,16 +228,15 @@ def evaluate_config(config):
         # Iterative training function - can be any arbitrary training procedure
         intermediate_score = evaluation_fn(step, width, height)
         # Feed the score back back to Tune.
-        tune.report(iterations=step, mean_loss=intermediate_score)
+        tune.report(iterations=step, score=intermediate_score)
         time.sleep(0.1)
 
-flaml.tune.run(evaluate_config, metric="mean_loss", mode="min", ...)
+flaml.tune.run(evaluate_config, metric="score", mode="min", ...)
 ```
 
+### More constraints on the tuning
 
-### Various forms of constraints on the tuning
-
-As mentioned in the [Tuning Constraints](#tuning-constraints) section, a user can provide a list of config constraints to be satisfied through the argument `config_constraints`. The `config_constraints` is a list of config constraints to be satisfied. Each constraint is a tupe that consists of (1) a function which takes a configuration as input and returns a numerical value; (2) an operation choosed from "<="  or ">"; (3) a numerical threshod. For example, 
+As mentioned in the [Tuning Constraints](#tuning-constraints) section, a user can provide a list of config constraints to be satisfied via the argument `config_constraints`. The `config_constraints` is a list of config constraints to be satisfied. Each constraint is a tuple that consists of (1) a function that takes a configuration as input and returns a numerical value; (2) an operation chosen from "<="  or ">"; (3) a numerical threshold. For example, 
 
 ```python
 def area(config):
@@ -249,12 +247,12 @@ flaml.tune.run(training_function=evaluate_config, mode="min",
                config_constraints=[(area, '<=', 1000)],...)
 ```
 
- We can also provide a list of metric constraints to be satisfied through the argument `metric_constraints`. The following code constrain the metric `mean_loss` to be no larger than 0.4. 
+ You can also provide a list of metric constraints to be satisfied via the argument `metric_constraints`. Each element in the `metric_constraints` list is a tuple that consists of (1) a string specifying the name of the metric (the metric name must be defined and reported/returned in the user-defined `training_function`); (2) an operation chosen from "<="  or ">"; (3) a numerical threshold.  The following code constrains the metric `score` to be no larger than 0.4. 
 
 ```python
 flaml.tune.run(training_function=evaluate_config, mode="min",
                config=config_search_space,
-               metric_constraints=['mean_loss', '<=', 0.4],...)
+               metric_constraints=[('score', '<=', 0.4)],...)
 ```
 
 ### Paralle tuning
@@ -266,12 +264,14 @@ Related aruguments:
 
 
 To leverage extra parallel computing resources to do the tuning, you achieve it by specifying `use_ray=True` (requiring flaml[ray] option installed). You can also limit the amount of resources allocated per trial by specifying `resources_per_trial`, e.g., `resources_per_trial={'cpu': 2}`.
+
 ```python
-# require: pip install flaml[blendsearch]
+# require: pip install flaml[ray]
 analysis = tune.run(
     evaluate_config,  # the function to evaluate a config
     config=config_search_space, # the search space defined
-    mode='min',  # the optimization mode, 'min' or 'max'
+    metric="score",
+    mode="min",  # the optimization mode, 'min' or 'max'
     num_samples=-1,  # the maximal number of configs to try, -1 means infinite
     time_budget_s=10,  # the time budget in seconds
     use_ray=True,
@@ -281,11 +281,10 @@ print(analysis.best_trial.last_result)  # the best trial's result
 print(analysis.best_config) # the best config
 ```
 
-
 **A headsup about computation overhead.** When parallel tuning is used, there will be a certain amount of computation overhead in each trial. In case each trial's original cost is much smaller than the overhead, parallel tuning can underperform sequential tuning.
 
 
-### Early stopping and pruning
+### Early stopping
 
 Related arguments:
 
