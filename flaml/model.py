@@ -728,7 +728,7 @@ class LGBMEstimator(BaseEstimator):
             round(
                 config.get("num_leaves")
                 or config.get("max_leaves")
-                or 1 << config["max_depth"]
+                or 1 << config.get("max_depth", 16)
             )
         )
         n_estimators = int(round(config["n_estimators"]))
@@ -1105,11 +1105,12 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
     """The class for tuning Random Forest."""
 
     HAS_CALLBACK = False
+    nrows = 100
 
     @classmethod
     def search_space(cls, data_size, task, **params):
-        nrows = int(data_size[0])
-        upper = min(2048, nrows)
+        RandomForestEstimator.nrows = int(data_size[0])
+        upper = min(2048, RandomForestEstimator.nrows)
         init = 1 / np.sqrt(data_size[1]) if task in CLASSIFICATION else 1
         lower = min(0.1, init)
         space = {
@@ -1122,11 +1123,11 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
                 "domain": tune.loguniform(lower=lower, upper=1.0),
                 "init_value": init,
             },
-            "max_leaves": {
-                "domain": tune.lograndint(lower=4, upper=min(32768, nrows)),
-                "init_value": 4,
-                "low_cost_init_value": 4,
-            },
+            # "max_leaves": {
+            #     "domain": tune.lograndint(lower=4, upper=min(32768, nrows)),
+            #     "init_value": 4,
+            #     "low_cost_init_value": 4,
+            # },
         }
         if task in CLASSIFICATION:
             space["criterion"] = {
