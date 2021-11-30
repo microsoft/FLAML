@@ -1116,7 +1116,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         space = {
             "n_estimators": {
                 "domain": tune.lograndint(lower=4, upper=upper),
-                "init_value": 4,
+                "init_value": 100,
                 "low_cost_init_value": 4,
             },
             "max_features": {
@@ -1132,13 +1132,13 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         if task in CLASSIFICATION:
             space["criterion"] = {
                 "domain": tune.choice(["gini", "entropy"]),
-                # 'init_value': 'gini',
+                "init_value": "gini",
             }
         return space
 
     @classmethod
     def cost_relative2lgbm(cls):
-        return 2.0
+        return 100
 
     def config2params(cls, config: dict) -> dict:
         params = config.copy()
@@ -1165,7 +1165,7 @@ class ExtraTreesEstimator(RandomForestEstimator):
 
     @classmethod
     def cost_relative2lgbm(cls):
-        return 1.9
+        return 95
 
     def __init__(self, task="binary", **params):
         super().__init__(task, **params)
