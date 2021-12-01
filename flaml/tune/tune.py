@@ -119,7 +119,7 @@ def run(
     time_budget_s: Union[int, float] = None,
     points_to_evaluate: Optional[List[dict]] = None,
     evaluated_rewards: Optional[List] = None,
-    prune_attr: Optional[str] = None,
+    resource_attr: Optional[str] = None,
     min_resource: Optional[float] = None,
     max_resource: Optional[float] = None,
     reduction_factor: Optional[float] = None,
@@ -210,26 +210,21 @@ def run(
             points_to_evaluate are 3.0 and 1.0 respectively and want to
             inform run()
 
-        prune_attr: A string of the attribute used for pruning.
-            Not necessarily in space.
-            When prune_attr is in space, it is a hyperparameter, e.g.,
-            'n_iters', and the best value is unknown.
-            When prune_attr is not in space, it is a resource dimension,
-            e.g., 'sample_size', and the peak performance is assumed
-            to be at the max_resource.
-            [TODO: change name to resource_attribute]
+        resource_attr: A string of the attribute used for the flaml_scheduler
+            (when "use_flaml_scheduler" is set True) and/or the input scheduler
+            via "scheduler".
         min_resource: A float of the minimal resource to use for the
-            prune_attr; only valid if prune_attr is not in space.
+            resource_attr; only valid if resource_attr is not in space.
         max_resource: A float of the maximal resource to use for the
-            prune_attr; only valid if prune_attr is not in space.
+            resource_attr; only valid if resource_attr is not in space.
         reduction_factor: A float of the reduction factor used for incremental
             pruning.
         use_flaml_scheduler: A boolean of whether to use flaml scheduler.
-            [TODO: add link to FLAML paper.]
-            [TODO: add test cases]
+            More details about this
+                [TODO: add test cases]
         scheduler: A scheduler for executing the experiment. Can be 'auto'
             or an custom instance of the TrialScheduler. When set as 'auto',
-            ASHA will be used. The input for arguments "prune_attr", "min_resource",
+            ASHA will be used. The input for arguments "resource_attr", "min_resource",
             "max_resource" and "reduction_factor" will be passed to ASHA's
             "time_attr",  "max_t", "grace_period" and "reduction_factor" respectively.
             [TODO: Is it necessary to add what are the options of a TrialScheduler?
@@ -312,11 +307,11 @@ def run(
     from ..searcher.blendsearch import BlendSearch
 
     if search_alg is None:
-        flaml_scheduler_prune_attr = (
+        flaml_scheduler_resource_attr = (
             flaml_scheduler_min_resource
         ) = flaml_scheduler_max_resource = flaml_scheduler_reduction_factor = None
         if use_flaml_scheduler:
-            flaml_scheduler_prune_attr = prune_attr
+            flaml_scheduler_resource_attr = resource_attr
             flaml_scheduler_min_resource = min_resource
             flaml_scheduler_max_resource = max_resource
             flaml_scheduler_reduction_factor = reduction_factor
@@ -330,7 +325,7 @@ def run(
             cat_hp_cost=cat_hp_cost,
             time_budget_s=time_budget_s,
             num_samples=num_samples,
-            prune_attr=flaml_scheduler_prune_attr,
+            resource_attr=flaml_scheduler_resource_attr,
             min_resource=flaml_scheduler_min_resource,
             max_resource=flaml_scheduler_max_resource,
             reduction_factor=flaml_scheduler_reduction_factor,
@@ -361,9 +356,9 @@ def run(
             searcher.set_search_properties(metric, mode, config)
     if scheduler == "auto":
         params = {}
-        # scheduler resource_dimension=prune_attr
-        if prune_attr:
-            params["time_attr"] = prune_attr
+        # scheduler resource_dimension=resource_attr
+        if resource_attr:
+            params["time_attr"] = resource_attr
         if max_resource:
             params["max_t"] = max_resource
         if min_resource:

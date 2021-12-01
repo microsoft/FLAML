@@ -1531,7 +1531,7 @@ class AutoML(BaseEstimator):
         return points
 
     @property
-    def prune_attr(self) -> Optional[str]:
+    def resource_attr(self) -> Optional[str]:
         """Attribute for pruning
 
         Returns:
@@ -2159,7 +2159,7 @@ class AutoML(BaseEstimator):
                 low_cost_partial_config=self.low_cost_partial_config,
                 points_to_evaluate=self.points_to_evaluate,
                 cat_hp_cost=self.cat_hp_cost,
-                prune_attr=self.prune_attr,
+                resource_attr=self.resource_attr,
                 min_resource=self.min_resource,
                 max_resource=self.max_resource,
                 config_constraints=[
@@ -2307,11 +2307,11 @@ class AutoML(BaseEstimator):
                 )
                 search_space = search_state.search_space
                 if self._sample:
-                    prune_attr = "FLAML_sample_size"
+                    resource_attr = "FLAML_sample_size"
                     min_resource = self._min_sample_size
                     max_resource = self._state.data_size
                 else:
-                    prune_attr = min_resource = max_resource = None
+                    resource_attr = min_resource = max_resource = None
                 learner_class = self._state.learner_classes.get(estimator)
                 if "grid" == self._hpo_method:  # for synthetic exp only
                     points_to_evaluate = []
@@ -2343,7 +2343,7 @@ class AutoML(BaseEstimator):
                         points_to_evaluate=points_to_evaluate,
                         low_cost_partial_config=low_cost_partial_config,
                         cat_hp_cost=search_state.cat_hp_cost,
-                        prune_attr=prune_attr,
+                        resource_attr=resource_attr,
                         min_resource=min_resource,
                         max_resource=max_resource,
                         config_constraints=[
