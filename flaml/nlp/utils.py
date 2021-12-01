@@ -17,8 +17,11 @@ global tokenized_column_names
 
 def tokenize_text(X, task, custom_hpo_task):
     from ..data import SEQCLASSIFICATION, SEQREGRESSION
+    from ..data import SUMMARIZATION
 
     if task in (SEQCLASSIFICATION, SEQREGRESSION):
+        return tokenize_text_seqclassification(X, custom_hpo_task)
+    elif task is SUMMARIZATION:
         return tokenize_text_seqclassification(X, custom_hpo_task)
 
 

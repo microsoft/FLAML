@@ -20,6 +20,7 @@ TS_FORECAST = "ts_forecast"
 TS_TIMESTAMP_COL = "ds"
 TS_VALUE_COL = "y"
 FORECAST = "forecast"
+SUMMARIZATION = "summarization"
 
 
 def _is_nlp_task(task):
