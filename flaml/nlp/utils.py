@@ -155,12 +155,16 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
     this_model_type = AutoConfig.from_pretrained(checkpoint_path).model_type
     this_vocab_size = AutoConfig.from_pretrained(checkpoint_path).vocab_size
 
-    def get_this_model():
+    def get_this_model(model_name = "sequence classification"):
         from transformers import AutoModelForSequenceClassification
+        from transformers import AutoModelForTokenClassification
+        if  model_name == "sequence classification":
+            return AutoModelForSequenceClassification.from_pretrained(
+                checkpoint_path, config=model_config)
+        elif model_name == "token classification":
+            return AutoModelForTokenClassification.from_pretrained(
+                checkpoint_path, config=model_config)
 
-        return AutoModelForSequenceClassification.from_pretrained(
-            checkpoint_path, config=model_config
-        )
 
     def is_pretrained_model_in_classification_head_list(model_type):
         return model_type in MODEL_CLASSIFICATION_HEAD_MAPPING
