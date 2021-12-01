@@ -2564,7 +2564,6 @@ class AutoML(BaseEstimator):
         self._time_taken_best_iter = 0
         self._config_history = {}
         self._max_iter_per_learner = dict([(e, 10000) for e in self.estimator_list])
-        self._max_iter_per_learner["rf"] = self._max_iter_per_learner["extra_tree"] = 50
         self._iter_per_learner = dict([(e, 0) for e in self.estimator_list])
         self._fullsize_reached = False
         self._trained_estimator = None
