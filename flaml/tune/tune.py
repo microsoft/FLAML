@@ -123,9 +123,7 @@ def run(
     min_resource: Optional[float] = None,
     max_resource: Optional[float] = None,
     reduction_factor: Optional[float] = None,
-    scheduler: Optional[
-        Union[TrialScheduler, str]
-    ] = None,  # TODO: type should be str or a scheduler type
+    scheduler: Optional[Union[TrialScheduler, str]] = None,
     use_flaml_scheduler: Optional[bool] = False,
     search_alg=None,
     verbose: Optional[int] = 2,
@@ -220,18 +218,14 @@ def run(
         reduction_factor: A float of the reduction factor used for incremental
             pruning.
         use_flaml_scheduler: A boolean of whether to use flaml scheduler.
-            More details about this
+            More details about this scheduler can be found in this paper:
+            https://arxiv.org/pdf/1911.04706.pdf
                 [TODO: add test cases]
         scheduler: A scheduler for executing the experiment. Can be 'auto'
             or an custom instance of the TrialScheduler. When set as 'auto',
             ASHA will be used. The input for arguments "resource_attr", "min_resource",
             "max_resource" and "reduction_factor" will be passed to ASHA's
             "time_attr",  "max_t", "grace_period" and "reduction_factor" respectively.
-            [TODO: Is it necessary to add what are the options of a TrialScheduler?
-            For example, it can be an instance of the following types of trial schedulers:
-            MedianStopping, AsyncHyperBand, HyperBand and PopulationBasedTraining.
-            Please refer to ray.tune.schedulers for more options.]
-            [TODO: Add an example like in search_alg?]
         search_alg: An instance of BlendSearch as the search algorithm
             to be used. The same instance can be used for iterative tuning.
             e.g.,
