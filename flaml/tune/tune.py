@@ -12,11 +12,13 @@ try:
 
     assert ray_version >= "1.0.0"
     from ray.tune.analysis import ExperimentAnalysis as EA
+    from ray.tune.schedulers import TrialScheduler
 
     ray_import = True
 except (ImportError, AssertionError):
     ray_import = False
     from .analysis import ExperimentAnalysis as EA
+    from ..scheduler.trial_scheduler import TrialScheduler
 from .result import DEFAULT_METRIC
 import logging
 
@@ -121,7 +123,10 @@ def run(
     min_resource: Optional[float] = None,
     max_resource: Optional[float] = None,
     reduction_factor: Optional[float] = None,
-    report_intermediate_result: Optional[bool] = False,
+    scheduler: Optional[
+        Union[TrialScheduler, str]
+    ] = None,  # TODO: type should be str or a scheduler type
+    use_flaml_scheduler: Optional[bool] = False,
     search_alg=None,
     verbose: Optional[int] = 2,
     local_dir: Optional[str] = None,
@@ -212,14 +217,26 @@ def run(
             When prune_attr is not in space, it is a resource dimension,
             e.g., 'sample_size', and the peak performance is assumed
             to be at the max_resource.
+            [TODO: change name to resource_attribute]
         min_resource: A float of the minimal resource to use for the
             prune_attr; only valid if prune_attr is not in space.
         max_resource: A float of the maximal resource to use for the
             prune_attr; only valid if prune_attr is not in space.
         reduction_factor: A float of the reduction factor used for incremental
             pruning.
-        report_intermediate_result: A boolean of whether intermediate results
-            are reported. If so, early stopping and pruning can be used.
+        use_flaml_scheduler: A boolean of whether to use flaml scheduler.
+            [TODO: add link to FLAML paper.]
+            [TODO: add test cases]
+        scheduler: A scheduler for executing the experiment. Can be 'auto'
+            or an custom instance of the TrialScheduler. When set as 'auto',
+            ASHA will be used. The input for arguments "prune_attr", "min_resource",
+            "max_resource" and "reduction_factor" will be passed to ASHA's
+            "time_attr",  "max_t", "grace_period" and "reduction_factor" respectively.
+            [TODO: Is it necessary to add what are the options of a TrialScheduler?
+            For example, it can be an instance of the following types of trial schedulers:
+            MedianStopping, AsyncHyperBand, HyperBand and PopulationBasedTraining.
+            Please refer to ray.tune.schedulers for more options.]
+            [TODO: Add an example like in search_alg?]
         search_alg: An instance of BlendSearch as the search algorithm
             to be used. The same instance can be used for iterative tuning.
             e.g.,
@@ -295,6 +312,14 @@ def run(
     from ..searcher.blendsearch import BlendSearch
 
     if search_alg is None:
+        flaml_scheduler_prune_attr = (
+            flaml_scheduler_min_resource
+        ) = flaml_scheduler_max_resource = flaml_scheduler_reduction_factor = None
+        if use_flaml_scheduler:
+            flaml_scheduler_prune_attr = prune_attr
+            flaml_scheduler_min_resource = min_resource
+            flaml_scheduler_max_resource = max_resource
+            flaml_scheduler_reduction_factor = reduction_factor
         search_alg = BlendSearch(
             metric=metric or DEFAULT_METRIC,
             mode=mode,
@@ -305,10 +330,10 @@ def run(
             cat_hp_cost=cat_hp_cost,
             time_budget_s=time_budget_s,
             num_samples=num_samples,
-            prune_attr=prune_attr,
-            min_resource=min_resource,
-            max_resource=max_resource,
-            reduction_factor=reduction_factor,
+            prune_attr=flaml_scheduler_prune_attr,
+            min_resource=flaml_scheduler_min_resource,
+            max_resource=flaml_scheduler_max_resource,
+            reduction_factor=flaml_scheduler_reduction_factor,
             config_constraints=config_constraints,
             metric_constraints=metric_constraints,
         )
@@ -334,8 +359,7 @@ def run(
             searcher.set_search_properties(metric, mode, config, setting)
         else:
             searcher.set_search_properties(metric, mode, config)
-    scheduler = None
-    if report_intermediate_result:
+    if scheduler == "auto":
         params = {}
         # scheduler resource_dimension=prune_attr
         if prune_attr:
