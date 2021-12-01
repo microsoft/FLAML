@@ -2563,7 +2563,8 @@ class AutoML(BaseEstimator):
         self._best_iteration = 0
         self._time_taken_best_iter = 0
         self._config_history = {}
-        self._max_iter_per_learner = 1000000  # TODO
+        self._max_iter_per_learner = dict([(e, 10000) for e in self.estimator_list])
+        self._max_iter_per_learner["rf"] = self._max_iter_per_learner["extra_tree"] = 50
         self._iter_per_learner = dict([(e, 0) for e in self.estimator_list])
         self._fullsize_reached = False
         self._trained_estimator = None
@@ -2734,7 +2735,8 @@ class AutoML(BaseEstimator):
                 if (
                     self._search_states[estimator].time2eval_best
                     > self._state.time_budget - self._state.time_from_start
-                    or self._iter_per_learner[estimator] >= self._max_iter_per_learner
+                    or self._iter_per_learner[estimator]
+                    >= self._max_iter_per_learner[estimator]
                 ):
                     inv.append(0)
                     continue
