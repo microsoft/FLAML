@@ -5,11 +5,16 @@ import pytest
 @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
 def test_max_iter_1():
     from flaml import AutoML
-
+    import requests
     from datasets import load_dataset
 
-    train_dataset = load_dataset("glue", "mrpc", split="train").to_pandas().iloc[0:4]
-    dev_dataset = load_dataset("glue", "mrpc", split="train").to_pandas().iloc[0:4]
+    try:
+        train_dataset = (
+            load_dataset("glue", "mrpc", split="train").to_pandas().iloc[0:4]
+        )
+        dev_dataset = load_dataset("glue", "mrpc", split="train").to_pandas().iloc[0:4]
+    except requests.exceptions.ConnectionError:
+        return
 
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
