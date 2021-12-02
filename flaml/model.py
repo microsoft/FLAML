@@ -91,12 +91,6 @@ class BaseEstimator:
         self.params = self.config2params(config)
         self.estimator_class = self._model = None
         self._task = task
-
-        from .data import _is_nlp_task
-
-        if _is_nlp_task(task):
-            BaseEstimator._task = task
-
         if "_estimator_type" in config:
             self._estimator_type = self.params.pop("_estimator_type")
         else:
@@ -295,6 +289,7 @@ class TransformersEstimator(BaseEstimator):
 
     def __init__(self, task="seq-classification", **config):
         super().__init__(task, **config)
+        TransformersEstimator._task = task
         import uuid
 
         self.trial_id = str(uuid.uuid1().hex)[:8]
@@ -307,7 +302,6 @@ class TransformersEstimator(BaseEstimator):
     @classmethod
     def search_space(cls, **params):
         from .data import SEQ2SEQ
-
         search_space_dict = {
             "learning_rate": {
                 "domain": tune.loguniform(lower=1e-6, upper=1e-3),

@@ -77,6 +77,8 @@ class SearchState:
         self.data_size = data_size
         self.ls_ever_converged = False
         self.learner_class = learner_class
+        if _is_nlp_task(task):
+            learner_class._task = task
         search_space = learner_class.search_space(data_size=data_size, task=task)
         for name, space in search_space.items():
             assert (
