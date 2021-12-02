@@ -23,19 +23,21 @@ class TrainerForAuto(TFTrainer):
         )
         eval_dataset = eval_dataset if eval_dataset is not None else self.eval_dataset
 
-        if is_seq2seq:
-            metrics = eval_dataset and super().evaluate(
-                eval_dataset,
-                ignore_keys,
-                metric_key_prefix,
-                num_beams=self.args.num_beams,
-            )
-        else:
-            metrics = eval_dataset and super().evaluate(
-                eval_dataset,
-                ignore_keys,
-                metric_key_prefix,
-            )
+        # TODO: if your task is seq2seq (i.e., SUMMARIZATION), uncomment the code below (add indentation before metrics = eval_dataset...
+
+        # if is_seq2seq:
+        #     metrics = eval_dataset and super().evaluate(
+        #         eval_dataset,
+        #         ignore_keys,
+        #         metric_key_prefix,
+        #         num_beams=self.args.num_beams,
+        #     )
+        # else:
+        metrics = eval_dataset and super().evaluate(
+            eval_dataset,
+            ignore_keys,
+            metric_key_prefix,
+        )
         if metrics:
             for key in list(metrics.keys()):
                 if key.startswith("eval_"):
