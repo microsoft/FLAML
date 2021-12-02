@@ -65,7 +65,5 @@ class Seq2SeqTrainerForAuto(Seq2SeqTrainer, TrainerForAuto):
 
 
 class QATrainer(TrainerForAuto):
-    def evaluate(self, eval_dataset=None, ignore_keys=None, metric_key_prefix="eval"):
-        """Overriding transformers.Trainer.evaluate by saving metrics and checkpoint path"""
-        super().evaluate(eval_dataset, ignore_keys, metric_key_prefix, is_seq2seq=False)
+    pass
         # TODO: if your task is QUESTIONANSWERING, do the post processing here
