@@ -54,10 +54,10 @@ class TrainerForAuto(TFTrainer):
 #  you need to debug it
 
 
-class Seq2SeqTrainerForAuto(TrainerForAuto, Seq2SeqTrainer):
+class Seq2SeqTrainerForAuto(Seq2SeqTrainer, TrainerForAuto):
     def evaluate(self, eval_dataset=None, ignore_keys=None, metric_key_prefix="eval"):
         """Overriding transformers.Trainer.evaluate by saving metrics and checkpoint path"""
-        super().evaluate(eval_dataset, ignore_keys, metric_key_prefix, is_seq2seq=True)
+        super(TrainerForAuto).evaluate(eval_dataset, ignore_keys, metric_key_prefix, is_seq2seq=True)
 
 
 # TODO: if your task is QUESTIONANSWERING, you need to create the class below
