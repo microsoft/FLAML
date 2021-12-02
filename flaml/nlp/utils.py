@@ -226,13 +226,9 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
         return this_model
     elif task == SEQREGRESSION:
         model_config_num_labels = 1
-        model_config = _set_model_config(checkpoint_path)
-        this_model = get_this_model()
-        return this_model
-    else:
-        model_config = _set_model_config(checkpoint_path)
-        this_model = get_this_model()
-        return this_model
+    model_config = _set_model_config(checkpoint_path)
+    this_model = get_this_model()
+    return this_model
 
 
 def compute_checkpoint_freq(
