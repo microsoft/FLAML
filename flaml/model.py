@@ -91,6 +91,12 @@ class BaseEstimator:
         self.params = self.config2params(config)
         self.estimator_class = self._model = None
         self._task = task
+
+        from .data import _is_nlp_task
+
+        if _is_nlp_task(task):
+            BaseEstimator._task = task
+
         if "_estimator_type" in config:
             self._estimator_type = self.params.pop("_estimator_type")
         else:
@@ -300,7 +306,9 @@ class TransformersEstimator(BaseEstimator):
 
     @classmethod
     def search_space(cls, **params):
-        return {
+        from .data import SEQ2SEQ
+
+        search_space_dict = {
             "learning_rate": {
                 "domain": tune.loguniform(lower=1e-6, upper=1e-3),
                 "init_value": 1e-5,
@@ -327,6 +335,11 @@ class TransformersEstimator(BaseEstimator):
             "seed": {"domain": tune.choice(list(range(40, 45))), "init_value": 42},
             "global_max_steps": {"domain": sys.maxsize, "init_value": sys.maxsize},
         }
+        if cls._task in SEQ2SEQ:
+            pass
+            #   TODO: if self._task == SUMMARIZATION, SET the search space for
+            #    "num_beams" in search_space_dict
+        return search_space_dict
 
     def _init_hpo_args(self, automl_fit_kwargs: dict = None):
         from .nlp.utils import HPOArgs
@@ -352,7 +365,14 @@ class TransformersEstimator(BaseEstimator):
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
         from transformers import EarlyStoppingCallback
         from transformers.trainer_utils import set_seed
-        from transformers import AutoTokenizer, TrainingArguments
+        from transformers import AutoTokenizer
+        from .data import SEQ2SEQ
+
+        if self._task in SEQ2SEQ:
+            from transformers import Seq2SeqTrainingArguments as TrainingArguments
+        else:
+            from transformers import TrainingArguments
+
         import transformers
         from datasets import Dataset
         from .nlp.utils import (
@@ -363,7 +383,13 @@ class TransformersEstimator(BaseEstimator):
             get_trial_fold_name,
             date_str,
         )
-        from .nlp.huggingface.trainer import TrainerForAuto
+
+        if self._task in SEQ2SEQ:
+            from .nlp.huggingface.trainer import Seq2SeqTrainerForAuto as TrainerForAuto
+        else:
+            from .nlp.huggingface.trainer import TrainerForAuto
+        # TODO: if self._task == QUESTIONANSWERING:
+        #  from .nlp.huggingface.trainer import QATrainerForAuto as TrainerForAuto
 
         this_params = self.params
 
@@ -410,6 +436,12 @@ class TransformersEstimator(BaseEstimator):
 
         X_train = self._preprocess(X_train, self._task, **kwargs)
         train_dataset = Dataset.from_pandas(self._join(X_train, y_train))
+        # TODO: set a breakpoint here, observe the resulting train_dataset,
+        #  compare it with the output of the tokenized results in your transformer example
+        #  for example, if your task is MULTIPLECHOICE, you need to compare train_dataset with
+        #  the output of https://github.com/huggingface/transformers/blob/master/examples/pytorch/multiple-choice/run_swag.py#L329
+        #  make sure they are the same
+
         if X_val is not None:
             X_val = self._preprocess(X_val, self._task, **kwargs)
             eval_dataset = Dataset.from_pandas(self._join(X_val, y_val))
@@ -617,6 +649,7 @@ class TransformersEstimator(BaseEstimator):
         from transformers import TrainingArguments
         from .nlp.utils import load_model
         from .nlp.huggingface.trainer import TrainerForAuto
+        from .data import SEQCLASSIFICATION
 
         X_test = self._preprocess(X_test, self._task, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
@@ -634,7 +667,11 @@ class TransformersEstimator(BaseEstimator):
         self._model = TrainerForAuto(model=best_model, args=training_args)
         predictions = self._model.predict(test_dataset)
 
-        return np.argmax(predictions.predictions, axis=1)
+        if self._task == SEQCLASSIFICATION:
+            return np.argmax(predictions.predictions, axis=1)
+        # TODO: elif self._task == your task, return the corresponding prediction
+        #  e.g., if your task == QUESTIONANSWERING, you need to return the answer instead
+        #  of the index
 
     def config2params(cls, config: dict) -> dict:
         params = config.copy()
