@@ -330,10 +330,13 @@ class TransformersEstimator(BaseEstimator):
             "seed": {"domain": tune.choice(list(range(40, 45))), "init_value": 42},
             "global_max_steps": {"domain": sys.maxsize, "init_value": sys.maxsize},
         }
-        if task in SEQ2SEQ:
-            pass
-            #   TODO: if self._task == SUMMARIZATION, SET the search space for
-            #    "num_beams" in search_space_dict
+        #   TODO: if self._task == SUMMARIZATION, uncomment the code below, SET the search space for
+        #    "num_beams" in search_space_dict using
+        #    search_space_dict["num_beams"] = {...}
+
+        # if task in SEQ2SEQ:
+        #     search_space_dict["num_beams"] = {"domain": tune.choice(...)}
+
         return search_space_dict
 
     def _init_hpo_args(self, automl_fit_kwargs: dict = None):
@@ -362,10 +365,11 @@ class TransformersEstimator(BaseEstimator):
         from transformers.trainer_utils import set_seed
         from transformers import AutoTokenizer
 
-        if self._task in SEQ2SEQ:
-            from transformers import Seq2SeqTrainingArguments as TrainingArguments
-        else:
-            from transformers import TrainingArguments
+        #   TODO: if self._task == SUMMARIZATION, uncomment the code below
+        # if self._task in SEQ2SEQ:
+        #     from transformers import Seq2SeqTrainingArguments as TrainingArguments
+        # else:
+        from transformers import TrainingArguments
 
         import transformers
         from datasets import Dataset
@@ -378,12 +382,13 @@ class TransformersEstimator(BaseEstimator):
             date_str,
         )
 
-        if self._task in SEQ2SEQ:
-            from .nlp.huggingface.trainer import Seq2SeqTrainerForAuto as TrainerForAuto
-        else:
-            from .nlp.huggingface.trainer import TrainerForAuto
-        # TODO: if self._task == QUESTIONANSWERING:
-        #  from .nlp.huggingface.trainer import QATrainerForAuto as TrainerForAuto
+        # TODO: if self._task == QUESTIONANSWERING, uncomment the code below (add indentation before
+        #  from .nlp.huggingface.trainer import TrainerForAuto)
+
+        # if self._task in SEQ2SEQ:
+        #     from .nlp.huggingface.trainer import Seq2SeqTrainerForAuto as TrainerForAuto
+        # else:
+        from .nlp.huggingface.trainer import TrainerForAuto
 
         this_params = self.params
 
@@ -430,6 +435,7 @@ class TransformersEstimator(BaseEstimator):
 
         X_train = self._preprocess(X_train, self._task, **kwargs)
         train_dataset = Dataset.from_pandas(self._join(X_train, y_train))
+
         # TODO: set a breakpoint here, observe the resulting train_dataset,
         #  compare it with the output of the tokenized results in your transformer example
         #  for example, if your task is MULTIPLECHOICE, you need to compare train_dataset with
