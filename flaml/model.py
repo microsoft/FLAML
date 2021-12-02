@@ -233,8 +233,12 @@ class BaseEstimator:
         self._model = None
 
     @classmethod
-    def search_space(cls, **params):
+    def search_space(cls, data_size, task, **params):
         """[required method] search space.
+
+        Args:
+            data_size: A tuple of two integers, number of rows and columns.
+            task: A str of the task type, e.g., "binary", "multi", "regression".
 
         Returns:
             A dictionary of the search space.
