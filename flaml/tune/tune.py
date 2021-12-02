@@ -208,8 +208,7 @@ def run(
             points_to_evaluate are 3.0 and 1.0 respectively and want to
             inform run()
 
-        resource_attr: A string of the attribute used for the flaml_scheduler
-            (when "use_flaml_scheduler" is set True) and/or the input scheduler
+        resource_attr: A string of the attribute used for the scheduler
             via "scheduler".
         min_resource: A float of the minimal resource to use for the
             resource_attr; only valid if resource_attr is not in space.
@@ -217,15 +216,21 @@ def run(
             resource_attr; only valid if resource_attr is not in space.
         reduction_factor: A float of the reduction factor used for incremental
             pruning.
-        use_flaml_scheduler: A boolean of whether to use flaml scheduler.
-            More details about this scheduler can be found in this paper:
-            https://arxiv.org/pdf/1911.04706.pdf
-                [TODO: add test cases]
-        scheduler: A scheduler for executing the experiment. Can be 'auto'
-            or an custom instance of the TrialScheduler. When set as 'auto',
-            ASHA will be used. The input for arguments "resource_attr", "min_resource",
-            "max_resource" and "reduction_factor" will be passed to ASHA's
-            "time_attr",  "max_t", "grace_period" and "reduction_factor" respectively.
+        scheduler: A scheduler for executing the experiment. Can be 'flaml','asha'
+            or a custom instance of the TrialScheduler class. When set 'flaml', an
+            authentic scheduler implemented in FLAML will be used. It does not
+            require users to report intermediate results in training_function.
+            Find more details abuot this scheduler in this paper
+            https://arxiv.org/pdf/1911.04706.pdf).
+            When set 'asha', the input for arguments "resource_attr",
+            "min_resource", "max_resource" and "reduction_factor" will be passed
+            to ASHA's "time_attr",  "max_t", "grace_period" and "reduction_factor"
+            respectively. You can also provide a self-defined scheduler instance
+            of the TrialScheduler class. When 'asha' or self-defined scheduler is
+            used, you usually need to report intermediate results in the training
+            function. Please find examples using different types of schedulers
+            and how to set up the corresponding training functions in
+            test/tune/test_scheduler.py.
         search_alg: An instance of BlendSearch as the search algorithm
             to be used. The same instance can be used for iterative tuning.
             e.g.,
@@ -304,11 +309,16 @@ def run(
         flaml_scheduler_resource_attr = (
             flaml_scheduler_min_resource
         ) = flaml_scheduler_max_resource = flaml_scheduler_reduction_factor = None
-        if use_flaml_scheduler:
+        if scheduler == "flaml":
+            # when scheduler is set 'flaml', we will use a scheduler that is
+            # authentic to the search algorithms in flaml. After setting up
+            # the search algorithm accordingly, we need to set scheduler to
+            # None in case it is later used in the trial runner.
             flaml_scheduler_resource_attr = resource_attr
             flaml_scheduler_min_resource = min_resource
             flaml_scheduler_max_resource = max_resource
             flaml_scheduler_reduction_factor = reduction_factor
+            scheduler = None
         search_alg = BlendSearch(
             metric=metric or DEFAULT_METRIC,
             mode=mode,
@@ -348,7 +358,7 @@ def run(
             searcher.set_search_properties(metric, mode, config, setting)
         else:
             searcher.set_search_properties(metric, mode, config)
-    if scheduler == "auto":
+    if scheduler == "asha":
         params = {}
         # scheduler resource_dimension=resource_attr
         if resource_attr:

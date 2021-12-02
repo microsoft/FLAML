@@ -1,3 +1,8 @@
+"""Require: pip install flaml[test,ray]
+"""
+from logging import raiseExceptions
+from ray.tune.schedulers import TrialScheduler
+
 import numpy as np
 from flaml import tune
 import time
@@ -47,28 +52,21 @@ def obj_w_suggested_resource(resource_attr, config):
     simple_obj(config, resource)
 
 
-def obj_w_suggested_resource_w_intermediate_report(resource_attr, config):
-    resource = config[resource_attr]
-    obj_w_intermediate_report(resource, config)
-
-
-def test_scheduler(scheduler=None, use_flaml_scheduler=False):
+def test_scheduler(scheduler=None):
     from functools import partial
 
     resource_attr = "samplesize"
     max_resource = 10000
 
     # specify the objective functions
-    if not use_flaml_scheduler and scheduler is None:
+    if scheduler is None:
         evaluation_obj = simple_obj
-    elif use_flaml_scheduler and scheduler is None:
+    elif scheduler == "flaml":
         evaluation_obj = partial(obj_w_suggested_resource, resource_attr)
-    elif not use_flaml_scheduler and scheduler:
+    elif scheduler == "asha" or isinstance(scheduler, TrialScheduler):
         evaluation_obj = partial(obj_w_intermediate_report, max_resource)
     else:
-        evaluation_obj = partial(
-            obj_w_suggested_resource_w_intermediate_report, resource_attr
-        )
+        raise ValueError
 
     analysis = tune.run(
         evaluation_obj,
@@ -81,13 +79,12 @@ def test_scheduler(scheduler=None, use_flaml_scheduler=False):
         mode="max",
         verbose=1,
         resource_attr=resource_attr,
-        use_flaml_scheduler=use_flaml_scheduler,
         scheduler=scheduler,
         max_resource=max_resource,
         min_resource=100,
         reduction_factor=2,
-        time_budget_s=5,
-        num_samples=5000,
+        time_budget_s=1,
+        num_samples=500,
     )
 
     print("Best hyperparameters found were: ", analysis.best_config)
@@ -100,18 +97,18 @@ def test_no_scheduler():
     print("No scheduler, test error:", abs(10 / 2 - best_config["z"] / 2))
 
 
-def test_auto_regular_scheduler():
-    best_config = test_scheduler("auto")
+def test_asha_scheduler():
+    best_config = test_scheduler(scheduler="asha")
     print("Auto ASHA scheduler, test error:", abs(10 / 2 - best_config["z"] / 2))
 
 
 def test_custom_scheduler():
-    from ray.tune.schedulers import ASHAScheduler
+    from ray.tune.schedulers import HyperBandScheduler
 
-    my_scheduler = ASHAScheduler(
-        time_attr="samplesize", max_t=1000, grace_period=50, reduction_factor=2
+    my_scheduler = HyperBandScheduler(
+        time_attr="samplesize", max_t=1000, reduction_factor=2
     )
-    best_config = test_scheduler(my_scheduler)
+    best_config = test_scheduler(scheduler=my_scheduler)
     print("Custom ASHA scheduler, test error:", abs(10 / 2 - best_config["z"] / 2))
 
 
@@ -119,7 +116,7 @@ def test_custom_scheduler_default_time_attr():
     from ray.tune.schedulers import ASHAScheduler
 
     my_scheduler = ASHAScheduler(max_t=10)
-    best_config = test_scheduler(my_scheduler)
+    best_config = test_scheduler(scheduler=my_scheduler)
     print(
         "Custom ASHA scheduler (with ASHA default time attr), test error:",
         abs(10 / 2 - best_config["z"] / 2),
@@ -127,18 +124,13 @@ def test_custom_scheduler_default_time_attr():
 
 
 def test_flaml_scheduler():
-    best_config = test_scheduler(scheduler=None, use_flaml_scheduler=True)
+    best_config = test_scheduler(scheduler="flaml")
     print("FLAML scheduler, test error", abs(10 / 2 - best_config["z"] / 2))
-
-
-# def test_flaml_and_regular_scheduer():
-#     best_config =  test_scheduler(scheduler='auto', use_flaml_scheduler=True)
-#     print('Both scheduler together, test error:', abs(10/2 -best_config['z']/2) )
 
 
 if __name__ == "__main__":
     test_no_scheduler()
-    test_auto_regular_scheduler()
+    test_asha_scheduler()
     test_custom_scheduler()
     test_custom_scheduler_default_time_attr()
     test_flaml_scheduler()
