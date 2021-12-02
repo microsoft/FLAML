@@ -23,6 +23,9 @@ from .data import (
     TS_FORECAST,
     TS_TIMESTAMP_COL,
     TS_VALUE_COL,
+    SEQ2SEQ,
+    SEQCLASSIFICATION,
+    SEQREGRESSION,
 )
 
 import pandas as pd
@@ -300,8 +303,6 @@ class TransformersEstimator(BaseEstimator):
 
     @classmethod
     def search_space(cls, data_size, task, **params):
-        from .data import SEQ2SEQ
-
         search_space_dict = {
             "learning_rate": {
                 "domain": tune.loguniform(lower=1e-6, upper=1e-3),
@@ -360,7 +361,6 @@ class TransformersEstimator(BaseEstimator):
         from transformers import EarlyStoppingCallback
         from transformers.trainer_utils import set_seed
         from transformers import AutoTokenizer
-        from .data import SEQ2SEQ
 
         if self._task in SEQ2SEQ:
             from transformers import Seq2SeqTrainingArguments as TrainingArguments
@@ -580,7 +580,6 @@ class TransformersEstimator(BaseEstimator):
 
     def _compute_metrics_by_dataset_name(self, eval_pred):
         from .ml import sklearn_metric_loss_score
-        from .data import SEQREGRESSION
         import datasets
         from .nlp.utils import load_default_huggingface_metric_for_task
 
@@ -643,7 +642,6 @@ class TransformersEstimator(BaseEstimator):
         from transformers import TrainingArguments
         from .nlp.utils import load_model
         from .nlp.huggingface.trainer import TrainerForAuto
-        from .data import SEQCLASSIFICATION
 
         X_test = self._preprocess(X_test, self._task, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)

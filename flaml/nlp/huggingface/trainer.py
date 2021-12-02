@@ -50,8 +50,9 @@ class TrainerForAuto(TFTrainer):
 
 
 # TODO: if your task is SUMMARIZATION, you need a different
-#  class Seq2SeqTrainerForAuto, I have implemented it here but I don't know if it's correct
-#  you need to debug it
+#  class Seq2SeqTrainerForAuto, I have implemented it here,
+#  but I don't know whether it's correct, you need to debug
+#  Seq2SeqTrainerForAuto to make sure it's correct
 
 
 class Seq2SeqTrainerForAuto(Seq2SeqTrainer, TrainerForAuto):
@@ -67,7 +68,5 @@ class Seq2SeqTrainerForAuto(Seq2SeqTrainer, TrainerForAuto):
 
 
 class QATrainerForAuto(TrainerForAuto):
-    def evaluate(self, eval_dataset=None, ignore_keys=None, metric_key_prefix="eval"):
-        """Overriding transformers.Trainer.evaluate by saving metrics and checkpoint path"""
-        super().evaluate(eval_dataset, ignore_keys, metric_key_prefix, is_seq2seq=False)
-        # TODO: if your task is QUESTIONANSWERING, do the post processing here
+    pass
+    # TODO: if your task is QUESTIONANSWERING, do the post processing here
