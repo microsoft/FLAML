@@ -365,7 +365,8 @@ class TransformersEstimator(BaseEstimator):
         from transformers.trainer_utils import set_seed
         from transformers import AutoTokenizer
 
-        #   TODO: if self._task == SUMMARIZATION, uncomment the code below
+        #   TODO: if self._task == SUMMARIZATION, uncomment the code below (add indentation before
+        #         from transformers import TrainingArguments)
         # if self._task in SEQ2SEQ:
         #     from transformers import Seq2SeqTrainingArguments as TrainingArguments
         # else:
