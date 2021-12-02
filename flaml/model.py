@@ -289,7 +289,6 @@ class TransformersEstimator(BaseEstimator):
 
     def __init__(self, task="seq-classification", **config):
         super().__init__(task, **config)
-        TransformersEstimator._task = task
         import uuid
 
         self.trial_id = str(uuid.uuid1().hex)[:8]
@@ -300,8 +299,9 @@ class TransformersEstimator(BaseEstimator):
         return train_df
 
     @classmethod
-    def search_space(cls, **params):
+    def search_space(cls, data_size, task, **params):
         from .data import SEQ2SEQ
+
         search_space_dict = {
             "learning_rate": {
                 "domain": tune.loguniform(lower=1e-6, upper=1e-3),
@@ -330,7 +330,6 @@ class TransformersEstimator(BaseEstimator):
             "global_max_steps": {"domain": sys.maxsize, "init_value": sys.maxsize},
         }
         if task in SEQ2SEQ:
-
             pass
             #   TODO: if self._task == SUMMARIZATION, SET the search space for
             #    "num_beams" in search_space_dict

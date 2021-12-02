@@ -31,7 +31,7 @@ def tokenize_text(X, task, custom_hpo_task):
     # TODO: elif task == your task, return the tokenized result
     #  for example, if your task == MULTIPLE CHOICE, you should
     #  create a function named tokenize_text_multiplechoice(X, custom_hpo_args)
-    #  and what it does it the same as preprocess_function at
+    #  and what it does is the same as preprocess_function at
     #  https://github.com/huggingface/transformers/blob/master/examples/pytorch/multiple-choice/run_swag.py#L329
 
 
