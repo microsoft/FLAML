@@ -329,7 +329,8 @@ class TransformersEstimator(BaseEstimator):
             "seed": {"domain": tune.choice(list(range(40, 45))), "init_value": 42},
             "global_max_steps": {"domain": sys.maxsize, "init_value": sys.maxsize},
         }
-        if cls._task in SEQ2SEQ:
+        if task in SEQ2SEQ:
+
             pass
             #   TODO: if self._task == SUMMARIZATION, SET the search space for
             #    "num_beams" in search_space_dict
