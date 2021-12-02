@@ -1,8 +1,8 @@
-import os
+import sys
 import pytest
 
 
-@pytest.mark.skipif(os.name == "posix", reason="do not run on mac os")
+@pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
 def test_regression():
     try:
         import ray
@@ -50,3 +50,6 @@ def test_regression():
     automl.fit(
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
     )
+
+if __name__ == "__main__":
+    test_regression()

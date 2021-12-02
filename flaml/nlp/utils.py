@@ -170,7 +170,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
     def get_this_model():
         from transformers import AutoModelForSequenceClassification
 
-        if task == SEQCLASSIFICATION:
+        if task in (SEQCLASSIFICATION, SEQREGRESSION):
             return AutoModelForSequenceClassification.from_pretrained(
                 checkpoint_path, config=model_config
             )
@@ -183,7 +183,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
         return model_type in MODEL_CLASSIFICATION_HEAD_MAPPING
 
     def _set_model_config(checkpoint_path):
-        if task == SEQCLASSIFICATION:
+        if task in (SEQCLASSIFICATION, SEQREGRESSION):
             if per_model_config and len(per_model_config) > 0:
                 model_config = AutoConfig.from_pretrained(
                     checkpoint_path,
@@ -195,10 +195,18 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
                     checkpoint_path, num_labels=model_config_num_labels
                 )
             return model_config
-        # TODO: elif task == your task, set model_config to same as the
-        #  AutoConfig.from_pretrained from transformers example, e.g.,
-        #  if task == MULTIPLECHOICE, according to https://github.com/huggingface/transformers/blob/master/examples/pytorch/multiple-choice/run_swag.py#L285
-        #  you can fill in model_config = AutoConfig.from_pretrained(checkpoint_path)
+        # TODO: elif task == your task, uncomment the code below:
+        # else:
+        #     if per_model_config and len(per_model_config) > 0:
+        #         model_config = AutoConfig.from_pretrained(
+        #             checkpoint_path,
+        #             **per_model_config,
+        #         )
+        #     else:
+        #         model_config = AutoConfig.from_pretrained(
+        #             checkpoint_path
+        #         )
+        #     return model_config
 
     if task == SEQCLASSIFICATION:
         num_labels_old = AutoConfig.from_pretrained(checkpoint_path).num_labels
@@ -224,11 +232,12 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
             this_model = get_this_model()
         this_model.resize_token_embeddings(this_vocab_size)
         return this_model
-    elif task == SEQREGRESSION:
-        model_config_num_labels = 1
-    model_config = _set_model_config(checkpoint_path)
-    this_model = get_this_model()
-    return this_model
+    else:
+        if task == SEQREGRESSION:
+            model_config_num_labels = 1
+        model_config = _set_model_config(checkpoint_path)
+        this_model = get_this_model()
+        return this_model
 
 
 def compute_checkpoint_freq(

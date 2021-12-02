@@ -557,6 +557,7 @@ class TransformersEstimator(BaseEstimator):
                 logger.warning("checkpoint {} not found".format(ckpt_location))
 
     def cleanup(self):
+        super().cleanup()
         if hasattr(self, "_ckpt_remains"):
             for each_ckpt in self._ckpt_remains:
                 self._delete_one_ckpt(each_ckpt)
@@ -668,6 +669,8 @@ class TransformersEstimator(BaseEstimator):
 
         if self._task == SEQCLASSIFICATION:
             return np.argmax(predictions.predictions, axis=1)
+        elif self._task == SEQREGRESSION:
+            return predictions.predictions
         # TODO: elif self._task == your task, return the corresponding prediction
         #  e.g., if your task == QUESTIONANSWERING, you need to return the answer instead
         #  of the index
