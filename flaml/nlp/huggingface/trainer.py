@@ -49,7 +49,7 @@ class TrainerForAuto(TFTrainer):
             self.ckpt_to_metric = {ckpt_dir: metrics} if metrics else {}
 
 
-# TODO: if your task is SUMMARIZATION, you need to a different
+# TODO: if your task is SUMMARIZATION, you need a different
 #  class Seq2SeqTrainer, I have implemented it here but I don't know if it's correct
 #  you need to debug it
 
