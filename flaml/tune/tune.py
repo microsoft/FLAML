@@ -307,7 +307,8 @@ def run(
         flaml_scheduler_resource_attr = (
             flaml_scheduler_min_resource
         ) = flaml_scheduler_max_resource = flaml_scheduler_reduction_factor = None
-        if scheduler == "flaml":
+        if scheduler in (None, "flaml"):
+
             # when scheduler is set 'flaml', we will use a scheduler that is
             # authentic to the search algorithms in flaml. After setting up
             # the search algorithm accordingly, we need to set scheduler to
