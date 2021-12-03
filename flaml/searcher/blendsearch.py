@@ -91,7 +91,7 @@ class BlendSearch(Searcher):
                 points_to_evaluate.
             time_budget_s: int or float | Time budget in seconds.
             num_samples: int | The number of configs to try.
-            resource_attr: A string to specify the resource dimension and and the best
+            resource_attr: A string to specify the resource dimension and the best
                 performance is assumed to be at the max_resource.
             min_resource: A float of the minimal resource to use for the resource_attr.
             max_resource: A float of the maximal resource to use for the resource_attr.
