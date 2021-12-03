@@ -18,7 +18,7 @@ try:
 except (ImportError, AssertionError):
     ray_import = False
     from .analysis import ExperimentAnalysis as EA
-    from ..scheduler.trial_scheduler import TrialScheduler
+
 from .result import DEFAULT_METRIC
 import logging
 
@@ -123,8 +123,7 @@ def run(
     min_resource: Optional[float] = None,
     max_resource: Optional[float] = None,
     reduction_factor: Optional[float] = None,
-    scheduler: Optional[Union[TrialScheduler, str]] = None,
-    use_flaml_scheduler: Optional[bool] = False,
+    scheduler: Optional = None,
     search_alg=None,
     verbose: Optional[int] = 2,
     local_dir: Optional[str] = None,
@@ -208,12 +207,10 @@ def run(
             points_to_evaluate are 3.0 and 1.0 respectively and want to
             inform run()
 
-        resource_attr: A string of the attribute used for the scheduler
-            via "scheduler".
-        min_resource: A float of the minimal resource to use for the
-            resource_attr; only valid if resource_attr is not in space.
-        max_resource: A float of the maximal resource to use for the
-            resource_attr; only valid if resource_attr is not in space.
+        resource_attr: A string to specify the resource dimension used by
+            the scheduler via "scheduler".
+        min_resource: A float of the minimal resource to use for the resource_attr.
+        max_resource: A float of the maximal resource to use for the resource_attr.
         reduction_factor: A float of the reduction factor used for incremental
             pruning.
         scheduler: A scheduler for executing the experiment. Can be 'flaml', 'asha'
@@ -231,7 +228,7 @@ def run(
             used, you usually need to report intermediate results in the training
             function. Please find examples using different types of schedulers
             and how to set up the corresponding training functions in
-            test/tune/test_scheduler.py.
+            test/tune/test_scheduler.py. TODO: point to notebook examples.
         search_alg: An instance of BlendSearch as the search algorithm
             to be used. The same instance can be used for iterative tuning.
             e.g.,

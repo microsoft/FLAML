@@ -1,8 +1,7 @@
 """Require: pip install flaml[test,ray]
 """
 from logging import raiseExceptions
-from ray.tune.schedulers import TrialScheduler
-
+from flaml.scheduler.trial_scheduler import TrialScheduler
 import numpy as np
 from flaml import tune
 import time
@@ -66,7 +65,16 @@ def test_scheduler(scheduler=None):
     elif scheduler == "asha" or isinstance(scheduler, TrialScheduler):
         evaluation_obj = partial(obj_w_intermediate_report, max_resource)
     else:
-        raise ValueError
+        try:
+            from ray.tune.schedulers import TrialScheduler as RayTuneTrialScheduler
+        except ImportError:
+            print("skip the test, which may require TrialScheduler from ray tune \
+                as ray tune cannot be imported.")
+            return
+        if isinstance(scheduler, RayTuneTrialScheduler):
+            evaluation_obj = partial(obj_w_intermediate_report, max_resource)
+        else:
+            raise ValueError
 
     analysis = tune.run(
         evaluation_obj,
@@ -104,7 +112,6 @@ def test_asha_scheduler():
 
 def test_custom_scheduler():
     from ray.tune.schedulers import HyperBandScheduler
-
     my_scheduler = HyperBandScheduler(
         time_attr="samplesize", max_t=1000, reduction_factor=2
     )
@@ -114,7 +121,6 @@ def test_custom_scheduler():
 
 def test_custom_scheduler_default_time_attr():
     from ray.tune.schedulers import ASHAScheduler
-
     my_scheduler = ASHAScheduler(max_t=10)
     best_config = test_scheduler(scheduler=my_scheduler)
     print(
