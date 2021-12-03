@@ -23,7 +23,6 @@ from .data import (
     TS_FORECAST,
     TS_TIMESTAMP_COL,
     TS_VALUE_COL,
-    SEQ2SEQ,
     SEQCLASSIFICATION,
     SEQREGRESSION,
 )
@@ -334,7 +333,7 @@ class TransformersEstimator(BaseEstimator):
         #    "num_beams" in search_space_dict using
         #    search_space_dict["num_beams"] = {...}
 
-        # if task in SEQ2SEQ:
+        # if task in NLG_TASKS:
         #     search_space_dict["num_beams"] = {"domain": tune.choice(...)}
 
         return search_space_dict
@@ -367,7 +366,7 @@ class TransformersEstimator(BaseEstimator):
 
         #   TODO: if self._task == SUMMARIZATION, uncomment the code below (add indentation before
         #         from transformers import TrainingArguments)
-        # if self._task in SEQ2SEQ:
+        # if self._task in NLG_TASKS:
         #     from transformers import Seq2SeqTrainingArguments as TrainingArguments
         # else:
         from transformers import TrainingArguments
@@ -386,7 +385,7 @@ class TransformersEstimator(BaseEstimator):
         # TODO: if self._task == QUESTIONANSWERING, uncomment the code below (add indentation before
         #  from .nlp.huggingface.trainer import TrainerForAuto)
 
-        # if self._task in SEQ2SEQ:
+        # if self._task in NLG_TASKS:
         #     from .nlp.huggingface.trainer import Seq2SeqTrainerForAuto as TrainerForAuto
         # else:
         from .nlp.huggingface.trainer import TrainerForAuto
