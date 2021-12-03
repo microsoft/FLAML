@@ -91,17 +91,9 @@ class BlendSearch(Searcher):
                 points_to_evaluate.
             time_budget_s: int or float | Time budget in seconds.
             num_samples: int | The number of configs to try.
-            resource_attr: A string of the attribute used for pruning.
-                Not necessarily in space.
-                When resource_attr is in space, it is a hyperparameter, e.g.,
-                    'n_iters', and the best value is unknown.
-                When resource_attr is not in space, it is a resource dimension,
-                    e.g., 'sample_size', and the peak performance is assumed
-                    to be at the max_resource.
-            min_resource: A float of the minimal resource to use for the
-                resource_attr; only valid if resource_attr is not in space.
-            max_resource: A float of the maximal resource to use for the
-                resource_attr; only valid if resource_attr is not in space.
+            resource_attr: A string to specify the resource dimension.
+            min_resource: A float of the minimal resource to use for the resource_attr.
+            max_resource: A float of the maximal resource to use for the resource_attr.
             reduction_factor: A float of the reduction factor used for
                 incremental pruning.
             global_search_alg: A Searcher instance as the global search

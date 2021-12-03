@@ -1532,10 +1532,11 @@ class AutoML(BaseEstimator):
 
     @property
     def resource_attr(self) -> Optional[str]:
-        """Attribute for pruning
+        """Attribute of the resource dimension.
 
         Returns:
-            A string for the sample size attribute or None
+            A string for the sample size attribute
+            (the resource attribute in AutoML) or None.
         """
         return "FLAML_sample_size" if self._sample else None
 

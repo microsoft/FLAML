@@ -67,17 +67,9 @@ class FLOW2(Searcher):
                 i.e., the relative cost of the
                 three choices of 'tree_method' is 1, 1 and 2 respectively.
             space: A dictionary to specify the search space.
-            resource_attr: A string of the attribute used for pruning.
-                Not necessarily in space.
-                When resource_attr is in space, it is a hyperparameter, e.g.,
-                    'n_iters', and the best value is unknown.
-                When resource_attr is not in space, it is a resource dimension,
-                    e.g., 'sample_size', and the peak performance is assumed
-                    to be at the max_resource.
-            min_resource: A float of the minimal resource to use for the
-                resource_attr; only valid if resource_attr is not in space.
-            max_resource: A float of the maximal resource to use for the
-                resource_attr; only valid if resource_attr is not in space.
+            resource_attr: A string to specify the resource dimension.
+            min_resource: A float of the minimal resource to use for the resource_attr.
+            max_resource: A float of the maximal resource to use for the resource_attr.
             resource_multiple_factor: A float of the multiplicative factor
                 used for increasing resource.
             cost_attr: A string of the attribute used for cost.
