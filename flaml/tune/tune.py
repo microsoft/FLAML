@@ -12,7 +12,6 @@ try:
 
     assert ray_version >= "1.0.0"
     from ray.tune.analysis import ExperimentAnalysis as EA
-    from ray.tune.schedulers import TrialScheduler
 
     ray_import = True
 except (ImportError, AssertionError):
