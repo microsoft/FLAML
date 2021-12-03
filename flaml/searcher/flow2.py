@@ -67,7 +67,8 @@ class FLOW2(Searcher):
                 i.e., the relative cost of the
                 three choices of 'tree_method' is 1, 1 and 2 respectively.
             space: A dictionary to specify the search space.
-            resource_attr: A string to specify the resource dimension.
+            resource_attr: A string to specify the resource dimension and the best
+                performance is assumed to be at the max_resource.
             min_resource: A float of the minimal resource to use for the resource_attr.
             max_resource: A float of the maximal resource to use for the resource_attr.
             resource_multiple_factor: A float of the multiplicative factor

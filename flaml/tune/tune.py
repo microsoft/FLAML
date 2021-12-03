@@ -213,9 +213,10 @@ def run(
         max_resource: A float of the maximal resource to use for the resource_attr.
         reduction_factor: A float of the reduction factor used for incremental
             pruning.
-        scheduler: A scheduler for executing the experiment. Can be 'flaml', 'asha'
-
-            or a custom instance of the TrialScheduler class. When set 'flaml', an
+        scheduler: A scheduler for executing the experiment. Can be None, 'flaml',
+            'asha' or a custom instance of the TrialScheduler class. Default is None:
+            in this case when resource_attr is provided, the 'flaml' scheduler will be
+            used, otherwise no scheduler will be used. When set 'flaml', an
             authentic scheduler implemented in FLAML will be used. It does not
             require users to report intermediate results in training_function.
             Find more details abuot this scheduler in this paper
