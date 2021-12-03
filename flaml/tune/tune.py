@@ -216,7 +216,8 @@ def run(
             resource_attr; only valid if resource_attr is not in space.
         reduction_factor: A float of the reduction factor used for incremental
             pruning.
-        scheduler: A scheduler for executing the experiment. Can be 'flaml','asha'
+        scheduler: A scheduler for executing the experiment. Can be 'flaml', 'asha'
+
             or a custom instance of the TrialScheduler class. When set 'flaml', an
             authentic scheduler implemented in FLAML will be used. It does not
             require users to report intermediate results in training_function.
