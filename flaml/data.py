@@ -12,6 +12,7 @@ from .training_log import training_log_reader
 from datetime import datetime
 from typing import Dict, Union, List
 
+# TODO: if your task is not specified in here, define your task as an all-capitalized word
 SEQCLASSIFICATION = "seq-classification"
 CLASSIFICATION = ("binary", "multi", "classification", SEQCLASSIFICATION)
 SEQREGRESSION = "seq-regression"
@@ -21,7 +22,7 @@ TS_TIMESTAMP_COL = "ds"
 TS_VALUE_COL = "y"
 FORECAST = "forecast"
 SUMMARIZATION = "summarization"
-SEQ2SEQ = (SUMMARIZATION, )
+SEQ2SEQ = (SUMMARIZATION,)
 
 
 def _is_nlp_task(task):
