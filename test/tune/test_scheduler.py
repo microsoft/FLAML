@@ -68,8 +68,10 @@ def test_scheduler(scheduler=None):
         try:
             from ray.tune.schedulers import TrialScheduler as RayTuneTrialScheduler
         except ImportError:
-            print("skip the test, which may require TrialScheduler from ray tune \
-                as ray tune cannot be imported.")
+            print(
+                "skip this condition, which may require TrialScheduler from ray tune, \
+                as ray tune cannot be imported."
+            )
             return
         if isinstance(scheduler, RayTuneTrialScheduler):
             evaluation_obj = partial(obj_w_intermediate_report, max_resource)
@@ -106,12 +108,21 @@ def test_no_scheduler():
 
 
 def test_asha_scheduler():
+    try:
+        from ray.tune.schedulers import ASHAScheduler
+    except ImportError:
+        print("skip the test as ray tune cannot be imported.")
+        return
     best_config = test_scheduler(scheduler="asha")
     print("Auto ASHA scheduler, test error:", abs(10 / 2 - best_config["z"] / 2))
 
 
 def test_custom_scheduler():
-    from ray.tune.schedulers import HyperBandScheduler
+    try:
+        from ray.tune.schedulers import HyperBandScheduler
+    except ImportError:
+        print("skip the test as ray tune cannot be imported.")
+        return
     my_scheduler = HyperBandScheduler(
         time_attr="samplesize", max_t=1000, reduction_factor=2
     )
@@ -120,7 +131,11 @@ def test_custom_scheduler():
 
 
 def test_custom_scheduler_default_time_attr():
-    from ray.tune.schedulers import ASHAScheduler
+    try:
+        from ray.tune.schedulers import ASHAScheduler
+    except ImportError:
+        print("skip the test as ray tune cannot be imported.")
+        return
     my_scheduler = ASHAScheduler(max_t=10)
     best_config = test_scheduler(scheduler=my_scheduler)
     print(
