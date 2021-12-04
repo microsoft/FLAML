@@ -119,7 +119,7 @@ class SearchState:
             if config and "FLAML_sample_size" in config:
                 self.sample_size = config["FLAML_sample_size"]
             else:
-                self.sample_size = self.data_size
+                self.sample_size = self.data_size[0]
             obj = result["val_loss"]
             metric_for_logging = result["metric_for_logging"]
             time2eval = result["time_total_s"]
@@ -181,7 +181,7 @@ class SearchState:
 class AutoMLState:
     def _prepare_sample_train_data(self, sample_size):
         sampled_weight = groups = None
-        if sample_size <= self.data_size:
+        if sample_size <= self.data_size[0]:
             if isinstance(self.X_train, pd.DataFrame):
                 sampled_X_train = self.X_train.iloc[:sample_size]
             else:
@@ -205,7 +205,7 @@ class AutoMLState:
         if "FLAML_sample_size" in config_w_resource:
             sample_size = int(config_w_resource["FLAML_sample_size"])
         else:
-            sample_size = self.data_size
+            sample_size = self.data_size[0]
         (
             sampled_X_train,
             sampled_y_train,
@@ -226,11 +226,11 @@ class AutoMLState:
             None
             if self.time_budget is None
             else self.time_budget - self.time_from_start
-            if sample_size == self.data_size
+            if sample_size == self.data_size[0]
             else (self.time_budget - self.time_from_start)
             / 2
             * sample_size
-            / self.data_size
+            / self.data_size[0]
         )
 
         if _is_nlp_task(self.task):
@@ -495,6 +495,7 @@ class AutoML(BaseEstimator):
                 metric for each model.
             mem_thres: A float of the memory size constraint in bytes.
             pred_time_limit: A float of the prediction latency constraint in seconds.
+                It refers to the average prediction time per row in validation data.
             train_time_limit: A float of the training time constraint in seconds.
             verbose: int, default=3 | Controls the verbosity, higher means more
                 messages.
@@ -1122,7 +1123,7 @@ class AutoML(BaseEstimator):
                         test_size=split_ratio,
                         random_state=RANDOM_SEED,
                     )
-        self._state.data_size = X_train.shape[0]
+        self._state.data_size = X_train.shape
         self.data_size_full = len(y_train_all)
         self._state.X_train, self._state.y_train = X_train, y_train
         self._state.X_val, self._state.y_val = X_val, y_val
@@ -1556,7 +1557,7 @@ class AutoML(BaseEstimator):
         Returns:
             A float for the maximal sample size or None.
         """
-        return self._state.data_size if self._sample else None
+        return self._state.data_size[0] if self._sample else None
 
     @property
     def trainable(self) -> Callable[[dict], Optional[float]]:
@@ -1752,6 +1753,7 @@ class AutoML(BaseEstimator):
                 metric for each model.
             mem_thres: A float of the memory size constraint in bytes.
             pred_time_limit: A float of the prediction latency constraint in seconds.
+                It refers to the average prediction time per row in validation data.
             train_time_limit: A float of the training time constraint in seconds.
             X_val: None or a numpy array or a pandas dataframe of validation data.
             y_val: None or a numpy array or a pandas series of validation labels.
@@ -1966,7 +1968,10 @@ class AutoML(BaseEstimator):
             sample
             and task != "rank"
             and eval_method != "cv"
-            and (self._min_sample_size * SAMPLE_MULTIPLY_FACTOR < self._state.data_size)
+            and (
+                self._min_sample_size * SAMPLE_MULTIPLY_FACTOR
+                < self._state.data_size[0]
+            )
         )
         if "auto" == metric:
             if "binary" in self._state.task:
@@ -2206,7 +2211,7 @@ class AutoML(BaseEstimator):
                 search_state.update(result, 0)
                 if result["wall_clock_time"] is not None:
                     self._state.time_from_start = result["wall_clock_time"]
-                if search_state.sample_size == self._state.data_size:
+                if search_state.sample_size == self._state.data_size[0]:
                     self._iter_per_learner[estimator] += 1
                     if not self._fullsize_reached:
                         self._fullsize_reached = True
@@ -2276,7 +2281,7 @@ class AutoML(BaseEstimator):
             self._max_iter = 0
             self._best_estimator = estimator = self.estimator_list[0]
             self._selected = state = self._search_states[estimator]
-            state.best_config_sample_size = self._state.data_size
+            state.best_config_sample_size = self._state.data_size[0]
             state.best_config = (
                 state.init_config
                 if isinstance(state.init_config, dict)
@@ -2299,7 +2304,7 @@ class AutoML(BaseEstimator):
                 or better
                 or (not self.best_estimator)
                 or self._search_states[self.best_estimator].sample_size
-                < self._state.data_size
+                < self._state.data_size[0]
                 else time_left - est_retrain_time
             )
             if not search_state.search_alg:
@@ -2310,7 +2315,7 @@ class AutoML(BaseEstimator):
                 if self._sample:
                     resource_attr = "FLAML_sample_size"
                     min_resource = self._min_sample_size
-                    max_resource = self._state.data_size
+                    max_resource = self._state.data_size[0]
                 else:
                     resource_attr = min_resource = max_resource = None
                 learner_class = self._state.learner_classes.get(estimator)
@@ -2399,7 +2404,7 @@ class AutoML(BaseEstimator):
                     min_budget = max(10 * self._eci[0], sum(self._eci))
                     max_budget = 10000 * self._eci[0]
                     if search_state.sample_size:
-                        ratio = search_state.data_size / search_state.sample_size
+                        ratio = search_state.data_size[0] / search_state.sample_size
                         min_budget *= ratio
                         max_budget *= ratio
                     logger.info(
@@ -2409,7 +2414,7 @@ class AutoML(BaseEstimator):
                 if result["wall_clock_time"] is not None:
                     self._state.time_from_start = result["wall_clock_time"]
                 # logger.info(f"{self._search_states[estimator].sample_size}, {data_size}")
-                if search_state.sample_size == self._state.data_size:
+                if search_state.sample_size == self._state.data_size[0]:
                     self._iter_per_learner[estimator] += 1
                     self._fullsize_reached = True
                 if search_state.best_loss < self._state.best_loss:
@@ -2520,7 +2525,7 @@ class AutoML(BaseEstimator):
                 and est_retrain_time
                 and not better
                 and self._search_states[self._best_estimator].sample_size
-                == self._state.data_size
+                == self._state.data_size[0]
                 and (
                     est_retrain_time
                     <= self._state.time_budget - self._state.time_from_start
@@ -2561,7 +2566,7 @@ class AutoML(BaseEstimator):
         self._best_iteration = 0
         self._time_taken_best_iter = 0
         self._config_history = {}
-        self._max_iter_per_learner = 1000000  # TODO
+        self._max_iter_per_learner = 10000
         self._iter_per_learner = dict([(e, 0) for e in self.estimator_list])
         self._fullsize_reached = False
         self._trained_estimator = None
@@ -2681,7 +2686,7 @@ class AutoML(BaseEstimator):
                         self._state.time_budget - self._state.time_from_start
                         > self._selected.est_retrain_time(self.data_size_full)
                         and self._selected.best_config_sample_size
-                        == self._state.data_size
+                        == self._state.data_size[0]
                     )
                 ):
                     state = self._search_states[self._best_estimator]
@@ -2737,13 +2742,13 @@ class AutoML(BaseEstimator):
                     inv.append(0)
                     continue
                 estimated_cost = search_state.estimated_cost4improvement
-                if search_state.sample_size < self._state.data_size:
+                if search_state.sample_size < self._state.data_size[0]:
                     estimated_cost = min(
                         estimated_cost,
                         search_state.time2eval_best
                         * min(
                             SAMPLE_MULTIPLY_FACTOR,
-                            self._state.data_size / search_state.sample_size,
+                            self._state.data_size[0] / search_state.sample_size,
                         ),
                     )
                 gap = search_state.best_loss - self._state.best_loss
