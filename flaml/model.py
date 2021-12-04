@@ -90,9 +90,9 @@ class BaseEstimator:
             config: A dictionary containing the hyperparameter names, 'n_jobs' as keys.
                 n_jobs is the number of parallel threads.
         """
+        self._task = task
         self.params = self.config2params(config)
         self.estimator_class = self._model = None
-        self._task = task
         if "_estimator_type" in config:
             self._estimator_type = self.params.pop("_estimator_type")
         else:
