@@ -25,15 +25,15 @@ class TrainerForAuto(TFTrainer):
 
         # TODO: if your task is seq2seq (i.e., SUMMARIZATION), uncomment the code below (add indentation before metrics = eval_dataset...
 
-        # if is_seq2seq:
-        #     metrics = eval_dataset and super().evaluate(
-        #         eval_dataset,
-        #         ignore_keys,
-        #         metric_key_prefix,
-        #         num_beams=self.args.num_beams,
-        #     )
-        # else:
-        metrics = eval_dataset and super().evaluate(
+        if is_seq2seq:
+            metrics = eval_dataset and super().evaluate(
+                eval_dataset,
+                ignore_keys,
+                metric_key_prefix,
+                num_beams=self.args.num_beams,
+            )
+        else:
+            metrics = eval_dataset and super().evaluate(
             eval_dataset,
             ignore_keys,
             metric_key_prefix,
@@ -58,12 +58,12 @@ class TrainerForAuto(TFTrainer):
 #  Seq2SeqTrainerForAuto to make sure it's correct
 
 
-# class Seq2SeqTrainerForAuto(Seq2SeqTrainer, TrainerForAuto):
-#     def evaluate(self, eval_dataset=None, ignore_keys=None, metric_key_prefix="eval"):
-#         """Overriding transformers.Trainer.evaluate by saving metrics and checkpoint path"""
-#         super(TrainerForAuto).evaluate(
-#             eval_dataset, ignore_keys, metric_key_prefix, is_seq2seq=True
-#         )
+class Seq2SeqTrainerForAuto(Seq2SeqTrainer, TrainerForAuto):
+    def evaluate(self, eval_dataset=None, ignore_keys=None, metric_key_prefix="eval"):
+        """Overriding transformers.Trainer.evaluate by saving metrics and checkpoint path"""
+        super(TrainerForAuto).evaluate(
+            eval_dataset, ignore_keys, metric_key_prefix, is_seq2seq=True
+        )
 
 
 # TODO: if your task is QUESTIONANSWERING, uncomment the code below
