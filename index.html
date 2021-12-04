@@ -287,7 +287,8 @@ model per estimator. Make sure memory is large enough if setting to True.</p></l
 <li><p><strong>log_training_metric</strong> – A boolean of whether to log the training
 metric for each model.</p></li>
 <li><p><strong>mem_thres</strong> – A float of the memory size constraint in bytes.</p></li>
-<li><p><strong>pred_time_limit</strong> – A float of the prediction latency constraint in seconds.</p></li>
+<li><p><strong>pred_time_limit</strong> – A float of the prediction latency constraint in seconds.
+It refers to the average prediction time per row in validation data.</p></li>
 <li><p><strong>train_time_limit</strong> – A float of the training time constraint in seconds.</p></li>
 <li><p><strong>X_val</strong> – None or a numpy array or a pandas dataframe of validation data.</p></li>
 <li><p><strong>y_val</strong> – None or a numpy array or a pandas series of validation labels.</p></li>
