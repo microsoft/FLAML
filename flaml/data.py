@@ -12,7 +12,6 @@ from .training_log import training_log_reader
 from datetime import datetime
 from typing import Dict, Union, List
 
-# TODO: if your task is not specified in here, define your task as an all-capitalized word
 SEQCLASSIFICATION = "seq-classification"
 CLASSIFICATION = ("binary", "multi", "classification", SEQCLASSIFICATION)
 SEQREGRESSION = "seq-regression"
@@ -30,7 +29,7 @@ NLU_TASKS = (
 
 
 def _is_nlp_task(task):
-    if task in NLU_TASKS + NLG_TASKS:
+    if task in [SEQCLASSIFICATION, SEQREGRESSION]:
         return True
     else:
         return False

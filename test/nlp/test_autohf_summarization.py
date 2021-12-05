@@ -2,7 +2,7 @@ import os
 import pytest
 
 
-@pytest.mark.skipif(os.name == "posix", reason="do not run on mac os")
+# @pytest.mark.skipif(os.name == "posix", reason="do not run on mac os")
 def test_hf_data():
     from flaml import AutoML
 
@@ -35,8 +35,8 @@ def test_hf_data():
         "gpu_per_trial": 0,
         "max_iter": 3,
         "time_budget": 5,
-        "task": "seq-classification",
-        "metric": "accuracy",
+        "task": "summarization",
+        "metric": "rouge",
         "log_file_name": "seqclass.log",
     }
 
