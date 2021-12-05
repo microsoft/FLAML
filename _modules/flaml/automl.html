@@ -62,12 +62,12 @@
              
   <h1>Source code for flaml.automl</h1><div class="highlight"><pre>
 <span></span><span class="c1"># !</span>
-<span class="c1">#  * Copyright (c) Microsoft Corporation. All rights reserved.</span>
+<span class="c1">#  * Copyright (c) FLAML authors. All rights reserved.</span>
 <span class="c1">#  * Licensed under the MIT License. See LICENSE file in the</span>
 <span class="c1">#  * project root for license information.</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">scipy.sparse</span> <span class="kn">import</span> <span class="n">issparse</span>
@@ -83,10 +83,7 @@
 <span class="kn">from</span> <span class="nn">sklearn.base</span> <span class="kn">import</span> <span class="n">BaseEstimator</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span>
-<span class="kn">from</span> <span class="nn">pandas</span> <span class="kn">import</span> <span class="n">DataFrame</span>
-<span class="kn">from</span> <span class="nn">.data</span> <span class="kn">import</span> <span class="n">_is_nlp_task</span>
-
+<span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">from</span> <span class="nn">.ml</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">compute_estimator</span><span class="p">,</span>
     <span class="n">train_estimator</span><span class="p">,</span>
@@ -103,8 +100,14 @@
     <span class="n">N_SPLITS</span><span class="p">,</span>
     <span class="n">SAMPLE_MULTIPLY_FACTOR</span><span class="p">,</span>
 <span class="p">)</span>
-
-<span class="kn">from</span> <span class="nn">.data</span> <span class="kn">import</span> <span class="n">concat</span><span class="p">,</span> <span class="n">CLASSIFICATION</span><span class="p">,</span> <span class="n">TS_FORECAST</span><span class="p">,</span> <span class="n">FORECAST</span><span class="p">,</span> <span class="n">REGRESSION</span>
+<span class="kn">from</span> <span class="nn">.data</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">concat</span><span class="p">,</span>
+    <span class="n">CLASSIFICATION</span><span class="p">,</span>
+    <span class="n">TS_FORECAST</span><span class="p">,</span>
+    <span class="n">FORECAST</span><span class="p">,</span>
+    <span class="n">REGRESSION</span><span class="p">,</span>
+    <span class="n">_is_nlp_task</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">tune</span>
 <span class="kn">from</span> <span class="nn">.training_log</span> <span class="kn">import</span> <span class="n">training_log_reader</span><span class="p">,</span> <span class="n">training_log_writer</span>
 
@@ -741,6 +744,15 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_search_states</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_best_estimator</span><span class="p">],</span> <span class="s2">&quot;best_config_train_time&quot;</span><span class="p">,</span> <span class="kc">None</span>
         <span class="p">)</span>
 
+    <span class="k">def</span> <span class="nf">save_best_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="n">best</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;class&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_estimator</span><span class="p">,</span>
+            <span class="s2">&quot;hyperparameters&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_config</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">filename</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">classes_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;A list of n_classes elements for class labels.&quot;&quot;&quot;</span>
@@ -757,7 +769,9 @@
         <span class="sd">&quot;&quot;&quot;Time taken to find best model in seconds.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_time_taken_best_iter&quot;</span><span class="p">)</span>
 
-<div class="viewcode-block" id="AutoML.predict"><a class="viewcode-back" href="../../index.html#flaml.AutoML.predict">[docs]</a>    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X_test</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">,</span> <span class="n">DataFrame</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]):</span>
+<div class="viewcode-block" id="AutoML.predict"><a class="viewcode-back" href="../../index.html#flaml.AutoML.predict">[docs]</a>    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">X_test</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]</span>
+    <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Predict label from features.</span>
 
 <span class="sd">        Args:</span>
@@ -826,7 +840,7 @@
             <span class="k">try</span><span class="p">:</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">List</span><span class="p">):</span>
                     <span class="n">X</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">X</span><span class="p">)]</span>
-                <span class="n">X</span> <span class="o">=</span> <span class="n">DataFrame</span><span class="p">(</span>
+                <span class="n">X</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
                     <span class="nb">dict</span><span class="p">(</span>
                         <span class="p">[</span>
                             <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_transformer</span><span class="o">.</span><span class="n">_str_columns</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">X</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
