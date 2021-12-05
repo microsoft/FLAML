@@ -14,9 +14,9 @@ Loss using the specified metric.
 **Arguments**:
 
 - `metric_name` - A string of the metric name, one of
-  &#x27;r2&#x27;, &#x27;rmse&#x27;, &#x27;mae&#x27;, &#x27;mse&#x27;, &#x27;accuracy&#x27;, &#x27;roc_auc&#x27;, &#x27;roc_auc_ovr&#x27;,
-  &#x27;roc_auc_ovo&#x27;, &#x27;log_loss&#x27;, &#x27;mape&#x27;, &#x27;f1&#x27;, &#x27;ap&#x27;, &#x27;ndcg&#x27;,
-  &#x27;micro_f1&#x27;, &#x27;macro_f1&#x27;.
+  'r2', 'rmse', 'mae', 'mse', 'accuracy', 'roc_auc', 'roc_auc_ovr',
+  'roc_auc_ovo', 'log_loss', 'mape', 'f1', 'ap', 'ndcg',
+  'micro_f1', 'macro_f1'.
 - `y_predict` - A 1d or 2d numpy array of the predictions which can be
   used to calculate the metric. E.g., 2d for log_loss and 1d
   for others.

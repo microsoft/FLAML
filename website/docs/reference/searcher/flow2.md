@@ -24,27 +24,21 @@ Constructor.
 - `init_config` - a dictionary of a partial or full initial config,
   e.g., from a subset of controlled dimensions
   to the initial low-cost values.
-  E.g., {&#x27;epochs&#x27;: 1}.
+  E.g., {'epochs': 1}.
 - `metric` - A string of the metric name to optimize for.
-- `mode` - A string in [&#x27;min&#x27;, &#x27;max&#x27;] to specify the objective as
+- `mode` - A string in ['min', 'max'] to specify the objective as
   minimization or maximization.
 - `cat_hp_cost` - A dictionary from a subset of categorical dimensions
   to the relative cost of each choice.
-  e.g.,
-  
-  .. code-block:: python
-  
-- `{&#x27;tree_method&#x27;` - [1, 1, 2]}
-  
-  i.e., the relative cost of the
-  three choices of &#x27;tree_method&#x27; is 1, 1 and 2 respectively.
+  e.g., ```{'tree_method': [1, 1, 2]}``` i.e., the relative cost
+  of the three choices of 'tree_method' is 1, 1 and 2 respectively.
 - `space` - A dictionary to specify the search space.
 - `prune_attr` - A string of the attribute used for pruning.
   Not necessarily in space.
   When prune_attr is in space, it is a hyperparameter, e.g.,
-  &#x27;n_iters&#x27;, and the best value is unknown.
+  'n_iters', and the best value is unknown.
   When prune_attr is not in space, it is a resource dimension,
-  e.g., &#x27;sample_size&#x27;, and the peak performance is assumed
+  e.g., 'sample_size', and the peak performance is assumed
   to be at the max_resource.
 - `min_resource` - A float of the minimal resource to use for the
   prune_attr; only valid if prune_attr is not in space.
@@ -89,7 +83,7 @@ def on_trial_complete(trial_id: str, result: Optional[Dict] = None, error: bool 
 
 Compare with incumbent.
 If better, move, reset num_complete and num_proposed.
-If not better and num_complete &gt;= 2*dim, num_allowed += 2.
+If not better and num_complete >= 2*dim, num_allowed += 2.
 
 #### on\_trial\_result
 
@@ -117,7 +111,7 @@ Suggest a new config, one of the following cases:
 def can_suggest() -> bool
 ```
 
-Can&#x27;t suggest if 2*dim configs have been proposed for the incumbent
+Can't suggest if 2*dim configs have been proposed for the incumbent
 while fewer are completed.
 
 #### config\_signature

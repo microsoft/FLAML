@@ -15,10 +15,10 @@ module.exports = {
   themeConfig: {
     navbar: {
       title: 'FLAML',
-      logo: {
-        alt: 'FLAML',
-        src: 'img/logo.svg',
-      },
+      // logo: {
+      //   alt: 'FLAML',
+      //   src: 'img/logo.svg',
+      // },
       items: [
         {
           type: 'doc',

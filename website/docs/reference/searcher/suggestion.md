@@ -26,21 +26,23 @@ Not all implementations support multi objectives.
 - `mode` _str or list_ - If string One of {min, max}. If list then
   list of max and min, determines whether objective is minimizing
   or maximizing the metric attribute. Must match type of metric.
-  .. code-block:: python
-  class ExampleSearch(Searcher):
-  def __init__(self, metric=&quot;mean_loss&quot;, mode=&quot;min&quot;, **kwargs):
-  super(ExampleSearch, self).__init__(
-  metric=metric, mode=mode, **kwargs)
-  self.optimizer = Optimizer()
-  self.configurations = {}
-  def suggest(self, trial_id):
-  configuration = self.optimizer.query()
-  self.configurations[trial_id] = configuration
-  def on_trial_complete(self, trial_id, result, **kwargs):
-  configuration = self.configurations[trial_id]
-  if result and self.metric in result:
-  self.optimizer.update(configuration, result[self.metric])
-  tune.run(trainable_function, search_alg=ExampleSearch())
+  
+```python
+class ExampleSearch(Searcher):
+    def __init__(self, metric="mean_loss", mode="min", **kwargs):
+        super(ExampleSearch, self).__init__(
+            metric=metric, mode=mode, **kwargs)
+        self.optimizer = Optimizer()
+        self.configurations = {}
+    def suggest(self, trial_id):
+        configuration = self.optimizer.query()
+        self.configurations[trial_id] = configuration
+    def on_trial_complete(self, trial_id, result, **kwargs):
+        configuration = self.configurations[trial_id]
+        if result and self.metric in result:
+            self.optimizer.update(configuration, result[self.metric])
+tune.run(trainable_function, search_alg=ExampleSearch())
+```
 
 #### set\_search\_properties
 
@@ -58,7 +60,7 @@ unsuccessful, e.g. when the search space has already been set.
 **Arguments**:
 
 - `metric` _str_ - Metric to optimize
-- `mode` _str_ - One of [&quot;min&quot;, &quot;max&quot;]. Direction to optimize.
+- `mode` _str_ - One of ["min", "max"]. Direction to optimize.
 - `config` _dict_ - Tune config dict.
 
 #### on\_trial\_result
@@ -119,11 +121,12 @@ A wrapper algorithm for limiting the number of concurrent trials.
 
 **Example**:
 
-  .. code-block:: python
-  from ray.tune.suggest import ConcurrencyLimiter
-  search_alg = HyperOptSearch(metric=&quot;accuracy&quot;)
-  search_alg = ConcurrencyLimiter(search_alg, max_concurrent=2)
-  tune.run(trainable, search_alg=search_alg)
+```python 
+from ray.tune.suggest import ConcurrencyLimiter
+search_alg = HyperOptSearch(metric="accuracy")
+search_alg = ConcurrencyLimiter(search_alg, max_concurrent=2)
+tune.run(trainable, search_alg=search_alg)
+```
 
 #### validate\_warmstart
 
@@ -131,7 +134,7 @@ A wrapper algorithm for limiting the number of concurrent trials.
 def validate_warmstart(parameter_names: List[str], points_to_evaluate: List[Union[List, Dict]], evaluated_rewards: List, validate_point_name_lengths: bool = True)
 ```
 
-Generic validation of a Searcher&#x27;s warm start functionality.
+Generic validation of a Searcher's warm start functionality.
 Raises exceptions in case of type and length mismatches between
 parameters.
 If ``validate_point_name_lengths`` is False, the equality of lengths
@@ -145,28 +148,28 @@ class OptunaSearch(Searcher)
 ```
 
 A wrapper around Optuna to provide trial suggestions.
-`Optuna &lt;https://optuna.org/&gt;`_ is a hyperparameter optimization library.
+[Optuna](https://optuna.org/)
+is a hyperparameter optimization library.
 In contrast to other libraries, it employs define-by-run style
 hyperparameter definitions.
-This Searcher is a thin wrapper around Optuna&#x27;s search algorithms.
+This Searcher is a thin wrapper around Optuna's search algorithms.
 You can pass any Optuna sampler, which will be used to generate
 hyperparameter suggestions.
 
 **Arguments**:
 
 - `space` _dict|Callable_ - Hyperparameter search space definition for
-  Optuna&#x27;s sampler. This can be either a :class:`dict` with
+  Optuna's sampler. This can be either a class `dict` with
   parameter names as keys and ``optuna.distributions`` as values,
   or a Callable - in which case, it should be a define-by-run
   function using ``optuna.trial`` to obtain the hyperparameter
-  values. The function should return either a :class:`dict` of
+  values. The function should return either a class `dict` of
   constant values with names as keys, or None.
-  For more information, see https://optuna.readthedocs.io\
-  /en/stable/tutorial/10_key_features/002_configurations.html.
-  .. warning::
-  No actual computation should take place in the define-by-run
+  For more information, see
+  [tutorial](https://optuna.readthedocs.io/en/stable/tutorial/10_key_features/002_configurations.html).
+  Warning - No actual computation should take place in the define-by-run
   function. Instead, put the training logic inside the function
-  or class trainable passed to ``tune.run``.
+  or class trainable passed to tune.run.
 - `metric` _str_ - The training result objective value attribute. If None
   but a mode was passed, the anonymous metric `_metric` will be used
   per default.
@@ -188,41 +191,38 @@ hyperparameter suggestions.
   as a list so the optimiser can be told the results without
   needing to re-compute the trial. Must be the same length as
   points_to_evaluate.
-  Tune automatically converts search spaces to Optuna&#x27;s format:
-  .. code-block:: python
-  from ray.tune.suggest.optuna import OptunaSearch
-  config = {
-- `&quot;a&quot;` - tune.uniform(6, 8)
-- `&quot;b&quot;` - tune.loguniform(1e-4, 1e-2)
-  }
-  optuna_search = OptunaSearch(
-  metric=&quot;loss&quot;,
-  mode=&quot;min&quot;)
-  tune.run(trainable, config=config, search_alg=optuna_search)
+  
+  Tune automatically converts search spaces to Optuna's format:
+  
+````python
+from ray.tune.suggest.optuna import OptunaSearch
+config = { "a": tune.uniform(6, 8),
+           "b": tune.loguniform(1e-4, 1e-2)}
+optuna_search = OptunaSearch(metric="loss", mode="min")
+tune.run(trainable, config=config, search_alg=optuna_search)
+````
+  
   If you would like to pass the search space manually, the code would
   look like this:
-  .. code-block:: python
-  from ray.tune.suggest.optuna import OptunaSearch
-  import optuna
-  config = {
-- `&quot;a&quot;` - optuna.distributions.UniformDistribution(6, 8),
-- `&quot;b&quot;` - optuna.distributions.LogUniformDistribution(1e-4, 1e-2),
-  }
-  optuna_search = OptunaSearch(
-  space,
-  metric=&quot;loss&quot;,
-  mode=&quot;min&quot;)
-  tune.run(trainable, search_alg=optuna_search)
-  # Equivalent Optuna define-by-run function approach:
-  def define_search_space(trial: optuna.Trial):
-  trial.suggest_float(&quot;a&quot;, 6, 8)
-  trial.suggest_float(&quot;b&quot;, 1e-4, 1e-2, log=True)
-  # training logic goes into trainable, this is just
-  # for search space definition
-  optuna_search = OptunaSearch(
-  define_search_space,
-  metric=&quot;loss&quot;,
-  mode=&quot;min&quot;)
-  tune.run(trainable, search_alg=optuna_search)
-  .. versionadded:: 0.8.8
+  
+```python
+from ray.tune.suggest.optuna import OptunaSearch
+import optuna
+config = { "a": optuna.distributions.UniformDistribution(6, 8),
+           "b": optuna.distributions.LogUniformDistribution(1e-4, 1e-2)}
+optuna_search = OptunaSearch(space,metric="loss",mode="min")
+tune.run(trainable, search_alg=optuna_search)
+# Equivalent Optuna define-by-run function approach:
+def define_search_space(trial: optuna.Trial):
+    trial.suggest_float("a", 6, 8)
+    trial.suggest_float("b", 1e-4, 1e-2, log=True)
+    # training logic goes into trainable, this is just
+    # for search space definition
+optuna_search = OptunaSearch(
+    define_search_space,
+    metric="loss",
+    mode="min")
+tune.run(trainable, search_alg=optuna_search)
+.. versionadded:: 0.8.8
+```
 

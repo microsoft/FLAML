@@ -28,9 +28,9 @@ Constructor.
 **Arguments**:
 
 - `task` - A string of the task type, one of
-  &#x27;binary&#x27;, &#x27;multi&#x27;, &#x27;regression&#x27;, &#x27;rank&#x27;, &#x27;forecast&#x27;
-- `config` - A dictionary containing the hyperparameter names
-  and &#x27;n_jobs&#x27; as keys. n_jobs is the number of parallel threads.
+  'binary', 'multi', 'regression', 'rank', 'forecast'
+- `config` - A dictionary containing the hyperparameter names, 'n_jobs' as keys.
+  n_jobs is the number of parallel threads.
 
 #### model
 
@@ -123,8 +123,7 @@ def search_space(cls, **params)
   Each key is the name of a hyperparameter, and value is a dict with
   its domain (required) and low_cost_init_value, init_value,
   cat_hp_cost (if applicable).
-  e.g.,
-- ``{&#x27;domain&#x27;` - tune.randint(lower=1, upper=10), &#x27;init_value&#x27;: 1}.`
+  e.g., ```{'domain': tune.randint(lower=1, upper=10), 'init_value': 1}```.
 
 #### size
 
@@ -178,7 +177,15 @@ def config2params(config: dict) -> dict
 
 **Returns**:
 
-  A dict that will be passed to self.estimator_class&#x27;s constructor.
+  A dict that will be passed to self.estimator_class's constructor.
+
+## TransformersEstimator Objects
+
+```python
+class TransformersEstimator(BaseEstimator)
+```
+
+The class for fine-tuning language models, using huggingface transformers API.
 
 ## SKLearnEstimator Objects
 

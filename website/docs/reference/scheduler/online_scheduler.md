@@ -17,7 +17,7 @@ Class for the most basic OnlineScheduler.
 def on_trial_result(trial_runner, trial: Trial, result: Dict)
 ```
 
-Report result and return a decision on the trial&#x27;s status.
+Report result and return a decision on the trial's status.
 
 #### choose\_trial\_to\_run
 
@@ -54,7 +54,7 @@ Constructor.
 def on_trial_result(trial_runner, trial: Trial, result: Dict)
 ```
 
-Report result and return a decision on the trial&#x27;s status.
+Report result and return a decision on the trial's status.
 
 ## ChaChaScheduler Objects
 
@@ -83,5 +83,5 @@ Constructor.
 def on_trial_result(trial_runner, trial: Trial, result: Dict)
 ```
 
-Report result and return a decision on the trial&#x27;s status.
+Report result and return a decision on the trial's status.
 

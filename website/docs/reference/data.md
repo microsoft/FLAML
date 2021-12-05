@@ -18,10 +18,10 @@ If the file is not cached locally, download it from open ML.
 - `dataset_id` - An integer of the dataset id in openml
 - `data_dir` - A string of the path to store and load the data
 - `random_state` - An integer of the random seed for splitting data
-- `dataset_format` - A string specifying the format of returned dataset. Default is &#x27;dataframe&#x27;.
-  Can choose from [&#x27;dataframe&#x27;, &#x27;array&#x27;].
-  If &#x27;dataframe&#x27;, the returned dataset will be a Pandas DataFrame.
-  If &#x27;array&#x27;, the returned dataset will be a NumPy array or a SciPy sparse matrix.
+- `dataset_format` - A string specifying the format of returned dataset. Default is 'dataframe'.
+  Can choose from ['dataframe', 'array'].
+  If 'dataframe', the returned dataset will be a Pandas DataFrame.
+  If 'array', the returned dataset will be a NumPy array or a SciPy sparse matrix.
 
 **Returns**:
 
@@ -95,7 +95,7 @@ Transform input training data.
 #### fit\_transform
 
 ```python
-def fit_transform(X, y, task)
+def fit_transform(X: Union[DataFrame, np.array], y, task)
 ```
 
 Fit transformer and process the input training data according to the task type.
@@ -105,7 +105,7 @@ Fit transformer and process the input training data according to the task type.
 - `X` - A numpy array or a pandas dataframe of training data.
 - `y` - A numpy array or a pandas series of labels.
 - `task` - A string of the task type, e.g.,
-  &#x27;classification&#x27;, &#x27;regression&#x27;, &#x27;ts_forecast&#x27;, &#x27;rank&#x27;.
+  'classification', 'regression', 'ts_forecast', 'rank'.
   
 
 **Returns**:
@@ -116,7 +116,7 @@ Fit transformer and process the input training data according to the task type.
 #### transform
 
 ```python
-def transform(X)
+def transform(X: Union[DataFrame, np.array])
 ```
 
 Process data using fit transformer.
@@ -126,7 +126,7 @@ Process data using fit transformer.
 - `X` - A numpy array or a pandas dataframe of training data.
 - `y` - A numpy array or a pandas series of labels.
 - `task` - A string of the task type, e.g.,
-  &#x27;classification&#x27;, &#x27;regression&#x27;, &#x27;ts_forecast&#x27;, &#x27;rank&#x27;.
+  'classification', 'regression', 'ts_forecast', 'rank'.
   
 
 **Returns**:

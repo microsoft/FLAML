@@ -378,17 +378,17 @@ class AutoML:
     """The AutoML class.
     Example:
 
-        .. code-block:: python
-
-            automl = AutoML()
-            automl_settings = {
-                "time_budget": 60,
-                "metric": 'accuracy',
-                "task": 'classification',
-                "log_file_name": 'mylog.log',
-            }
-            automl.fit(X_train = X_train, y_train = y_train,
-                **automl_settings)
+    ```python  
+    automl = AutoML()
+    automl_settings = {
+        "time_budget": 60,
+        "metric": 'accuracy',
+        "task": 'classification',
+        "log_file_name": 'mylog.log',
+    }
+    automl.fit(X_train = X_train, y_train = y_train,
+        **automl_settings)
+    ```
 
     """
 
@@ -408,15 +408,14 @@ class AutoML:
                 'mape'. Default is 'auto'.
                 If passing a customized metric function, the function needs to
                 have the follwing signature:
-
-                .. code-block:: python
-
-                    def custom_metric(
-                        X_test, y_test, estimator, labels,
-                        X_train, y_train, weight_test=None, weight_train=None,
-                        config=None, groups_test=None, groups_train=None,
-                    ):
-                        return metric_to_minimize, metrics_to_log
+        ```python
+        def custom_metric(
+            X_test, y_test, estimator, labels,
+            X_train, y_train, weight_test=None, weight_train=None,
+            config=None, groups_test=None, groups_train=None,
+        ):
+            return metric_to_minimize, metrics_to_log
+        ```
 
                 which returns a float number as the minimization objective,
                 and a dictionary as the metrics to log.
@@ -428,11 +427,7 @@ class AutoML:
             log_file_name: A string of the log file name. To disable logging,
                 set it to be an empty string "".
             estimator_list: A list of strings for estimator names, or 'auto'
-                e.g.,
-
-                .. code-block:: python
-
-                    ['lgbm', 'xgboost', 'catboost', 'rf', 'extra_tree']
+                e.g., ```['lgbm', 'xgboost', 'catboost', 'rf', 'extra_tree']```
 
             time_budget: A float number of the time budget in seconds.
                 Use -1 if no time limit.
@@ -490,17 +485,18 @@ class AutoML:
                 automl_experiment and use them in the new_automl_experiment.
                 e.g.,
 
-                .. code-block:: python
+               
+        ```python
+        from flaml import AutoML
+        automl_experiment = AutoML()
+        X_train, y_train = load_iris(return_X_y=True)
+        automl_experiment.fit(X_train, y_train)
+        starting_points = automl_experiment.best_config_per_estimator
 
-                    from flaml import AutoML
-                    automl_experiment = AutoML()
-                    X_train, y_train = load_iris(return_X_y=True)
-                    automl_experiment.fit(X_train, y_train)
-                    starting_points = automl_experiment.best_config_per_estimator
-
-                    new_automl_experiment = AutoML()
-                    new_automl_experiment.fit(X_train, y_train,
-                        starting_points=starting_points)
+        new_automl_experiment = AutoML()
+        new_automl_experiment.fit(X_train, y_train,
+            starting_points=starting_points)
+        ```
 
             seed: int or None, default=None | The random seed for np.random.
             n_concurrent_trials: [Experimental] int, default=1 | The number of
@@ -664,14 +660,14 @@ class AutoML:
                     are assumed to be exogenous variables (categorical
                     or numeric).
 
-                    .. code-block:: python
-
-                        multivariate_X_test = pd.DataFrame({
-                            'timeStamp': pd.date_range(start='1/1/2022', end='1/07/2022'),
-                            'categorical_col': ['yes', 'yes', 'no', 'no', 'yes', 'no', 'yes'],
-                            'continuous_col': [105, 107, 120, 118, 110, 112, 115]
-                        })
-                        model.predict(multivariate_X_test)
+        ```python                    
+        multivariate_X_test = pd.DataFrame({
+            'timeStamp': pd.date_range(start='1/1/2022', end='1/07/2022'),
+            'categorical_col': ['yes', 'yes', 'no', 'no', 'yes', 'no', 'yes'],
+            'continuous_col': [105, 107, 120, 118, 110, 112, 115]
+        })
+        model.predict(multivariate_X_test)
+        ```
 
         Returns:
             A array-like of shape n * 1 - - each element is a predicted
@@ -1636,14 +1632,14 @@ class AutoML:
                 If passing a customized metric function, the function needs to
                 have the follwing signature:
 
-                .. code-block:: python
-
-                    def custom_metric(
-                        X_test, y_test, estimator, labels,
-                        X_train, y_train, weight_test=None, weight_train=None,
-                        config=None, groups_test=None, groups_train=None,
-                    ):
-                        return metric_to_minimize, metrics_to_log
+        ```python
+        def custom_metric(
+            X_test, y_test, estimator, labels,
+            X_train, y_train, weight_test=None, weight_train=None,
+            config=None, groups_test=None, groups_train=None,
+        ):
+            return metric_to_minimize, metrics_to_log
+        ```
 
                 which returns a float number as the minimization objective,
                 and a dictionary as the metrics to log.
@@ -1655,11 +1651,7 @@ class AutoML:
             log_file_name: A string of the log file name. To disable logging,
                 set it to be an empty string "".
             estimator_list: A list of strings for estimator names, or 'auto'
-                e.g.,
-
-                .. code-block:: python
-
-                    ['lgbm', 'xgboost', 'catboost', 'rf', 'extra_tree']
+                e.g., ```['lgbm', 'xgboost', 'catboost', 'rf', 'extra_tree']```
 
             time_budget: A float number of the time budget in seconds.
                 Use -1 if no time limit.
@@ -1726,18 +1718,18 @@ class AutoML:
                 In the following code example, we get starting_points from the
                 automl_experiment and use them in the new_automl_experiment.
                 e.g.,
+                
+        ```python
+        from flaml import AutoML
+        automl_experiment = AutoML()
+        X_train, y_train = load_iris(return_X_y=True)
+        automl_experiment.fit(X_train, y_train)
+        starting_points = automl_experiment.best_config_per_estimator
 
-                .. code-block:: python
-
-                    from flaml import AutoML
-                    automl_experiment = AutoML()
-                    X_train, y_train = load_iris(return_X_y=True)
-                    automl_experiment.fit(X_train, y_train)
-                    starting_points = automl_experiment.best_config_per_estimator
-
-                    new_automl_experiment = AutoML()
-                    new_automl_experiment.fit(X_train, y_train,
-                        starting_points=starting_points)
+        new_automl_experiment = AutoML()
+        new_automl_experiment.fit(X_train, y_train,
+            starting_points=starting_points)
+        ```
 
             seed: int or None, default=None | The random seed for np.random.
             n_concurrent_trials: [Experimental] int, default=1 | The number of

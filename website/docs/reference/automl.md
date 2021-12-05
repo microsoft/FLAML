@@ -26,27 +26,147 @@ The AutoML class.
 **Example**:
 
   
-  .. code-block:: python
-  
-  automl = AutoML()
-  automl_settings = {
-- `&quot;time_budget&quot;` - 60,
-- `&quot;metric&quot;` - &#x27;accuracy&#x27;,
-- `&quot;task&quot;` - &#x27;classification&#x27;,
-- `&quot;log_file_name&quot;` - &#x27;test/mylog.log&#x27;,
-  }
-  automl.fit(X_train = X_train, y_train = y_train,
-  **automl_settings)
-
-#### model\_history
-
-```python
-@property
-def model_history()
+```python  
+automl = AutoML()
+automl_settings = {
+    "time_budget": 60,
+    "metric": 'accuracy',
+    "task": 'classification',
+    "log_file_name": 'mylog.log',
+}
+automl.fit(X_train = X_train, y_train = y_train,
+    **automl_settings)
 ```
 
-A dictionary of iter-&gt;model, storing the models when
-the best model is updated each time.
+#### \_\_init\_\_
+
+```python
+def __init__(**settings)
+```
+
+Constructor.
+
+Many settings in fit() can be passed to the constructor too.
+If an argument in fit() is provided, it will override the setting passed to the constructor.
+If an argument in fit() is not provided but provided in the constructor, the value passed to the constructor will be used.
+
+**Arguments**:
+
+- `metric` - A string of the metric name or a function,
+  e.g., 'accuracy', 'roc_auc', 'roc_auc_ovr', 'roc_auc_ovo',
+  'f1', 'micro_f1', 'macro_f1', 'log_loss', 'mae', 'mse', 'r2',
+  'mape'. Default is 'auto'.
+  If passing a customized metric function, the function needs to
+  have the follwing signature:
+```python
+def custom_metric(
+    X_test, y_test, estimator, labels,
+    X_train, y_train, weight_test=None, weight_train=None,
+    config=None, groups_test=None, groups_train=None,
+):
+    return metric_to_minimize, metrics_to_log
+```
+  
+  which returns a float number as the minimization objective,
+  and a dictionary as the metrics to log.
+- `task` - A string of the task type, e.g.,
+  'classification', 'regression', 'ts_forecast', 'rank',
+  'seq-classification', 'seq-regression'.
+- `n_jobs` - An integer of the number of threads for training.
+- `gpu_per_trial` - A float of the number of gpus per trial, only used by TransformersEstimator.
+- `log_file_name` - A string of the log file name. To disable logging,
+  set it to be an empty string "".
+- `estimator_list` - A list of strings for estimator names, or 'auto'
+  e.g., ```['lgbm', 'xgboost', 'catboost', 'rf', 'extra_tree']```
+  
+- `time_budget` - A float number of the time budget in seconds.
+  Use -1 if no time limit.
+- `max_iter` - An integer of the maximal number of iterations.
+- `sample` - A boolean of whether to sample the training data during
+  search.
+- `ensemble` - boolean or dict | default=False. Whether to perform
+  ensemble after search. Can be a dict with keys 'passthrough'
+  and 'final_estimator' to specify the passthrough and
+  final_estimator in the stacker.
+- `eval_method` - A string of resampling strategy, one of
+  ['auto', 'cv', 'holdout'].
+- `split_ratio` - A float of the valiation data percentage for holdout.
+- `n_splits` - An integer of the number of folds for cross - validation.
+- `log_type` - A string of the log type, one of
+  ['better', 'all'].
+  'better' only logs configs with better loss than previos iters
+  'all' logs all the tried configs.
+- `model_history` - A boolean of whether to keep the best
+  model per estimator. Make sure memory is large enough if setting to True.
+- `log_training_metric` - A boolean of whether to log the training
+  metric for each model.
+- `mem_thres` - A float of the memory size constraint in bytes.
+- `pred_time_limit` - A float of the prediction latency constraint in seconds.
+- `train_time_limit` - A float of the training time constraint in seconds.
+- `verbose` - int, default=3 | Controls the verbosity, higher means more
+  messages.
+- `retrain_full` - bool or str, default=True | whether to retrain the
+  selected model on the full training data when using holdout.
+  True - retrain only after search finishes; False - no retraining;
+  'budget' - do best effort to retrain without violating the time
+  budget.
+- `split_type` - str, default="auto" | the data split type.
+  For classification tasks, valid choices are [
+  "auto", 'stratified', 'uniform', 'time']. "auto" -> stratified.
+  For regression tasks, valid choices are ["auto", 'uniform', 'time'].
+  "auto" -> uniform.
+  For ts_forecast tasks, must be "auto" or 'time'.
+  For ranking task, must be "auto" or 'group'.
+- `hpo_method` - str, default="auto" | The hyperparameter
+  optimization method. By default, CFO is used for sequential
+  search and BlendSearch is used for parallel search.
+  No need to set when using flaml's default search space or using
+  a simple customized search space. When set to 'bs', BlendSearch
+  is used. BlendSearch can be tried when the search space is
+  complex, for example, containing multiple disjoint, discontinuous
+  subspaces. When set to 'random', random search is used.
+- `starting_points` - A dictionary to specify the starting hyperparameter
+  config for the estimators.
+  Keys are the name of the estimators, and values are the starting
+  hyperparamter configurations for the corresponding estimators.
+  The value can be a single hyperparamter configuration dict or a list
+  of hyperparamter configuration dicts.
+  In the following code example, we get starting_points from the
+  automl_experiment and use them in the new_automl_experiment.
+  e.g.,
+  
+  
+```python
+from flaml import AutoML
+automl_experiment = AutoML()
+X_train, y_train = load_iris(return_X_y=True)
+automl_experiment.fit(X_train, y_train)
+starting_points = automl_experiment.best_config_per_estimator
+
+new_automl_experiment = AutoML()
+new_automl_experiment.fit(X_train, y_train,
+    starting_points=starting_points)
+```
+  
+- `seed` - int or None, default=None | The random seed for np.random.
+- `n_concurrent_trials` - [Experimental] int, default=1 | The number of
+  concurrent trials. For n_concurrent_trials > 1, installation of
+  ray is required: `pip install flaml[ray]`.
+- `keep_search_state` - boolean, default=False | Whether to keep search
+  state after fit(). By default the state is deleted for space
+  saving.
+- `early_stop` - boolean, default=False | Whether to stop early if the
+  search is considered to converge.
+- `append_log` - boolean, default=False | Whetehr to directly append the log
+  records to the input log file if it exists.
+- `auto_augment` - boolean, default=True | Whether to automatically
+  augment rare classes.
+- `min_sample_size` - int, default=MIN_SAMPLE_TRAIN | the minimal sample
+  size when sample=True.
+- `use_ray` - boolean, default=False | Whether to use ray to run the training
+  in separate processes. This can be used to prevent OOM for large
+  datasets, but will incur more overhead in time. Only use it if
+  you run into OOM failures.
 
 #### config\_history
 
@@ -55,7 +175,7 @@ the best model is updated each time.
 def config_history()
 ```
 
-A dictionary of iter-&gt;(estimator, config, time),
+A dictionary of iter->(estimator, config, time),
 storing the best estimator, config, and the time when the best
 model is updated each time.
 
@@ -79,7 +199,7 @@ Return the best model found for a particular estimator.
 
 **Arguments**:
 
-- `estimator_name` - a str of the estimator&#x27;s name.
+- `estimator_name` - a str of the estimator's name.
   
 
 **Returns**:
@@ -122,7 +242,16 @@ A dictionary of the best configuration.
 def best_config_per_estimator()
 ```
 
-A dictionary of all estimators&#x27; best configuration.
+A dictionary of all estimators' best configuration.
+
+#### best\_loss\_per\_estimator
+
+```python
+@property
+def best_loss_per_estimator()
+```
+
+A dictionary of all estimators' best loss.
 
 #### best\_loss
 
@@ -163,7 +292,7 @@ Time taken to find best model in seconds.
 #### predict
 
 ```python
-def predict(X_test)
+def predict(X_test: Union[np.array, DataFrame, List[str], List[List[str]]])
 ```
 
 Predict label from features.
@@ -171,7 +300,7 @@ Predict label from features.
 **Arguments**:
 
 - `X_test` - A numpy array of featurized instances, shape n * m,
-  or for &#x27;ts_forecast&#x27; task:
+  or for 'ts_forecast' task:
   a pandas dataframe with the first column containing
   timestamp values (datetime type) or an integer n for
   the predict steps (only valid when the estimator is
@@ -179,14 +308,14 @@ Predict label from features.
   are assumed to be exogenous variables (categorical
   or numeric).
   
-  .. code-block:: python
-  
-  multivariate_X_test = pd.DataFrame({
-- `&#x27;timeStamp&#x27;` - pd.date_range(start=&#x27;1/1/2022&#x27;, end=&#x27;1/07/2022&#x27;),
-- `&#x27;categorical_col&#x27;` - [&#x27;yes&#x27;, &#x27;yes&#x27;, &#x27;no&#x27;, &#x27;no&#x27;, &#x27;yes&#x27;, &#x27;no&#x27;, &#x27;yes&#x27;],
-- `&#x27;continuous_col&#x27;` - [105, 107, 120, 118, 110, 112, 115]
-  })
-  model.predict(multivariate_X_test)
+```python                    
+multivariate_X_test = pd.DataFrame({
+    'timeStamp': pd.date_range(start='1/1/2022', end='1/07/2022'),
+    'categorical_col': ['yes', 'yes', 'no', 'no', 'yes', 'no', 'yes'],
+    'continuous_col': [105, 107, 120, 118, 110, 112, 115]
+})
+model.predict(multivariate_X_test)
+```
   
 
 **Returns**:
@@ -223,7 +352,7 @@ Add a customized learner.
 
 **Arguments**:
 
-- `learner_name` - A string of the learner&#x27;s name.
+- `learner_name` - A string of the learner's name.
 - `learner_class` - A subclass of flaml.model.BaseEstimator.
 
 #### get\_estimator\_from\_log
@@ -240,7 +369,7 @@ Get the estimator from log file.
 - `record_id` - An integer of the record ID in the file,
   0 corresponds to the first trial.
 - `task` - A string of the task type,
-  &#x27;binary&#x27;, &#x27;multi&#x27;, &#x27;regression&#x27;, &#x27;ts_forecast&#x27;, &#x27;rank&#x27;.
+  'binary', 'multi', 'regression', 'ts_forecast', 'rank'.
   
 
 **Returns**:
@@ -250,7 +379,7 @@ Get the estimator from log file.
 #### retrain\_from\_log
 
 ```python
-def retrain_from_log(log_file_name, X_train=None, y_train=None, dataframe=None, label=None, time_budget=0, task="classification", eval_method="auto", split_ratio=SPLIT_RATIO, n_splits=N_SPLITS, split_type=None, groups=None, n_jobs=-1, train_best=True, train_full=False, record_id=-1, auto_augment=True, **fit_kwargs, ,)
+def retrain_from_log(log_file_name, X_train=None, y_train=None, dataframe=None, label=None, time_budget=np.inf, task=None, eval_method=None, split_ratio=None, n_splits=None, split_type=None, groups=None, n_jobs=-1, gpu_per_trial=0, train_best=True, train_full=False, record_id=-1, auto_augment=None, **fit_kwargs, ,)
 ```
 
 Retrain from log file.
@@ -259,40 +388,42 @@ Retrain from log file.
 
 - `log_file_name` - A string of the log file name.
 - `X_train` - A numpy array or dataframe of training data in shape n*m.
-  For &#x27;ts_forecast&#x27; task, the first column of X_train
+  For 'ts_forecast' task, the first column of X_train
   must be the timestamp column (datetime type). Other
   columns in the dataframe are assumed to be exogenous
   variables (categorical or numeric).
 - `y_train` - A numpy array or series of labels in shape n*1.
 - `dataframe` - A dataframe of training data including label column.
-  For &#x27;ts_forecast&#x27; task, dataframe must be specified and should
+  For 'ts_forecast' task, dataframe must be specified and should
   have at least two columns: timestamp and label, where the first
   column is the timestamp column (datetime type). Other columns
   in the dataframe are assumed to be exogenous variables
   (categorical or numeric).
-- `label` - A str of the label column name, e.g., &#x27;label&#x27;;
+- `label` - A str of the label column name, e.g., 'label';
 - `Note` - If X_train and y_train are provided,
   dataframe and label are ignored;
   If not, dataframe and label must be provided.
 - `time_budget` - A float number of the time budget in seconds.
 - `task` - A string of the task type, e.g.,
-  &#x27;classification&#x27;, &#x27;regression&#x27;, &#x27;ts_forecast&#x27;, &#x27;rank&#x27;.
+  'classification', 'regression', 'ts_forecast', 'rank',
+  'seq-classification', 'seq-regression'.
 - `eval_method` - A string of resampling strategy, one of
-  [&#x27;auto&#x27;, &#x27;cv&#x27;, &#x27;holdout&#x27;].
+  ['auto', 'cv', 'holdout'].
 - `split_ratio` - A float of the validation data percentage for holdout.
 - `n_splits` - An integer of the number of folds for cross-validation.
-- `split_type` - str or None, default=None | the data split type.
+- `split_type` - str, default="auto" | the data split type.
   For classification tasks, valid choices are [
-  None, &#x27;stratified&#x27;, &#x27;uniform&#x27;, &#x27;time&#x27;, &#x27;group&#x27;]. None -&gt; stratified.
-  For regression tasks, valid choices are [None, &#x27;uniform&#x27;, &#x27;time&#x27;].
-  None -&gt; uniform.
-  For ts_forecast tasks, must be None or &#x27;time&#x27;.
-  For ranking task, must be None or &#x27;group&#x27;.
+  "auto", 'stratified', 'uniform', 'time', 'group']. "auto" -> stratified.
+  For regression tasks, valid choices are ["auto", 'uniform', 'time'].
+  "auto" -> uniform.
+  For ts_forecast tasks, must be "auto" or 'time'.
+  For ranking task, must be "auto" or 'group'.
 - `groups` - None or array-like | Group labels (with matching length to
   y_train) or groups counts (with sum equal to length of y_train)
   for training data.
 - `n_jobs` - An integer of the number of threads for training. Use all
   available resources when n_jobs == -1.
+- `gpu_per_trial` - A float of the number of gpus per trial. Only used by TransformersEstimator.
 - `train_best` - A boolean of whether to train the best config in the
   time budget; if false, train the last config in the budget.
 - `train_full` - A boolean of whether to train on the full data. If true,
@@ -300,7 +431,7 @@ Retrain from log file.
 - `record_id` - the ID of the training log record from which the model will
   be retrained. By default `record_id = -1` which means this will be
   ignored. `record_id = 0` corresponds to the first trial, and
-  when `record_id &gt;= 0`, `time_budget` will be ignored.
+  when `record_id >= 0`, `time_budget` will be ignored.
 - `auto_augment` - boolean, default=True | Whether to automatically
   augment rare classes.
 - `**fit_kwargs` - Other key word arguments to pass to fit() function of
@@ -336,9 +467,9 @@ Low cost partial config.
   A dict.
   (a) if there is only one estimator in estimator_list, each key is a
   hyperparameter name.
-  (b) otherwise, it is a nested dict with &#x27;ml&#x27; as the key, and
+  (b) otherwise, it is a nested dict with 'ml' as the key, and
   a list of the low_cost_partial_configs as the value, corresponding
-  to each learner&#x27;s low_cost_partial_config; the estimator index as
+  to each learner's low_cost_partial_config; the estimator index as
   an integer corresponding to the cheapest learner is appended to the
   list at the end.
 
@@ -356,9 +487,9 @@ Categorical hyperparameter cost
   A dict.
   (a) if there is only one estimator in estimator_list, each key is a
   hyperparameter name.
-  (b) otherwise, it is a nested dict with &#x27;ml&#x27; as the key, and
-  a list of the cat_hp_cost&#x27;s as the value, corresponding
-  to each learner&#x27;s cat_hp_cost; the cost relative to lgbm for each
+  (b) otherwise, it is a nested dict with 'ml' as the key, and
+  a list of the cat_hp_cost's as the value, corresponding
+  to each learner's cat_hp_cost; the cost relative to lgbm for each
   learner (as a list itself) is appended to the list at the end.
 
 #### points\_to\_evaluate
@@ -442,7 +573,7 @@ Metric constraints.
 #### fit
 
 ```python
-def fit(X_train=None, y_train=None, dataframe=None, label=None, metric="auto", task="classification", n_jobs=-1, log_file_name="flaml.log", estimator_list="auto", time_budget=60, max_iter=1000000, sample=True, ensemble=False, eval_method="auto", log_type="better", model_history=False, split_ratio=SPLIT_RATIO, n_splits=N_SPLITS, log_training_metric=False, mem_thres=MEM_THRES, pred_time_limit=np.inf, train_time_limit=np.inf, X_val=None, y_val=None, sample_weight_val=None, groups_val=None, groups=None, verbose=3, retrain_full=True, split_type=None, learner_selector="sample", hpo_method=None, starting_points={}, seed=None, n_concurrent_trials=1, keep_search_state=False, early_stop=False, append_log=False, auto_augment=True, min_sample_size=MIN_SAMPLE_TRAIN, use_ray=False, **fit_kwargs, ,)
+def fit(X_train=None, y_train=None, dataframe=None, label=None, metric=None, task=None, n_jobs=None, gpu_per_trial=0, log_file_name=None, estimator_list=None, time_budget=None, max_iter=None, sample=None, ensemble=None, eval_method=None, log_type=None, model_history=None, split_ratio=None, n_splits=None, log_training_metric=None, mem_thres=None, pred_time_limit=None, train_time_limit=None, X_val=None, y_val=None, sample_weight_val=None, groups_val=None, groups=None, verbose=None, retrain_full=None, split_type=None, learner_selector=None, hpo_method=None, starting_points=None, seed=None, n_concurrent_trials=None, keep_search_state=None, early_stop=None, append_log=None, auto_augment=None, min_sample_size=None, use_ray=None, **fit_kwargs, ,)
 ```
 
 Find a model for a given task.
@@ -450,67 +581,66 @@ Find a model for a given task.
 **Arguments**:
 
 - `X_train` - A numpy array or a pandas dataframe of training data in
-  shape (n, m). For &#x27;ts_forecast&#x27; task, the first column of X_train
+  shape (n, m). For 'ts_forecast' task, the first column of X_train
   must be the timestamp column (datetime type). Other columns in
   the dataframe are assumed to be exogenous variables (categorical or numeric).
 - `y_train` - A numpy array or a pandas series of labels in shape (n, ).
 - `dataframe` - A dataframe of training data including label column.
-  For &#x27;ts_forecast&#x27; task, dataframe must be specified and must have
+  For 'ts_forecast' task, dataframe must be specified and must have
   at least two columns, timestamp and label, where the first
   column is the timestamp column (datetime type). Other columns in
   the dataframe are assumed to be exogenous variables (categorical or numeric).
-- `label` - A str of the label column name for, e.g., &#x27;label&#x27;;
+- `label` - A str of the label column name for, e.g., 'label';
 - `Note` - If X_train and y_train are provided,
   dataframe and label are ignored;
   If not, dataframe and label must be provided.
 - `metric` - A string of the metric name or a function,
-  e.g., &#x27;accuracy&#x27;, &#x27;roc_auc&#x27;, &#x27;roc_auc_ovr&#x27;, &#x27;roc_auc_ovo&#x27;,
-  &#x27;f1&#x27;, &#x27;micro_f1&#x27;, &#x27;macro_f1&#x27;, &#x27;log_loss&#x27;, &#x27;mae&#x27;, &#x27;mse&#x27;, &#x27;r2&#x27;,
-  &#x27;mape&#x27;.
+  e.g., 'accuracy', 'roc_auc', 'roc_auc_ovr', 'roc_auc_ovo',
+  'f1', 'micro_f1', 'macro_f1', 'log_loss', 'mae', 'mse', 'r2',
+  'mape'. Default is 'auto'.
   If passing a customized metric function, the function needs to
   have the follwing signature:
   
-  .. code-block:: python
-  
-  def custom_metric(
-  X_test, y_test, estimator, labels,
-  X_train, y_train, weight_test=None, weight_train=None,
-  config=None, groups_test=None, groups_train=None,
-  ):
-  return metric_to_minimize, metrics_to_log
+```python
+def custom_metric(
+    X_test, y_test, estimator, labels,
+    X_train, y_train, weight_test=None, weight_train=None,
+    config=None, groups_test=None, groups_train=None,
+):
+    return metric_to_minimize, metrics_to_log
+```
   
   which returns a float number as the minimization objective,
   and a dictionary as the metrics to log.
 - `task` - A string of the task type, e.g.,
-  &#x27;classification&#x27;, &#x27;regression&#x27;, &#x27;ts_forecast&#x27;, &#x27;rank&#x27;.
+  'classification', 'regression', 'ts_forecast', 'rank',
+  'seq-classification', 'seq-regression'.
 - `n_jobs` - An integer of the number of threads for training.
-- `log_file_name` - A string of the log file name.
-- `estimator_list` - A list of strings for estimator names, or &#x27;auto&#x27;
-  e.g.,
-  
-  .. code-block:: python
-  
-  [&#x27;lgbm&#x27;, &#x27;xgboost&#x27;, &#x27;catboost&#x27;, &#x27;rf&#x27;, &#x27;extra_tree&#x27;]
+- `gpu_per_trial` - A float of the number of gpus per trial, only used by TransformersEstimator.
+- `log_file_name` - A string of the log file name. To disable logging,
+  set it to be an empty string "".
+- `estimator_list` - A list of strings for estimator names, or 'auto'
+  e.g., ```['lgbm', 'xgboost', 'catboost', 'rf', 'extra_tree']```
   
 - `time_budget` - A float number of the time budget in seconds.
+  Use -1 if no time limit.
 - `max_iter` - An integer of the maximal number of iterations.
 - `sample` - A boolean of whether to sample the training data during
   search.
 - `ensemble` - boolean or dict | default=False. Whether to perform
-  ensemble after search. Can be a dict with keys &#x27;passthrough&#x27;
-  and &#x27;final_estimator&#x27; to specify the passthrough and
+  ensemble after search. Can be a dict with keys 'passthrough'
+  and 'final_estimator' to specify the passthrough and
   final_estimator in the stacker.
 - `eval_method` - A string of resampling strategy, one of
-  [&#x27;auto&#x27;, &#x27;cv&#x27;, &#x27;holdout&#x27;].
+  ['auto', 'cv', 'holdout'].
 - `split_ratio` - A float of the valiation data percentage for holdout.
 - `n_splits` - An integer of the number of folds for cross - validation.
 - `log_type` - A string of the log type, one of
-  [&#x27;better&#x27;, &#x27;all&#x27;].
-  &#x27;better&#x27; only logs configs with better loss than previos iters
-  &#x27;all&#x27; logs all the tried configs.
-- `model_history` - A boolean of whether to keep the history of best
-  models in the history property. Make sure memory is large
-  enough if setting to True.
+  ['better', 'all'].
+  'better' only logs configs with better loss than previos iters
+  'all' logs all the tried configs.
+- `model_history` - A boolean of whether to keep the best
+  model per estimator. Make sure memory is large enough if setting to True.
 - `log_training_metric` - A boolean of whether to log the training
   metric for each model.
 - `mem_thres` - A float of the memory size constraint in bytes.
@@ -531,23 +661,23 @@ Find a model for a given task.
 - `retrain_full` - bool or str, default=True | whether to retrain the
   selected model on the full training data when using holdout.
   True - retrain only after search finishes; False - no retraining;
-  &#x27;budget&#x27; - do best effort to retrain without violating the time
+  'budget' - do best effort to retrain without violating the time
   budget.
-- `split_type` - str or None, default=None | the data split type.
+- `split_type` - str, default="auto" | the data split type.
   For classification tasks, valid choices are [
-  None, &#x27;stratified&#x27;, &#x27;uniform&#x27;, &#x27;time&#x27;]. None -&gt; stratified.
-  For regression tasks, valid choices are [None, &#x27;uniform&#x27;, &#x27;time&#x27;].
-  None -&gt; uniform.
-  For ts_forecast tasks, must be None or &#x27;time&#x27;.
-  For ranking task, must be None or &#x27;group&#x27;.
-- `hpo_method` - str or None, default=None | The hyperparameter
+  "auto", 'stratified', 'uniform', 'time']. "auto" -> stratified.
+  For regression tasks, valid choices are ["auto", 'uniform', 'time'].
+  "auto" -> uniform.
+  For ts_forecast tasks, must be "auto" or 'time'.
+  For ranking task, must be "auto" or 'group'.
+- `hpo_method` - str, default="auto" | The hyperparameter
   optimization method. By default, CFO is used for sequential
   search and BlendSearch is used for parallel search.
-  No need to set when using flaml&#x27;s default search space or using
-  a simple customized search space. When set to &#x27;bs&#x27;, BlendSearch
+  No need to set when using flaml's default search space or using
+  a simple customized search space. When set to 'bs', BlendSearch
   is used. BlendSearch can be tried when the search space is
   complex, for example, containing multiple disjoint, discontinuous
-  subspaces. When set to &#x27;random&#x27;, random search is used.
+  subspaces. When set to 'random', random search is used.
 - `starting_points` - A dictionary to specify the starting hyperparameter
   config for the estimators.
   Keys are the name of the estimators, and values are the starting
@@ -558,21 +688,21 @@ Find a model for a given task.
   automl_experiment and use them in the new_automl_experiment.
   e.g.,
   
-  .. code-block:: python
-  
-  from flaml import AutoML
-  automl_experiment = AutoML()
-  X_train, y_train = load_iris(return_X_y=True)
-  automl_experiment.fit(X_train, y_train)
-  starting_points = automl_experiment.best_config_per_estimator
-  
-  new_automl_experiment = AutoML()
-  new_automl_experiment.fit(X_train, y_train,
-  starting_points=starting_points)
+```python
+from flaml import AutoML
+automl_experiment = AutoML()
+X_train, y_train = load_iris(return_X_y=True)
+automl_experiment.fit(X_train, y_train)
+starting_points = automl_experiment.best_config_per_estimator
+
+new_automl_experiment = AutoML()
+new_automl_experiment.fit(X_train, y_train,
+    starting_points=starting_points)
+```
   
 - `seed` - int or None, default=None | The random seed for np.random.
 - `n_concurrent_trials` - [Experimental] int, default=1 | The number of
-  concurrent trials. For n_concurrent_trials &gt; 1, installation of
+  concurrent trials. For n_concurrent_trials > 1, installation of
   ray is required: `pip install flaml[ray]`.
 - `keep_search_state` - boolean, default=False | Whether to keep search
   state after fit(). By default the state is deleted for space
@@ -591,5 +721,5 @@ Find a model for a given task.
   you run into OOM failures.
 - `**fit_kwargs` - Other key word arguments to pass to fit() function of
   the searched learners, such as sample_weight. Include period as
-  a key word argument for &#x27;ts_forecast&#x27; task.
+  a key word argument for 'ts_forecast' task.
 

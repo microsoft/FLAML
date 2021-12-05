@@ -77,7 +77,7 @@ def step() -> Trial
 
 Runs one step of the trial event loop.
 Callers should typically run this method repeatedly in a loop. They
-may inspect or modify the runner&#x27;s state in between calls to step().
+may inspect or modify the runner's state in between calls to step().
 
 returns a Trial to run
 

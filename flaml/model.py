@@ -239,8 +239,7 @@ class BaseEstimator:
             Each key is the name of a hyperparameter, and value is a dict with
                 its domain (required) and low_cost_init_value, init_value,
                 cat_hp_cost (if applicable).
-                e.g.,
-                `{'domain': tune.randint(lower=1, upper=10), 'init_value': 1}.`
+                e.g., ```{'domain': tune.randint(lower=1, upper=10), 'init_value': 1}```.
         """
         return {}
 

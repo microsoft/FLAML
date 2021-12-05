@@ -36,7 +36,7 @@ Constructor.
 - `init_config` - A dictionary of initial configuration.
 - `space` - A dictionary to specify the search space.
 - `metric` - A string of the metric name to optimize for.
-- `mode` - A string in [&#x27;min&#x27;, &#x27;max&#x27;] to specify the objective as
+- `mode` - A string in ['min', 'max'] to specify the objective as
   minimization or maximization.
 - `random_seed` - An integer of the random seed.
 - `online_trial_args` - A dictionary to specify the online trial

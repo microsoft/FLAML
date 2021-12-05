@@ -24,27 +24,17 @@ Constructor.
 **Arguments**:
 
 - `metric` - A string of the metric name to optimize for.
-- `mode` - A string in [&#x27;min&#x27;, &#x27;max&#x27;] to specify the objective as
+- `mode` - A string in ['min', 'max'] to specify the objective as
   minimization or maximization.
 - `space` - A dictionary to specify the search space.
 - `low_cost_partial_config` - A dictionary from a subset of
   controlled dimensions to the initial low-cost values.
-  e.g.,
-  
-  .. code-block:: python
-  
-- `{&#x27;n_estimators&#x27;` - 4, &#x27;max_leaves&#x27;: 4}
-  
+  e.g., ```{'n_estimators': 4, 'max_leaves': 4}```
 - `cat_hp_cost` - A dictionary from a subset of categorical dimensions
   to the relative cost of each choice.
-  e.g.,
-  
-  .. code-block:: python
-  
-- `{&#x27;tree_method&#x27;` - [1, 1, 2]}
-  
-  i.e., the relative cost of the
-  three choices of &#x27;tree_method&#x27; is 1, 1 and 2 respectively.
+  e.g., ```{'tree_method': [1, 1, 2]}```
+  i.e., the relative cost of the three choices of 'tree_method'
+  is 1, 1 and 2 respectively.
 - `points_to_evaluate` - Initial parameter suggestions to be run first.
 - `evaluated_rewards` _list_ - If you have previously evaluated the
   parameters passed in as points_to_evaluate you can avoid
@@ -57,9 +47,9 @@ Constructor.
 - `prune_attr` - A string of the attribute used for pruning.
   Not necessarily in space.
   When prune_attr is in space, it is a hyperparameter, e.g.,
-  &#x27;n_iters&#x27;, and the best value is unknown.
+  'n_iters', and the best value is unknown.
   When prune_attr is not in space, it is a resource dimension,
-  e.g., &#x27;sample_size&#x27;, and the peak performance is assumed
+  e.g., 'sample_size', and the peak performance is assumed
   to be at the max_resource.
 - `min_resource` - A float of the minimal resource to use for the
   prune_attr; only valid if prune_attr is not in space.
@@ -73,17 +63,13 @@ Constructor.
   - HyperOptSearch raises exception sometimes
   - TuneBOHB has its own scheduler
 - `config_constraints` - A list of config constraints to be satisfied.
-  e.g.,
-  
-  .. code-block: python
-  
-  config_constraints = [(mem_size, &#x27;&lt;=&#x27;, 1024**3)]
+  e.g., ```config_constraints = [(mem_size, '<=', 1024**3)]```
   
   mem_size is a function which produces a float number for the bytes
   needed for a config.
   It is used to skip configs which do not fit in memory.
 - `metric_constraints` - A list of metric constraints to be satisfied.
-  e.g., `[&#x27;precision&#x27;, &#x27;&gt;=&#x27;, 0.9]`
+  e.g., `['precision', '>=', 0.9]`
 - `seed` - An integer of the random seed.
 - `experimental` - A bool of whether to use experimental features.
 
@@ -141,7 +127,7 @@ Tuner class for NNI.
 def receive_trial_result(parameter_id, parameters, value, **kwargs)
 ```
 
-Receive trial&#x27;s final result.
+Receive trial's final result.
 
 **Arguments**:
 
