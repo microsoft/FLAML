@@ -80,6 +80,7 @@
 <span class="k">except</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="ne">AssertionError</span><span class="p">):</span>
     <span class="n">ray_import</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="kn">from</span> <span class="nn">.analysis</span> <span class="kn">import</span> <span class="n">ExperimentAnalysis</span> <span class="k">as</span> <span class="n">EA</span>
+
 <span class="kn">from</span> <span class="nn">.result</span> <span class="kn">import</span> <span class="n">DEFAULT_METRIC</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 
@@ -180,11 +181,11 @@
     <span class="n">time_budget_s</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">points_to_evaluate</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">evaluated_rewards</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">prune_attr</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">resource_attr</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">min_resource</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">max_resource</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">reduction_factor</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">report_intermediate_result</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">scheduler</span><span class="p">:</span> <span class="n">Optional</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">search_alg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">verbose</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
     <span class="n">local_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -268,21 +269,29 @@
 <span class="sd">            points_to_evaluate are 3.0 and 1.0 respectively and want to</span>
 <span class="sd">            inform run()</span>
 
-<span class="sd">        prune_attr: A string of the attribute used for pruning.</span>
-<span class="sd">            Not necessarily in space.</span>
-<span class="sd">            When prune_attr is in space, it is a hyperparameter, e.g.,</span>
-<span class="sd">            &#39;n_iters&#39;, and the best value is unknown.</span>
-<span class="sd">            When prune_attr is not in space, it is a resource dimension,</span>
-<span class="sd">            e.g., &#39;sample_size&#39;, and the peak performance is assumed</span>
-<span class="sd">            to be at the max_resource.</span>
-<span class="sd">        min_resource: A float of the minimal resource to use for the</span>
-<span class="sd">            prune_attr; only valid if prune_attr is not in space.</span>
-<span class="sd">        max_resource: A float of the maximal resource to use for the</span>
-<span class="sd">            prune_attr; only valid if prune_attr is not in space.</span>
+<span class="sd">        resource_attr: A string to specify the resource dimension used by</span>
+<span class="sd">            the scheduler via &quot;scheduler&quot;.</span>
+<span class="sd">        min_resource: A float of the minimal resource to use for the resource_attr.</span>
+<span class="sd">        max_resource: A float of the maximal resource to use for the resource_attr.</span>
 <span class="sd">        reduction_factor: A float of the reduction factor used for incremental</span>
 <span class="sd">            pruning.</span>
-<span class="sd">        report_intermediate_result: A boolean of whether intermediate results</span>
-<span class="sd">            are reported. If so, early stopping and pruning can be used.</span>
+<span class="sd">        scheduler: A scheduler for executing the experiment. Can be None, &#39;flaml&#39;,</span>
+<span class="sd">            &#39;asha&#39; or a custom instance of the TrialScheduler class. Default is None:</span>
+<span class="sd">            in this case when resource_attr is provided, the &#39;flaml&#39; scheduler will be</span>
+<span class="sd">            used, otherwise no scheduler will be used. When set &#39;flaml&#39;, an</span>
+<span class="sd">            authentic scheduler implemented in FLAML will be used. It does not</span>
+<span class="sd">            require users to report intermediate results in training_function.</span>
+<span class="sd">            Find more details abuot this scheduler in this paper</span>
+<span class="sd">            https://arxiv.org/pdf/1911.04706.pdf).</span>
+<span class="sd">            When set &#39;asha&#39;, the input for arguments &quot;resource_attr&quot;,</span>
+<span class="sd">            &quot;min_resource&quot;, &quot;max_resource&quot; and &quot;reduction_factor&quot; will be passed</span>
+<span class="sd">            to ASHA&#39;s &quot;time_attr&quot;,  &quot;max_t&quot;, &quot;grace_period&quot; and &quot;reduction_factor&quot;</span>
+<span class="sd">            respectively. You can also provide a self-defined scheduler instance</span>
+<span class="sd">            of the TrialScheduler class. When &#39;asha&#39; or self-defined scheduler is</span>
+<span class="sd">            used, you usually need to report intermediate results in the training</span>
+<span class="sd">            function. Please find examples using different types of schedulers</span>
+<span class="sd">            and how to set up the corresponding training functions in</span>
+<span class="sd">            test/tune/test_scheduler.py. TODO: point to notebook examples.</span>
 <span class="sd">        search_alg: An instance of BlendSearch as the search algorithm</span>
 <span class="sd">            to be used. The same instance can be used for iterative tuning.</span>
 <span class="sd">            e.g.,</span>
@@ -358,6 +367,20 @@
     <span class="kn">from</span> <span class="nn">..searcher.blendsearch</span> <span class="kn">import</span> <span class="n">BlendSearch</span>
 
     <span class="k">if</span> <span class="n">search_alg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">flaml_scheduler_resource_attr</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">flaml_scheduler_min_resource</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="n">flaml_scheduler_max_resource</span> <span class="o">=</span> <span class="n">flaml_scheduler_reduction_factor</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">scheduler</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;flaml&quot;</span><span class="p">):</span>
+
+            <span class="c1"># when scheduler is set &#39;flaml&#39;, we will use a scheduler that is</span>
+            <span class="c1"># authentic to the search algorithms in flaml. After setting up</span>
+            <span class="c1"># the search algorithm accordingly, we need to set scheduler to</span>
+            <span class="c1"># None in case it is later used in the trial runner.</span>
+            <span class="n">flaml_scheduler_resource_attr</span> <span class="o">=</span> <span class="n">resource_attr</span>
+            <span class="n">flaml_scheduler_min_resource</span> <span class="o">=</span> <span class="n">min_resource</span>
+            <span class="n">flaml_scheduler_max_resource</span> <span class="o">=</span> <span class="n">max_resource</span>
+            <span class="n">flaml_scheduler_reduction_factor</span> <span class="o">=</span> <span class="n">reduction_factor</span>
+            <span class="n">scheduler</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">search_alg</span> <span class="o">=</span> <span class="n">BlendSearch</span><span class="p">(</span>
             <span class="n">metric</span><span class="o">=</span><span class="n">metric</span> <span class="ow">or</span> <span class="n">DEFAULT_METRIC</span><span class="p">,</span>
             <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span>
@@ -368,10 +391,10 @@
             <span class="n">cat_hp_cost</span><span class="o">=</span><span class="n">cat_hp_cost</span><span class="p">,</span>
             <span class="n">time_budget_s</span><span class="o">=</span><span class="n">time_budget_s</span><span class="p">,</span>
             <span class="n">num_samples</span><span class="o">=</span><span class="n">num_samples</span><span class="p">,</span>
-            <span class="n">prune_attr</span><span class="o">=</span><span class="n">prune_attr</span><span class="p">,</span>
-            <span class="n">min_resource</span><span class="o">=</span><span class="n">min_resource</span><span class="p">,</span>
-            <span class="n">max_resource</span><span class="o">=</span><span class="n">max_resource</span><span class="p">,</span>
-            <span class="n">reduction_factor</span><span class="o">=</span><span class="n">reduction_factor</span><span class="p">,</span>
+            <span class="n">resource_attr</span><span class="o">=</span><span class="n">flaml_scheduler_resource_attr</span><span class="p">,</span>
+            <span class="n">min_resource</span><span class="o">=</span><span class="n">flaml_scheduler_min_resource</span><span class="p">,</span>
+            <span class="n">max_resource</span><span class="o">=</span><span class="n">flaml_scheduler_max_resource</span><span class="p">,</span>
+            <span class="n">reduction_factor</span><span class="o">=</span><span class="n">flaml_scheduler_reduction_factor</span><span class="p">,</span>
             <span class="n">config_constraints</span><span class="o">=</span><span class="n">config_constraints</span><span class="p">,</span>
             <span class="n">metric_constraints</span><span class="o">=</span><span class="n">metric_constraints</span><span class="p">,</span>
         <span class="p">)</span>
@@ -397,12 +420,11 @@
             <span class="n">searcher</span><span class="o">.</span><span class="n">set_search_properties</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">setting</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">searcher</span><span class="o">.</span><span class="n">set_search_properties</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
-    <span class="n">scheduler</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">if</span> <span class="n">report_intermediate_result</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">scheduler</span> <span class="o">==</span> <span class="s2">&quot;asha&quot;</span><span class="p">:</span>
         <span class="n">params</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="c1"># scheduler resource_dimension=prune_attr</span>
-        <span class="k">if</span> <span class="n">prune_attr</span><span class="p">:</span>
-            <span class="n">params</span><span class="p">[</span><span class="s2">&quot;time_attr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">prune_attr</span>
+        <span class="c1"># scheduler resource_dimension=resource_attr</span>
+        <span class="k">if</span> <span class="n">resource_attr</span><span class="p">:</span>
+            <span class="n">params</span><span class="p">[</span><span class="s2">&quot;time_attr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">resource_attr</span>
         <span class="k">if</span> <span class="n">max_resource</span><span class="p">:</span>
             <span class="n">params</span><span class="p">[</span><span class="s2">&quot;max_t&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_resource</span>
         <span class="k">if</span> <span class="n">min_resource</span><span class="p">:</span>

@@ -1609,11 +1609,12 @@
         <span class="k">return</span> <span class="n">points</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">prune_attr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Attribute for pruning</span>
+    <span class="k">def</span> <span class="nf">resource_attr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Attribute of the resource dimension.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            A string for the sample size attribute or None</span>
+<span class="sd">            A string for the sample size attribute</span>
+<span class="sd">            (the resource attribute in AutoML) or None.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="s2">&quot;FLAML_sample_size&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample</span> <span class="k">else</span> <span class="kc">None</span>
 
@@ -2241,7 +2242,7 @@
                 <span class="n">low_cost_partial_config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">low_cost_partial_config</span><span class="p">,</span>
                 <span class="n">points_to_evaluate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">points_to_evaluate</span><span class="p">,</span>
                 <span class="n">cat_hp_cost</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cat_hp_cost</span><span class="p">,</span>
-                <span class="n">prune_attr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">prune_attr</span><span class="p">,</span>
+                <span class="n">resource_attr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">resource_attr</span><span class="p">,</span>
                 <span class="n">min_resource</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">min_resource</span><span class="p">,</span>
                 <span class="n">max_resource</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">max_resource</span><span class="p">,</span>
                 <span class="n">config_constraints</span><span class="o">=</span><span class="p">[</span>
@@ -2389,11 +2390,11 @@
                 <span class="p">)</span>
                 <span class="n">search_space</span> <span class="o">=</span> <span class="n">search_state</span><span class="o">.</span><span class="n">search_space</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample</span><span class="p">:</span>
-                    <span class="n">prune_attr</span> <span class="o">=</span> <span class="s2">&quot;FLAML_sample_size&quot;</span>
+                    <span class="n">resource_attr</span> <span class="o">=</span> <span class="s2">&quot;FLAML_sample_size&quot;</span>
                     <span class="n">min_resource</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min_sample_size</span>
                     <span class="n">max_resource</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">data_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">prune_attr</span> <span class="o">=</span> <span class="n">min_resource</span> <span class="o">=</span> <span class="n">max_resource</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">resource_attr</span> <span class="o">=</span> <span class="n">min_resource</span> <span class="o">=</span> <span class="n">max_resource</span> <span class="o">=</span> <span class="kc">None</span>
                 <span class="n">learner_class</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">learner_classes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">estimator</span><span class="p">)</span>
                 <span class="k">if</span> <span class="s2">&quot;grid&quot;</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hpo_method</span><span class="p">:</span>  <span class="c1"># for synthetic exp only</span>
                     <span class="n">points_to_evaluate</span> <span class="o">=</span> <span class="p">[]</span>
@@ -2425,7 +2426,7 @@
                         <span class="n">points_to_evaluate</span><span class="o">=</span><span class="n">points_to_evaluate</span><span class="p">,</span>
                         <span class="n">low_cost_partial_config</span><span class="o">=</span><span class="n">low_cost_partial_config</span><span class="p">,</span>
                         <span class="n">cat_hp_cost</span><span class="o">=</span><span class="n">search_state</span><span class="o">.</span><span class="n">cat_hp_cost</span><span class="p">,</span>
-                        <span class="n">prune_attr</span><span class="o">=</span><span class="n">prune_attr</span><span class="p">,</span>
+                        <span class="n">resource_attr</span><span class="o">=</span><span class="n">resource_attr</span><span class="p">,</span>
                         <span class="n">min_resource</span><span class="o">=</span><span class="n">min_resource</span><span class="p">,</span>
                         <span class="n">max_resource</span><span class="o">=</span><span class="n">max_resource</span><span class="p">,</span>
                         <span class="n">config_constraints</span><span class="o">=</span><span class="p">[</span>

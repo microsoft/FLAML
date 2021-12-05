@@ -108,7 +108,7 @@
         <span class="n">evaluated_rewards</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">time_budget_s</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">num_samples</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">prune_attr</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">resource_attr</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">min_resource</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">max_resource</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">reduction_factor</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -154,17 +154,10 @@
 <span class="sd">                points_to_evaluate.</span>
 <span class="sd">            time_budget_s: int or float | Time budget in seconds.</span>
 <span class="sd">            num_samples: int | The number of configs to try.</span>
-<span class="sd">            prune_attr: A string of the attribute used for pruning.</span>
-<span class="sd">                Not necessarily in space.</span>
-<span class="sd">                When prune_attr is in space, it is a hyperparameter, e.g.,</span>
-<span class="sd">                    &#39;n_iters&#39;, and the best value is unknown.</span>
-<span class="sd">                When prune_attr is not in space, it is a resource dimension,</span>
-<span class="sd">                    e.g., &#39;sample_size&#39;, and the peak performance is assumed</span>
-<span class="sd">                    to be at the max_resource.</span>
-<span class="sd">            min_resource: A float of the minimal resource to use for the</span>
-<span class="sd">                prune_attr; only valid if prune_attr is not in space.</span>
-<span class="sd">            max_resource: A float of the maximal resource to use for the</span>
-<span class="sd">                prune_attr; only valid if prune_attr is not in space.</span>
+<span class="sd">            resource_attr: A string to specify the resource dimension and the best</span>
+<span class="sd">                performance is assumed to be at the max_resource.</span>
+<span class="sd">            min_resource: A float of the minimal resource to use for the resource_attr.</span>
+<span class="sd">            max_resource: A float of the maximal resource to use for the resource_attr.</span>
 <span class="sd">            reduction_factor: A float of the reduction factor used for</span>
 <span class="sd">                incremental pruning.</span>
 <span class="sd">            global_search_alg: A Searcher instance as the global search</span>
@@ -223,7 +216,7 @@
             <span class="n">metric</span><span class="p">,</span>
             <span class="n">mode</span><span class="p">,</span>
             <span class="n">space</span><span class="p">,</span>
-            <span class="n">prune_attr</span><span class="p">,</span>
+            <span class="n">resource_attr</span><span class="p">,</span>
             <span class="n">min_resource</span><span class="p">,</span>
             <span class="n">max_resource</span><span class="p">,</span>
             <span class="n">reduction_factor</span><span class="p">,</span>
@@ -472,7 +465,7 @@
                 <span class="k">if</span> <span class="p">(</span><span class="n">objective</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_target</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">metric_op</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_metric_target</span> <span class="o">=</span> <span class="n">objective</span>
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">resource</span><span class="p">:</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">_best_resource</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">prune_attr</span><span class="p">]</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_best_resource</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">resource_attr</span><span class="p">]</span>
                 <span class="k">if</span> <span class="n">thread_id</span><span class="p">:</span>
                     <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_constraint_satisfied</span><span class="p">:</span>
                         <span class="c1"># no point has been found to satisfy metric constraint</span>
@@ -700,7 +693,7 @@
             <span class="c1">#     return None</span>
             <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="n">choice</span><span class="p">]</span><span class="o">.</span><span class="n">suggest</span><span class="p">(</span><span class="n">trial_id</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">choice</span> <span class="ow">and</span> <span class="n">config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">resource</span><span class="p">:</span>
-                <span class="n">config</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">prune_attr</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_resource</span>
+                <span class="n">config</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">resource_attr</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_resource</span>
             <span class="k">elif</span> <span class="n">choice</span> <span class="ow">and</span> <span class="n">config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="c1"># local search thread finishes</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_thread_pool</span><span class="p">[</span><span class="n">choice</span><span class="p">]</span><span class="o">.</span><span class="n">converged</span><span class="p">:</span>
@@ -1038,7 +1031,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">metric</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_mode</span><span class="p">,</span>
             <span class="n">config</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">prune_attr</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">resource_attr</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">min_resource</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">max_resource</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_ls</span><span class="o">.</span><span class="n">resource_multiple_factor</span><span class="p">,</span>
