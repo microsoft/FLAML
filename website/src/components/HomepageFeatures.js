@@ -27,12 +27,12 @@ const FeatureList = [
     ),
   },
   {
-    title: 'Fast Auto Tuning Respecting Constraints',
+    title: 'Tune It Fast, Tune It As You Like',
     Svg: require('../../static/img/undraw_docusaurus_react.svg').default,
     description: (
       <>
-        FLAML offers a novel cost-effective hyperparameter tuning approach.
-        It supports various forms of early stopping and is capable of handling complex constraints/guidance.
+        FLAML offers a fast auto tuning tool powered by a novel cost-effective tuning approach.
+        It is also capable of handling complex constraints/guidance/early stopping.
       </>
     ),
   },
