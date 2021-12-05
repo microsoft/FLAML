@@ -337,8 +337,8 @@ class TransformersEstimator(BaseEstimator):
         #    "num_beams" in search_space_dict using
         #    search_space_dict["num_beams"] = {...}
 
-        # if task in NLG_TASKS:
-        #     search_space_dict["num_beams"] = {"domain": tune.choice(...)}
+        if task in NLG_TASKS:
+            search_space_dict["num_beams"] = {"domain": tune.choice(...)}
 
         return search_space_dict
 
@@ -370,10 +370,10 @@ class TransformersEstimator(BaseEstimator):
 
         #   TODO: if self._task == SUMMARIZATION, uncomment the code below (add indentation before
         #         from transformers import TrainingArguments)
-        # if self._task in NLG_TASKS:
-        #     from transformers import Seq2SeqTrainingArguments as TrainingArguments
-        # else:
-        from transformers import TrainingArguments
+        if self._task in NLG_TASKS:
+            from transformers import Seq2SeqTrainingArguments as TrainingArguments
+        else:
+            from transformers import TrainingArguments
 
         import transformers
         from datasets import Dataset

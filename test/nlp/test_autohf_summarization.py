@@ -9,13 +9,13 @@ def test_hf_data():
     from datasets import load_dataset
 
     train_dataset = (
-        load_dataset("glue", "mrpc", split="train[:1%]").to_pandas().iloc[0:4]
+        load_dataset("cnn_dailymail", "3.0.0", split="train[:1%]").to_pandas().iloc[0:4]
     )
     dev_dataset = (
-        load_dataset("glue", "mrpc", split="train[1%:2%]").to_pandas().iloc[0:4]
+        load_dataset("cnn_dailymail", "3.0.0", split="train[1%:2%]").to_pandas().iloc[0:4]
     )
     test_dataset = (
-        load_dataset("glue", "mrpc", split="test[1%:2%]").to_pandas().iloc[0:4]
+        load_dataset("cnn_dailymail", "3.0.0", split="test[1%:2%]").to_pandas().iloc[0:4]
     )
 
     custom_sent_keys = ["sentence1", "sentence2"]
