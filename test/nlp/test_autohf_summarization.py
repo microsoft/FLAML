@@ -2,20 +2,20 @@ import os
 import pytest
 
 
-@pytest.mark.skipif(os.name == "posix", reason="do not run on mac os")
+# @pytest.mark.skipif(os.name == "posix", reason="do not run on mac os")
 def test_hf_data():
     from flaml import AutoML
 
     from datasets import load_dataset
 
     train_dataset = (
-        load_dataset("glue", "mrpc", split="train[:1%]").to_pandas().iloc[0:4]
+        load_dataset("cnn_dailymail", "mrpc", split="train[:1%]").to_pandas().iloc[0:4]
     )
     dev_dataset = (
-        load_dataset("glue", "mrpc", split="train[1%:2%]").to_pandas().iloc[0:4]
+        load_dataset("cnn_dailymail", "mrpc", split="train[1%:2%]").to_pandas().iloc[0:4]
     )
     test_dataset = (
-        load_dataset("glue", "mrpc", split="test[1%:2%]").to_pandas().iloc[0:4]
+        load_dataset("cnn_dailymail", "mrpc", split="test[1%:2%]").to_pandas().iloc[0:4]
     )
 
     custom_sent_keys = ["sentence1", "sentence2"]
@@ -35,8 +35,8 @@ def test_hf_data():
         "gpu_per_trial": 0,
         "max_iter": 3,
         "time_budget": 5,
-        "task": "seq-classification",
-        "metric": "accuracy",
+        "task": "summarization",
+        "metric": "rouge",
         "log_file_name": "seqclass.log",
     }
 
