@@ -61,9 +61,9 @@ Related arguments:
 - `low_cost_partial_config` (optional): A dictionary from a subset of controlled dimensions to the initial low-cost values.
 - `cat_hp_cost` (optional): A dictionary from a subset of categorical dimensions to the relative cost of each choice.
 
-The second step is to specify a search space of the hyperparameters through the argument `config`. In the search space, you need to specify valid values for your hyperparameters and can specify how these values are sampled (e.g., from a uniform distribution or a normal distribution). 
+The second step is to specify a search space of the hyperparameters through the argument `config`. In the search space, you need to specify valid values for your hyperparameters and can specify how these values are sampled (e.g., from a uniform distribution or a log-uniform distribution). 
 
-In the following code example, we include a search space for the two hyperparameters `x` and `y` as introduced above. The valid values for both are integers in the range of [1, 100000]. The values for `x` are sampled uniformly in the specified range (using `tune.randint(lower=1, upper=100000)`), and the values for `y` are sampled in logarithmic space within the specified range (using `tune.lograndit(lower=1, upper=100000)`).
+In the following code example, we include a search space for the two hyperparameters `x` and `y` as introduced above. The valid values for both are integers in the range of [1, 100000]. The values for `x` are sampled uniformly in the specified range (using `tune.randint(lower=1, upper=100000)`), and the values for `y` are sampled uniformly in logarithmic space of the specified range (using `tune.lograndit(lower=1, upper=100000)`).
 
 
 ```python
@@ -148,14 +148,17 @@ Related arguments:
 - `config_constraints` (optional): A list of config constraints to be satisfied.
 - `metric_constraints` (optional): A list of metric constraints to be satisfied. e.g., `['precision', '>=', 0.9]`.
 
-The third step is to specify constraints for search. One notable property of `flaml.tune` is that it is able to finish the tuning process (obtaining good results) within a required resource constraint. A user can either provide the resource constraint in terms of wall-clock time (in seconds) through the argument `time_budget_s`, or in terms of the number of trials through the argument `num_samples`.  The following code show three use cases: (1) Set a resource constraint of 60 seconds wall-clock time for the tuning. (2) Set a resource constraint of 100 trials for the tuning. 
+The third step is to specify constraints for search. One notable property of `flaml.tune` is that it is able to finish the tuning process (obtaining good results) within a required resource constraint. A user can either provide the resource constraint in terms of wall-clock time (in seconds) through the argument `time_budget_s`, or in terms of the number of trials through the argument `num_samples`.  The following example shows three use cases: 
 
 ```python
+# Set a resource constraint of 60 seconds wall-clock time for the tuning.
 flaml.tune.run(..., time_budget_s=60, ...)
-```
 
-```python
+# Set a resource constraint of 100 trials for the tuning.
 flaml.tune.run(..., num_samples=100, ...)
+
+# Use at most 60 seconds and at most 100 trials for the tuning.
+flaml.tune.run(..., time_budget_s=60, num_samples=100, ...)
 ```
 
 
@@ -179,7 +182,7 @@ analysis = tune.run(
 
 ### Result Analysis
 
-Once the tuning process finishes, it returns an [Analysis](https://microsoft.github.io/FLAML/docs/reference/tune/analysis) object, which provides methods to analyze the tuning.
+Once the tuning process finishes, it returns an [ExperimentAnalysis](../reference/tune/analysis) object, which provides methods to analyze the tuning.
 
 In the following code example, we retrieve the best configuration found during the tuning, and retrieve the best trial's result from the returned `analysis`. 
 
@@ -202,9 +205,9 @@ There are several advanced tuning options worth mentioning.
 
 ### More constraints on the tuning
 
-A user can specify constraints on the configurations (or functions of the configurations) to be satisfied via the argument `config_constraints`. The `config_constraints` receives a list of such constraints to be satisfied. Specifically, each constraint is a tuple that consists of (1) a function that takes a configuration as input and returns a numerical value; (2) an operation chosen from "<="  or ">"; (3) a numerical threshold. For example, 
+A user can specify constraints on the configurations to be satisfied via the argument `config_constraints`. The `config_constraints` receives a list of such constraints to be satisfied. Specifically, each constraint is a tuple that consists of (1) a function that takes a configuration as input and returns a numerical value; (2) an operation chosen from "<="  or ">"; (3) a numerical threshold.
 
- In the following code example, we constrain the output of `area`, which takes a configuration as input and outputs a numerical value, to be no larger than 1000.
+In the following code example, we constrain the output of `area`, which takes a configuration as input and outputs a numerical value, to be no larger than 1000.
 
 ```python
 def area(config):
@@ -212,7 +215,7 @@ def area(config):
 
 flaml.tune.run(training_function=evaluate_config, mode="min",
                config=config_search_space,
-               config_constraints=[(area, '<=', 1000)],...)
+               config_constraints=[(area, '<=', 1000)], ...)
 ```
 
  You can also specify a list of metric constraints to be satisfied via the argument `metric_constraints`. Each element in the `metric_constraints` list is a tuple that consists of (1) a string specifying the name of the metric (the metric name must be defined and returned in the user-defined `training_function`); (2) an operation chosen from "<="  or ">"; (3) a numerical threshold.  
@@ -239,7 +242,7 @@ You can perform parallel tuning by specifying `use_ray=True` (requiring flaml[ra
 # require: pip install flaml[ray]
 analysis = tune.run(
     evaluate_config,  # the function to evaluate a config
-    config=config_search_space, # the search space defined
+    config=config_search_space,  # the search space defined
     metric="score",
     mode="min",  # the optimization mode, 'min' or 'max'
     num_samples=-1,  # the maximal number of configs to try, -1 means infinite
@@ -248,7 +251,7 @@ analysis = tune.run(
     resources_per_trial={'cpu': 2}  # limit resources allocated per trial
 )
 print(analysis.best_trial.last_result)  # the best trial's result
-print(analysis.best_config) # the best config
+print(analysis.best_config)  # the best config
 ```
 
 **A headsup about computation overhead.** When parallel tuning is used, there will be a certain amount of computation overhead in each trial. In case each trial's original cost is much smaller than the overhead, parallel tuning can underperform sequential tuning. Sequential tuning is recommended when compute resource is limited, and each trial can consume all the resources.
@@ -257,7 +260,7 @@ print(analysis.best_config) # the best config
 ### Trial Scheduling
 
 Related arguments:
-- `scheduler`: A scheduler for executing the experiment.
+- `scheduler`: A scheduler for executing the trials.
 - `resource_attr`: A string to specify the resource dimension used by the scheduler.
 - `min_resource`: A float of the minimal resource to use for the resource_attr.
 - `max_resource`: A float of the maximal resource to use for the resource_attr.
@@ -267,14 +270,14 @@ A scheduler can help manage the trials' execution. It can be used to perform mul
 
 1. An authentic scheduler implemented in FLAML (`scheduler='flaml'`).
 
-This scheduler is authentic to the new search algorithms provided by FLAML. In a nutshell, it starts the search with the minimum resource (the resource is used in the evaluation function, and typically the larger resource, the more expensive the evaluation is) and increases the resource for each configuration to evaluate only when necessary to proceed with the search. With this scheduler, we do not necessarily need to use the maximum resource in the evaluation to find the best configuration, which helps save computation cost. 
+This scheduler is authentic to the new search algorithms provided by FLAML. In a nutshell, it starts the search with the minimum resource (the resource is used in the evaluation function, and typically the larger resource, the more expensive the evaluation is). It switches between HPO with the current resource and increasing the resource for evaluation depending on which leads to faster improvement.
 
 If this scheduler is used, you need to 
 - Know what is the resource dimension, a factor that affects the cost of the evaluation (e.g., sample size, the number of epochs), and specify the `resource_attr`, i.e., the name of the resource dimension.
 
-- Know how the resource dimension affects the evaluation and write your `training_function`, which involves using and reporting the resource dimension. Note that in this scheduler, the amount of resources to use at each iteration is suggested by the search algorithm through an additional `resource_attr` field in configuration. 
+- Know how the resource dimension affects the evaluation and write your `training_function`, which involves using the resource dimension to control the compute cost. Note that in this scheduler, the amount of resources to use at each iteration is suggested by the search algorithm through an additional field in configuration as specified by `resource_attr`. 
 
-- Provide the lower and upper limit of the resource dimension via `min_resource` and `max_resource`, and provide `reduction_factor`, which determines the magnitude of resource (multiplicative) increase when we decide to increase the resource. 
+- Provide the lower and upper limit of the resource dimension via `min_resource` and `max_resource`, and optionally provide `reduction_factor`, which determines the magnitude of resource (multiplicative) increase when we decide to increase the resource. 
 
 In the following code example, we consider the sample size as the resource dimension. It determines how much data is used to perform training as reflected in the `training_func`. We set the `min_resource` and `max_resource` to 1000 and the size of the full training dataset, respectively.
 
