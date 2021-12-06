@@ -16,9 +16,7 @@ FLAML is a lightweight Python library that finds accurate machine
 learning models automatically, efficiently and economically. It frees users from selecting
 learners and hyperparameters for each learner. FLAML has the following uniques properties comparing with other AutoML and hyperparameter tuning libraries,
 
-1. It is fast and economical.
-The simple and lightweight design makes it easy to extend, such as
-adding customized learners or metrics. FLAML is powered by a new, [cost-effective
+1. It is fast and economical. FLAML is powered by a new, [cost-effective
 hyperparameter optimization](https://github.com/microsoft/FLAML/tree/main/flaml/tune)
 and learner selection method invented by Microsoft Research.
 
@@ -70,18 +68,18 @@ tune.run(train_with_config, config={…}, low_cost_partial_config={…}, time_bu
 ```
 
 ## Documentation
-You can find a detailed documentation about FLAML[here](https://microsoft.github.io/FLAML/) where we can find the API documentation, use cases and examples of FLAML.
+You can find a detailed documentation about FLAML [here](https://microsoft.github.io/FLAML/) where you can find the API documentation, use cases and examples.
 
-In addition, we can also find the following information from the documentation website,
+In addition, you can find the following information from the documentation website,
 
 - Demo and tutorials of FLAML [here](https://www.youtube.com/channel/UCfU0zfFXHXdAd5x-WvFBk5A).
-
-- Developing guide [here](https://microsoft.github.io/FLAML/docs/Develop)
 
 - Research around FLAML [here](https://microsoft.github.io/FLAML/docs/Research)
 For more technical details, please check our papers.
 
 - FAQ [here](https://microsoft.github.io/FLAML/docs/FAQ)
+
+- Contributing guide [here](https://microsoft.github.io/FLAML/docs/Develop)
 
 ## Contributing
 
