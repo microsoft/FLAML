@@ -22,7 +22,7 @@ and learner selection method invented by Microsoft Research.
 
 2. It is easy to customize or extend. Users can choose their desired customizability: minimal customization (computational resource budget), medium customization (e.g., scikit-style learner, search space and metric), or full customization (arbitrary training and evaluation code).
 
-3. It supports fast automatic tuning respecting constraints. The tuning procedure can be used in distributed HPO frameworks such as ray tune or nni.
+3. It supports fast automatic tuning, capable of handling complex constraints/guidance/early stopping.
 
 FLAML has a .NET implementation as well from [ML.NET Model Builder](https://dotnet.microsoft.com/apps/machinelearning-ai/ml-dotnet/model-builder). This [ML.NET blog](https://devblogs.microsoft.com/dotnet/ml-net-june-updates/#new-and-improved-automl) describes the improvement brought by FLAML.
 
@@ -60,11 +60,11 @@ tool for XGBoost, LightGBM, Random Forest etc. or a customized learner.
 automl.fit(X_train, y_train, task="classification", estimator_list=["lgbm"])
 ```
 
-* You can also run generic ray-tune style hyperparameter tuning for a custom function.
+* You can also run generic hyperparameter tuning for a custom function.
 
 ```python
 from flaml import tune
-tune.run(train_with_config, config={…}, low_cost_partial_config={…}, time_budget_s=3600)
+tune.run(evaluation_function, config={…}, low_cost_partial_config={…}, time_budget_s=3600)
 ```
 
 ## Documentation
