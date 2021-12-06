@@ -13,17 +13,17 @@ There are three essential steps (assuming the knowledge of the set of hyperparam
 1. Specify a [search space](#search-space) of the hyperparameters.
 1. Specify [tuning constraints](#tuning-constraints), including constraints on the resource budget to do the tuning, constraints on the configurations, or/and constraints on a (or multiple) particular metric(s).
 
-With these steps, you can [perform a basic tuning task](#putting-together) accordingly.
+With these steps, you can [perform a basic tuning task](#put-together) accordingly.
 
 ### Tuning objective
 
 Related arguments:
-- `training_function`: A user-defined evaluation function.
+- `evaluation_function`: A user-defined evaluation function.
 - `metric`: A string of the metric name to optimize for.
 - `mode`:  A string in ['min', 'max'] to specify the objective as minimization or maximization.
 
 The first step is to specify your tuning objective.
-To do it, you should first specify your evaluation procedure (e.g., perform a machine learning model training and validation) with respect to the hyperparameters in a user-defined function `training_function`.
+To do it, you should first specify your evaluation procedure (e.g., perform a machine learning model training and validation) with respect to the hyperparameters in a user-defined function `evaluation_function`.
 The function requires a hyperparameter configuration as input, and can simply return a metric value in a scalar or return a dictionary of metric name and metric value pairs.
 
 In the following code, we define an objective function with respect to two hyperparameters named `x` and `y` according to $obj := (x-85000)^2 - x/y$. In real use cases, the objective function usually cannot be written in this closed form, but instead involves a black-box and expensive evaluation procedure. We use this toy example only for illustration purposes.
@@ -51,7 +51,7 @@ When the evaluation function returns a dictionary of metrics, you need to specif
 For example,
 
 ```python
-flaml.tune.run(training_function=evaluate_config, metric="score", mode="min", ...)
+flaml.tune.run(evaluation_function=evaluate_config, metric="score", mode="min", ...)
 ```
 
 ### Search space
@@ -165,7 +165,7 @@ flaml.tune.run(..., time_budget_s=60, num_samples=100, ...)
 Optionally, you can provide a list of config constraints to be satisfied through the argument `config_constraints` and provide a list of metric constraints to be satisfied through the argument `metric_constraints`. We provide more details about related use cases in the [Advanced Tuning Options](#more-constraints-on-the-tuning) section.
 
 
-### Putting together 
+### Put together 
 After the aforementioned key steps, one is ready to perform a tuning task by calling `flaml.tune.run()`. Below is a quick sequential tuning example using the pre-defined search space `config_search_space` and a minimization (`mode='min'`) objective for the `score` metric evaluated in `evaluate_config`, using the default serach algorithm in flaml. The time budget is 10 seconds (`time_budget_s=10`).
 ```python
 # require: pip install flaml[blendsearch]
@@ -213,17 +213,17 @@ In the following code example, we constrain the output of `area`, which takes a 
 def area(config):
     return config["width"] * config["height"]
 
-flaml.tune.run(training_function=evaluate_config, mode="min",
+flaml.tune.run(evaluation_function=evaluate_config, mode="min",
                config=config_search_space,
                config_constraints=[(area, '<=', 1000)], ...)
 ```
 
- You can also specify a list of metric constraints to be satisfied via the argument `metric_constraints`. Each element in the `metric_constraints` list is a tuple that consists of (1) a string specifying the name of the metric (the metric name must be defined and returned in the user-defined `training_function`); (2) an operation chosen from "<="  or ">"; (3) a numerical threshold.  
+ You can also specify a list of metric constraints to be satisfied via the argument `metric_constraints`. Each element in the `metric_constraints` list is a tuple that consists of (1) a string specifying the name of the metric (the metric name must be defined and returned in the user-defined `evaluation_function`); (2) an operation chosen from "<="  or ">"; (3) a numerical threshold.  
  
  In the following code example, we constrain the metric `score` to be no larger than 0.4. 
 
 ```python
-flaml.tune.run(training_function=evaluate_config, mode="min",
+flaml.tune.run(evaluation_function=evaluate_config, mode="min",
                config=config_search_space,
                metric_constraints=[('score', '<=', 0.4)],...)
 ```
@@ -268,18 +268,18 @@ Related arguments:
 
 A scheduler can help manage the trials' execution. It can be used to perform multi-fiedlity evalution, or/and early stopping. You can use two different types of schedulers in `flaml.tune` via `scheduler`.
 
-1. An authentic scheduler implemented in FLAML (`scheduler='flaml'`).
+#### 1. An authentic scheduler implemented in FLAML (`scheduler='flaml'`).
 
 This scheduler is authentic to the new search algorithms provided by FLAML. In a nutshell, it starts the search with the minimum resource (the resource is used in the evaluation function, and typically the larger resource, the more expensive the evaluation is). It switches between HPO with the current resource and increasing the resource for evaluation depending on which leads to faster improvement.
 
 If this scheduler is used, you need to 
 - Know what is the resource dimension, a factor that affects the cost of the evaluation (e.g., sample size, the number of epochs), and specify the `resource_attr`, i.e., the name of the resource dimension.
 
-- Know how the resource dimension affects the evaluation and write your `training_function`, which involves using the resource dimension to control the compute cost. Note that in this scheduler, the amount of resources to use at each iteration is suggested by the search algorithm through an additional field in configuration as specified by `resource_attr`. 
+- Know how the resource dimension affects the evaluation and write your `evaluation_function`, which involves using the resource dimension to control the compute cost. Note that in this scheduler, the amount of resources to use at each iteration is suggested by the search algorithm through an additional field in configuration as specified by `resource_attr`. 
 
 - Provide the lower and upper limit of the resource dimension via `min_resource` and `max_resource`, and optionally provide `reduction_factor`, which determines the magnitude of resource (multiplicative) increase when we decide to increase the resource. 
 
-In the following code example, we consider the sample size as the resource dimension. It determines how much data is used to perform training as reflected in the `training_func`. We set the `min_resource` and `max_resource` to 1000 and the size of the full training dataset, respectively.
+In the following code example, we consider the sample size as the resource dimension. It determines how much data is used to perform training as reflected in the `evaluation_function`. We set the `min_resource` and `max_resource` to 1000 and the size of the full training dataset, respectively.
 
 ```python
 from flaml import tune
@@ -305,7 +305,7 @@ def obj_from_resource_attr(resource_attr, X_train, X_test, y_train, y_test, conf
     model.fit(sampled_X_train, sampled_y_train)
     y_test_predict = model.predict(X_test)
     test_loss = 1.0 - accuracy_score(y_test, y_test_predict)
-    return {resource_attr: resource, 'loss': test_loss}
+    return {resource_attr: resource, "loss": test_loss}
 
 X_train, X_test, y_train, y_test = load_openml_task(task_id=7592, data_dir="test/")
 max_resource = len(y_train)
@@ -329,15 +329,15 @@ analysis = tune.run(
 )
 ```
 
-You can find more details about this scheduler in this paper: [FLAML](https://arxiv.org/pdf/1911.04706.pdf).
+You can find more details about this scheduler in [this paper](https://arxiv.org/pdf/1911.04706.pdf).
 
 
 
-2. A scheduler of the  [`TrialScheduler`](https://docs.ray.io/en/latest/tune/api_docs/schedulers.html#tune-schedulers) class from `ray.tune`.
+#### 2. A scheduler of the  [`TrialScheduler`](https://docs.ray.io/en/latest/tune/api_docs/schedulers.html#tune-schedulers) class from `ray.tune`.
 
 There is a handful of schedulers of this type implemented in `ray.tune`, for example, [ASHA](https://docs.ray.io/en/latest/tune/api_docs/schedulers.html#asha-tune-schedulers-ashascheduler), [HyperBand](https://docs.ray.io/en/latest/tune/api_docs/schedulers.html#tune-original-hyperband), [BOHB](https://docs.ray.io/en/latest/tune/api_docs/schedulers.html#tune-scheduler-bohb) and etc.
 
-To use this type of scheduler you can either (1) set `scheduler='asha'`, which will automatically create an  [ASHAScheduler](https://docs.ray.io/en/latest/tune/api_docs/schedulers.html#asha-tune-schedulers-ashascheduler) instance using the provided inputs (`resource_attr`, `min_resource`, `max_resource`, and `reduction_factor`); (2) create an instance by yourself and provided it via `scheduler`, as shown in the following code example,
+To use this type of scheduler you can either (1) set `scheduler='asha'`, which will automatically create an  [ASHAScheduler](https://docs.ray.io/en/latest/tune/api_docs/schedulers.html#asha-tune-schedulers-ashascheduler) instance using the provided inputs (`resource_attr`, `min_resource`, `max_resource`, and `reduction_factor`); or (2) create an instance by yourself and provided it via `scheduler`, as shown in the following code example,
 
 ```python
 #  require: pip install flaml[ray]
@@ -345,9 +345,9 @@ from ray.tune.schedulers import HyperBandScheduler
 my_scheduler = HyperBandScheduler(time_attr="sample_size", max_t=max_resource, reduction_factor=2)
 tune.run(.., scheduler=my_scheduler, ...)
 ```
-- Similar to in the case when the `flaml` scheduler is used, you need to specify the resource dimension, use the resource dimension accordingly in your `training_function`, and provide the necessary information needed for scheduling, such as `min_resource`, `max_resource` and `reduction_factor` (depending on the requirements of the specific scheduler).
+- Similar to the case where the `flaml` scheduler is used, you need to specify the resource dimension, use the resource dimension accordingly in your `evaluation_function`, and provide the necessary information needed for scheduling, such as `min_resource`, `max_resource` and `reduction_factor` (depending on the requirements of the specific scheduler).
 
-- Different from the case when the `flaml` scheduler is used, the amount of resource to use at each iteration is not suggested by the search algorithm through the `resource_attr` in configuration. You need to specify the evaluation schedule explicitly by yourself in the `training_func` and report intermediate results (using `tune.report()`) accordingly. In the following code example, we use the ASHA scheduler by setting `scheduler="asha"`, we specify `resource_attr`, `min_resource`, `min_resource` and `reduction_factor` the same way as in the previous example (when "flaml" is used as the scheduler). We perform the evaluation in a customized schedule.
+- Different from the case when the `flaml` scheduler is used, the amount of resource to use at each iteration is not suggested by the search algorithm through the `resource_attr` in configuration. You need to specify the evaluation schedule explicitly by yourself in the `evaluation_function` and report intermediate results (using `tune.report()`) accordingly. In the following code example, we use the ASHA scheduler by setting `scheduler="asha"`, we specify `resource_attr`, `min_resource`, `min_resource` and `reduction_factor` the same way as in the previous example (when "flaml" is used as the scheduler). We perform the evaluation in a customized schedule.
 
 ```python
 def obj_w_intermediate_report(resource_attr, X_train, X_test, y_train, y_test, min_resource, max_resource, config): 
@@ -373,21 +373,21 @@ resource_attr = "sample_size"
 min_resource = 1000
 max_resource = len(y_train)
 analysis = tune.run(
-        partial(obj_w_intermediate_report, resource_attr, X_train, X_test, y_train, y_test, min_resource, max_resource,),
-        config={
-            "n_estimators": tune.lograndint(lower=4, upper=200),
-            "learning_rate": tune.loguniform(lower=1 / 1024, upper=1.0),
-        },
-        metric="loss",
-        mode="min",
-        resource_attr=resource_attr,
-        scheduler="asha",
-        max_resource=max_resource,
-        min_resource=min_resource,
-        reduction_factor=2,
-        time_budget_s=10,
-        num_samples = -1,
-    )
+    partial(obj_w_intermediate_report, resource_attr, X_train, X_test, y_train, y_test, min_resource, max_resource),
+    config={
+        "n_estimators": tune.lograndint(lower=4, upper=200),
+        "learning_rate": tune.loguniform(lower=1 / 1024, upper=1.0),
+    },
+    metric="loss",
+    mode="min",
+    resource_attr=resource_attr,
+    scheduler="asha",
+    max_resource=max_resource,
+    min_resource=min_resource,
+    reduction_factor=2,
+    time_budget_s=10,
+    num_samples = -1,
+)
 ```
 
 ### Warm start
@@ -416,14 +416,14 @@ points_to_evaluate = [
 evaluated_rewards=[3.99, 2.99]
 
 analysis = tune.run(
-            simple_obj,
-            config=config_search_space,
-            mode="max",
-            points_to_evaluate=points_to_evaluate,
-            evaluated_rewards=evaluated_rewards,
-            time_budget_s=10,
-            num_samples = -1,
-        )
+    simple_obj,
+    config=config_search_space,
+    mode="max",
+    points_to_evaluate=points_to_evaluate,
+    evaluated_rewards=evaluated_rewards,
+    time_budget_s=10,
+    num_samples = -1,
+)
 ```
 
 ### Reproducibility
