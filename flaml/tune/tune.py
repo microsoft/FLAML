@@ -200,7 +200,9 @@ def run(
             needing to re-compute the trial. Must be the same length as
             points_to_evaluate.
             e.g.,
+
             .. code-block:: python
+
                 points_to_evaluate = [
                     {"b": .99, "cost_related": {"a": 3}},
                     {"b": .99, "cost_related": {"a": 2}},
@@ -209,7 +211,7 @@ def run(
 
             means that you know the reward for the two configs in
             points_to_evaluate are 3.0 and 1.0 respectively and want to
-            inform run()
+            inform run().
 
         resource_attr: A string to specify the resource dimension used by
             the scheduler via "scheduler".
