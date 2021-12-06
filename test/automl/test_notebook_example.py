@@ -1,4 +1,5 @@
 from openml.exceptions import OpenMLServerException
+from requests.exceptions import ChunkedEncodingError
 
 
 def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
@@ -8,8 +9,8 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
         X_train, X_test, y_train, y_test = load_openml_dataset(
             dataset_id=1169, data_dir="test/", dataset_format=dataset_format
         )
-    except OpenMLServerException:
-        print("OpenMLServerException raised")
+    except (OpenMLServerException, ChunkedEncodingError) as e:
+        print(e)
         return
     """ import AutoML class from flaml package """
     from flaml import AutoML
@@ -63,7 +64,7 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     ) = get_output_from_log(filename=settings["log_file_name"], time_budget=6)
     for config in config_history:
         print(config)
-    print(automl.prune_attr)
+    print(automl.resource_attr)
     print(automl.max_resource)
     print(automl.min_resource)
 
@@ -84,8 +85,8 @@ def test_mlflow():
         X_train, X_test, y_train, y_test = load_openml_task(
             task_id=7592, data_dir="test/"
         )
-    except OpenMLServerException:
-        print("OpenMLServerException raised")
+    except (OpenMLServerException, ChunkedEncodingError) as e:
+        print(e)
         return
     """ import AutoML class from flaml package """
     from flaml import AutoML

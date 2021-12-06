@@ -1,26 +1,25 @@
-import os
+import sys
 import pytest
 
 
-@pytest.mark.skipif(os.name == "posix", reason="do not run on mac os")
+@pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
 def test_hf_data():
-    try:
-        import ray
-    except ImportError:
-        return
     from flaml import AutoML
-
+    import requests
     from datasets import load_dataset
 
-    train_dataset = (
-        load_dataset("glue", "mrpc", split="train[:1%]").to_pandas().iloc[0:4]
-    )
-    dev_dataset = (
-        load_dataset("glue", "mrpc", split="train[1%:2%]").to_pandas().iloc[0:4]
-    )
-    test_dataset = (
-        load_dataset("glue", "mrpc", split="test[1%:2%]").to_pandas().iloc[0:4]
-    )
+    try:
+        train_dataset = (
+            load_dataset("glue", "mrpc", split="train[:1%]").to_pandas().iloc[0:4]
+        )
+        dev_dataset = (
+            load_dataset("glue", "mrpc", split="train[1%:2%]").to_pandas().iloc[0:4]
+        )
+        test_dataset = (
+            load_dataset("glue", "mrpc", split="test[1%:2%]").to_pandas().iloc[0:4]
+        )
+    except requests.exceptions.ConnectionError:
+        return
 
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
@@ -73,15 +72,21 @@ def test_hf_data():
         ]
     )
 
+    automl.predict_proba(X_test)
+    print(automl.classes_)
+
 
 def _test_custom_data():
     from flaml import AutoML
-
+    import requests
     import pandas as pd
 
-    train_dataset = pd.read_csv("data/input/train.tsv", delimiter="\t", quoting=3)
-    dev_dataset = pd.read_csv("data/input/dev.tsv", delimiter="\t", quoting=3)
-    test_dataset = pd.read_csv("data/input/test.tsv", delimiter="\t", quoting=3)
+    try:
+        train_dataset = pd.read_csv("data/input/train.tsv", delimiter="\t", quoting=3)
+        dev_dataset = pd.read_csv("data/input/dev.tsv", delimiter="\t", quoting=3)
+        test_dataset = pd.read_csv("data/input/test.tsv", delimiter="\t", quoting=3)
+    except requests.exceptions.ConnectionError:
+        pass
 
     custom_sent_keys = ["#1 String", "#2 String"]
     label_key = "Quality"
@@ -122,3 +127,7 @@ def _test_custom_data():
             ["test test", "test test"],
         ]
     )
+
+
+if __name__ == "__main__":
+    test_hf_data()

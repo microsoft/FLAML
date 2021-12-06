@@ -12,6 +12,7 @@ from .training_log import training_log_reader
 from datetime import datetime
 from typing import Dict, Union, List
 
+# TODO: if your task is not specified in here, define your task as an all-capitalized word
 SEQCLASSIFICATION = "seq-classification"
 CLASSIFICATION = ("binary", "multi", "classification", SEQCLASSIFICATION)
 SEQREGRESSION = "seq-regression"
@@ -20,6 +21,19 @@ TS_FORECAST = "ts_forecast"
 TS_TIMESTAMP_COL = "ds"
 TS_VALUE_COL = "y"
 FORECAST = "forecast"
+SUMMARIZATION = "summarization"
+NLG_TASKS = (SUMMARIZATION,)
+NLU_TASKS = (
+    SEQREGRESSION,
+    SEQCLASSIFICATION,
+)
+
+
+def _is_nlp_task(task):
+    if task in NLU_TASKS + NLG_TASKS:
+        return True
+    else:
+        return False
 
 
 def load_openml_dataset(
@@ -195,7 +209,7 @@ def get_output_from_log(filename, time_budget):
 
 def concat(X1, X2):
     """concatenate two matrices vertically"""
-    if isinstance(X1, DataFrame) or isinstance(X1, Series):
+    if isinstance(X1, (DataFrame, Series)):
         df = pd.concat([X1, X2], sort=False)
         df.reset_index(drop=True, inplace=True)
         if isinstance(X1, DataFrame):
@@ -225,8 +239,6 @@ class DataTransformer:
             X: Processed numpy array or pandas dataframe of training data.
             y: Processed numpy array or pandas series of labels.
         """
-        from .nlp.utils import _is_nlp_task
-
         if _is_nlp_task(task):
             # if the mode is NLP, check the type of input, each column must be either string or
             # ids (input ids, token type id, attention mask, etc.)
@@ -358,8 +370,6 @@ class DataTransformer:
             y: Processed numpy array or pandas series of labels.
         """
         X = X.copy()
-
-        from .nlp.utils import _is_nlp_task
 
         if _is_nlp_task(self._task):
             # if the mode is NLP, check the type of input, each column must be either string or
