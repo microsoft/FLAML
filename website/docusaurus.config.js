@@ -9,16 +9,16 @@ module.exports = {
   baseUrl: '/FLAML/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/FLAML.ico',
   organizationName: 'Shao-kun-Zhang', // Usually your GitHub org/user name.
   projectName: 'FLAML', // Usually your repo name.
   themeConfig: {
     navbar: {
       title: 'FLAML',
-      // logo: {
-      //   alt: 'FLAML',
-      //   src: 'img/logo.svg',
-      // },
+      logo: {
+        alt: 'FLAML',
+        src: 'img/FLAML.svg',
+      },
       items: [
         {
           type: 'doc',
