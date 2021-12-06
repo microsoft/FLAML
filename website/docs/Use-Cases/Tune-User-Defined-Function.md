@@ -13,7 +13,7 @@ There are three essential steps (assuming the knowledge of the set of hyperparam
 1. Specify a [search space](#search-space) of the hyperparameters.
 1. Specify [tuning constraints](#tuning-constraints), including constraints on the resource budget to do the tuning, constraints on the configurations, or/and constraints on a (or multiple) particular metric(s).
 
-With these steps, you can [perform a basic tuning task and analyze the results](#putting-together-and-result-analysis) accordingly.
+With these steps, you can [perform a basic tuning task](#putting-together) accordingly.
 
 ### Tuning objective
 
@@ -24,29 +24,29 @@ Related arguments:
 
 The first step is to specify your tuning objective.
 To do it, you should first specify your evaluation procedure (e.g., perform a machine learning model training and validation) with respect to the hyperparameters in a user-defined function `training_function`.
-The function requires a hyperparameter configuration as input, and can simply return a metric value in a scalar or returns a dictionary of metric name and metric value pairs.
+The function requires a hyperparameter configuration as input, and can simply return a metric value in a scalar or return a dictionary of metric name and metric value pairs.
 
-In the following code, we define an objective function with respect to two hyperparameters named `x` and `y` according to $obj := (x-85000)^2 - x/y$. In real use cases, the objective function usually cannot be written into this closed form, but instead involves a black-box and expensive evaluation procedure. We use this toy example only for illustration purposes.
+In the following code, we define an objective function with respect to two hyperparameters named `x` and `y` according to $obj := (x-85000)^2 - x/y$. In real use cases, the objective function usually cannot be written in this closed form, but instead involves a black-box and expensive evaluation procedure. We use this toy example only for illustration purposes.
 
 ```python
 import time
 
 def evaluate_config(config: dict):
     '''evaluate a hyperparameter configuration'''
-    score = (config['x']-85000)**2 - config['x']/config['y']
+    score = (config['x'] - 85000) ** 2 - config['x'] / config['y']
     # usually the evaluation takes an non-neglible cost
     # and the cost could be related to certain hyperparameters
     # here we simulate this cost by calling the time.sleep() function
     # here we assume the cost is proportional to x
-    faked_evaluation_cost = config['x']/100000
+    faked_evaluation_cost = config['x'] / 100000
     time.sleep(faked_evaluation_cost)
-    # we can return a single float as the optimization objective
+    # we can return a single float as the optimization objective:
     # return score
-    # or, we can return a dictionary that maps metric name to metric name, e.g.,
+    # or, we can return a dictionary that maps metric name to metric value:
     return {"score": score, "evaluation_cost": faked_evaluation_cost, "constraint_metric": x * y}
 ```
 
-When the evaluation function returns a dictionary of metrics, you need to specify the name of the metric to optimize for via the argument `metric` (this can be skipped when the function is just returning a scalar). In addition, you need to specify a mode of your optimization/tuning task (maximization or minimization) via the argument `mode` by choosing from "min" or "max". 
+When the evaluation function returns a dictionary of metrics, you need to specify the name of the metric to optimize via the argument `metric` (this can be skipped when the function is just returning a scalar). In addition, you need to specify a mode of your optimization/tuning task (maximization or minimization) via the argument `mode` by choosing from "min" or "max". 
 
 For example,
 
