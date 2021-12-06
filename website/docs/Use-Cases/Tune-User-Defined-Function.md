@@ -307,27 +307,26 @@ def obj_from_resource_attr(resource_attr, X_train, X_test, y_train, y_test, conf
     test_loss = 1.0 - accuracy_score(y_test, y_test_predict)
     return {resource_attr: resource, 'loss': test_loss}
 
-X_train, X_test, y_train, y_test = load_openml_task(
-    task_id=7592, data_dir="test/")
+X_train, X_test, y_train, y_test = load_openml_task(task_id=7592, data_dir="test/")
 max_resource = len(y_train)
 resource_attr = "sample_size"
 min_resource = 1000
 analysis = tune.run(
-        partial(obj_from_resource_attr, resource_attr, X_train, X_test, y_train, y_test),
-        config={
-            "n_estimators": tune.lograndint(lower=4, upper=200),
-            "learning_rate": tune.loguniform(lower=1 / 1024, upper=1.0),
-        },
-        metric="loss",
-        mode="min",
-        resource_attr=resource_attr,
-        scheduler="flaml",
-        max_resource=max_resource,
-        min_resource=min_resource,
-        reduction_factor=2,
-        time_budget_s=10,
-        num_samples=-1,
-    )
+    partial(obj_from_resource_attr, resource_attr, X_train, X_test, y_train, y_test),
+    config={
+        "n_estimators": tune.lograndint(lower=4, upper=200),
+        "learning_rate": tune.loguniform(lower=1 / 1024, upper=1.0),
+    },
+    metric="loss",
+    mode="min",
+    resource_attr=resource_attr,
+    scheduler="flaml",
+    max_resource=max_resource,
+    min_resource=min_resource,
+    reduction_factor=2,
+    time_budget_s=10,
+    num_samples=-1,
+)
 ```
 
 You can find more details about this scheduler in this paper: [FLAML](https://arxiv.org/pdf/1911.04706.pdf).
