@@ -326,7 +326,7 @@ analysis = tune.run(
         min_resource=min_resource,
         reduction_factor=2,
         time_budget_s=10,
-        num_samples = -1,
+        num_samples=-1,
     )
 ```
 
