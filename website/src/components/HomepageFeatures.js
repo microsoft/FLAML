@@ -5,7 +5,7 @@ import styles from './HomepageFeatures.module.css';
 const FeatureList = [
   {
     title: 'Find Quality Model at Your Fingertips',
-    Svg: require('../../static/img/undraw_docusaurus_mountain.svg').default,
+    Svg: require('../../static/img/auto.svg').default,
     description: (
       <>
         FLAML finds accurate ML models with small computational resources
@@ -17,7 +17,7 @@ const FeatureList = [
   },
   {
     title: 'Easy to Customize or Extend',
-    Svg: require('../../static/img/undraw_docusaurus_tree.svg').default,
+    Svg: require('../../static/img/extend.svg').default,
     description: (
       <>
         FLAML is designed easy to extend, such as adding custom learners or metrics.
@@ -28,7 +28,7 @@ const FeatureList = [
   },
   {
     title: 'Tune It Fast, Tune It As You Like',
-    Svg: require('../../static/img/undraw_docusaurus_react.svg').default,
+    Svg: require('../../static/img/fast.svg').default,
     description: (
       <>
         FLAML offers a fast auto tuning tool powered by a novel cost-effective tuning approach.

@@ -9,7 +9,7 @@ module.exports = {
   baseUrl: '/FLAML/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
-  favicon: 'img/FLAML.ico',
+  favicon: 'img/flaml_logo.ico',
   organizationName: 'Shao-kun-Zhang', // Usually your GitHub org/user name.
   projectName: 'FLAML', // Usually your repo name.
   themeConfig: {
@@ -17,7 +17,7 @@ module.exports = {
       title: 'FLAML',
       logo: {
         alt: 'FLAML',
-        src: 'img/FLAML.svg',
+        src: 'img/flaml_logo_fill.svg',
       },
       items: [
         {
