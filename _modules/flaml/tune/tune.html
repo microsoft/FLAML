@@ -172,7 +172,7 @@
 
 
 <div class="viewcode-block" id="run"><a class="viewcode-back" href="../../../index.html#flaml.tune.run">[docs]</a><span class="k">def</span> <span class="nf">run</span><span class="p">(</span>
-    <span class="n">training_function</span><span class="p">,</span>
+    <span class="n">evaluation_function</span><span class="p">,</span>
     <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">low_cost_partial_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">cat_hp_cost</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -185,7 +185,7 @@
     <span class="n">min_resource</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">max_resource</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">reduction_factor</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">scheduler</span><span class="p">:</span> <span class="n">Optional</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">scheduler</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">search_alg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">verbose</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
     <span class="n">local_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -225,7 +225,12 @@
 <span class="sd">        print(analysis.trials[-1].last_result)</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        training_function: A user-defined training function.</span>
+<span class="sd">        evaluation_function: A user-defined evaluation function.</span>
+<span class="sd">            It takes a configuration as input, outputs a evaluation</span>
+<span class="sd">            result (can be a numerical value or a dictionary of string</span>
+<span class="sd">            and numerical value pairs) for the input configuration.</span>
+<span class="sd">            For machine learning tasks, it usually involves training and</span>
+<span class="sd">            scoring a machine learning model, e.g., through validation loss.</span>
 <span class="sd">        config: A dictionary to specify the search space.</span>
 <span class="sd">        low_cost_partial_config: A dictionary from a subset of</span>
 <span class="sd">            controlled dimensions to the initial low-cost values.</span>
@@ -258,7 +263,9 @@
 <span class="sd">            needing to re-compute the trial. Must be the same length as</span>
 <span class="sd">            points_to_evaluate.</span>
 <span class="sd">            e.g.,</span>
+
 <span class="sd">            .. code-block:: python</span>
+
 <span class="sd">                points_to_evaluate = [</span>
 <span class="sd">                    {&quot;b&quot;: .99, &quot;cost_related&quot;: {&quot;a&quot;: 3}},</span>
 <span class="sd">                    {&quot;b&quot;: .99, &quot;cost_related&quot;: {&quot;a&quot;: 2}},</span>
@@ -267,7 +274,7 @@
 
 <span class="sd">            means that you know the reward for the two configs in</span>
 <span class="sd">            points_to_evaluate are 3.0 and 1.0 respectively and want to</span>
-<span class="sd">            inform run()</span>
+<span class="sd">            inform run().</span>
 
 <span class="sd">        resource_attr: A string to specify the resource dimension used by</span>
 <span class="sd">            the scheduler via &quot;scheduler&quot;.</span>
@@ -280,7 +287,7 @@
 <span class="sd">            in this case when resource_attr is provided, the &#39;flaml&#39; scheduler will be</span>
 <span class="sd">            used, otherwise no scheduler will be used. When set &#39;flaml&#39;, an</span>
 <span class="sd">            authentic scheduler implemented in FLAML will be used. It does not</span>
-<span class="sd">            require users to report intermediate results in training_function.</span>
+<span class="sd">            require users to report intermediate results in evaluation_function.</span>
 <span class="sd">            Find more details abuot this scheduler in this paper</span>
 <span class="sd">            https://arxiv.org/pdf/1911.04706.pdf).</span>
 <span class="sd">            When set &#39;asha&#39;, the input for arguments &quot;resource_attr&quot;,</span>
@@ -288,9 +295,9 @@
 <span class="sd">            to ASHA&#39;s &quot;time_attr&quot;,  &quot;max_t&quot;, &quot;grace_period&quot; and &quot;reduction_factor&quot;</span>
 <span class="sd">            respectively. You can also provide a self-defined scheduler instance</span>
 <span class="sd">            of the TrialScheduler class. When &#39;asha&#39; or self-defined scheduler is</span>
-<span class="sd">            used, you usually need to report intermediate results in the training</span>
+<span class="sd">            used, you usually need to report intermediate results in the evaluation</span>
 <span class="sd">            function. Please find examples using different types of schedulers</span>
-<span class="sd">            and how to set up the corresponding training functions in</span>
+<span class="sd">            and how to set up the corresponding evaluation functions in</span>
 <span class="sd">            test/tune/test_scheduler.py. TODO: point to notebook examples.</span>
 <span class="sd">        search_alg: An instance of BlendSearch as the search algorithm</span>
 <span class="sd">            to be used. The same instance can be used for iterative tuning.</span>
@@ -445,7 +452,7 @@
             <span class="p">)</span>
         <span class="n">_use_ray</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">return</span> <span class="n">tune</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-            <span class="n">training_function</span><span class="p">,</span>
+            <span class="n">evaluation_function</span><span class="p">,</span>
             <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span>
             <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span>
             <span class="n">search_alg</span><span class="o">=</span><span class="n">search_alg</span><span class="p">,</span>
@@ -486,7 +493,7 @@
             <span class="n">num_trials</span> <span class="o">+=</span> <span class="mi">1</span>
             <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;trial </span><span class="si">{</span><span class="n">num_trials</span><span class="si">}</span><span class="s2"> config: </span><span class="si">{</span><span class="n">trial_to_run</span><span class="o">.</span><span class="n">config</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="n">training_function</span><span class="p">(</span><span class="n">trial_to_run</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">evaluation_function</span><span class="p">(</span><span class="n">trial_to_run</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
                     <span class="n">report</span><span class="p">(</span><span class="o">**</span><span class="n">result</span><span class="p">)</span>
