@@ -8,12 +8,10 @@
 
 ## Basic Tuning Procedure
 
-<!-- The usage of `flaml.tune` is, to a large extent, similar to the usage of `ray.tune`.  Interested users can find a more extensive documentation about `ray.tune` [here](https://docs.ray.io/en/latest/tune/key-concepts.html).  -->
-
 There are three essential steps (assuming the knowledge of the set of hyperparameters to tune) to use `flaml.tune` to finish a basic tuning task:
 1. Specify the [tuning objective](#tuning-objective) with respect to the hyperparameters.
 1. Specify a [search space](#search-space) of the hyperparameters.
-1. Specify [tuning constraints](#tuning-constraints), including constraints on the resource budget to do the tuning, constraints on the configurations[TODO: not accurate? How should we refer `config_constraints`], or/and constraints on a (or multiple) particular metric(s).
+1. Specify [tuning constraints](#tuning-constraints), including constraints on the resource budget to do the tuning, constraints on the configurations, or/and constraints on a (or multiple) particular metric(s).
 
 With these steps, you can [perform a basic tuning task and analyze the results](#putting-together-and-result-analysis) accordingly.
 
@@ -28,7 +26,7 @@ The first step is to specify your tuning objective.
 To do it, you should first specify your evaluation procedure (e.g., perform a machine learning model training and validation) with respect to the hyperparameters in a user-defined function `training_function`.
 The function requires a hyperparameter configuration as input, and can simply return a metric value in a scalar or returns a dictionary of metric name and metric value pairs.
 
-In the following code, we define an objective function with respect to two hyperparameters named `x` and `y` according to $obj := (x-85000)^2 - x/y$. In real use cases, the objective function usually cannot be written into this closed form, but instead involves a black-box and  expensive evaluation procedure. We use this toy example only for illustration purpose.
+In the following code, we define an objective function with respect to two hyperparameters named `x` and `y` according to $obj := (x-85000)^2 - x/y$. In real use cases, the objective function usually cannot be written into this closed form, but instead involves a black-box and expensive evaluation procedure. We use this toy example only for illustration purposes.
 
 ```python
 import time
@@ -135,10 +133,10 @@ config = {
 
 #### Cost-related hyperparameters
 
-Cost-related hyperparameters is a subset of the hyperparameters which directly affects the computation cost incurred in the evaluation of any hyperparameter configuration. For example, the number of estimators (`n_estimators`) and the maximum number of leaves (`max_leaves`) are known to affect the training cost of tree-based learners, and thus cost-related hyperparameters in tree-based learners.
+Cost-related hyperparameters are a subset of the hyperparameters which directly affect the computation cost incurred in the evaluation of any hyperparameter configuration. For example, the number of estimators (`n_estimators`) and the maximum number of leaves (`max_leaves`) are known to affect the training cost of tree-based learners, and thus cost-related hyperparameters in tree-based learners.
 
-Our search algorithms are designed to finish the tuning at a low total cost, especailly in the case where cost-related hyperparamters exist.
-So in such scenarios, if you are aware of low-cost configurations for the cost-related hyperparameters, you are recommended to set them as the `low_cost_partial_config`, which is a dictionary of subset of the hyperparameter coordinates whose value corresponds to a configuration with known low cost.  Using the tree-based methods example again, since we know that small `n_estimators` and `max_leaves` generally correspond to simpler models and thus lower cost, we set `{'n_estimators': 4, 'max_leaves': 4}` as the `low_cost_partial_config` by default (note that 4 is the lower bound of search space for these two hyperparameters), e.g., in LGBM. 
+Our search algorithms are designed to finish the tuning at a low total cost, especially in the case where cost-related hyperparameters exist.
+So in such scenarios, if you are aware of low-cost configurations for the cost-related hyperparameters, you are recommended to set them as the `low_cost_partial_config`, which is a dictionary of a subset of the hyperparameter coordinates whose value corresponds to a configuration with known low cost.  Using the example of the tree-based methods again, since we know that small `n_estimators` and `max_leaves` generally correspond to simpler models and thus lower cost, we set `{'n_estimators': 4, 'max_leaves': 4}` as the `low_cost_partial_config` by default (note that 4 is the lower bound of search space for these two hyperparameters), e.g., in LGBM. 
 
 In addition, if you are aware of the cost relationship between different categorical hyperparameter choices, you are encouraged to provide this information through `cat_hp_cost`. It also helps the search algorithm to reduce the total cost.
 
@@ -150,7 +148,7 @@ Related arguments:
 - `config_constraints` (optional): A list of config constraints to be satisfied.
 - `metric_constraints` (optional): A list of metric constraints to be satisfied. e.g., `['precision', '>=', 0.9]`.
 
-The third step is to specify constraints for search. One notable property of `flaml.tune` is that it is able to finsh the tuning process (obtaining good results) within a required resource constraint. A user can either provide the resource constraint in terms of wall-clock time (in seconds) through the argument `time_budget_s`, or in terms of the number of trials through the argument `num_samples`.  The following code show three use cases: (1) Set a resource constraint of 60 seconds wall-clock time for the tuning. (2) Set a resource constraint of 100 trials for the tuning. 
+The third step is to specify constraints for search. One notable property of `flaml.tune` is that it is able to finish the tuning process (obtaining good results) within a required resource constraint. A user can either provide the resource constraint in terms of wall-clock time (in seconds) through the argument `time_budget_s`, or in terms of the number of trials through the argument `num_samples`.  The following code show three use cases: (1) Set a resource constraint of 60 seconds wall-clock time for the tuning. (2) Set a resource constraint of 100 trials for the tuning. 
 
 ```python
 flaml.tune.run(..., time_budget_s=60, ...)
@@ -163,23 +161,8 @@ flaml.tune.run(..., num_samples=100, ...)
 
 Optionally, you can provide a list of config constraints to be satisfied through the argument `config_constraints` and provide a list of metric constraints to be satisfied through the argument `metric_constraints`. We provide more details about related use cases in the [Advanced Tuning Options](#more-constraints-on-the-tuning) section.
 
-<!-- For example, the following code constrain the memory size for each model (assuming a model is trained) tried in the tuning process.  -->
-<!-- ```python
-flaml.tune.run(training_function=evaluate_config, mode="min",
-               config=config_search_space,
-               config_constraints=[(mem_size, '<=', 1024**3)],...)
-```
 
-And optionall, you can provide a list of metric constraints to be satisfied. For example, the following code constrain the metric `precision` (assuming assuming `precision` is your metric) to be larger than 0.9. 
-
-```python
-flaml.tune.run(training_function=evaluate_config, mode="min",
-               config=config_search_space,
-               metric_constraints=['precision', '>=', 0.9],...)
-``` -->
-
-
-### Putting together and result analysis
+### Putting together 
 After the aforementioned key steps, one is ready to perform a tuning task by calling `flaml.tune.run()`. Below is a quick sequential tuning example using the pre-defined search space `config_search_space` and a minimization (`mode='min'`) objective for the `score` metric evaluated in `evaluate_config`, using the default serach algorithm in flaml. The time budget is 10 seconds (`time_budget_s=10`).
 ```python
 # require: pip install flaml[blendsearch]
@@ -192,51 +175,36 @@ analysis = tune.run(
     time_budget_s=10,  # the time budget in seconds
 )
 ```
-Sequential tuning is recommended when compute resource is limited, and each trial can consume all the resources.
 
-Once the tuning process finishes, it returns an [Analysis](https://microsoft.github.io/FLAML/docs/reference/tune/analysis) object, which provides methods to analyze the tuning. In the following code example, we retrieve the best configuration found during the tuning, and retrieve the best trial's result. 
+
+### Result Analysis
+
+Once the tuning process finishes, it returns an [Analysis](https://microsoft.github.io/FLAML/docs/reference/tune/analysis) object, which provides methods to analyze the tuning.
+
+In the following code example, we retrieve the best configuration found during the tuning, and retrieve the best trial's result from the returned `analysis`. 
 
 ```python
+analysis = tune.run(
+    evaluate_config,  # the function to evaluate a config
+    config=config_search_space,  # the search space defined
+    metric="score",
+    mode="min",  # the optimization mode, "min" or "max"
+    num_samples=-1,  # the maximal number of configs to try, -1 means infinite
+    time_budget_s=10,  # the time budget in seconds
+)
 print(analysis.best_config)  # the best config
 print(analysis.best_trial.last_result)  # the best trial's result
 ```
-
 
 ## Advanced Tuning Options
 
 There are several advanced tuning options worth mentioning.
 
-### Advanced evaluation options
-TODO: should we add this section now? Reason to add (1) explain `tune.report`; (2) take `best_result` as input; (3) in the future, add preferenced-based evaluation.
-Reason not to add: (1) and (2) can be placed in early stopping; (3) is not there yet.
-
-[TODO: the mismatch between evaluation function and `training_function`. Rename `training_function`]
-
-In addition to simply returning a scalar metric value or a dictionary of metric name and metric value pairs, in `training_function` you can also call [`tune.report()`](https://microsoft.github.io/FLAML/docs/reference/tune/tune#report) to report the final or intermediate results, which can include one or multiple metrics of interest. The intermediate result can help to do early stopping.
-
-In the following code example, we use `tune.report` to report an intermediate score of interest (with metric name `mean_loss`) at each step according to `config["steps"]`.
-
-```python
-def evaluation_fn(step, width, height):
-    return (0.1 + width * step / 100) ** (-1) + height * 0.1
-
-def evaluate_config(config):
-    # Hyperparameters
-    width, height = config["width"], config["height"]
-
-    for step in range(config["steps"]):
-        # Iterative training function - can be any arbitrary training procedure
-        intermediate_score = evaluation_fn(step, width, height)
-        # Feed the score back back to Tune.
-        tune.report(iterations=step, score=intermediate_score)
-        time.sleep(0.1)
-
-flaml.tune.run(evaluate_config, metric="score", mode="min", ...)
-```
-
 ### More constraints on the tuning
 
-As mentioned in the [Tuning Constraints](#tuning-constraints) section, a user can provide a list of config constraints to be satisfied via the argument `config_constraints`. The `config_constraints` is a list of config constraints to be satisfied. Each constraint is a tuple that consists of (1) a function that takes a configuration as input and returns a numerical value; (2) an operation chosen from "<="  or ">"; (3) a numerical threshold. For example, 
+A user can specify constraints on the configurations (or functions of the configurations) to be satisfied via the argument `config_constraints`. The `config_constraints` receives a list of such constraints to be satisfied. Specifically, each constraint is a tuple that consists of (1) a function that takes a configuration as input and returns a numerical value; (2) an operation chosen from "<="  or ">"; (3) a numerical threshold. For example, 
+
+ In the following code example, we constrain the output of `area`, which takes a configuration as input and outputs a numerical value, to be no larger than 1000.
 
 ```python
 def area(config):
@@ -247,7 +215,9 @@ flaml.tune.run(training_function=evaluate_config, mode="min",
                config_constraints=[(area, '<=', 1000)],...)
 ```
 
- You can also provide a list of metric constraints to be satisfied via the argument `metric_constraints`. Each element in the `metric_constraints` list is a tuple that consists of (1) a string specifying the name of the metric (the metric name must be defined and reported/returned in the user-defined `training_function`); (2) an operation chosen from "<="  or ">"; (3) a numerical threshold.  The following code constrains the metric `score` to be no larger than 0.4. 
+ You can also specify a list of metric constraints to be satisfied via the argument `metric_constraints`. Each element in the `metric_constraints` list is a tuple that consists of (1) a string specifying the name of the metric (the metric name must be defined and returned in the user-defined `training_function`); (2) an operation chosen from "<="  or ">"; (3) a numerical threshold.  
+ 
+ In the following code example, we constrain the metric `score` to be no larger than 0.4. 
 
 ```python
 flaml.tune.run(training_function=evaluate_config, mode="min",
@@ -257,13 +227,13 @@ flaml.tune.run(training_function=evaluate_config, mode="min",
 
 ### Paralle tuning
 
-Related aruguments:
+Related arguments:
 
 - `use_ray`: A boolean of whether to use ray as the backend.
 - `resources_per_trial`: A dictionary of the hardware resources to allocate per trial, e.g., `{'cpu': 1}`. Only valid when using ray backend.
 
 
-To leverage extra parallel computing resources to do the tuning, you achieve it by specifying `use_ray=True` (requiring flaml[ray] option installed). You can also limit the amount of resources allocated per trial by specifying `resources_per_trial`, e.g., `resources_per_trial={'cpu': 2}`.
+You can perform parallel tuning by specifying `use_ray=True` (requiring flaml[ray] option installed). You can also limit the amount of resources allocated per trial by specifying `resources_per_trial`, e.g., `resources_per_trial={'cpu': 2}`.
 
 ```python
 # require: pip install flaml[ray]
@@ -281,89 +251,177 @@ print(analysis.best_trial.last_result)  # the best trial's result
 print(analysis.best_config) # the best config
 ```
 
-**A headsup about computation overhead.** When parallel tuning is used, there will be a certain amount of computation overhead in each trial. In case each trial's original cost is much smaller than the overhead, parallel tuning can underperform sequential tuning.
+**A headsup about computation overhead.** When parallel tuning is used, there will be a certain amount of computation overhead in each trial. In case each trial's original cost is much smaller than the overhead, parallel tuning can underperform sequential tuning. Sequential tuning is recommended when compute resource is limited, and each trial can consume all the resources.
 
 
-### Early stopping
+### Trial Scheduling
 
 Related arguments:
-
-- `min_resource`: A float of the minimal resource to use for the
-    prune_attr; only valid if prune_attr is not in space.
-- `max_resource`: A float of the maximal resource to use for the
-    prune_attr; only valid if prune_attr is not in space.
+- `scheduler`: A scheduler for executing the experiment.
+- `resource_attr`: A string to specify the resource dimension used by the scheduler.
+- `min_resource`: A float of the minimal resource to use for the resource_attr.
+- `max_resource`: A float of the maximal resource to use for the resource_attr.
 - `reduction_factor`: A float of the reduction factor used for incremental pruning.
-- `report_intermediate_result`: A boolean of whether intermediate results are reported. If so, early stopping and pruning can be used.
-- `prune_attr`: A string of the attribute used for pruning.
-    Not necessarily in space.
-    When prune_attr is in space, it is a hyperparameter, e.g.,
-    'n_iters', and the best value is unknown.
-    When prune_attr is not in space, it is a resource dimension,
-    e.g., 'sample_size', and the peak performance is assumed
-    to be at the max_resource.
+
+A scheduler can help manage the trials' execution. It can be used to perform multi-fiedlity evalution, or/and early stopping. You can use two different types of schedulers in `flaml.tune` via `scheduler`.
+
+1. An authentic scheduler implemented in FLAML (`scheduler='flaml'`).
+
+This scheduler is authentic to the new search algorithms provided by FLAML. In a nutshell, it starts the search with the minimum resource (the resource is used in the evaluation function, and typically the larger resource, the more expensive the evaluation is) and increases the resource for each configuration to evaluate only when necessary to proceed with the search. With this scheduler, we do not necessarily need to use the maximum resource in the evaluation to find the best configuration, which helps save computation cost. 
+
+If this scheduler is used, you need to 
+- Know what is the resource dimension, a factor that affects the cost of the evaluation (e.g., sample size, the number of epochs), and specify the `resource_attr`, i.e., the name of the resource dimension.
+
+- Know how the resource dimension affects the evaluation and write your `training_function`, which involves using and reporting the resource dimension. Note that in this scheduler, the amount of resources to use at each iteration is suggested by the search algorithm through an additional `resource_attr` field in configuration. 
+
+- Provide the lower and upper limit of the resource dimension via `min_resource` and `max_resource`, and provide `reduction_factor`, which determines the magnitude of resource (multiplicative) increase when we decide to increase the resource. 
+
+In the following code example, we consider the sample size as the resource dimension. It determines how much data is used to perform training as reflected in the `training_func`. We set the `min_resource` and `max_resource` to 1000 and the size of the full training dataset, respectively.
 
 ```python
-def train_breast_cancer(config: dict):
-    """A simple XGBoost training function to tune"""
-    # Load dataset
-    data, labels = sklearn.datasets.load_breast_cancer(return_X_y=True)
-    # Split into train and test set
-    train_x, test_x, train_y, test_y = train_test_split(data, labels, test_size=0.25)
-    # Build input matrices for XGBoost
-    train_set = xgb.DMatrix(train_x, label=train_y)
-    test_set = xgb.DMatrix(test_x, label=test_y)
+from flaml import tune
+from functools import partial
+from flaml.data import load_openml_task
 
-    config = config.copy()
-    config["eval_metric"] = ["logloss", "error"]
-    config["objective"] = "binary:logistic"
-    # Train the classifier, using the callback to report intermediate results
-    xgb.train(
-        config,
-        train_set,
-        evals=[(test_set, "eval")],
-        verbose_eval=False,
-        callbacks=[TuneReportCheckpointCallback(filename="model.xgb")],
-    )
+def obj_from_resource_attr(resource_attr, X_train, X_test, y_train, y_test, config):
+    from lightgbm import LGBMClassifier
+    from sklearn.metrics import accuracy_score
 
+    # in this example sample size is our resource dimension
+    resource = int(config[resource_attr])
+    sampled_X_train = X_train.iloc[:resource]
+    sampled_y_train = y_train[:resource]
+    
+    # construct a LGBM model from the config
+    # note that you need to first remove the resource_attr field
+    # from the config as it is not part of the original search space
+    model_config = config.copy()
+    del model_config[resource_attr]
+    model = LGBMClassifier(**model_config)
+
+    model.fit(sampled_X_train, sampled_y_train)
+    y_test_predict = model.predict(X_test)
+    test_loss = 1.0 - accuracy_score(y_test, y_test_predict)
+    return {resource_attr: resource, 'loss': test_loss}
+
+X_train, X_test, y_train, y_test = load_openml_task(
+    task_id=7592, data_dir="test/")
+max_resource = len(y_train)
+resource_attr = "sample_size"
+min_resource = 1000
 analysis = tune.run(
-    train_breast_cancer,
-    config=search_space,
-    low_cost_partial_config={"max_depth": 1},
-    cat_hp_cost={"min_child_weight": [6, 3, 2]},
-    metric="eval-logloss",
-    mode="min",
-    max_resource=max_iter,
-    min_resource=1,
-    report_intermediate_result=True,
-    resources_per_trial={"cpu": 1},
-    local_dir="logs/",
-    num_samples=num_samples * n_cpu,
-    time_budget_s=time_budget_s,
-    use_ray=True,
-)
+        partial(obj_from_resource_attr, resource_attr, X_train, X_test, y_train, y_test),
+        config={
+            "n_estimators": tune.lograndint(lower=4, upper=200),
+            "learning_rate": tune.loguniform(lower=1 / 1024, upper=1.0),
+        },
+        metric="loss",
+        mode="min",
+        resource_attr=resource_attr,
+        scheduler="flaml",
+        max_resource=max_resource,
+        min_resource=min_resource,
+        reduction_factor=2,
+        time_budget_s=10,
+        num_samples = -1,
+    )
+```
+
+You can find more details about this scheduler in this paper: [FLAML](https://arxiv.org/pdf/1911.04706.pdf).
+
+
+
+2. A scheduler of the  [`TrialScheduler`](https://docs.ray.io/en/latest/tune/api_docs/schedulers.html#tune-schedulers) class from `ray.tune`.
+
+There is a handful of schedulers of this type implemented in `ray.tune`, for example, [ASHA](https://docs.ray.io/en/latest/tune/api_docs/schedulers.html#asha-tune-schedulers-ashascheduler), [HyperBand](https://docs.ray.io/en/latest/tune/api_docs/schedulers.html#tune-original-hyperband), [BOHB](https://docs.ray.io/en/latest/tune/api_docs/schedulers.html#tune-scheduler-bohb) and etc.
+
+To use this type of scheduler you can either (1) set `scheduler='asha'`, which will automatically create an  [ASHAScheduler](https://docs.ray.io/en/latest/tune/api_docs/schedulers.html#asha-tune-schedulers-ashascheduler) instance using the provided inputs (`resource_attr`, `min_resource`, `max_resource`, and `reduction_factor`); (2) create an instance by yourself and provided it via `scheduler`, as shown in the following code example,
+
+```python
+#  require: pip install flaml[ray]
+from ray.tune.schedulers import HyperBandScheduler
+my_scheduler = HyperBandScheduler(time_attr="sample_size", max_t=max_resource, reduction_factor=2)
+tune.run(.., scheduler=my_scheduler, ...)
+```
+- Similar to in the case when the `flaml` scheduler is used, you need to specify the resource dimension, use the resource dimension accordingly in your `training_function`, and provide the necessary information needed for scheduling, such as `min_resource`, `max_resource` and `reduction_factor` (depending on the requirements of the specific scheduler).
+
+- Different from the case when the `flaml` scheduler is used, the amount of resource to use at each iteration is not suggested by the search algorithm through the `resource_attr` in configuration. You need to specify the evaluation schedule explicitly by yourself in the `training_func` and report intermediate results (using `tune.report()`) accordingly. In the following code example, we use the ASHA scheduler by setting `scheduler="asha"`, we specify `resource_attr`, `min_resource`, `min_resource` and `reduction_factor` the same way as in the previous example (when "flaml" is used as the scheduler). We perform the evaluation in a customized schedule.
+
+```python
+def obj_w_intermediate_report(resource_attr, X_train, X_test, y_train, y_test, min_resource, max_resource, config): 
+    from lightgbm import LGBMClassifier
+    from sklearn.metrics import accuracy_score
+
+    # a customized schedule to perform the evaluation
+    eval_schedule = [res for res in range(min_resource, max_resource, 5000)] + [max_resource]
+    for resource in eval_schedule:
+        sampled_X_train = X_train.iloc[:resource]
+        sampled_y_train = y_train[:resource]
+    
+        # construct a LGBM model from the config
+        model = LGBMClassifier(**config)
+
+        model.fit(sampled_X_train, sampled_y_train)
+        y_test_predict = model.predict(X_test)
+        test_loss = 1.0 - accuracy_score(y_test, y_test_predict)
+        # need to report the resource attribute used and the corresponding intermediate results
+        tune.report(sample_size=resource, loss=test_loss)
+
+resource_attr = "sample_size"
+min_resource = 1000
+max_resource = len(y_train)
+analysis = tune.run(
+        partial(obj_w_intermediate_report, resource_attr, X_train, X_test, y_train, y_test, min_resource, max_resource,),
+        config={
+            "n_estimators": tune.lograndint(lower=4, upper=200),
+            "learning_rate": tune.loguniform(lower=1 / 1024, upper=1.0),
+        },
+        metric="loss",
+        mode="min",
+        resource_attr=resource_attr,
+        scheduler="asha",
+        max_resource=max_resource,
+        min_resource=min_resource,
+        reduction_factor=2,
+        time_budget_s=10,
+        num_samples = -1,
+    )
 ```
 
 ### Warm start
 
-You can use previously evaluted configurations to warm start your tuning.
-
 Related arguments:
 
 - `points_to_evaluate`: A list of initial hyperparameter configurations to run first.
-- `evaluated_rewards`: If you have previously evaluated the parameters passed in as points_to_evaluate you can avoid
-re-running those trials by passing in the reward attributes as a list so the optimiser can be told the results without
-needing to re-compute the trial. Must be the same length as points_to_evaluate.
+- `evaluated_rewards`: If you have previously evaluated the parameters passed in as `points_to_evaluate` , you can avoid re-running those trials by passing in the reward attributes as a list so the optimizer can be told the results without needing to re-compute the trial. Must be the same length as `points_to_evaluate`.
 
+You can use previously evaluated configurations to warm-start your tuning.
 For example, the following code means that you know the reward for the two configs in
-points_to_evaluate are 3.0 and 1.0 respectively and want to
-inform `tune.run()`
+points_to_evaluate are 3.99 and 1.99, respectively, and want to
+inform `tune.run()`.
 
 ```python
+def simple_obj(config):
+    return config['a'] + config['b']
+
+from flaml import tune
+config_search_space = {"a": tune.uniform(lower=0, upper=0.99),
+    "b": tune.uniform(lower=0, upper=3)}
+
 points_to_evaluate = [
-    {"b": .99, "cost_related": {"a": 3}},
-    {"b": .99, "cost_related": {"a": 2}},
-]
-evaluated_rewards=[3.0, 1.0]
+        {"b": .99, "a": 3},
+        {"b": .99, "a": 2},]
+evaluated_rewards=[3.99, 2.99]
+
+analysis = tune.run(
+            simple_obj,
+            config=config_search_space,
+            mode="max",
+            points_to_evaluate=points_to_evaluate,
+            evaluated_rewards=evaluated_rewards,
+            time_budget_s=10,
+            num_samples = -1,
+        )
 ```
 
 ### Reproducibility
@@ -372,20 +430,17 @@ By default, there is randomness in our tuning process. If reproducibility is des
 manually set a random seed before calling `tune.run()`.
 
 For example, in the following code, we call `np.random.seed(100)` to set the random seed.
-With this random seed, runing the following code multiple times will generate exactly the same result.
+With this random seed, running the following code multiple times will generate exactly the same search trajectory.
 
 ```python
 import numpy as np
 np.random.seed(100)
 analysis = tune.run(
-    evaluate_config,  # the function to evaluate a config
-    config=config_search_space,  # the search space defined
-    mode='min',  # the optimization mode, 'min' or 'max'
-    num_samples=-1,  # the maximal number of configs to try, -1 means infinite
-    time_budget_s=10,  # the time budget in seconds
+    simple_obj,
+    config=config_search_space,
+    mode='max',
+    num_samples=10,
 )
-print(analysis.best_trial.last_result)  # the best trial's result
-print(analysis.best_config)  # the best config
 ```
 
             
@@ -485,6 +540,3 @@ For more technical details, please check our papers.
     booktitle={ICLR'21},
 }
 ```
-# TODO
-- Advanced tuning options: 1. early stopping with scheduler; 2. constraints; 3. make the description of search space more user-friendly.
-- Move description about algorithm to other places?
