@@ -163,6 +163,9 @@ def run(
 
     Args:
         evaluation_function: A user-defined evaluation function.
+            It takes a configuration as input, outputs a evaluation
+            result (can be a numerical value or a dictionary of string
+            and numerical value pairs) for the input configuration.
         config: A dictionary to specify the search space.
         low_cost_partial_config: A dictionary from a subset of
             controlled dimensions to the initial low-cost values.
