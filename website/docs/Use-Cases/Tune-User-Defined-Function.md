@@ -140,7 +140,7 @@ So in such scenarios, if you are aware of low-cost configurations for the cost-r
 
 In addition, if you are aware of the cost relationship between different categorical hyperparameter choices, you are encouraged to provide this information through `cat_hp_cost`. It also helps the search algorithm to reduce the total cost.
 
-### Tuning Constraints 
+### Tuning constraints 
 
 Related arguments:
 - `time_budget_s`: The time budget in seconds.
@@ -148,7 +148,7 @@ Related arguments:
 - `config_constraints` (optional): A list of config constraints to be satisfied.
 - `metric_constraints` (optional): A list of metric constraints to be satisfied. e.g., `['precision', '>=', 0.9]`.
 
-The third step is to specify constraints for search. One notable property of `flaml.tune` is that it is able to finish the tuning process (obtaining good results) within a required resource constraint. A user can either provide the resource constraint in terms of wall-clock time (in seconds) through the argument `time_budget_s`, or in terms of the number of trials through the argument `num_samples`.  The following example shows three use cases: 
+The third step is to specify constraints of the tuning task. One notable property of `flaml.tune` is that it is able to finish the tuning process (obtaining good results) within a required resource constraint. A user can either provide the resource constraint in terms of wall-clock time (in seconds) through the argument `time_budget_s`, or in terms of the number of trials through the argument `num_samples`.  The following example shows three use cases: 
 
 ```python
 # Set a resource constraint of 60 seconds wall-clock time for the tuning.
@@ -180,7 +180,7 @@ analysis = tune.run(
 ```
 
 
-### Result Analysis
+### Result analysis
 
 Once the tuning process finishes, it returns an [ExperimentAnalysis](../reference/tune/analysis) object, which provides methods to analyze the tuning.
 
@@ -257,7 +257,7 @@ print(analysis.best_config)  # the best config
 **A headsup about computation overhead.** When parallel tuning is used, there will be a certain amount of computation overhead in each trial. In case each trial's original cost is much smaller than the overhead, parallel tuning can underperform sequential tuning. Sequential tuning is recommended when compute resource is limited, and each trial can consume all the resources.
 
 
-### Trial Scheduling
+### Trial scheduling
 
 Related arguments:
 - `scheduler`: A scheduler for executing the trials.
