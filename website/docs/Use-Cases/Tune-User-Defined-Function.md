@@ -313,8 +313,9 @@ resource_attr = "sample_size"
 min_resource = 1000
 analysis = tune.run(
     partial(obj_from_resource_attr, resource_attr, X_train, X_test, y_train, y_test),
-    config={
-        "n_estimators": tune.lograndint(lower=4, upper=200),
+    config = {
+        "n_estimators": tune.lograndint(lower=4, upper=32768),
+        "max_leaves": tune.lograndint(lower=4, upper=32768),
         "learning_rate": tune.loguniform(lower=1 / 1024, upper=1.0),
     },
     metric="loss",
@@ -375,7 +376,7 @@ max_resource = len(y_train)
 analysis = tune.run(
     partial(obj_w_intermediate_report, resource_attr, X_train, X_test, y_train, y_test, min_resource, max_resource),
     config={
-        "n_estimators": tune.lograndint(lower=4, upper=200),
+        "n_estimators": tune.lograndint(lower=4, upper=32768),
         "learning_rate": tune.loguniform(lower=1 / 1024, upper=1.0),
     },
     metric="loss",

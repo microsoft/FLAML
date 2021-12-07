@@ -102,7 +102,7 @@ It returns the validation loss penalized by the gap between validation and train
 The estimator list can contain one or more estimator names, each corresponding to a built-in estimator or a custom estimator. Each estimator has a search space for hyperparameter configurations.
 
 #### Estimator
-* Built-in estimator
+* Built-in estimator.
     - 'lgbm': LGBMEstimator. Hyperparameters: n_estimators, num_leaves, min_child_samples, learning_rate, log_max_bin (logarithm of (max_bin + 1) with base 2), colsample_bytree, reg_alpha, reg_lambda.
     - 'xgboost': XGBoostSkLearnEstimator. Hyperparameters: n_estimators, max_leaves, max_depth, min_child_weight, learning_rate, subsample, colsample_bylevel, colsample_bytree, reg_alpha, reg_lambda.
     - 'rf': RandomForestEstimator. Hyperparameters: n_estimators, max_features, max_leaves, criterion (for classification only).
@@ -115,17 +115,16 @@ The estimator list can contain one or more estimator names, each corresponding t
     - 'arima': ARIMA. Hyperparameters: p, d, q.
     - 'sarimax': SARIMAX. Hyperparameters: p, d, q, P, D, Q, s.
 * Custom estimator. Use custom estimator for:
-    - tuning an estimator that is not built-in
-    - customizing search space for a built-in estimator
+    - tuning an estimator that is not built-in;
+    - customizing search space for a built-in estimator.
 
 To tune a custom estimator that is not built-in, inherit `flaml.model.BaseEstimator` or a derived class.
-For example, if you have a estimator class with scikit-learn style `fit()` and `predict()` functions, you only need to set `self.estimator_class`to be that class in your constructor.
+For example, if you have a estimator class with scikit-learn style `fit()` and `predict()` functions, you only need to set `self.estimator_class` to be that class in your constructor.
 
 ```python
 from flaml.model import SKLearnEstimator
 # SKLearnEstimator is derived from BaseEstimator
 import rgf
-
 
 class MyRegularizedGreedyForest(SKLearnEstimator):
     def __init__(self, task="binary", **config):
@@ -162,6 +161,19 @@ class MyRegularizedGreedyForest(SKLearnEstimator):
 
 In the constructor, we set `self.estimator_class` as `RGFClassifier` or `RGFRegressor` according to the task type. If the estimator you want to tune does not have a scikit-learn style `fit()` and `predict()` API, you can override the `fit()` and `predict()` function of `flaml.model.BaseEstimator`, like [XGBoostEstimator](https://github.com/microsoft/FLAML/blob/59083fbdcb95c15819a0063a355969203022271c/flaml/model.py#L511).
 
+To tune the custom estimator, give it a name and add it in AutoML:
+
+```python
+from flaml import AutoML
+automl = AutoML()
+automl.add_learner("rgf", MyRegularizedGreedyForest)
+```
+
+This registers the `MyRegularizedGreedyForest` class in AutoML, with the name "rgf".
+Then, you can either:
+- tune rgf alone: `automl.fit(..., estimator_list=["rgf"])`; or
+- mix it with other built-in learners: `automl.fit(..., estimator_list=["rgf", "lgbm", "xgboost", "rf"])`.
+
 #### Search space
 
 Each estimator class, built-in or not, must have a `search_space` function. In the `search_space` function, we return a dictionary about the hyperparameters, the keys of which are the names of the hyperparameters to tune, and each value is a set of detailed search configurations about the corresponding hyperparameters represented in a dictionary. A search configuration dictionary includes the following fields:
@@ -178,7 +190,6 @@ To customize the search space for a built-in estimator, use a similar approach t
 
 ```python
 from flaml.model import XGBoostEstimator
-
 
 def logregobj(preds, dtrain):
     labels = dtrain.get_label()

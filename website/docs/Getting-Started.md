@@ -1,34 +1,26 @@
 # Getting Started
 
-### Welcome to FLAML, a Fast Library for Automated Machine Learning & Tuning!
-FLAML is a lightweight Python library that finds accurate machine
-learning models automatically, efficiently and economically. It frees users from selecting learners and hyperparameters for each learner. FLAML has the following uniques properties comparing with other AutoML and hyperparameter tuning libraries,
+<!-- ### Welcome to FLAML, a Fast Library for Automated Machine Learning & Tuning! -->
 
-1. It is fast and economical. FLAML is powered by a new, [cost-effective
-hyperparameter optimization](https://github.com/microsoft/FLAML/tree/main/flaml/tune)
-and learner selection method invented by Microsoft Research.
+FLAML is a lightweight Python library that finds accurate machine
+learning models automatically, efficiently and economically. It frees users from selecting learners and hyperparameters for each learner.
+
+### Main Features
+
+1. For common machine learning tasks like classification and regression, it quickly finds quality models for user-provided data with small computational resources. 
 
 2. It is easy to customize or extend. Users can choose their desired customizability: minimal customization (computational resource budget), medium customization (e.g., scikit-style learner, search space and metric), or full customization (arbitrary training and evaluation code).
 
-3. It supports fast automatic tuning, capable of handling complex constraints/guidance/early stopping.
-
-### Installation
-
-FLAML requires **Python version >= 3.6**. It can be installed from pip:
-
-```bash
-pip install flaml
-```
-
-To run the [`notebook example`](https://github.com/microsoft/FLAML/tree/main/notebook),
-install flaml with the [notebook] option:
-
-```bash
-pip install flaml[notebook]
-```
+3. It supports fast and economical automatic tuning, capable of handling complex constraints/guidance/early stopping. FLAML is powered by a new, [cost-effective
+hyperparameter optimization](Use-Cases/Tune-User-Defined-Function#hyperparameter-optimization-algorithm)
+and learner selection method invented by Microsoft Research.
 
 ### Quickstart
-* With three lines of code, you can start using this economical and fast
+
+Install FLAML from pip: `pip install flaml`. Find more options in [Installation](Installation).
+
+There are two ways of using flaml:
+- [Task-oriented AutoML](Use-Cases/task-oriented-automl). For example, with three lines of code, you can start using this economical and fast
 AutoML engine as a scikit-learn style estimator.
 
 ```python
@@ -37,16 +29,49 @@ automl = AutoML()
 automl.fit(X_train, y_train, task="classification")
 ```
 
-* You can restrict the learners and use FLAML as a fast hyperparameter tuning
-tool for XGBoost, LightGBM, Random Forest etc. or a customized learner.
+It automatically tunes the hyparparameters and selects the best model from default learners such as LightGBM, XGBoost, random forest etc. [Customizing](Use-Cases/task-oriented-automl#customize-automlfit) the optimization metrics, learners and search spaces etc. is very easy. For example,
 
 ```python
-automl.fit(X_train, y_train, task="regression", estimator_list=["lgbm"])
+automl.add_learner("mylgbm", MyLGBMEstimator)
+automl.fit(X_train, y_train, task="classification", metric=custom_metric, estimator_list=["mylgbm"])
 ```
 
-* You can also run generic hyperparameter tuning for a custom function (machine learning or beyond).
+- [Tune user-defined function](Use-Cases/Tune-User-Defined-Function). You can run generic hyperparameter tuning for a custom function (machine learning or beyond). For example,
 
 ```python
 from flaml import tune
-tune.run(func_to_tune, config={…}, low_cost_partial_config={…}, time_budget_s=3600)
+from flaml.model import LGBMEstimator
+
+def train_lgbm(config: dict) -> dict:
+    # convert config dict to lgbm params
+    params = LGBMEstimator(config).params
+    num_boost_round = params.pop("n_estimators")
+    # train the model
+    model = lightgbm.train(params, train_set, num_boost_round)
+    # evaluate the model
+    result = model.eval(data)
+    # return eval results as a dictionary
+    return {r[0]: r[1] for r in result}
+
+# load a built-in search space from flaml
+flaml_lgbm_search_space = LGBMEstimator.search_space(train_set.get_data().shape)
+# specify the search space as a dict from hp name to domain; you can define your own search space same way
+config_search_space = {hp: space["domain"] for hp, space in flaml_lgbm_search_space}
+# give guidance about hp values corresponding to low training cost, i.e., {"n_estimators": 4, "num_leaves": 4}
+low_cost_partial_config = {hp: space["low_cost_init_value"] for hp, space in flaml_lgbm_search_space}
+# run the tuning, minimizing logloss, with total time budget 3600 seconds
+analysis = tune.run(
+    train_lgbm, metric="logloss", mode="min", config=config_search_space,
+    low_cost_partial_config=low_cost_partial_config, time_budget_s=3600
+)
 ```
+
+### Where to Go Next?
+
+* Understand the use cases for [Task-oriented AutoML](Use-Cases/task-oriented-automl) and [Tune user-defined function](Use-Cases/Tune-User-Defined-Function).
+* Find code examples under "Examples".
+* Watch [video tutorials](https://www.youtube.com/channel/UCfU0zfFXHXdAd5x-WvFBk5A).
+* Learn about [research](Research) around FLAML.
+* Refer to [SDK](reference/automl) and [FAQ](FAQ).
+
+If you like our project, please give it a [star](https://github.com/microsoft/FLAML/stargazers) on GitHub. If you are interested in contributing, please read [Contributor's Guide](Contribute).

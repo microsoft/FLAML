@@ -11,10 +11,12 @@ or conda:
 conda install flaml -c conda-forge
 ```
 
+FLAML has a .NET implementation as well from [ML.NET Model Builder](https://dotnet.microsoft.com/apps/machinelearning-ai/ml-dotnet/model-builder). 
+
 ## Optional Dependencies
 
 ### Notebook
-To run the [`notebook example`](https://github.com/microsoft/FLAML/tree/main/notebook),
+To run the [notebook examples](https://github.com/microsoft/FLAML/tree/main/notebook),
 install flaml with the [notebook] option:
 
 ```bash
