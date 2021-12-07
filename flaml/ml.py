@@ -298,6 +298,7 @@ def evaluate_model_CV(
     metric = None
     train_time = pred_time = 0
     valid_fold_num = total_fold_num = 0
+    n = kf.get_n_splits() if hasattr(kf, "get_n_splits") else None
     X_train_split, y_train_split = X_train_all, y_train_all
     if task in CLASSIFICATION:
         labels = np.unique(y_train_all)
@@ -320,8 +321,9 @@ def evaluate_model_CV(
         kf = kf.split(X_train_split, y_train_split)
     elif hasattr(kf, "split"):
         kf = kf.split(X_train_split)
-        
-    n = len(kf)
+    else:
+        n = len(kf)
+
     rng = np.random.RandomState(2020)
     val_loss_list = []
     budget_per_train = budget / n

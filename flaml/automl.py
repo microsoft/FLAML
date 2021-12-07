@@ -589,6 +589,7 @@ class AutoML(BaseEstimator):
         settings["train_time_limit"] = settings.get("train_time_limit", np.inf)
         settings["verbose"] = settings.get("verbose", 3)
         settings["retrain_full"] = settings.get("retrain_full", True)
+        settings["custom_split"] = settings.get("custom_split", None)
         settings["split_type"] = settings.get("split_type", "auto")
         settings["hpo_method"] = settings.get("hpo_method", "auto")
         settings["learner_selector"] = settings.get("learner_selector", "sample")
@@ -931,9 +932,11 @@ class AutoML(BaseEstimator):
             self._state.groups_val = groups_val
             self._state.groups = groups
         if custom_split is not None:
-            assert isinstance(custom_split, Iterable) or hasattr(
-                custom_split, "split"
-            ), "custom_split must be None, a Iterable or a splitter that has a ``split`` method."
+            assert (
+                isinstance(custom_split, Iterable)
+                or (hasattr(custom_split, "split")
+                and hasattr(custom_split, "get_n_splits"))
+            ), "custom_split must be None, a Iterable or a splitter that has ``split`` and ``get_n_splits`` methods."
             self._state.custom_split = custom_split
 
     def _prepare_data(self, eval_method, split_ratio, n_splits):
