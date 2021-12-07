@@ -177,9 +177,9 @@ Then, you can either:
 #### Search space
 
 Each estimator class, built-in or not, must have a `search_space` function. In the `search_space` function, we return a dictionary about the hyperparameters, the keys of which are the names of the hyperparameters to tune, and each value is a set of detailed search configurations about the corresponding hyperparameters represented in a dictionary. A search configuration dictionary includes the following fields:
-* `domain`, which specifies the possible values of the hyperparameter and their distribution;
-* `init_value` (optional), which specifies the initial value of the hyperparameter;
-* `low_cost_init_value`(optional), which specifies the value of the hyperparameter that is associated with low computation cost. 
+* `domain`, which specifies the possible values of the hyperparameter and their distribution. Please find detailed explanation and examples about `domain`  [here](https://microsoft.github.io/FLAML/docs/Use-Cases/Tune-User-Defined-Function#more-details-about-the-search-space-domain).
+* `init_value` (optional), which specifies the initial value of the hyperparameter.
+* `low_cost_init_value`(optional), which specifies the value of the hyperparameter that is associated with low computation cost. Find more about `low_cost_init_value` [here](https://microsoft.github.io/FLAML/docs/Use-Cases/Tune-User-Defined-Function#cost-related-hyperparameters).
 
 In the example above, we tune four hyperparameters, three integers and one float. They all follow a log-uniform distribution. "max_leaf" and "n_iter" have "low_cost_init_value" specified as their values heavily influence the training cost.
 

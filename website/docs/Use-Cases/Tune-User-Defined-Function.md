@@ -398,6 +398,8 @@ Related arguments:
 - `points_to_evaluate`: A list of initial hyperparameter configurations to run first.
 - `evaluated_rewards`: If you have previously evaluated the parameters passed in as `points_to_evaluate` , you can avoid re-running those trials by passing in the reward attributes as a list so the optimizer can be told the results without needing to re-compute the trial. Must be the same length as `points_to_evaluate`.
 
+If you are aware of some good hyperparameter configurations, you are encouraged to provide them via `points_to_evaluate`. The search algorithm will try them first and take the first one in the list as the initial point of the search.
+
 You can use previously evaluated configurations to warm-start your tuning.
 For example, the following code means that you know the reward for the two configs in
 points_to_evaluate are 3.99 and 1.99, respectively, and want to
