@@ -5,6 +5,7 @@
 import time
 import os
 from typing import Callable, Optional
+from collections.abc import Iterable
 from functools import partial
 import numpy as np
 from scipy.sparse import issparse
@@ -797,6 +798,7 @@ class AutoML(BaseEstimator):
         y_val=None,
         groups_val=None,
         groups=None,
+        custom_split=None,
     ):
 
         if X_train_all is not None and y_train_all is not None:
@@ -928,6 +930,11 @@ class AutoML(BaseEstimator):
         else:
             self._state.groups_val = groups_val
             self._state.groups = groups
+        if custom_split is not None:
+            assert isinstance(custom_split, Iterable) or hasattr(
+                custom_split, "split"
+            ), "custom_split must be None, a Iterable or a splitter that has a ``split`` method."
+            self._state.custom_split = custom_split
 
     def _prepare_data(self, eval_method, split_ratio, n_splits):
 
@@ -1385,7 +1392,12 @@ class AutoML(BaseEstimator):
             self._state.task = get_classification_objective(
                 len(np.unique(self._y_train_all))
             )
-        if self._state.task in CLASSIFICATION:
+        if split_type == "custom":
+            assert (
+                self._state.custom_split is not None
+            ), "custom_split must be specified for custom split_type."
+            self._split_type = split_type
+        elif self._state.task in CLASSIFICATION:
             assert split_type in ["auto", "stratified", "uniform", "time", "group"]
             self._split_type = (
                 split_type
@@ -1642,6 +1654,7 @@ class AutoML(BaseEstimator):
         groups=None,
         verbose=None,
         retrain_full=None,
+        custom_split=None,
         split_type=None,
         learner_selector=None,
         hpo_method=None,
@@ -1908,7 +1921,7 @@ class AutoML(BaseEstimator):
         self._state.weight_val = sample_weight_val
 
         self._validate_data(
-            X_train, y_train, dataframe, label, X_val, y_val, groups_val, groups
+            X_train, y_train, dataframe, label, X_val, y_val, groups_val, groups, custom_split
         )
         self._search_states = {}  # key: estimator name; value: SearchState
         self._random = np.random.RandomState(RANDOM_SEED)
