@@ -80,7 +80,7 @@ class TestLogging(unittest.TestCase):
                 low_cost_partial_config=low_cost_partial_config,
                 points_to_evaluate=automl.points_to_evaluate,
                 cat_hp_cost=automl.cat_hp_cost,
-                prune_attr=automl.prune_attr,
+                resource_attr=automl.resource_attr,
                 min_resource=automl.min_resource,
                 max_resource=automl.max_resource,
                 config_constraints=[
@@ -119,3 +119,4 @@ class TestLogging(unittest.TestCase):
         pred2 = automl.predict(X_train)
         delta = pred1 - pred2
         assert max(delta) == 0 and min(delta) == 0
+        automl.save_best_config("test/housing.json")

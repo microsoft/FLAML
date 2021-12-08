@@ -13,7 +13,7 @@ dataset = "credit-g"
 class XGBoost2D(XGBoostSklearnEstimator):
     @classmethod
     def search_space(cls, data_size, task):
-        upper = min(32768, int(data_size))
+        upper = min(32768, int(data_size[0]))
         return {
             "n_estimators": {
                 "domain": tune.lograndint(lower=4, upper=upper),
@@ -71,7 +71,7 @@ def test_simple(method=None):
         low_cost_partial_config=automl.low_cost_partial_config,
         points_to_evaluate=automl.points_to_evaluate,
         cat_hp_cost=automl.cat_hp_cost,
-        prune_attr=automl.prune_attr,
+        resource_attr=automl.resource_attr,
         min_resource=automl.min_resource,
         max_resource=automl.max_resource,
         time_budget_s=automl._state.time_budget,

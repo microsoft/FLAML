@@ -23,6 +23,8 @@ from .data import (
     TS_FORECAST,
     TS_TIMESTAMP_COL,
     TS_VALUE_COL,
+    SEQCLASSIFICATION,
+    SEQREGRESSION,
 )
 
 import pandas as pd
@@ -88,9 +90,9 @@ class BaseEstimator:
             config: A dictionary containing the hyperparameter names, 'n_jobs' as keys.
                 n_jobs is the number of parallel threads.
         """
+        self._task = task
         self.params = self.config2params(config)
         self.estimator_class = self._model = None
-        self._task = task
         if "_estimator_type" in config:
             self._estimator_type = self.params.pop("_estimator_type")
         else:
@@ -233,8 +235,12 @@ class BaseEstimator:
         self._model = None
 
     @classmethod
-    def search_space(cls, **params):
+    def search_space(cls, data_size, task, **params):
         """[required method] search space.
+
+        Args:
+            data_size: A tuple of two integers, number of rows and columns.
+            task: A str of the task type, e.g., "binary", "multi", "regression".
 
         Returns:
             A dictionary of the search space.
@@ -299,8 +305,8 @@ class TransformersEstimator(BaseEstimator):
         return train_df
 
     @classmethod
-    def search_space(cls, **params):
-        return {
+    def search_space(cls, data_size, task, **params):
+        search_space_dict = {
             "learning_rate": {
                 "domain": tune.loguniform(lower=1e-6, upper=1e-3),
                 "init_value": 1e-5,
@@ -327,6 +333,14 @@ class TransformersEstimator(BaseEstimator):
             "seed": {"domain": tune.choice(list(range(40, 45))), "init_value": 42},
             "global_max_steps": {"domain": sys.maxsize, "init_value": sys.maxsize},
         }
+        #   TODO: if self._task == SUMMARIZATION, uncomment the code below, SET the search space for
+        #    "num_beams" in search_space_dict using
+        #    search_space_dict["num_beams"] = {...}
+
+        # if task in NLG_TASKS:
+        #     search_space_dict["num_beams"] = {"domain": tune.choice(...)}
+
+        return search_space_dict
 
     def _init_hpo_args(self, automl_fit_kwargs: dict = None):
         from .nlp.utils import HPOArgs
@@ -352,7 +366,15 @@ class TransformersEstimator(BaseEstimator):
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
         from transformers import EarlyStoppingCallback
         from transformers.trainer_utils import set_seed
-        from transformers import AutoTokenizer, TrainingArguments
+        from transformers import AutoTokenizer
+
+        #   TODO: if self._task == SUMMARIZATION, uncomment the code below (add indentation before
+        #         from transformers import TrainingArguments)
+        # if self._task in NLG_TASKS:
+        #     from transformers import Seq2SeqTrainingArguments as TrainingArguments
+        # else:
+        from transformers import TrainingArguments
+
         import transformers
         from datasets import Dataset
         from .nlp.utils import (
@@ -363,6 +385,13 @@ class TransformersEstimator(BaseEstimator):
             get_trial_fold_name,
             date_str,
         )
+
+        # TODO: if self._task == QUESTIONANSWERING, uncomment the code below (add indentation before
+        #  from .nlp.huggingface.trainer import TrainerForAuto)
+
+        # if self._task in NLG_TASKS:
+        #     from .nlp.huggingface.trainer import Seq2SeqTrainerForAuto as TrainerForAuto
+        # else:
         from .nlp.huggingface.trainer import TrainerForAuto
 
         this_params = self.params
@@ -410,6 +439,13 @@ class TransformersEstimator(BaseEstimator):
 
         X_train = self._preprocess(X_train, self._task, **kwargs)
         train_dataset = Dataset.from_pandas(self._join(X_train, y_train))
+
+        # TODO: set a breakpoint here, observe the resulting train_dataset,
+        #  compare it with the output of the tokenized results in your transformer example
+        #  for example, if your task is MULTIPLECHOICE, you need to compare train_dataset with
+        #  the output of https://github.com/huggingface/transformers/blob/master/examples/pytorch/multiple-choice/run_swag.py#L329
+        #  make sure they are the same
+
         if X_val is not None:
             X_val = self._preprocess(X_val, self._task, **kwargs)
             eval_dataset = Dataset.from_pandas(self._join(X_val, y_val))
@@ -524,6 +560,7 @@ class TransformersEstimator(BaseEstimator):
                 logger.warning("checkpoint {} not found".format(ckpt_location))
 
     def cleanup(self):
+        super().cleanup()
         if hasattr(self, "_ckpt_remains"):
             for each_ckpt in self._ckpt_remains:
                 self._delete_one_ckpt(each_ckpt)
@@ -554,7 +591,6 @@ class TransformersEstimator(BaseEstimator):
 
     def _compute_metrics_by_dataset_name(self, eval_pred):
         from .ml import sklearn_metric_loss_score
-        from .data import SEQREGRESSION
         import datasets
         from .nlp.utils import load_default_huggingface_metric_for_task
 
@@ -634,7 +670,20 @@ class TransformersEstimator(BaseEstimator):
         self._model = TrainerForAuto(model=best_model, args=training_args)
         predictions = self._model.predict(test_dataset)
 
-        return np.argmax(predictions.predictions, axis=1)
+        if self._task == SEQCLASSIFICATION:
+            return np.argmax(predictions.predictions, axis=1)
+        elif self._task == SEQREGRESSION:
+            return predictions.predictions
+        # TODO: elif self._task == your task, return the corresponding prediction
+        #  e.g., if your task == QUESTIONANSWERING, you need to return the answer instead
+        #  of the index
+
+    def config2params(self, config: dict) -> dict:
+        params = config.copy()
+        params[TransformersEstimator.ITER_HP] = params.get(
+            TransformersEstimator.ITER_HP, sys.maxsize
+        )
+        return params
 
 
 class SKLearnEstimator(BaseEstimator):
@@ -667,7 +716,7 @@ class LGBMEstimator(BaseEstimator):
 
     @classmethod
     def search_space(cls, data_size, **params):
-        upper = min(32768, int(data_size))
+        upper = min(32768, int(data_size[0]))
         return {
             "n_estimators": {
                 "domain": tune.lograndint(lower=4, upper=upper),
@@ -709,13 +758,10 @@ class LGBMEstimator(BaseEstimator):
             },
         }
 
-    def config2params(cls, config: dict) -> dict:
+    def config2params(self, config: dict) -> dict:
         params = config.copy()
         if "log_max_bin" in params:
             params["max_bin"] = (1 << params.pop("log_max_bin")) - 1
-        params[TransformersEstimator.ITER_HP] = params.get(
-            TransformersEstimator.ITER_HP, sys.maxsize
-        )
         return params
 
     @classmethod
@@ -724,7 +770,7 @@ class LGBMEstimator(BaseEstimator):
             round(
                 config.get("num_leaves")
                 or config.get("max_leaves")
-                or 1 << config["max_depth"]
+                or 1 << config.get("max_depth", 16)
             )
         )
         n_estimators = int(round(config["n_estimators"]))
@@ -748,7 +794,7 @@ class LGBMEstimator(BaseEstimator):
             self.estimator_class = LGBMClassifier
         self._time_per_iter = None
         self._train_size = 0
-        self._mem_per_iter = 1
+        self._mem_per_iter = -1
         self.HAS_CALLBACK = self.HAS_CALLBACK and self._callbacks(0, 0) is not None
 
     def _preprocess(self, X):
@@ -780,7 +826,7 @@ class LGBMEstimator(BaseEstimator):
                     or abs(self._train_size - X_train.shape[0]) > 4
                 )
                 and budget is not None
-                or self._mem_per_iter <= 1
+                or self._mem_per_iter < 0
                 and psutil is not None
             ) and n_iter > 1:
                 self.params[self.ITER_HP] = 1
@@ -802,8 +848,8 @@ class LGBMEstimator(BaseEstimator):
                 self._mem_per_iter = min(
                     self._mem1, self._mem2 / self.params[self.ITER_HP]
                 )
-                if self._mem_per_iter <= 1 and psutil is not None:
-                    n_iter = self.params[self.ITER_HP]
+                # if self._mem_per_iter <= 1 and psutil is not None:
+                #     n_iter = self.params[self.ITER_HP]
                 self._time_per_iter = (
                     (self._t2 - self._t1) / (self.params[self.ITER_HP] - 1)
                     if self._t2 > self._t1
@@ -833,7 +879,7 @@ class LGBMEstimator(BaseEstimator):
                     if budget is not None
                     else n_iter,
                     int((1 - FREE_MEM_RATIO) * mem0 / self._mem_per_iter)
-                    if psutil is not None
+                    if psutil is not None and self._mem_per_iter > 0
                     else n_iter,
                 )
                 if trained and max_iter <= self.params[self.ITER_HP]:
@@ -883,7 +929,7 @@ class XGBoostEstimator(SKLearnEstimator):
 
     @classmethod
     def search_space(cls, data_size, **params):
-        upper = min(32768, int(data_size))
+        upper = min(32768, int(data_size[0]))
         return {
             "n_estimators": {
                 "domain": tune.lograndint(lower=4, upper=upper),
@@ -937,7 +983,7 @@ class XGBoostEstimator(SKLearnEstimator):
     def cost_relative2lgbm(cls):
         return 1.6
 
-    def config2params(cls, config: dict) -> dict:
+    def config2params(self, config: dict) -> dict:
         params = config.copy()
         max_depth = params["max_depth"] = params.get("max_depth", 0)
         if max_depth == 0:
@@ -1041,7 +1087,7 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
     def cost_relative2lgbm(cls):
         return XGBoostEstimator.cost_relative2lgbm()
 
-    def config2params(cls, config: dict) -> dict:
+    def config2params(self, config: dict) -> dict:
         params = config.copy()
         max_depth = params["max_depth"] = params.get("max_depth", 0)
         if max_depth == 0:
@@ -1082,7 +1128,7 @@ class XGBoostLimitDepthEstimator(XGBoostSklearnEstimator):
     def search_space(cls, data_size, **params):
         space = XGBoostEstimator.search_space(data_size)
         space.pop("max_leaves")
-        upper = max(6, int(np.log2(data_size)))
+        upper = max(6, int(np.log2(data_size[0])))
         space["max_depth"] = {
             "domain": tune.randint(lower=1, upper=min(upper, 16)),
             "init_value": 6,
@@ -1101,11 +1147,14 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
     """The class for tuning Random Forest."""
 
     HAS_CALLBACK = False
+    nrows = 101
 
     @classmethod
     def search_space(cls, data_size, task, **params):
-        data_size = int(data_size)
-        upper = min(2048, data_size)
+        RandomForestEstimator.nrows = int(data_size[0])
+        upper = min(2048, RandomForestEstimator.nrows)
+        init = 1 / np.sqrt(data_size[1]) if task in CLASSIFICATION else 1
+        lower = min(0.1, init)
         space = {
             "n_estimators": {
                 "domain": tune.lograndint(lower=4, upper=upper),
@@ -1113,11 +1162,13 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
                 "low_cost_init_value": 4,
             },
             "max_features": {
-                "domain": tune.loguniform(lower=0.1, upper=1.0),
-                "init_value": 1.0,
+                "domain": tune.loguniform(lower=lower, upper=1.0),
+                "init_value": init,
             },
             "max_leaves": {
-                "domain": tune.lograndint(lower=4, upper=min(32768, data_size)),
+                "domain": tune.lograndint(
+                    lower=4, upper=min(32768, RandomForestEstimator.nrows >> 1)
+                ),
                 "init_value": 4,
                 "low_cost_init_value": 4,
             },
@@ -1125,20 +1176,22 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         if task in CLASSIFICATION:
             space["criterion"] = {
                 "domain": tune.choice(["gini", "entropy"]),
-                # 'init_value': 'gini',
+                # "init_value": "gini",
             }
         return space
 
     @classmethod
     def cost_relative2lgbm(cls):
-        return 2.0
+        return 2
 
-    def config2params(cls, config: dict) -> dict:
+    def config2params(self, config: dict) -> dict:
         params = config.copy()
         if "max_leaves" in params:
             params["max_leaf_nodes"] = params.get(
                 "max_leaf_nodes", params.pop("max_leaves")
             )
+        if self._task not in CLASSIFICATION and "criterion" in config:
+            params.pop("criterion")
         return params
 
     def __init__(
@@ -1184,7 +1237,7 @@ class LRL1Classifier(SKLearnEstimator):
     def cost_relative2lgbm(cls):
         return 160
 
-    def config2params(cls, config: dict) -> dict:
+    def config2params(self, config: dict) -> dict:
         params = config.copy()
         params["tol"] = params.get("tol", 0.0001)
         params["solver"] = params.get("solver", "saga")
@@ -1210,7 +1263,7 @@ class LRL2Classifier(SKLearnEstimator):
     def cost_relative2lgbm(cls):
         return 25
 
-    def config2params(cls, config: dict) -> dict:
+    def config2params(self, config: dict) -> dict:
         params = config.copy()
         params["tol"] = params.get("tol", 0.0001)
         params["solver"] = params.get("solver", "lbfgs")
@@ -1230,7 +1283,7 @@ class CatBoostEstimator(BaseEstimator):
 
     @classmethod
     def search_space(cls, data_size, **params):
-        upper = max(min(round(1500000 / data_size), 150), 12)
+        upper = max(min(round(1500000 / data_size[0]), 150), 12)
         return {
             "early_stopping_rounds": {
                 "domain": tune.lograndint(lower=10, upper=upper),
@@ -1279,7 +1332,7 @@ class CatBoostEstimator(BaseEstimator):
             X = X.to_numpy()
         return X
 
-    def config2params(cls, config: dict) -> dict:
+    def config2params(self, config: dict) -> dict:
         params = config.copy()
         params["n_estimators"] = params.get("n_estimators", 8192)
         if "n_jobs" in params:
@@ -1376,7 +1429,7 @@ class CatBoostEstimator(BaseEstimator):
 class KNeighborsEstimator(BaseEstimator):
     @classmethod
     def search_space(cls, data_size, **params):
-        upper = min(512, int(data_size / 2))
+        upper = min(512, int(data_size[0] / 2))
         return {
             "n_neighbors": {
                 "domain": tune.lograndint(lower=1, upper=upper),
@@ -1389,7 +1442,7 @@ class KNeighborsEstimator(BaseEstimator):
     def cost_relative2lgbm(cls):
         return 30
 
-    def config2params(cls, config: dict) -> dict:
+    def config2params(self, config: dict) -> dict:
         params = config.copy()
         params["weights"] = params.get("weights", "distance")
         return params
