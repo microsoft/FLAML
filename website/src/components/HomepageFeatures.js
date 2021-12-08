@@ -32,7 +32,7 @@ const FeatureList = [
     description: (
       <>
         FLAML offers a fast auto tuning tool powered by a novel cost-effective tuning approach.
-        It is also capable of handling complex constraints/guidance/early stopping.
+        It is also capable of handling large search space and complex constraints/guidance/early stopping.
       </>
     ),
   },
