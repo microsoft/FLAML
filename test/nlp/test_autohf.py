@@ -2,7 +2,7 @@ import sys
 import pytest
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
+# @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
 def test_hf_data():
     from flaml import AutoML
     import requests
@@ -24,6 +24,7 @@ def test_hf_data():
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
 
+    train_dataset.to_csv("test.txt",sep="\t", index=False)
     X_train = train_dataset[custom_sent_keys]
     y_train = train_dataset[label_key]
 

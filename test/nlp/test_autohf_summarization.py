@@ -3,23 +3,23 @@ import pytest
 
 
 # @pytest.mark.skipif(os.name == "posix", reason="do not run on mac os")
-def test_hf_data():
+def _test_hf_data():
     from flaml import AutoML
 
     from datasets import load_dataset
 
     train_dataset = (
-        load_dataset("cnn_dailymail", "3.0.0", split="train[:1%]").to_pandas().iloc[0:4]
+        load_dataset("xsum", split="validation[:1%]").to_pandas().iloc[0:4]
     )
     dev_dataset = (
-        load_dataset("cnn_dailymail", "3.0.0", split="train[1%:2%]").to_pandas().iloc[0:4]
+        load_dataset("xsum", split="validation[1%:2%]").to_pandas().iloc[0:4]
     )
     test_dataset = (
-        load_dataset("cnn_dailymail", "3.0.0", split="test[1%:2%]").to_pandas().iloc[0:4]
+        load_dataset("xsum", split="test[1%:2%]").to_pandas().iloc[0:4]
     )
 
-    custom_sent_keys = ["sentence1", "sentence2"]
-    label_key = "label"
+    custom_sent_keys = ["document"]
+    label_key = "summary"
 
     X_train = train_dataset[custom_sent_keys]
     y_train = train_dataset[label_key]
@@ -41,7 +41,7 @@ def test_hf_data():
     }
 
     automl_settings["custom_hpo_args"] = {
-        "model_path": "google/electra-small-discriminator",
+        "model_path": "t5-small",
         "output_dir": "test/data/output/",
         "ckpt_per_epoch": 5,
         "fp16": False,
@@ -124,4 +124,4 @@ def _test_custom_data():
 
 
 if __name__ == "__main__":
-    test_hf_data()
+    _test_hf_data()

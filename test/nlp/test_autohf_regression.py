@@ -2,7 +2,7 @@ import sys
 import pytest
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
+# @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
 def test_regression():
     try:
         import ray
