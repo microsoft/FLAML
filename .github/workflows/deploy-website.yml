@@ -37,7 +37,7 @@ jobs:
           elif [ -e package-lock.json ]; then
           npm ci
           else
-          npm i
+          npm i --legacy-peer-deps
           fi
           npm run build
   gh-release:
@@ -87,6 +87,6 @@ jobs:
           elif [ -e package-lock.json ]; then
           npm ci
           else
-          npm i
+          npm i --legacy-peer-deps
           fi
           yarn deploy
