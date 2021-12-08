@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class AutoVW:
-    """class for the AutoVW algorithm."""
+    """Class for the AutoVW algorithm."""
 
     WARMSTART_NUM = 100
     AUTOMATIC = "_auto"
