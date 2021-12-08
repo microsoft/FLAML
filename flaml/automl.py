@@ -1,10 +1,10 @@
 # !
-#  * Copyright (c) Microsoft Corporation. All rights reserved.
+#  * Copyright (c) FLAML authors. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
 import time
 import os
-from typing import Callable, Optional
+from typing import Callable, Optional, List, Union
 from collections.abc import Iterable
 from types import GeneratorType
 from functools import partial
@@ -22,10 +22,7 @@ from sklearn.utils import shuffle
 from sklearn.base import BaseEstimator
 import pandas as pd
 import logging
-from typing import List, Union
-from pandas import DataFrame
-from .data import _is_nlp_task
-
+import json
 from .ml import (
     compute_estimator,
     train_estimator,
@@ -42,8 +39,14 @@ from .config import (
     N_SPLITS,
     SAMPLE_MULTIPLY_FACTOR,
 )
-
-from .data import concat, CLASSIFICATION, TS_FORECAST, FORECAST, REGRESSION
+from .data import (
+    concat,
+    CLASSIFICATION,
+    TS_FORECAST,
+    FORECAST,
+    REGRESSION,
+    _is_nlp_task,
+)
 from . import tune
 from .training_log import training_log_reader, training_log_writer
 
@@ -681,6 +684,15 @@ class AutoML(BaseEstimator):
             self._search_states[self._best_estimator], "best_config_train_time", None
         )
 
+    def save_best_config(self, filename):
+        best = {
+            "class": self.best_estimator,
+            "hyperparameters": self.best_config,
+        }
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        with open(filename, "w") as f:
+            json.dump(best, f)
+
     @property
     def classes_(self):
         """A list of n_classes elements for class labels."""
@@ -697,7 +709,9 @@ class AutoML(BaseEstimator):
         """Time taken to find best model in seconds."""
         return self.__dict__.get("_time_taken_best_iter")
 
-    def predict(self, X_test: Union[np.array, DataFrame, List[str], List[List[str]]]):
+    def predict(
+        self, X_test: Union[np.array, pd.DataFrame, List[str], List[List[str]]]
+    ):
         """Predict label from features.
 
         Args:
@@ -766,7 +780,7 @@ class AutoML(BaseEstimator):
             try:
                 if isinstance(X[0], List):
                     X = [x for x in zip(*X)]
-                X = DataFrame(
+                X = pd.DataFrame(
                     dict(
                         [
                             (self._transformer._str_columns[idx], X[idx])
@@ -1545,11 +1559,12 @@ class AutoML(BaseEstimator):
         return points
 
     @property
-    def prune_attr(self) -> Optional[str]:
-        """Attribute for pruning
+    def resource_attr(self) -> Optional[str]:
+        """Attribute of the resource dimension.
 
         Returns:
-            A string for the sample size attribute or None
+            A string for the sample size attribute
+            (the resource attribute in AutoML) or None.
         """
         return "FLAML_sample_size" if self._sample else None
 
@@ -2178,7 +2193,7 @@ class AutoML(BaseEstimator):
                 low_cost_partial_config=self.low_cost_partial_config,
                 points_to_evaluate=self.points_to_evaluate,
                 cat_hp_cost=self.cat_hp_cost,
-                prune_attr=self.prune_attr,
+                resource_attr=self.resource_attr,
                 min_resource=self.min_resource,
                 max_resource=self.max_resource,
                 config_constraints=[
@@ -2326,11 +2341,11 @@ class AutoML(BaseEstimator):
                 )
                 search_space = search_state.search_space
                 if self._sample:
-                    prune_attr = "FLAML_sample_size"
+                    resource_attr = "FLAML_sample_size"
                     min_resource = self._min_sample_size
                     max_resource = self._state.data_size[0]
                 else:
-                    prune_attr = min_resource = max_resource = None
+                    resource_attr = min_resource = max_resource = None
                 learner_class = self._state.learner_classes.get(estimator)
                 if "grid" == self._hpo_method:  # for synthetic exp only
                     points_to_evaluate = []
@@ -2362,7 +2377,7 @@ class AutoML(BaseEstimator):
                         points_to_evaluate=points_to_evaluate,
                         low_cost_partial_config=low_cost_partial_config,
                         cat_hp_cost=search_state.cat_hp_cost,
-                        prune_attr=prune_attr,
+                        resource_attr=resource_attr,
                         min_resource=min_resource,
                         max_resource=max_resource,
                         config_constraints=[
