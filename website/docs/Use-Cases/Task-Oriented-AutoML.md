@@ -177,13 +177,13 @@ Then, you can either:
 #### Search space
 
 Each estimator class, built-in or not, must have a `search_space` function. In the `search_space` function, we return a dictionary about the hyperparameters, the keys of which are the names of the hyperparameters to tune, and each value is a set of detailed search configurations about the corresponding hyperparameters represented in a dictionary. A search configuration dictionary includes the following fields:
-* `domain`, which specifies the possible values of the hyperparameter and their distribution. Please find detailed explanation and examples about `domain`  [here](https://microsoft.github.io/FLAML/docs/Use-Cases/Tune-User-Defined-Function#more-details-about-the-search-space-domain).
+* `domain`, which specifies the possible values of the hyperparameter and their distribution. Please refer to [more details about the search space domain](Tune-User-Defined-Function#more-details-about-the-search-space-domain).
 * `init_value` (optional), which specifies the initial value of the hyperparameter.
-* `low_cost_init_value`(optional), which specifies the value of the hyperparameter that is associated with low computation cost. Find more about `low_cost_init_value` [here](https://microsoft.github.io/FLAML/docs/Use-Cases/Tune-User-Defined-Function#cost-related-hyperparameters).
+* `low_cost_init_value`(optional), which specifies the value of the hyperparameter that is associated with low computation cost. See [cost related hyperparameters](Tune-User-Defined-Function#cost-related-hyperparameters) for more details.
 
 In the example above, we tune four hyperparameters, three integers and one float. They all follow a log-uniform distribution. "max_leaf" and "n_iter" have "low_cost_init_value" specified as their values heavily influence the training cost.
 
-For a complete guide about how to set the domain, please refer to [search space](Tune-User-Defined-Function#search-space).
+
 
 
 To customize the search space for a built-in estimator, use a similar approach to define a class that inherits the existing estimator. For example,
@@ -225,7 +225,7 @@ class XGBoost2D(XGBoostSklearnEstimator):
         }
 ```
 
-We override the `search_space` function to tune two hyperparameters only, "n_estimators" and "max_leaves". They are both random integers in the log space, ranging from 4 to data-dependent upper bound. The lower bound for each corresponds to low training cost, hence the "low_cost_init_value" for each is set to 4. 
+We override the `search_space` function to tune two hyperparameters only, "n_estimators" and "max_leaves". They are both random integers in the log space, ranging from 4 to data-dependent upper bound. The lower bound for each corresponds to low training cost, hence the "low_cost_init_value" for each is set to 4.
 
 ### Constraint
 
@@ -445,7 +445,7 @@ The curve suggests that increasing the time budget may further improve the accur
 
 * If you have an exact constraint for the total search time, set it as the time budget.
 * If you have flexible time constraints, for example, your desirable time budget is t1=60s, and the longest time budget you can tolerate is t2=3600s, you can try the following two ways:
-1. set t1 as the time budget, and check the message in the console log in the end. If the budget is too small, you will see a warning like 
+1. set t1 as the time budget, and check the message in the console log in the end. If the budget is too small, you will see a warning like
 > WARNING - Time taken to find the best model is 91% of the provided time budget and not all estimators' hyperparameter search converged. Consider increasing the time budget.
 2. set t2 as the time budget, and also set `early_stop=True`. If the early stopping is triggered, you will see a warning like
     > WARNING - All estimator hyperparameters local search has converged at least once, and the total search time exceeds 10 times the time taken to find the best model.

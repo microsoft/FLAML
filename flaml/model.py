@@ -75,10 +75,10 @@ class BaseEstimator:
     """The abstract class for all learners.
 
     Typical examples:
-        * XGBoostEstimator: for regression.
-        * XGBoostSklearnEstimator: for classification.
-        * LGBMEstimator, RandomForestEstimator, LRL1Classifier, LRL2Classifier:
-            for both regression and classification.
+    * XGBoostEstimator: for regression.
+    * XGBoostSklearnEstimator: for classification.
+    * LGBMEstimator, RandomForestEstimator, LRL1Classifier, LRL2Classifier:
+        for both regression and classification.
     """
 
     def __init__(self, task="binary", **config):
@@ -86,7 +86,7 @@ class BaseEstimator:
 
         Args:
             task: A string of the task type, one of
-                'binary', 'multi', 'regression', 'rank', 'forecast'
+                'binary', 'multi', 'regression', 'rank', 'forecast'.
             config: A dictionary containing the hyperparameter names, 'n_jobs' as keys.
                 n_jobs is the number of parallel threads.
         """

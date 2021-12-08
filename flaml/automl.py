@@ -379,10 +379,10 @@ class AutoMLState:
 
 
 def size(state: AutoMLState, config: dict) -> float:
-    """Size function
+    """Size function.
 
     Returns:
-        The mem size in bytes for a config
+        The mem size in bytes for a config.
     """
     config = config.get("ml", config)
     estimator = config["learner"]
@@ -394,7 +394,7 @@ class AutoML(BaseEstimator):
     """The AutoML class.
     Example:
 
-    ```python  
+    ```python
     automl = AutoML()
     automl_settings = {
         "time_budget": 60,
@@ -436,29 +436,29 @@ class AutoML(BaseEstimator):
                 which returns a float number as the minimization objective,
                 and a dictionary as the metrics to log. E.g.,
 
-                .. code-block:: python
+        ```python
 
-                    def custom_metric(
-                        X_val, y_val, estimator, labels,
-                        X_train, y_train, weight_val=None, weight_train=None,
-                        **args,
-                    ):
-                        from sklearn.metrics import log_loss
-                        import time
+        def custom_metric(
+            X_val, y_val, estimator, labels,
+            X_train, y_train, weight_val=None, weight_train=None,
+            **args,
+        ):
+            from sklearn.metrics import log_loss
+            import time
 
-                        start = time.time()
-                        y_pred = estimator.predict_proba(X_val)
-                        pred_time = (time.time() - start) / len(X_val)
-                        val_loss = log_loss(y_val, y_pred, labels=labels, sample_weight=weight_val)
-                        y_pred = estimator.predict_proba(X_train)
-                        train_loss = log_loss(y_train, y_pred, labels=labels, sample_weight=weight_train)
-                        alpha = 0.5
-                        return val_loss * (1 + alpha) - alpha * train_loss, {
-                            "val_loss": val_loss,
-                            "train_loss": train_loss,
-                            "pred_time": pred_time,
-                        }
-
+            start = time.time()
+            y_pred = estimator.predict_proba(X_val)
+            pred_time = (time.time() - start) / len(X_val)
+            val_loss = log_loss(y_val, y_pred, labels=labels, sample_weight=weight_val)
+            y_pred = estimator.predict_proba(X_train)
+            train_loss = log_loss(y_train, y_pred, labels=labels, sample_weight=weight_train)
+            alpha = 0.5
+            return val_loss * (1 + alpha) - alpha * train_loss, {
+                "val_loss": val_loss,
+                "train_loss": train_loss,
+                "pred_time": pred_time,
+            }
+        ```
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast', 'rank',
                 'seq-classification', 'seq-regression'.
@@ -526,7 +526,7 @@ class AutoML(BaseEstimator):
                 automl_experiment and use them in the new_automl_experiment.
                 e.g.,
 
-               
+
         ```python
         from flaml import AutoML
         automl_experiment = AutoML()
@@ -716,7 +716,7 @@ class AutoML(BaseEstimator):
                     are assumed to be exogenous variables (categorical
                     or numeric).
 
-        ```python                    
+        ```python
         multivariate_X_test = pd.DataFrame({
             'timeStamp': pd.date_range(start='1/1/2022', end='1/07/2022'),
             'categorical_col': ['yes', 'yes', 'no', 'no', 'yes', 'no', 'yes'],
@@ -726,7 +726,7 @@ class AutoML(BaseEstimator):
         ```
 
         Returns:
-            A array-like of shape n * 1 - - each element is a predicted
+            A array-like of shape n * 1: each element is a predicted
             label for an instance.
         """
         estimator = getattr(self, "_trained_estimator", None)
@@ -1521,10 +1521,10 @@ class AutoML(BaseEstimator):
 
     @property
     def points_to_evaluate(self) -> dict:
-        """Initial points to evaluate
+        """Initial points to evaluate.
 
         Returns:
-            A list of dicts. Each dict is the initial point for each learner
+            A list of dicts. Each dict is the initial point for each learner.
         """
         points = []
         for estimator in self.estimator_list:
@@ -1801,7 +1801,7 @@ class AutoML(BaseEstimator):
                 In the following code example, we get starting_points from the
                 automl_experiment and use them in the new_automl_experiment.
                 e.g.,
-                
+
         ```python
         from flaml import AutoML
         automl_experiment = AutoML()
