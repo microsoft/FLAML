@@ -1,3 +1,5 @@
+# AutoML - NLP
+
 ### Requirements
 
 This example requires GPU. Install the [nlp] option:

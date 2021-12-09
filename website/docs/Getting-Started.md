@@ -75,7 +75,7 @@ analysis = tune.run(
 ### Where to Go Next?
 
 * Understand the use cases for [Task-oriented AutoML](Use-Cases/task-oriented-automl) and [Tune user-defined function](Use-Cases/Tune-User-Defined-Function).
-* Find code examples under "Examples".
+* Find code examples under "Examples": from [AutoML - Classification](Examples/AutoML-Classification) to [Tune - PyTorch](Examples/Tune-PyTorch).
 * Watch [video tutorials](https://www.youtube.com/channel/UCfU0zfFXHXdAd5x-WvFBk5A).
 * Learn about [research](Research) around FLAML.
 * Refer to [SDK](reference/automl) and [FAQ](FAQ).

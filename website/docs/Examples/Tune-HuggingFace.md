@@ -1,3 +1,5 @@
+# Tune - HuggingFace
+
 This example uses flaml to finetune a transformer model from Huggingface transformers library.
 
 ### Requirements
@@ -164,7 +166,7 @@ train_distilbert_b16ea82a	TERMINATED		0.952781	0.993931	2.93182e-08	1.19145e-05	
 train_distilbert_eddf7cc0	TERMINATED		0.99	0.997109	8.13498e-08	1.28515e-05	15.5807	1	614.789	0.983285	0.56993
 train_distilbert_43008974	TERMINATED		0.929089	0.993258	1e-07	1.03892e-05	12.0357	1	474.387	0.857461	0.520022
 train_distilbert_b3408a4e	TERMINATED		0.99	0.993809	4.67441e-08	1.10418e-05	11.9165	1	474.126	0.828205	0.526164
-train_distilbert_cfbfb220	TERMINATED		0.979454	0.9999	1e-07	1.49578e-05	20.3715				
+train_distilbert_cfbfb220	TERMINATED		0.979454	0.9999	1e-07	1.49578e-05	20.3715
 ```
 
 ### Retrieve the results
