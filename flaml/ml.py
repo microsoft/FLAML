@@ -160,6 +160,8 @@ def metric_loss_score(
                 ]
             multiplier = -1 if metric_mode == "max" else 1
             return score * multiplier
+        # If the metric is not found from huggingface dataset metric list (i.e., FileNotFoundError)
+        # ask the user to provide a custom metric
         except FileNotFoundError:
             raise Exception(
                 metric_name + " is neither an sklearn metric nor a huggingface metric"

@@ -1994,6 +1994,7 @@ class AutoML(BaseEstimator):
                 metric = "ndcg"
             elif _is_nlp_task(self._state.task):
                 from .nlp.utils import load_default_huggingface_metric_for_task
+
                 metric = load_default_huggingface_metric_for_task(self._state.task)
             else:
                 metric = "r2"
@@ -2003,6 +2004,10 @@ class AutoML(BaseEstimator):
             self._state.fit_kwargs["use_ray"] = self._use_ray
 
         self._state.metric = metric
+
+        import datasets
+        from .ml import huggingface_metric_to_mode
+
         if metric in [
             "r2",
             "accuracy",
@@ -2014,6 +2019,11 @@ class AutoML(BaseEstimator):
             "micro_f1",
             "macro_f1",
             "ndcg",
+        ] + [
+            m
+            for m in datasets.list_metrics()
+            if m in huggingface_metric_to_mode
+            and huggingface_metric_to_mode[m] == "max"
         ]:
             error_metric = f"1-{metric}"
         elif isinstance(metric, str):
