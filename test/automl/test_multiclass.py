@@ -366,7 +366,7 @@ class TestMultiClass(unittest.TestCase):
             learner_name="large_xgb", learner_class=MyLargeXGB
         )
         automl_settings = {
-            "time_budget": 0.5,
+            "time_budget": 5,
             "task": "classification",
             "log_file_name": "test/classification_timeout.log",
             "estimator_list": ["catboost"],
