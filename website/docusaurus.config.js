@@ -84,7 +84,7 @@ module.exports = {
         //   ],
         // },
       ],
-      // copyright: `Copyright © ${new Date().getFullYear()} Microsoft Inc. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} FLAML Authors. Built with Docusaurus.`,
     },
   },
   presets: [
@@ -103,7 +103,7 @@ module.exports = {
         //   showReadingTime: true,
         //   // Please change this to your repo.
         //   editUrl:
-        //     'https://github.com/facebook/docusaurus/edit/master/website/blog/',
+        //     'https://github.com/microsoft/FLAML/edit/master/website/blog/',
         // },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
@@ -117,7 +117,7 @@ module.exports = {
         integrity: "sha384-Um5gpz1odJg5Z4HAmzPtgZKdTBHZdw8S29IecapCSB31ligYPhHQZMIlWLYQGVoc",
         crossorigin: "anonymous",
     },
-  ],  
+  ],
   plugins: [
     // ... Your other plugins.
     [
