@@ -198,7 +198,6 @@ def logregobj(preds, dtrain):
     hess = preds * (1.0 - preds)
     return grad, hess
 
-
 class MyXGB1(XGBoostEstimator):
     """XGBoostEstimator with logregobj as the objective function"""
 
