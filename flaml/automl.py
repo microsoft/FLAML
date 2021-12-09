@@ -1974,10 +1974,6 @@ class AutoML(BaseEstimator):
         self._min_sample_size = min_sample_size
         self._prepare_data(eval_method, split_ratio, n_splits)
 
-        if _is_nlp_task(self._state.task):
-            self._state.fit_kwargs["metric"] = metric
-            self._state.fit_kwargs["use_ray"] = self._use_ray
-
         self._sample = (
             sample
             and task != "rank"
@@ -1996,8 +1992,16 @@ class AutoML(BaseEstimator):
                 metric = "mape"
             elif self._state.task == "rank":
                 metric = "ndcg"
+            elif _is_nlp_task(self._state.task):
+                from .nlp.utils import load_default_huggingface_metric_for_task
+                metric = load_default_huggingface_metric_for_task(self._state.task)
             else:
                 metric = "r2"
+
+        if _is_nlp_task(self._state.task):
+            self._state.fit_kwargs["metric"] = metric
+            self._state.fit_kwargs["use_ray"] = self._use_ray
+
         self._state.metric = metric
         if metric in [
             "r2",
