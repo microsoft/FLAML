@@ -331,6 +331,9 @@ def run(
             SearchAlgorithm = BlendSearch
         except ImportError:
             SearchAlgorithm = CFO
+            logger.warning(
+                "Using CFO for search. To use BlendSearch, run: pip install flaml[blendsearch]"
+            )
 
         search_alg = SearchAlgorithm(
             metric=metric or DEFAULT_METRIC,
