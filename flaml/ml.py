@@ -38,35 +38,52 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-sklearn_metric_name_set = {'r2', 'rmse', 'mae', 'mse', 'accuracy', 'roc_auc', 'roc_auc_ovr',
-            'roc_auc_ovo', 'log_loss', 'mape', 'f1', 'ap', 'ndcg',
-            'micro_f1', 'macro_f1'}
-huggingface_metric_to_mode = {"accuracy": "max",
-                              "bertscore": "max",
-                              "bleu": "max",
-                              "bleurt": "max",
-                              "cer": "min",
-                              "chrf": "min",
-                              "code_eval": "max",
-                              "comet": "max",
-                              "competition_math": "max",
-                              "coval": "max",
-                              "cuad": "max",
-                              "f1": "max",
-                              "gleu": "max",
-                              "google_bleu": "max",
-                             "matthews_correlation": "max",
-                              "meteor": "max",
-                              "pearsonr": "max",
-                             "precision": "max",
-                              "recall": "max",
-                              "rouge": "max",
-                              "sacrebleu": "max",
-                             "sari": "max",
-                              "seqeval": "max",
-                              "spearmanr": "max",
-                              "ter": "min",
-                              "wer": "min"}
+sklearn_metric_name_set = {
+    "r2",
+    "rmse",
+    "mae",
+    "mse",
+    "accuracy",
+    "roc_auc",
+    "roc_auc_ovr",
+    "roc_auc_ovo",
+    "log_loss",
+    "mape",
+    "f1",
+    "ap",
+    "ndcg",
+    "micro_f1",
+    "macro_f1",
+}
+huggingface_metric_to_mode = {
+    "accuracy": "max",
+    "bertscore": "max",
+    "bleu": "max",
+    "bleurt": "max",
+    "cer": "min",
+    "chrf": "min",
+    "code_eval": "max",
+    "comet": "max",
+    "competition_math": "max",
+    "coval": "max",
+    "cuad": "max",
+    "f1": "max",
+    "gleu": "max",
+    "google_bleu": "max",
+    "matthews_correlation": "max",
+    "meteor": "max",
+    "pearsonr": "max",
+    "precision": "max",
+    "recall": "max",
+    "rouge": "max",
+    "sacrebleu": "max",
+    "sari": "max",
+    "seqeval": "max",
+    "spearmanr": "max",
+    "ter": "min",
+    "wer": "min",
+}
+
 
 def get_estimator_class(task, estimator_name):
     # when adding a new learner, need to add an elif branch
@@ -105,28 +122,33 @@ def get_estimator_class(task, estimator_name):
 
 
 def metric_loss_score(
-        metric_name,
-        y_predict,
-        y_true,
-        labels=None,
-        sample_weight=None,
-        groups=None,
-    ):
+    metric_name,
+    y_predict,
+    y_true,
+    labels=None,
+    sample_weight=None,
+    groups=None,
+):
     import datasets
-    if metric_name in sklearn_metric_name_set:
-        return sklearn_metric_loss_score(metric_name, y_predict, y_true, labels, sample_weight, groups)
+
+    if is_in_sklearn_metric_name_set(metric_name):
+        return sklearn_metric_loss_score(
+            metric_name, y_predict, y_true, labels, sample_weight, groups
+        )
     else:
         try:
             """
-                hf's datasets.load_metric("pearsonr") returns nan (hf's bug), overwriting it here
+            hf's datasets.load_metric("pearsonr") returns nan (hf's bug), overwriting it here
             """
             if metric_name == "spearmanr":
                 from scipy.stats import spearmanr
+
                 y_true = y_true.to_list() if type(y_true) == pd.Series else list(y_true)
                 score = spearmanr(list(y_predict), y_true)[0]
                 metric_mode = "max"
             elif metric_name == "pearsonr":
                 from scipy.stats import pearsonr
+
                 y_true = y_true.to_list() if type(y_true) == pd.Series else list(y_true)
                 score = pearsonr(list(y_predict), y_true)[0]
                 metric_mode = "max"
@@ -134,19 +156,26 @@ def metric_loss_score(
                 metric = datasets.load_metric(metric_name)
                 metric_mode = huggingface_metric_to_mode[metric_name]
                 score = metric.compute(predictions=y_predict, references=y_true)[
-                                    metric_name
-                                ]
+                    metric_name
+                ]
             multiplier = -1 if metric_mode == "max" else 1
             return score * multiplier
         except FileNotFoundError:
-            raise Exception(metric_name + " is neither an sklearn metric nor a huggingface metric"
-                                          "currently built-in sklearn metrics are: "
-                                          "r2, rmse, mae, mse, accuracy, roc_auc, roc_auc_ovr, roc_auc_ovo,"
-                                          "log_loss, mape, f1, micro_f1, macro_f1, ap. "
-                                          "currently built-in huggingface metrics are: "
-                                          + ", ".join(datasets.list_metrics()) +
-                                          ", please pass a customized metric function to AutoML.fit(metric=func)"
-                )
+            raise Exception(
+                metric_name + " is neither an sklearn metric nor a huggingface metric"
+                "currently built-in sklearn metrics are: "
+                "r2, rmse, mae, mse, accuracy, roc_auc, roc_auc_ovr, roc_auc_ovo,"
+                "log_loss, mape, f1, micro_f1, macro_f1, ap. "
+                "currently built-in huggingface metrics are: "
+                + ", ".join(datasets.list_metrics())
+                + ", please pass a customized metric function to AutoML.fit(metric=func)"
+            )
+
+
+def is_in_sklearn_metric_name_set(metric_name):
+    if metric_name.startswith("ndcg") or metric_name in sklearn_metric_name_set:
+        return True
+    return False
 
 
 def sklearn_metric_loss_score(
@@ -176,12 +205,6 @@ def sklearn_metric_loss_score(
         score: A float number of the loss, the lower the better.
     """
     metric_name = metric_name.lower()
-    assert metric_name in sklearn_metric_name_set, (
-        metric_name + " is not a built-in sklearn metric, " 
-            "currently built-in sklearn metrics are: " 
-            "r2, rmse, mae, mse, accuracy, roc_auc, roc_auc_ovr, roc_auc_ovo," 
-            "log_loss, mape, f1, micro_f1, macro_f1, ap. " 
-            "please pass a customized metric function to AutoML.fit(metric=func)")
 
     if "r2" == metric_name:
         score = 1.0 - r2_score(y_true, y_predict, sample_weight=sample_weight)
