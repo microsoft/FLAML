@@ -101,6 +101,7 @@ class Searcher:
         mode: Optional[str] = None,
         max_concurrent: Optional[int] = None,
         use_early_stopped_trials: Optional[bool] = None,
+        use_incumbent_result: Optional[bool] = None,
     ):
 
         self._metric = metric

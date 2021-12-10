@@ -134,6 +134,7 @@ def run(
     metric_constraints: Optional[List[Tuple[str, str, float]]] = None,
     max_failure: Optional[int] = 100,
     use_ray: Optional[bool] = False,
+    use_incumbent_result = False
 ):
     """The trigger for HPO.
 
@@ -341,6 +342,7 @@ def run(
             reduction_factor=flaml_scheduler_reduction_factor,
             config_constraints=config_constraints,
             metric_constraints=metric_constraints,
+            use_incumbent_result=use_incumbent_result,
         )
     else:
         if metric is None or mode is None:
@@ -350,6 +352,7 @@ def run(
             from ray.tune.suggest import ConcurrencyLimiter
         else:
             from flaml.searcher.suggestion import ConcurrencyLimiter
+        search_alg.use_incumbent_result = use_incumbent_result
         searcher = (
             search_alg.searcher
             if isinstance(search_alg, ConcurrencyLimiter)
