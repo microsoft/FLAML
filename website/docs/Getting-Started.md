@@ -7,7 +7,7 @@ learning models automatically, efficiently and economically. It frees users from
 
 ### Main Features
 
-1. For common machine learning tasks like classification and regression, it quickly finds quality models for user-provided data with small computational resources. 
+1. For common machine learning tasks like classification and regression, it quickly finds quality models for user-provided data with small computational resources.
 
 2. It is easy to customize or extend. Users can choose their desired customizability: minimal customization (computational resource budget), medium customization (e.g., scikit-style learner, search space and metric), or full customization (arbitrary training and evaluation code).
 
@@ -44,32 +44,38 @@ from flaml.model import LGBMEstimator
 
 def train_lgbm(config: dict) -> dict:
     # convert config dict to lgbm params
-    params = LGBMEstimator(config).params
+    params = LGBMEstimator(**config).params
     num_boost_round = params.pop("n_estimators")
     # train the model
+    train_set = lightgbm.Dataset(X_train, y_train)
     model = lightgbm.train(params, train_set, num_boost_round)
     # evaluate the model
-    result = model.eval(data)
+    pred = model.predict(X_test)
+    mse = mean_squared_error(y_test, pred)
     # return eval results as a dictionary
-    return {r[0]: r[1] for r in result}
+    return {"mse": mse}
 
 # load a built-in search space from flaml
-flaml_lgbm_search_space = LGBMEstimator.search_space(train_set.get_data().shape)
+flaml_lgbm_search_space = LGBMEstimator.search_space(X_train.shape)
 # specify the search space as a dict from hp name to domain; you can define your own search space same way
-config_search_space = {hp: space["domain"] for hp, space in flaml_lgbm_search_space}
+config_search_space = {hp: space["domain"] for hp, space in flaml_lgbm_search_space.items()}
 # give guidance about hp values corresponding to low training cost, i.e., {"n_estimators": 4, "num_leaves": 4}
-low_cost_partial_config = {hp: space["low_cost_init_value"] for hp, space in flaml_lgbm_search_space}
-# run the tuning, minimizing logloss, with total time budget 3600 seconds
+low_cost_partial_config = {
+    hp: space["low_cost_init_value"]
+    for hp, space in flaml_lgbm_search_space.items()
+    if "low_cost_init_value" in space
+}
+# run the tuning, minimizing mse, with total time budget 3 seconds
 analysis = tune.run(
-    train_lgbm, metric="logloss", mode="min", config=config_search_space,
-    low_cost_partial_config=low_cost_partial_config, time_budget_s=3600
+    train_lgbm, metric="mse", mode="min", config=config_search_space,
+    low_cost_partial_config=low_cost_partial_config, time_budget_s=3, num_samples=-1,
 )
 ```
 
 ### Where to Go Next?
 
 * Understand the use cases for [Task-oriented AutoML](Use-Cases/task-oriented-automl) and [Tune user-defined function](Use-Cases/Tune-User-Defined-Function).
-* Find code examples under "Examples".
+* Find code examples under "Examples": from [AutoML - Classification](Examples/AutoML-Classification) to [Tune - PyTorch](Examples/Tune-PyTorch).
 * Watch [video tutorials](https://www.youtube.com/channel/UCfU0zfFXHXdAd5x-WvFBk5A).
 * Learn about [research](Research) around FLAML.
 * Refer to [SDK](reference/automl) and [FAQ](FAQ).

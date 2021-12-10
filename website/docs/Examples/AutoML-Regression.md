@@ -1,3 +1,5 @@
+# AutoML - Regression
+
 ### A basic regression example
 
 ```python

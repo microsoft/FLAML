@@ -84,7 +84,7 @@ module.exports = {
         //   ],
         // },
       ],
-      // copyright: `Copyright © ${new Date().getFullYear()} Microsoft Inc. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} FLAML Authors. Built with Docusaurus.`,
     },
   },
   presets: [
@@ -99,12 +99,6 @@ module.exports = {
           remarkPlugins: [math],
           rehypePlugins: [katex],
         },
-        // blog: {
-        //   showReadingTime: true,
-        //   // Please change this to your repo.
-        //   editUrl:
-        //     'https://github.com/facebook/docusaurus/edit/master/website/blog/',
-        // },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
         },
@@ -117,7 +111,8 @@ module.exports = {
         integrity: "sha384-Um5gpz1odJg5Z4HAmzPtgZKdTBHZdw8S29IecapCSB31ligYPhHQZMIlWLYQGVoc",
         crossorigin: "anonymous",
     },
-  ],  
+  ],
+
   plugins: [
     // ... Your other plugins.
     [
@@ -126,6 +121,7 @@ module.exports = {
         // ... Your options.
         // `hashed` is recommended as long-term-cache of index file is possible.
         hashed: true,
+        blogDir:"./blog/"
         // For Docs using Chinese, The `language` is recommended to set to:
         // ```
         // language: ["en", "zh"],
@@ -135,3 +131,4 @@ module.exports = {
     ],
   ],
 };
+

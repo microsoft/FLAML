@@ -157,3 +157,6 @@ automl.pkl
 .idea/*
 .DS_Store
 website/yarn.lock
+website/package-lock.json
+website/node_modules
+website/docs/reference
