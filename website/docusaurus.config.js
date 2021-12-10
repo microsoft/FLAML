@@ -99,12 +99,6 @@ module.exports = {
           remarkPlugins: [math],
           rehypePlugins: [katex],
         },
-        // blog: {
-        //   showReadingTime: true,
-        //   // Please change this to your repo.
-        //   editUrl:
-        //     'https://github.com/microsoft/FLAML/edit/master/website/blog/',
-        // },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
         },
@@ -126,6 +120,7 @@ module.exports = {
         // ... Your options.
         // `hashed` is recommended as long-term-cache of index file is possible.
         hashed: true,
+        blogDir:"./blog/"
         // For Docs using Chinese, The `language` is recommended to set to:
         // ```
         // language: ["en", "zh"],
