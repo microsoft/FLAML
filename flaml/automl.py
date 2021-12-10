@@ -2027,7 +2027,7 @@ class AutoML(BaseEstimator):
                     metric in huggingface_metric_to_mode
                     and huggingface_metric_to_mode[metric] == "max"
                 ):
-                    return True, f"{metric}"
+                    return True, f"-{metric}"
             return False, None
 
         if isinstance(metric, str):
