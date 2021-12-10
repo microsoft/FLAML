@@ -2007,7 +2007,7 @@ class AutoML(BaseEstimator):
 
         def is_to_reverse_metric(metric, task):
             if metric.startswith("ndcg"):
-                return True
+                return True, f"1-{metric}"
             if metric in [
                 "r2",
                 "accuracy",
@@ -2019,7 +2019,7 @@ class AutoML(BaseEstimator):
                 "micro_f1",
                 "macro_f1",
             ]:
-                return True
+                return True, f"1-{metric}"
             if _is_nlp_task(task):
                 from .ml import huggingface_metric_to_mode
 
@@ -2027,12 +2027,13 @@ class AutoML(BaseEstimator):
                     metric in huggingface_metric_to_mode
                     and huggingface_metric_to_mode[metric] == "max"
                 ):
-                    return True
-            return False
+                    return True, f"{metric}"
+            return False, None
 
         if isinstance(metric, str):
-            if is_to_reverse_metric(metric, task):
-                error_metric = f"1-{metric}"
+            is_reverse, reverse_metric = is_to_reverse_metric(metric, task)
+            if is_reverse:
+                error_metric = reverse_metric
             else:
                 error_metric = metric
         else:
