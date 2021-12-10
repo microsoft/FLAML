@@ -2030,10 +2030,11 @@ class AutoML(BaseEstimator):
                     return True
             return False
 
-        if is_to_reverse_metric(metric, task):
-            error_metric = f"1-{metric}"
-        elif isinstance(metric, str):
-            error_metric = metric
+        if isinstance(metric, str):
+            if is_to_reverse_metric(metric, task):
+                error_metric = f"1-{metric}"
+            else:
+                error_metric = metric
         else:
             error_metric = "customized metric"
         logger.info(f"Minimizing error metric: {error_metric}")
