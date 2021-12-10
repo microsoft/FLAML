@@ -129,8 +129,6 @@ def metric_loss_score(
     sample_weight=None,
     groups=None,
 ):
-    import datasets
-
     if is_in_sklearn_metric_name_set(metric_name):
         return sklearn_metric_loss_score(
             metric_name, y_predict, y_true, labels, sample_weight, groups
@@ -140,26 +138,41 @@ def metric_loss_score(
             """
             hf's datasets.load_metric("pearsonr") returns nan (hf's bug), overwriting it here
             """
-            if metric_name == "spearmanr":
-                from scipy.stats import spearmanr
+            try:
+                import datasets
 
-                y_true = y_true.to_list() if type(y_true) == pd.Series else list(y_true)
-                score = spearmanr(list(y_predict), y_true)[0]
-                metric_mode = "max"
-            elif metric_name == "pearsonr":
-                from scipy.stats import pearsonr
+                if metric_name == "spearmanr":
+                    from scipy.stats import spearmanr
 
-                y_true = y_true.to_list() if type(y_true) == pd.Series else list(y_true)
-                score = pearsonr(list(y_predict), y_true)[0]
-                metric_mode = "max"
-            else:
-                metric = datasets.load_metric(metric_name)
-                metric_mode = huggingface_metric_to_mode[metric_name]
-                score = metric.compute(predictions=y_predict, references=y_true)[
-                    metric_name
-                ]
-            multiplier = -1 if metric_mode == "max" else 1
-            return score * multiplier
+                    y_true = (
+                        y_true.to_list() if type(y_true) == pd.Series else list(y_true)
+                    )
+                    score = spearmanr(list(y_predict), y_true)[0]
+                    metric_mode = "max"
+                elif metric_name == "pearsonr":
+                    from scipy.stats import pearsonr
+
+                    y_true = (
+                        y_true.to_list() if type(y_true) == pd.Series else list(y_true)
+                    )
+                    score = pearsonr(list(y_predict), y_true)[0]
+                    metric_mode = "max"
+                else:
+                    metric = datasets.load_metric(metric_name)
+                    metric_mode = huggingface_metric_to_mode[metric_name]
+                    score = metric.compute(predictions=y_predict, references=y_true)[
+                        metric_name
+                    ]
+                multiplier = -1 if metric_mode == "max" else 1
+                return score * multiplier
+            except ImportError:
+                raise Exception(
+                    metric_name + " is not an sklearn metric and nlp is not installed"
+                    "currently built-in sklearn metrics are: "
+                    "r2, rmse, mae, mse, accuracy, roc_auc, roc_auc_ovr, roc_auc_ovo,"
+                    "log_loss, mape, f1, micro_f1, macro_f1, ap. "
+                    + ", please pip install flaml[nlp] or pass a customized metric function to AutoML.fit(metric=func)"
+                )
         # If the metric is not found from huggingface dataset metric list (i.e., FileNotFoundError)
         # ask the user to provide a custom metric
         except FileNotFoundError:
@@ -169,7 +182,7 @@ def metric_loss_score(
                 "r2, rmse, mae, mse, accuracy, roc_auc, roc_auc_ovr, roc_auc_ovo,"
                 "log_loss, mape, f1, micro_f1, macro_f1, ap. "
                 "currently built-in huggingface metrics are: "
-                + ", ".join(datasets.list_metrics())
+                + ", ".join(huggingface_metric_to_mode.keys())
                 + ", please pass a customized metric function to AutoML.fit(metric=func)"
             )
 
