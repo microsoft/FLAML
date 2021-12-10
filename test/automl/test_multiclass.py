@@ -366,7 +366,7 @@ class TestMultiClass(unittest.TestCase):
             learner_name="large_xgb", learner_class=MyLargeXGB
         )
         automl_settings = {
-            "time_budget": 5,
+            "time_budget": 0.5,
             "task": "classification",
             "log_file_name": "test/classification_timeout.log",
             "estimator_list": ["catboost"],
@@ -375,13 +375,16 @@ class TestMultiClass(unittest.TestCase):
         }
         X_train, y_train = load_iris(return_X_y=True, as_frame=True)
         automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
-        print(automl_experiment.model.params)
-        automl_settings["estimator_list"] = ["large_xgb"]
-        automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
-        print(automl_experiment.model)
-        automl_settings["estimator_list"] = ["large_lgbm"]
-        automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
-        print(automl_experiment.model)
+        try:
+            print(automl_experiment.model.params)
+            automl_settings["estimator_list"] = ["large_xgb"]
+            automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
+            print(automl_experiment.model)
+            automl_settings["estimator_list"] = ["large_lgbm"]
+            automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
+            print(automl_experiment.model)
+        except AttributeError:
+            pass
 
     def test_fit_w_starting_point(self, as_frame=True):
         automl_experiment = AutoML()

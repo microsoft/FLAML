@@ -2005,26 +2005,32 @@ class AutoML(BaseEstimator):
 
         self._state.metric = metric
 
-        import datasets
-        from .ml import huggingface_metric_to_mode
+        def is_to_reverse_metric(metric, task):
+            if metric.startswith("ndcg"):
+                return True
+            if metric in [
+                "r2",
+                "accuracy",
+                "roc_auc",
+                "roc_auc_ovr",
+                "roc_auc_ovo",
+                "f1",
+                "ap",
+                "micro_f1",
+                "macro_f1",
+            ]:
+                return True
+            if _is_nlp_task(task):
+                from .ml import huggingface_metric_to_mode
 
-        if metric in [
-            "r2",
-            "accuracy",
-            "roc_auc",
-            "roc_auc_ovr",
-            "roc_auc_ovo",
-            "f1",
-            "ap",
-            "micro_f1",
-            "macro_f1",
-            "ndcg",
-        ] + [
-            m
-            for m in datasets.list_metrics()
-            if m in huggingface_metric_to_mode
-            and huggingface_metric_to_mode[m] == "max"
-        ]:
+                if (
+                    metric in huggingface_metric_to_mode
+                    and huggingface_metric_to_mode[metric] == "max"
+                ):
+                    return True
+            return False
+
+        if is_to_reverse_metric(metric, task):
             error_metric = f"1-{metric}"
         elif isinstance(metric, str):
             error_metric = metric
