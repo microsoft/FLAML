@@ -2037,10 +2037,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_min_sample_size</span> <span class="o">=</span> <span class="n">min_sample_size</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_data</span><span class="p">(</span><span class="n">eval_method</span><span class="p">,</span> <span class="n">split_ratio</span><span class="p">,</span> <span class="n">n_splits</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">_is_nlp_task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s2">&quot;metric&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s2">&quot;use_ray&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_use_ray</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">_sample</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">sample</span>
             <span class="ow">and</span> <span class="n">task</span> <span class="o">!=</span> <span class="s2">&quot;rank&quot;</span>
@@ -2059,24 +2055,50 @@
                 <span class="n">metric</span> <span class="o">=</span> <span class="s2">&quot;mape&quot;</span>
             <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">==</span> <span class="s2">&quot;rank&quot;</span><span class="p">:</span>
                 <span class="n">metric</span> <span class="o">=</span> <span class="s2">&quot;ndcg&quot;</span>
+            <span class="k">elif</span> <span class="n">_is_nlp_task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span><span class="p">):</span>
+                <span class="kn">from</span> <span class="nn">.nlp.utils</span> <span class="kn">import</span> <span class="n">load_default_huggingface_metric_for_task</span>
+
+                <span class="n">metric</span> <span class="o">=</span> <span class="n">load_default_huggingface_metric_for_task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">metric</span> <span class="o">=</span> <span class="s2">&quot;r2&quot;</span>
+
+        <span class="k">if</span> <span class="n">_is_nlp_task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s2">&quot;metric&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="p">[</span><span class="s2">&quot;use_ray&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_use_ray</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">metric</span> <span class="o">=</span> <span class="n">metric</span>
-        <span class="k">if</span> <span class="n">metric</span> <span class="ow">in</span> <span class="p">[</span>
-            <span class="s2">&quot;r2&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;roc_auc&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;roc_auc_ovr&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;roc_auc_ovo&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;f1&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;ap&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;micro_f1&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;macro_f1&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;ndcg&quot;</span><span class="p">,</span>
-        <span class="p">]:</span>
-            <span class="n">error_metric</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;1-</span><span class="si">{</span><span class="n">metric</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="n">error_metric</span> <span class="o">=</span> <span class="n">metric</span>
+
+        <span class="k">def</span> <span class="nf">is_to_reverse_metric</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">task</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;ndcg&quot;</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;1-</span><span class="si">{</span><span class="n">metric</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">if</span> <span class="n">metric</span> <span class="ow">in</span> <span class="p">[</span>
+                <span class="s2">&quot;r2&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;roc_auc&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;roc_auc_ovr&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;roc_auc_ovo&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;f1&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;ap&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;micro_f1&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;macro_f1&quot;</span><span class="p">,</span>
+            <span class="p">]:</span>
+                <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;1-</span><span class="si">{</span><span class="n">metric</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">if</span> <span class="n">_is_nlp_task</span><span class="p">(</span><span class="n">task</span><span class="p">):</span>
+                <span class="kn">from</span> <span class="nn">.ml</span> <span class="kn">import</span> <span class="n">huggingface_metric_to_mode</span>
+
+                <span class="k">if</span> <span class="p">(</span>
+                    <span class="n">metric</span> <span class="ow">in</span> <span class="n">huggingface_metric_to_mode</span>
+                    <span class="ow">and</span> <span class="n">huggingface_metric_to_mode</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;max&quot;</span>
+                <span class="p">):</span>
+                    <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;-</span><span class="si">{</span><span class="n">metric</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">is_reverse</span><span class="p">,</span> <span class="n">reverse_metric</span> <span class="o">=</span> <span class="n">is_to_reverse_metric</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">task</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">is_reverse</span><span class="p">:</span>
+                <span class="n">error_metric</span> <span class="o">=</span> <span class="n">reverse_metric</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">error_metric</span> <span class="o">=</span> <span class="n">metric</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">error_metric</span> <span class="o">=</span> <span class="s2">&quot;customized metric&quot;</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Minimizing error metric: </span><span class="si">{</span><span class="n">error_metric</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
