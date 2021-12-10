@@ -14,15 +14,15 @@
 
 FLAML is a lightweight Python library that finds accurate machine
 learning models automatically, efficiently and economically. It frees users from selecting
-learners and hyperparameters for each learner. FLAML has the following uniques properties comparing with other AutoML and hyperparameter tuning libraries,
+learners and hyperparameters for each learner.
 
-1. It is fast and economical. FLAML is powered by a new, [cost-effective
-hyperparameter optimization](https://github.com/microsoft/FLAML/tree/main/flaml/tune)
-and learner selection method invented by Microsoft Research.
+1. For common machine learning tasks like classification and regression, it quickly finds quality models for user-provided data with small computational resources.
 
 2. It is easy to customize or extend. Users can choose their desired customizability: minimal customization (computational resource budget), medium customization (e.g., scikit-style learner, search space and metric), or full customization (arbitrary training and evaluation code).
 
-3. It supports fast automatic tuning, capable of handling complex constraints/guidance/early stopping.
+3. It supports fast automatic tuning, capable of handling complex constraints/guidance/early stopping. FLAML is powered by a new, [cost-effective
+hyperparameter optimization](https://microsoft.github.io/FLAML/Use-Cases/Tune-User-Defined-Function#hyperparameter-optimization-algorithm)
+and learner selection method invented by Microsoft Research.
 
 FLAML has a .NET implementation as well from [ML.NET Model Builder](https://dotnet.microsoft.com/apps/machinelearning-ai/ml-dotnet/model-builder). This [ML.NET blog](https://devblogs.microsoft.com/dotnet/ml-net-june-updates/#new-and-improved-automl) describes the improvement brought by FLAML.
 
