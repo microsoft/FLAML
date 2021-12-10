@@ -375,8 +375,7 @@ class TestMultiClass(unittest.TestCase):
         }
         X_train, y_train = load_iris(return_X_y=True, as_frame=True)
         automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
-        if automl_experiment.model:
-            print(automl_experiment.model.params)
+        print(automl_experiment.model.params)
         automl_settings["estimator_list"] = ["large_xgb"]
         automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
         print(automl_experiment.model)
