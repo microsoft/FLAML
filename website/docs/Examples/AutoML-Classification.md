@@ -1,3 +1,5 @@
+# AutoML - Classification
+
 ### A basic classification example
 
 ```python

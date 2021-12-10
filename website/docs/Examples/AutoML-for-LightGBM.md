@@ -1,3 +1,5 @@
+# AutoML for LightGBM
+
 ### Use built-in LGBMEstimator
 
 ```python
@@ -12,7 +14,7 @@ settings = {
     "time_budget": 60,  # total running time in seconds
     "metric": 'r2',  # primary metrics for regression can be chosen from: ['mae','mse','r2']
     "estimator_list": ['lgbm'],  # list of ML learners; we tune lightgbm in this example
-    "task": 'regression',  # task type    
+    "task": 'regression',  # task type  
     "log_file_name": 'houses_experiment.log',  # flaml log file
     "seed": 7654321,    # random seed
 }
@@ -150,7 +152,7 @@ The native API of LightGBM allows one to specify a custom objective function in 
 #### Create a customized LightGBM learner with a custom objective function
 
 ```python
-import numpy as np 
+import numpy as np
 
 # define your customized objective function
 def my_loss_obj(y_true, y_pred):
@@ -161,7 +163,7 @@ def my_loss_obj(y_true, y_pred):
     # rmse grad and hess
     grad_rmse = residual
     hess_rmse = 1.0
-    
+
     # mae grad and hess
     grad_mae = np.array(residual)
     grad_mae[grad_mae > 0] = 1.
