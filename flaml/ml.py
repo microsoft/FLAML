@@ -138,41 +138,40 @@ def metric_loss_score(
             """
             hf's datasets.load_metric("pearsonr") returns nan (hf's bug), overwriting it here
             """
-            try:
-                import datasets
+            if metric_name == "spearmanr":
+                from scipy.stats import spearmanr
 
-                if metric_name == "spearmanr":
-                    from scipy.stats import spearmanr
+                y_true = y_true.to_list() if type(y_true) == pd.Series else list(y_true)
+                score = spearmanr(list(y_predict), y_true)[0]
+                metric_mode = "max"
+            elif metric_name == "pearsonr":
+                from scipy.stats import pearsonr
 
-                    y_true = (
-                        y_true.to_list() if type(y_true) == pd.Series else list(y_true)
-                    )
-                    score = spearmanr(list(y_predict), y_true)[0]
-                    metric_mode = "max"
-                elif metric_name == "pearsonr":
-                    from scipy.stats import pearsonr
+                y_true = y_true.to_list() if type(y_true) == pd.Series else list(y_true)
+                score = pearsonr(list(y_predict), y_true)[0]
+                metric_mode = "max"
+            else:
+                try:
+                    import datasets
 
-                    y_true = (
-                        y_true.to_list() if type(y_true) == pd.Series else list(y_true)
-                    )
-                    score = pearsonr(list(y_predict), y_true)[0]
-                    metric_mode = "max"
-                else:
                     metric = datasets.load_metric(metric_name)
                     metric_mode = huggingface_metric_to_mode[metric_name]
                     score = metric.compute(predictions=y_predict, references=y_true)[
                         metric_name
                     ]
-                multiplier = -1 if metric_mode == "max" else 1
-                return score * multiplier
-            except ImportError:
-                raise Exception(
-                    metric_name + " is not an sklearn metric and nlp is not installed"
-                    "currently built-in sklearn metrics are: "
-                    "r2, rmse, mae, mse, accuracy, roc_auc, roc_auc_ovr, roc_auc_ovo,"
-                    "log_loss, mape, f1, micro_f1, macro_f1, ap. "
-                    + ", please pip install flaml[nlp] or pass a customized metric function to AutoML.fit(metric=func)"
-                )
+                except ImportError:
+                    raise Exception(
+                        metric_name
+                        + " is not an built-in sklearn metric and nlp is not installed"
+                        "currently built-in sklearn metrics are: "
+                        "r2, rmse, mae, mse, accuracy, roc_auc, roc_auc_ovr, roc_auc_ovo,"
+                        "log_loss, mape, f1, micro_f1, macro_f1, ap. "
+                        ", if the metric is an nlp metric, please pip install flaml[nlp]",
+                        "or pass a customized metric function to AutoML.fit(metric=func)",
+                    )
+            multiplier = -1 if metric_mode == "max" else 1
+            return score * multiplier
+
         # If the metric is not found from huggingface dataset metric list (i.e., FileNotFoundError)
         # ask the user to provide a custom metric
         except FileNotFoundError:
