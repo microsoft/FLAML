@@ -175,9 +175,7 @@ def metric_loss_score(
 
 
 def is_in_sklearn_metric_name_set(metric_name):
-    if metric_name.startswith("ndcg") or metric_name in sklearn_metric_name_set:
-        return True
-    return False
+    return metric_name.startswith("ndcg") or metric_name in sklearn_metric_name_set
 
 
 def sklearn_metric_loss_score(
