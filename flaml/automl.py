@@ -402,8 +402,7 @@ class AutoML(BaseEstimator):
         "task": 'classification',
         "log_file_name": 'mylog.log',
     }
-    automl.fit(X_train = X_train, y_train = y_train,
-        **automl_settings)
+    automl.fit(X_train = X_train, y_train = y_train, **automl_settings)
     ```
 
     """
@@ -437,7 +436,6 @@ class AutoML(BaseEstimator):
                 and a dictionary as the metrics to log. E.g.,
 
         ```python
-
         def custom_metric(
             X_val, y_val, estimator, labels,
             X_train, y_train, weight_val=None, weight_train=None,
@@ -523,20 +521,19 @@ class AutoML(BaseEstimator):
                 The value can be a single hyperparamter configuration dict or a list
                 of hyperparamter configuration dicts.
                 In the following code example, we get starting_points from the
-                automl_experiment and use them in the new_automl_experiment.
+                `automl` object and use them in the `new_automl` object.
                 e.g.,
 
 
         ```python
         from flaml import AutoML
-        automl_experiment = AutoML()
+        automl = AutoML()
         X_train, y_train = load_iris(return_X_y=True)
-        automl_experiment.fit(X_train, y_train)
-        starting_points = automl_experiment.best_config_per_estimator
+        automl.fit(X_train, y_train)
+        starting_points = automl.best_config_per_estimator
 
-        new_automl_experiment = AutoML()
-        new_automl_experiment.fit(X_train, y_train,
-            starting_points=starting_points)
+        new_automl = AutoML()
+        new_automl.fit(X_train, y_train, starting_points=starting_points)
         ```
 
             seed: int or None, default=None | The random seed for np.random.
@@ -1799,19 +1796,18 @@ class AutoML(BaseEstimator):
                 The value can be a single hyperparamter configuration dict or a list
                 of hyperparamter configuration dicts.
                 In the following code example, we get starting_points from the
-                automl_experiment and use them in the new_automl_experiment.
+                `automl` object and use them in the `new_automl` object.
                 e.g.,
 
         ```python
         from flaml import AutoML
-        automl_experiment = AutoML()
+        automl = AutoML()
         X_train, y_train = load_iris(return_X_y=True)
-        automl_experiment.fit(X_train, y_train)
-        starting_points = automl_experiment.best_config_per_estimator
+        automl.fit(X_train, y_train)
+        starting_points = automl.best_config_per_estimator
 
-        new_automl_experiment = AutoML()
-        new_automl_experiment.fit(X_train, y_train,
-            starting_points=starting_points)
+        new_automl = AutoML()
+        new_automl.fit(X_train, y_train, starting_points=starting_points)
         ```
 
             seed: int or None, default=None | The random seed for np.random.
