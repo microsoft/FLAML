@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: [deploy]
   workflow_dispatch:
 
 jobs:
@@ -18,12 +18,12 @@ jobs:
           node-version: '14'
       - name: setup python
         uses: actions/setup-python@v2
-        with: 
+        with:
           python-version: "3.8"
       - name: pydoc-markdown install
         run: |
           python -m pip install --upgrade pip
-          pip install docspec-python==0.1.0 
+          pip install docspec-python==0.1.0
           pip install pydoc-markdown
       - name: pydoc-markdown run
         run: |
@@ -44,30 +44,27 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-node@v1
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
         with:
           node-version: '14'
+          cache: yarn
       - name: setup python
         uses: actions/setup-python@v2
-        with: 
+        with:
           python-version: "3.8"
       - name: pydoc-markdown install
         run: |
           python -m pip install --upgrade pip
-          pip install docspec-python==0.1.0 
+          pip install docspec-python==0.1.0
           pip install pydoc-markdown
       - name: pydoc-markdown run
         run: |
           cd website
           pydoc-markdown
-      - name: Release to GitHub Pages
-        env:
-          USE_SSH: False
-          GIT_USER: git
+      - name: Build website
+        working-directory: website
         run: |
-          git config --global user.email "actions@gihub.com"
-          git config --global user.name "gh-actions"
           cd website
           if [ -e yarn.lock ]; then
           yarn install --frozen-lockfile
@@ -76,4 +73,10 @@ jobs:
           else
           npm i --legacy-peer-deps
           fi
-          yarn deploy
+          yarn build
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Build output to publish to the `gh-pages` branch:
+          publish_dir: ./website/build
