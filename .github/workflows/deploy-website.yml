@@ -21,8 +21,8 @@ jobs:
       - uses: actions/setup-node@v2
         with:
           node-version: 14.x
-          cache: yarn
-          cache-dependency-path: '**/yarn.lock'
+          # cache: yarn
+          # cache-dependency-path: '**/yarn.lock'
       - name: setup python
         uses: actions/setup-python@v2
         with:
@@ -58,8 +58,8 @@ jobs:
       - uses: actions/setup-node@v2
         with:
           node-version: 14.x
-          cache: yarn
-          cache-dependency-path: '**/yarn.lock'
+          # cache: yarn
+          # cache-dependency-path: '**/yarn.lock'
       - name: setup python
         uses: actions/setup-python@v2
         with:
