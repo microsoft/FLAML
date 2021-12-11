@@ -1,9 +1,9 @@
-import ray
 from flaml import AutoML
 
 
 def _test_ray_classification():
     from sklearn.datasets import make_classification
+    import ray
 
     ray.init(address="auto", _redis_password="NOPASS")
     X, y = make_classification(1000, 10)

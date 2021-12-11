@@ -20,7 +20,7 @@ while ray_cpu_build_details.status not in ["Succeeded", "Failed"]:
 
 env = Environment.get(workspace=ws, name=ray_environment_name)
 compute_target = ws.compute_targets["cpucluster"]
-command = ["python test_automl.py"]
+command = ["python automl.py"]
 config = ScriptRunConfig(
     source_directory="ray/",
     command=command,
