@@ -5,12 +5,12 @@ const katex = require('rehype-katex');
 module.exports = {
   title: 'FLAML',
   tagline: 'A Fast Library for Automated Machine Learning & Tuning',
-  url: 'https://shao-kun-zhang.github.io/',
+  url: 'https://microsoft.github.io/',
   baseUrl: '/FLAML/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/flaml_logo.ico',
-  organizationName: 'Shao-kun-Zhang', // Usually your GitHub org/user name.
+  organizationName: 'Microsoft', // Usually your GitHub org/user name.
   projectName: 'FLAML', // Usually your repo name.
   themeConfig: {
     navbar: {
