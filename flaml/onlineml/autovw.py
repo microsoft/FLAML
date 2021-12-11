@@ -59,7 +59,7 @@ class AutoVW:
         automl_runner_args = {
             "champion_test_policy": 'loss_ucb', # the statistic test for a better champion
             "remove_worse": False,              # whether to do worse than test
-            }
+        }
         ```
 
             scheduler_args: A dictionary of configuration for the scheduler.
@@ -72,7 +72,7 @@ class AutoVW:
             "keep_challenger_metric": 'ucb',  # what metric to use when deciding the top performing challengers
             "keep_challenger_ratio": 0.5,     # denotes the ratio of top performing challengers to keep live
             "keep_champion": True,            # specifcies whether to keep the champion always running
-            }
+        }
         ```
 
             model_select_policy: A string in ['threshold_loss_ucb',

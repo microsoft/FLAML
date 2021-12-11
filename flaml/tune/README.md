@@ -1,7 +1,9 @@
 # Economical Hyperparameter Optimization
 
 `flaml.tune` is a module for economical hyperparameter tuning. It frees users from manually tuning many hyperparameters for a software, such as machine learning training procedures.
-It can be used standalone, or together with ray tune or nni.
+It can be used standalone, or together with ray tune or nni. Please find detailed guidelines and use cases about this module in our [documentation website](https://microsoft.github.io/FLAML/docs/Use-Cases/Tune-User-Defined-Function).
+
+Below are some quick examples.
 
 * Example for sequential tuning (recommended when compute resource is limited and each trial can consume all the resources):
 

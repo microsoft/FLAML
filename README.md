@@ -2,10 +2,10 @@
 ![Conda version](https://img.shields.io/conda/vn/conda-forge/flaml)
 [![Build](https://github.com/microsoft/FLAML/actions/workflows/python-package.yml/badge.svg)](https://github.com/microsoft/FLAML/actions/workflows/python-package.yml)
 ![Python Version](https://img.shields.io/badge/3.6%20%7C%203.7%20%7C%203.8%20%7C%203.9-blue)
-[![Downloads](https://pepy.tech/badge/flaml/month)](https://pepy.tech/project/flaml)
+[![Downloads](https://pepy.tech/badge/flaml)](https://pepy.tech/project/flaml)
 [![Join the chat at https://gitter.im/FLAMLer/community](https://badges.gitter.im/FLAMLer/community.svg)](https://gitter.im/FLAMLer/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-# FLAML - A Fast Library for Automated Machine Learning & Tuning
+# A Fast Library for Automated Machine Learning & Tuning
 
 <p align="center">
     <img src="https://github.com/microsoft/FLAML/blob/main/docs/images/FLAML.png"  width=200>
