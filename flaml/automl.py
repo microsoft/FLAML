@@ -1669,7 +1669,6 @@ class AutoML(BaseEstimator):
         auto_augment=None,
         min_sample_size=None,
         use_ray=None,
-        use_incumbent_result=False,
         **fit_kwargs,
     ):
         """Find a model for a given task.
@@ -1849,7 +1848,6 @@ class AutoML(BaseEstimator):
         """
 
         self._state._start_time_flag = self._start_time_flag = time.time()
-        self._use_incumbent_result = use_incumbent_result
         task = task or self._settings.get("task")
         self._estimator_type = "classifier" if task in CLASSIFICATION else "regressor"
         time_budget = time_budget or self._settings.get("time_budget")
@@ -2171,7 +2169,6 @@ class AutoML(BaseEstimator):
             search_alg = SearchAlgo(
                 max_concurrent=self._n_concurrent_trials,
                 points_to_evaluate=points_to_evaluate,
-                use_incumbent_result=self._use_incumbent_result
             )
         else:
             self._state.time_from_start = time.time() - self._start_time_flag
@@ -2191,7 +2188,6 @@ class AutoML(BaseEstimator):
                 metric_constraints=self.metric_constraints,
                 seed=self._seed,
                 time_budget_s=time_left,
-                use_incumbent_result=self._use_incumbent_result
             )
             search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
         resources_per_trial = self._state.resources_per_trial
@@ -2375,7 +2371,6 @@ class AutoML(BaseEstimator):
                         ],
                         metric_constraints=self.metric_constraints,
                         seed=self._seed,
-                        use_incumbent_result=self._use_incumbent_result
                     )
                 else:
                     algo = SearchAlgo(
@@ -2385,7 +2380,6 @@ class AutoML(BaseEstimator):
                         points_to_evaluate=[
                             p for p in points_to_evaluate if len(p) == len(search_space)
                         ],
-                        use_incumbent_result=self._use_incumbent_result
                     )
                 search_state.search_alg = ConcurrencyLimiter(algo, max_concurrent=1)
                 # search_state.search_alg = algo

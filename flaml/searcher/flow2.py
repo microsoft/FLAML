@@ -45,7 +45,6 @@ class FLOW2(Searcher):
         resource_multiple_factor: Optional[float] = 4,
         cost_attr: Optional[str] = "time_total_s",
         seed: Optional[int] = 20,
-        use_incumbent_result = False,
     ):
         """Constructor.
 
@@ -88,7 +87,6 @@ class FLOW2(Searcher):
             self.metric_op = -1.0
         elif mode == "min":
             self.metric_op = 1.0
-        self._use_incumbent_result = use_incumbent_result
         self.space = space or {}
         self._space = flatten_dict(self.space, prevent_delimiter=True)
         self._random = np.random.RandomState(seed)
@@ -486,9 +484,6 @@ class FLOW2(Searcher):
             # print('move to', move)
             self.incumbent = move
         config = unflatten_dict(config)
-        if self._use_incumbent_result == True:
-            config["incumbent_info"]["incumbent_result"] = self.best_obj
-            config["incumbent_info"]["incumbent_config"] = self.best_config
         return config
 
     def _increase_resource(self, trial_id):

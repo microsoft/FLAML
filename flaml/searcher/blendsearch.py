@@ -738,10 +738,13 @@ class BlendSearch(Searcher):
                 return None
         if self._use_incumbent_result:
             thread_obj = [thread.obj_best1 for id, thread in self._search_thread_pool.items() if id]
-            thread_config = [thread.best_config for id, thread in self._search_thread_pool.items() if id]
-            config["incumbent_info"] = {}
-            config["incumbent_info"]["incumbent_result"] = np.max(thread_obj)
-            config["incumbent_info"]["incumbent_config"] = thread_config[np.argmax(thread_obj)]
+            if len(thread_obj) != 0:
+                thread_config = [thread.best_config for id, thread in self._search_thread_pool.items() if id]
+                config["incumbent_info"] = {}
+                config["incumbent_info"]["incumbent_result"] = np.max(thread_obj)
+                config["incumbent_info"]["incumbent_config"] = thread_config[np.argmax(thread_obj)]
+            else:
+                config["incumbent_info"] = None
         return config
 
     def _should_skip(self, choice, trial_id, config, space) -> bool:
