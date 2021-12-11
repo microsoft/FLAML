@@ -3,19 +3,26 @@ name: docs
 on:
   pull_request:
     branches: [main]
+    paths: [website/**]
   push:
     branches: [deploy]
+    paths: [website/**]
   workflow_dispatch:
 
 jobs:
   checks:
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
     steps:
       - uses: actions/checkout@v1
       - uses: actions/setup-node@v1
         with:
-          node-version: '14'
+          node-version: 14.x
+          cache: yarn
+          cache-dependency-path: '**/yarn.lock'
       - name: setup python
         uses: actions/setup-python@v2
         with:
@@ -27,28 +34,32 @@ jobs:
           pip install pydoc-markdown
       - name: pydoc-markdown run
         run: |
-          cd website
           pydoc-markdown
       - name: Test Build
         run: |
-          cd website
           if [ -e yarn.lock ]; then
           yarn install --frozen-lockfile
+          yarn build
           elif [ -e package-lock.json ]; then
           npm ci
+          npm run build
           else
           npm i --legacy-peer-deps
-          fi
           npm run build
+          fi
   gh-release:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v2
         with:
-          node-version: '14'
+          node-version: 14.x
           cache: yarn
+          cache-dependency-path: '**/yarn.lock'
       - name: setup python
         uses: actions/setup-python@v2
         with:
@@ -60,20 +71,19 @@ jobs:
           pip install pydoc-markdown
       - name: pydoc-markdown run
         run: |
-          cd website
           pydoc-markdown
       - name: Build website
-        working-directory: website
         run: |
-          cd website
           if [ -e yarn.lock ]; then
           yarn install --frozen-lockfile
+          yarn build
           elif [ -e package-lock.json ]; then
           npm ci
+          npm run build
           else
           npm i --legacy-peer-deps
+          npm run build
           fi
-          yarn build
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
