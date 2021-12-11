@@ -156,6 +156,3 @@ automl.pkl
 
 .idea/*
 .DS_Store
-website/package-lock.json
-website/node_modules
-website/docs/reference

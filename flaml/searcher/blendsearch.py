@@ -66,11 +66,11 @@ class BlendSearch(Searcher):
             space: A dictionary to specify the search space.
             low_cost_partial_config: A dictionary from a subset of
                 controlled dimensions to the initial low-cost values.
-                e.g., ```{'n_estimators': 4, 'max_leaves': 4}```
+                E.g., ```{'n_estimators': 4, 'max_leaves': 4}```.
             cat_hp_cost: A dictionary from a subset of categorical dimensions
                 to the relative cost of each choice.
-                e.g., ```{'tree_method': [1, 1, 2]}``` 
-                i.e., the relative cost of the three choices of 'tree_method' 
+                E.g., ```{'tree_method': [1, 1, 2]}```.
+                I.e., the relative cost of the three choices of 'tree_method'
                 is 1, 1 and 2 respectively.
             points_to_evaluate: Initial parameter suggestions to be run first.
             evaluated_rewards (list): If you have previously evaluated the
@@ -93,13 +93,12 @@ class BlendSearch(Searcher):
                 - HyperOptSearch raises exception sometimes
                 - TuneBOHB has its own scheduler
             config_constraints: A list of config constraints to be satisfied.
-                e.g., ```config_constraints = [(mem_size, '<=', 1024**3)]```
-
-                mem_size is a function which produces a float number for the bytes
+                E.g., ```config_constraints = [(mem_size, '<=', 1024**3)]```.
+                `mem_size` is a function which produces a float number for the bytes
                 needed for a config.
                 It is used to skip configs which do not fit in memory.
             metric_constraints: A list of metric constraints to be satisfied.
-                e.g., `['precision', '>=', 0.9]`
+                E.g., `['precision', '>=', 0.9]`.
             seed: An integer of the random seed.
             experimental: A bool of whether to use experimental features.
         """

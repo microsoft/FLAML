@@ -68,3 +68,21 @@ coverage run -m pytest test
 Then you can see the coverage report by
 `coverage report -m` or `coverage html`.
 If all the tests are passed, please also test run notebook/flaml_automl to make sure your commit does not break the notebook example.
+
+### Documentation
+
+To build and test documentation locally, install [Node.js](https://nodejs.org/en/download/).
+
+Then:
+
+```console
+npm install --global yarn
+pip install pydoc-markdown
+cd website
+yarn install
+pydoc-markdown
+yarn start
+```
+
+The last command starts a local development server and opens up a browser window.
+Most changes are reflected live without having to restart the server.

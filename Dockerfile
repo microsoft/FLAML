@@ -23,7 +23,7 @@ RUN pre-commit install
 RUN npm install --global yarn
 RUN pip install pydoc-markdown
 RUN cd website
-RUN yarn install
+RUN yarn install --frozen-lockfile
 
 # override default image starting point
 CMD /bin/bash

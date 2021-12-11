@@ -1,5 +1,6 @@
 # Dependencies
 /node_modules
+package-lock.json
 
 # Production
 /build
@@ -7,6 +8,7 @@
 # Generated files
 .docusaurus
 .cache-loader
+docs/reference
 
 # Misc
 .DS_Store
