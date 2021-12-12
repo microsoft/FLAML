@@ -352,7 +352,7 @@ def run(
             from ray.tune.suggest import ConcurrencyLimiter
         else:
             from flaml.searcher.suggestion import ConcurrencyLimiter
-        if search_alg in ["BlendSearch", "CFO", "CFOCat", "RandomSearch"]:
+        if search_alg.__class__.__name__ in ["BlendSearch", "CFO", "CFOCat", "RandomSearch"]:
             search_alg.use_incumbent_result = use_incumbent_result
         searcher = (
             search_alg.searcher

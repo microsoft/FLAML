@@ -741,8 +741,10 @@ class BlendSearch(Searcher):
             if len(thread_obj) != 0:
                 thread_config = [thread.best_config for id, thread in self._search_thread_pool.items() if id]
                 config["incumbent_info"] = {}
-                config["incumbent_info"]["incumbent_result"] = np.max(thread_obj)
-                config["incumbent_info"]["incumbent_config"] = thread_config[np.argmax(thread_obj)]
+                config["incumbent_info"]["incumbent_result"] = np.min(thread_obj)
+                config["incumbent_info"]["incumbent_config"] = thread_config[np.argmin(thread_obj)]
+                if "incumbent_info" in config["incumbent_info"]["incumbent_config"].keys():
+                    del config["incumbent_info"]["incumbent_config"]["incumbent_info"]
             else:
                 config["incumbent_info"] = None
         return config
