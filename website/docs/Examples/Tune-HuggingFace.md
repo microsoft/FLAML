@@ -184,4 +184,4 @@ print(f"Best model parameters: {best_trial.config}")
 # Best model parameters: {'num_train_epochs': 15.580684188655825, 'learning_rate': 1.2851507818900338e-05, 'adam_epsilon': 8.134982521948352e-08, 'adam_beta1': 0.99, 'adam_beta2': 0.9971094424784387}
 ```
 
-[Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/flaml_finetune_transformer.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/flaml_finetune_transformer.ipynb)
+[Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/tune_huggingface.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/tune_huggingface.ipynb)

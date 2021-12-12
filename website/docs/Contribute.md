@@ -67,7 +67,7 @@ coverage run -m pytest test
 
 Then you can see the coverage report by
 `coverage report -m` or `coverage html`.
-If all the tests are passed, please also test run notebook/flaml_automl to make sure your commit does not break the notebook example.
+If all the tests are passed, please also test run [notebook/automl_classification](https://github.com/microsoft/FLAML/blob/main/notebook/automl_classification.ipynb) to make sure your commit does not break the notebook example.
 
 ### Documentation
 

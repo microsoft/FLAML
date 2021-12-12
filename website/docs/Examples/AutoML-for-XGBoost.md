@@ -14,7 +14,7 @@ settings = {
     "time_budget": 60,  # total running time in seconds
     "metric": 'r2',  # primary metrics for regression can be chosen from: ['mae','mse','r2']
     "estimator_list": ['xgboost'],  # list of ML learners; we tune lightgbm in this example
-    "task": 'regression',  # task type    
+    "task": 'regression',  # task type  
     "log_file_name": 'houses_experiment.log',  # flaml log file
     "seed": 7654321,    # random seed
 }
@@ -176,10 +176,10 @@ plt.show()
 
 ### Use a customized XGBoost learner
 
-You can easily enable a custom objective function by adding a customized XGBoost learner (inherit XGBoostEstimator or XGBoostSklearnEstimator) in FLAML. In the following example, we show how to add such a customized XGBoost learner with a custom objective function. 
+You can easily enable a custom objective function by adding a customized XGBoost learner (inherit XGBoostEstimator or XGBoostSklearnEstimator) in FLAML. In the following example, we show how to add such a customized XGBoost learner with a custom objective function.
 
 ```python
-import numpy as np 
+import numpy as np
 
 # define your customized objective function
 def logregobj(preds, dtrain):
@@ -196,7 +196,7 @@ class MyXGB1(XGBoostEstimator):
     '''
 
     def __init__(self, **config):
-        super().__init__(objective=logregobj, **config) 
+        super().__init__(objective=logregobj, **config)
 
 class MyXGB2(XGBoostEstimator):
     '''XGBoostEstimator with 'reg:squarederror' as the objective function
@@ -216,4 +216,4 @@ settings["estimator_list"] = ['my_xgb1', 'my_xgb2']  # change the estimator list
 automl.fit(X_train=X_train, y_train=y_train, **settings)
 ```
 
-[Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/flaml_xgboost.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/flaml_xgboost.ipynb)
+[Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/automl_xgboost.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/automl_xgboost.ipynb)

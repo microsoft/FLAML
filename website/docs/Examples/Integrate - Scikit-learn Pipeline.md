@@ -40,7 +40,7 @@ automl_pipeline
 settings = {
     "time_budget": 60,  # total running time in seconds
     "metric": 'accuracy',  # primary metrics can be chosen from: ['accuracy','roc_auc', 'roc_auc_ovr', 'roc_auc_ovo', 'f1','log_loss','mae','mse','r2']
-    "task": 'classification',  # task type   
+    "task": 'classification',  # task type  
     "estimator_list":['xgboost','catboost','lgbm'],
     "log_file_name": 'airlines_experiment.log',  # flaml log file
 }
@@ -60,4 +60,4 @@ print('Best accuracy on validation data: {0:.4g}'.format(1 - automl.best_loss))
 print('Training duration of best run: {0:.4g} s'.format(automl.best_config_train_time))
 ```
 
-[Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/automl_in_sklearn_pipeline.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/automl_in_sklearn_pipeline.ipynb)
+[Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/integrate_sklearn.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/integrate_sklearn.ipynb)

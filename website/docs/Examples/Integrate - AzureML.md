@@ -48,4 +48,4 @@ with mlflow.start_run() as run:  # create a mlflow run
 
 The metrics in the run will be automatically logged in an experiment named "flaml" in your AzureML workspace.
 
-[Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/flaml_azureml.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/flaml_azureml.ipynb)
+[Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/integrate_azureml.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/integrate_azureml.ipynb)
