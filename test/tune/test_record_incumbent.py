@@ -1,6 +1,8 @@
+"""Require: pip install flaml[test,ray]
+"""
 import numpy as np
-import flaml
 import ray
+
 
 Search_Alg = "CFOCat"
 
