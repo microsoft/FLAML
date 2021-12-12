@@ -483,8 +483,7 @@ class FLOW2(Searcher):
                     return unflatten_dict(config)
             # print('move to', move)
             self.incumbent = move
-        config = unflatten_dict(config)
-        return config
+        return unflatten_dict(config)
 
     def _increase_resource(self, trial_id):
         # consider increasing resource using sum eval cost of complete

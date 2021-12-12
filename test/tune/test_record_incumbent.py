@@ -2,7 +2,7 @@ import numpy as np
 import flaml
 import ray
 
-Search_Alg = "CFO"
+Search_Alg = "CFOCat"
 
 if Search_Alg  == "BlendSearch":
     from flaml import tune
@@ -16,8 +16,7 @@ def test_func(config: dict):
         if key in ["x1","x2","x3","x4","x5"]:
             funcLoss+= value**2 - 10 * np.cos(2*np.pi*value)
 
-    if "incumbent_info" in config.keys() and \
-        config["incumbent_info"] != None:
+    if "incumbent_info" in config.keys():
         print("incumbent_result",config["incumbent_info"]["incumbent_result"])
 
     tune.report(funcLoss = funcLoss)

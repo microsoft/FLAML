@@ -745,8 +745,6 @@ class BlendSearch(Searcher):
                 config["incumbent_info"]["incumbent_config"] = thread_config[np.argmin(thread_obj)]
                 if "incumbent_info" in config["incumbent_info"]["incumbent_config"].keys():
                     del config["incumbent_info"]["incumbent_config"]["incumbent_info"]
-            else:
-                config["incumbent_info"] = None
         return config
 
     def _should_skip(self, choice, trial_id, config, space) -> bool:
