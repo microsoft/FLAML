@@ -1,4 +1,4 @@
-"""Require: pip install flaml[test,ray]
+"""Require: pip install ray
 """
 import numpy as np
 import ray
