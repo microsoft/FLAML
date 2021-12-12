@@ -622,8 +622,10 @@ class AutoML(BaseEstimator):
             estimator_name: a str of the estimator's name.
 
         Returns:
-            An object with `predict()` and `predict_proba()` method (for
-            classification), storing the best trained model for estimator_name.
+            An object storing the best model for estimator_name.
+            If `model_history` was set to False during fit(), then the returned model
+            is untrained unless estimator_name is the best estimator.
+            If `model_history` was set to True, then the returned model is trained.
         """
         state = self._search_states.get(estimator_name)
         return state and getattr(state, "trained_estimator", None)
@@ -1749,8 +1751,10 @@ class AutoML(BaseEstimator):
                 ['better', 'all'].
                 'better' only logs configs with better loss than previos iters
                 'all' logs all the tried configs.
-            model_history: A boolean of whether to keep the best
+            model_history: A boolean of whether to keep the trained best
                 model per estimator. Make sure memory is large enough if setting to True.
+                Default value is False: best_model_for_estimator would return a
+                untrained model for non-best learner.
             log_training_metric: A boolean of whether to log the training
                 metric for each model.
             mem_thres: A float of the memory size constraint in bytes.

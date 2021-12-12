@@ -209,6 +209,9 @@ class BaseEstimator:
             X_test = self._preprocess(X_test)
             return self._model.predict(X_test)
         else:
+            logger.warning(
+                "Estimator is not fit yet. Please run fit() before predict()."
+            )
             return np.ones(X_test.shape[0])
 
     def predict_proba(self, X_test):
@@ -601,8 +604,8 @@ class TransformersEstimator(BaseEstimator):
         return {
             "val_loss": metric_loss_score(
                 metric_name=self._metric_name, y_predict=predictions, y_true=labels
-                )
-            }
+            )
+        }
 
     def predict_proba(self, X_test):
         from datasets import Dataset
