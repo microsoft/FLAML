@@ -437,7 +437,6 @@ class TransformersEstimator(BaseEstimator):
 
         X_val = kwargs.get("X_val")
         y_val = kwargs.get("y_val")
-        print(X_train)
 
         if self._task not in NLG_TASKS:
             X_train, _ = self._preprocess(X_train=X_train,
