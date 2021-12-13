@@ -42,7 +42,6 @@ class SearchThread:
         self.obj_best1 = self.obj_best2 = getattr(
             search_alg, "best_obj", np.inf
         )  # inherently minimize
-        self.best_config = getattr(search_alg, "best_config", None)
         self.best_result = None
         # eci: estimated cost for improvement
         self.eci = self.cost_best
