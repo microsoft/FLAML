@@ -37,7 +37,7 @@ def test_record_incumbent(method="BlendSearch"):
             "x5": tune.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
         }  # pre-commite
 
-    max_iter = 10
+    max_iter = 100
     num_samples = 128
     time_budget_s = 60
     n_cpu = 1
@@ -86,4 +86,4 @@ def test_record_incumbent(method="BlendSearch"):
 
 
 if __name__ == "__main__":
-    test_record_incumbent(method="CFOCat")
+    test_record_incumbent(method="BlendSearch")

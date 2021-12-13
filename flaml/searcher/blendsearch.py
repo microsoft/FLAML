@@ -738,18 +738,9 @@ class BlendSearch(Searcher):
                 return None
 
         if self._use_incumbent_result:
-            thread_obj = [
-                thread.obj_best1
-                for id, thread in self._search_thread_pool.items()
-                if id and thread._is_ls
-            ]
-            if len(thread_obj) != 0:
-                results = [
-                    thread.best_result
-                    for id, thread in self._search_thread_pool.items()
-                    if id and thread._is_ls
-                ]
-                config["incumbent_result"] = results[np.argmin(thread_obj)]
+            choice_thread = self._search_thread_pool[self._trial_proposed_by[trial_id]]
+            if choice_thread._is_ls:
+                config["incumbent_result"] = choice_thread.best_result
         return config
 
     def _should_skip(self, choice, trial_id, config, space) -> bool:
