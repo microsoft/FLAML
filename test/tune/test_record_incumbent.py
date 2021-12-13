@@ -51,7 +51,6 @@ def test_record_incumbent(method="BlendSearch"):
             mode="min",
             max_resource=max_iter,
             min_resource=1,
-            resources_per_trial={"cpu": 1},
             local_dir="logs/",
             num_samples=num_samples * n_cpu,
             time_budget_s=time_budget_s,
