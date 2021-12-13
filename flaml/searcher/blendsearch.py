@@ -742,9 +742,10 @@ class BlendSearch(Searcher):
                 thread_config = [thread.best_config for id, thread in self._search_thread_pool.items() if id]
                 config["incumbent_info"] = {}
                 config["incumbent_info"]["incumbent_result"] = np.min(thread_obj)
-                config["incumbent_info"]["incumbent_config"] = thread_config[np.argmin(thread_obj)]
-                if "incumbent_info" in config["incumbent_info"]["incumbent_config"].keys():
-                    del config["incumbent_info"]["incumbent_config"]["incumbent_info"]
+                incumbent_config = thread_config[np.argmin(thread_obj)]
+                if "incumbent_info" in incumbent_config.keys():
+                    del incumbent_config["incumbent_info"]
+                config["incumbent_info"]["incumbent_config"] = incumbent_config
         return config
 
     def _should_skip(self, choice, trial_id, config, space) -> bool:

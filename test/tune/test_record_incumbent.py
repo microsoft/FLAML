@@ -1,15 +1,7 @@
 """Require: pip install ray
 """
 import numpy as np
-import ray
 
-
-Search_Alg = "CFOCat"
-
-if Search_Alg  == "BlendSearch":
-    from flaml import tune
-else:
-    from ray import tune
 
 def test_func(config: dict):
     
@@ -21,10 +13,17 @@ def test_func(config: dict):
     if "incumbent_info" in config.keys():
         print("incumbent_result",config["incumbent_info"]["incumbent_result"])
 
-    tune.report(funcLoss = funcLoss)
+    return {"funcLoss": funcLoss} 
 
 def test_record_incumbent(method="BlendSearch"):
-
+    try:
+        import ray
+    except ImportError:
+        return
+    if method == "BlendSearch":
+        from flaml import tune
+    else:
+        from ray import tune
     if method != "CFOCat":
         search_space = {
             "x1": tune.randint(1, 9),
@@ -46,7 +45,7 @@ def test_record_incumbent(method="BlendSearch"):
     max_iter = 20
     num_samples = 128
     time_budget_s = 60
-    n_cpu = 4
+    n_cpu = 1
     ray.shutdown()
     ray.init(num_cpus=n_cpu, num_gpus=0)
 
@@ -54,6 +53,7 @@ def test_record_incumbent(method="BlendSearch"):
         tune.run(
             test_func,
             config=search_space,
+            verbose=0,
             metric="funcLoss",
             mode="min",
             max_resource=max_iter,
@@ -69,12 +69,6 @@ def test_record_incumbent(method="BlendSearch"):
     elif method == "CFO":
         from flaml import CFO
         algo = CFO(
-            low_cost_partial_config={
-                "max_depth": 1,
-            },
-            cat_hp_cost={
-                "min_child_weight": [6, 3, 2],
-            },
             use_incumbent_result= True,
         )
     elif method == "CFOCat":
@@ -97,4 +91,4 @@ def test_record_incumbent(method="BlendSearch"):
     )
 
 if __name__ == "__main__":
-    test_record_incumbent(method = Search_Alg)
+    test_record_incumbent(method = "CFO")
