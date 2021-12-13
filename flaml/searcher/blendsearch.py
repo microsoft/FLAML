@@ -56,7 +56,7 @@ class BlendSearch(Searcher):
         metric_constraints: Optional[List[Tuple[str, str, float]]] = None,
         seed: Optional[int] = 20,
         experimental: Optional[bool] = False,
-        use_incumbent_result = False,
+        use_incumbent_result=False,
     ):
         """Constructor.
 
@@ -736,16 +736,20 @@ class BlendSearch(Searcher):
                 result = {self._metric: reward, self.cost_attr: 1, "config": config}
                 self.on_trial_complete(trial_id, result)
                 return None
+
         if self._use_incumbent_result:
-            thread_obj = [thread.obj_best1 for id, thread in self._search_thread_pool.items() if id]
+            thread_obj = [
+                thread.obj_best1
+                for id, thread in self._search_thread_pool.items()
+                if id and thread._is_ls
+            ]
             if len(thread_obj) != 0:
-                thread_config = [thread.best_config for id, thread in self._search_thread_pool.items() if id]
-                config["incumbent_info"] = {}
-                config["incumbent_info"]["incumbent_result"] = np.min(thread_obj)
-                incumbent_config = thread_config[np.argmin(thread_obj)]
-                if "incumbent_info" in incumbent_config.keys():
-                    del incumbent_config["incumbent_info"]
-                config["incumbent_info"]["incumbent_config"] = incumbent_config
+                results = [
+                    thread.best_result
+                    for id, thread in self._search_thread_pool.items()
+                    if id and thread._is_ls
+                ]
+                config["incumbent_result"] = results[np.argmin(thread_obj)]
         return config
 
     def _should_skip(self, choice, trial_id, config, space) -> bool:

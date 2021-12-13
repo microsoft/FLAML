@@ -96,6 +96,8 @@ def report(_metric=None, **kwargs):
             _running_trial = trial
         result["training_iteration"] = _training_iteration
         result["config"] = trial.config
+        if "incumbent_result" in result["config"].keys():
+            del result["config"]["incumbent_result"]
         for key, value in trial.config.items():
             result["config/" + key] = value
         _runner.process_trial_result(_runner.running_trial, result)
@@ -134,7 +136,7 @@ def run(
     metric_constraints: Optional[List[Tuple[str, str, float]]] = None,
     max_failure: Optional[int] = 100,
     use_ray: Optional[bool] = False,
-    use_incumbent_result = False
+    use_incumbent_result=False,
 ):
     """The trigger for HPO.
 
@@ -352,7 +354,11 @@ def run(
             from ray.tune.suggest import ConcurrencyLimiter
         else:
             from flaml.searcher.suggestion import ConcurrencyLimiter
-        if search_alg.__class__.__name__ in ["BlendSearch", "CFO", "CFOCat",]:
+        if search_alg.__class__.__name__ in [
+            "BlendSearch",
+            "CFO",
+            "CFOCat",
+        ]:
             search_alg.use_incumbent_result = use_incumbent_result
         searcher = (
             search_alg.searcher

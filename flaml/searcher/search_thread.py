@@ -42,10 +42,8 @@ class SearchThread:
         self.obj_best1 = self.obj_best2 = getattr(
             search_alg, "best_obj", np.inf
         )  # inherently minimize
-        self.best_config = getattr(
-            search_alg, "best_config", None
-        )
-        self._configs = {}
+        self.best_config = getattr(search_alg, "best_config", None)
+        self.best_result = None
         # eci: estimated cost for improvement
         self.eci = self.cost_best
         self.priority = self.speed = 0
@@ -86,7 +84,6 @@ class SearchThread:
                 config = None
         if config is not None:
             self.running += 1
-        self._configs[trial_id] = config
         return config
 
     def update_priority(self, eci: Optional[float] = 0):
@@ -144,13 +141,13 @@ class SearchThread:
             self.cost_total += self.cost_last
             if self._search_alg.metric in result:
                 obj = result[self._search_alg.metric] * self._metric_op
-                if obj < self.obj_best1:
+                if obj < self.obj_best1 or self.best_result is None:
                     self.cost_best2 = self.cost_best1
                     self.cost_best1 = self.cost_total
                     self.obj_best2 = obj if np.isinf(self.obj_best1) else self.obj_best1
                     self.obj_best1 = obj
                     self.cost_best = self.cost_last
-                    self.best_config = self._configs[trial_id]
+                    self.best_result = result
             self._update_speed()
         self.running -= 1
         assert self.running >= 0
