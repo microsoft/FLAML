@@ -144,7 +144,6 @@ def test_object():
             train_num = int(len(X) * 0.8)
             for _ in range(self.n_splits):
                 permu_idx = rng.permutation(len(X))
-                permu_idx[train_num:]
                 yield permu_idx[:train_num], permu_idx[train_num:]
 
         def get_n_splits(self, X=None, y=None, groups=None):
