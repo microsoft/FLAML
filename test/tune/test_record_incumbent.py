@@ -35,7 +35,7 @@ def test_record_incumbent(method="BlendSearch"):
             "x3": tune.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
             "x4": tune.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
             "x5": tune.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
-        }  # pre-commite
+        }
 
     max_iter = 100
     num_samples = 128
