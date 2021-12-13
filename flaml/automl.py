@@ -5,8 +5,6 @@
 import time
 import os
 from typing import Callable, Optional, List, Union
-from collections.abc import Iterable
-from types import GeneratorType
 from functools import partial
 import numpy as np
 from scipy.sparse import issparse
@@ -509,8 +507,11 @@ class AutoML(BaseEstimator):
                 True - retrain only after search finishes; False - no retraining;
                 'budget' - do best effort to retrain without violating the time
                 budget.
-            split_type: str or iterable, object that has split and get_n_splits methods,
-                default="auto" | the data split type.
+            split_type: str or splitter object, default="auto" | the data split type.
+                Object must be a derived class of scikit-learn KFold
+                (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html#sklearn.model_selection.KFold)
+                and have ``split`` and ``get_n_splits`` methods with the same signatures.
+                Valid str options depend on different tasks.
                 For classification tasks, valid choices are [
                     "auto", 'stratified', 'uniform', 'time']. "auto" -> stratified.
                 For regression tasks, valid choices are ["auto", 'uniform', 'time'].
@@ -1192,7 +1193,8 @@ class AutoML(BaseEstimator):
                 n_splits=n_splits, n_repeats=1, random_state=RANDOM_SEED
             )
         else:
-            self._state.kf = list(self._split_type) if isinstance(self._split_type, GeneratorType) else self._split_type
+            # logger.info("Using splitter object")
+            self._state.kf = self._split_type
 
     def add_learner(self, learner_name, learner_class):
         """Add a customized learner.
@@ -1282,8 +1284,11 @@ class AutoML(BaseEstimator):
                 ['auto', 'cv', 'holdout'].
             split_ratio: A float of the validation data percentage for holdout.
             n_splits: An integer of the number of folds for cross-validation.
-            split_type: str or iterable, object that has split and get_n_splits methods,
-                default="auto" | the data split type.
+            split_type: str or splitter object, default="auto" | the data split type.
+                Object must be a derived class of scikit-learn KFold
+                (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html#sklearn.model_selection.KFold)
+                and have ``split`` and ``get_n_splits`` methods with the same signatures.
+                Valid str options depend on different tasks.
                 For classification tasks, valid choices are [
                     "auto", 'stratified', 'uniform', 'time', 'group']. "auto" -> stratified.
                 For regression tasks, valid choices are ["auto", 'uniform', 'time'].
@@ -1406,11 +1411,9 @@ class AutoML(BaseEstimator):
                 len(np.unique(self._y_train_all))
             )
         if not isinstance(split_type, str):
-            assert (
-                isinstance(split_type, Iterable)
-                or (hasattr(split_type, "split")
-                and hasattr(split_type, "get_n_splits"))
-            ), "split_type must be a string, a iterable or a splitter that has ``split`` and ``get_n_splits`` methods."
+            assert hasattr(split_type, "split") and hasattr(
+                split_type, "get_n_splits"
+            ), "split_type must be a string or splitter object with split and get_n_splits methods."
             self._split_type = split_type
         elif self._state.task in CLASSIFICATION:
             assert split_type in ["auto", "stratified", "uniform", "time", "group"]
@@ -1799,8 +1802,11 @@ class AutoML(BaseEstimator):
                 True - retrain only after search finishes; False - no retraining;
                 'budget' - do best effort to retrain without violating the time
                 budget.
-            split_type: str or iterable, object that has split and get_n_splits methods,
-                default="auto" | the data split type.
+            split_type: str or splitter object, default="auto" | the data split type.
+                Object must be a derived class of scikit-learn KFold
+                (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html#sklearn.model_selection.KFold)
+                and have ``split`` and ``get_n_splits`` methods with the same signatures.
+                Valid str options depend on different tasks.
                 For classification tasks, valid choices are [
                     "auto", 'stratified', 'uniform', 'time']. "auto" -> stratified.
                 For regression tasks, valid choices are ["auto", 'uniform', 'time'].
