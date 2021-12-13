@@ -76,7 +76,6 @@ def test_record_incumbent(method="BlendSearch"):
         evaluation_function=rosenbrock_function,
         metric="funcLoss",
         mode="min",
-        resources_per_trial={"cpu": 1},
         config=search_space,
         local_dir="logs/",
         num_samples=num_samples * n_cpu,
