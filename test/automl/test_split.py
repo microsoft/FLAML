@@ -1,5 +1,3 @@
-import unittest
-
 from sklearn.datasets import fetch_openml
 from flaml.automl import AutoML
 from sklearn.model_selection import train_test_split
@@ -124,5 +122,4 @@ def test_rank():
 
 
 if __name__ == "__main__":
-    # unittest.main()
     test_groups()
