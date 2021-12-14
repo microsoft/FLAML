@@ -39,7 +39,7 @@ def test_record_incumbent(method="BlendSearch"):
 
     max_iter = 100
     num_samples = 128
-    time_budget_s = 60
+    time_budget_s = 1
     n_cpu = 1
 
     if method == "BlendSearch":
