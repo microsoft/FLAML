@@ -96,8 +96,8 @@ def report(_metric=None, **kwargs):
             _running_trial = trial
         result["training_iteration"] = _training_iteration
         result["config"] = trial.config
-        if "incumbent_result" in result["config"].keys():
-            del result["config"]["incumbent_result"]
+        if INCUMBENT_RESULT in result["config"]:
+            del result["config"][INCUMBENT_RESULT ]
         for key, value in trial.config.items():
             result["config/" + key] = value
         _runner.process_trial_result(_runner.running_trial, result)
