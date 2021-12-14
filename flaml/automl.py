@@ -540,9 +540,9 @@ class AutoML(BaseEstimator):
             n_concurrent_trials: [Experimental] int, default=1 | The number of
                 concurrent trials. For n_concurrent_trials > 1, installation of
                 ray is required: `pip install flaml[ray]`.
-            keep_search_state: boolean, default=False | Whether to keep search
-                state after fit(). By default the state is deleted for space
-                saving.
+            keep_search_state: boolean, default=False | Whether to keep data needed
+                for model search after fit(). By default the state is deleted for
+                space saving.
             early_stop: boolean, default=False | Whether to stop early if the
                 search is considered to converge.
             append_log: boolean, default=False | Whetehr to directly append the log
@@ -1818,9 +1818,9 @@ class AutoML(BaseEstimator):
             n_concurrent_trials: [Experimental] int, default=1 | The number of
                 concurrent trials. For n_concurrent_trials > 1, installation of
                 ray is required: `pip install flaml[ray]`.
-            keep_search_state: boolean, default=False | Whether to keep search
-                state after fit(). By default the state is deleted for space
-                saving.
+            keep_search_state: boolean, default=False | Whether to keep data needed
+                for model search after fit(). By default the state is deleted for
+                space saving.
             early_stop: boolean, default=False | Whether to stop early if the
                 search is considered to converge.
             append_log: boolean, default=False | Whetehr to directly append the log
