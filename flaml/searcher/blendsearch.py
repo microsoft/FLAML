@@ -56,7 +56,8 @@ class BlendSearch(Searcher):
         metric_constraints: Optional[List[Tuple[str, str, float]]] = None,
         seed: Optional[int] = 20,
         experimental: Optional[bool] = False,
-        use_incumbent_result=False,
+        use_incumbent_result_in_evaluation=False,
+
     ):
         """Constructor.
 
