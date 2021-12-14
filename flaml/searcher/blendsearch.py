@@ -738,8 +738,7 @@ class BlendSearch(Searcher):
                 self.on_trial_complete(trial_id, result)
                 return None
         if self._use_incumbent_result:
-            choice_thread = self._search_thread_pool[self._trial_proposed_by[trial_id]]
-            if choice_thread._is_ls:
+            if self._trial_proposed_by[trial_id] > 0:
                 config["incumbent_result"] = choice_thread.best_result
         return config
 
