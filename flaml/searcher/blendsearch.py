@@ -57,7 +57,6 @@ class BlendSearch(Searcher):
         seed: Optional[int] = 20,
         experimental: Optional[bool] = False,
         use_incumbent_result_in_evaluation=False,
-
     ):
         """Constructor.
 
@@ -120,7 +119,7 @@ class BlendSearch(Searcher):
             experimental: A bool of whether to use experimental features.
         """
         self._metric, self._mode = metric, mode
-        self._use_incumbent_result = use_incumbent_result
+        self._use_incumbent_result_in_evaluation = use_incumbent_result_in_evaluation
         init_config = low_cost_partial_config or {}
         if not init_config:
             logger.info(
@@ -737,9 +736,12 @@ class BlendSearch(Searcher):
                 result = {self._metric: reward, self.cost_attr: 1, "config": config}
                 self.on_trial_complete(trial_id, result)
                 return None
-        if self._use_incumbent_result:
+        if self._use_incumbent_result_in_evaluation:
             if self._trial_proposed_by[trial_id] > 0:
-                config["incumbent_result"] = choice_thread.best_result
+                choice_thread = self._search_thread_pool[
+                    self._trial_proposed_by[trial_id]
+                ]
+                config["INCUMBENT_RESULT"] = choice_thread.best_result
         return config
 
     def _should_skip(self, choice, trial_id, config, space) -> bool:

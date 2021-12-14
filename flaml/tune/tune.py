@@ -96,8 +96,8 @@ def report(_metric=None, **kwargs):
             _running_trial = trial
         result["training_iteration"] = _training_iteration
         result["config"] = trial.config
-        if INCUMBENT_RESULT in result["config"]:
-            del result["config"][INCUMBENT_RESULT ]
+        if "INCUMBENT_RESULT" in result["config"]:
+            del result["config"]["INCUMBENT_RESULT"]
         for key, value in trial.config.items():
             result["config/" + key] = value
         _runner.process_trial_result(_runner.running_trial, result)
@@ -354,7 +354,7 @@ def run(
             reduction_factor=flaml_scheduler_reduction_factor,
             config_constraints=config_constraints,
             metric_constraints=metric_constraints,
-            use_incumbent_result=use_incumbent_result,
+            use_incumbent_result_in_evaluation=use_incumbent_result_in_evaluation,
         )
     else:
         if metric is None or mode is None:
@@ -364,12 +364,18 @@ def run(
             from ray.tune.suggest import ConcurrencyLimiter
         else:
             from flaml.searcher.suggestion import ConcurrencyLimiter
-        if search_alg.__class__.__name__ in [
-            "BlendSearch",
-            "CFO",
-            "CFOCat",
-        ] and use_incumbent_result_in_evaluation is not None:
-            search_alg.use_incumbent_result = use_incumbent_result
+        if (
+            search_alg.__class__.__name__
+            in [
+                "BlendSearch",
+                "CFO",
+                "CFOCat",
+            ]
+            and use_incumbent_result_in_evaluation is not None
+        ):
+            search_alg.use_incumbent_result_in_evaluation = (
+                use_incumbent_result_in_evaluation
+            )
         searcher = (
             search_alg.searcher
             if isinstance(search_alg, ConcurrencyLimiter)

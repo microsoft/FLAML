@@ -1,18 +1,15 @@
-"""Require: pip install ray
-"""
 import numpy as np
 from flaml import tune
 
 
 def rosenbrock_function(config: dict):
-
     funcLoss = 50
     for key, value in config.items():
         if key in ["x1", "x2", "x3", "x4", "x5"]:
             funcLoss += value ** 2 - 10 * np.cos(2 * np.pi * value)
-    if "incumbent_result" in config.keys():
+    if "INCUMBENT_RESULT" in config.keys():
         print("----------------------------------------------")
-        print("incumbent_result", config["incumbent_result"])
+        print("INCUMBENT_RESULT", config["INCUMBENT_RESULT"])
         print("----------------------------------------------")
 
     return {"funcLoss": funcLoss}
@@ -54,20 +51,20 @@ def test_record_incumbent(method="BlendSearch"):
             local_dir="logs/",
             num_samples=num_samples * n_cpu,
             time_budget_s=time_budget_s,
-            use_incumbent_result=True,
+            use_incumbent_result_in_evaluation=True,
         )
         return
     elif method == "CFO":
         from flaml import CFO
 
         algo = CFO(
-            use_incumbent_result=True,
+            use_incumbent_result_in_evaluation=True,
         )
     elif method == "CFOCat":
         from flaml.searcher.cfo_cat import CFOCat
 
         algo = CFOCat(
-            use_incumbent_result=True,
+            use_incumbent_result_in_evaluation=True,
         )
     else:
         raise NotImplementedError
@@ -84,4 +81,4 @@ def test_record_incumbent(method="BlendSearch"):
 
 
 if __name__ == "__main__":
-    test_record_incumbent(method="BlendSearch")
+    test_record_incumbent(method="CFO")
