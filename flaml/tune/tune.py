@@ -368,7 +368,7 @@ def run(
             "BlendSearch",
             "CFO",
             "CFOCat",
-        ]:
+        ] and use_incumbent_result_in_evaluation is not None:
             search_alg.use_incumbent_result = use_incumbent_result
         searcher = (
             search_alg.searcher
