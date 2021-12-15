@@ -1,5 +1,6 @@
 import numpy as np
 from flaml import tune
+from flaml.tune import INCUMBENT_RESULT
 
 
 def rosenbrock_function(config: dict):
@@ -7,9 +8,9 @@ def rosenbrock_function(config: dict):
     for key, value in config.items():
         if key in ["x1", "x2", "x3", "x4", "x5"]:
             funcLoss += value ** 2 - 10 * np.cos(2 * np.pi * value)
-    if "INCUMBENT_RESULT" in config.keys():
+    if INCUMBENT_RESULT in config.keys():
         print("----------------------------------------------")
-        print("INCUMBENT_RESULT", config["INCUMBENT_RESULT"])
+        print("incumbent result", config[INCUMBENT_RESULT])
         print("----------------------------------------------")
 
     return {"funcLoss": funcLoss}
@@ -81,4 +82,4 @@ def test_record_incumbent(method="BlendSearch"):
 
 
 if __name__ == "__main__":
-    test_record_incumbent(method="CFO")
+    test_record_incumbent(method="BlendSearch")

@@ -18,6 +18,7 @@ except (ImportError, AssertionError):
     from .suggestion import Searcher
     from .suggestion import OptunaSearch as GlobalSearch
 from ..tune.trial import unflatten_dict, flatten_dict
+from ..tune import INCUMBENT_RESULT
 from .search_thread import SearchThread
 from .flow2 import FLOW2
 from ..tune.space import add_cost_to_space, indexof, normalize, define_by_run_func
@@ -741,7 +742,7 @@ class BlendSearch(Searcher):
                 choice_thread = self._search_thread_pool[
                     self._trial_proposed_by[trial_id]
                 ]
-                config["INCUMBENT_RESULT"] = choice_thread.best_result
+                config[INCUMBENT_RESULT] = choice_thread.best_result
         return config
 
     def _should_skip(self, choice, trial_id, config, space) -> bool:

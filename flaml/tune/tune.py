@@ -30,6 +30,8 @@ _verbose = 0
 _running_trial = None
 _training_iteration = 0
 
+INCUMBENT_RESULT = "__incumbent_result__"
+
 
 class ExperimentAnalysis(EA):
     """Class for storing the experiment results."""
@@ -96,8 +98,8 @@ def report(_metric=None, **kwargs):
             _running_trial = trial
         result["training_iteration"] = _training_iteration
         result["config"] = trial.config
-        if "INCUMBENT_RESULT" in result["config"]:
-            del result["config"]["INCUMBENT_RESULT"]
+        if INCUMBENT_RESULT in result["config"]:
+            del result["config"][INCUMBENT_RESULT]
         for key, value in trial.config.items():
             result["config/" + key] = value
         _runner.process_trial_result(_runner.running_trial, result)
