@@ -2,7 +2,7 @@
 
 ## Overview
 
-`flaml.AutoML` is a class for task-oriented AutoML. It can be used as a scikit-learn style estimator with the standard `fit` and `predict` functions. The minimal input from users is the training data and the task type.
+`flaml.AutoML` is a class for task-oriented AutoML. It can be used as a scikit-learn style estimator with the standard `fit` and `predict` functions. The minimal inputs from users are the training data and the task type.
 
 * Training data:
     - numpy array. When the input data are stored in numpy array, they are passed to `fit()` as `X_train` and `y_train`.
@@ -35,7 +35,7 @@ with open("automl.pkl", "rb") as f:
 pred = automl.predict(X_test)
 ```
 
-If users provide the minimal input only, `AutoML` uses the default settings for time budget, optimization metric, estimator list etc.
+If users provide the minimal inputs only, `AutoML` uses the default settings for time budget, optimization metric, estimator list etc.
 
 ## Customize AutoML.fit()
 
@@ -45,13 +45,13 @@ The optimization metric is specified via the `metric` argument. It can be either
 
 * Built-in metric.
     - 'accuracy': 1 - accuracy as the corresponding metric to minimize.
-    - 'log_loss'. Default metric for multiclass classification.
+    - 'log_loss': default metric for multiclass classification.
     - 'r2': 1 - r2_score as the corresponding metric to minimize. Default metric for regression.
     - 'rmse': root mean squared error.
     - 'mse': mean squared error.
     - 'mae': mean absolute error.
     - 'mape': mean absolute percentage error.
-    - 'roc_auc': minimize 1 - roc_auc_score.
+    - 'roc_auc': minimize 1 - roc_auc_score. Default metric for binary classification.
     - 'roc_auc_ovr': minimize 1 - roc_auc_score with `multi_class="ovr"`.
     - 'roc_auc_ovo': minimize 1 - roc_auc_score with `multi_class="ovo"`.
     - 'f1': minimize 1 - f1_score.
@@ -61,7 +61,7 @@ The optimization metric is specified via the `metric` argument. It can be either
     - 'ndcg': minimize 1 - ndcg_score.
     - 'ndcg@k': minimize 1 - ndcg_score@k. k is an integer.
 * User-defined function.
-A customized metric function needs to have the follwing signature:
+A customized metric function that requires the following (input) signature, and returns the input config’s value in terms of the metric you want to minimize, and a dictionary of auxiliary information at your choice:
 
 ```python
 def custom_metric(
@@ -118,7 +118,9 @@ The estimator list can contain one or more estimator names, each corresponding t
     - tuning an estimator that is not built-in;
     - customizing search space for a built-in estimator.
 
-To tune a custom estimator that is not built-in, inherit `flaml.model.BaseEstimator` or a derived class.
+To tune a custom estimator that is not built-in, you need to 
+
+1. Build a custom estimator by inheritting `flaml.model.BaseEstimator` or a derived class.
 For example, if you have a estimator class with scikit-learn style `fit()` and `predict()` functions, you only need to set `self.estimator_class` to be that class in your constructor.
 
 ```python
@@ -161,7 +163,7 @@ class MyRegularizedGreedyForest(SKLearnEstimator):
 
 In the constructor, we set `self.estimator_class` as `RGFClassifier` or `RGFRegressor` according to the task type. If the estimator you want to tune does not have a scikit-learn style `fit()` and `predict()` API, you can override the `fit()` and `predict()` function of `flaml.model.BaseEstimator`, like [XGBoostEstimator](https://github.com/microsoft/FLAML/blob/59083fbdcb95c15819a0063a355969203022271c/flaml/model.py#L511).
 
-To tune the custom estimator, give it a name and add it in AutoML:
+2. Give the custom estimator a name and add it in AutoML. E.g.,
 
 ```python
 from flaml import AutoML
@@ -170,7 +172,8 @@ automl.add_learner("rgf", MyRegularizedGreedyForest)
 ```
 
 This registers the `MyRegularizedGreedyForest` class in AutoML, with the name "rgf".
-Then, you can either:
+
+3. Tune the newly added custom estimator in either of the following two ways depending on your needs:
 - tune rgf alone: `automl.fit(..., estimator_list=["rgf"])`; or
 - mix it with other built-in learners: `automl.fit(..., estimator_list=["rgf", "lgbm", "xgboost", "rf"])`.
 
@@ -228,6 +231,16 @@ We override the `search_space` function to tune two hyperparameters only, "n_est
 
 ### Constraint
 
+There are several types of constraints you can impose.
+
+1. End-to-end constraints on the AutoML process.
+
+- `time_budget`: constrains the wall-clock time (seconds) used by the AutoML process. We provide some tips on [how to set time budget](#how-to-set-time-budget).
+
+- `max_iter`: constrains the maximal number of models to try in the AutoML process.
+
+2. Constraints on the (hyperparameters of) the estimators.
+
 Some constraints on the estimator can be implemented via the custom learner. For example,
 
 ```python
@@ -239,8 +252,9 @@ class MonotonicXGBoostEstimator(XGBoostSklearnEstimator):
 
 It adds a monotonicity constraint to XGBoost. This approach can be used to set any constraint that is a parameter in the underlying estimator's constructor.
 
-Besides the time budget for model search, users can set other constraints such as the maximal number of models to try, limit on training time and prediction time per model.
-* `max_iter`: maximal number of models to try.
+3. Constraints on the models tried in AutoML.
+
+Users can set constraints such as the maximal number of models to try, limit on training time and prediction time per model.
 * `train_time_limit`: training time in seconds.
 * `pred_time_limit`: prediction time per instance in seconds.
 
