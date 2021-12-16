@@ -22,7 +22,7 @@ learners and hyperparameters for each learner.
 hyperparameter optimization](https://microsoft.github.io/FLAML/Use-Cases/Tune-User-Defined-Function#hyperparameter-optimization-algorithm)
 and learner selection method invented by Microsoft Research.
 
-FLAML has a .NET implementation as well from [ML.NET Model Builder](https://dotnet.microsoft.com/apps/machinelearning-ai/ml-dotnet/model-builder) which is part of [Visual Studio](https://visualstudio.microsoft.com/) 2022. This [ML.NET blog](https://devblogs.microsoft.com/dotnet/ml-net-june-updates/#new-and-improved-automl) describes the improvement brought by FLAML.
+FLAML has a .NET implementation as well from [ML.NET Model Builder](https://dotnet.microsoft.com/apps/machinelearning-ai/ml-dotnet/model-builder) in [Visual Studio](https://visualstudio.microsoft.com/) 2022. This [ML.NET blog](https://devblogs.microsoft.com/dotnet/ml-net-june-updates/#new-and-improved-automl) describes the improvement brought by FLAML.
 
 
 ## Installation
