@@ -8,7 +8,7 @@ const FeatureList = [
     Svg: require('../../static/img/auto.svg').default,
     description: (
       <>
-        FLAML finds accurate ML models with small computational resources
+        FLAML finds accurate ML models with low computational resources
         for common ML tasks.
         It frees users from selecting learners and hyperparameters.
         {/* It is fast and economical. */}
@@ -21,7 +21,7 @@ const FeatureList = [
     description: (
       <>
         FLAML is designed easy to extend, such as adding custom learners or metrics.
-        The customization level can range from minimal
+        The customization level ranges from minimal
 (training data and task type as only input) to full (tuning a user-defined function).
       </>
     ),

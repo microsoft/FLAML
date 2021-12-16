@@ -7,7 +7,7 @@ learning models automatically, efficiently and economically. It frees users from
 
 ### Main Features
 
-1. For common machine learning tasks like classification and regression, it quickly finds quality models for user-provided data with small computational resources.
+1. For common machine learning tasks like classification and regression, it quickly finds quality models for user-provided data with low computational resources.
 
 2. It is easy to customize or extend. Users can choose their desired customizability: minimal customization (computational resource budget), medium customization (e.g., scikit-style learner, search space and metric), or full customization (arbitrary training and evaluation code).
 
