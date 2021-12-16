@@ -11,7 +11,7 @@ or conda:
 conda install flaml -c conda-forge
 ```
 
-FLAML has a .NET implementation as well from [ML.NET Model Builder](https://dotnet.microsoft.com/apps/machinelearning-ai/ml-dotnet/model-builder). 
+FLAML has a .NET implementation as well from [ML.NET Model Builder](https://dotnet.microsoft.com/apps/machinelearning-ai/ml-dotnet/model-builder), which is part of [Visual Studio](https://visualstudio.microsoft.com/) 2022.
 
 ## Optional Dependencies
 
