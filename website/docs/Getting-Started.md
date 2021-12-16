@@ -20,8 +20,8 @@ and learner selection method invented by Microsoft Research.
 Install FLAML from pip: `pip install flaml`. Find more options in [Installation](Installation).
 
 There are two ways of using flaml:
-- [Task-oriented AutoML](Use-Cases/task-oriented-automl). For example, with three lines of code, you can start using this economical and fast
-AutoML engine as a scikit-learn style estimator.
+#### [Task-oriented AutoML](Use-Cases/task-oriented-automl) 
+For example, with three lines of code, you can start using this economical and fast AutoML engine as a scikit-learn style estimator.
 
 ```python
 from flaml import AutoML
@@ -36,7 +36,9 @@ automl.add_learner("mylgbm", MyLGBMEstimator)
 automl.fit(X_train, y_train, task="classification", metric=custom_metric, estimator_list=["mylgbm"])
 ```
 
-- [Tune user-defined function](Use-Cases/Tune-User-Defined-Function). You can run generic hyperparameter tuning for a custom function (machine learning or beyond). For example,
+#### [Tune user-defined function](Use-Cases/Tune-User-Defined-Function)
+
+You can run generic hyperparameter tuning for a custom function (machine learning or beyond). For example,
 
 ```python
 from flaml import tune
