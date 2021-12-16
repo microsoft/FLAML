@@ -454,7 +454,7 @@ analysis = tune.run(
 
 ## Hyperparameter Optimization Algorithm
 
-To tune the hyperparameters toward your objective, you will want to use a hyperparameter optimization algorithm which can help suggest hyperparameters with better performance (regarding your objective). `flaml` offers two HPO methods: CFO and BlendSearch. `flaml.tune` uses BlendSearch by default.
+To tune the hyperparameters toward your objective, you will want to use a hyperparameter optimization algorithm which can help suggest hyperparameters with better performance (regarding your objective). `flaml` offers two HPO methods: CFO and BlendSearch. `flaml.tune` uses BlendSearch by default when the option [blendsearch] is installed.
 
 <!-- ![png](images/CFO.png) | ![png](images/BlendSearch.png)
 :---:|:---: -->
