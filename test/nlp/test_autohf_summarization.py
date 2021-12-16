@@ -8,6 +8,10 @@ def _test_hf_data():
 
     from datasets import load_dataset
 
+    dataset = {"train":[("The cat is alive","The cat is dead")],
+               "validation":[("The old woman is beautiful", "The old woman is ugly")],
+               "test":[("The purse is cheap", "The purse is expensive")]}
+
     train_dataset = (
         load_dataset("xsum", split="validation[:1%]").to_pandas().iloc[0:4]
     )
@@ -58,19 +62,8 @@ def _test_hf_data():
         record_id=0,
         **automl_settings
     )
-
     automl.predict(X_test)
-    automl.predict(["test test", "test test"])
-    automl.predict(
-        [
-            ["test test", "test test"],
-            ["test test", "test test"],
-            ["test test", "test test"],
-        ]
-    )
-
     automl.predict_proba(X_test)
-    print(automl.classes_)
 
 
 def _test_custom_data():

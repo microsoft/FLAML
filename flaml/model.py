@@ -227,7 +227,7 @@ class BaseEstimator:
                 class j.
         """
         assert (
-            self._task in CLASSIFICATION
+            self._task in CLASSIFICATION or self._task in NLG_TASKS
         ), "predict_prob() only for classification task."
         X_test = self._preprocess(X_test)
         return self._model.predict_proba(X_test)
@@ -674,11 +674,10 @@ class TransformersEstimator(BaseEstimator):
         from .nlp.utils import load_model
 
         assert (
-            self._task in CLASSIFICATION
+            self._task in CLASSIFICATION or self._task in NLG_TASKS
         ), "predict_proba is only available in classification tasks"
-
-        X_test = self._preprocess(X_test, self._task, **self._kwargs)
-        test_dataset = Dataset.from_pandas(X_test)
+        X_test = self._preprocess(X_test, task=self._task, **self._kwargs)
+        test_dataset = Dataset.from_pandas(X_test[0])
 
         best_model = load_model(
             checkpoint_path=self._checkpoint_path,
