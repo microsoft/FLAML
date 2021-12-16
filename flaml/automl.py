@@ -63,7 +63,7 @@ class SearchState:
             self.total_time_used - self.time_best_found,
         )
 
-    def __init__(self, learner_class, data_size, task, starting_point=None):
+    def __init__(self, learner_class, data_size, task, starting_point=None, period=None):
         self.init_eci = learner_class.cost_relative2lgbm()
         self._search_space_domain = {}
         self.init_config = {}
@@ -72,7 +72,7 @@ class SearchState:
         self.data_size = data_size
         self.ls_ever_converged = False
         self.learner_class = learner_class
-        search_space = learner_class.search_space(data_size=data_size, task=task)
+        search_space = learner_class.search_space(data_size=data_size, task=task, pred_horizon=period)
         for name, space in search_space.items():
             assert "domain" in space
             self._search_space_domain[name] = space["domain"]
@@ -456,6 +456,10 @@ class AutoML:
             )
             return None
         X_test = self._preprocess(X_test)
+        # TODO: check to see length of X_test is the same as inputted period
+        # if self._state.task == TS_FORECAST:
+        #     assert self._state.fit_kwargs.get("period") == len(X_test), (
+        #         "length of X_test needs to be the same as `periods`")
         y_pred = estimator.predict(X_test)
         if y_pred.ndim > 1 and isinstance(y_pred, np.ndarray):
             y_pred = y_pred.flatten()
@@ -531,6 +535,21 @@ class AutoML:
                 X_train_all = pd.DataFrame(X_train_all)
                 assert X_train_all[X_train_all.columns[0]].dtype.name == 'datetime64[ns]', (
                     f"For '{TS_FORECAST}' task, the first column must contain timestamp values.")
+                ts_col = X_train_all[[X_train_all.columns[0]]]
+                if any(ts_col.duplicated()):
+                    import warnings
+                    warnings.warn(f"Duplicate timestamp values found in timestamp column. "
+                                  f"\n{X_train_all.loc[ts_col.duplicated(), :]}")
+                    X_train_all = X_train_all.copy().drop_duplicates()
+                    y_train_all = y_train_all.copy().drop_duplicates()
+                    warnings.warn(f"Removed duplicate rows based on all columns")
+                    assert not X_train_all[[X_train_all.columns[0]]].duplicated(), (
+                        "Duplicate timestamp values with differnt values for other columns.")
+                ts_series = pd.to_datetime(X_train_all[X_train_all.columns[0]])
+                inferred_freq = pd.infer_freq(ts_series)
+                if inferred_freq == None:
+                    import warnings
+                    warnings.warn(f"Missing timestamps detected. To avoid error with estimators, set estimator list to ['prophet']. ")
             X, y = X_train_all, y_train_all
         elif dataframe is not None and label is not None:
             assert isinstance(
@@ -541,6 +560,20 @@ class AutoML:
             if self._state.task == TS_FORECAST:
                 assert dataframe[dataframe.columns[0]].dtype.name == 'datetime64[ns]', (
                     f"For '{TS_FORECAST}' task, the first column must contain timestamp values.")
+                ts_col = dataframe[[dataframe.columns[0]]]
+                if any(ts_col.duplicated()):
+                    import warnings
+                    warnings.warn(f"Duplicate timestamp values found in timestamp column. "
+                                  f"\n{dataframe.loc[ts_col.duplicated(), :]}")
+                    dataframe = dataframe.copy().drop_duplicates()
+                    warnings.warn(f"Removed duplicate rows based on all columns")
+                    assert not dataframe[[dataframe.columns[0]]].duplicated(), (
+                        "Duplicate timestamp values with differnt values for other columns.")
+                ts_series = pd.to_datetime(dataframe[dataframe.columns[0]])
+                inferred_freq = pd.infer_freq(ts_series)
+                if inferred_freq == None:
+                    import warnings
+                    warnings.warn(f"Missing timestamps detected. To avoid error with estimators, set estimator list to ['prophet']. ")
             X = dataframe.drop(columns=label)
             self._nrow, self._ndim = X.shape
             y = dataframe[label]
@@ -1527,14 +1560,16 @@ class AutoML:
         logger.info(f"Minimizing error metric: {error_metric}")
 
         if "auto" == estimator_list:
-            if self._state.task == TS_FORECAST:
-                try:
-                    import prophet
-
-                    estimator_list = ["prophet", "arima", "sarimax"]
-                except ImportError:
-                    estimator_list = ["arima", "sarimax"]
-            elif self._state.task == "rank":
+            # if self._state.task == TS_FORECAST:
+            #     try:
+            #         import prophet
+            #
+            #         estimator_list = ["prophet", "arima", "sarimax"]
+            #     except ImportError:
+            #         estimator_list = ["arima", "sarimax"]
+            # elif self._state.task == "rank":
+            #     estimator_list = ["lgbm", "xgboost"]
+            if self._state.task == "rank":
                 estimator_list = ["lgbm", "xgboost"]
             else:
                 try:
@@ -1543,8 +1578,18 @@ class AutoML:
                     estimator_list = ["lgbm", "rf", "catboost", "xgboost", "extra_tree"]
                 except ImportError:
                     estimator_list = ["lgbm", "rf", "xgboost", "extra_tree"]
-                if "regression" != self._state.task:
+                if TS_FORECAST == self._state.task:
+                    try:
+                        import prophet
+
+                        estimator_list += ["prophet", "arima", "sarimax"]
+                        estimator_list.remove("catboost")
+                    except ImportError:
+                        estimator_list += ["arima", "sarimax"]
+                        estimator_list.remove("catboost")
+                elif "regression" != self._state.task:
                     estimator_list += ["lrl1"]
+
         for estimator_name in estimator_list:
             if estimator_name not in self._state.learner_classes:
                 self.add_learner(
@@ -1560,6 +1605,7 @@ class AutoML:
                 data_size=self._state.data_size,
                 task=self._state.task,
                 starting_point=starting_points.get(estimator_name),
+                period=self._state.fit_kwargs.get("period"),
             )
         logger.info("List of ML learners in AutoML Run: {}".format(estimator_list))
         self.estimator_list = estimator_list

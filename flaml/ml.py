@@ -22,12 +22,17 @@ from sklearn.model_selection import RepeatedStratifiedKFold, GroupKFold, TimeSer
 from .model import (
     XGBoostEstimator,
     XGBoostSklearnEstimator,
+    XGBoost_TS_Regressor,
     RandomForestEstimator,
+    RF_TS_Regressor,
     LGBMEstimator,
+    LGBM_TS_Regressor,
     LRL1Classifier,
     LRL2Classifier,
     CatBoostEstimator,
+    # CatBoost_TS_Regressor,
     ExtraTreeEstimator,
+    ExtraTree_TS_Regressor,
     KNeighborsEstimator,
     Prophet,
     ARIMA,
@@ -46,20 +51,34 @@ def get_estimator_class(task, estimator_name):
     if "xgboost" == estimator_name:
         if "regression" == task:
             estimator_class = XGBoostEstimator
+        elif TS_FORECAST == task:
+            estimator_class = XGBoost_TS_Regressor
         else:
             estimator_class = XGBoostSklearnEstimator
     elif "rf" == estimator_name:
-        estimator_class = RandomForestEstimator
+        if TS_FORECAST == task:
+            estimator_class = RF_TS_Regressor
+        else:
+            estimator_class = RandomForestEstimator
     elif "lgbm" == estimator_name:
-        estimator_class = LGBMEstimator
+        if TS_FORECAST == task:
+            estimator_class = LGBM_TS_Regressor
+        else:
+            estimator_class = LGBMEstimator
     elif "lrl1" == estimator_name:
         estimator_class = LRL1Classifier
     elif "lrl2" == estimator_name:
         estimator_class = LRL2Classifier
     elif "catboost" == estimator_name:
+        # if TS_FORECAST == task:
+        #     estimator_class = CatBoost_TS_Regressor
+        # else:
         estimator_class = CatBoostEstimator
     elif "extra_tree" == estimator_name:
-        estimator_class = ExtraTreeEstimator
+        if TS_FORECAST == task:
+            estimator_class = ExtraTree_TS_Regressor
+        else:
+            estimator_class = ExtraTreeEstimator
     elif "kneighbor" == estimator_name:
         estimator_class = KNeighborsEstimator
     elif "prophet" in estimator_name:
