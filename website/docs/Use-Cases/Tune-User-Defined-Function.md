@@ -40,7 +40,7 @@ def evaluate_config(config: dict):
     # here we assume the cost is proportional to x
     faked_evaluation_cost = config["x"] / 100000
     time.sleep(faked_evaluation_cost)
-    # we can return a single float as a evaluation on the input config:
+    # we can return a single float as a score on the input config:
     # return score
     # or, we can return a dictionary that maps metric name to metric value:
     return {"score": score, "evaluation_cost": faked_evaluation_cost, "constraint_metric": x * y}
@@ -274,12 +274,10 @@ A scheduler can help manage the trials' execution. It can be used to perform mul
 
 #### 1. An authentic scheduler implemented in FLAML (`scheduler='flaml'`).
 
-This scheduler is authentic to the new search algorithms provided by FLAML. In a nutshell, it starts the search with the minimum resource (The resource should be used in the evaluation function. Typically the larger resource, the more expensive the evaluation is). It switches between HPO with the current resource and increasing the resource for evaluation depending on which leads to faster improvement.
+This scheduler is authentic to the new search algorithms provided by FLAML. In a nutshell, it starts the search with the minimum resource. It switches between HPO with the current resource and increasing the resource for evaluation depending on which leads to faster improvement.
 
 If this scheduler is used, you need to
-- Specify a resource dimension. Conceptually a 'resource dimension' a factor that affects the cost of the evaluation (e.g., sample size, the number of epochs). You need to specify the name of the resource dimension via `resource_attr`.
-
-- Know how the resource dimension affects the evaluation and write your `evaluation_function`, which involves using the resource dimension to control the compute cost. Note that in this scheduler, the amount of resources to use at each iteration is suggested by the search algorithm through an additional field in configuration as specified by `resource_attr`.
+- Specify a resource dimension. Conceptually a 'resource dimension' is a factor that affects the cost of the evaluation (e.g., sample size, the number of epochs). You need to specify the name of the resource dimension via `resource_attr`. For example, if `resource_attr="sample_size"`, then the config dict passed to the `evaluation_function` would contain a key "sample_size" and its value suggested by the search algorithm. That value should be used in the evaluation function to control the compute cost. The larger is the value, the more expensive the evaluation is.
 
 - Provide the lower and upper limit of the resource dimension via `min_resource` and `max_resource`, and optionally provide `reduction_factor`, which determines the magnitude of resource (multiplicative) increase when we decide to increase the resource.
 
@@ -456,7 +454,7 @@ analysis = tune.run(
 
 ## Hyperparameter Optimization Algorithm
 
-To tune the hyperparameters toward your objective, you will want to use a hyperparameter optimization algorithm which can help suggest hyperparameters with better performance (regarding your objective). `flaml` offers two HPO methods: CFO and BlendSearch. `flaml.tune` uses BlendSearch by default. 
+To tune the hyperparameters toward your objective, you will want to use a hyperparameter optimization algorithm which can help suggest hyperparameters with better performance (regarding your objective). `flaml` offers two HPO methods: CFO and BlendSearch. `flaml.tune` uses BlendSearch by default.
 
 <!-- ![png](images/CFO.png) | ![png](images/BlendSearch.png)
 :---:|:---: -->
