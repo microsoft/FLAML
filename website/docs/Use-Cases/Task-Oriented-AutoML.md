@@ -420,7 +420,7 @@ To plot how the loss is improved over time during the model search, first load t
 from flaml.data import get_output_from_log
 
 time_history, best_valid_loss_history, valid_loss_history, config_history, metric_history = \
-    get_output_from_log(filename=settings['log_file_name'], time_budget=120)
+    get_output_from_log(filename=settings["log_file_name"], time_budget=120)
 ```
 
 Then, assuming the optimization metric is "accuracy", we can plot the accuracy versus wallclock time:
@@ -429,10 +429,10 @@ Then, assuming the optimization metric is "accuracy", we can plot the accuracy v
 import matplotlib.pyplot as plt
 import numpy as np
 
-plt.title('Learning Curve')
-plt.xlabel('Wall Clock Time (s)')
-plt.ylabel('Validation Accuracy')
-plt.step(time_history, 1 - np.array(best_valid_loss_history), where='post')
+plt.title("Learning Curve")
+plt.xlabel("Wall Clock Time (s)")
+plt.ylabel("Validation Accuracy")
+plt.step(time_history, 1 - np.array(best_valid_loss_history), where="post")
 plt.show()
 ```
 

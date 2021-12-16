@@ -32,13 +32,13 @@ In the following code, we define an objective function with respect to two hyper
 import time
 
 def evaluate_config(config: dict):
-    '''evaluate a hyperparameter configuration'''
-    score = (config['x'] - 85000) ** 2 - config['x'] / config['y']
+    """evaluate a hyperparameter configuration"""
+    score = (config["x"] - 85000) ** 2 - config["x"] / config["y"]
     # usually the evaluation takes an non-neglible cost
     # and the cost could be related to certain hyperparameters
     # here we simulate this cost by calling the time.sleep() function
     # here we assume the cost is proportional to x
-    faked_evaluation_cost = config['x'] / 100000
+    faked_evaluation_cost = config["x"] / 100000
     time.sleep(faked_evaluation_cost)
     # we can return a single float as the optimization objective:
     # return score
@@ -71,8 +71,8 @@ from flaml import tune
 
 # construct a search space for the hyperparameters x and y.
 config_search_space = {
-    'x': tune.lograndint(lower=1, upper=100000),
-    'y': tune.randint(lower=1, upper=100000)
+    "x": tune.lograndint(lower=1, upper=100000),
+    "y": tune.randint(lower=1, upper=100000)
 }  
 
 # provide the search space to flaml.tune
@@ -133,10 +133,10 @@ config = {
 
 #### Cost-related hyperparameters
 
-Cost-related hyperparameters are a subset of the hyperparameters which directly affect the computation cost incurred in the evaluation of any hyperparameter configuration. For example, the number of estimators (`n_estimators`) and the maximum number of leaves (`max_leaves`) are known to affect the training cost of tree-based learners, and thus cost-related hyperparameters in tree-based learners. 
+Cost-related hyperparameters are a subset of the hyperparameters which directly affect the computation cost incurred in the evaluation of any hyperparameter configuration. For example, the number of estimators (`n_estimators`) and the maximum number of leaves (`max_leaves`) are known to affect the training cost of tree-based learners, and thus cost-related hyperparameters in tree-based learners.
 
 When cost-related hyperparameters exist, the evaluation cost in the search space is heterogeneous.
-In this case, designing a search space with proper ranges of the hyperparameter values is highly non-trivial. Classical tuning algorithms such as Bayesian optimization and random search are typically sensitive to such ranges.  It may take them a very high cost to find a good choice if the ranges are too large. And if the ranges are too small, the optimal choice(s) may not be included and thus not be possible to be found. With our method, you can use a search space with larger ranges in the case of heterogeneous costs. 
+In this case, designing a search space with proper ranges of the hyperparameter values is highly non-trivial. Classical tuning algorithms such as Bayesian optimization and random search are typically sensitive to such ranges.  It may take them a very high cost to find a good choice if the ranges are too large. And if the ranges are too small, the optimal choice(s) may not be included and thus not be possible to be found. With our method, you can use a search space with larger ranges in the case of heterogeneous costs.
 
 Our search algorithms are designed to finish the tuning at a low total cost when the evaluation cost in the search space is heterogeneous.
 So in such scenarios, if you are aware of low-cost configurations for the cost-related hyperparameters, you are recommended to set them as the `low_cost_partial_config`, which is a dictionary of a subset of the hyperparameter coordinates whose value corresponds to a configuration with known low cost.  Using the example of the tree-based methods again, since we know that small `n_estimators` and `max_leaves` generally correspond to simpler models and thus lower cost, we set `{'n_estimators': 4, 'max_leaves': 4}` as the `low_cost_partial_config` by default (note that 4 is the lower bound of search space for these two hyperparameters), e.g., in LGBM. Please find more details on how the algorithm works [here](#cfo-frugal-optimization-for-cost-related-hyperparameters).
@@ -229,7 +229,7 @@ flaml.tune.run(evaluation_function=evaluate_config, mode="min",
 ```python
 flaml.tune.run(evaluation_function=evaluate_config, mode="min",
                config=config_search_space,
-               metric_constraints=[('score', "<=", 0.4)],...)
+               metric_constraints=[("score", "<=", 0.4)],...)
 ```
 
 ### Paralle tuning
@@ -248,7 +248,7 @@ analysis = tune.run(
     evaluate_config,  # the function to evaluate a config
     config=config_search_space,  # the search space defined
     metric="score",
-    mode="min",  # the optimization mode, 'min' or 'max'
+    mode="min",  # the optimization mode, "min" or "max"
     num_samples=-1,  # the maximal number of configs to try, -1 means infinite
     time_budget_s=10,  # the time budget in seconds
     use_ray=True,
