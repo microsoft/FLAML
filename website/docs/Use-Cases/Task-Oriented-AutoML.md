@@ -8,12 +8,12 @@
     - numpy array. When the input data are stored in numpy array, they are passed to `fit()` as `X_train` and `y_train`.
     - pandas dataframe. When the input data are stored in pandas dataframe, they are passed to `fit()` either as `X_train` and `y_train`, or as `dataframe` and `label`.
 * Tasks (specified via `task`):
-    - 'classification': classification
-    - 'regression': regression
-    - 'ts_forecast': time series forecasting
-    - 'rank': learning to rank
-    - 'seq-classification': sequence classification
-    - 'seq-regression': sequence regression
+    - 'classification': classification.
+    - 'regression': regression.
+    - 'ts_forecast': time series forecasting.
+    - 'rank': learning to rank.
+    - 'seq-classification': sequence classification.
+    - 'seq-regression': sequence regression.
 
 An optional input is `time_budget` for searching models and hyperparameters. When not specified, a default budget of 60 seconds will be used.
 
@@ -99,7 +99,7 @@ It returns the validation loss penalized by the gap between validation and train
 
 ### Estimator and search space
 
-The estimator list can contain one or more estimator names, each corresponding to a built-in estimator or a custom estimator. Each estimator has a search space for hyperparameter configurations.
+The estimator list can contain one or more estimator names, each corresponding to a built-in estimator or a custom estimator. Each estimator has a search space for hyperparameter configurations. FLAML supports both classical machine learning models and deep neural networks.
 
 #### Estimator
 * Built-in estimator.
@@ -114,11 +114,12 @@ The estimator list can contain one or more estimator names, each corresponding t
     - 'prophet': Prophet. Hyperparameters: changepoint_prior_scale, seasonality_prior_scale, holidays_prior_scale, seasonality_mode.
     - 'arima': ARIMA. Hyperparameters: p, d, q.
     - 'sarimax': SARIMAX. Hyperparameters: p, d, q, P, D, Q, s.
+    - 'transformer': Huggingface transformer models. Hyperparameters: learning_rate, num_train_epochs, per_device_train_batch_size, warmup_ratio, weight_decay, adam_epsilon, seed.
 * Custom estimator. Use custom estimator for:
     - tuning an estimator that is not built-in;
     - customizing search space for a built-in estimator.
 
-To tune a custom estimator that is not built-in, you need to 
+To tune a custom estimator that is not built-in, you need to:
 
 1. Build a custom estimator by inheritting `flaml.model.BaseEstimator` or a derived class.
 For example, if you have a estimator class with scikit-learn style `fit()` and `predict()` functions, you only need to set `self.estimator_class` to be that class in your constructor.
