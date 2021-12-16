@@ -1099,3 +1099,122 @@ class SARIMAX(ARIMA):
         train_time = time.time() - current_time
         self._model = model
         return train_time
+
+
+class TS_Regressor(BaseEstimator):
+    base_class = BaseEstimator
+
+    @classmethod
+    def search_space(cls, data_size, pred_horizon, **params):
+        space = cls.base_class.search_space(data_size, **params)
+        space.update({
+            "optimize_for_horizon": {
+                "domain": tune.choice([True, False]),
+                "low_cost_init_value": False
+            },
+            "lags": {
+                "domain": tune.quniform(lower=0, upper=data_size-pred_horizon, q=1),
+                "init_value": 3
+            },
+        })
+        return space
+
+
+    def __init__(self, task=TS_FORECAST, **params):
+        super().__init__(task, **params)
+        self.hcrystaball_model = None
+
+    def transform_X(self, X):
+        X = X.copy()
+        cols = list(X)
+        if len(cols) == 1:
+            ds_col = cols[0]
+            X = pd.DataFrame(index=X[ds_col])
+        elif len(cols) > 1:
+            ds_col = cols[0]
+            exog_cols = cols[1:]
+            X = train_df[exog_cols].set_index(X[ds_col])
+        return X
+
+
+    def _fit(self, flaml_estimator, X_train, y_train, budget=None, **kwargs):
+        from hcrystalball.wrappers import get_sklearn_wrapper
+
+        X_train = self.transform_X(X_train)
+        params = self.params
+        lags = params.pop("lags")
+        optimize_for_horizon = params.pop("optimize_for_horizon")
+        estimator = flaml_estimator(task="regression", **params)
+        self.hcrystaball_model = get_sklearn_wrapper(estimator.estimator_class)
+        self.hcrystaball_model.lag = lags
+        self.hcrystaball_model.fit(X_train, y_train)
+        X_fit, y_fit = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X_train, y_train, kwargs["period"])
+        self.hcrystaball_model.model.set_params(**estimator.params)
+        model = self.hcrystaball_model.model.fit(X_fit, y_fit)
+        self._model = model
+
+
+    def predict(self, X_test):
+        if self._model is not None:
+            X_test = self._preprocess(X_test)
+            X_test = self.transform_X(X_test)
+            X_pred, _ = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X_test)
+            forecast = self._model.predict(X_pred)
+            return forecast
+        else:
+            logger.warning(
+                "Estimator is not fit yet. Please run fit() before predict()."
+            )
+            return np.ones(X_test.shape[0])
+
+
+class LGBM_TS_Regressor(TS_Regressor):
+    base_class = LGBMEstimator
+
+    def fit(self, X_train, y_train, budget=None, **kwargs):
+        current_time = time.time()
+        self._fit(self.base_class, X_train, y_train, budget=budget, **kwargs)
+        train_time = time.time() - current_time
+        return train_time
+
+    # TODO if optimize_for_horizon=True, fit one model for each horizon
+
+
+class XGBoost_TS_Regressor(TS_Regressor):
+    base_class = XGBoostSklearnEstimator
+
+    def fit(self, X_train, y_train, budget=None, **kwargs):
+        current_time = time.time()
+        self._fit(self.base_class, X_train, y_train, budget=budget, **kwargs)
+        train_time = time.time() - current_time
+        return train_time
+
+
+class CatBoost_TS_Regressor(TS_Regressor):
+    base_class = CatBoostEstimator
+
+    def fit(self, X_train, y_train, budget=None, **kwargs):
+        current_time = time.time()
+        self._fit(self.base_class, X_train, y_train, budget=budget, **kwargs)
+        train_time = time.time() - current_time
+        return train_time
+
+
+class RF_TS_Regressor(TS_Regressor):
+    base_class = RandomForestEstimator
+
+    def fit(self, X_train, y_train, budget=None, **kwargs):
+        current_time = time.time()
+        self._fit(self.base_class, X_train, y_train, budget=budget, **kwargs)
+        train_time = time.time() - current_time
+        return train_time
+
+
+class ExtraTree_TS_Regressor(TS_Regressor):
+    base_class = ExtraTreeEstimator
+
+    def fit(self, X_train, y_train, budget=None, **kwargs):
+        current_time = time.time()
+        self._fit(self.base_class, X_train, y_train, budget=budget, **kwargs)
+        train_time = time.time() - current_time
+        return train_time
