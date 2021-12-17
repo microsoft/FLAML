@@ -20,6 +20,7 @@ RUN sudo pip install -e .[test,notebook]
 RUN pre-commit install
 
 # For docs
+RUN nvm install --lts
 RUN npm install --global yarn
 RUN pip install pydoc-markdown
 RUN cd website
