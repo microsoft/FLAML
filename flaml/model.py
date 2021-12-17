@@ -25,6 +25,7 @@ from .data import (
     TS_VALUE_COL,
     SEQCLASSIFICATION,
     SEQREGRESSION,
+    QUESTIONANSWERING,
 )
 
 import pandas as pd
@@ -288,7 +289,230 @@ class BaseEstimator:
         return params
 
 
+################# ADDED BY QSONG #################
 class TransformersEstimator(BaseEstimator):
+    """
+    The base class for fine-tuning & distill model
+    """
+    ITER_HP = "global_max_steps" # NOTE: not sure if this should be included here
+
+    def __init__(self, task="seq-classification", **config):
+        super().__init__(task, **config)
+        import uuid
+
+        self.trial_id = str(uuid.uuid1().hex)[:8]
+
+    def _join(self, X_train, y_train):
+        y_train = DataFrame(y_train, columns=["label"], index=X_train.index)
+        train_df = X_train.join(y_train)
+        return train_df
+
+    def _init_hpo_args(self, automl_fit_kwargs: dict = None):
+        from .nlp.utils import HPOArgs
+
+        custom_hpo_args = HPOArgs()
+        for key, val in automl_fit_kwargs["custom_hpo_args"].items():
+            assert (
+                key in custom_hpo_args.__dict__
+            ), "The specified key {} is not in the argument list of flaml.nlp.utils::HPOArgs".format(
+                key
+            )
+            setattr(custom_hpo_args, key, val)
+        self.custom_hpo_args = custom_hpo_args
+
+    def _preprocess(self, X, task, **kwargs):
+        from .nlp.utils import tokenize_text
+
+        if X.dtypes[0] == "string":
+            return tokenize_text(X, task, self.custom_hpo_args)
+        else:
+            return X
+
+    def _compute_metrics_by_dataset_name(self, eval_pred):
+        from .ml import metric_loss_score
+
+        predictions, labels = eval_pred
+        predictions = (
+            np.squeeze(predictions)
+            if self._task == SEQREGRESSION
+            else np.argmax(predictions, axis=1)
+        )
+
+        return {
+            "val_loss": metric_loss_score(
+                metric_name=self._metric_name, y_predict=predictions, y_true=labels
+                )
+            }
+    
+    def _delete_one_ckpt(self, ckpt_location):
+            if self.use_ray is False:
+                try:
+                    shutil.rmtree(ckpt_location)
+                except FileNotFoundError:
+                    logger.warning("checkpoint {} not found".format(ckpt_location))
+
+    def cleanup(self):
+        super().cleanup()
+        if hasattr(self, "_ckpt_remains"):
+            for each_ckpt in self._ckpt_remains:
+                self._delete_one_ckpt(each_ckpt)
+
+    def _select_checkpoint(self, trainer):
+        from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
+
+        if trainer.ckpt_to_metric:
+            best_ckpt, _ = min(
+                trainer.ckpt_to_metric.items(), key=lambda x: x[1]["val_loss"]
+            )
+            best_ckpt_global_step = trainer.ckpt_to_global_step[best_ckpt]
+            for each_ckpt in list(trainer.ckpt_to_metric):
+                if each_ckpt != best_ckpt:
+                    del trainer.ckpt_to_metric[each_ckpt]
+                    del trainer.ckpt_to_global_step[each_ckpt]
+                    self._delete_one_ckpt(each_ckpt)
+        else:
+            best_ckpt_global_step = trainer.state.global_step
+            best_ckpt = os.path.join(
+                trainer.args.output_dir,
+                f"{PREFIX_CHECKPOINT_DIR}-{best_ckpt_global_step}",
+            )
+        self.params[self.ITER_HP] = best_ckpt_global_step
+        print(trainer.state.global_step)
+        print(trainer.ckpt_to_global_step)
+        return best_ckpt
+
+
+class DistiliingEstimator(TransformersEstimator):
+    """
+    The class for fine-tuning distill BERT model
+
+    TODO: after completion, 
+    modify ml.py by: adding import at L34, set estimator_class at L116
+    """
+
+    from transformers import (
+    WEIGHTS_NAME,
+    AdamW,
+    BertConfig,
+    BertForQuestionAnswering,
+    BertTokenizer,
+    DistilBertConfig,
+    DistilBertForQuestionAnswering,
+    DistilBertTokenizer,
+    RobertaConfig,
+    RobertaForQuestionAnswering,
+    RobertaTokenizer,
+    XLMConfig,
+    XLMForQuestionAnswering,
+    XLMTokenizer,
+    XLNetConfig,
+    XLNetForQuestionAnswering,
+    XLNetTokenizer,
+    get_linear_schedule_with_warmup,
+    squad_convert_examples_to_features,
+    )
+
+    MODEL_CLASSES = {
+    "bert": (BertConfig, BertForQuestionAnswering, BertTokenizer),
+    "xlnet": (XLNetConfig, XLNetForQuestionAnswering, XLNetTokenizer),
+    "xlm": (XLMConfig, XLMForQuestionAnswering, XLMTokenizer),
+    "distilbert": (DistilBertConfig, DistilBertForQuestionAnswering, DistilBertTokenizer),
+    "roberta": (RobertaConfig, RobertaForQuestionAnswering, RobertaTokenizer),
+    }
+
+    def __init__(self, task="distil-bert-QA", **config):
+        # import uuid
+        super().__init__(task, **config)
+        # self.trial_id = str(uuid.uuid1().hex)[:8]
+
+    @classmethod
+    def search_space(cls, **params):
+        # TODO: modify the alpha, since we are only use it for QA and there is only one loss now
+        return {
+            "learning_rate": {
+                "domain": tune.loguniform(lower=1e-6, upper=1e-3),
+                "init_value": 1e-5,
+            },
+            "num_train_epochs": {
+                "domain": tune.loguniform(lower=0.1, upper=10.0),
+            },
+            "per_device_train_batch_size": {
+                "domain": tune.choice([4, 8, 16, 32]),
+                "init_value": 32,
+            },
+            "warmup_ratio": {
+                "domain": tune.uniform(lower=0.0, upper=0.3),
+                "init_value": 0.0,
+            },
+            "weight_decay": {
+                "domain": tune.uniform(lower=0.0, upper=0.3),
+                "init_value": 0.0,
+            },
+            "adam_epsilon": {
+                "domain": tune.loguniform(lower=1e-8, upper=1e-6),
+                "init_value": 1e-6,
+            },
+            "seed": {"domain": tune.choice(list(range(40, 45))), "init_value": 42},
+            "global_max_steps": {"domain": sys.maxsize, "init_value": sys.maxsize},
+            "alpha_ce":{"domain":tune.uniform(lower=0.0, upper=1.0),"init_value": 0.5},
+            "alpha_mlm": {"domain": tune.uniform(lower=0.0, upper=1.0),"init_value": 0.0}, # if mlm, use mlm over clm
+            "alpha_clm": {"domain": tune.uniform(lower=0.0, upper=1.0),"init_value": 0.5},
+            "alpha_mse": {"domain": tune.uniform(lower=0.0, upper=1.0),"init_value": 0.0},
+            "alpha_cos": {"domain": tune.uniform(lower=0.0, upper=1.0), "init_value": 0.0},
+        }
+
+    def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
+        # TODO: complete this method
+        pass
+
+    def predict(self, X_test: DataFrame, **kwargs):
+        # TODO: transform X_test into Dataset, make prediction based on task
+        from datasets import Dataset
+        from torch.utils.data import DataLoader
+        from .nlp.utils import load_model
+        import torch
+        # preprocess X_test 
+        X_test = self._preprocess(X_test, self._task, **kwargs)
+        X_test = Dataset.from_pandas(X_test)
+        X_test_dataloader = DataLoader(X_test)  # can also customize sampler here
+        # NOTE: not sure if we need to load best_model from checkpoints
+        # get best model from ckpt
+        best_model = load_model(
+            checkpoint_path=self._checkpoint_path,
+            task=self._task,
+            num_labels=self._num_labels,
+            per_model_config=self._per_model_config,
+        )
+        self._model = best_model
+        # per_device_eval_batch_size = 1
+        output_dir = self.custom_hpo_args.output_dir
+        
+        # added QUESTIONANSWERING = "question-answering" to data.py at L30
+        # added import for QUESTIONANSWERING at this file, L28
+        # Skip other tasks, only do QA here
+        
+        if self._task == QUESTIONANSWERING:
+            # TODO: complete prediction here, output the answer based on start_ids and end_ids
+            # for step, inputs in enumerate(X_test_dataloader):
+            pass
+        else:
+            # For future use, uncomment below (and add more for different tasks)
+            # elif self._task == SEQCLASSIFICATION:
+            #     return np.argmax(predictions.predictions, axis=1)
+            # elif self._task == SEQREGRESSION:
+            #     return predictions.predictions.reshape((len(predictions.predictions),))
+            pass
+        
+    def predict_proba(self, X_test: DataFrame, **kwargs):
+        # only available for classification task, so we can skip this function here
+        assert (
+            self._task in CLASSIFICATION
+        ), "predict_proba is only available in classification tasks"
+        # TODO: complete this method afterwards.
+    
+################# END ADDED BY QSONG #################
+
+class FineTuningEstimator(TransformersEstimator):
     """The class for fine-tuning language models, using huggingface transformers API."""
 
     ITER_HP = "global_max_steps"
@@ -342,27 +566,6 @@ class TransformersEstimator(BaseEstimator):
 
         return search_space_dict
 
-    def _init_hpo_args(self, automl_fit_kwargs: dict = None):
-        from .nlp.utils import HPOArgs
-
-        custom_hpo_args = HPOArgs()
-        for key, val in automl_fit_kwargs["custom_hpo_args"].items():
-            assert (
-                key in custom_hpo_args.__dict__
-            ), "The specified key {} is not in the argument list of flaml.nlp.utils::HPOArgs".format(
-                key
-            )
-            setattr(custom_hpo_args, key, val)
-        self.custom_hpo_args = custom_hpo_args
-
-    def _preprocess(self, X, task, **kwargs):
-        from .nlp.utils import tokenize_text
-
-        if X.dtypes[0] == "string":
-            return tokenize_text(X, task, self.custom_hpo_args)
-        else:
-            return X
-
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
         from transformers import EarlyStoppingCallback
         from transformers.trainer_utils import set_seed
@@ -412,7 +615,7 @@ class TransformersEstimator(BaseEstimator):
                         time.time() + self.time_per_iter
                         > self.train_begin_time + budget
                     )
-                    or state.global_step >= this_params[TransformersEstimator.ITER_HP]
+                    or state.global_step >= this_params[FineTuningEstimator.ITER_HP]
                 ):
                     control.should_training_stop = True
                     control.should_save = True
@@ -552,59 +755,6 @@ class TransformersEstimator(BaseEstimator):
 
         self._ckpt_remains = list(self._model.ckpt_to_metric.keys())
 
-    def _delete_one_ckpt(self, ckpt_location):
-        if self.use_ray is False:
-            try:
-                shutil.rmtree(ckpt_location)
-            except FileNotFoundError:
-                logger.warning("checkpoint {} not found".format(ckpt_location))
-
-    def cleanup(self):
-        super().cleanup()
-        if hasattr(self, "_ckpt_remains"):
-            for each_ckpt in self._ckpt_remains:
-                self._delete_one_ckpt(each_ckpt)
-
-    def _select_checkpoint(self, trainer):
-        from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
-
-        if trainer.ckpt_to_metric:
-            best_ckpt, _ = min(
-                trainer.ckpt_to_metric.items(), key=lambda x: x[1]["val_loss"]
-            )
-            best_ckpt_global_step = trainer.ckpt_to_global_step[best_ckpt]
-            for each_ckpt in list(trainer.ckpt_to_metric):
-                if each_ckpt != best_ckpt:
-                    del trainer.ckpt_to_metric[each_ckpt]
-                    del trainer.ckpt_to_global_step[each_ckpt]
-                    self._delete_one_ckpt(each_ckpt)
-        else:
-            best_ckpt_global_step = trainer.state.global_step
-            best_ckpt = os.path.join(
-                trainer.args.output_dir,
-                f"{PREFIX_CHECKPOINT_DIR}-{best_ckpt_global_step}",
-            )
-        self.params[self.ITER_HP] = best_ckpt_global_step
-        print(trainer.state.global_step)
-        print(trainer.ckpt_to_global_step)
-        return best_ckpt
-
-    def _compute_metrics_by_dataset_name(self, eval_pred):
-        from .ml import metric_loss_score
-
-        predictions, labels = eval_pred
-        predictions = (
-            np.squeeze(predictions)
-            if self._task == SEQREGRESSION
-            else np.argmax(predictions, axis=1)
-        )
-
-        return {
-            "val_loss": metric_loss_score(
-                metric_name=self._metric_name, y_predict=predictions, y_true=labels
-                )
-            }
-
     def predict_proba(self, X_test):
         from datasets import Dataset
         from .nlp.huggingface.trainer import TrainerForAuto
@@ -664,8 +814,8 @@ class TransformersEstimator(BaseEstimator):
 
     def config2params(self, config: dict) -> dict:
         params = config.copy()
-        params[TransformersEstimator.ITER_HP] = params.get(
-            TransformersEstimator.ITER_HP, sys.maxsize
+        params[FineTuningEstimator.ITER_HP] = params.get(
+            FineTuningEstimator.ITER_HP, sys.maxsize
         )
         return params
 
