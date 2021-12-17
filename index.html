@@ -307,7 +307,11 @@ selected model on the full training data when using holdout.
 True - retrain only after search finishes; False - no retraining;
 ‘budget’ - do best effort to retrain without violating the time
 budget.</p></li>
-<li><p><strong>split_type</strong> – <p>str, default=”auto” | the data split type.
+<li><p><strong>split_type</strong> – <p>str or splitter object, default=”auto” | the data split type.
+A valid splitter object is an instance of a derived class of scikit-learn KFold
+(<a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html#sklearn.model_selection.KFold">https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html#sklearn.model_selection.KFold</a>)
+and have <code class="docutils literal notranslate"><span class="pre">split</span></code> and <code class="docutils literal notranslate"><span class="pre">get_n_splits</span></code> methods with the same signatures.
+Valid str options depend on different tasks.
 For classification tasks, valid choices are [</p>
 <blockquote>
 <div><p>”auto”, ‘stratified’, ‘uniform’, ‘time’]. “auto” -&gt; stratified.</p>
@@ -575,7 +579,11 @@ If not, dataframe and label must be provided.</p></li>
 [‘auto’, ‘cv’, ‘holdout’].</p></li>
 <li><p><strong>split_ratio</strong> – A float of the validation data percentage for holdout.</p></li>
 <li><p><strong>n_splits</strong> – An integer of the number of folds for cross-validation.</p></li>
-<li><p><strong>split_type</strong> – <p>str, default=”auto” | the data split type.
+<li><p><strong>split_type</strong> – <p>str or splitter object, default=”auto” | the data split type.
+A valid splitter object is an instance of a derived class of scikit-learn KFold
+(<a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html#sklearn.model_selection.KFold">https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html#sklearn.model_selection.KFold</a>)
+and have <code class="docutils literal notranslate"><span class="pre">split</span></code> and <code class="docutils literal notranslate"><span class="pre">get_n_splits</span></code> methods with the same signatures.
+Valid str options depend on different tasks.
 For classification tasks, valid choices are [</p>
 <blockquote>
 <div><p>”auto”, ‘stratified’, ‘uniform’, ‘time’, ‘group’]. “auto” -&gt; stratified.</p>

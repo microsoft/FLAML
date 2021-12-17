@@ -570,7 +570,11 @@
 <span class="sd">                True - retrain only after search finishes; False - no retraining;</span>
 <span class="sd">                &#39;budget&#39; - do best effort to retrain without violating the time</span>
 <span class="sd">                budget.</span>
-<span class="sd">            split_type: str, default=&quot;auto&quot; | the data split type.</span>
+<span class="sd">            split_type: str or splitter object, default=&quot;auto&quot; | the data split type.</span>
+<span class="sd">                A valid splitter object is an instance of a derived class of scikit-learn KFold</span>
+<span class="sd">                (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html#sklearn.model_selection.KFold)</span>
+<span class="sd">                and have ``split`` and ``get_n_splits`` methods with the same signatures.</span>
+<span class="sd">                Valid str options depend on different tasks.</span>
 <span class="sd">                For classification tasks, valid choices are [</span>
 <span class="sd">                    &quot;auto&quot;, &#39;stratified&#39;, &#39;uniform&#39;, &#39;time&#39;]. &quot;auto&quot; -&gt; stratified.</span>
 <span class="sd">                For regression tasks, valid choices are [&quot;auto&quot;, &#39;uniform&#39;, &#39;time&#39;].</span>
@@ -1018,7 +1022,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="ow">in</span> <span class="n">CLASSIFICATION</span>
             <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_auto_augment</span>
             <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">fit_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;sample_weight&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span>
-            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;group&quot;</span><span class="p">]</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;stratified&quot;</span><span class="p">,</span> <span class="s2">&quot;uniform&quot;</span><span class="p">]</span>
         <span class="p">):</span>
             <span class="c1"># logger.info(f&quot;label {pd.unique(y_train_all)}&quot;)</span>
             <span class="n">label_set</span><span class="p">,</span> <span class="n">counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">y_train_all</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1246,11 +1250,14 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">kf</span> <span class="o">=</span> <span class="n">TimeSeriesSplit</span><span class="p">(</span><span class="n">n_splits</span><span class="o">=</span><span class="n">n_splits</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="n">period</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">kf</span> <span class="o">=</span> <span class="n">TimeSeriesSplit</span><span class="p">(</span><span class="n">n_splits</span><span class="o">=</span><span class="n">n_splits</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="c1"># logger.info(&quot;Using RepeatedKFold&quot;)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">kf</span> <span class="o">=</span> <span class="n">RepeatedKFold</span><span class="p">(</span>
                 <span class="n">n_splits</span><span class="o">=</span><span class="n">n_splits</span><span class="p">,</span> <span class="n">n_repeats</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="n">RANDOM_SEED</span>
             <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># logger.info(&quot;Using splitter object&quot;)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">kf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span>
 
 <div class="viewcode-block" id="AutoML.add_learner"><a class="viewcode-back" href="../../index.html#flaml.AutoML.add_learner">[docs]</a>    <span class="k">def</span> <span class="nf">add_learner</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">learner_name</span><span class="p">,</span> <span class="n">learner_class</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Add a customized learner.</span>
@@ -1340,7 +1347,11 @@
 <span class="sd">                [&#39;auto&#39;, &#39;cv&#39;, &#39;holdout&#39;].</span>
 <span class="sd">            split_ratio: A float of the validation data percentage for holdout.</span>
 <span class="sd">            n_splits: An integer of the number of folds for cross-validation.</span>
-<span class="sd">            split_type: str, default=&quot;auto&quot; | the data split type.</span>
+<span class="sd">            split_type: str or splitter object, default=&quot;auto&quot; | the data split type.</span>
+<span class="sd">                A valid splitter object is an instance of a derived class of scikit-learn KFold</span>
+<span class="sd">                (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html#sklearn.model_selection.KFold)</span>
+<span class="sd">                and have ``split`` and ``get_n_splits`` methods with the same signatures.</span>
+<span class="sd">                Valid str options depend on different tasks.</span>
 <span class="sd">                For classification tasks, valid choices are [</span>
 <span class="sd">                    &quot;auto&quot;, &#39;stratified&#39;, &#39;uniform&#39;, &#39;time&#39;, &#39;group&#39;]. &quot;auto&quot; -&gt; stratified.</span>
 <span class="sd">                For regression tasks, valid choices are [&quot;auto&quot;, &#39;uniform&#39;, &#39;time&#39;].</span>
@@ -1462,7 +1473,12 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="o">=</span> <span class="n">get_classification_objective</span><span class="p">(</span>
                 <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_y_train_all</span><span class="p">))</span>
             <span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="ow">in</span> <span class="n">CLASSIFICATION</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">split_type</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">assert</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">split_type</span><span class="p">,</span> <span class="s2">&quot;split&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span>
+                <span class="n">split_type</span><span class="p">,</span> <span class="s2">&quot;get_n_splits&quot;</span>
+            <span class="p">),</span> <span class="s2">&quot;split_type must be a string or a splitter object with split and get_n_splits methods.&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="o">=</span> <span class="n">split_type</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="o">.</span><span class="n">task</span> <span class="ow">in</span> <span class="n">CLASSIFICATION</span><span class="p">:</span>
             <span class="k">assert</span> <span class="n">split_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="s2">&quot;stratified&quot;</span><span class="p">,</span> <span class="s2">&quot;uniform&quot;</span><span class="p">,</span> <span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;group&quot;</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_split_type</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="n">split_type</span>
@@ -1849,7 +1865,11 @@
 <span class="sd">                True - retrain only after search finishes; False - no retraining;</span>
 <span class="sd">                &#39;budget&#39; - do best effort to retrain without violating the time</span>
 <span class="sd">                budget.</span>
-<span class="sd">            split_type: str, default=&quot;auto&quot; | the data split type.</span>
+<span class="sd">            split_type: str or splitter object, default=&quot;auto&quot; | the data split type.</span>
+<span class="sd">                A valid splitter object is an instance of a derived class of scikit-learn KFold</span>
+<span class="sd">                (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html#sklearn.model_selection.KFold)</span>
+<span class="sd">                and have ``split`` and ``get_n_splits`` methods with the same signatures.</span>
+<span class="sd">                Valid str options depend on different tasks.</span>
 <span class="sd">                For classification tasks, valid choices are [</span>
 <span class="sd">                    &quot;auto&quot;, &#39;stratified&#39;, &#39;uniform&#39;, &#39;time&#39;]. &quot;auto&quot; -&gt; stratified.</span>
 <span class="sd">                For regression tasks, valid choices are [&quot;auto&quot;, &#39;uniform&#39;, &#39;time&#39;].</span>
