@@ -27,6 +27,7 @@ NLU_TASKS = (
     SEQREGRESSION,
     SEQCLASSIFICATION,
 )
+QUESTIONANSWERING = 'qa'
 
 
 def _is_nlp_task(task):
