@@ -6,7 +6,8 @@ from ..data import (
     SUMMARIZATION,
     SEQREGRESSION,
     SEQCLASSIFICATION,
-    NLG_TASKS
+    NLG_TASKS,
+    QUESTIONANSWERING
 )
 
 
@@ -19,6 +20,8 @@ def load_default_huggingface_metric_for_task(task):
         return "rmse"
     elif task == SUMMARIZATION:
         return "rouge"
+    elif task == QUESTIONANSWERING:
+        return "squad"
     # TODO: elif task == your task, return the default metric name for your task,
     #  e.g., if task == MULTIPLECHOICE, return "accuracy"
     #  notice this metric name has to be in ['accuracy', 'bertscore', 'bleu', 'bleurt',
