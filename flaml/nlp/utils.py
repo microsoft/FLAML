@@ -255,7 +255,6 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
         return model_type in MODEL_CLASSIFICATION_HEAD_MAPPING
 
     def _set_model_config(checkpoint_path):
-        from ..data import SUMMARIZATION
         if task in (SEQCLASSIFICATION, SEQREGRESSION):
             if per_model_config and len(per_model_config) > 0:
                 model_config = AutoConfig.from_pretrained(
@@ -266,17 +265,6 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
             else:
                 model_config = AutoConfig.from_pretrained(
                     checkpoint_path, num_labels=model_config_num_labels
-                )
-            return model_config
-        elif task == SUMMARIZATION:
-            if per_model_config and len(per_model_config) > 0:
-                model_config = AutoConfig.from_pretrained(
-                    checkpoint_path,
-                    **per_model_config,
-                )
-            else:
-                model_config = AutoConfig.from_pretrained(
-                    checkpoint_path
                 )
             return model_config
         else:

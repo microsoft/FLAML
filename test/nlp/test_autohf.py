@@ -24,7 +24,6 @@ def test_hf_data():
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
 
-    train_dataset.to_csv("test.txt",sep="\t", index=False)
     X_train = train_dataset[custom_sent_keys]
     y_train = train_dataset[label_key]
 
@@ -37,8 +36,8 @@ def test_hf_data():
 
     automl_settings = {
         "gpu_per_trial": 0,
-        "max_iter": 3,
-        "time_budget": 5,
+        "max_iter": 10,
+        "time_budget": 300,
         "task": "seq-classification",
         "metric": "accuracy",
         "log_file_name": "seqclass.log",
