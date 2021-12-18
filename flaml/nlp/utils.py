@@ -6,12 +6,12 @@ from ..data import (
     SUMMARIZATION,
     SEQREGRESSION,
     SEQCLASSIFICATION,
-    NLG_TASKS
+    NLG_TASKS, MULTICHOICECLASSIFICATION
 )
 
 
 def load_default_huggingface_metric_for_task(task):
-    from ..data import SEQCLASSIFICATION, SEQREGRESSION
+    from ..data import SEQCLASSIFICATION, SEQREGRESSION, MULTICHOICECLASSIFICATION
 
     if task == SEQCLASSIFICATION:
         return "accuracy"
@@ -19,6 +19,8 @@ def load_default_huggingface_metric_for_task(task):
         return "rmse"
     elif task == SUMMARIZATION:
         return "rouge"
+    elif task == MULTICHOICECLASSIFICATION:
+        return "accuracy"
     # TODO: elif task == your task, return the default metric name for your task,
     #  e.g., if task == MULTIPLECHOICE, return "accuracy"
     #  notice this metric name has to be in ['accuracy', 'bertscore', 'bleu', 'bleurt',
@@ -33,10 +35,12 @@ global tokenized_column_names
 
 
 def tokenize_text(X, task, custom_hpo_task):
-    from ..data import SEQCLASSIFICATION, SEQREGRESSION
+    from ..data import SEQCLASSIFICATION, SEQREGRESSION, MULTICHOICECLASSIFICATION
 
     if task in (SEQCLASSIFICATION, SEQREGRESSION):
         return tokenize_text_seqclassification(X, custom_hpo_task)
+    elif task == MULTICHOICECLASSIFICATION:
+        return tokenize_text_multiplechoice(X, custom_hpo_task)
     # TODO: elif task == your task, return the tokenized result
     #  for example, if your task == MULTIPLE CHOICE, you should
     #  create a function named tokenize_text_multiplechoice(X, custom_hpo_args)
@@ -77,6 +81,75 @@ def tokenize_glue(this_row, this_tokenizer, custom_hpo_args):
     )
     tokenized_column_names = sorted(tokenized_example.keys())
     return [tokenized_example[x] for x in tokenized_column_names]
+
+
+def tokenize_text_multiplechoice(X, custom_hpo_args):
+    from transformers import AutoTokenizer
+    import pandas
+
+    global tokenized_column_names
+
+    this_tokenizer = AutoTokenizer.from_pretrained(
+        custom_hpo_args.model_path,  # 'roberta-base'
+        cache_dir=None,
+        use_fast=True,
+        revision='main',
+        use_auth_token=None,
+    )
+    t = X[['sent1', 'sent2', 'ending0', 'ending1', 'ending2', 'ending3']]
+    d = t.apply(
+        lambda x: tokenize_swag(x, this_tokenizer, custom_hpo_args),
+        axis=1,
+        result_type="expand",
+    )
+
+    X_tokenized = pandas.DataFrame(columns=tokenized_column_names)
+    for row in d.iterrows():
+        unflattend_attention_mask = row[1][0]
+        unflattend_input_ids = row[1][1]
+        for i in range(len(unflattend_attention_mask)):
+            X_tokenized = X_tokenized.append(
+                pandas.DataFrame({'attention_mask': [unflattend_attention_mask[i]],
+                                  'input_ids': [unflattend_input_ids[i]]}), ignore_index=True)
+    # X_tokenized[tokenized_column_names] = d
+    output = X_tokenized.join(X)
+    return output
+
+
+def tokenize_swag(this_row, this_tokenizer, custom_hpo_args):
+    global tokenized_column_names
+
+    first_sentences = [[this_row['sent1']] * 4]
+    # get each 1st sentence, multiply to 4 sentences
+    question_headers = this_row['sent2']
+    # sent2 are the noun part of 2nd line
+    second_sentences = [
+        question_headers + ' ' + i for i in
+        [this_row['ending0'], this_row['ending1'], this_row['ending2'], this_row['ending3']]
+    ]
+    # now the 2nd-sentences are formed by combing the noun part and 4 ending parts
+
+    # Flatten out
+    # From 2 dimension to 1 dimension array
+    first_sentences = list(chain(*first_sentences))
+    # second_sentences = list(chain(*second_sentences))
+
+    tokenized_example = this_tokenizer(
+        *tuple([first_sentences, second_sentences]),
+        truncation=True,
+        max_length=custom_hpo_args.max_seq_length,
+        padding=False,
+        # padding="max_length" if data_args.pad_to_max_length else False
+    )
+    tokenized_column_names = sorted(tokenized_example.keys())
+    # output = [tokenized_example[x] for x in tokenized_column_names]
+    # output1 = []
+    # for x in tokenized_column_names:
+    #     for y in tokenized_example[x]:
+    #         output1.append(y)
+    # return output1
+    return [tokenized_example[x] for x in tokenized_column_names]
+    # return {k: [v[i: i + 4] for i in range(0, len(v), 4)]p for k, v in tokenized_examples.items()}
 
 
 def separate_config(config):
@@ -178,9 +251,14 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
 
     def get_this_model():
         from transformers import AutoModelForSequenceClassification
+        from transformers import AutoModelForMultipleChoice
 
         if task in (SEQCLASSIFICATION, SEQREGRESSION):
             return AutoModelForSequenceClassification.from_pretrained(
+                checkpoint_path, config=model_config
+            )
+        elif task == MULTICHOICECLASSIFICATION:
+            return AutoModelForMultipleChoice.from_pretrained(
                 checkpoint_path, config=model_config
             )
         # TODO: elif task == your task, fill in the line in your transformers example
@@ -202,6 +280,17 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
             else:
                 model_config = AutoConfig.from_pretrained(
                     checkpoint_path, num_labels=model_config_num_labels
+                )
+            return model_config
+        elif task == MULTICHOICECLASSIFICATION:
+            if per_model_config and len(per_model_config) > 0:
+                model_config = AutoConfig.from_pretrained(
+                    checkpoint_path,
+                    **per_model_config,
+                )
+            else:
+                model_config = AutoConfig.from_pretrained(
+                    checkpoint_path
                 )
             return model_config
         # TODO: elif task == your task, uncomment the code below:

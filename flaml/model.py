@@ -25,6 +25,7 @@ from .data import (
     TS_VALUE_COL,
     SEQCLASSIFICATION,
     SEQREGRESSION,
+    MULTICHOICECLASSIFICATION,
 )
 
 import pandas as pd
@@ -660,6 +661,8 @@ class TransformersEstimator(BaseEstimator):
             return np.argmax(predictions.predictions, axis=1)
         elif self._task == SEQREGRESSION:
             return predictions.predictions.reshape((len(predictions.predictions),))
+        elif self._task == MULTICHOICECLASSIFICATION:
+            return np.argmax(predictions.predictions, axis=1)
         # TODO: elif self._task == your task, return the corresponding prediction
         #  e.g., if your task == QUESTIONANSWERING, you need to return the answer instead
         #  of the index
