@@ -31,7 +31,9 @@ from .model import (
     Prophet,
     ARIMA,
     SARIMAX,
-    TransformersEstimator,
+    #TransformersEstimator,
+    FineTuningEstimator,
+    DistillingEstimator,
 )
 from .data import CLASSIFICATION, group_counts, TS_FORECAST, TS_VALUE_COL
 import logging
@@ -111,8 +113,10 @@ def get_estimator_class(task, estimator_name):
         estimator_class = ARIMA
     elif estimator_name == "sarimax":
         estimator_class = SARIMAX
-    elif estimator_name == "transformer":
-        estimator_class = TransformersEstimator
+    elif estimator_name == "fine_tuning":
+        estimator_class = FineTuningEstimator
+    elif estimator_name == "distilling":
+        estimator_class = DistillingEstimator
     else:
         raise ValueError(
             estimator_name + " is not a built-in learner. "
