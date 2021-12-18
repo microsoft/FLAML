@@ -44,6 +44,8 @@ from .data import (
     FORECAST,
     REGRESSION,
     _is_nlp_task,
+    SUMMARIZATION,
+    NLG_TASKS
 )
 from . import tune
 from .training_log import training_log_reader, training_log_writer
@@ -740,8 +742,8 @@ class AutoML(BaseEstimator):
             return None
         X_test = self._preprocess(X_test)
         y_pred = estimator.predict(X_test)
-        if y_pred.ndim > 1 and isinstance(y_pred, np.ndarray):
-            y_pred = y_pred.flatten()
+        # if y_pred.ndim > 1 and isinstance(y_pred, np.ndarray):
+        #     y_pred = y_pred.flatten()
         if self._label_transformer:
             return self._label_transformer.inverse_transform(
                 pd.Series(y_pred.astype(int))
@@ -920,7 +922,7 @@ class AutoML(BaseEstimator):
                 self._state.X_val = self._transformer.transform(X_val)
             else:
                 self._state.X_val = X_val
-            if self._label_transformer:
+            if self._label_transformer and self._state.task not in NLG_TASKS:
                 self._state.y_val = self._label_transformer.transform(y_val)
             else:
                 self._state.y_val = y_val
@@ -1431,6 +1433,10 @@ class AutoML(BaseEstimator):
             ), "groups must be specified for ranking task."
             assert split_type in ["auto", "group"]
             self._split_type = "group"
+        elif self._state.task == SUMMARIZATION:
+            assert split_type in ["auto", "uniform", "time", "group"]
+            self._split_type = split_type if split_type != "auto" else "uniform"
+
 
     def _decide_eval_method(self, time_budget):
         if self._state.X_val is not None:

@@ -7,13 +7,12 @@ except ImportError:
     TFTrainer = object
 
 
-class TrainerForAuto(TFTrainer):
+class TrainerForAuto(Seq2SeqTrainer):
     def evaluate(
         self,
         eval_dataset=None,
         ignore_keys=None,
         metric_key_prefix="eval",
-        is_seq2seq=False,
     ):
         """Overriding transformers.Trainer.evaluate by saving metrics and checkpoint path."""
         from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
@@ -25,15 +24,18 @@ class TrainerForAuto(TFTrainer):
 
         # TODO: if your task is seq2seq (i.e., SUMMARIZATION), uncomment the code below (add indentation before metrics = eval_dataset...
 
-        # if is_seq2seq:
-        #     metrics = eval_dataset and super().evaluate(
-        #         eval_dataset,
-        #         ignore_keys,
-        #         metric_key_prefix,
-        #         num_beams=self.args.num_beams,
-        #     )
-        # else:
-        metrics = eval_dataset and super().evaluate(
+        if hasattr(self, "_is_seq2seq") and self._is_seq2seq:
+            metrics = eval_dataset and Seq2SeqTrainer.evaluate(
+                self,
+                eval_dataset,
+                ignore_keys,
+                metric_key_prefix,
+                max_length=self.args.generation_max_length,
+                num_beams=self.args.generation_num_beams,
+            )
+        else:
+            metrics = eval_dataset and TFTrainer.evaluate(
+            self,
             eval_dataset,
             ignore_keys,
             metric_key_prefix,
@@ -58,12 +60,14 @@ class TrainerForAuto(TFTrainer):
 #  Seq2SeqTrainerForAuto to make sure it's correct
 
 
-# class Seq2SeqTrainerForAuto(Seq2SeqTrainer, TrainerForAuto):
+# class Seq2SeqTrainerForAuto(TrainerForAuto):
 #     def evaluate(self, eval_dataset=None, ignore_keys=None, metric_key_prefix="eval"):
 #         """Overriding transformers.Trainer.evaluate by saving metrics and checkpoint path"""
-#         super(TrainerForAuto).evaluate(
-#             eval_dataset, ignore_keys, metric_key_prefix, is_seq2seq=True
-#         )
+#         self._is_seq2seq = True
+#         TrainerForAuto.evaluate(self, eval_dataset, ignore_keys, metric_key_prefix)
+#         # super(TrainerForAuto, self).evaluate(
+#         #     eval_dataset, ignore_keys, metric_key_prefix
+#         # )
 
 
 # TODO: if your task is QUESTIONANSWERING, uncomment the code below

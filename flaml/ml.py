@@ -155,9 +155,9 @@ def metric_loss_score(
 
                 metric = datasets.load_metric(metric_name)
                 metric_mode = huggingface_metric_to_mode[metric_name]
-                score = metric.compute(predictions=y_predict, references=y_true)[
-                    metric_name
-                ]
+                score = metric.compute(predictions=y_predict, references=y_true)
+                score = {key: value.mid.fmeasure * 100 for key, value in score.items()}
+
             except ImportError:
                 raise Exception(
                     metric_name
@@ -182,11 +182,12 @@ def metric_loss_score(
                     + ". Please pass a customized metric function to AutoML.fit(metric=func)"
                 )
         multiplier = -1 if metric_mode == "max" else 1
-        return score * multiplier
+        return score["rouge1"] * multiplier
 
 
 def is_in_sklearn_metric_name_set(metric_name):
     return metric_name.startswith("ndcg") or metric_name in sklearn_metric_name_set
+
 
 
 def sklearn_metric_loss_score(
