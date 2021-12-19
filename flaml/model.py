@@ -441,7 +441,7 @@ class TransformersEstimator(BaseEstimator):
         y_val = kwargs.get("y_val")
 
         if self._task not in NLG_TASKS:
-            X_train, _ = self._preprocess(X_train=X_train,
+            X_train, _ = self._preprocess(X=X_train,
                                        task=self._task,
                                        **kwargs)
         else:
@@ -691,7 +691,10 @@ class TransformersEstimator(BaseEstimator):
             **self._training_args_config
         )
         self._model = TrainerForAuto(model=best_model, args=training_args)
-        predictions = self._model.predict(test_dataset,
+        if self._task not in NLG_TASKS:
+            predictions = self._model.predict(test_dataset)
+        else:
+            predictions = self._model.predict(test_dataset,
                                           max_length=training_args.generation_max_length,
                                           num_beams=training_args.generation_num_beams)
 

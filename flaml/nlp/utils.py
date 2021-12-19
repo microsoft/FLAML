@@ -37,7 +37,7 @@ def tokenize_text(X, Y=None, task=None, custom_hpo_args=None):
                                     task=task,
                                     custom_hpo_args=custom_hpo_args
                                     )
-        return X_tokenized
+        return X_tokenized, None
     elif task in NLG_TASKS:
         return tokenize_seq2seq(X, Y, task=task, custom_hpo_args=custom_hpo_args)
 

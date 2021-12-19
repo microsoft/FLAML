@@ -36,8 +36,8 @@ def test_hf_data():
 
     automl_settings = {
         "gpu_per_trial": 0,
-        "max_iter": 10,
-        "time_budget": 300,
+        "max_iter": 3,
+        "time_budget": 5,
         "task": "seq-classification",
         "metric": "accuracy",
         "log_file_name": "seqclass.log",

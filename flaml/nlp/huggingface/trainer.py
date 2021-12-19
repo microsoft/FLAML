@@ -8,6 +8,24 @@ except ImportError:
 
 
 class TrainerForAuto(Seq2SeqTrainer):
+    def predict(self, test_dataset, ignore_keys=None, metric_key_prefix=None, max_length=None, num_beams=None):
+        if hasattr(self, "_is_seq2seq") and self._is_seq2seq:
+            return Seq2SeqTrainer.predict(self, test_dataset, ignore_keys, metric_key_prefix, max_length, num_beams)
+        else:
+            return TFTrainer.predict(self, test_dataset, ignore_keys, metric_key_prefix)
+
+    def prediction_step(
+        self,
+        model,
+        inputs,
+        prediction_loss_only,
+        ignore_keys,
+    ):
+        if hasattr(self, "_is_seq2seq") and self._is_seq2seq:
+            return Seq2SeqTrainer.prediction_step(self, model, inputs, prediction_loss_only, ignore_keys)
+        else:
+            return TFTrainer.prediction_step(self, model, inputs, prediction_loss_only, ignore_keys)
+
     def evaluate(
         self,
         eval_dataset=None,
