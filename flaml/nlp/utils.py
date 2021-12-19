@@ -2,12 +2,7 @@ import argparse
 from dataclasses import dataclass, field
 from typing import Dict, Any
 
-from ..data import (
-    SUMMARIZATION,
-    SEQREGRESSION,
-    SEQCLASSIFICATION,
-    NLG_TASKS
-)
+from ..data import SUMMARIZATION, SEQREGRESSION, SEQCLASSIFICATION, NLG_TASKS
 
 
 def load_default_huggingface_metric_for_task(task):
@@ -32,51 +27,60 @@ global tokenized_column_names
 
 def tokenize_text(X, Y=None, task=None, custom_hpo_args=None):
     if task in (SEQCLASSIFICATION, SEQREGRESSION):
-        X_tokenized, _ = tokenize_onesequence(X,
-                                    this_tokenizer=None,
-                                    task=task,
-                                    custom_hpo_args=custom_hpo_args
-                                    )
+        X_tokenized, _ = tokenize_onesequence(
+            X, this_tokenizer=None, task=task, custom_hpo_args=custom_hpo_args
+        )
         return X_tokenized, None
     elif task in NLG_TASKS:
         return tokenize_seq2seq(X, Y, task=task, custom_hpo_args=custom_hpo_args)
 
+
 def tokenize_seq2seq(X, Y, task=None, custom_hpo_args=None):
-    model_inputs, tokenizer = tokenize_onesequence(X,
-                                                   this_tokenizer=None,
-                                                   task=task,
-                                                   custom_hpo_args=custom_hpo_args,
-                                                   )
+    model_inputs, tokenizer = tokenize_onesequence(
+        X,
+        this_tokenizer=None,
+        task=task,
+        custom_hpo_args=custom_hpo_args,
+    )
     labels = None
     if Y is not None:
-        labels, _ = tokenize_onesequence(Y.to_frame(),
-                                  this_tokenizer=tokenizer,
-                                  task=task,
-                                  custom_hpo_args=custom_hpo_args,
-                                  )
+        labels, _ = tokenize_onesequence(
+            Y.to_frame(),
+            this_tokenizer=tokenizer,
+            task=task,
+            custom_hpo_args=custom_hpo_args,
+        )
         labels["label"] = [
-            [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
+            [(l if l != tokenizer.pad_token_id else -100) for l in label]
+            for label in labels["input_ids"]
         ]
-        labels = labels.drop(columns=["attention_mask", "input_ids", "decoder_input_ids"])
+        labels = labels.drop(
+            columns=["attention_mask", "input_ids", "decoder_input_ids"]
+        )
     return model_inputs, labels
 
-def tokenize_onesequence(X,
-                         this_tokenizer=None,
-                         task=None,
-                         custom_hpo_args=None,
-                         ):
+
+def tokenize_onesequence(
+    X,
+    this_tokenizer=None,
+    task=None,
+    custom_hpo_args=None,
+):
     from transformers import AutoTokenizer
     import pandas
+
     global tokenized_column_names
 
     if this_tokenizer:
         with this_tokenizer.as_target_tokenizer():
             d = X.apply(
-                lambda x: tokenize_glue(x,
-                                        this_tokenizer,
-                                        prefix=("",) if task is SUMMARIZATION else None,
-                                        task=task,
-                                        custom_hpo_args=custom_hpo_args),
+                lambda x: tokenize_glue(
+                    x,
+                    this_tokenizer,
+                    prefix=("",) if task is SUMMARIZATION else None,
+                    task=task,
+                    custom_hpo_args=custom_hpo_args,
+                ),
                 axis=1,
                 result_type="expand",
             )
@@ -85,11 +89,13 @@ def tokenize_onesequence(X,
             custom_hpo_args.model_path, use_fast=True
         )
         d = X.apply(
-            lambda x: tokenize_glue(x,
-                                    this_tokenizer,
-                                    prefix=("summarize: ",) if task is SUMMARIZATION else None,
-                                    task=task,
-                                    custom_hpo_args=custom_hpo_args),
+            lambda x: tokenize_glue(
+                x,
+                this_tokenizer,
+                prefix=("summarize: ",) if task is SUMMARIZATION else None,
+                task=task,
+                custom_hpo_args=custom_hpo_args,
+            ),
             axis=1,
             result_type="expand",
         )
@@ -100,6 +106,8 @@ def tokenize_onesequence(X,
 
 def postprocess_text(preds, labels):
     import nltk
+
+    nltk.download("punkt")
     preds = [pred.strip() for pred in preds]
     labels = [label.strip() for label in labels]
 
@@ -110,11 +118,9 @@ def postprocess_text(preds, labels):
     return preds, labels
 
 
-def tokenize_glue(this_row,
-                  this_tokenizer,
-                  prefix=None,
-                  task=None,
-                  custom_hpo_args=None):
+def tokenize_glue(
+    this_row, this_tokenizer, prefix=None, task=None, custom_hpo_args=None
+):
     global tokenized_column_names
     assert (
         "max_seq_length" in custom_hpo_args.__dict__
@@ -130,7 +136,7 @@ def tokenize_glue(this_row,
         truncation=True,
     )
     if task in NLG_TASKS:
-        tokenized_example['decoder_input_ids'] = tokenized_example['input_ids']
+        tokenized_example["decoder_input_ids"] = tokenized_example["input_ids"]
     tokenized_column_names = sorted(tokenized_example.keys())
     return [tokenized_example[x] for x in tokenized_column_names]
 
@@ -138,16 +144,20 @@ def tokenize_glue(this_row,
 def separate_config(config, task):
     if task in NLG_TASKS:
         from transformers import Seq2SeqTrainingArguments, TrainingArguments
+
         trainargs_class_list = [Seq2SeqTrainingArguments, TrainingArguments]
     else:
         from transformers import TrainingArguments
+
         trainargs_class_list = [TrainingArguments]
 
     training_args_config = {}
     per_model_config = {}
 
     for key, val in config.items():
-        is_in_training_args = any([x for x in trainargs_class_list if key in x.__dict__])
+        is_in_training_args = any(
+            [x for x in trainargs_class_list if key in x.__dict__]
+        )
         if is_in_training_args:
             training_args_config[key] = val
         else:
@@ -249,7 +259,8 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
             )
         elif task == SUMMARIZATION:
             return AutoModelForSeq2SeqLM.from_pretrained(
-                checkpoint_path, config=model_config)
+                checkpoint_path, config=model_config
+            )
 
     def is_pretrained_model_in_classification_head_list(model_type):
         return model_type in MODEL_CLASSIFICATION_HEAD_MAPPING
@@ -274,9 +285,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
                     **per_model_config,
                 )
             else:
-                model_config = AutoConfig.from_pretrained(
-                    checkpoint_path
-                )
+                model_config = AutoConfig.from_pretrained(checkpoint_path)
             return model_config
 
     if task == SEQCLASSIFICATION:
