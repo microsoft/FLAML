@@ -52,9 +52,9 @@ def test_hf_data():
     }
 
     automl_settings["custom_hpo_args"] = {
-        "model_path": "bert-base-uncased",
+        "model_path": "roberta-base",
         "output_dir": "test/data/output/",
-        "ckpt_per_epoch": 3,
+        "ckpt_per_epoch": 1,
         "fp16": False,
     }
 

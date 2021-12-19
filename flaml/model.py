@@ -303,6 +303,13 @@ class TransformersEstimator(BaseEstimator):
         self.trial_id = str(uuid.uuid1().hex)[:8]
 
     def _join(self, X_train, y_train):
+        # temp = []
+        # for label in y_train:
+        #     for i in range(4):
+        #         temp.append(label)
+        # y_train = DataFrame(temp, columns=["label"], index=X_train.index)
+        # train_df = X_train.join(y_train)
+        # return train_df
         y_train = DataFrame(y_train, columns=["label"], index=X_train.index)
         train_df = X_train.join(y_train)
         return train_df

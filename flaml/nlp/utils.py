@@ -1,5 +1,6 @@
 import argparse
 from dataclasses import dataclass, field
+from itertools import chain
 from typing import Dict, Any
 
 from ..data import (
@@ -104,14 +105,14 @@ def tokenize_text_multiplechoice(X, custom_hpo_args):
     )
 
     X_tokenized = pandas.DataFrame(columns=tokenized_column_names)
-    for row in d.iterrows():
-        unflattend_attention_mask = row[1][0]
-        unflattend_input_ids = row[1][1]
-        for i in range(len(unflattend_attention_mask)):
-            X_tokenized = X_tokenized.append(
-                pandas.DataFrame({'attention_mask': [unflattend_attention_mask[i]],
-                                  'input_ids': [unflattend_input_ids[i]]}), ignore_index=True)
-    # X_tokenized[tokenized_column_names] = d
+    # for row in d.iterrows():
+    #     unflattend_attention_mask = row[1][0]
+    #     unflattend_input_ids = row[1][1]
+    #     for i in range(len(unflattend_attention_mask)):
+    #         X_tokenized = X_tokenized.append(
+    #             pandas.DataFrame({'attention_mask': [unflattend_attention_mask[i]],
+    #                               'input_ids': [unflattend_input_ids[i]]}), ignore_index=True)
+    X_tokenized[tokenized_column_names] = d
     output = X_tokenized.join(X)
     return output
 
