@@ -7,18 +7,30 @@ def test_summarization():
     from flaml import AutoML
     from pandas import DataFrame
 
-    train_dataset = DataFrame([("The cat is alive","The cat is dead"),
-                               ("The cat is alive","The cat is dead"),
-                               ("The cat is alive","The cat is dead"),
-                               ("The cat is alive","The cat is dead")])
-    dev_dataset = DataFrame([("The old woman is beautiful","The old woman is ugly"),
-                             ("The old woman is beautiful","The old woman is ugly"),
-                             ("The old woman is beautiful","The old woman is ugly"),
-                             ("The old woman is beautiful","The old woman is ugly")])
-    test_dataset = DataFrame([("The purse is cheap","The purse is expensive"),
-                             ("The purse is cheap","The purse is expensive"),
-                             ("The purse is cheap","The purse is expensive"),
-                             ("The purse is cheap","The purse is expensive")])
+    train_dataset = DataFrame(
+        [
+            ("The cat is alive", "The cat is dead"),
+            ("The cat is alive", "The cat is dead"),
+            ("The cat is alive", "The cat is dead"),
+            ("The cat is alive", "The cat is dead"),
+        ]
+    )
+    dev_dataset = DataFrame(
+        [
+            ("The old woman is beautiful", "The old woman is ugly"),
+            ("The old woman is beautiful", "The old woman is ugly"),
+            ("The old woman is beautiful", "The old woman is ugly"),
+            ("The old woman is beautiful", "The old woman is ugly"),
+        ]
+    )
+    test_dataset = DataFrame(
+        [
+            ("The purse is cheap", "The purse is expensive"),
+            ("The purse is cheap", "The purse is expensive"),
+            ("The purse is cheap", "The purse is expensive"),
+            ("The purse is cheap", "The purse is expensive"),
+        ]
+    )
 
     for each_dataset in [train_dataset, dev_dataset, test_dataset]:
         each_dataset.columns = ["document", "summary"]
@@ -39,7 +51,7 @@ def test_summarization():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 50,
+        "time_budget": 30,
         "task": "summarization",
         "metric": "rouge",
         "log_file_name": "seqclass.log",

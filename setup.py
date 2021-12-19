@@ -58,6 +58,8 @@ setuptools.setup(
             "transformers",
             "datasets",
             "torch",
+            "nltk",
+            "rouge_score",
         ],
         "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],
