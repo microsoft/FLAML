@@ -39,7 +39,7 @@ def test_summarization():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 500,
+        "time_budget": 50,
         "task": "summarization",
         "metric": "rouge",
         "log_file_name": "seqclass.log",
