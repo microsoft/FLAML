@@ -29,7 +29,7 @@ NLU_TASKS = (
 )
 
 def _is_nlp_task(task):
-    if task in NLU_TASKS + NLG_TASKS:
+    if task in NLU_TASKS or task in NLG_TASKS:
         return True
     else:
         return False
