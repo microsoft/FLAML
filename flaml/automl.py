@@ -742,7 +742,11 @@ class AutoML(BaseEstimator):
             return None
         X_test = self._preprocess(X_test)
         y_pred = estimator.predict(X_test)
-        if y_pred.ndim > 1 and isinstance(y_pred, np.ndarray):
+        if (
+            isinstance(y_pred, np.ndarray)
+            and y_pred.ndim > 1
+            and isinstance(y_pred, np.ndarray)
+        ):
             y_pred = y_pred.flatten()
         if self._label_transformer:
             return self._label_transformer.inverse_transform(
