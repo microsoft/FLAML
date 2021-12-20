@@ -7,7 +7,7 @@ except ImportError:
     TFTrainer = object
 
 
-class TrainerForAuto(Seq2SeqTrainer):
+class TrainerForAuto(Seq2SeqTrainer, TFTrainer):
     def predict(
         self,
         test_dataset,
@@ -17,8 +17,7 @@ class TrainerForAuto(Seq2SeqTrainer):
         num_beams=None,
     ):
         if getattr(self, "_is_seq2seq", None):
-            return Seq2SeqTrainer.predict(
-                self,
+            return super(Seq2SeqTrainer).predict(
                 test_dataset,
                 ignore_keys,
                 metric_key_prefix,
@@ -26,7 +25,9 @@ class TrainerForAuto(Seq2SeqTrainer):
                 num_beams,
             )
         else:
-            return TFTrainer.predict(self, test_dataset, ignore_keys, metric_key_prefix)
+            return super(TFTrainer).predict(
+                test_dataset, ignore_keys, metric_key_prefix
+            )
 
     def prediction_step(
         self,
@@ -36,12 +37,12 @@ class TrainerForAuto(Seq2SeqTrainer):
         ignore_keys,
     ):
         if hasattr(self, "_is_seq2seq") and self._is_seq2seq:
-            return Seq2SeqTrainer.prediction_step(
-                self, model, inputs, prediction_loss_only, ignore_keys
+            return super(Seq2SeqTrainer).prediction_step(
+                model, inputs, prediction_loss_only, ignore_keys
             )
         else:
-            return TFTrainer.prediction_step(
-                self, model, inputs, prediction_loss_only, ignore_keys
+            return super(TFTrainer).prediction_step(
+                model, inputs, prediction_loss_only, ignore_keys
             )
 
     def evaluate(
@@ -61,8 +62,7 @@ class TrainerForAuto(Seq2SeqTrainer):
         # TODO: if your task is seq2seq (i.e., SUMMARIZATION), uncomment the code below (add indentation before metrics = eval_dataset...
 
         if getattr(self, "_is_seq2seq", None):
-            metrics = eval_dataset and Seq2SeqTrainer.evaluate(
-                self,
+            metrics = eval_dataset and super(Seq2SeqTrainer).evaluate(
                 eval_dataset,
                 ignore_keys,
                 metric_key_prefix,
@@ -70,8 +70,7 @@ class TrainerForAuto(Seq2SeqTrainer):
                 num_beams=self.args.generation_num_beams,
             )
         else:
-            metrics = eval_dataset and TFTrainer.evaluate(
-                self,
+            metrics = eval_dataset and super(TFTrainer).evaluate(
                 eval_dataset,
                 ignore_keys,
                 metric_key_prefix,
