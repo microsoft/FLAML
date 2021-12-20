@@ -40,8 +40,8 @@ class TrainerForAuto(Seq2SeqTrainer):
                 self, model, inputs, prediction_loss_only, ignore_keys
             )
         else:
-            return TFTrainer.prediction_step(
-                self, model, inputs, prediction_loss_only, ignore_keys
+            return super(Seq2SeqTrainer, self).prediction_step(
+                model, inputs, prediction_loss_only, ignore_keys
             )
 
     def evaluate(
