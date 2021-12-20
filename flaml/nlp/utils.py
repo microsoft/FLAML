@@ -279,7 +279,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
                 )
             return model_config
         else:
-            if per_model_config and len(per_model_config) > 0:
+            if per_model_config:
                 model_config = AutoConfig.from_pretrained(
                     checkpoint_path,
                     **per_model_config,
