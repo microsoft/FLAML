@@ -4,7 +4,7 @@ try:
     from transformers import Trainer as TFTrainer
     from transformers import Seq2SeqTrainer
 except ImportError:
-    TFTrainer = object
+    Seq2SeqTrainer = object
 
 
 class TrainerForAuto(Seq2SeqTrainer):
