@@ -74,7 +74,7 @@ def tokenize_onedataframe(
     if this_tokenizer:
         with this_tokenizer.as_target_tokenizer():
             d = X.apply(
-                lambda x: tokenize_each_example(
+                lambda x: tokenize_each_row(
                     x,
                     this_tokenizer,
                     prefix=("",) if task is SUMMARIZATION else None,
@@ -89,7 +89,7 @@ def tokenize_onedataframe(
             custom_hpo_args.model_path, use_fast=True
         )
         d = X.apply(
-            lambda x: tokenize_each_example(
+            lambda x: tokenize_each_row(
                 x,
                 this_tokenizer,
                 prefix=("summarize: ",) if task is SUMMARIZATION else None,
@@ -118,7 +118,7 @@ def postprocess_text(preds, labels):
     return preds, labels
 
 
-def tokenize_each_example(
+def tokenize_each_row(
     this_row, this_tokenizer, prefix=None, task=None, custom_hpo_args=None
 ):
     global tokenized_column_names
