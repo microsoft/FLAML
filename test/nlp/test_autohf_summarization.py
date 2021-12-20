@@ -53,7 +53,7 @@ def test_summarization():
         "max_iter": 3,
         "time_budget": 30,
         "task": "summarization",
-        "metric": "rouge",
+        "metric": "rouge1",
         "log_file_name": "seqclass.log",
     }
 

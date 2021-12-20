@@ -1,7 +1,6 @@
 import os
 
 try:
-    from transformers import Trainer as TFTrainer
     from transformers import Seq2SeqTrainer
 except ImportError:
     Seq2SeqTrainer = object
