@@ -11,7 +11,7 @@ from ..data import (
     QUESTIONANSWERING
 )
 # =======
-# from ..data import SUMMARIZATION, SEQREGRESSION, SEQCLASSIFICATION, NLG_TASKS
+from ..data import SUMMARIZATION, SEQREGRESSION, SEQCLASSIFICATION, NLG_TASKS
 # >>>>>>> upstream/main
 
 
@@ -40,7 +40,7 @@ global tokenized_column_names
 
 def tokenize_text(X, Y=None, task=None, custom_hpo_args=None):
     if task in (SEQCLASSIFICATION, SEQREGRESSION):
-        return tokenize_text_seqclassification(X, custom_hpo_task)
+        # return tokenize_text_seqclassification(X, custom_hpo_task)
     # TODO: elif task == your task, return the tokenized result
     #  for example, if your task == MULTIPLE CHOICE, you should
     #  create a function named tokenize_text_multiplechoice(X, custom_hpo_args)
