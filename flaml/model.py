@@ -229,9 +229,7 @@ class BaseEstimator:
             Each element at (i,j) is the probability for instance i to be in
                 class j.
         """
-        assert (
-            self._task in CLASSIFICATION
-        ), "predict_prob() only for classification or natural language generation task."
+        assert self._task in CLASSIFICATION, "predict_proba() only for classification."
 
         X_test = self._preprocess(X_test)
         return self._model.predict_proba(X_test)
@@ -644,7 +642,7 @@ class TransformersEstimator(BaseEstimator):
     def predict_proba(self, X_test):
         assert (
             self._task in CLASSIFICATION
-        ), "predict_proba is only available in classification tasks"
+        ), "predict_proba() only for classification tasks."
 
         from datasets import Dataset
         from .nlp.huggingface.trainer import TrainerForAuto
