@@ -1938,13 +1938,10 @@ class AutoML(BaseEstimator):
         )
         self._search_states = {}  # key: estimator name; value: SearchState
         self._random = np.random.RandomState(RANDOM_SEED)
-        if seed is not None:
-            np.random.seed(seed)
-        self._seed = seed + 19823 if seed is not None else 20
+        self._seed = seed if seed is not None else 20
         self._learner_selector = learner_selector
         old_level = logger.getEffectiveLevel()
         self.verbose = verbose
-        # if verbose == 0:
         logger.setLevel(50 - verbose * 10)
         if (not mlflow or not mlflow.active_run()) and not logger.handlers:
             # Add the console handler.

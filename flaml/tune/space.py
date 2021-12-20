@@ -7,11 +7,22 @@ try:
 except (ImportError, AssertionError):
     from . import sample
     from ..searcher.variant_generator import generate_variants
-from typing import Dict, Optional, Any, Tuple
+from typing import Dict, Optional, Any, Tuple, Generator
 import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def generate_variants_compatible(
+    unresolved_spec: Dict,
+    constant_grid_search: bool = False,
+    random_state = None
+) -> Generator[Tuple[Dict, Dict], None, None]:
+    try:
+        return generate_variants(unresolved_spec, constant_grid_search, random_state)
+    except TypeError:
+        return generate_variants(unresolved_spec, constant_grid_search)
 
 
 def define_by_run_func(trial, space: Dict, path: str = "") -> Optional[Dict[str, Any]]:
@@ -491,7 +502,7 @@ def complete_config(
     for key, value in space.items():
         if key not in config:
             config[key] = value
-    for _, generated in generate_variants({"config": config}):
+    for _, generated in generate_variants_compatible({"config": config}, random_state=flow2.rs_random):
         config = generated["config"]
         break
     subspace = {}
