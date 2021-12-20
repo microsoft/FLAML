@@ -928,7 +928,7 @@ class AutoML(BaseEstimator):
                 self._state.X_val = X_val
             # If it's NLG_TASKS, y_val is a pandas series containing the output sequence tokens,
             # so we cannot use label_transformer.transform to process it
-            if self._label_transformer and self._state.task not in NLG_TASKS:
+            if self._label_transformer:
                 self._state.y_val = self._label_transformer.transform(y_val)
             else:
                 self._state.y_val = y_val
