@@ -340,8 +340,9 @@ class TransformersEstimator(BaseEstimator):
         }
 
         if task in NLG_TASKS:
-            search_space_dict["generation_num_beams"] = {"domain": tune.choice(list(range(2, 5))), "init_value": 3}
-            search_space_dict["generation_max_length"] = {"domain": tune.choice([16, 32, 62, 128]), "init_value": 64}
+            search_space_dict["generation_num_beams"] = {"domain": tune.randint(2, 5), "init_value": 3}
+            search_space_dict["generation_max_length"] = {"domain": tune.choice([16, 32, 64, 128]), "init_value": 64}
+
 
         return search_space_dict
 
