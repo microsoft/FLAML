@@ -26,7 +26,7 @@ class TrainerForAuto(Seq2SeqTrainer):
                 num_beams,
             )
         else:
-            return TFTrainer.predict(self, test_dataset, ignore_keys, metric_key_prefix)
+            return super(TFTrainer).predict(test_dataset, ignore_keys, metric_key_prefix)
 
     def prediction_step(
         self,
