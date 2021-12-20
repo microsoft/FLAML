@@ -51,14 +51,14 @@ def test_summarization():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 20,
+        "time_budget": 30,
         "task": "summarization",
         "metric": "rouge",
         "log_file_name": "seqclass.log",
     }
 
     automl_settings["custom_hpo_args"] = {
-        "model_path": "t5-small",
+        "model_path": "patrickvonplaten/t5-tiny-random",
         "output_dir": "test/data/output/",
         "ckpt_per_epoch": 5,
         "fp16": False,
