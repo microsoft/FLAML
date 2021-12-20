@@ -36,8 +36,8 @@ class TrainerForAuto(Seq2SeqTrainer):
         ignore_keys,
     ):
         if hasattr(self, "_is_seq2seq") and self._is_seq2seq:
-            return Seq2SeqTrainer.prediction_step(
-                self, model, inputs, prediction_loss_only, ignore_keys
+            return super().prediction_step(
+                model, inputs, prediction_loss_only, ignore_keys
             )
         else:
             return super(Seq2SeqTrainer, self).prediction_step(
