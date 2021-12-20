@@ -17,8 +17,7 @@ class TrainerForAuto(Seq2SeqTrainer):
         num_beams=None,
     ):
         if getattr(self, "_is_seq2seq", None):
-            return Seq2SeqTrainer.predict(
-                self,
+            return super().predict(
                 test_dataset,
                 ignore_keys,
                 metric_key_prefix,
@@ -26,7 +25,9 @@ class TrainerForAuto(Seq2SeqTrainer):
                 num_beams,
             )
         else:
-            return super(TFTrainer).predict(test_dataset, ignore_keys, metric_key_prefix)
+            return super(Seq2SeqTrainer, self).predict(
+                test_dataset, ignore_keys, metric_key_prefix
+            )
 
     def prediction_step(
         self,
@@ -35,7 +36,7 @@ class TrainerForAuto(Seq2SeqTrainer):
         prediction_loss_only,
         ignore_keys,
     ):
-        if hasattr(self, "_is_seq2seq") and self._is_seq2seq:
+        if getattr(self, "_is_seq2seq", None):
             return super().prediction_step(
                 model, inputs, prediction_loss_only, ignore_keys
             )
