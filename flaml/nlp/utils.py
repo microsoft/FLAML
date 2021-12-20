@@ -255,7 +255,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
             return AutoModelForSequenceClassification.from_pretrained(
                 checkpoint_path, config=model_config
             )
-        elif task == SUMMARIZATION:
+        elif task in NLG_TASKS:
             return AutoModelForSeq2SeqLM.from_pretrained(
                 checkpoint_path, config=model_config
             )

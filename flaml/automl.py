@@ -461,7 +461,7 @@ class AutoML(BaseEstimator):
         ```
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast', 'rank',
-                'seq-classification', 'seq-regression'.
+                'seq-classification', 'seq-regression', 'summarization'.
             n_jobs: An integer of the number of threads for training.
             gpu_per_trial: A float of the number of gpus per trial, only used by TransformersEstimator.
             log_file_name: A string of the log file name. To disable logging,
@@ -1281,7 +1281,7 @@ class AutoML(BaseEstimator):
             time_budget: A float number of the time budget in seconds.
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast', 'rank',
-                'seq-classification', 'seq-regression'.
+                'seq-classification', 'seq-regression', 'summarization'.
             eval_method: A string of resampling strategy, one of
                 ['auto', 'cv', 'holdout'].
             split_ratio: A float of the validation data percentage for holdout.
@@ -1439,7 +1439,7 @@ class AutoML(BaseEstimator):
             ), "groups must be specified for ranking task."
             assert split_type in ["auto", "group"]
             self._split_type = "group"
-        elif self._state.task == SUMMARIZATION:
+        elif self._state.task in NLG_TASKS:
             assert split_type in ["auto", "uniform", "time", "group"]
             self._split_type = split_type if split_type != "auto" else "uniform"
 
@@ -1753,7 +1753,7 @@ class AutoML(BaseEstimator):
 
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast', 'rank',
-                'seq-classification', 'seq-regression'.
+                'seq-classification', 'seq-regression', 'summarization'
             n_jobs: An integer of the number of threads for training.
             gpu_per_trial: A float of the number of gpus per trial, only used by TransformersEstimator.
             log_file_name: A string of the log file name. To disable logging,

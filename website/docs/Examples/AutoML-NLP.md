@@ -58,10 +58,10 @@ from flaml import AutoML
 from datasets import load_dataset
 
 train_dataset = (
-    load_dataset("glue", "stsb", split="train[:1%]").to_pandas().iloc[0:4]
+    load_dataset("glue", "stsb", split="train").to_pandas()
 )
 dev_dataset = (
-    load_dataset("glue", "stsb", split="train[1%:2%]").to_pandas().iloc[0:4]
+    load_dataset("glue", "stsb", split="train").to_pandas()
 )
 custom_sent_keys = ["sentence1", "sentence2"]
 label_key = "label"
@@ -79,6 +79,45 @@ automl_settings = {
 }
 automl_settings["custom_hpo_args"] = {
     "model_path": "google/electra-small-discriminator",
+    "output_dir": "data/output/",
+    "ckpt_per_epoch": 5,
+    "fp16": False,
+}
+automl.fit(
+    X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
+)
+```
+
+### A simple summarization example
+
+```python
+from flaml import AutoML
+from datasets import load_dataset
+
+train_dataset = (
+    load_dataset("xsum", split="train").to_pandas()
+)
+dev_dataset = (
+    load_dataset("xsum", split="validation").to_pandas()
+)
+custom_sent_keys = ["document"]
+label_key = "summary"
+
+X_train = train_dataset[custom_sent_keys]
+y_train = train_dataset[label_key]
+
+X_val = dev_dataset[custom_sent_keys]
+y_val = dev_dataset[label_key]
+
+automl = AutoML()
+automl_settings = {
+    "gpu_per_trial": 0,
+    "time_budget": 20,
+    "task": "summarization",
+    "metric": "rouge",
+}
+automl_settings["custom_hpo_args"] = {
+    "model_path": "t5-small",
     "output_dir": "data/output/",
     "ckpt_per_epoch": 5,
     "fp16": False,
