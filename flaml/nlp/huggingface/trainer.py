@@ -9,7 +9,7 @@ except ImportError:
 
 class TrainerForAuto(Seq2SeqTrainer):
     def predict(self, test_dataset, ignore_keys=None, metric_key_prefix=None, max_length=None, num_beams=None):
-        if hasattr(self, "_is_seq2seq") and self._is_seq2seq:
+        if getattr(self, "_is_seq2seq", None):
             return Seq2SeqTrainer.predict(self, test_dataset, ignore_keys, metric_key_prefix, max_length, num_beams)
         else:
             return TFTrainer.predict(self, test_dataset, ignore_keys, metric_key_prefix)
