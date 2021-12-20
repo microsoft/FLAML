@@ -650,8 +650,9 @@ class TransformersEstimator(BaseEstimator):
         from transformers import TrainingArguments
         from .nlp.utils import load_model
 
-        X_test = self._preprocess(X_test, task=self._task, **self._kwargs)
-        test_dataset = Dataset.from_pandas(X_test[0])
+        X_test, _ = self._preprocess(X_test, task=self._task, **self._kwargs)
+        test_dataset = Dataset.from_pandas(X_test)
+
 
         best_model = load_model(
             checkpoint_path=self._checkpoint_path,
