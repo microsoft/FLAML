@@ -27,7 +27,7 @@ global tokenized_column_names
 
 def tokenize_text(X, Y=None, task=None, custom_hpo_args=None):
     if task in (SEQCLASSIFICATION, SEQREGRESSION):
-        X_tokenized, _ = tokenize_onesequence(
+        X_tokenized, _ = tokenize_onedataframe(
             X, this_tokenizer=None, task=task, custom_hpo_args=custom_hpo_args
         )
         return X_tokenized, None
@@ -36,7 +36,7 @@ def tokenize_text(X, Y=None, task=None, custom_hpo_args=None):
 
 
 def tokenize_seq2seq(X, Y, task=None, custom_hpo_args=None):
-    model_inputs, tokenizer = tokenize_onesequence(
+    model_inputs, tokenizer = tokenize_onedataframe(
         X,
         this_tokenizer=None,
         task=task,
@@ -44,7 +44,7 @@ def tokenize_seq2seq(X, Y, task=None, custom_hpo_args=None):
     )
     labels = None
     if Y is not None:
-        labels, _ = tokenize_onesequence(
+        labels, _ = tokenize_onedataframe(
             Y.to_frame(),
             this_tokenizer=tokenizer,
             task=task,
@@ -60,7 +60,7 @@ def tokenize_seq2seq(X, Y, task=None, custom_hpo_args=None):
     return model_inputs, labels
 
 
-def tokenize_onesequence(
+def tokenize_onedataframe(
     X,
     this_tokenizer=None,
     task=None,
@@ -74,7 +74,7 @@ def tokenize_onesequence(
     if this_tokenizer:
         with this_tokenizer.as_target_tokenizer():
             d = X.apply(
-                lambda x: tokenize_glue(
+                lambda x: tokenize_each_example(
                     x,
                     this_tokenizer,
                     prefix=("",) if task is SUMMARIZATION else None,
@@ -89,7 +89,7 @@ def tokenize_onesequence(
             custom_hpo_args.model_path, use_fast=True
         )
         d = X.apply(
-            lambda x: tokenize_glue(
+            lambda x: tokenize_each_example(
                 x,
                 this_tokenizer,
                 prefix=("summarize: ",) if task is SUMMARIZATION else None,
@@ -118,7 +118,7 @@ def postprocess_text(preds, labels):
     return preds, labels
 
 
-def tokenize_glue(
+def tokenize_each_example(
     this_row, this_tokenizer, prefix=None, task=None, custom_hpo_args=None
 ):
     global tokenized_column_names
