@@ -19,8 +19,7 @@ import logging
 from copy import copy
 from inspect import signature
 from math import isclose
-from typing import Any, Callable, Dict, List, Optional, Sequence, Union
-
+from typing import Any, Dict, List, Optional, Sequence, Union
 import numpy as np
 
 # Backwards compatibility
@@ -42,15 +41,18 @@ class _BackwardsCompatibleNumpyRng:
     """Thin wrapper to ensure backwards compatibility between
     new and old numpy randomness generators.
     """
+
     _rng = None
 
     def __init__(
-            self,
-            generator_or_seed: Optional[Union[
-                "np_random_generator", np.random.RandomState, int]] = None):
-        if (generator_or_seed is None
-                or isinstance(generator_or_seed,
-                              (np.random.RandomState, np_random_generator))):
+        self,
+        generator_or_seed: Optional[
+            Union["np_random_generator", np.random.RandomState, int]
+        ] = None,
+    ):
+        if generator_or_seed is None or isinstance(
+            generator_or_seed, (np.random.RandomState, np_random_generator)
+        ):
             self._rng = generator_or_seed
         elif LEGACY_RNG:
             self._rng = np.random.RandomState(generator_or_seed)
@@ -76,8 +78,9 @@ class _BackwardsCompatibleNumpyRng:
         return getattr(self.rng, name)
 
 
-RandomState = Union[None, _BackwardsCompatibleNumpyRng, np_random_generator,
-                    np.random.RandomState, int]
+RandomState = Union[
+    None, _BackwardsCompatibleNumpyRng, np_random_generator, np.random.RandomState, int
+]
 
 
 class Domain:
@@ -89,6 +92,7 @@ class Domain:
     allow specification of specific samplers (e.g. ``uniform()`` or
     ``loguniform()``).
     """
+
     sampler = None
     default_sampler_cls = None
 
@@ -98,11 +102,13 @@ class Domain:
 
     def set_sampler(self, sampler, allow_override=False):
         if self.sampler and not allow_override:
-            raise ValueError("You can only choose one sampler for parameter "
-                             "domains. Existing sampler for parameter {}: "
-                             "{}. Tried to add {}".format(
-                                 self.__class__.__name__, self.sampler,
-                                 sampler))
+            raise ValueError(
+                "You can only choose one sampler for parameter "
+                "domains. Existing sampler for parameter {}: "
+                "{}. Tried to add {}".format(
+                    self.__class__.__name__, self.sampler, sampler
+                )
+            )
         self.sampler = sampler
 
     def get_sampler(self):
@@ -111,15 +117,16 @@ class Domain:
             sampler = self.default_sampler_cls()
         return sampler
 
-    def sample(self,
-               spec: Optional[Union[List[Dict], Dict]] = None,
-               size: int = 1,
-               random_state: "RandomState" = None):
+    def sample(
+        self,
+        spec: Optional[Union[List[Dict], Dict]] = None,
+        size: int = 1,
+        random_state: "RandomState" = None,
+    ):
         if not isinstance(random_state, _BackwardsCompatibleNumpyRng):
             random_state = _BackwardsCompatibleNumpyRng(random_state)
         sampler = self.get_sampler()
-        return sampler.sample(
-            self, spec=spec, size=size, random_state=random_state)
+        return sampler.sample(self, spec=spec, size=size, random_state=random_state)
 
     def is_grid(self):
         return isinstance(self.sampler, Grid)
@@ -137,11 +144,13 @@ class Domain:
 
 
 class Sampler:
-    def sample(self,
-               domain: Domain,
-               spec: Optional[Union[List[Dict], Dict]] = None,
-               size: int = 1,
-               random_state: "RandomState" = None):
+    def sample(
+        self,
+        domain: Domain,
+        spec: Optional[Union[List[Dict], Dict]] = None,
+        size: int = 1,
+        random_state: "RandomState" = None,
+    ):
         raise NotImplementedError
 
 
@@ -165,7 +174,7 @@ class LogUniform(Sampler):
 
 
 class Normal(Sampler):
-    def __init__(self, mean: float = 0., sd: float = 0.):
+    def __init__(self, mean: float = 0.0, sd: float = 0.0):
         self.mean = mean
         self.sd = sd
 
@@ -178,61 +187,68 @@ class Normal(Sampler):
 class Grid(Sampler):
     """Dummy sampler used for grid search"""
 
-    def sample(self,
-               domain: Domain,
-               spec: Optional[Union[List[Dict], Dict]] = None,
-               size: int = 1,
-               random_state: "RandomState" = None):
+    def sample(
+        self,
+        domain: Domain,
+        spec: Optional[Union[List[Dict], Dict]] = None,
+        size: int = 1,
+        random_state: "RandomState" = None,
+    ):
         return RuntimeError("Do not call `sample()` on grid.")
 
 
 class Float(Domain):
     class _Uniform(Uniform):
-        def sample(self,
-                   domain: "Float",
-                   spec: Optional[Union[List[Dict], Dict]] = None,
-                   size: int = 1,
-                   random_state: "RandomState" = None):
+        def sample(
+            self,
+            domain: "Float",
+            spec: Optional[Union[List[Dict], Dict]] = None,
+            size: int = 1,
+            random_state: "RandomState" = None,
+        ):
             if not isinstance(random_state, _BackwardsCompatibleNumpyRng):
                 random_state = _BackwardsCompatibleNumpyRng(random_state)
-            assert domain.lower > float("-inf"), \
-                "Uniform needs a lower bound"
-            assert domain.upper < float("inf"), \
-                "Uniform needs a upper bound"
+            assert domain.lower > float("-inf"), "Uniform needs a lower bound"
+            assert domain.upper < float("inf"), "Uniform needs a upper bound"
             items = random_state.uniform(domain.lower, domain.upper, size=size)
             return items if len(items) > 1 else domain.cast(items[0])
 
     class _LogUniform(LogUniform):
-        def sample(self,
-                   domain: "Float",
-                   spec: Optional[Union[List[Dict], Dict]] = None,
-                   size: int = 1,
-                   random_state: "RandomState" = None):
+        def sample(
+            self,
+            domain: "Float",
+            spec: Optional[Union[List[Dict], Dict]] = None,
+            size: int = 1,
+            random_state: "RandomState" = None,
+        ):
             if not isinstance(random_state, _BackwardsCompatibleNumpyRng):
                 random_state = _BackwardsCompatibleNumpyRng(random_state)
-            assert domain.lower > 0, \
-                "LogUniform needs a lower bound greater than 0"
-            assert 0 < domain.upper < float("inf"), \
-                "LogUniform needs a upper bound greater than 0"
+            assert domain.lower > 0, "LogUniform needs a lower bound greater than 0"
+            assert (
+                0 < domain.upper < float("inf")
+            ), "LogUniform needs a upper bound greater than 0"
             logmin = np.log(domain.lower) / np.log(self.base)
             logmax = np.log(domain.upper) / np.log(self.base)
 
-            items = self.base**(random_state.uniform(
-                logmin, logmax, size=size))
+            items = self.base ** (random_state.uniform(logmin, logmax, size=size))
             return items if len(items) > 1 else domain.cast(items[0])
 
     class _Normal(Normal):
-        def sample(self,
-                   domain: "Float",
-                   spec: Optional[Union[List[Dict], Dict]] = None,
-                   size: int = 1,
-                   random_state: "RandomState" = None):
+        def sample(
+            self,
+            domain: "Float",
+            spec: Optional[Union[List[Dict], Dict]] = None,
+            size: int = 1,
+            random_state: "RandomState" = None,
+        ):
             if not isinstance(random_state, _BackwardsCompatibleNumpyRng):
                 random_state = _BackwardsCompatibleNumpyRng(random_state)
-            assert not domain.lower or domain.lower == float("-inf"), \
-                "Normal sampling does not allow a lower value bound."
-            assert not domain.upper or domain.upper == float("inf"), \
-                "Normal sampling does not allow a upper value bound."
+            assert not domain.lower or domain.lower == float(
+                "-inf"
+            ), "Normal sampling does not allow a lower value bound."
+            assert not domain.upper or domain.upper == float(
+                "inf"
+            ), "Normal sampling does not allow a upper value bound."
             items = random_state.normal(self.mean, self.sd, size=size)
             return items if len(items) > 1 else domain.cast(items[0])
 
@@ -250,11 +266,13 @@ class Float(Domain):
         if not self.lower > float("-inf"):
             raise ValueError(
                 "Uniform requires a lower bound. Make sure to set the "
-                "`lower` parameter of `Float()`.")
+                "`lower` parameter of `Float()`."
+            )
         if not self.upper < float("inf"):
             raise ValueError(
                 "Uniform requires a upper bound. Make sure to set the "
-                "`upper` parameter of `Float()`.")
+                "`upper` parameter of `Float()`."
+            )
         new = copy(self)
         new.set_sampler(self._Uniform())
         return new
@@ -265,33 +283,39 @@ class Float(Domain):
                 "LogUniform requires a lower bound greater than 0."
                 f"Got: {self.lower}. Did you pass a variable that has "
                 "been log-transformed? If so, pass the non-transformed value "
-                "instead.")
+                "instead."
+            )
         if not 0 < self.upper < float("inf"):
             raise ValueError(
                 "LogUniform requires a upper bound greater than 0. "
                 f"Got: {self.lower}. Did you pass a variable that has "
                 "been log-transformed? If so, pass the non-transformed value "
-                "instead.")
+                "instead."
+            )
         new = copy(self)
         new.set_sampler(self._LogUniform(base))
         return new
 
-    def normal(self, mean=0., sd=1.):
+    def normal(self, mean=0.0, sd=1.0):
         new = copy(self)
         new.set_sampler(self._Normal(mean, sd))
         return new
 
     def quantized(self, q: float):
-        if self.lower > float("-inf") and not isclose(self.lower / q,
-                                                      round(self.lower / q)):
+        if self.lower > float("-inf") and not isclose(
+            self.lower / q, round(self.lower / q)
+        ):
             raise ValueError(
                 f"Your lower variable bound {self.lower} is not divisible by "
-                f"quantization factor {q}.")
-        if self.upper < float("inf") and not isclose(self.upper / q,
-                                                     round(self.upper / q)):
+                f"quantization factor {q}."
+            )
+        if self.upper < float("inf") and not isclose(
+            self.upper / q, round(self.upper / q)
+        ):
             raise ValueError(
                 f"Your upper variable bound {self.upper} is not divisible by "
-                f"quantization factor {q}.")
+                f"quantization factor {q}."
+            )
 
         new = copy(self)
         new.set_sampler(Quantized(new.get_sampler(), q), allow_override=True)
@@ -307,34 +331,36 @@ class Float(Domain):
 
 class Integer(Domain):
     class _Uniform(Uniform):
-        def sample(self,
-                   domain: "Integer",
-                   spec: Optional[Union[List[Dict], Dict]] = None,
-                   size: int = 1,
-                   random_state: "RandomState" = None):
+        def sample(
+            self,
+            domain: "Integer",
+            spec: Optional[Union[List[Dict], Dict]] = None,
+            size: int = 1,
+            random_state: "RandomState" = None,
+        ):
             if not isinstance(random_state, _BackwardsCompatibleNumpyRng):
                 random_state = _BackwardsCompatibleNumpyRng(random_state)
-            items = random_state.integers(
-                domain.lower, domain.upper, size=size)
+            items = random_state.integers(domain.lower, domain.upper, size=size)
             return items if len(items) > 1 else domain.cast(items[0])
 
     class _LogUniform(LogUniform):
-        def sample(self,
-                   domain: "Integer",
-                   spec: Optional[Union[List[Dict], Dict]] = None,
-                   size: int = 1,
-                   random_state: "RandomState" = None):
+        def sample(
+            self,
+            domain: "Integer",
+            spec: Optional[Union[List[Dict], Dict]] = None,
+            size: int = 1,
+            random_state: "RandomState" = None,
+        ):
             if not isinstance(random_state, _BackwardsCompatibleNumpyRng):
                 random_state = _BackwardsCompatibleNumpyRng(random_state)
-            assert domain.lower > 0, \
-                "LogUniform needs a lower bound greater than 0"
-            assert 0 < domain.upper < float("inf"), \
-                "LogUniform needs a upper bound greater than 0"
+            assert domain.lower > 0, "LogUniform needs a lower bound greater than 0"
+            assert (
+                0 < domain.upper < float("inf")
+            ), "LogUniform needs a upper bound greater than 0"
             logmin = np.log(domain.lower) / np.log(self.base)
             logmax = np.log(domain.upper) / np.log(self.base)
 
-            items = self.base**(random_state.uniform(
-                logmin, logmax, size=size))
+            items = self.base ** (random_state.uniform(logmin, logmax, size=size))
             items = np.floor(items).astype(int)
             return items if len(items) > 1 else domain.cast(items[0])
 
@@ -363,13 +389,15 @@ class Integer(Domain):
                 "LogUniform requires a lower bound greater than 0."
                 f"Got: {self.lower}. Did you pass a variable that has "
                 "been log-transformed? If so, pass the non-transformed value "
-                "instead.")
+                "instead."
+            )
         if not 0 < self.upper < float("inf"):
             raise ValueError(
                 "LogUniform requires a upper bound greater than 0. "
                 f"Got: {self.lower}. Did you pass a variable that has "
                 "been log-transformed? If so, pass the non-transformed value "
-                "instead.")
+                "instead."
+            )
         new = copy(self)
         new.set_sampler(self._LogUniform(base))
         return new
@@ -384,11 +412,13 @@ class Integer(Domain):
 
 class Categorical(Domain):
     class _Uniform(Uniform):
-        def sample(self,
-                   domain: "Categorical",
-                   spec: Optional[Union[List[Dict], Dict]] = None,
-                   size: int = 1,
-                   random_state: "RandomState" = None):
+        def sample(
+            self,
+            domain: "Categorical",
+            spec: Optional[Union[List[Dict], Dict]] = None,
+            size: int = 1,
+            random_state: "RandomState" = None,
+        ):
             if not isinstance(random_state, _BackwardsCompatibleNumpyRng):
                 random_state = _BackwardsCompatibleNumpyRng(random_state)
             items = random_state.choice(domain.categories, size=size).tolist()
@@ -433,15 +463,16 @@ class Quantized(Sampler):
     def get_sampler(self):
         return self.sampler
 
-    def sample(self,
-               domain: Domain,
-               spec: Optional[Union[List[Dict], Dict]] = None,
-               size: int = 1,
-               random_state: "RandomState" = None):
+    def sample(
+        self,
+        domain: Domain,
+        spec: Optional[Union[List[Dict], Dict]] = None,
+        size: int = 1,
+        random_state: "RandomState" = None,
+    ):
         if not isinstance(random_state, _BackwardsCompatibleNumpyRng):
             random_state = _BackwardsCompatibleNumpyRng(random_state)
-        values = self.sampler.sample(
-            domain, spec, size, random_state=random_state)
+        values = self.sampler.sample(domain, spec, size, random_state=random_state)
         quantized = np.round(np.divide(values, self.q)) * self.q
         if not isinstance(quantized, np.ndarray):
             return domain.cast(quantized)
@@ -581,7 +612,7 @@ def qlograndint(lower: int, upper: int, q: int, base: float = 10):
     return Integer(lower, upper).loguniform(base).quantized(q)
 
 
-def randn(mean: float = 0., sd: float = 1.):
+def randn(mean: float = 0.0, sd: float = 1.0):
     """Sample a float value normally with ``mean`` and ``sd``.
     Args:
         mean (float): Mean of the normal distribution. Defaults to 0.

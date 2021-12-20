@@ -540,7 +540,7 @@ class AutoML(BaseEstimator):
         new_automl.fit(X_train, y_train, starting_points=starting_points)
         ```
 
-            seed: int or None, default=None | The random seed for np.random.
+            seed: int or None, default=None | The random seed for hpo.
             n_concurrent_trials: [Experimental] int, default=1 | The number of
                 concurrent trials. For n_concurrent_trials > 1, installation of
                 ray is required: `pip install flaml[ray]`.
@@ -1834,7 +1834,7 @@ class AutoML(BaseEstimator):
         new_automl.fit(X_train, y_train, starting_points=starting_points)
         ```
 
-            seed: int or None, default=None | The random seed for np.random.
+            seed: int or None, default=None | The random seed for hpo.
             n_concurrent_trials: [Experimental] int, default=1 | The number of
                 concurrent trials. For n_concurrent_trials > 1, installation of
                 ray is required: `pip install flaml[ray]`.

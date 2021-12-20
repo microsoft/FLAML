@@ -436,8 +436,7 @@ analysis = tune.run(
 
 ### Reproducibility
 
-By default, there is randomness in our tuning process (for versions <= 0.9.0). If reproducibility is desired, you could
-manually set a random seed before calling `tune.run()`. For example, in the following code, we call `np.random.seed(100)` to set the random seed.
+By default, there is randomness in our tuning process (for versions <= 0.9.0). If reproducibility is desired, you could manually set a random seed before calling `tune.run()`. For example, in the following code, we call `np.random.seed(100)` to set the random seed.
 With this random seed, running the following code multiple times will generate exactly the same search trajectory. The reproducibility can only be guaranteed in sequential tuning.
 
 ```python

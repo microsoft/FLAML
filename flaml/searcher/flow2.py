@@ -4,6 +4,7 @@
 #  * project root for license information.
 from typing import Dict, Optional, Tuple
 import numpy as np
+import logging
 
 try:
     from ray import __version__ as ray_version
@@ -17,10 +18,12 @@ except (ImportError, AssertionError):
     from ..tune import sample
     from ..tune.trial import flatten_dict, unflatten_dict
 from flaml.tune.sample import _BackwardsCompatibleNumpyRng
-from ..tune.space import complete_config, denormalize, normalize, generate_variants_compatible
-
-
-import logging
+from ..tune.space import (
+    complete_config,
+    denormalize,
+    normalize,
+    generate_variants_compatible,
+)
 
 logger = logging.getLogger(__name__)
 

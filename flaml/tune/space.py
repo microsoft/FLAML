@@ -15,9 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def generate_variants_compatible(
-    unresolved_spec: Dict,
-    constant_grid_search: bool = False,
-    random_state = None
+    unresolved_spec: Dict, constant_grid_search: bool = False, random_state=None
 ) -> Generator[Tuple[Dict, Dict], None, None]:
     try:
         return generate_variants(unresolved_spec, constant_grid_search, random_state)
@@ -428,7 +426,6 @@ def indexof(domain: Dict, config: Dict) -> int:
         return index
     if config in domain.categories:
         return domain.categories.index(config)
-    # print(config)
     for i, cat in enumerate(domain.categories):
         if not isinstance(cat, dict):
             continue
@@ -502,7 +499,9 @@ def complete_config(
     for key, value in space.items():
         if key not in config:
             config[key] = value
-    for _, generated in generate_variants_compatible({"config": config}, random_state=flow2.rs_random):
+    for _, generated in generate_variants_compatible(
+        {"config": config}, random_state=flow2.rs_random
+    ):
         config = generated["config"]
         break
     subspace = {}
