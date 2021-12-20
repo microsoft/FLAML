@@ -157,7 +157,7 @@ tells AzureML to start ray on each node of the cluster.
 Prepare a script like [ray/distribute_tune.py](https://github.com/microsoft/FLAML/blob/main/test/ray/distribute_automl.py). Replace the command in the above eample with:
 
 ```python
-command = ["python distribute_automl.py"]
+command = ["python distribute_tune.py"]
 ```
 
 Everything else is the same.
