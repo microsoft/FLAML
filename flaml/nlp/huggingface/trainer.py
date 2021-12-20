@@ -70,8 +70,7 @@ class TrainerForAuto(Seq2SeqTrainer):
                 num_beams=self.args.generation_num_beams,
             )
         else:
-            metrics = eval_dataset and TFTrainer.evaluate(
-                self,
+            metrics = eval_dataset and super(Seq2SeqTrainer, self).evaluate(
                 eval_dataset,
                 ignore_keys,
                 metric_key_prefix,
