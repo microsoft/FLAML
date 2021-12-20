@@ -51,18 +51,6 @@ automl.predict(X_test)
 [flaml.automl: 12-06 08:22:56] {2112} WARNING - Time taken to find the best model is 77% of the provided time budget and not all estimators' hyperparameter search converged. Consider increasing the time budget.
 ```
 
-
-### Sample output
-
-```
-[flaml.automl: 12-20 11:47:28] {1965} INFO - task = seq-regression
-[flaml.automl: 12-20 11:47:28] {1967} INFO - Data split method: uniform
-[flaml.automl: 12-20 11:47:28] {1971} INFO - Evaluation method: holdout
-[flaml.automl: 12-20 11:47:28] {2063} INFO - Minimizing error metric: rmse
-[flaml.automl: 12-20 11:47:28] {2115} INFO - List of ML learners in AutoML Run: ['transformer']
-[flaml.automl: 12-20 11:47:28] {2355} INFO - iteration 0, current learner transformer
-```
-
 ### A simple sequence regression example
 
 ```python
@@ -100,6 +88,17 @@ automl.fit(
 )
 ```
 
+### Sample output
+
+```
+[flaml.automl: 12-20 11:47:28] {1965} INFO - task = seq-regression
+[flaml.automl: 12-20 11:47:28] {1967} INFO - Data split method: uniform
+[flaml.automl: 12-20 11:47:28] {1971} INFO - Evaluation method: holdout
+[flaml.automl: 12-20 11:47:28] {2063} INFO - Minimizing error metric: rmse
+[flaml.automl: 12-20 11:47:28] {2115} INFO - List of ML learners in AutoML Run: ['transformer']
+[flaml.automl: 12-20 11:47:28] {2355} INFO - iteration 0, current learner transformer
+```
+
 ### A simple summarization example
 
 ```python
@@ -126,7 +125,7 @@ automl_settings = {
     "gpu_per_trial": 1,
     "time_budget": 20,
     "task": "summarization",
-    "metric": "rouge",
+    "metric": "rouge1",
 }
 automl_settings["custom_hpo_args"] = {
     "model_path": "t5-small",
