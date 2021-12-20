@@ -1,3 +1,7 @@
+import sys
+import pytest
+
+@pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
 def test_tokenclassification():
     from flaml import AutoML
     import requests

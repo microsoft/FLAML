@@ -32,7 +32,7 @@ NLU_TASKS = (
 
 
 def _is_nlp_task(task):
-    if task in NLU_TASKS + NLG_TASKS:
+    if task in NLU_TASKS or task in NLG_TASKS:
         return True
     else:
         return False
@@ -349,7 +349,15 @@ class DataTransformer:
             )
             self._drop = drop
 
+<<<<<<< HEAD
         if (task in CLASSIFICATION or not pd.api.types.is_numeric_dtype(y)) and task != TOKENCLASSIFICATION:
+=======
+        if (
+            task in CLASSIFICATION
+            or not pd.api.types.is_numeric_dtype(y)
+            and task not in NLG_TASKS
+        ):
+>>>>>>> origin/main
             from sklearn.preprocessing import LabelEncoder
 
             self.label_transformer = LabelEncoder()

@@ -45,6 +45,8 @@ from .data import (
     FORECAST,
     REGRESSION,
     _is_nlp_task,
+    SUMMARIZATION,
+    NLG_TASKS,
 )
 from . import tune
 from .training_log import training_log_reader, training_log_writer
@@ -460,7 +462,7 @@ class AutoML(BaseEstimator):
         ```
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast', 'rank',
-                'seq-classification', 'seq-regression'.
+                'seq-classification', 'seq-regression', 'summarization'.
             n_jobs: An integer of the number of threads for training.
             gpu_per_trial: A float of the number of gpus per trial, only used by TransformersEstimator.
             log_file_name: A string of the log file name. To disable logging,
@@ -741,7 +743,11 @@ class AutoML(BaseEstimator):
             return None
         X_test = self._preprocess(X_test)
         y_pred = estimator.predict(X_test)
-        if y_pred.ndim > 1 and isinstance(y_pred, np.ndarray):
+        if (
+            isinstance(y_pred, np.ndarray)
+            and y_pred.ndim > 1
+            and isinstance(y_pred, np.ndarray)
+        ):
             y_pred = y_pred.flatten()
         if self._label_transformer:
             return self._label_transformer.inverse_transform(
@@ -927,6 +933,8 @@ class AutoML(BaseEstimator):
                 self._state.X_val = self._transformer.transform(X_val)
             else:
                 self._state.X_val = X_val
+            # If it's NLG_TASKS, y_val is a pandas series containing the output sequence tokens,
+            # so we cannot use label_transformer.transform to process it
             if self._label_transformer:
                 self._state.y_val = self._label_transformer.transform(y_val)
             else:
@@ -1280,7 +1288,7 @@ class AutoML(BaseEstimator):
             time_budget: A float number of the time budget in seconds.
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast', 'rank',
-                'seq-classification', 'seq-regression'.
+                'seq-classification', 'seq-regression', 'summarization'.
             eval_method: A string of resampling strategy, one of
                 ['auto', 'cv', 'holdout'].
             split_ratio: A float of the validation data percentage for holdout.
@@ -1438,6 +1446,9 @@ class AutoML(BaseEstimator):
             ), "groups must be specified for ranking task."
             assert split_type in ["auto", "group"]
             self._split_type = "group"
+        elif self._state.task in NLG_TASKS:
+            assert split_type in ["auto", "uniform", "time", "group"]
+            self._split_type = split_type if split_type != "auto" else "uniform"
 
     def _decide_eval_method(self, time_budget):
         if self._state.X_val is not None:
@@ -1749,7 +1760,7 @@ class AutoML(BaseEstimator):
 
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast', 'rank',
-                'seq-classification', 'seq-regression'.
+                'seq-classification', 'seq-regression', 'summarization'
             n_jobs: An integer of the number of threads for training.
             gpu_per_trial: A float of the number of gpus per trial, only used by TransformersEstimator.
             log_file_name: A string of the log file name. To disable logging,

@@ -2,6 +2,7 @@ import argparse
 from dataclasses import dataclass, field
 from typing import Dict, Any
 
+<<<<<<< HEAD
 from ..data import (
     SUMMARIZATION,
     SEQREGRESSION,
@@ -14,14 +15,24 @@ from ..data import (
 def load_default_huggingface_metric_for_task(task):
     from ..data import SEQCLASSIFICATION, SEQREGRESSION, TOKENCLASSIFICATION
 
+=======
+from ..data import SUMMARIZATION, SEQREGRESSION, SEQCLASSIFICATION, NLG_TASKS
+
+
+def load_default_huggingface_metric_for_task(task):
+>>>>>>> origin/main
     if task == SEQCLASSIFICATION:
-        return "accuracy"
+        return "accuracy", "max"
     elif task == SEQREGRESSION:
-        return "rmse"
+        return "rmse", "max"
     elif task == SUMMARIZATION:
+<<<<<<< HEAD
         return "rouge"
     elif task == TOKENCLASSIFICATION:
         return "seqeval"
+=======
+        return "rouge", "max"
+>>>>>>> origin/main
     # TODO: elif task == your task, return the default metric name for your task,
     #  e.g., if task == MULTIPLECHOICE, return "accuracy"
     #  notice this metric name has to be in ['accuracy', 'bertscore', 'bleu', 'bleurt',
@@ -36,6 +47,7 @@ global tokenized_column_names
 
 
 def tokenize_text(X, Y=None, task=None, custom_hpo_args=None):
+<<<<<<< HEAD
     from ..data import SEQCLASSIFICATION, SEQREGRESSION, TOKENCLASSIFICATION
 
     if task in (SEQCLASSIFICATION, SEQREGRESSION):
@@ -45,6 +57,40 @@ def tokenize_text(X, Y=None, task=None, custom_hpo_args=None):
     #  create a function named tokenize_text_multiplechoice(X, custom_hpo_args)
     #  and what it does is the same as preprocess_function at
     #  https://github.com/huggingface/transformers/blob/master/examples/pytorch/multiple-choice/run_swag.py#L329
+=======
+    if task in (SEQCLASSIFICATION, SEQREGRESSION):
+        X_tokenized, _ = tokenize_onedataframe(
+            X, this_tokenizer=None, task=task, custom_hpo_args=custom_hpo_args
+        )
+        return X_tokenized, None
+    elif task in NLG_TASKS:
+        return tokenize_seq2seq(X, Y, task=task, custom_hpo_args=custom_hpo_args)
+
+
+def tokenize_seq2seq(X, Y, task=None, custom_hpo_args=None):
+    model_inputs, tokenizer = tokenize_onedataframe(
+        X,
+        this_tokenizer=None,
+        task=task,
+        custom_hpo_args=custom_hpo_args,
+    )
+    labels = None
+    if Y is not None:
+        labels, _ = tokenize_onedataframe(
+            Y.to_frame(),
+            this_tokenizer=tokenizer,
+            task=task,
+            custom_hpo_args=custom_hpo_args,
+        )
+        labels["label"] = [
+            [(each_l if each_l != tokenizer.pad_token_id else -100) for each_l in label]
+            for label in labels["input_ids"]
+        ]
+        labels = labels.drop(
+            columns=["attention_mask", "input_ids", "decoder_input_ids"]
+        )
+    return model_inputs, labels
+>>>>>>> origin/main
 
     elif task == TOKENCLASSIFICATION:
         return tokenize_text_tokclassification(X, Y, custom_hpo_args)
@@ -128,30 +174,78 @@ def tokenize_text_tokclassification(X, Y, custom_hpo_args):
     return X_tokenized, y_tokenized
 
 
-def tokenize_text_seqclassification(X, custom_hpo_args):
+def tokenize_onedataframe(
+    X,
+    this_tokenizer=None,
+    task=None,
+    custom_hpo_args=None,
+):
     from transformers import AutoTokenizer
     import pandas
 
     global tokenized_column_names
 
-    this_tokenizer = AutoTokenizer.from_pretrained(
-        custom_hpo_args.model_path, use_fast=True
-    )
-    d = X.apply(
-        lambda x: tokenize_glue(x, this_tokenizer, custom_hpo_args),
-        axis=1,
-        result_type="expand",
-    )
+    if this_tokenizer:
+        with this_tokenizer.as_target_tokenizer():
+            d = X.apply(
+                lambda x: tokenize_row(
+                    x,
+                    this_tokenizer,
+                    prefix=("",) if task is SUMMARIZATION else None,
+                    task=task,
+                    custom_hpo_args=custom_hpo_args,
+                ),
+                axis=1,
+                result_type="expand",
+            )
+    else:
+        this_tokenizer = AutoTokenizer.from_pretrained(
+            custom_hpo_args.model_path, use_fast=True
+        )
+        d = X.apply(
+            lambda x: tokenize_row(
+                x,
+                this_tokenizer,
+                prefix=("summarize: ",) if task is SUMMARIZATION else None,
+                task=task,
+                custom_hpo_args=custom_hpo_args,
+            ),
+            axis=1,
+            result_type="expand",
+        )
     X_tokenized = pandas.DataFrame(columns=tokenized_column_names)
     X_tokenized[tokenized_column_names] = d
+<<<<<<< HEAD
     return X_tokenized, None
+=======
+    return X_tokenized, this_tokenizer
+
+>>>>>>> origin/main
+
+def postprocess_text(preds, labels):
+    import nltk
+
+    nltk.download("punkt")
+    preds = [pred.strip() for pred in preds]
+    labels = [label.strip() for label in labels]
+
+    # rougeLSum expects newline after each sentence
+    preds = ["\n".join(nltk.sent_tokenize(pred)) for pred in preds]
+    labels = ["\n".join(nltk.sent_tokenize(label)) for label in labels]
+
+    return preds, labels
 
 
-def tokenize_glue(this_row, this_tokenizer, custom_hpo_args):
+def tokenize_row(
+    this_row, this_tokenizer, prefix=None, task=None, custom_hpo_args=None
+):
     global tokenized_column_names
     assert (
         "max_seq_length" in custom_hpo_args.__dict__
     ), "max_seq_length must be provided for glue"
+
+    if prefix:
+        this_row = tuple(["".join(x) for x in zip(prefix, this_row)])
 
     tokenized_example = this_tokenizer(
         *tuple(this_row),
@@ -159,18 +253,28 @@ def tokenize_glue(this_row, this_tokenizer, custom_hpo_args):
         max_length=custom_hpo_args.max_seq_length,
         truncation=True,
     )
+    if task in NLG_TASKS:
+        tokenized_example["decoder_input_ids"] = tokenized_example["input_ids"]
     tokenized_column_names = sorted(tokenized_example.keys())
     return [tokenized_example[x] for x in tokenized_column_names]
 
 
-def separate_config(config):
-    from transformers import TrainingArguments
+def separate_config(config, task):
+    if task in NLG_TASKS:
+        from transformers import Seq2SeqTrainingArguments, TrainingArguments
+
+        trainargs_class_list = [Seq2SeqTrainingArguments, TrainingArguments]
+    else:
+        from transformers import TrainingArguments
+
+        trainargs_class_list = [TrainingArguments]
 
     training_args_config = {}
     per_model_config = {}
 
     for key, val in config.items():
-        if key in TrainingArguments.__dict__:
+        is_in_training_args = any(key in x.__dict__ for x in trainargs_class_list)
+        if is_in_training_args:
             training_args_config[key] = val
         else:
             per_model_config[key] = val
@@ -262,13 +366,20 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
     this_model_type = AutoConfig.from_pretrained(checkpoint_path).model_type
     this_vocab_size = AutoConfig.from_pretrained(checkpoint_path).vocab_size
 
+<<<<<<< HEAD
     def get_this_model():
         from transformers import AutoModelForSequenceClassification, AutoModelForTokenClassification
+=======
+    def get_this_model(task):
+        from transformers import AutoModelForSequenceClassification
+        from transformers import AutoModelForSeq2SeqLM
+>>>>>>> origin/main
 
         if task in (SEQCLASSIFICATION, SEQREGRESSION):
             return AutoModelForSequenceClassification.from_pretrained(
                 checkpoint_path, config=model_config
             )
+<<<<<<< HEAD
         elif task == TOKENCLASSIFICATION:
             return AutoModelForTokenClassification.from_pretrained(
                 checkpoint_path, config=model_config
@@ -277,13 +388,24 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
         #  that loads the model, e.g., if task == MULTIPLE CHOICE, according to
         #  https://github.com/huggingface/transformers/blob/master/examples/pytorch/multiple-choice/run_swag.py#L298
         #  you can return AutoModelForMultipleChoice.from_pretrained(checkpoint_path, config=model_config)
+=======
+        elif task in NLG_TASKS:
+            return AutoModelForSeq2SeqLM.from_pretrained(
+                checkpoint_path, config=model_config
+            )
+>>>>>>> origin/main
 
     def is_pretrained_model_in_classification_head_list(model_type):
         return model_type in MODEL_CLASSIFICATION_HEAD_MAPPING
 
     def _set_model_config(checkpoint_path):
+<<<<<<< HEAD
         if task in (SEQCLASSIFICATION, SEQREGRESSION, TOKENCLASSIFICATION):
             if per_model_config and len(per_model_config) > 0:
+=======
+        if task in (SEQCLASSIFICATION, SEQREGRESSION):
+            if per_model_config:
+>>>>>>> origin/main
                 model_config = AutoConfig.from_pretrained(
                     checkpoint_path,
                     num_labels=model_config_num_labels,
@@ -295,15 +417,23 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
                 )
             return model_config
         else:
+<<<<<<< HEAD
             if per_model_config and len(per_model_config) > 0:
+=======
+            if per_model_config:
+>>>>>>> origin/main
                 model_config = AutoConfig.from_pretrained(
                     checkpoint_path,
                     **per_model_config,
                 )
             else:
+<<<<<<< HEAD
                 model_config = AutoConfig.from_pretrained(
                     checkpoint_path
                 )
+=======
+                model_config = AutoConfig.from_pretrained(checkpoint_path)
+>>>>>>> origin/main
             return model_config
 
     if task == SEQCLASSIFICATION:
@@ -316,7 +446,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
 
         if is_pretrained_model_in_classification_head_list(this_model_type):
             if num_labels != num_labels_old:
-                this_model = get_this_model()
+                this_model = get_this_model(task)
                 model_config.num_labels = num_labels
                 this_model.num_labels = num_labels
                 this_model.classifier = (
@@ -325,9 +455,9 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
                     )
                 )
             else:
-                this_model = get_this_model()
+                this_model = get_this_model(task)
         else:
-            this_model = get_this_model()
+            this_model = get_this_model(task)
         this_model.resize_token_embeddings(this_vocab_size)
         return this_model
     else:
@@ -336,7 +466,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
         elif task == TOKENCLASSIFICATION:
             model_config_num_labels = num_labels
         model_config = _set_model_config(checkpoint_path)
-        this_model = get_this_model()
+        this_model = get_this_model(task)
         return this_model
 
 
