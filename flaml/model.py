@@ -231,7 +231,8 @@ class BaseEstimator:
         """
         assert (
             self._task in CLASSIFICATION or self._task in NLG_TASKS
-        ), "predict_prob() only for classification task."
+        ), "predict_prob() only for classification or natural language generation task."
+
         X_test = self._preprocess(X_test)
         return self._model.predict_proba(X_test)
 
