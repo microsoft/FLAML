@@ -42,7 +42,7 @@ class TrainerForAuto(Seq2SeqTrainer):
 
         # TODO: if your task is seq2seq (i.e., SUMMARIZATION), uncomment the code below (add indentation before metrics = eval_dataset...
 
-        if hasattr(self, "_is_seq2seq") and self._is_seq2seq:
+        if getattr(self, "_is_seq2seq", None):
             metrics = eval_dataset and Seq2SeqTrainer.evaluate(
                 self,
                 eval_dataset,
