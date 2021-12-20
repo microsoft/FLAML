@@ -16,9 +16,14 @@ class TrainerForAuto(Seq2SeqTrainer):
         max_length=None,
         num_beams=None,
     ):
-        if hasattr(self, "_is_seq2seq") and self._is_seq2seq:
-            return super(Seq2SeqTrainer).predict(
-                test_dataset, ignore_keys, metric_key_prefix, max_length, num_beams
+        if getattr(self, "_is_seq2seq", None):
+            return Seq2SeqTrainer.predict(
+                self,
+                test_dataset,
+                ignore_keys,
+                metric_key_prefix,
+                max_length,
+                num_beams,
             )
         else:
             return super(TFTrainer).predict(
@@ -57,7 +62,7 @@ class TrainerForAuto(Seq2SeqTrainer):
 
         # TODO: if your task is seq2seq (i.e., SUMMARIZATION), uncomment the code below (add indentation before metrics = eval_dataset...
 
-        if hasattr(self, "_is_seq2seq") and self._is_seq2seq:
+        if getattr(self, "_is_seq2seq", None):
             metrics = eval_dataset and super(Seq2SeqTrainer).evaluate(
                 eval_dataset,
                 ignore_keys,

@@ -155,9 +155,7 @@ def separate_config(config, task):
     per_model_config = {}
 
     for key, val in config.items():
-        is_in_training_args = any(
-            [x for x in trainargs_class_list if key in x.__dict__]
-        )
+        is_in_training_args = any(key in x.__dict__ for x in trainargs_class_list)
         if is_in_training_args:
             training_args_config[key] = val
         else:
