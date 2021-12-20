@@ -45,7 +45,7 @@ from .data import (
     REGRESSION,
     _is_nlp_task,
     SUMMARIZATION,
-    NLG_TASKS
+    NLG_TASKS,
 )
 from . import tune
 from .training_log import training_log_reader, training_log_writer
@@ -742,8 +742,8 @@ class AutoML(BaseEstimator):
             return None
         X_test = self._preprocess(X_test)
         y_pred = estimator.predict(X_test)
-        # if y_pred.ndim > 1 and isinstance(y_pred, np.ndarray):
-        #     y_pred = y_pred.flatten()
+        if y_pred.ndim > 1 and isinstance(y_pred, np.ndarray):
+            y_pred = y_pred.flatten()
         if self._label_transformer:
             return self._label_transformer.inverse_transform(
                 pd.Series(y_pred.astype(int))
@@ -922,6 +922,8 @@ class AutoML(BaseEstimator):
                 self._state.X_val = self._transformer.transform(X_val)
             else:
                 self._state.X_val = X_val
+            # If it's NLG_TASKS, y_val is a pandas series containing the output sequence tokens,
+            # so we cannot use label_transformer.transform to process it
             if self._label_transformer and self._state.task not in NLG_TASKS:
                 self._state.y_val = self._label_transformer.transform(y_val)
             else:
@@ -1436,7 +1438,6 @@ class AutoML(BaseEstimator):
         elif self._state.task == SUMMARIZATION:
             assert split_type in ["auto", "uniform", "time", "group"]
             self._split_type = split_type if split_type != "auto" else "uniform"
-
 
     def _decide_eval_method(self, time_budget):
         if self._state.X_val is not None:

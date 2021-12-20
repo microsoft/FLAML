@@ -51,7 +51,7 @@ def tokenize_seq2seq(X, Y, task=None, custom_hpo_args=None):
             custom_hpo_args=custom_hpo_args,
         )
         labels["label"] = [
-            [(l if l != tokenizer.pad_token_id else -100) for l in label]
+            [(each_l if each_l != tokenizer.pad_token_id else -100) for each_l in label]
             for label in labels["input_ids"]
         ]
         labels = labels.drop(
@@ -267,7 +267,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
 
     def _set_model_config(checkpoint_path):
         if task in (SEQCLASSIFICATION, SEQREGRESSION):
-            if per_model_config and len(per_model_config) > 0:
+            if per_model_config:
                 model_config = AutoConfig.from_pretrained(
                     checkpoint_path,
                     num_labels=model_config_num_labels,
@@ -279,7 +279,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
                 )
             return model_config
         else:
-            if per_model_config and len(per_model_config) > 0:
+            if per_model_config:
                 model_config = AutoConfig.from_pretrained(
                     checkpoint_path,
                     **per_model_config,

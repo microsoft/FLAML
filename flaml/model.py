@@ -26,7 +26,7 @@ from .data import (
     SEQCLASSIFICATION,
     SEQREGRESSION,
     SUMMARIZATION,
-    NLG_TASKS
+    NLG_TASKS,
 )
 
 import pandas as pd
@@ -230,7 +230,7 @@ class BaseEstimator:
                 class j.
         """
         assert (
-            self._task in CLASSIFICATION or self._task in NLG_TASKS
+            self._task in CLASSIFICATION
         ), "predict_prob() only for classification or natural language generation task."
 
         X_test = self._preprocess(X_test)
@@ -303,6 +303,11 @@ class TransformersEstimator(BaseEstimator):
         import uuid
 
         self.trial_id = str(uuid.uuid1().hex)[:8]
+        if task in NLG_TASKS:
+            from transformers import Seq2SeqTrainingArguments as TrainingArguments
+        else:
+            from transformers import TrainingArguments
+        self._TrainingArguments = TrainingArguments
 
     def _join(self, X_train, y_train):
         y_train = DataFrame(y_train, columns=["label"], index=X_train.index)
@@ -340,9 +345,14 @@ class TransformersEstimator(BaseEstimator):
         }
 
         if task in NLG_TASKS:
-            search_space_dict["generation_num_beams"] = {"domain": tune.randint(2, 5), "init_value": 3}
-            search_space_dict["generation_max_length"] = {"domain": tune.choice([16, 32, 64, 128]), "init_value": 64}
-
+            search_space_dict["generation_num_beams"] = {
+                "domain": tune.randint(2, 5),
+                "init_value": 3,
+            }
+            search_space_dict["generation_max_length"] = {
+                "domain": tune.choice([16, 32, 64, 128]),
+                "init_value": 64,
+            }
 
         return search_space_dict
 
@@ -363,7 +373,9 @@ class TransformersEstimator(BaseEstimator):
         from .nlp.utils import tokenize_text
 
         if X.dtypes[0] == "string":
-            return tokenize_text(X=X, Y=y, task=task, custom_hpo_args=self.custom_hpo_args)
+            return tokenize_text(
+                X=X, Y=y, task=task, custom_hpo_args=self.custom_hpo_args
+            )
         else:
             return X, None
 
@@ -372,13 +384,8 @@ class TransformersEstimator(BaseEstimator):
         from transformers.trainer_utils import set_seed
         from transformers import AutoTokenizer
 
-
         #   TODO: if self._task == SUMMARIZATION, uncomment the code below (add indentation before
         #         from transformers import TrainingArguments)
-        if self._task in NLG_TASKS:
-            from transformers import Seq2SeqTrainingArguments as TrainingArguments
-        else:
-            from transformers import TrainingArguments
 
         import transformers
         from datasets import Dataset
@@ -432,7 +439,7 @@ class TransformersEstimator(BaseEstimator):
                     control.should_save = True
                     control.should_evaluate = True
 
-        set_seed(self.params.get("seed", TrainingArguments.seed))
+        set_seed(self.params.get("seed", self._TrainingArguments.seed))
 
         self._init_hpo_args(kwargs)
         self._metric_name = kwargs["metric"]
@@ -443,14 +450,11 @@ class TransformersEstimator(BaseEstimator):
         y_val = kwargs.get("y_val")
 
         if self._task not in NLG_TASKS:
-            X_train, _ = self._preprocess(X=X_train,
-                                       task=self._task,
-                                       **kwargs)
+            X_train, _ = self._preprocess(X=X_train, task=self._task, **kwargs)
         else:
-            X_train, y_train = self._preprocess(X=X_train,
-                                                y=y_train,
-                                                task=self._task,
-                                                **kwargs)
+            X_train, y_train = self._preprocess(
+                X=X_train, y=y_train, task=self._task, **kwargs
+            )
 
         train_dataset = Dataset.from_pandas(self._join(X_train, y_train))
 
@@ -462,14 +466,11 @@ class TransformersEstimator(BaseEstimator):
 
         if X_val is not None:
             if self._task not in NLG_TASKS:
-                X_val, _ = self._preprocess(X=X_val,
-                                     task=self._task,
-                                     **kwargs)
+                X_val, _ = self._preprocess(X=X_val, task=self._task, **kwargs)
             else:
-                X_val, y_val = self._preprocess(X=X_val,
-                                            y=y_val,
-                                            task=self._task,
-                                            **kwargs)
+                X_val, y_val = self._preprocess(
+                    X=X_val, y=y_val, task=self._task, **kwargs
+                )
             eval_dataset = Dataset.from_pandas(self._join(X_val, y_val))
         else:
             eval_dataset = None
@@ -481,22 +482,18 @@ class TransformersEstimator(BaseEstimator):
 
         num_labels = get_num_labels(self._task, y_train)
 
-        training_args_config, per_model_config = separate_config(self.params, self._task)
-        # this_model = load_model(
-        #     checkpoint_path=self.custom_hpo_args.model_path,
-        #     task=self._task,
-        #     num_labels=num_labels,
-        #     per_model_config=per_model_config,
-        # )
+        training_args_config, per_model_config = separate_config(
+            self.params, self._task
+        )
         ckpt_freq = compute_checkpoint_freq(
             train_data_size=len(X_train),
             custom_hpo_args=self.custom_hpo_args,
             num_train_epochs=training_args_config.get(
-                "num_train_epochs", TrainingArguments.num_train_epochs
+                "num_train_epochs", self._TrainingArguments.num_train_epochs
             ),
             batch_size=training_args_config.get(
                 "per_device_train_batch_size",
-                TrainingArguments.per_device_train_batch_size,
+                self._TrainingArguments.per_device_train_batch_size,
             ),
         )
 
@@ -513,7 +510,7 @@ class TransformersEstimator(BaseEstimator):
             trial_dir = ray.tune.get_trial_dir()
 
         if transformers.__version__.startswith("3"):
-            training_args = TrainingArguments(
+            training_args = self._TrainingArguments(
                 report_to=[],
                 output_dir=trial_dir,
                 do_train=True,
@@ -529,7 +526,7 @@ class TransformersEstimator(BaseEstimator):
         else:
             from transformers import IntervalStrategy
 
-            training_args = TrainingArguments(
+            training_args = self._TrainingArguments(
                 report_to=[],
                 output_dir=trial_dir,
                 do_train=True,
@@ -623,9 +620,13 @@ class TransformersEstimator(BaseEstimator):
         if self._task in NLG_TASKS:
             if isinstance(predictions, tuple):
                 predictions = np.argmax(predictions[0], axis=2)
-            decoded_preds = self._tokenizer.batch_decode(predictions, skip_special_tokens=True)
+            decoded_preds = self._tokenizer.batch_decode(
+                predictions, skip_special_tokens=True
+            )
             labels = np.where(labels != -100, labels, self._tokenizer.pad_token_id)
-            decoded_labels = self._tokenizer.batch_decode(labels, skip_special_tokens=True)
+            decoded_labels = self._tokenizer.batch_decode(
+                labels, skip_special_tokens=True
+            )
             predictions, labels = postprocess_text(decoded_preds, decoded_labels)
         else:
             predictions = (
@@ -642,7 +643,7 @@ class TransformersEstimator(BaseEstimator):
 
     def predict_proba(self, X_test):
         assert (
-                self._task in CLASSIFICATION
+            self._task in CLASSIFICATION
         ), "predict_proba is only available in classification tasks"
 
         from datasets import Dataset
@@ -650,8 +651,8 @@ class TransformersEstimator(BaseEstimator):
         from transformers import TrainingArguments
         from .nlp.utils import load_model
 
-        X_test = self._preprocess(X_test, task=self._task, **self._kwargs)
-        test_dataset = Dataset.from_pandas(X_test[0])
+        X_test, _ = self._preprocess(X_test, task=self._task, **self._kwargs)
+        test_dataset = Dataset.from_pandas(X_test)
 
         best_model = load_model(
             checkpoint_path=self._checkpoint_path,
@@ -669,16 +670,10 @@ class TransformersEstimator(BaseEstimator):
 
     def predict(self, X_test):
         from datasets import Dataset
-        if self._task in NLG_TASKS:
-            from transformers import Seq2SeqTrainingArguments as TrainingArguments
-        else:
-            from transformers import TrainingArguments
         from .nlp.utils import load_model
         from .nlp.huggingface.trainer import TrainerForAuto
 
-        X_test, _ = self._preprocess(X=X_test,
-                                  task=self._task,
-                                  **self._kwargs)
+        X_test, _ = self._preprocess(X=X_test, task=self._task, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
 
         best_model = load_model(
@@ -687,18 +682,20 @@ class TransformersEstimator(BaseEstimator):
             num_labels=self._num_labels,
             per_model_config=self._per_model_config,
         )
-        training_args = TrainingArguments(
+        training_args = self._TrainingArguments(
             per_device_eval_batch_size=1,
             output_dir=self.custom_hpo_args.output_dir,
-            **self._training_args_config
+            **self._training_args_config,
         )
         self._model = TrainerForAuto(model=best_model, args=training_args)
         if self._task not in NLG_TASKS:
             predictions = self._model.predict(test_dataset)
         else:
-            predictions = self._model.predict(test_dataset,
-                                          max_length=training_args.generation_max_length,
-                                          num_beams=training_args.generation_num_beams)
+            predictions = self._model.predict(
+                test_dataset,
+                max_length=training_args.generation_max_length,
+                num_beams=training_args.generation_num_beams,
+            )
 
         if self._task == SEQCLASSIFICATION:
             return np.argmax(predictions.predictions, axis=1)
@@ -710,7 +707,9 @@ class TransformersEstimator(BaseEstimator):
         elif self._task == SUMMARIZATION:
             if isinstance(predictions.predictions, tuple):
                 predictions = np.argmax(predictions.predictions[0], axis=2)
-            decoded_preds = self._tokenizer.batch_decode(predictions, skip_special_tokens=True)
+            decoded_preds = self._tokenizer.batch_decode(
+                predictions, skip_special_tokens=True
+            )
             return decoded_preds
 
     def config2params(self, config: dict) -> dict:
