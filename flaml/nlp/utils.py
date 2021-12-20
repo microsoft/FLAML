@@ -249,7 +249,6 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
     def get_this_model(task):
         from transformers import AutoModelForSequenceClassification
         from transformers import AutoModelForSeq2SeqLM
-        from ..data import SUMMARIZATION
 
         if task in (SEQCLASSIFICATION, SEQREGRESSION):
             return AutoModelForSequenceClassification.from_pretrained(

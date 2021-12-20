@@ -382,9 +382,6 @@ class TransformersEstimator(BaseEstimator):
         from transformers.trainer_utils import set_seed
         from transformers import AutoTokenizer
 
-        #   TODO: if self._task == SUMMARIZATION, uncomment the code below (add indentation before
-        #         from transformers import TrainingArguments)
-
         import transformers
         from datasets import Dataset
         from .nlp.utils import (
