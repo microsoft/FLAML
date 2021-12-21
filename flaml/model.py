@@ -467,6 +467,18 @@ class DistiliingEstimator(TransformersEstimator):
             # "alpha_cos": {"domain": tune.uniform(lower=0.0, upper=1.0), "init_value": 0.0},
         return search_space_dict
 
+    def _init_hpo_args(self, automl_fit_kwargs: dict = None):
+        from utils import DISTILHPOArgs
+
+        custom_hpo_args = DISTILHPOArgs()
+        for key, val in automl_fit_kwargs["custom_hpo_args"].items():
+            assert (
+                    key in custom_hpo_args.__dict__
+            ), "The specified key {} is not in the argument list of flaml.nlp.utils::HPOArgs".format(
+                key
+            )
+            setattr(custom_hpo_args, key, val)
+        self.custom_hpo_args = custom_hpo_args
 
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
         # TODO: complete this method
