@@ -85,6 +85,7 @@ huggingface_metric_to_mode = {
 }
 huggingface_submetric_to_metric = {"rouge1": "rouge", "rouge2": "rouge"}
 
+
 def get_estimator_class(task, estimator_name):
     # when adding a new learner, need to add an elif branch
     if "xgboost" == estimator_name:
@@ -152,7 +153,6 @@ def metric_loss_score(
         else:
             try:
                 import datasets
-
 
                 datasets_metric_name = huggingface_submetric_to_metric.get(
                     metric_name, metric_name

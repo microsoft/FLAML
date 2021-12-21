@@ -529,7 +529,7 @@ class TransformersEstimator(BaseEstimator):
         else:
             from transformers import IntervalStrategy
 
-            training_args=self._TrainingArguments(
+            training_args = self._TrainingArguments(
                 report_to=[],
                 output_dir=trial_dir,
                 do_train=True,
