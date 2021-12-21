@@ -309,13 +309,6 @@ class TransformersEstimator(BaseEstimator):
         self._TrainingArguments = TrainingArguments
 
     def _join(self, X_train, y_train):
-        # temp = []
-        # for label in y_train:
-        #     for i in range(4):
-        #         temp.append(label)
-        # y_train = DataFrame(temp, columns=["label"], index=X_train.index)
-        # train_df = X_train.join(y_train)
-        # return train_df
         y_train = DataFrame(y_train, columns=["label"], index=X_train.index)
         train_df = X_train.join(y_train)
         return train_df
@@ -452,13 +445,13 @@ class TransformersEstimator(BaseEstimator):
         X_val = kwargs.get("X_val")
         y_val = kwargs.get("y_val")
 
-        X_train = self._preprocess(X_train, self._task, **kwargs)
         if self._task not in NLG_TASKS:
             X_train, _ = self._preprocess(X=X_train, task=self._task, **kwargs)
         else:
             X_train, y_train = self._preprocess(
                 X=X_train, y=y_train, task=self._task, **kwargs
             )
+
         train_dataset = Dataset.from_pandas(self._join(X_train, y_train))
 
         # TODO: set a breakpoint here, observe the resulting train_dataset,
@@ -704,8 +697,6 @@ class TransformersEstimator(BaseEstimator):
             return np.argmax(predictions.predictions, axis=1)
         elif self._task == SEQREGRESSION:
             return predictions.predictions
-        elif self._task == MULTICHOICECLASSIFICATION:
-            return np.argmax(predictions.predictions, axis=1)
         # TODO: elif self._task == your task, return the corresponding prediction
         #  e.g., if your task == QUESTIONANSWERING, you need to return the answer instead
         #  of the index
@@ -716,6 +707,8 @@ class TransformersEstimator(BaseEstimator):
                 predictions, skip_special_tokens=True
             )
             return decoded_preds
+        elif self._task == MULTICHOICECLASSIFICATION:
+            return np.argmax(predictions.predictions, axis=1)
 
     def config2params(self, config: dict) -> dict:
         params = config.copy()
