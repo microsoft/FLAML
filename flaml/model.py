@@ -395,37 +395,14 @@ class DistiliingEstimator(TransformersEstimator):
     from transformers import (
     WEIGHTS_NAME,
     AdamW,
-    BertConfig,
-    BertForQuestionAnswering,
-    BertTokenizer,
-    DistilBertConfig,
-    DistilBertForQuestionAnswering,
-    DistilBertTokenizer,
-    RobertaConfig,
-    RobertaForQuestionAnswering,
-    RobertaTokenizer,
-    XLMConfig,
-    XLMForQuestionAnswering,
-    XLMTokenizer,
-    XLNetConfig,
-    XLNetForQuestionAnswering,
-    XLNetTokenizer,
     get_linear_schedule_with_warmup,
     squad_convert_examples_to_features,
     )
 
-    MODEL_CLASSES = {
-    "bert": (BertConfig, BertForQuestionAnswering, BertTokenizer),
-    "xlnet": (XLNetConfig, XLNetForQuestionAnswering, XLNetTokenizer),
-    "xlm": (XLMConfig, XLMForQuestionAnswering, XLMTokenizer),
-    "distilbert": (DistilBertConfig, DistilBertForQuestionAnswering, DistilBertTokenizer),
-    "roberta": (RobertaConfig, RobertaForQuestionAnswering, RobertaTokenizer),
-    }
-
     def __init__(self, task="qa", **config):
-        # import uuid
+        import uuid
         super().__init__(task, **config)
-        # self.trial_id = str(uuid.uuid1().hex)[:8]
+        self.trial_id = str(uuid.uuid1().hex)[:8]
 
     @classmethod
     def search_space(cls, task, **params):
@@ -457,9 +434,11 @@ class DistiliingEstimator(TransformersEstimator):
             },
             "global_max_steps": {"domain": sys.maxsize, "init_value": sys.maxsize},}
         if task == SEQREGRESSION:
-            search_space_dict["alpha_mse"] =  {"domain": tune.uniform(lower=0.0, upper=1.0), "init_value": 0.0}
+            search_space_dict["alpha_mse"] =  {"domain": tune.uniform(lower=0.5, upper=1.0), "init_value": 0.5}
         else:
-            search_space_dict["alpha_ce"] = {"domain":tune.uniform(lower=0.0, upper=1.0),"init_value": 0.5}
+            search_space_dict["alpha_ce"] = {"domain":tune.uniform(lower=0.5, upper=1.0),"init_value": 0.5}
+
+        search_space_dict["alpha_task"] = {"domain": tune.uniform(lower=0.5, upper=1.0), "init_value": 0.5}
 
             # TODO: the rests are for pretraining
             # "alpha_mlm": {"domain": tune.uniform(lower=0.0, upper=1.0),"init_value": 0.0}, # if mlm, use mlm over clm
@@ -468,7 +447,33 @@ class DistiliingEstimator(TransformersEstimator):
         return search_space_dict
 
     def _init_hpo_args(self, automl_fit_kwargs: dict = None):
-        from utils import DISTILHPOArgs
+        # TODO: setup student and teacher seperatly, refer to: https://github.com/huggingface/transformers/blob/master/examples/research_projects/distillation/run_squad_w_distillation.py
+        from .nlp.utils import DISTILHPOArgs
+        from transformers import (
+            BertConfig,
+            BertForQuestionAnswering,
+            BertTokenizer,
+            DistilBertConfig,
+            DistilBertForQuestionAnswering,
+            DistilBertTokenizer,
+            RobertaConfig,
+            RobertaForQuestionAnswering,
+            RobertaTokenizer,
+            XLMConfig,
+            XLMForQuestionAnswering,
+            XLMTokenizer,
+            XLNetConfig,
+            XLNetForQuestionAnswering,
+            XLNetTokenizer,
+        )
+
+        MODEL_CLASSES = {
+            "bert": (BertConfig, BertForQuestionAnswering, BertTokenizer),
+            "xlnet": (XLNetConfig, XLNetForQuestionAnswering, XLNetTokenizer),
+            "xlm": (XLMConfig, XLMForQuestionAnswering, XLMTokenizer),
+            "distilbert": (DistilBertConfig, DistilBertForQuestionAnswering, DistilBertTokenizer),
+            "roberta": (RobertaConfig, RobertaForQuestionAnswering, RobertaTokenizer),
+        }
 
         custom_hpo_args = DISTILHPOArgs()
         for key, val in automl_fit_kwargs["custom_hpo_args"].items():
@@ -479,6 +484,13 @@ class DistiliingEstimator(TransformersEstimator):
             )
             setattr(custom_hpo_args, key, val)
         self.custom_hpo_args = custom_hpo_args
+        self.student_config_class, self.student_class, self.student_tokenizer_class = MODEL_CLASSES[self.custom_hpo_args.student_type]
+        self.student_config = self.student_config_class.from_pretrained(self.custom_hpo_args.student_name_or_path)
+        self.student = self.student_class.from_pretrained(
+            self.custom_hpo_args.student_name_or_path,
+            from_tf=bool(".ckpt" in self.custom_hpo_args.student_name_or_path),
+            config=self.student_config)
+
 
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
         # TODO: complete this method
