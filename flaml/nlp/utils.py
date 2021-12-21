@@ -444,50 +444,73 @@ class DISTILHPOArgs:
             An integer, the number of checkpoints per epoch
 
     """
-    force: bool = field(
-        default=False,
-        metadata={"action":"store_true", "help":"Overwrite output_dir if it already exists."})
-
-    output_dir: str = field(
-        default="data/output/", metadata={"help": "data dir", "required": True}
+    from transformers import (
+        # WEIGHTS_NAME,
+        # AdamW,
+        BertConfig,
+        BertForQuestionAnswering,
+        BertTokenizer,
+        DistilBertConfig,
+        DistilBertForQuestionAnswering,
+        DistilBertTokenizer,
+        RobertaConfig,
+        RobertaForQuestionAnswering,
+        RobertaTokenizer,
+        XLMConfig,
+        XLMForQuestionAnswering,
+        XLMTokenizer,
+        XLNetConfig,
+        XLNetForQuestionAnswering,
+        XLNetTokenizer,
+        # get_linear_schedule_with_warmup,
+        # squad_convert_examples_to_features,
     )
 
-    student_pretrained_weights_path: str = field(
+    MODEL_CLASSES = {
+        "bert": (BertConfig, BertForQuestionAnswering, BertTokenizer),
+        "xlnet": (XLNetConfig, XLNetForQuestionAnswering, XLNetTokenizer),
+        "xlm": (XLMConfig, XLMForQuestionAnswering, XLMTokenizer),
+        "distilbert": (DistilBertConfig, DistilBertForQuestionAnswering, DistilBertTokenizer),
+        "roberta": (RobertaConfig, RobertaForQuestionAnswering, RobertaTokenizer),
+    }
+
+    student_type: str = field(
         default=None,
-        metadata={"help": "Load student initialization checkpoint."},)
+        metadata={"required":True,
+                  "help": "Model type selected in the list: " + ", ".join(MODEL_CLASSES.keys())})
+
+    student_name_or_path: str = field(
+        default=None, metadata={"required":True,
+                                "help": "Path to pretrained model or model identifier from huggingface.co/models"}
+    )
+
+    output_dir: str = field(
+        default="data/output/", metadata={"help": "The output directory where the model checkpoints and predictions will be written",
+                                          "required": True}
+    )
+
+    teacher_type: str = field(
+        default=None,
+        metadata={"required": True,
+                  "help": "Teacher type. Teacher tokenizer and student (model) tokenizer must output the same tokenization."})
+
+    teacher_name_or_path: str = field(
+        default=None, metadata={"required": True,
+                                "help": "Path to the already downstream task fine-tuned teacher model."}
+    )
 
     temperature: float = field(
         default=2.0,
         metadata={"help": "Temperature for the softmax temperature"}, )
 
-    mlm: bool = field(
-        default=True,
-        metadata={"action": "store_false", "help": "The LM step: MLM or CLM. If `mlm` is True, the MLM is used over CLM."})
-
-    restrict_ce_to_mask: bool = field(
-        default=False,
-        metadata={"action": "store_true", "help": "If true, compute the distilation loss only the [MLM] prediction distribution."})
-
-    freeze_pos_embs: bool = field(
-        default=False,
-        metadata={"action": "store_true", "help": "Freeze positional embeddings during distillation. For student_type in ['roberta', 'gpt2'] only."})
-
-    freeze_token_type_embds: bool = field(
-        default=False,
-        metadata={"action": "store_true", "help": "Freeze token type embeddings during distillation if existent. For student_type in ['roberta'] only."})
-
-    group_by_size: bool = field(
-        default=True,
-        metadata={"action": "store_false", "help": "If true, group sequences that have similar length into the same batch. Default is true."})
-
-    gradient_accumulation_steps: int = field(
-        default=50,
-        metadata={"help": "Gradient accumulation for larger training batches."},
+    data_dir: str = field(
+        default=None, metadata={"help": "The input data dir. Should contain the .json files for the task."
+        + "If no data dir or train/predict files are specified, will run with tensorflow_datasets."}
     )
 
     fp16: bool = field(default=True, metadata={"help": "whether to use the FP16 mode"})
 
-    max_seq_length: int = field(default=128, metadata={"help": "max seq length"})
+    max_seq_length: int = field(default=64, metadata={"help": "max seq length"})
 
     ckpt_per_epoch: int = field(default=1, metadata={"help": "checkpoint per epoch"})
 
