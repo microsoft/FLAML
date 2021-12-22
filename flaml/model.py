@@ -401,6 +401,7 @@ class TransformersEstimator(BaseEstimator):
         #     from .nlp.huggingface.trainer import Seq2SeqTrainerForAuto as TrainerForAuto
         # else:
         from .nlp.huggingface.trainer import TrainerForAuto
+        from .nlp.huggingface.data_collator import DataCollatorForAuto
 
         this_params = self.params
 
@@ -551,6 +552,8 @@ class TransformersEstimator(BaseEstimator):
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             tokenizer=tokenizer,
+            data_collator=DataCollatorForAuto(tokenizer=tokenizer, pad_to_multiple_of=8 if training_args.fp16 else None)
+            if self._task == MULTICHOICECLASSIFICATION else None,
             compute_metrics=self._compute_metrics_by_dataset_name,
             callbacks=[EarlyStoppingCallbackForAuto],
         )

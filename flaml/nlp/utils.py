@@ -175,7 +175,7 @@ def tokenize_text_multiplechoice(X, custom_hpo_args):
     #                               'input_ids': [unflattend_input_ids[i]]}), ignore_index=True)
     X_tokenized[tokenized_column_names] = d
     output = X_tokenized.join(X)
-    return output
+    return output, None
 
 
 def tokenize_swag(this_row, this_tokenizer, custom_hpo_args):

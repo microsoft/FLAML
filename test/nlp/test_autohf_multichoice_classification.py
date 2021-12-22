@@ -19,7 +19,7 @@ def test_hf_data():
     # )
 
     train_dataset = (
-        load_dataset("swag", "regular", split="train[:3]").to_pandas()
+        load_dataset("swag", "regular", split="train[1%:2%]").to_pandas().iloc[0:4]
     )
     dev_dataset = (
         load_dataset("swag", "regular", split="train[1%:2%]").to_pandas().iloc[0:4]
@@ -52,7 +52,7 @@ def test_hf_data():
     }
 
     automl_settings["custom_hpo_args"] = {
-        "model_path": "roberta-base",
+        "model_path": "google/electra-small-discriminator",
         "output_dir": "test/data/output/",
         "ckpt_per_epoch": 1,
         "fp16": False,
