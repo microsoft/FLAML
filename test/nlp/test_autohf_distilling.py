@@ -38,10 +38,10 @@ def test_distilling():
         "max_iter": 2,
         "time_budget": 5,
         "task": "question-answering",
-        "metric": "rouge",
+        "metric": "f1",
         "starting_points": {"transformer": {"num_train_epochs": 1}},
         "use_ray": True,
-        "estimator_list": ['distilling'],
+        # "estimator_list": ['distilling'],
         "teacher_type": "bert",
         "student_type": "distilbert",
     }

@@ -309,6 +309,35 @@ class TransformersEstimator(BaseEstimator):
         train_df = X_train.join(y_train)
         return train_df
 
+    def search_space(cls, data_size, task, **params):
+        search_space_dict = {
+            "learning_rate": {
+                "domain": tune.loguniform(lower=1e-6, upper=1e-3),
+                "init_value": 1e-5,
+            },
+            "num_train_epochs": {
+                "domain": tune.loguniform(lower=0.1, upper=10.0),
+            },
+            "per_device_train_batch_size": {
+                "domain": tune.choice([4, 8, 16, 32]),
+                "init_value": 32,
+            },
+            "warmup_ratio": {
+                "domain": tune.uniform(lower=0.0, upper=0.3),
+                "init_value": 0.0,
+            },
+            "weight_decay": {
+                "domain": tune.uniform(lower=0.0, upper=0.3),
+                "init_value": 0.0,
+            },
+            "adam_epsilon": {
+                "domain": tune.loguniform(lower=1e-8, upper=1e-6),
+                "init_value": 1e-6,
+            },
+            "seed": {"domain": tune.choice(list(range(40, 45))), "init_value": 42},
+            "global_max_steps": {"domain": sys.maxsize, "init_value": sys.maxsize},
+        }
+
     def _init_hpo_args(self, automl_fit_kwargs: dict = None):
         from .nlp.utils import HPOArgs
 
@@ -385,6 +414,7 @@ class TransformersEstimator(BaseEstimator):
 
 
 class DistiliingEstimator(TransformersEstimator):
+
     """
     The class for fine-tuning distill BERT model
 
@@ -400,9 +430,9 @@ class DistiliingEstimator(TransformersEstimator):
     )
 
     def __init__(self, task="qa", **config):
-        import uuid
+        # import uuid
         super().__init__(task, **config)
-        self.trial_id = str(uuid.uuid1().hex)[:8]
+        # self.trial_id = str(uuid.uuid1().hex)[:8]
 
     @classmethod
     def search_space(cls, task, **params):
@@ -448,32 +478,32 @@ class DistiliingEstimator(TransformersEstimator):
 
     def _init_hpo_args(self, automl_fit_kwargs: dict = None):
         # TODO: setup student and teacher seperatly, refer to: https://github.com/huggingface/transformers/blob/master/examples/research_projects/distillation/run_squad_w_distillation.py
-        from .nlp.utils import DISTILHPOArgs
-        from transformers import (
-            BertConfig,
-            BertForQuestionAnswering,
-            BertTokenizer,
-            DistilBertConfig,
-            DistilBertForQuestionAnswering,
-            DistilBertTokenizer,
-            RobertaConfig,
-            RobertaForQuestionAnswering,
-            RobertaTokenizer,
-            XLMConfig,
-            XLMForQuestionAnswering,
-            XLMTokenizer,
-            XLNetConfig,
-            XLNetForQuestionAnswering,
-            XLNetTokenizer,
-        )
-
-        MODEL_CLASSES = {
-            "bert": (BertConfig, BertForQuestionAnswering, BertTokenizer),
-            "xlnet": (XLNetConfig, XLNetForQuestionAnswering, XLNetTokenizer),
-            "xlm": (XLMConfig, XLMForQuestionAnswering, XLMTokenizer),
-            "distilbert": (DistilBertConfig, DistilBertForQuestionAnswering, DistilBertTokenizer),
-            "roberta": (RobertaConfig, RobertaForQuestionAnswering, RobertaTokenizer),
-        }
+        from .nlp.utils import DISTILHPOArgs,load_model
+        # from transformers import (
+        #     BertConfig,
+        #     BertForQuestionAnswering,
+        #     BertTokenizer,
+        #     DistilBertConfig,
+        #     DistilBertForQuestionAnswering,
+        #     DistilBertTokenizer,
+        #     RobertaConfig,
+        #     RobertaForQuestionAnswering,
+        #     RobertaTokenizer,
+        #     XLMConfig,
+        #     XLMForQuestionAnswering,
+        #     XLMTokenizer,
+        #     XLNetConfig,
+        #     XLNetForQuestionAnswering,
+        #     XLNetTokenizer,
+        # )
+        #
+        # MODEL_CLASSES = {
+        #     "bert": (BertConfig, BertForQuestionAnswering, BertTokenizer),
+        #     "xlnet": (XLNetConfig, XLNetForQuestionAnswering, XLNetTokenizer),
+        #     "xlm": (XLMConfig, XLMForQuestionAnswering, XLMTokenizer),
+        #     "distilbert": (DistilBertConfig, DistilBertForQuestionAnswering, DistilBertTokenizer),
+        #     "roberta": (RobertaConfig, RobertaForQuestionAnswering, RobertaTokenizer),
+        # }
 
         custom_hpo_args = DISTILHPOArgs()
         for key, val in automl_fit_kwargs["custom_hpo_args"].items():
@@ -486,10 +516,7 @@ class DistiliingEstimator(TransformersEstimator):
         self.custom_hpo_args = custom_hpo_args
         self.student_config_class, self.student_class, self.student_tokenizer_class = MODEL_CLASSES[self.custom_hpo_args.student_type]
         self.student_config = self.student_config_class.from_pretrained(self.custom_hpo_args.student_name_or_path)
-        self.student = self.student_class.from_pretrained(
-            self.custom_hpo_args.student_name_or_path,
-            from_tf=bool(".ckpt" in self.custom_hpo_args.student_name_or_path),
-            config=self.student_config)
+        self.student = load_model()
 
 
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
@@ -559,40 +586,14 @@ class FineTuningEstimator(TransformersEstimator):
             from transformers import TrainingArguments
         self._TrainingArguments = TrainingArguments
 
-    def _join(self, X_train, y_train):
-        y_train = DataFrame(y_train, columns=["label"], index=X_train.index)
-        train_df = X_train.join(y_train)
-        return train_df
+    # def _join(self, X_train, y_train):
+    #     y_train = DataFrame(y_train, columns=["label"], index=X_train.index)
+    #     train_df = X_train.join(y_train)
+    #     return train_df
 
     @classmethod
-    def search_space(cls, data_size, task, **params):
-        search_space_dict = {
-            "learning_rate": {
-                "domain": tune.loguniform(lower=1e-6, upper=1e-3),
-                "init_value": 1e-5,
-            },
-            "num_train_epochs": {
-                "domain": tune.loguniform(lower=0.1, upper=10.0),
-            },
-            "per_device_train_batch_size": {
-                "domain": tune.choice([4, 8, 16, 32]),
-                "init_value": 32,
-            },
-            "warmup_ratio": {
-                "domain": tune.uniform(lower=0.0, upper=0.3),
-                "init_value": 0.0,
-            },
-            "weight_decay": {
-                "domain": tune.uniform(lower=0.0, upper=0.3),
-                "init_value": 0.0,
-            },
-            "adam_epsilon": {
-                "domain": tune.loguniform(lower=1e-8, upper=1e-6),
-                "init_value": 1e-6,
-            },
-            "seed": {"domain": tune.choice(list(range(40, 45))), "init_value": 42},
-            "global_max_steps": {"domain": sys.maxsize, "init_value": sys.maxsize},
-        }
+    # super().search_space()
+
 
         if task in NLG_TASKS:
             search_space_dict["generation_num_beams"] = {

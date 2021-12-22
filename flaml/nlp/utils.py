@@ -23,8 +23,7 @@ def load_default_huggingface_metric_for_task(task):
     elif task == SUMMARIZATION:
         return "rouge"
     elif task == QUESTIONANSWERING:
-        # return "squad"
-        return "rouge", "max"
+        return "f1"
     # TODO: elif task == your task, return the default metric name for your task,
     #  e.g., if task == MULTIPLECHOICE, return "accuracy"
     #  notice this metric name has to be in ['accuracy', 'bertscore', 'bleu', 'bleurt',
@@ -275,12 +274,14 @@ def get_trial_fold_name(local_dir, trial_config, trial_id):
 
 
 def load_model(checkpoint_path, task, num_labels, per_model_config=None):
+    # TODO: add QUESTIONANSWERING, and use this function for model_init
+
     from transformers import AutoConfig
     from .huggingface.switch_head_auto import (
         AutoSeqClassificationHead,
         MODEL_CLASSIFICATION_HEAD_MAPPING,
     )
-    from ..data import SEQCLASSIFICATION, SEQREGRESSION
+    from ..data import SEQCLASSIFICATION, SEQREGRESSION, QUESTIONANSWERING
 
     this_model_type = AutoConfig.from_pretrained(checkpoint_path).model_type
     this_vocab_size = AutoConfig.from_pretrained(checkpoint_path).vocab_size
@@ -288,9 +289,14 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
     def get_this_model(task):
         from transformers import AutoModelForSequenceClassification
         from transformers import AutoModelForSeq2SeqLM
+        from transformers import AutoModelForQuestionAnswering
 
         if task in (SEQCLASSIFICATION, SEQREGRESSION):
             return AutoModelForSequenceClassification.from_pretrained(
+                checkpoint_path, config=model_config
+            )
+        elif task in (QUESTIONANSWERING):
+            return AutoModelForQuestionAnswering.from_pretrained(
                 checkpoint_path, config=model_config
             )
         elif task in NLG_TASKS:
