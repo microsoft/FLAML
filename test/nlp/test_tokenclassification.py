@@ -1,6 +1,7 @@
 import sys
 import pytest
 
+
 @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
 def test_tokenclassification():
     from flaml import AutoML
@@ -16,7 +17,7 @@ def test_tokenclassification():
         )
     except requests.exceptions.ConnectionError:
         return
-    
+
     custom_sent_keys = ["tokens"]
     label_key = "ner_tags"
 
@@ -31,7 +32,7 @@ def test_tokenclassification():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 5,
+        "time_budget": 500,
         "task": "token-classification",
         "metric": "seqeval",
     }
@@ -46,6 +47,7 @@ def test_tokenclassification():
     automl.fit(
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
     )
+
 
 if __name__ == "__main__":
     test_tokenclassification()

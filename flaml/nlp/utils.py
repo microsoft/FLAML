@@ -2,37 +2,27 @@ import argparse
 from dataclasses import dataclass, field
 from typing import Dict, Any
 
-<<<<<<< HEAD
 from ..data import (
     SUMMARIZATION,
     SEQREGRESSION,
     SEQCLASSIFICATION,
     TOKENCLASSIFICATION,
-    NLG_TASKS
+    NLG_TASKS,
 )
 
 
 def load_default_huggingface_metric_for_task(task):
-    from ..data import SEQCLASSIFICATION, SEQREGRESSION, TOKENCLASSIFICATION
+    from ..data import SEQCLASSIFICATION, SEQREGRESSION, TOKENCLASSIFICATION, NLG_TASKS
 
-=======
-from ..data import SUMMARIZATION, SEQREGRESSION, SEQCLASSIFICATION, NLG_TASKS
-
-
-def load_default_huggingface_metric_for_task(task):
->>>>>>> origin/main
     if task == SEQCLASSIFICATION:
         return "accuracy", "max"
     elif task == SEQREGRESSION:
         return "rmse", "max"
     elif task == SUMMARIZATION:
-<<<<<<< HEAD
-        return "rouge"
-    elif task == TOKENCLASSIFICATION:
-        return "seqeval"
-=======
         return "rouge", "max"
->>>>>>> origin/main
+    elif task == TOKENCLASSIFICATION:
+        return "seqeval", "max"
+
     # TODO: elif task == your task, return the default metric name for your task,
     #  e.g., if task == MULTIPLECHOICE, return "accuracy"
     #  notice this metric name has to be in ['accuracy', 'bertscore', 'bleu', 'bleurt',
@@ -47,22 +37,13 @@ global tokenized_column_names
 
 
 def tokenize_text(X, Y=None, task=None, custom_hpo_args=None):
-<<<<<<< HEAD
-    from ..data import SEQCLASSIFICATION, SEQREGRESSION, TOKENCLASSIFICATION
-
-    if task in (SEQCLASSIFICATION, SEQREGRESSION):
-        return tokenize_text_seqclassification(X, custom_hpo_args)
-    # TODO: elif task == your task, return the tokenized result
-    #  for example, if your task == MULTIPLE CHOICE, you should
-    #  create a function named tokenize_text_multiplechoice(X, custom_hpo_args)
-    #  and what it does is the same as preprocess_function at
-    #  https://github.com/huggingface/transformers/blob/master/examples/pytorch/multiple-choice/run_swag.py#L329
-=======
     if task in (SEQCLASSIFICATION, SEQREGRESSION):
         X_tokenized, _ = tokenize_onedataframe(
             X, this_tokenizer=None, task=task, custom_hpo_args=custom_hpo_args
         )
         return X_tokenized, None
+    elif task == TOKENCLASSIFICATION:
+        return tokenize_text_tokclassification(X, Y, custom_hpo_args)
     elif task in NLG_TASKS:
         return tokenize_seq2seq(X, Y, task=task, custom_hpo_args=custom_hpo_args)
 
@@ -90,15 +71,13 @@ def tokenize_seq2seq(X, Y, task=None, custom_hpo_args=None):
             columns=["attention_mask", "input_ids", "decoder_input_ids"]
         )
     return model_inputs, labels
->>>>>>> origin/main
 
-    elif task == TOKENCLASSIFICATION:
-        return tokenize_text_tokclassification(X, Y, custom_hpo_args)
 
-def tokenize_and_align_labels(examples, tokenizer, custom_hpo_args, X_sent_key, Y_sent_key=None):
+def tokenize_and_align_labels(
+    examples, tokenizer, custom_hpo_args, X_sent_key, Y_sent_key=None
+):
     global tokenized_column_names
 
-    padding = "max_length" if custom_hpo_args.pad_to_max_length else False
     tokenized_inputs = tokenizer(
         [list(examples[X_sent_key])],
         padding="max_length",
@@ -111,6 +90,7 @@ def tokenize_and_align_labels(examples, tokenizer, custom_hpo_args, X_sent_key, 
         previous_word_idx = None
         label_ids = []
         import numbers
+
         for word_idx in tokenized_inputs.word_ids(batch_index=0):
             # Special tokens have a word id that is None. We set the label to -100 so they are automatically
             # ignored in the loss function.
@@ -152,21 +132,36 @@ def tokenize_text_tokclassification(X, Y, custom_hpo_args):
         X_key = list(X.keys())[0]
         Y_key = list(Y.to_frame().keys())[0]
         X_and_Y_tokenized = X_and_Y.apply(
-            lambda x: tokenize_and_align_labels(x, tokenizer=this_tokenizer, custom_hpo_args=custom_hpo_args, X_sent_key=X_key, Y_sent_key=Y_key),
+            lambda x: tokenize_and_align_labels(
+                x,
+                tokenizer=this_tokenizer,
+                custom_hpo_args=custom_hpo_args,
+                X_sent_key=X_key,
+                Y_sent_key=Y_key,
+            ),
             axis=1,
             result_type="expand",
         )
         label_idx = tokenized_column_names.index("label")
-        other_indices = sorted(set(range(len(tokenized_column_names))).difference({label_idx}))
+        other_indices = sorted(
+            set(range(len(tokenized_column_names))).difference({label_idx})
+        )
         other_column_names = [tokenized_column_names[x] for x in other_indices]
         d = X_and_Y_tokenized.iloc[:, other_indices]
         y_tokenized = X_and_Y_tokenized.iloc[:, label_idx]
     else:
         X_key = list(X.keys())[0]
         d = X.apply(
-            lambda x: tokenize_and_align_labels(x, tokenizer=this_tokenizer, custom_hpo_args=custom_hpo_args, X_sent_key=X_key, Y_sent_key=None),
+            lambda x: tokenize_and_align_labels(
+                x,
+                tokenizer=this_tokenizer,
+                custom_hpo_args=custom_hpo_args,
+                X_sent_key=X_key,
+                Y_sent_key=None,
+            ),
             axis=1,
-            result_type="expand",)
+            result_type="expand",
+        )
         other_column_names = tokenized_column_names
         y_tokenized = None
     X_tokenized = pd.DataFrame(columns=other_column_names)
@@ -215,12 +210,8 @@ def tokenize_onedataframe(
         )
     X_tokenized = pandas.DataFrame(columns=tokenized_column_names)
     X_tokenized[tokenized_column_names] = d
-<<<<<<< HEAD
-    return X_tokenized, None
-=======
     return X_tokenized, this_tokenizer
 
->>>>>>> origin/main
 
 def postprocess_text(preds, labels):
     import nltk
@@ -366,46 +357,30 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
     this_model_type = AutoConfig.from_pretrained(checkpoint_path).model_type
     this_vocab_size = AutoConfig.from_pretrained(checkpoint_path).vocab_size
 
-<<<<<<< HEAD
-    def get_this_model():
-        from transformers import AutoModelForSequenceClassification, AutoModelForTokenClassification
-=======
     def get_this_model(task):
         from transformers import AutoModelForSequenceClassification
         from transformers import AutoModelForSeq2SeqLM
->>>>>>> origin/main
+        from transformers import AutoModelForTokenClassification
 
         if task in (SEQCLASSIFICATION, SEQREGRESSION):
             return AutoModelForSequenceClassification.from_pretrained(
                 checkpoint_path, config=model_config
             )
-<<<<<<< HEAD
         elif task == TOKENCLASSIFICATION:
             return AutoModelForTokenClassification.from_pretrained(
                 checkpoint_path, config=model_config
             )
-        # TODO: elif task == your task, fill in the line in your transformers example
-        #  that loads the model, e.g., if task == MULTIPLE CHOICE, according to
-        #  https://github.com/huggingface/transformers/blob/master/examples/pytorch/multiple-choice/run_swag.py#L298
-        #  you can return AutoModelForMultipleChoice.from_pretrained(checkpoint_path, config=model_config)
-=======
         elif task in NLG_TASKS:
             return AutoModelForSeq2SeqLM.from_pretrained(
                 checkpoint_path, config=model_config
             )
->>>>>>> origin/main
 
     def is_pretrained_model_in_classification_head_list(model_type):
         return model_type in MODEL_CLASSIFICATION_HEAD_MAPPING
 
     def _set_model_config(checkpoint_path):
-<<<<<<< HEAD
         if task in (SEQCLASSIFICATION, SEQREGRESSION, TOKENCLASSIFICATION):
-            if per_model_config and len(per_model_config) > 0:
-=======
-        if task in (SEQCLASSIFICATION, SEQREGRESSION):
             if per_model_config:
->>>>>>> origin/main
                 model_config = AutoConfig.from_pretrained(
                     checkpoint_path,
                     num_labels=model_config_num_labels,
@@ -417,23 +392,13 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
                 )
             return model_config
         else:
-<<<<<<< HEAD
-            if per_model_config and len(per_model_config) > 0:
-=======
             if per_model_config:
->>>>>>> origin/main
                 model_config = AutoConfig.from_pretrained(
                     checkpoint_path,
                     **per_model_config,
                 )
             else:
-<<<<<<< HEAD
-                model_config = AutoConfig.from_pretrained(
-                    checkpoint_path
-                )
-=======
                 model_config = AutoConfig.from_pretrained(checkpoint_path)
->>>>>>> origin/main
             return model_config
 
     if task == SEQCLASSIFICATION:
@@ -493,7 +458,6 @@ class HPOArgs:
     """The HPO setting.
 
     Args:
-<<<<<<< HEAD
         output_dir (:obj:`str`):
             data root directory for outputing the log, etc.
         model_path (:obj:`str`, `optional`, defaults to :obj:`facebook/muppet-roberta-base`):
@@ -507,15 +471,7 @@ class HPOArgs:
             A bool, whether to pad all samples to model maximum sentence length
         ckpt_per_epoch (:obj:`int`, `optional`, defaults to :obj:`1`):
             An integer, the number of checkpoints per epoch
-=======
-        output_dir (str): data root directory for outputing the log, etc.
-        model_path (str, optional, defaults to "facebook/muppet-roberta-base"): A string,
-            the path of the language model file, either a path from huggingface
-            model card huggingface.co/models, or a local path for the model.
-        fp16 (bool, optional, defaults to "False"): A bool, whether to use FP16.
-        max_seq_length (int, optional, defaults to 128): An integer, the max length of the sequence.
-        ckpt_per_epoch (int, optional, defaults to 1): An integer, the number of checkpoints per epoch.
->>>>>>> upstream/main
+
 
     """
 
@@ -536,8 +492,8 @@ class HPOArgs:
         default=True,
         metadata={
             "help": "Whether to pad all samples to model maximum sentence length. "
-                    "If False, will pad the samples dynamically when batching to the maximum length in the batch. More "
-                    "efficient on GPU but very bad for TPU."
+            "If False, will pad the samples dynamically when batching to the maximum length in the batch. More "
+            "efficient on GPU but very bad for TPU."
         },
     )
 

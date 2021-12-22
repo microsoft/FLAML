@@ -76,10 +76,7 @@ setuptools.setup(
         "vw": [
             "vowpalwabbit",
         ],
-<<<<<<< HEAD
         "nlp": ["transformers", "datasets", "torch", "seqeval", "nltk", "rouge_score"],
-=======
->>>>>>> origin/main
         "ts_forecast": ["prophet>=1.0.1", "statsmodels>=0.12.2"],
         "forecast": ["prophet>=1.0.1", "statsmodels>=0.12.2"],
         "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3"],
