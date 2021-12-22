@@ -502,12 +502,13 @@ class AutoML(BaseEstimator):
                 'budget' - do best effort to retrain without violating the time
                 budget.
             split_type: str or splitter object, default="auto" | the data split type.
-                A valid splitter object is an instance of a derived class of scikit-learn KFold
-                (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html#sklearn.model_selection.KFold)
+                * A valid splitter object is an instance of a derived class of scikit-learn
+                [KFold](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html#sklearn.model_selection.KFold)
                 and have ``split`` and ``get_n_splits`` methods with the same signatures.
-                Valid str options depend on different tasks.
-                For classification tasks, valid choices are [
-                    "auto", 'stratified', 'uniform', 'time']. "auto" -> stratified.
+                Set eval_method to "cv" to use the splitter object.
+                * Valid str options depend on different tasks.
+                For classification tasks, valid choices are
+                    ["auto", 'stratified', 'uniform', 'time', 'group']. "auto" -> stratified.
                 For regression tasks, valid choices are ["auto", 'uniform', 'time'].
                     "auto" -> uniform.
                 For ts_forecast tasks, must be "auto" or 'time'.
@@ -542,7 +543,7 @@ class AutoML(BaseEstimator):
         new_automl.fit(X_train, y_train, starting_points=starting_points)
         ```
 
-            seed: int or None, default=None | The random seed for np.random.
+            seed: int or None, default=None | The random seed for hpo.
             n_concurrent_trials: [Experimental] int, default=1 | The number of
                 concurrent trials. For n_concurrent_trials > 1, installation of
                 ray is required: `pip install flaml[ray]`.
@@ -1287,12 +1288,13 @@ class AutoML(BaseEstimator):
             split_ratio: A float of the validation data percentage for holdout.
             n_splits: An integer of the number of folds for cross-validation.
             split_type: str or splitter object, default="auto" | the data split type.
-                A valid splitter object is an instance of a derived class of scikit-learn KFold
-                (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html#sklearn.model_selection.KFold)
+                * A valid splitter object is an instance of a derived class of scikit-learn
+                [KFold](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html#sklearn.model_selection.KFold)
                 and have ``split`` and ``get_n_splits`` methods with the same signatures.
-                Valid str options depend on different tasks.
-                For classification tasks, valid choices are [
-                    "auto", 'stratified', 'uniform', 'time', 'group']. "auto" -> stratified.
+                Set eval_method to "cv" to use the splitter object.
+                * Valid str options depend on different tasks.
+                For classification tasks, valid choices are
+                    ["auto", 'stratified', 'uniform', 'time', 'group']. "auto" -> stratified.
                 For regression tasks, valid choices are ["auto", 'uniform', 'time'].
                     "auto" -> uniform.
                 For ts_forecast tasks, must be "auto" or 'time'.
@@ -1806,12 +1808,13 @@ class AutoML(BaseEstimator):
                 'budget' - do best effort to retrain without violating the time
                 budget.
             split_type: str or splitter object, default="auto" | the data split type.
-                A valid splitter object is an instance of a derived class of scikit-learn KFold
-                (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html#sklearn.model_selection.KFold)
+                * A valid splitter object is an instance of a derived class of scikit-learn
+                [KFold](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html#sklearn.model_selection.KFold)
                 and have ``split`` and ``get_n_splits`` methods with the same signatures.
-                Valid str options depend on different tasks.
-                For classification tasks, valid choices are [
-                    "auto", 'stratified', 'uniform', 'time']. "auto" -> stratified.
+                Set eval_method to "cv" to use the splitter object.
+                * Valid str options depend on different tasks.
+                For classification tasks, valid choices are
+                    ["auto", 'stratified', 'uniform', 'time', 'group']. "auto" -> stratified.
                 For regression tasks, valid choices are ["auto", 'uniform', 'time'].
                     "auto" -> uniform.
                 For ts_forecast tasks, must be "auto" or 'time'.
@@ -1845,7 +1848,7 @@ class AutoML(BaseEstimator):
         new_automl.fit(X_train, y_train, starting_points=starting_points)
         ```
 
-            seed: int or None, default=None | The random seed for np.random.
+            seed: int or None, default=None | The random seed for hpo.
             n_concurrent_trials: [Experimental] int, default=1 | The number of
                 concurrent trials. For n_concurrent_trials > 1, installation of
                 ray is required: `pip install flaml[ray]`.
@@ -1949,13 +1952,10 @@ class AutoML(BaseEstimator):
         )
         self._search_states = {}  # key: estimator name; value: SearchState
         self._random = np.random.RandomState(RANDOM_SEED)
-        if seed is not None:
-            np.random.seed(seed)
-        self._seed = seed + 19823 if seed is not None else 20
+        self._seed = seed if seed is not None else 20
         self._learner_selector = learner_selector
         old_level = logger.getEffectiveLevel()
         self.verbose = verbose
-        # if verbose == 0:
         logger.setLevel(50 - verbose * 10)
         if (not mlflow or not mlflow.active_run()) and not logger.handlers:
             # Add the console handler.
