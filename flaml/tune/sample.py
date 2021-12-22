@@ -17,7 +17,6 @@
 # Copyright (c) Microsoft Corporation.
 import logging
 from copy import copy
-from inspect import signature
 from math import isclose
 from typing import Any, Dict, List, Optional, Sequence, Union
 import numpy as np
@@ -565,10 +564,6 @@ def randint(lower: int, upper: int):
     ``lower`` is inclusive, ``upper`` is exclusive.
     Sampling from ``tune.randint(10)`` is equivalent to sampling from
     ``np.random.randint(10)``
-    .. versionchanged:: 1.5.0
-        When converting Ray Tune configs to searcher-specific search spaces,
-        the lower and upper limits are adjusted to keep compatibility with
-        the bounds stated in the docstring above.
     """
     return Integer(lower, upper).uniform()
 
@@ -577,10 +572,6 @@ def lograndint(lower: int, upper: int, base: float = 10):
     """Sample an integer value log-uniformly between ``lower`` and ``upper``,
     with ``base`` being the base of logarithm.
     ``lower`` is inclusive, ``upper`` is exclusive.
-    .. versionchanged:: 1.5.0
-        When converting Ray Tune configs to searcher-specific search spaces,
-        the lower and upper limits are adjusted to keep compatibility with
-        the bounds stated in the docstring above.
     """
     return Integer(lower, upper).loguniform(base)
 
@@ -590,10 +581,6 @@ def qrandint(lower: int, upper: int, q: int = 1):
     ``lower`` is inclusive, ``upper`` is also inclusive (!).
     The value will be quantized, i.e. rounded to an integer increment of ``q``.
     Quantization makes the upper bound inclusive.
-    .. versionchanged:: 1.5.0
-        When converting Ray Tune configs to searcher-specific search spaces,
-        the lower and upper limits are adjusted to keep compatibility with
-        the bounds stated in the docstring above.
     """
     return Integer(lower, upper).uniform().quantized(q)
 
@@ -604,10 +591,6 @@ def qlograndint(lower: int, upper: int, q: int, base: float = 10):
     ``lower`` is inclusive, ``upper`` is also inclusive (!).
     The value will be quantized, i.e. rounded to an integer increment of ``q``.
     Quantization makes the upper bound inclusive.
-    .. versionchanged:: 1.5.0
-        When converting Ray Tune configs to searcher-specific search spaces,
-        the lower and upper limits are adjusted to keep compatibility with
-        the bounds stated in the docstring above.
     """
     return Integer(lower, upper).loguniform(base).quantized(q)
 
