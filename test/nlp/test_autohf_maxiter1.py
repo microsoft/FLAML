@@ -41,7 +41,7 @@ def test_max_iter_1():
         groups_train=None,
     ):
         return 0, {
-            "test_loss": 0,
+            "val_loss": 0,
             "train_loss": 0,
             "pred_time": 0,
         }
