@@ -505,6 +505,11 @@ class DISTILHPOArgs:
                                 "help": "Path to the already downstream task fine-tuned teacher model."}
     )
 
+    tokenizer_name: str = field(
+        default="distilbert",
+        metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"},
+    )
+
     temperature: float = field(
         default=2.0,
         metadata={"help": "Temperature for the softmax temperature"}, )
@@ -544,3 +549,4 @@ class DISTILHPOArgs:
             )
         console_args, unknown = arg_parser.parse_known_args()
         return console_args
+

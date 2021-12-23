@@ -460,15 +460,16 @@ class DistiliingEstimator(TransformersEstimator):
         for key, val in automl_fit_kwargs["custom_hpo_args"].items():
             assert (
                     key in custom_hpo_args.__dict__
-            ), "The specified key {} is not in the argument list of flaml.nlp.utils::HPOArgs".format(
+            ), "The specified key {} is not in the argument list of flaml.nlp.utils::DISTILHPOArgs".format(
                 key
             )
             setattr(custom_hpo_args, key, val)
         self.custom_hpo_args = custom_hpo_args
 
-    def train(args,train_dataset, model, tokenizer, teacher=None):
+
+    def train(self,args,train_dataset, student, tokenizer, logger, teacher=None):
         """Train the model"""
-        from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
+        from torch.utils.data import DataLoader, RandomSampler
         from transformers.trainer_utils import set_seed
         from transformers import (
             AdamW,
@@ -477,13 +478,13 @@ class DistiliingEstimator(TransformersEstimator):
         from tqdm import tqdm, trange
         import torch
         from torch import nn
-        # try:
-        #     from torch.utils.tensorboard import SummaryWriter
-        # except ImportError:
-        #     from tensorboardX import SummaryWriter
+        try:
+            from torch.utils.tensorboard import SummaryWriter
+        except ImportError:
+            from tensorboardX import SummaryWriter
 
-        # if args.local_rank in [-1, 0]:
-        #     tb_writer = SummaryWriter()
+        if args.local_rank in [-1, 0]:
+            tb_writer = SummaryWriter()
 
         args.train_batch_size = args.per_device_train_batch_size
         train_sampler = RandomSampler(train_dataset)
@@ -499,23 +500,23 @@ class DistiliingEstimator(TransformersEstimator):
         no_decay = ["bias", "LayerNorm.weight"]
         optimizer_grouped_parameters = [
             {
-                "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+                "params": [p for n, p in student.named_parameters() if not any(nd in n for nd in no_decay)],
                 "weight_decay": args.weight_decay,
             },
-            {"params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], "weight_decay": 0.0},
+            {"params": [p for n, p in student.named_parameters() if any(nd in n for nd in no_decay)], "weight_decay": 0.0},
         ]
         optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
         scheduler = get_linear_schedule_with_warmup(
             optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total
         )
 
-        # # Check if saved optimizer or scheduler states exist
-        # if os.path.isfile(os.path.join(args.model_name_or_path, "optimizer.pt")) and os.path.isfile(
-        #         os.path.join(args.model_name_or_path, "scheduler.pt")
-        # ):
-        #     # Load in optimizer and scheduler states
-        #     optimizer.load_state_dict(torch.load(os.path.join(args.model_name_or_path, "optimizer.pt")))
-        #     scheduler.load_state_dict(torch.load(os.path.join(args.model_name_or_path, "scheduler.pt")))
+        # Check if saved optimizer or scheduler states exist
+        if os.path.isfile(os.path.join(args.model_name_or_path, "optimizer.pt")) and os.path.isfile(
+                os.path.join(args.model_name_or_path, "scheduler.pt")
+        ):
+            # Load in optimizer and scheduler states
+            optimizer.load_state_dict(torch.load(os.path.join(args.model_name_or_path, "optimizer.pt")))
+            scheduler.load_state_dict(torch.load(os.path.join(args.model_name_or_path, "scheduler.pt")))
 
         if args.fp16:
             try:
@@ -523,7 +524,7 @@ class DistiliingEstimator(TransformersEstimator):
             except ImportError:
                 raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
 
-            model, optimizer = amp.initialize(model, optimizer, opt_level=args.fp16_opt_level)
+            student, optimizer = amp.initialize(student, optimizer, opt_level=args.fp16_opt_level)
 
         # # multi-gpu training (should be after apex fp16 initialization)
         # if args.n_gpu > 1:
@@ -556,12 +557,12 @@ class DistiliingEstimator(TransformersEstimator):
                 logger.info("  Starting fine-tuning.")
 
         tr_loss, logging_loss = 0.0, 0.0
-        model.zero_grad()
+        student.zero_grad()
         train_iterator = trange(
             epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0]
         )
         # Added here for reproductibility
-        set_seed(args)
+        set_seed(self.params.get("seed", args.seed))
 
         for _ in train_iterator:
             epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
@@ -572,7 +573,7 @@ class DistiliingEstimator(TransformersEstimator):
                     steps_trained_in_current_epoch -= 1
                     continue
 
-                model.train()
+                student.train()
                 if teacher is not None:
                     teacher.eval()
                 batch = tuple(t.to(args.device) for t in batch)
@@ -584,12 +585,12 @@ class DistiliingEstimator(TransformersEstimator):
                     "end_positions": batch[4],
                 }
                 if args.student_type != "distilbert":
-                    inputs["token_type_ids"] = None if args.model_type == "xlm" else batch[2]
+                    inputs["token_type_ids"] = None if args.student_type == "xlm" else batch[2]
                 if args.student_type in ["xlnet", "xlm"]:
                     inputs.update({"cls_index": batch[5], "p_mask": batch[6]})
                     # if args.version_2_with_negative:
                     #     inputs.update({"is_impossible": batch[7]})
-                outputs = model(**inputs)
+                outputs = student(**inputs)
                 loss, start_logits_stu, end_logits_stu = outputs
 
                 # Distillation loss
@@ -622,12 +623,12 @@ class DistiliingEstimator(TransformersEstimator):
                     )
                     loss_ce = (loss_start + loss_end) / 2.0
 
-                    loss = args.alpha_ce * loss_ce + args.alpha_squad * loss
+                    loss = args.alpha_ce * loss_ce + args.alpha_task * loss
 
-                if args.n_gpu > 1:
-                    loss = loss.mean()  # mean() to average on multi-gpu parallel (not distributed) training
-                if args.gradient_accumulation_steps > 1:
-                    loss = loss / args.gradient_accumulation_steps
+                # if args.n_gpu > 1:
+                #     loss = loss.mean()  # mean() to average on multi-gpu parallel (not distributed) training
+                # if args.gradient_accumulation_steps > 1:
+                #     loss = loss / args.gradient_accumulation_steps
 
                 if args.fp16:
                     with amp.scale_loss(loss, optimizer) as scaled_loss:
@@ -640,18 +641,19 @@ class DistiliingEstimator(TransformersEstimator):
                     if args.fp16:
                         nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
                     else:
-                        nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+                        nn.utils.clip_grad_norm_(student.parameters(), args.max_grad_norm)
 
                     optimizer.step()
                     scheduler.step()  # Update learning rate schedule
-                    model.zero_grad()
+                    student.zero_grad()
                     global_step += 1
 
                     # Log metrics
                     if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
                         # Only evaluate when single GPU otherwise metrics may not average well
+                        # TODO: complete evaluate
                         if args.local_rank == -1 and args.evaluate_during_training:
-                            results = evaluate(args, model, tokenizer)
+                            results = self.evaluate(args, student, tokenizer,logger)
                             for key, value in results.items():
                                 tb_writer.add_scalar("eval_{}".format(key), value, global_step)
                         tb_writer.add_scalar("lr", scheduler.get_lr()[0], global_step)
@@ -663,10 +665,10 @@ class DistiliingEstimator(TransformersEstimator):
                         output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(global_step))
                         if not os.path.exists(output_dir):
                             os.makedirs(output_dir)
-                        model_to_save = (
-                            model.module if hasattr(model, "module") else model
+                        student_to_save = (
+                            student.module if hasattr(student, "module") else student
                         )  # Take care of distributed/parallel training
-                        model_to_save.save_pretrained(output_dir)
+                        student_to_save.save_pretrained(output_dir)
                         tokenizer.save_pretrained(output_dir)
 
                         torch.save(args, os.path.join(output_dir, "training_args.bin"))
@@ -688,21 +690,33 @@ class DistiliingEstimator(TransformersEstimator):
 
         return global_step, tr_loss / global_step
 
-    def evaluate(args, model, tokenizer, prefix=""):
-        dataset, examples, features = load_and_cache_examples(args, tokenizer, evaluate=True, output_examples=True)
+    def evaluate(self,args, model, tokenizer, logger, prefix=""):
+        from torch.utils.data import DataLoader,SequentialSampler
+        from tqdm import tqdm
+        import torch
+        # from torch import nn
+        import timeit
+        from transformers.data.metrics.squad_metrics import (
+            compute_predictions_log_probs,
+            compute_predictions_logits,
+            squad_evaluate,
+        )
+        from transformers.data.processors.squad import SquadResult
+
+        dataset, examples, features = self.load_examples(args, tokenizer, evaluate=True, output_examples=True)
 
         if not os.path.exists(args.output_dir) and args.local_rank in [-1, 0]:
             os.makedirs(args.output_dir)
 
-        args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
+        args.eval_batch_size = args.per_device_eval_batch_size
 
         # Note that DistributedSampler samples randomly
         eval_sampler = SequentialSampler(dataset)
         eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
 
-        # multi-gpu evaluate
-        if args.n_gpu > 1 and not isinstance(model, nn.DataParallel):
-            model = nn.DataParallel(model)
+        # # multi-gpu evaluate
+        # if args.n_gpu > 1 and not isinstance(model, nn.DataParallel):
+        #     model = nn.DataParallel(model)
 
         # Eval!
         logger.info("***** Running evaluation {} *****".format(prefix))
@@ -718,10 +732,10 @@ class DistiliingEstimator(TransformersEstimator):
 
             with torch.no_grad():
                 inputs = {"input_ids": batch[0], "attention_mask": batch[1]}
-                if args.model_type != "distilbert":
-                    inputs["token_type_ids"] = None if args.model_type == "xlm" else batch[2]  # XLM don't use segment_ids
+                if args.student_type != "distilbert":
+                    inputs["token_type_ids"] = None if args.student_type == "xlm" else batch[2]  # XLM don't use segment_ids
                 example_indices = batch[3]
-                if args.model_type in ["xlnet", "xlm"]:
+                if args.student_type in ["xlnet", "xlm"]:
                     inputs.update({"cls_index": batch[4], "p_mask": batch[5]})
 
                 outputs = model(**inputs)
@@ -730,7 +744,7 @@ class DistiliingEstimator(TransformersEstimator):
                 eval_feature = features[example_index.item()]
                 unique_id = int(eval_feature.unique_id)
 
-                output = [to_list(output[i]) for output in outputs]
+                output = [output[i].detach().cpu().tolist() for output in outputs]
 
                 # Some models (XLNet, XLM) use 5 arguments for their predictions, while the other "simpler"
                 # models only use two.
@@ -768,7 +782,7 @@ class DistiliingEstimator(TransformersEstimator):
         else:
             output_null_log_odds_file = None
 
-        if args.model_type in ["xlnet", "xlm"]:
+        if args.student_type in ["xlnet", "xlm"]:
             # XLNet uses a more complex post-processing procedure
             predictions = compute_predictions_log_probs(
                 examples,
@@ -806,13 +820,45 @@ class DistiliingEstimator(TransformersEstimator):
         results = squad_evaluate(examples, predictions)
         return results
 
-    def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
-        from .nlp.utils import load_model
+    def load_examples(self,args, tokenizer, dataset, evaluate=False,output_examples=False):
+        import torch
+        from transformers import squad_convert_examples_to_features
+        from transformers.data.processors.squad import SquadV1Processor, SquadV2Processor
+
+        # if args.local_rank not in [-1, 0] and not evaluate:
+        #     # Make sure only the first process in distributed training process the dataset, and the others will use the cache
+        #     # torch.distributed.barrier()
+
+        # dataset must be tensorflow_dataset.load('squad')
+        processor = SquadV2Processor() if args.version_2_with_negative else SquadV1Processor()
+        examples = processor.get_examples_from_dataset(dataset, evaluate=evaluate)
+
+        features, dataset = squad_convert_examples_to_features(
+                examples=examples,
+                tokenizer=tokenizer,
+                max_seq_length=args.max_seq_length,
+                doc_stride=args.doc_stride,
+                max_query_length=args.max_query_length,
+                is_training=not evaluate,
+                return_dataset="pt",
+                threads=args.threads,
+            )
+
+        # if args.local_rank == 0 and not evaluate:
+        #     # Make sure only the first process in distributed training process the dataset, and the others will use the cache
+        #     torch.distributed.barrier()
+
+        if output_examples:
+            return dataset, examples, features
+        return dataset
+
+
+    def fit(self, dataset, budget=None, **kwargs):
         from transformers.trainer_utils import set_seed
         from transformers import AutoTokenizer
 
         import transformers
-        from datasets import Dataset
+        from datasets import load_dataset
         from .nlp.utils import (
             get_num_labels,
             separate_config,
@@ -821,54 +867,120 @@ class DistiliingEstimator(TransformersEstimator):
             get_trial_fold_name,
             date_str,
         )
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        this_params = self.params
+
+        set_seed(self.params.get("seed", self._TrainingArguments.seed))
+
+        self._init_hpo_args(kwargs)
+        self._metric_name = kwargs["metric"]
+        if hasattr(self, "use_ray") is False:
+            self.use_ray = kwargs["use_ray"]
 
 
-        pass
+        # TODO: set a breakpoint here, observe the resulting train_dataset,
+        #  compare it with the output of the tokenized results in your transformer example
+        #  for example, if your task is MULTIPLECHOICE, you need to compare train_dataset with
+        #  the output of https://github.com/huggingface/transformers/blob/master/examples/pytorch/multiple-choice/run_swag.py#L329
+        #  make sure they are the same
 
-    def predict(self, X_test: DataFrame, **kwargs):
-        # TODO: transform X_test into Dataset, make prediction based on task
-        from datasets import Dataset
-        from torch.utils.data import DataLoader
-        from .nlp.utils import load_model
-        import torch
-        # preprocess X_test 
-        X_test = self._preprocess(X_test, self._task, **kwargs)
-        X_test = Dataset.from_pandas(X_test)
-        X_test_dataloader = DataLoader(X_test)  # can also customize sampler here
-        # NOTE: not sure if we need to load best_model from checkpoints
-        # get best model from ckpt
-        best_model = load_model(
-            checkpoint_path=self._checkpoint_path,
-            task=self._task,
-            num_labels=self._num_labels,
-            per_model_config=self._per_model_config,
+        tokenizer = AutoTokenizer.from_pretrained(
+            self.custom_hpo_args.tokenizer_name , use_fast=True
         )
-        self._model = best_model
-        # per_device_eval_batch_size = 1
-        output_dir = self.custom_hpo_args.output_dir
-        
-        # added QUESTIONANSWERING = "question-answering" to data.py at L30
-        # added import for QUESTIONANSWERING at this file, L28
-        # Skip other tasks, only do QA here
-        
-        if self._task == QUESTIONANSWERING:
-            # TODO: complete prediction here, output the answer based on start_ids and end_ids
-            # for step, inputs in enumerate(X_test_dataloader):
-            pass
+        self._tokenizer = tokenizer
+
+        training_args_config, per_model_config = separate_config(
+            self.params, self._task
+        )
+
+        train_dataset = self.load_examples(training_args_config, tokenizer, dataset, evaluate=False, output_examples=False)
+
+        ckpt_freq = compute_checkpoint_freq(
+            train_data_size=len(train_dataset),
+            custom_hpo_args=self.custom_hpo_args,
+            num_train_epochs=training_args_config.get(
+                "num_train_epochs", self._TrainingArguments.num_train_epochs
+            ),
+            batch_size=training_args_config.get(
+                "per_device_train_batch_size",
+                self._TrainingArguments.per_device_train_batch_size,
+            ),
+        )
+
+        local_dir = os.path.join(
+            self.custom_hpo_args.output_dir, "train_{}".format(date_str())
+        )
+
+        if not self.use_ray:
+            # if self.params = {}, don't include configuration in trial fold name
+            trial_dir = get_trial_fold_name(local_dir, self.params, self.trial_id)
         else:
-            # For future use, uncomment below (and add more for different tasks)
-            # elif self._task == SEQCLASSIFICATION:
-            #     return np.argmax(predictions.predictions, axis=1)
-            # elif self._task == SEQREGRESSION:
-            #     return predictions.predictions.reshape((len(predictions.predictions),))
-            pass
-        
-    def predict_proba(self, X_test: DataFrame, **kwargs):
-        # only available for classification task, so we can skip this function here
-        assert (
-            self._task in CLASSIFICATION
-        ), "predict_proba is only available in classification tasks"
-        # TODO: complete this method afterwards.
+            import ray
+
+            trial_dir = ray.tune.get_trial_dir()
+
+        if transformers.__version__.startswith("3"):
+            training_args = self._TrainingArguments(
+                report_to=[],
+                output_dir=trial_dir,
+                do_train=True,
+                do_eval=True,
+                eval_steps=ckpt_freq,
+                evaluate_during_training=True,
+                save_steps=ckpt_freq,
+                save_total_limit=0,
+                fp16=self.custom_hpo_args.fp16,
+                load_best_model_at_end=True,
+                **training_args_config,
+            )
+        else:
+            from transformers import IntervalStrategy
+            training_args = self._TrainingArguments(
+                report_to=[],
+                output_dir=trial_dir,
+                do_train=True,
+                do_eval=True,
+                per_device_eval_batch_size=1,
+                eval_steps=ckpt_freq,
+                evaluation_strategy=IntervalStrategy.STEPS,
+                save_steps=ckpt_freq,
+                save_total_limit=0,
+                fp16=self.custom_hpo_args.fp16,
+                load_best_model_at_end=True,
+                **training_args_config,
+            )
+
+        # model_init
+        self.student = load_model(
+                checkpoint_path=self.custom_hpo_args.student_name_or_path,
+                task=self._task,
+                num_labels=None,
+                per_model_config=per_model_config,
+            )
+
+        self.teacher = load_model(
+                checkpoint_path=self.custom_hpo_args.teacher_name_or_path,
+                task=self._task,
+                num_labels=None,
+            )
+
+        setattr(self._model, "_use_ray", self.use_ray)
+        if self._task in NLG_TASKS:
+            setattr(self._model, "_is_seq2seq", True)
+        self.train(training_args,train_dataset, self.student, tokenizer, logger, teacher=self.teacher)
+
+        self.params[self.ITER_HP] = self.student.state.global_step
+        self._checkpoint_path = self._select_checkpoint(self.student)
+
+        self._kwargs = kwargs
+        self._per_model_config = per_model_config
+        self._training_args_config = training_args_config
+
+        self._ckpt_remains = list(self._model.ckpt_to_metric.keys())
+
     
 ################# END ADDED BY QSONG #################
 
