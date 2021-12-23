@@ -445,13 +445,14 @@ class TransformersEstimator(BaseEstimator):
         y_val = kwargs.get("y_val")
 
         if self._task not in NLG_TASKS:
-            X_train, _ = self._preprocess(X=X_train, task=self._task, **kwargs)
+            self._X_train, _ = self._preprocess(X=X_train, task=self._task, **kwargs)
+            self._y_train = y_train
         else:
-            X_train, y_train = self._preprocess(
+            self._X_train, self._y_train = self._preprocess(
                 X=X_train, y=y_train, task=self._task, **kwargs
             )
 
-        train_dataset = Dataset.from_pandas(self._join(X_train, y_train))
+        train_dataset = Dataset.from_pandas(self._join(self._X_train, self._y_train))
 
         # TODO: set a breakpoint here, observe the resulting train_dataset,
         #  compare it with the output of the tokenized results in your transformer example
@@ -461,12 +462,13 @@ class TransformersEstimator(BaseEstimator):
 
         if X_val is not None:
             if self._task not in NLG_TASKS:
-                X_val, _ = self._preprocess(X=X_val, task=self._task, **kwargs)
+                self._X_val, _ = self._preprocess(X=X_val, task=self._task, **kwargs)
+                self._y_val = y_val
             else:
-                X_val, y_val = self._preprocess(
+                self._X_val, self._y_val = self._preprocess(
                     X=X_val, y=y_val, task=self._task, **kwargs
                 )
-            eval_dataset = Dataset.from_pandas(self._join(X_val, y_val))
+            eval_dataset = Dataset.from_pandas(self._join(self._X_val, self._y_val))
         else:
             eval_dataset = None
 
@@ -475,13 +477,13 @@ class TransformersEstimator(BaseEstimator):
         )
         self._tokenizer = tokenizer
 
-        num_labels = get_num_labels(self._task, y_train)
+        num_labels = get_num_labels(self._task, self._y_train)
 
         training_args_config, per_model_config = separate_config(
             self.params, self._task
         )
         ckpt_freq = compute_checkpoint_freq(
-            train_data_size=len(X_train),
+            train_data_size=len(self._X_train),
             custom_hpo_args=self.custom_hpo_args,
             num_train_epochs=training_args_config.get(
                 "num_train_epochs", self._TrainingArguments.num_train_epochs
@@ -630,11 +632,21 @@ class TransformersEstimator(BaseEstimator):
                 else np.argmax(predictions, axis=1)
             )
 
-        return {
-            "val_loss": metric_loss_score(
-                metric_name=self._metric_name, y_predict=predictions, y_true=labels
-            )
-        }
+        if isinstance(self._metric_name, str):
+            return {
+                "val_loss": metric_loss_score(
+                    metric_name=self._metric_name, y_predict=predictions, y_true=labels
+                )
+             }
+        else:
+             agg_metric, metric_dict = self._metric_name(
+                X_test=self._X_val,
+                y_test=self._y_val,
+                estimator=self,
+                labels=None,
+                X_train=self._X_train,
+                y_train=self._y_train,)
+             return metric_dict
 
     def predict_proba(self, X_test):
         assert (
