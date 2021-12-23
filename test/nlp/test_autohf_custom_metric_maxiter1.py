@@ -23,7 +23,7 @@ def toy_metric(
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
-def test_custom_metric_and_maxiter1():
+def test_custom_metric():
     from flaml import AutoML
     import requests
     from datasets import load_dataset
