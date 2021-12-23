@@ -7,11 +7,20 @@ try:
 except (ImportError, AssertionError):
     from . import sample
     from ..searcher.variant_generator import generate_variants
-from typing import Dict, Optional, Any, Tuple
+from typing import Dict, Optional, Any, Tuple, Generator
 import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def generate_variants_compatible(
+    unresolved_spec: Dict, constant_grid_search: bool = False, random_state=None
+) -> Generator[Tuple[Dict, Dict], None, None]:
+    try:
+        return generate_variants(unresolved_spec, constant_grid_search, random_state)
+    except TypeError:
+        return generate_variants(unresolved_spec, constant_grid_search)
 
 
 def define_by_run_func(trial, space: Dict, path: str = "") -> Optional[Dict[str, Any]]:
@@ -117,7 +126,7 @@ def define_by_run_func(trial, space: Dict, path: str = "") -> Optional[Dict[str,
 
 
 def unflatten_hierarchical(config: Dict, space: Dict) -> Tuple[Dict, Dict]:
-    """unflatten hierarchical config"""
+    """Unflatten hierarchical config."""
     hier = {}
     subspace = {}
     for key, value in config.items():
@@ -152,7 +161,7 @@ def unflatten_hierarchical(config: Dict, space: Dict) -> Tuple[Dict, Dict]:
 
 
 def add_cost_to_space(space: Dict, low_cost_point: Dict, choice_cost: Dict):
-    """Update the space in place by adding low_cost_point and choice_cost
+    """Update the space in place by adding low_cost_point and choice_cost.
 
     Returns:
         A dict with constant values.
@@ -240,13 +249,14 @@ def normalize(
     normalized_reference_config: Dict,
     recursive: bool = False,
 ):
-    """normalize config in space according to reference_config.
-    normalize each dimension in config to [0,1].
+    """Normalize config in space according to reference_config.
+
+    Normalize each dimension in config to [0,1].
     """
     config_norm = {}
     for key, value in config.items():
         domain = space.get(key)
-        if domain is None:  # e.g., prune_attr
+        if domain is None:  # e.g., resource_attr
             config_norm[key] = value
             continue
         if not callable(getattr(domain, "get_sampler", None)):
@@ -404,19 +414,18 @@ def denormalize(
                 # Handle int (4.6 -> 5)
                 if isinstance(domain, sample.Integer):
                     config_denorm[key] = int(round(config_denorm[key]))
-        else:  # prune_attr
+        else:  # resource_attr
             config_denorm[key] = value
     return config_denorm
 
 
 def indexof(domain: Dict, config: Dict) -> int:
-    """find the index of config in domain.categories"""
+    """Find the index of config in domain.categories."""
     index = config.get("_choice_")
     if index is not None:
         return index
     if config in domain.categories:
         return domain.categories.index(config)
-    # print(config)
     for i, cat in enumerate(domain.categories):
         if not isinstance(cat, dict):
             continue
@@ -441,10 +450,10 @@ def complete_config(
     lower: Optional[Dict] = None,
     upper: Optional[Dict] = None,
 ) -> Tuple[Dict, Dict]:
-    """Complete partial config in space
+    """Complete partial config in space.
 
     Returns:
-        config, space
+        config, space.
     """
     config = partial_config.copy()
     normalized = normalize(config, space, partial_config, {})
@@ -490,7 +499,9 @@ def complete_config(
     for key, value in space.items():
         if key not in config:
             config[key] = value
-    for _, generated in generate_variants({"config": config}):
+    for _, generated in generate_variants_compatible(
+        {"config": config}, random_state=flow2.rs_random
+    ):
         config = generated["config"]
         break
     subspace = {}

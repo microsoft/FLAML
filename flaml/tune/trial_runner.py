@@ -1,8 +1,7 @@
-"""!
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See LICENSE file in the
- * project root for license information.
-"""
+# !
+#  * Copyright (c) Microsoft Corporation. All rights reserved.
+#  * Licensed under the MIT License. See LICENSE file in the
+#  * project root for license information.
 from typing import Optional
 
 # try:
@@ -17,14 +16,14 @@ logger = logging.getLogger(__name__)
 
 
 class Nologger:
-    """Logger without logging"""
+    """Logger without logging."""
 
     def on_result(self, result):
         pass
 
 
 class SimpleTrial(Trial):
-    """A simple trial class"""
+    """A simple trial class."""
 
     def __init__(self, config, trial_id=None):
         self.trial_id = Trial.generate_id() if trial_id is None else trial_id
@@ -44,7 +43,7 @@ class SimpleTrial(Trial):
 
 
 class BaseTrialRunner:
-    """Implementation of a simple trial runner
+    """Implementation of a simple trial runner.
 
     Note that the caller usually should not mutate trial state directly.
     """
@@ -105,14 +104,16 @@ class BaseTrialRunner:
 
 
 class SequentialTrialRunner(BaseTrialRunner):
-    """Implementation of the sequential trial runner"""
+    """Implementation of the sequential trial runner."""
 
     def step(self) -> Trial:
         """Runs one step of the trial event loop.
+
         Callers should typically run this method repeatedly in a loop. They
         may inspect or modify the runner's state in between calls to step().
 
-        returns a Trial to run
+        Returns:
+            a trial to run.
         """
         trial_id = Trial.generate_id()
         config = self._search_alg.suggest(trial_id)

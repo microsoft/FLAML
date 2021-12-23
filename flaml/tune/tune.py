@@ -1,8 +1,7 @@
-"""!
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See LICENSE file in the
- * project root for license information.
-"""
+# !
+#  * Copyright (c) Microsoft Corporation. All rights reserved.
+#  * Licensed under the MIT License. See LICENSE file in the
+#  * project root for license information.
 from typing import Optional, Union, List, Callable, Tuple
 import numpy as np
 import datetime
@@ -18,6 +17,7 @@ try:
 except (ImportError, AssertionError):
     ray_import = False
     from .analysis import ExperimentAnalysis as EA
+
 from .result import DEFAULT_METRIC
 import logging
 
@@ -30,9 +30,11 @@ _verbose = 0
 _running_trial = None
 _training_iteration = 0
 
+INCUMBENT_RESULT = "__incumbent_result__"
+
 
 class ExperimentAnalysis(EA):
-    """Class for storing the experiment results"""
+    """Class for storing the experiment results."""
 
     def __init__(self, trials, metric, mode):
         try:
@@ -49,27 +51,27 @@ def report(_metric=None, **kwargs):
 
     Example:
 
-    .. code-block:: python
+    ```python
+    import time
+    from flaml import tune
 
-        import time
-        from flaml import tune
+    def compute_with_config(config):
+        current_time = time.time()
+        metric2minimize = (round(config['x'])-95000)**2
+        time2eval = time.time() - current_time
+        tune.report(metric2minimize=metric2minimize, time2eval=time2eval)
 
-        def compute_with_config(config):
-            current_time = time.time()
-            metric2minimize = (round(config['x'])-95000)**2
-            time2eval = time.time() - current_time
-            tune.report(metric2minimize=metric2minimize, time2eval=time2eval)
+    analysis = tune.run(
+        compute_with_config,
+        config={
+            'x': tune.lograndint(lower=1, upper=1000000),
+            'y': tune.randint(lower=1, upper=1000000)
+        },
+        metric='metric2minimize', mode='min',
+        num_samples=1000000, time_budget_s=60, use_ray=False)
 
-        analysis = tune.run(
-            compute_with_config,
-            config={
-                'x': tune.lograndint(lower=1, upper=1000000),
-                'y': tune.randint(lower=1, upper=1000000)
-            },
-            metric='metric2minimize', mode='min',
-            num_samples=1000000, time_budget_s=60, use_ray=False)
-
-        print(analysis.trials[-1].last_result)
+    print(analysis.trials[-1].last_result)
+    ```
 
     Args:
         _metric: Optional default anonymous metric for ``tune.report(value)``.
@@ -96,6 +98,8 @@ def report(_metric=None, **kwargs):
             _running_trial = trial
         result["training_iteration"] = _training_iteration
         result["config"] = trial.config
+        if INCUMBENT_RESULT in result["config"]:
+            del result["config"][INCUMBENT_RESULT]
         for key, value in trial.config.items():
             result["config/" + key] = value
         _runner.process_trial_result(_runner.running_trial, result)
@@ -109,7 +113,7 @@ def report(_metric=None, **kwargs):
 
 
 def run(
-    training_function,
+    evaluation_function,
     config: Optional[dict] = None,
     low_cost_partial_config: Optional[dict] = None,
     cat_hp_cost: Optional[dict] = None,
@@ -118,11 +122,11 @@ def run(
     time_budget_s: Union[int, float] = None,
     points_to_evaluate: Optional[List[dict]] = None,
     evaluated_rewards: Optional[List] = None,
-    prune_attr: Optional[str] = None,
+    resource_attr: Optional[str] = None,
     min_resource: Optional[float] = None,
     max_resource: Optional[float] = None,
     reduction_factor: Optional[float] = None,
-    report_intermediate_result: Optional[bool] = False,
+    scheduler=None,
     search_alg=None,
     verbose: Optional[int] = 2,
     local_dir: Optional[str] = None,
@@ -134,52 +138,49 @@ def run(
     metric_constraints: Optional[List[Tuple[str, str, float]]] = None,
     max_failure: Optional[int] = 100,
     use_ray: Optional[bool] = False,
+    use_incumbent_result_in_evaluation: Optional[bool] = None,
 ):
     """The trigger for HPO.
 
     Example:
 
-    .. code-block:: python
+    ```python
+    import time
+    from flaml import tune
 
-        import time
-        from flaml import tune
+    def compute_with_config(config):
+        current_time = time.time()
+        metric2minimize = (round(config['x'])-95000)**2
+        time2eval = time.time() - current_time
+        tune.report(metric2minimize=metric2minimize, time2eval=time2eval)
 
-        def compute_with_config(config):
-            current_time = time.time()
-            metric2minimize = (round(config['x'])-95000)**2
-            time2eval = time.time() - current_time
-            tune.report(metric2minimize=metric2minimize, time2eval=time2eval)
+    analysis = tune.run(
+        compute_with_config,
+        config={
+            'x': tune.lograndint(lower=1, upper=1000000),
+            'y': tune.randint(lower=1, upper=1000000)
+        },
+        metric='metric2minimize', mode='min',
+        num_samples=-1, time_budget_s=60, use_ray=False)
 
-        analysis = tune.run(
-            compute_with_config,
-            config={
-                'x': tune.lograndint(lower=1, upper=1000000),
-                'y': tune.randint(lower=1, upper=1000000)
-            },
-            metric='metric2minimize', mode='min',
-            num_samples=-1, time_budget_s=60, use_ray=False)
-
-        print(analysis.trials[-1].last_result)
+    print(analysis.trials[-1].last_result)
+    ```
 
     Args:
-        training_function: A user-defined training function.
+        evaluation_function: A user-defined evaluation function.
+            It takes a configuration as input, outputs a evaluation
+            result (can be a numerical value or a dictionary of string
+            and numerical value pairs) for the input configuration.
+            For machine learning tasks, it usually involves training and
+            scoring a machine learning model, e.g., through validation loss.
         config: A dictionary to specify the search space.
         low_cost_partial_config: A dictionary from a subset of
             controlled dimensions to the initial low-cost values.
-            e.g.,
-
-            .. code-block:: python
-
-                {'n_estimators': 4, 'max_leaves': 4}
+            e.g., ```{'n_estimators': 4, 'max_leaves': 4}```
 
         cat_hp_cost: A dictionary from a subset of categorical dimensions
             to the relative cost of each choice.
-            e.g.,
-
-            .. code-block:: python
-
-                {'tree_method': [1, 1, 2]}
-
+            e.g., ```{'tree_method': [1, 1, 2]}```
             i.e., the relative cost of the
             three choices of 'tree_method' is 1, 1 and 2 respectively
         metric: A string of the metric name to optimize for.
@@ -195,46 +196,56 @@ def run(
             needing to re-compute the trial. Must be the same length as
             points_to_evaluate.
             e.g.,
-            .. code-block:: python
-                points_to_evaluate = [
-                    {"b": .99, "cost_related": {"a": 3}},
-                    {"b": .99, "cost_related": {"a": 2}},
-                ]
-                evaluated_rewards=[3.0, 1.0]
+
+    ```python
+    points_to_evaluate = [
+        {"b": .99, "cost_related": {"a": 3}},
+        {"b": .99, "cost_related": {"a": 2}},
+    ]
+    evaluated_rewards=[3.0, 1.0]
+    ```
 
             means that you know the reward for the two configs in
             points_to_evaluate are 3.0 and 1.0 respectively and want to
-            inform run()
+            inform run().
 
-        prune_attr: A string of the attribute used for pruning.
-            Not necessarily in space.
-            When prune_attr is in space, it is a hyperparameter, e.g.,
-            'n_iters', and the best value is unknown.
-            When prune_attr is not in space, it is a resource dimension,
-            e.g., 'sample_size', and the peak performance is assumed
-            to be at the max_resource.
-        min_resource: A float of the minimal resource to use for the
-            prune_attr; only valid if prune_attr is not in space.
-        max_resource: A float of the maximal resource to use for the
-            prune_attr; only valid if prune_attr is not in space.
+        resource_attr: A string to specify the resource dimension used by
+            the scheduler via "scheduler".
+        min_resource: A float of the minimal resource to use for the resource_attr.
+        max_resource: A float of the maximal resource to use for the resource_attr.
         reduction_factor: A float of the reduction factor used for incremental
             pruning.
-        report_intermediate_result: A boolean of whether intermediate results
-            are reported. If so, early stopping and pruning can be used.
+        scheduler: A scheduler for executing the experiment. Can be None, 'flaml',
+            'asha' or a custom instance of the TrialScheduler class. Default is None:
+            in this case when resource_attr is provided, the 'flaml' scheduler will be
+            used, otherwise no scheduler will be used. When set 'flaml', an
+            authentic scheduler implemented in FLAML will be used. It does not
+            require users to report intermediate results in evaluation_function.
+            Find more details abuot this scheduler in this paper
+            https://arxiv.org/pdf/1911.04706.pdf).
+            When set 'asha', the input for arguments "resource_attr",
+            "min_resource", "max_resource" and "reduction_factor" will be passed
+            to ASHA's "time_attr",  "max_t", "grace_period" and "reduction_factor"
+            respectively. You can also provide a self-defined scheduler instance
+            of the TrialScheduler class. When 'asha' or self-defined scheduler is
+            used, you usually need to report intermediate results in the evaluation
+            function. Please find examples using different types of schedulers
+            and how to set up the corresponding evaluation functions in
+            test/tune/test_scheduler.py. TODO: point to notebook examples.
         search_alg: An instance of BlendSearch as the search algorithm
             to be used. The same instance can be used for iterative tuning.
             e.g.,
 
-            .. code-block:: python
-
-                from flaml import BlendSearch
-                algo = BlendSearch(metric='val_loss', mode='min',
-                        space=search_space,
-                        low_cost_partial_config=low_cost_partial_config)
-                for i in range(10):
-                    analysis = tune.run(compute_with_config,
-                        search_alg=algo, use_ray=False)
-                    print(analysis.trials[-1].last_result)
+    ```python
+    from flaml import BlendSearch
+    algo = BlendSearch(metric='val_loss', mode='min',
+            space=search_space,
+            low_cost_partial_config=low_cost_partial_config)
+    for i in range(10):
+        analysis = tune.run(compute_with_config,
+            search_alg=algo, use_ray=False)
+        print(analysis.trials[-1].last_result)
+    ```
 
         verbose: 0, 1, 2, or 3. Verbosity mode for ray if ray backend is used.
             0 = silent, 1 = only status updates, 2 = status and brief trial
@@ -245,11 +256,7 @@ def run(
         resources_per_trial: A dictionary of the hardware resources to allocate
             per trial, e.g., `{'cpu': 1}`. Only valid when using ray backend.
         config_constraints: A list of config constraints to be satisfied.
-            e.g.,
-
-            .. code-block: python
-
-                config_constraints = [(mem_size, '<=', 1024**3)]
+            e.g., ```config_constraints = [(mem_size, '<=', 1024**3)]```
 
             mem_size is a function which produces a float number for the bytes
             needed for a config.
@@ -293,10 +300,34 @@ def run(
         else:
             logger.setLevel(logging.CRITICAL)
 
-    from ..searcher.blendsearch import BlendSearch
+    from ..searcher.blendsearch import BlendSearch, CFO
 
     if search_alg is None:
-        search_alg = BlendSearch(
+        flaml_scheduler_resource_attr = (
+            flaml_scheduler_min_resource
+        ) = flaml_scheduler_max_resource = flaml_scheduler_reduction_factor = None
+        if scheduler in (None, "flaml"):
+
+            # when scheduler is set 'flaml', we will use a scheduler that is
+            # authentic to the search algorithms in flaml. After setting up
+            # the search algorithm accordingly, we need to set scheduler to
+            # None in case it is later used in the trial runner.
+            flaml_scheduler_resource_attr = resource_attr
+            flaml_scheduler_min_resource = min_resource
+            flaml_scheduler_max_resource = max_resource
+            flaml_scheduler_reduction_factor = reduction_factor
+            scheduler = None
+        try:
+            import optuna
+
+            SearchAlgorithm = BlendSearch
+        except ImportError:
+            SearchAlgorithm = CFO
+            logger.warning(
+                "Using CFO for search. To use BlendSearch, run: pip install flaml[blendsearch]"
+            )
+
+        search_alg = SearchAlgorithm(
             metric=metric or DEFAULT_METRIC,
             mode=mode,
             space=config,
@@ -306,12 +337,13 @@ def run(
             cat_hp_cost=cat_hp_cost,
             time_budget_s=time_budget_s,
             num_samples=num_samples,
-            prune_attr=prune_attr,
-            min_resource=min_resource,
-            max_resource=max_resource,
-            reduction_factor=reduction_factor,
+            resource_attr=flaml_scheduler_resource_attr,
+            min_resource=flaml_scheduler_min_resource,
+            max_resource=flaml_scheduler_max_resource,
+            reduction_factor=flaml_scheduler_reduction_factor,
             config_constraints=config_constraints,
             metric_constraints=metric_constraints,
+            use_incumbent_result_in_evaluation=use_incumbent_result_in_evaluation,
         )
     else:
         if metric is None or mode is None:
@@ -321,6 +353,18 @@ def run(
             from ray.tune.suggest import ConcurrencyLimiter
         else:
             from flaml.searcher.suggestion import ConcurrencyLimiter
+        if (
+            search_alg.__class__.__name__
+            in [
+                "BlendSearch",
+                "CFO",
+                "CFOCat",
+            ]
+            and use_incumbent_result_in_evaluation is not None
+        ):
+            search_alg.use_incumbent_result_in_evaluation = (
+                use_incumbent_result_in_evaluation
+            )
         searcher = (
             search_alg.searcher
             if isinstance(search_alg, ConcurrencyLimiter)
@@ -335,12 +379,11 @@ def run(
             searcher.set_search_properties(metric, mode, config, setting)
         else:
             searcher.set_search_properties(metric, mode, config)
-    scheduler = None
-    if report_intermediate_result:
+    if scheduler == "asha":
         params = {}
-        # scheduler resource_dimension=prune_attr
-        if prune_attr:
-            params["time_attr"] = prune_attr
+        # scheduler resource_dimension=resource_attr
+        if resource_attr:
+            params["time_attr"] = resource_attr
         if max_resource:
             params["max_t"] = max_resource
         if min_resource:
@@ -361,7 +404,7 @@ def run(
             )
         _use_ray = True
         return tune.run(
-            training_function,
+            evaluation_function,
             metric=metric,
             mode=mode,
             search_alg=search_alg,
@@ -402,7 +445,7 @@ def run(
             num_trials += 1
             if verbose:
                 logger.info(f"trial {num_trials} config: {trial_to_run.config}")
-            result = training_function(trial_to_run.config)
+            result = evaluation_function(trial_to_run.config)
             if result is not None:
                 if isinstance(result, dict):
                     report(**result)

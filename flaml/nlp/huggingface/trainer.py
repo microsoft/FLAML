@@ -1,105 +1,113 @@
 import os
 
 try:
-    from transformers import Trainer as TFTrainer
+    from transformers import Seq2SeqTrainer
 except ImportError:
-    TFTrainer = object
+    Seq2SeqTrainer = object
 
 
-class TrainerForAutoTransformers(TFTrainer):
+class TrainerForAuto(Seq2SeqTrainer):
+    def predict(
+        self,
+        test_dataset,
+        ignore_keys=None,
+        metric_key_prefix=None,
+        max_length=None,
+        num_beams=None,
+    ):
+        if getattr(self, "_is_seq2seq", None):
+            return super().predict(
+                test_dataset,
+                ignore_keys,
+                metric_key_prefix,
+                max_length,
+                num_beams,
+            )
+        else:
+            return super(Seq2SeqTrainer, self).predict(
+                test_dataset, ignore_keys, metric_key_prefix
+            )
 
-    def evaluate(self,
-                 eval_dataset=None):
-        """
-            Overriding transformers.Trainer.evaluate by saving state with save_state
+    def prediction_step(
+        self,
+        model,
+        inputs,
+        prediction_loss_only,
+        ignore_keys,
+    ):
+        if getattr(self, "_is_seq2seq", None):
+            return super().prediction_step(
+                model, inputs, prediction_loss_only, ignore_keys
+            )
+        else:
+            return super(Seq2SeqTrainer, self).prediction_step(
+                model, inputs, prediction_loss_only, ignore_keys
+            )
 
-            Args:
-                eval_dataset:
-                    the dataset to be evaluated
-        """
-        # TODO coverage
-        from ray import tune
-
-        eval_dataloader = self.get_eval_dataloader(eval_dataset)
-        output = self.prediction_loop(
-            eval_dataloader, description="Evaluation")
-        self.log(output.metrics)
-
-        self.save_state()
-
-        for key in list(output.metrics.keys()):
-            if key.startswith("eval_"):
-                output.metrics[key[5:]] = output.metrics[key]
-        tune.report(**output.metrics)
-
-        return output.metrics
-
-    def save_state(self):
-        """
-                Overriding transformers.Trainer.save_state. It is only through saving
-                the states can best_trial.get_best_checkpoint return a non-empty value.
-        """
-        # TODO coverage
-        import torch
+    def evaluate(
+        self,
+        eval_dataset=None,
+        ignore_keys=None,
+        metric_key_prefix="eval",
+    ):
+        """Overriding transformers.Trainer.evaluate by saving metrics and checkpoint path."""
         from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
-        from ray import tune
 
-        with tune.checkpoint_dir(step=self.state.global_step) as checkpoint_dir:
-            self.args.output_dir = checkpoint_dir
-            # This is the directory name that Huggingface requires.
-            output_dir = os.path.join(
-                self.args.output_dir,
-                f"{PREFIX_CHECKPOINT_DIR}-{self.state.global_step}")
-            self.save_model(output_dir)
-            torch.save(self.optimizer.state_dict(),
-                       os.path.join(output_dir, "optimizer.pt"))
-            torch.save(self.lr_scheduler.state_dict(),
-                       os.path.join(output_dir, "scheduler.pt"))
+        ckpt_dir = os.path.join(
+            self.args.output_dir, f"{PREFIX_CHECKPOINT_DIR}-{self.state.global_step}"
+        )
+        eval_dataset = eval_dataset if eval_dataset is not None else self.eval_dataset
 
-    @staticmethod
-    def convert_num_train_epochs_to_max_steps(
-            num_train_epochs: int,
-            num_train_examples: int,
-            per_device_train_batch_size: int,
-            device_count: int):
-        return int(num_train_epochs * num_train_examples / per_device_train_batch_size / device_count)
+        # TODO: if your task is seq2seq (i.e., SUMMARIZATION), uncomment the code below (add indentation before metrics = eval_dataset...
 
-    @staticmethod
-    def convert_max_steps_to_num_train_epochs(
-            max_steps: int,
-            num_train_examples: int,
-            per_device_train_batch_size: int,
-            device_count: int):
-        return float(max_steps * per_device_train_batch_size * device_count) / num_train_examples
+        if getattr(self, "_is_seq2seq", None):
+            metrics = eval_dataset and super().evaluate(
+                eval_dataset,
+                ignore_keys,
+                metric_key_prefix,
+                max_length=self.args.generation_max_length,
+                num_beams=self.args.generation_num_beams,
+            )
+        else:
+            metrics = eval_dataset and super(Seq2SeqTrainer, self).evaluate(
+                eval_dataset,
+                ignore_keys,
+                metric_key_prefix,
+            )
+        if metrics:
+            for key in list(metrics.keys()):
+                if key.startswith("eval_"):
+                    metrics[key[5:]] = metrics.pop(key)
+        if hasattr(self, "ckpt_to_global_step"):
+            self.ckpt_to_global_step[ckpt_dir] = self.state.global_step
+            if metrics:
+                self.ckpt_to_metric[ckpt_dir] = metrics
+        else:
+            self.ckpt_to_global_step = {ckpt_dir: self.state.global_step}
+            self.ckpt_to_metric = {ckpt_dir: metrics} if metrics else {}
 
-    @staticmethod
-    def convert_warmup_ratio_to_warmup_steps(
-            warmup_ratio,
-            max_steps=None,
-            num_train_epochs=None,
-            num_train_examples=None,
-            per_device_train_batch_size=None,
-            device_count=None):
-        if max_steps:
-            return int(warmup_ratio * max_steps)
-        # TODO coverage
-        max_steps = TrainerForAutoTransformers.convert_num_train_epochs_to_max_steps(
-            num_train_epochs,
-            num_train_examples,
-            per_device_train_batch_size,
-            device_count)
-        return int(warmup_ratio * max_steps)
 
-    @staticmethod
-    def convert_warmup_steps_to_warmup_ratio(
-            warmup_steps: int,
-            num_train_epochs: int,
-            num_train_examples: int,
-            per_device_train_batch_size: int,
-            device_count: int):
-        max_steps = TrainerForAutoTransformers.convert_num_train_epochs_to_max_steps(
-            num_train_epochs,
-            num_train_examples,
-            per_device_train_batch_size,
-            device_count)
-        return float(warmup_steps / max_steps)
+# TODO: if your task is SUMMARIZATION, you need a different
+#  class Seq2SeqTrainerForAuto, uncomment the code below
+#  Note: I have implemented it here,
+#  but I don't know whether it's correct, you need to debug
+#  Seq2SeqTrainerForAuto to make sure it's correct
+
+
+# class Seq2SeqTrainerForAuto(TrainerForAuto):
+#     def evaluate(self, eval_dataset=None, ignore_keys=None, metric_key_prefix="eval"):
+#         """Overriding transformers.Trainer.evaluate by saving metrics and checkpoint path"""
+#         self._is_seq2seq = True
+#         TrainerForAuto.evaluate(self, eval_dataset, ignore_keys, metric_key_prefix)
+#         # super(TrainerForAuto, self).evaluate(
+#         #     eval_dataset, ignore_keys, metric_key_prefix
+#         # )
+
+
+# TODO: if your task is QUESTIONANSWERING, uncomment the code below
+#  by adapting the code in https://github.com/huggingface/transformers/blob/master/examples/pytorch/question-answering/trainer_qa.py#L28
+
+
+# class QATrainerForAuto(TrainerForAuto):
+#     pass
+# TODO: if your task is QUESTIONANSWERING, do the post processing here

@@ -1,8 +1,7 @@
-"""!
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See LICENSE file in the
- * project root for license information.
-"""
+# !
+#  * Copyright (c) Microsoft Corporation. All rights reserved.
+#  * Licensed under the MIT License. See LICENSE file in the
+#  * project root for license information.
 from typing import Dict, Optional, List, Tuple, Callable, Union
 import numpy as np
 import time
@@ -19,17 +18,17 @@ except (ImportError, AssertionError):
     from .suggestion import Searcher
     from .suggestion import OptunaSearch as GlobalSearch
 from ..tune.trial import unflatten_dict, flatten_dict
+from ..tune import INCUMBENT_RESULT
 from .search_thread import SearchThread
 from .flow2 import FLOW2
 from ..tune.space import add_cost_to_space, indexof, normalize, define_by_run_func
-
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 class BlendSearch(Searcher):
-    """class for BlendSearch algorithm"""
+    """class for BlendSearch algorithm."""
 
     cost_attr = "time_total_s"  # cost attribute in result
     lagrange = "_lagrange"  # suffix for lagrange-modified metric
@@ -47,7 +46,7 @@ class BlendSearch(Searcher):
         evaluated_rewards: Optional[List] = None,
         time_budget_s: Union[int, float] = None,
         num_samples: Optional[int] = None,
-        prune_attr: Optional[str] = None,
+        resource_attr: Optional[str] = None,
         min_resource: Optional[float] = None,
         max_resource: Optional[float] = None,
         reduction_factor: Optional[float] = None,
@@ -58,8 +57,9 @@ class BlendSearch(Searcher):
         metric_constraints: Optional[List[Tuple[str, str, float]]] = None,
         seed: Optional[int] = 20,
         experimental: Optional[bool] = False,
+        use_incumbent_result_in_evaluation=False,
     ):
-        """Constructor
+        """Constructor.
 
         Args:
             metric: A string of the metric name to optimize for.
@@ -68,22 +68,12 @@ class BlendSearch(Searcher):
             space: A dictionary to specify the search space.
             low_cost_partial_config: A dictionary from a subset of
                 controlled dimensions to the initial low-cost values.
-                e.g.,
-
-                .. code-block:: python
-
-                    {'n_estimators': 4, 'max_leaves': 4}
-
+                E.g., ```{'n_estimators': 4, 'max_leaves': 4}```.
             cat_hp_cost: A dictionary from a subset of categorical dimensions
                 to the relative cost of each choice.
-                e.g.,
-
-                .. code-block:: python
-
-                    {'tree_method': [1, 1, 2]}
-
-                i.e., the relative cost of the
-                three choices of 'tree_method' is 1, 1 and 2 respectively.
+                E.g., ```{'tree_method': [1, 1, 2]}```.
+                I.e., the relative cost of the three choices of 'tree_method'
+                is 1, 1 and 2 respectively.
             points_to_evaluate: Initial parameter suggestions to be run first.
             evaluated_rewards (list): If you have previously evaluated the
                 parameters passed in as points_to_evaluate you can avoid
@@ -93,17 +83,10 @@ class BlendSearch(Searcher):
                 points_to_evaluate.
             time_budget_s: int or float | Time budget in seconds.
             num_samples: int | The number of configs to try.
-            prune_attr: A string of the attribute used for pruning.
-                Not necessarily in space.
-                When prune_attr is in space, it is a hyperparameter, e.g.,
-                    'n_iters', and the best value is unknown.
-                When prune_attr is not in space, it is a resource dimension,
-                    e.g., 'sample_size', and the peak performance is assumed
-                    to be at the max_resource.
-            min_resource: A float of the minimal resource to use for the
-                prune_attr; only valid if prune_attr is not in space.
-            max_resource: A float of the maximal resource to use for the
-                prune_attr; only valid if prune_attr is not in space.
+            resource_attr: A string to specify the resource dimension and the best
+                performance is assumed to be at the max_resource.
+            min_resource: A float of the minimal resource to use for the resource_attr.
+            max_resource: A float of the maximal resource to use for the resource_attr.
             reduction_factor: A float of the reduction factor used for
                 incremental pruning.
             global_search_alg: A Searcher instance as the global search
@@ -112,21 +95,17 @@ class BlendSearch(Searcher):
                 - HyperOptSearch raises exception sometimes
                 - TuneBOHB has its own scheduler
             config_constraints: A list of config constraints to be satisfied.
-                e.g.,
-
-                .. code-block: python
-
-                    config_constraints = [(mem_size, '<=', 1024**3)]
-
-                mem_size is a function which produces a float number for the bytes
+                E.g., ```config_constraints = [(mem_size, '<=', 1024**3)]```.
+                `mem_size` is a function which produces a float number for the bytes
                 needed for a config.
                 It is used to skip configs which do not fit in memory.
             metric_constraints: A list of metric constraints to be satisfied.
-                e.g., `['precision', '>=', 0.9]`
+                E.g., `['precision', '>=', 0.9]`.
             seed: An integer of the random seed.
             experimental: A bool of whether to use experimental features.
         """
         self._metric, self._mode = metric, mode
+        self._use_incumbent_result_in_evaluation = use_incumbent_result_in_evaluation
         init_config = low_cost_partial_config or {}
         if not init_config:
             logger.info(
@@ -134,7 +113,7 @@ class BlendSearch(Searcher):
                 "For cost-frugal search, "
                 "consider providing low-cost values for cost-related hps via "
                 "'low_cost_partial_config'. More info can be found at "
-                "https://github.com/microsoft/FLAML/wiki/About-%60low_cost_partial_config%60"
+                "https://microsoft.github.io/FLAML/docs/FAQ#about-low_cost_partial_config-in-tune"
             )
         if evaluated_rewards and mode:
             self._points_to_evaluate = []
@@ -162,7 +141,7 @@ class BlendSearch(Searcher):
             metric,
             mode,
             space,
-            prune_attr,
+            resource_attr,
             min_resource,
             max_resource,
             reduction_factor,
@@ -221,7 +200,7 @@ class BlendSearch(Searcher):
         else:
             self._candidate_start_points = None
         self._time_budget_s, self._num_samples = time_budget_s, num_samples
-        if space:
+        if space is not None:
             self._init_search()
 
     def set_search_properties(
@@ -334,7 +313,7 @@ class BlendSearch(Searcher):
         self.best_resource = self._ls.min_resource
 
     def save(self, checkpoint_path: str):
-        """save states to a checkpoint path"""
+        """save states to a checkpoint path."""
         self._time_used += time.time() - self._start_time
         self._start_time = time.time()
         save_object = self
@@ -342,7 +321,7 @@ class BlendSearch(Searcher):
             pickle.dump(save_object, outputFile)
 
     def restore(self, checkpoint_path: str):
-        """restore states from checkpoint"""
+        """restore states from checkpoint."""
         with open(checkpoint_path, "rb") as inputFile:
             state = pickle.load(inputFile)
         self.__dict__ = state.__dict__
@@ -360,7 +339,7 @@ class BlendSearch(Searcher):
     def on_trial_complete(
         self, trial_id: str, result: Optional[Dict] = None, error: bool = False
     ):
-        """search thread updater and cleaner"""
+        """search thread updater and cleaner."""
         metric_constraint_satisfied = True
         if result and not error and self._metric_constraints:
             # account for metric constraints if any
@@ -411,7 +390,7 @@ class BlendSearch(Searcher):
                 if (objective - self._metric_target) * self._ls.metric_op < 0:
                     self._metric_target = objective
                     if self._ls.resource:
-                        self._best_resource = config[self._ls.prune_attr]
+                        self._best_resource = config[self._ls.resource_attr]
                 if thread_id:
                     if not self._metric_constraint_satisfied:
                         # no point has been found to satisfy metric constraint
@@ -621,7 +600,7 @@ class BlendSearch(Searcher):
         return False
 
     def on_trial_result(self, trial_id: str, result: Dict):
-        """receive intermediate result"""
+        """receive intermediate result."""
         if trial_id not in self._trial_proposed_by:
             return
         thread_id = self._trial_proposed_by[trial_id]
@@ -632,14 +611,14 @@ class BlendSearch(Searcher):
         self._search_thread_pool[thread_id].on_trial_result(trial_id, result)
 
     def suggest(self, trial_id: str) -> Optional[Dict]:
-        """choose thread, suggest a valid config"""
+        """choose thread, suggest a valid config."""
         if self._init_used and not self._points_to_evaluate:
             choice, backup = self._select_thread()
             # if choice < 0:  # timeout
             #     return None
             config = self._search_thread_pool[choice].suggest(trial_id)
             if not choice and config is not None and self._ls.resource:
-                config[self._ls.prune_attr] = self.best_resource
+                config[self._ls.resource_attr] = self.best_resource
             elif choice and config is None:
                 # local search thread finishes
                 if self._search_thread_pool[choice].converged:
@@ -743,6 +722,12 @@ class BlendSearch(Searcher):
                 result = {self._metric: reward, self.cost_attr: 1, "config": config}
                 self.on_trial_complete(trial_id, result)
                 return None
+        if self._use_incumbent_result_in_evaluation:
+            if self._trial_proposed_by[trial_id] > 0:
+                choice_thread = self._search_thread_pool[
+                    self._trial_proposed_by[trial_id]
+                ]
+                config[INCUMBENT_RESULT] = choice_thread.best_result
         return config
 
     def _should_skip(self, choice, trial_id, config, space) -> bool:
@@ -902,14 +887,15 @@ except ImportError:
 
 
 class BlendSearchTuner(BlendSearch, NNITuner):
-    """Tuner class for NNI"""
+    """Tuner class for NNI."""
 
     def receive_trial_result(self, parameter_id, parameters, value, **kwargs):
-        """
-        Receive trial's final result.
-        parameter_id: int
-        parameters: object created by 'generate_parameters()'
-        value: final metrics of the trial, including default metric
+        """Receive trial's final result.
+
+        Args:
+            parameter_id: int.
+            parameters: object created by `generate_parameters()`.
+            value: final metrics of the trial, including default metric.
         """
         result = {
             "config": parameters,
@@ -926,20 +912,24 @@ class BlendSearchTuner(BlendSearch, NNITuner):
     ...
 
     def generate_parameters(self, parameter_id, **kwargs) -> Dict:
-        """
-        Returns a set of trial (hyper-)parameters, as a serializable object
-        parameter_id: int
+        """Returns a set of trial (hyper-)parameters, as a serializable object.
+
+        Args:
+            parameter_id: int.
         """
         return self.suggest(str(parameter_id))
 
     ...
 
     def update_search_space(self, search_space):
-        """
+        """Required by NNI.
+
         Tuners are advised to support updating search space at run-time.
         If a tuner can only set search space once before generating first hyper-parameters,
         it should explicitly document this behaviour.
-        search_space: JSON object created by experiment owner
+
+        Args:
+            search_space: JSON object created by experiment owner.
         """
         config = {}
         for key, value in search_space.items():
@@ -972,7 +962,7 @@ class BlendSearchTuner(BlendSearch, NNITuner):
             self._ls.metric,
             self._mode,
             config,
-            self._ls.prune_attr,
+            self._ls.resource_attr,
             self._ls.min_resource,
             self._ls.max_resource,
             self._ls.resource_multiple_factor,
@@ -991,7 +981,7 @@ class BlendSearchTuner(BlendSearch, NNITuner):
 
 
 class CFO(BlendSearchTuner):
-    """class for CFO algorithm"""
+    """class for CFO algorithm."""
 
     __name__ = "CFO"
 
@@ -1045,6 +1035,8 @@ class CFO(BlendSearchTuner):
 
 
 class RandomSearch(CFO):
+    """Class for random search."""
+
     def suggest(self, trial_id: str) -> Optional[Dict]:
         if self._points_to_evaluate:
             return super().suggest(trial_id)

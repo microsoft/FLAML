@@ -1,21 +1,39 @@
-"""!
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License.
-"""
-
+# !
+#  * Copyright (c) Microsoft Corporation. All rights reserved.
+#  * Licensed under the MIT License. See LICENSE file in the
+#  * project root for license information.
 import numpy as np
 from scipy.sparse import vstack, issparse
 import pandas as pd
+from pandas import DataFrame, Series
 
 from .training_log import training_log_reader
 
 from datetime import datetime
+from typing import Dict, Union, List
 
-CLASSIFICATION = ("binary", "multi", "classification")
+# TODO: if your task is not specified in here, define your task as an all-capitalized word
+SEQCLASSIFICATION = "seq-classification"
+CLASSIFICATION = ("binary", "multi", "classification", SEQCLASSIFICATION)
+SEQREGRESSION = "seq-regression"
+REGRESSION = ("regression", SEQREGRESSION)
 TS_FORECAST = "ts_forecast"
 TS_TIMESTAMP_COL = "ds"
 TS_VALUE_COL = "y"
 FORECAST = "forecast"
+SUMMARIZATION = "summarization"
+NLG_TASKS = (SUMMARIZATION,)
+NLU_TASKS = (
+    SEQREGRESSION,
+    SEQCLASSIFICATION,
+)
+
+
+def _is_nlp_task(task):
+    if task in NLU_TASKS or task in NLG_TASKS:
+        return True
+    else:
+        return False
 
 
 def load_openml_dataset(
@@ -26,18 +44,19 @@ def load_openml_dataset(
     If the file is not cached locally, download it from open ML.
 
     Args:
-        dataset_id: An integer of the dataset id in openml
-        data_dir: A string of the path to store and load the data
-        random_state: An integer of the random seed for splitting data
+        dataset_id: An integer of the dataset id in openml.
+        data_dir: A string of the path to store and load the data.
+        random_state: An integer of the random seed for splitting data.
         dataset_format: A string specifying the format of returned dataset. Default is 'dataframe'.
             Can choose from ['dataframe', 'array'].
             If 'dataframe', the returned dataset will be a Pandas DataFrame.
             If 'array', the returned dataset will be a NumPy array or a SciPy sparse matrix.
+
     Returns:
-        X_train: Training data
-        X_test:  Test data
-        y_train: A series or array of labels for training data
-        y_test:  A series or array of labels for test data
+        X_train: Training data.
+        X_test:  Test data.
+        y_train: A series or array of labels for training data.
+        y_test:  A series or array of labels for test data.
     """
     import os
     import openml
@@ -80,14 +99,14 @@ def load_openml_task(task_id, data_dir):
     If the file is not cached locally, download it from open ML.
 
     Args:
-        task_id: An integer of the task id in openml
-        data_dir: A string of the path to store and load the data
+        task_id: An integer of the task id in openml.
+        data_dir: A string of the path to store and load the data.
 
     Returns:
-        X_train: A dataframe of training data
-        X_test:  A dataframe of test data
-        y_train: A series of labels for training data
-        y_test:  A series of labels for test data
+        X_train: A dataframe of training data.
+        X_test:  A dataframe of test data.
+        y_train: A series of labels for training data.
+        y_test:  A series of labels for test data.
     """
     import os
     import openml
@@ -127,20 +146,18 @@ def load_openml_task(task_id, data_dir):
 
 
 def get_output_from_log(filename, time_budget):
-    """Get output from log file
+    """Get output from log file.
 
     Args:
-        filename: A string of the log file name
-        time_budget: A float of the time budget in seconds
+        filename: A string of the log file name.
+        time_budget: A float of the time budget in seconds.
 
     Returns:
-        search_time_list: A list of the finished time of each logged iter
-        best_error_list:
-            A list of the best validation error after each logged iter
-        error_list: A list of the validation error of each logged iter
-        config_list:
-            A list of the estimator, sample size and config of each logged iter
-        logged_metric_list: A list of the logged metric of each logged iter
+        search_time_list: A list of the finished time of each logged iter.
+        best_error_list: A list of the best validation error after each logged iter.
+        error_list: A list of the validation error of each logged iter.
+        config_list: A list of the estimator, sample size and config of each logged iter.
+        logged_metric_list: A list of the logged metric of each logged iter.
     """
 
     best_config = None
@@ -192,11 +209,11 @@ def get_output_from_log(filename, time_budget):
 
 
 def concat(X1, X2):
-    """concatenate two matrices vertically"""
-    if isinstance(X1, pd.DataFrame) or isinstance(X1, pd.Series):
+    """concatenate two matrices vertically."""
+    if isinstance(X1, (DataFrame, Series)):
         df = pd.concat([X1, X2], sort=False)
         df.reset_index(drop=True, inplace=True)
-        if isinstance(X1, pd.DataFrame):
+        if isinstance(X1, DataFrame):
             cat_columns = X1.select_dtypes(include="category").columns
             if len(cat_columns):
                 df[cat_columns] = df[cat_columns].astype("category")
@@ -208,10 +225,32 @@ def concat(X1, X2):
 
 
 class DataTransformer:
-    """transform X, y"""
+    """Transform input training data."""
 
-    def fit_transform(self, X, y, task):
-        if isinstance(X, pd.DataFrame):
+    def fit_transform(self, X: Union[DataFrame, np.array], y, task):
+        """Fit transformer and process the input training data according to the task type.
+
+        Args:
+            X: A numpy array or a pandas dataframe of training data.
+            y: A numpy array or a pandas series of labels.
+            task: A string of the task type, e.g.,
+                'classification', 'regression', 'ts_forecast', 'rank'.
+
+        Returns:
+            X: Processed numpy array or pandas dataframe of training data.
+            y: Processed numpy array or pandas series of labels.
+        """
+        if _is_nlp_task(task):
+            # if the mode is NLP, check the type of input, each column must be either string or
+            # ids (input ids, token type id, attention mask, etc.)
+            str_columns = []
+            for column in X.columns:
+                if isinstance(X[column].iloc[0], str):
+                    str_columns.append(column)
+            if len(str_columns) > 0:
+                X[str_columns] = X[str_columns].astype("string")
+            self._str_columns = str_columns
+        elif isinstance(X, DataFrame):
             X = X.copy()
             n = X.shape[0]
             cat_columns, num_columns, datetime_columns = [], [], []
@@ -219,7 +258,7 @@ class DataTransformer:
             if task == TS_FORECAST:
                 X = X.rename(columns={X.columns[0]: TS_TIMESTAMP_COL})
                 ds_col = X.pop(TS_TIMESTAMP_COL)
-                if isinstance(y, pd.Series):
+                if isinstance(y, Series):
                     y = y.rename(TS_VALUE_COL)
             for column in X.columns:
                 # sklearn\utils\validation.py needs int/float values
@@ -243,41 +282,35 @@ class DataTransformer:
                     else:
                         X[column] = X[column].fillna("__NAN__")
                         cat_columns.append(column)
-                else:
-                    # print(X[column].dtype.name)
-                    if X[column].nunique(dropna=True) < 2:
-                        X.drop(columns=column, inplace=True)
-                        drop = True
-                    else:
-                        if X[column].dtype.name == "datetime64[ns]":
-                            tmp_dt = X[column].dt
-                            new_columns_dict = {
-                                f"year_{column}": tmp_dt.year,
-                                f"month_{column}": tmp_dt.month,
-                                f"day_{column}": tmp_dt.day,
-                                f"hour_{column}": tmp_dt.hour,
-                                f"minute_{column}": tmp_dt.minute,
-                                f"second_{column}": tmp_dt.second,
-                                f"dayofweek_{column}": tmp_dt.dayofweek,
-                                f"dayofyear_{column}": tmp_dt.dayofyear,
-                                f"quarter_{column}": tmp_dt.quarter,
-                            }
-                            for new_col_name in new_columns_dict.keys():
-                                if (
-                                    new_col_name not in X.columns
-                                    and new_columns_dict.get(new_col_name).nunique(
-                                        dropna=False
-                                    )
-                                    >= 2
-                                ):
-                                    X[new_col_name] = new_columns_dict.get(new_col_name)
-                                    num_columns.append(new_col_name)
-                            X[column] = X[column].map(datetime.toordinal)
-                            datetime_columns.append(column)
-                            del tmp_dt
-                        else:
-                            X[column] = X[column].fillna(np.nan)
-                            num_columns.append(column)
+                elif X[column].nunique(dropna=True) < 2:
+                    X.drop(columns=column, inplace=True)
+                    drop = True
+                else:  # datetime or numeric
+                    if X[column].dtype.name == "datetime64[ns]":
+                        tmp_dt = X[column].dt
+                        new_columns_dict = {
+                            f"year_{column}": tmp_dt.year,
+                            f"month_{column}": tmp_dt.month,
+                            f"day_{column}": tmp_dt.day,
+                            f"hour_{column}": tmp_dt.hour,
+                            f"minute_{column}": tmp_dt.minute,
+                            f"second_{column}": tmp_dt.second,
+                            f"dayofweek_{column}": tmp_dt.dayofweek,
+                            f"dayofyear_{column}": tmp_dt.dayofyear,
+                            f"quarter_{column}": tmp_dt.quarter,
+                        }
+                        for key, value in new_columns_dict.items():
+                            if (
+                                key not in X.columns
+                                and value.nunique(dropna=False) >= 2
+                            ):
+                                X[key] = value
+                                num_columns.append(key)
+                        X[column] = X[column].map(datetime.toordinal)
+                        datetime_columns.append(column)
+                        del tmp_dt
+                    X[column] = X[column].fillna(np.nan)
+                    num_columns.append(column)
             X = X[cat_columns + num_columns]
             if task == TS_FORECAST:
                 X.insert(0, TS_TIMESTAMP_COL, ds_col)
@@ -314,51 +347,69 @@ class DataTransformer:
             )
             self._drop = drop
 
-        if task in CLASSIFICATION or not pd.api.types.is_numeric_dtype(y):
+        if (
+            task in CLASSIFICATION
+            or not pd.api.types.is_numeric_dtype(y)
+            and task not in NLG_TASKS
+        ):
             from sklearn.preprocessing import LabelEncoder
 
             self.label_transformer = LabelEncoder()
             y = self.label_transformer.fit_transform(y)
         else:
             self.label_transformer = None
+        self._task = task
         return X, y
 
-    def transform(self, X, task):
+    def transform(self, X: Union[DataFrame, np.array]):
+        """Process data using fit transformer.
+
+        Args:
+            X: A numpy array or a pandas dataframe of training data.
+            y: A numpy array or a pandas series of labels.
+            task: A string of the task type, e.g.,
+                'classification', 'regression', 'ts_forecast', 'rank'.
+
+        Returns:
+            X: Processed numpy array or pandas dataframe of training data.
+            y: Processed numpy array or pandas series of labels.
+        """
         X = X.copy()
-        if isinstance(X, pd.DataFrame):
+
+        if _is_nlp_task(self._task):
+            # if the mode is NLP, check the type of input, each column must be either string or
+            # ids (input ids, token type id, attention mask, etc.)
+            if len(self._str_columns) > 0:
+                X[self._str_columns] = X[self._str_columns].astype("string")
+        elif isinstance(X, DataFrame):
             cat_columns, num_columns, datetime_columns = (
                 self._cat_columns,
                 self._num_columns,
                 self._datetime_columns,
             )
-            if task == TS_FORECAST:
+            if self._task == TS_FORECAST:
                 X = X.rename(columns={X.columns[0]: TS_TIMESTAMP_COL})
                 ds_col = X.pop(TS_TIMESTAMP_COL)
-            if datetime_columns:
-                for column in datetime_columns:
-                    tmp_dt = X[column].dt
-                    new_columns_dict = {
-                        f"year_{column}": tmp_dt.year,
-                        f"month_{column}": tmp_dt.month,
-                        f"day_{column}": tmp_dt.day,
-                        f"hour_{column}": tmp_dt.hour,
-                        f"minute_{column}": tmp_dt.minute,
-                        f"second_{column}": tmp_dt.second,
-                        f"dayofweek_{column}": tmp_dt.dayofweek,
-                        f"dayofyear_{column}": tmp_dt.dayofyear,
-                        f"quarter_{column}": tmp_dt.quarter,
-                    }
-                    for new_col_name in new_columns_dict.keys():
-                        if (
-                            new_col_name not in X.columns
-                            and new_columns_dict.get(new_col_name).nunique(dropna=False)
-                            >= 2
-                        ):
-                            X[new_col_name] = new_columns_dict.get(new_col_name)
-                    X[column] = X[column].map(datetime.toordinal)
-                    del tmp_dt
+            for column in datetime_columns:
+                tmp_dt = X[column].dt
+                new_columns_dict = {
+                    f"year_{column}": tmp_dt.year,
+                    f"month_{column}": tmp_dt.month,
+                    f"day_{column}": tmp_dt.day,
+                    f"hour_{column}": tmp_dt.hour,
+                    f"minute_{column}": tmp_dt.minute,
+                    f"second_{column}": tmp_dt.second,
+                    f"dayofweek_{column}": tmp_dt.dayofweek,
+                    f"dayofyear_{column}": tmp_dt.dayofyear,
+                    f"quarter_{column}": tmp_dt.quarter,
+                }
+                for new_col_name, new_col_value in new_columns_dict.items():
+                    if new_col_name not in X.columns and new_col_name in num_columns:
+                        X[new_col_name] = new_col_value
+                X[column] = X[column].map(datetime.toordinal)
+                del tmp_dt
             X = X[cat_columns + num_columns].copy()
-            if task == TS_FORECAST:
+            if self._task == TS_FORECAST:
                 X.insert(0, TS_TIMESTAMP_COL, ds_col)
             for column in cat_columns:
                 if X[column].dtype.name == "object":
