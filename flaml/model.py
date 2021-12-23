@@ -27,7 +27,7 @@ from .data import (
     SEQREGRESSION,
     QUESTIONANSWERING,
     SUMMARIZATION,
-    NLG_TASKS,
+    NLG_TASKS)
 
 import pandas as pd
 from pandas import DataFrame, Series
@@ -314,7 +314,7 @@ class TransformersEstimator(BaseEstimator):
         train_df = X_train.join(y_train)
         return train_df
 
-    def search_space(cls, data_size, task, **params):
+    def search_space(cls, task, **params):
         search_space_dict = {
             "learning_rate": {
                 "domain": tune.loguniform(lower=1e-6, upper=1e-3),
@@ -439,7 +439,7 @@ class DistiliingEstimator(TransformersEstimator):
         # import uuid
         super().__init__(task, **config)
         # self.trial_id = str(uuid.uuid1().hex)[:8]
-        search_space_dict = super().search_space()
+        search_space_dict = super().search_space(task)
         if task == SEQREGRESSION:
             search_space_dict["alpha_mse"] =  {"domain": tune.uniform(lower=0.5, upper=1.0), "init_value": 0.5}
         else:
