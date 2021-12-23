@@ -74,7 +74,7 @@ def test_hf_data():
     automl.predict(["test test", "test test"])
     automl.predict(
         [
-            ["test test", "test test"],
+            ["test test", "test test1"],
             ["test test", "test test"],
             ["test test", "test test"],
         ]
