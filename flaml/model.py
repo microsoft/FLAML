@@ -645,7 +645,8 @@ class TransformersEstimator(BaseEstimator):
                 estimator=self,
                 labels=None,
                 X_train=self._X_train,
-                y_train=self._y_train,)
+                y_train=self._y_train,
+            )
              return metric_dict
 
     def predict_proba(self, X_test):
