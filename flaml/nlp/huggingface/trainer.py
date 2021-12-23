@@ -4,9 +4,49 @@ try:
     from transformers import Seq2SeqTrainer
 except ImportError:
     Seq2SeqTrainer = object
-
+import torch.nn as nn
 
 class TrainerForAuto(Seq2SeqTrainer):
+    def __init__(self,teacher=None,alpha_ce=0.5,alpha_task=0.5,temperature=2.0,**params):
+        super().__init__(**params)
+        self.teacher = teacher
+        self.loss_fn = nn.KLDivLoss(reduction="batchmean")
+        self.alpha_ce = alpha_ce
+        self.alpha_task = alpha_task
+        self.temperature = temperature
+
+    def compute_loss(self, model, inputs,return_outputs=False):
+        if self.label_smoother is not None and "labels" in inputs:
+            labels = inputs.pop("labels")
+        else:
+            labels = None
+        outputs = model(**inputs)
+        # Save past state if it exists
+        # TODO: this needs to be fixed and made cleaner later.
+        if self.args.past_index >= 0:
+            self._past = outputs[self.args.past_index]
+
+        if labels is not None:
+            loss_task = self.label_smoother(outputs, labels)
+        else:
+            # We don't use .loss here since the model may return tuples instead of ModelOutput.
+            loss_task = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
+
+        if self.teacher is not None:
+            self.teacher.eval()
+            stu_logits = outputs["logits"]
+            output_tea = self.teacher(**inputs)
+            tea_logits = output_tea["logits"]
+            loss_ce = self.loss_fn(
+                nn.functional.log_softmax(stu_logits / self.temperature, dim=-1),
+                nn.functional.softmax(tea_logits / self.temperature, dim=-1),
+            )*(self.temperature ** 2)
+            loss = self.alpha_ce * loss_ce + self.alpha_task * loss_task
+        else:
+            loss = loss_task
+
+        return (loss, outputs) if return_outputs else loss
+
     def predict(
         self,
         test_dataset,
@@ -43,6 +83,8 @@ class TrainerForAuto(Seq2SeqTrainer):
             return super(Seq2SeqTrainer, self).prediction_step(
                 model, inputs, prediction_loss_only, ignore_keys
             )
+
+
 
     def evaluate(
         self,
