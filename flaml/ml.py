@@ -30,7 +30,6 @@ from .model import (
     LRL1Classifier,
     LRL2Classifier,
     CatBoostEstimator,
-    # CatBoost_TS_Regressor,
     ExtraTreeEstimator,
     ExtraTree_TS_Regressor,
     KNeighborsEstimator,
@@ -70,9 +69,6 @@ def get_estimator_class(task, estimator_name):
     elif "lrl2" == estimator_name:
         estimator_class = LRL2Classifier
     elif "catboost" == estimator_name:
-        # if TS_FORECAST == task:
-        #     estimator_class = CatBoost_TS_Regressor
-        # else:
         estimator_class = CatBoostEstimator
     elif "extra_tree" == estimator_name:
         if TS_FORECAST == task:
@@ -331,11 +327,6 @@ def evaluate_model_CV(
     elif isinstance(kf, GroupKFold):
         groups = kf.groups
         kf = kf.split(X_train_split, y_train_split, groups)
-        shuffle = False
-    elif isinstance(kf, TimeSeriesSplit) and task == TS_FORECAST:
-        y_train_all = pd.DataFrame(y_train_all, columns=[TS_VALUE_COL])
-        train = X_train_all.join(y_train_all)
-        kf = kf.split(train)
         shuffle = False
     elif isinstance(kf, TimeSeriesSplit):
         kf = kf.split(X_train_split, y_train_split)

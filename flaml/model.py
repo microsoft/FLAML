@@ -1136,7 +1136,6 @@ class TS_Regressor(BaseEstimator):
             X = train_df[exog_cols].set_index(X[ds_col])
         return X
 
-
     def _fit(self, flaml_estimator, X_train, y_train, budget=None, **kwargs):
         from hcrystalball.wrappers import get_sklearn_wrapper
 
@@ -1148,25 +1147,43 @@ class TS_Regressor(BaseEstimator):
         self.hcrystaball_model = get_sklearn_wrapper(estimator.estimator_class)
         self.hcrystaball_model.lag = lags
         self.hcrystaball_model.fit(X_train, y_train)
-        X_fit, y_fit = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X_train, y_train, kwargs["period"])
-        self.hcrystaball_model.model.set_params(**estimator.params)
-        model = self.hcrystaball_model.model.fit(X_fit, y_fit)
-        self._model = model
+        if optimize_for_horizon == True:
+            model_li = []
+            for i in range(1, kwargs["period"]+1):
+                X_fit, y_fit = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X_train, y_train, i)
+                self.hcrystaball_model.model.set_params(**estimator.params)
+                model = self.hcrystaball_model.model.fit(X_fit, y_fit)
+                model_li.append(model)
+            self._model = model_li
+        else:
+            X_fit, y_fit = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X_train, y_train, kwargs["period"])
+            self.hcrystaball_model.model.set_params(**estimator.params)
+            model = self.hcrystaball_model.model.fit(X_fit, y_fit)
+            self._model = model
 
 
     def predict(self, X_test):
         if self._model is not None:
             X_test = self._preprocess(X_test)
             X_test = self.transform_X(X_test)
-            X_pred, _ = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X_test)
-            forecast = self._model.predict(X_pred)
+            if isinstance(self._model, list):
+                assert (
+                    len(self._model) == len(X_test)
+                ), "Model is optimized for horizon, length of X_test must be equal to `period`."
+                preds = []
+                for i in range(1, len(self._model) + 1):
+                    X_pred, _ = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X_test.iloc[:i, :])
+                    preds.append(self._model[i - 1].predict(X_pred)[-1])
+                forecast = pd.DataFrame(data=np.asarray(preds).reshape(-1, 1), columns=[self.hcrystaball_model.name], index=X_test.index)
+            else:
+                X_pred, _ = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X_test)
+                forecast = self._model.predict(X_pred)
             return forecast
         else:
             logger.warning(
                 "Estimator is not fit yet. Please run fit() before predict()."
             )
             return np.ones(X_test.shape[0])
-
 
 class LGBM_TS_Regressor(TS_Regressor):
     base_class = LGBMEstimator
@@ -1176,8 +1193,6 @@ class LGBM_TS_Regressor(TS_Regressor):
         self._fit(self.base_class, X_train, y_train, budget=budget, **kwargs)
         train_time = time.time() - current_time
         return train_time
-
-    # TODO if optimize_for_horizon=True, fit one model for each horizon
 
 
 class XGBoost_TS_Regressor(TS_Regressor):
@@ -1190,14 +1205,14 @@ class XGBoost_TS_Regressor(TS_Regressor):
         return train_time
 
 
-class CatBoost_TS_Regressor(TS_Regressor):
-    base_class = CatBoostEstimator
-
-    def fit(self, X_train, y_train, budget=None, **kwargs):
-        current_time = time.time()
-        self._fit(self.base_class, X_train, y_train, budget=budget, **kwargs)
-        train_time = time.time() - current_time
-        return train_time
+# class CatBoost_TS_Regressor(TS_Regressor):
+#     base_class = CatBoostEstimator
+#
+#     def fit(self, X_train, y_train, budget=None, **kwargs):
+#         current_time = time.time()
+#         self._fit(self.base_class, X_train, y_train, budget=budget, **kwargs)
+#         train_time = time.time() - current_time
+#         return train_time
 
 
 class RF_TS_Regressor(TS_Regressor):
