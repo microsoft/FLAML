@@ -437,7 +437,7 @@ class TransformersEstimator(BaseEstimator):
         set_seed(self.params.get("seed", self._TrainingArguments.seed))
 
         self._init_hpo_args(kwargs)
-        self._metric_name = kwargs["metric"]
+        self._metric = kwargs["metric"]
         if hasattr(self, "use_ray") is False:
             self.use_ray = kwargs["use_ray"]
 
@@ -632,21 +632,22 @@ class TransformersEstimator(BaseEstimator):
                 else np.argmax(predictions, axis=1)
             )
 
-        if isinstance(self._metric_name, str):
+        if isinstance(self._metric, str):
             return {
                 "val_loss": metric_loss_score(
-                    metric_name=self._metric_name, y_predict=predictions, y_true=labels
+                    metric_name=self._metric, y_predict=predictions, y_true=labels
                 )
-             }
+            }
         else:
-             agg_metric, metric_dict = self._metric_name(
+            agg_metric, metric_dict = self._metric(
                 X_test=self._X_val,
                 y_test=self._y_val,
                 estimator=self,
                 labels=None,
                 X_train=self._X_train,
-                y_train=self._y_train,)
-             return metric_dict
+                y_train=self._y_train,
+            )
+            return metric_dict
 
     def predict_proba(self, X_test):
         assert (
