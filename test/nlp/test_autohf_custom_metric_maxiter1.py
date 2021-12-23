@@ -97,7 +97,7 @@ def test_custom_metric():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 500,
+        "time_budget": 5,
         "task": "seq-classification",
         "metric": toy_metric,
         "log_file_name": "seqclass.log",
@@ -114,8 +114,3 @@ def test_custom_metric():
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
     )
     del automl
-
-
-if __name__ == "__main__":
-    test_max_iter_1()
-    test_custom_metric()
