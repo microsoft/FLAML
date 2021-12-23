@@ -8,8 +8,7 @@ from flaml import tune
 from flaml.model import LGBMEstimator
 
 data, target = sklearn.datasets.load_breast_cancer(return_X_y=True)
-train_x, test_x, train_y, test_y = train_test_split(
-    data, target, test_size=0.25)
+train_x, test_x, train_y, test_y = train_test_split(data, target, test_size=0.25)
 
 
 def train_breast_cancer(config):
@@ -19,13 +18,17 @@ def train_breast_cancer(config):
     gbm = lgb.train(params, train_set, num_boost_round)
     preds = gbm.predict(test_x)
     pred_labels = np.rint(preds)
-    tune.report(mean_accuracy=sklearn.metrics.accuracy_score(test_y, pred_labels), done=True)
+    tune.report(
+        mean_accuracy=sklearn.metrics.accuracy_score(test_y, pred_labels), done=True
+    )
 
 
 if __name__ == "__main__":
     ray.init(address="auto")
     flaml_lgbm_search_space = LGBMEstimator.search_space(train_x.shape)
-    config_search_space = {hp: space["domain"] for hp, space in flaml_lgbm_search_space.items()}
+    config_search_space = {
+        hp: space["domain"] for hp, space in flaml_lgbm_search_space.items()
+    }
     low_cost_partial_config = {
         hp: space["low_cost_init_value"]
         for hp, space in flaml_lgbm_search_space.items()

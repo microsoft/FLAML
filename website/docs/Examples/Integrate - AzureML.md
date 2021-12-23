@@ -93,23 +93,23 @@ if compute_target_name in ws.compute_targets:
     if compute_target and type(compute_target) is AmlCompute:
         if compute_target.provisioning_state == "Succeeded":
             print("Found compute target; using it:", compute_target_name)
-        else: 
+        else:
             raise Exception(
                 "Found compute target but it is in state", compute_target.provisioning_state)
 else:
     print("creating a new compute target...")
     provisioning_config = AmlCompute.provisioning_configuration(
         vm_size=compute_target_size,
-        min_nodes=0, 
+        min_nodes=0,
         max_nodes=node_count)
 
     # Create the cluster
     compute_target = ComputeTarget.create(ws, compute_target_name, provisioning_config)
-    
-    # Can poll for a minimum number of nodes and for a specific timeout. 
+
+    # Can poll for a minimum number of nodes and for a specific timeout.
     # If no min node count is provided it will use the scale settings for the cluster
     compute_target.wait_for_completion(show_output=True, min_node_count=None, timeout_in_minutes=20)
-    
+
     # For a more detailed view of current AmlCompute status, use get_status()
     print(compute_target.get_status().serialize())
 ```
@@ -146,7 +146,7 @@ print(run.get_portal_url())  # link to ml.azure.com
 run.wait_for_completion(show_output=True)
 ```
 
-The line 
+The line
 `
 config.run_config.environment_variables["_AZUREML_CR_START_RAY"] = "true"
 `
