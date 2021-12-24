@@ -371,7 +371,7 @@ class TransformersEstimator(BaseEstimator):
     def _preprocess(self, X, y=None, **kwargs):
         from .nlp.utils import tokenize_text
 
-        if "str" in X.dtypes[0]:
+        if (X.dtypes[0] == "string") or (X.dtypes[0] == "str"):
             return tokenize_text(
                 X=X, Y=y, task=self._task, custom_hpo_args=self.custom_hpo_args
             )
