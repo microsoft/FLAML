@@ -29,6 +29,7 @@ def custom_metric(
 
     trainer_compute_metrics_cache = trainer.compute_metrics
     trainer.compute_metrics = None
+
     metrics = trainer.evaluate(eval_dataset)
     trainer.compute_metrics = trainer_compute_metrics_cache
 
