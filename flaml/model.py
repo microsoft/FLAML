@@ -371,13 +371,7 @@ class TransformersEstimator(BaseEstimator):
     def _preprocess(self, X, y=None, **kwargs):
         from .nlp.utils import tokenize_text
 
-        is_str = False
-        for each_type in ["string", "str"]:
-            try:
-                is_str = is_str or (X.dtypes[0] == each_type)
-            except TypeError:
-                print("Type {} not understood".format(each_type))
-                pass
+        is_str = X.dtypes[0] in ("string", "str")
 
         if is_str:
             return tokenize_text(
