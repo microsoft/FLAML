@@ -609,30 +609,27 @@ class TransformersEstimator(BaseEstimator):
         return best_ckpt
 
     def _compute_metrics_by_dataset_name(self, eval_pred):
-        from .ml import metric_loss_score
-        from .nlp.utils import postprocess_text
-
-        predictions, labels = eval_pred
-
-        if self._task in NLG_TASKS:
-            if isinstance(predictions, tuple):
-                predictions = np.argmax(predictions[0], axis=2)
-            decoded_preds = self._tokenizer.batch_decode(
-                predictions, skip_special_tokens=True
-            )
-            labels = np.where(labels != -100, labels, self._tokenizer.pad_token_id)
-            decoded_labels = self._tokenizer.batch_decode(
-                labels, skip_special_tokens=True
-            )
-            predictions, labels = postprocess_text(decoded_preds, decoded_labels)
-        else:
-            predictions = (
-                np.squeeze(predictions)
-                if self._task == SEQREGRESSION
-                else np.argmax(predictions, axis=1)
-            )
-
         if isinstance(self._metric, str):
+            from .ml import metric_loss_score
+            from .nlp.utils import postprocess_text
+            predictions, labels = eval_pred
+            if self._task in NLG_TASKS:
+                if isinstance(predictions, tuple):
+                    predictions = np.argmax(predictions[0], axis=2)
+                decoded_preds = self._tokenizer.batch_decode(
+                    predictions, skip_special_tokens=True
+                )
+                labels = np.where(labels != -100, labels, self._tokenizer.pad_token_id)
+                decoded_labels = self._tokenizer.batch_decode(
+                    labels, skip_special_tokens=True
+                )
+                predictions, labels = postprocess_text(decoded_preds, decoded_labels)
+            else:
+                predictions = (
+                    np.squeeze(predictions)
+                    if self._task == SEQREGRESSION
+                    else np.argmax(predictions, axis=1)
+                )
             return {
                 "val_loss": metric_loss_score(
                     metric_name=self._metric, y_predict=predictions, y_true=labels
