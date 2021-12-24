@@ -33,7 +33,7 @@ def custom_metric(
     metrics = trainer.evaluate(eval_dataset)
     trainer.compute_metrics = trainer_compute_metrics_cache
 
-    return 0, metrics
+    return metrics["eval_loss"], metrics
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
