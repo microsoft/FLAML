@@ -2,7 +2,7 @@ import sys
 import pytest
 
 
-def toy_metric(
+def custom_metric(
     X_test,
     y_test,
     estimator,
@@ -15,11 +15,13 @@ def toy_metric(
     groups_test=None,
     groups_train=None,
 ):
-    return 0, {
-        "val_loss": 0,
-        "train_loss": 0,
-        "pred_time": 0,
-    }
+    from datasets import Dataset
+    eval_dataset = Dataset.from_pandas(X_test)
+
+    trainer = estimator._model
+    metrics = trainer.evaluate(eval_dataset)
+
+    return 0, metrics
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
@@ -54,7 +56,7 @@ def test_custom_metric():
         "max_iter": 1,
         "time_budget": 5,
         "task": "seq-classification",
-        "metric": toy_metric,
+        "metric": custom_metric,
         "log_file_name": "seqclass.log",
     }
 
@@ -77,3 +79,6 @@ def test_custom_metric():
     )
 
     del automl
+
+if __name__ == "__main__":
+    test_custom_metric()
