@@ -82,7 +82,10 @@ class SearchState:
         self.data_size = data_size
         self.ls_ever_converged = False
         self.learner_class = learner_class
-        search_space = learner_class.search_space(data_size=data_size, task=task, pred_horizon=period)
+        if task == TS_FORECAST:
+            search_space = learner_class.search_space(data_size=data_size, task=task, pred_horizon=period)
+        else:
+            search_space = learner_class.search_space(data_size=data_size, task=task)
         for name, space in search_space.items():
             assert (
                 "domain" in space

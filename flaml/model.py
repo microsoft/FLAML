@@ -1754,8 +1754,8 @@ class SARIMAX(ARIMA):
         return train_time
 
 
-class TS_Regressor(BaseEstimator):
-    base_class = BaseEstimator
+class TS_SKLearn_Regressor(SKLearnEstimator):
+    base_class = SKLearnEstimator
 
     @classmethod
     def search_space(cls, data_size, pred_horizon, **params):
@@ -1766,8 +1766,8 @@ class TS_Regressor(BaseEstimator):
                 "low_cost_init_value": False
             },
             "lags": {
-                "domain": tune.quniform(lower=0, upper=data_size-pred_horizon, q=1),
-                "init_value": 3
+                "domain": tune.quniform(lower=1, upper=data_size[0]-(pred_horizon+1), q=1),
+                "init_value": 1
             },
         })
         return space
@@ -1786,19 +1786,20 @@ class TS_Regressor(BaseEstimator):
         elif len(cols) > 1:
             ds_col = cols[0]
             exog_cols = cols[1:]
-            X = train_df[exog_cols].set_index(X[ds_col])
+            X = X[exog_cols].set_index(X[ds_col])
         return X
 
     def _fit(self, flaml_estimator, X_train, y_train, budget=None, **kwargs):
         from hcrystalball.wrappers import get_sklearn_wrapper
 
         X_train = self.transform_X(X_train)
+        X_train = self._preprocess(X_train)
         params = self.params
         lags = params.pop("lags")
         optimize_for_horizon = params.pop("optimize_for_horizon")
         estimator = flaml_estimator(task="regression", **params)
         self.hcrystaball_model = get_sklearn_wrapper(estimator.estimator_class)
-        self.hcrystaball_model.lag = lags
+        self.hcrystaball_model.lags = int(lags)
         self.hcrystaball_model.fit(X_train, y_train)
         if optimize_for_horizon == True:
             model_li = []
@@ -1838,7 +1839,7 @@ class TS_Regressor(BaseEstimator):
             )
             return np.ones(X_test.shape[0])
 
-class LGBM_TS_Regressor(TS_Regressor):
+class LGBM_TS_Regressor(TS_SKLearn_Regressor):
     base_class = LGBMEstimator
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
@@ -1848,7 +1849,7 @@ class LGBM_TS_Regressor(TS_Regressor):
         return train_time
 
 
-class XGBoost_TS_Regressor(TS_Regressor):
+class XGBoost_TS_Regressor(TS_SKLearn_Regressor):
     base_class = XGBoostSklearnEstimator
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
@@ -1868,7 +1869,7 @@ class XGBoost_TS_Regressor(TS_Regressor):
 #         return train_time
 
 
-class RF_TS_Regressor(TS_Regressor):
+class RF_TS_Regressor(TS_SKLearn_Regressor):
     base_class = RandomForestEstimator
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
@@ -1878,7 +1879,7 @@ class RF_TS_Regressor(TS_Regressor):
         return train_time
 
 
-class ExtraTrees_TS_Regressor(TS_Regressor):
+class ExtraTrees_TS_Regressor(TS_SKLearn_Regressor):
     base_class = ExtraTreesEstimator
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
