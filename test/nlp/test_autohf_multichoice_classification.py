@@ -19,13 +19,13 @@ def test_hf_data():
     # )
 
     train_dataset = (
-        load_dataset("swag", "regular", split="train[1%:2%]").to_pandas().iloc[0:4]
+        load_dataset("swag", "regular", split="train[1%:2%]").to_pandas().iloc[0:100]
     )
     dev_dataset = (
-        load_dataset("swag", "regular", split="train[1%:2%]").to_pandas().iloc[0:4]
+        load_dataset("swag", "regular", split="train[1%:2%]").to_pandas().iloc[0:100]
     )
     test_dataset = (
-        load_dataset("swag", "regular", split="test[1%:2%]").to_pandas().iloc[0:4]
+        load_dataset("swag", "regular", split="train[1%:2%]").to_pandas().iloc[0:100]
     )
 
     custom_sent_keys = ["sent1", "sent2", "ending0", "ending1", "ending2", "ending3",
@@ -39,7 +39,7 @@ def test_hf_data():
     y_val = dev_dataset[label_key]
 
     X_test = test_dataset[custom_sent_keys]
-
+    X_true = test_dataset[label_key]
     automl = AutoML()
 
     automl_settings = {
@@ -52,9 +52,10 @@ def test_hf_data():
     }
 
     automl_settings["custom_hpo_args"] = {
+        # "model_path": "roberta-base",
         "model_path": "google/electra-small-discriminator",
         "output_dir": "test/data/output/",
-        "ckpt_per_epoch": 1,
+        "ckpt_per_epoch": 5,
         "fp16": False,
     }
 
@@ -70,18 +71,28 @@ def test_hf_data():
         **automl_settings
     )
 
-    automl.predict(X_test)
-    automl.predict(["test test", "test test"])
-    automl.predict(
-        [
-            ["test test", "test test1"],
-            ["test test", "test test"],
-            ["test test", "test test"],
-        ]
-    )
+    y_pred = automl.predict(X_test)
+    # automl.predict(["test test", "test test"])
+    # automl.predict(
+    #     [
+    #         ["test test", "test test1"],
+    #         ["test test", "test test"],
+    #         ["test test", "test test"],
+    #     ]
+    # )
 
-    automl.predict_proba(X_test)
-    print(automl.classes_)
+    proba = automl.predict_proba(X_test)
+    print(str(len(automl.classes_)) + ' classes')
+    print(y_pred)
+    print(X_true)
+    print(proba)
+    true_count = 0
+    for i, v in X_true.items():
+        if y_pred[i] == v:
+            true_count += 1
+    accuracy = round(true_count / len(y_pred), 5)
+    print("Accuracy: " + str(accuracy))
+
 
 
 def _test_custom_data():
