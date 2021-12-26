@@ -1766,19 +1766,17 @@ class TS_SKLearn_Regressor(SKLearnEstimator):
                 "low_cost_init_value": False
             },
             "lags": {
-                "domain": tune.quniform(lower=1, upper=data_size[0]-(pred_horizon+1), q=1),
+                "domain": tune.randint(lower=1, upper=data_size[0]-pred_horizon),
                 "init_value": 1
             },
         })
         return space
-
 
     def __init__(self, task=TS_FORECAST, **params):
         super().__init__(task, **params)
         self.hcrystaball_model = None
 
     def transform_X(self, X):
-        X = X.copy()
         cols = list(X)
         if len(cols) == 1:
             ds_col = cols[0]
@@ -1789,7 +1787,7 @@ class TS_SKLearn_Regressor(SKLearnEstimator):
             X = X[exog_cols].set_index(X[ds_col])
         return X
 
-    def _fit(self, flaml_estimator, X_train, y_train, budget=None, **kwargs):
+    def _fit(self, X_train, y_train, budget=None, **kwargs):
         from hcrystalball.wrappers import get_sklearn_wrapper
 
         X_train = self.transform_X(X_train)
@@ -1797,29 +1795,34 @@ class TS_SKLearn_Regressor(SKLearnEstimator):
         params = self.params.copy()
         lags = params.pop("lags")
         optimize_for_horizon = params.pop("optimize_for_horizon")
-        estimator = flaml_estimator(task="regression", **params)
+        estimator = self.base_class(task="regression", **params)
         self.hcrystaball_model = get_sklearn_wrapper(estimator.estimator_class)
         self.hcrystaball_model.lags = int(lags)
         self.hcrystaball_model.fit(X_train, y_train)
-        if optimize_for_horizon == True:
-            model_li = []
-            for i in range(1, kwargs["period"]+1):
+        if optimize_for_horizon:
+            model_list = []
+            for i in range(1, kwargs["period"] + 1):
                 X_fit, y_fit = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X_train, y_train, i)
                 self.hcrystaball_model.model.set_params(**estimator.params)
                 model = self.hcrystaball_model.model.fit(X_fit, y_fit)
-                model_li.append(model)
-            self._model = model_li
+                model_list.append(model)
+            self._model = model_list
         else:
             X_fit, y_fit = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X_train, y_train, kwargs["period"])
             self.hcrystaball_model.model.set_params(**estimator.params)
             model = self.hcrystaball_model.model.fit(X_fit, y_fit)
             self._model = model
 
+    def fit(self, X_train, y_train, budget=None, **kwargs):
+        current_time = time.time()
+        self._fit(X_train, y_train, budget=budget, **kwargs)
+        train_time = time.time() - current_time
+        return train_time
 
     def predict(self, X_test):
         if self._model is not None:
-            X_test = self._preprocess(X_test)
             X_test = self.transform_X(X_test)
+            X_test = self._preprocess(X_test)
             if isinstance(self._model, list):
                 assert (
                     len(self._model) == len(X_test)
@@ -1828,7 +1831,9 @@ class TS_SKLearn_Regressor(SKLearnEstimator):
                 for i in range(1, len(self._model) + 1):
                     X_pred, _ = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X_test.iloc[:i, :])
                     preds.append(self._model[i - 1].predict(X_pred)[-1])
-                forecast = pd.DataFrame(data=np.asarray(preds).reshape(-1, 1), columns=[self.hcrystaball_model.name], index=X_test.index)
+                forecast = pd.DataFrame(data=np.asarray(preds).reshape(-1, 1),
+                                        columns=[self.hcrystaball_model.name],
+                                        index=X_test.index)
             else:
                 X_pred, _ = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X_test)
                 forecast = self._model.predict(X_pred)
@@ -1839,54 +1844,29 @@ class TS_SKLearn_Regressor(SKLearnEstimator):
             )
             return np.ones(X_test.shape[0])
 
+
 class LGBM_TS_Regressor(TS_SKLearn_Regressor):
     base_class = LGBMEstimator
-
-    def fit(self, X_train, y_train, budget=None, **kwargs):
-        current_time = time.time()
-        self._fit(self.base_class, X_train, y_train, budget=budget, **kwargs)
-        train_time = time.time() - current_time
-        return train_time
 
 
 class XGBoost_TS_Regressor(TS_SKLearn_Regressor):
     base_class = XGBoostSklearnEstimator
 
-    def fit(self, X_train, y_train, budget=None, **kwargs):
-        current_time = time.time()
-        self._fit(self.base_class, X_train, y_train, budget=budget, **kwargs)
-        train_time = time.time() - current_time
-        return train_time
-
 
 # class CatBoost_TS_Regressor(TS_Regressor):
 #     base_class = CatBoostEstimator
-#
-#     def fit(self, X_train, y_train, budget=None, **kwargs):
-#         current_time = time.time()
-#         self._fit(self.base_class, X_train, y_train, budget=budget, **kwargs)
-#         train_time = time.time() - current_time
-#         return train_time
 
 
 class RF_TS_Regressor(TS_SKLearn_Regressor):
     base_class = RandomForestEstimator
 
-    def fit(self, X_train, y_train, budget=None, **kwargs):
-        current_time = time.time()
-        self._fit(self.base_class, X_train, y_train, budget=budget, **kwargs)
-        train_time = time.time() - current_time
-        return train_time
-
 
 class ExtraTrees_TS_Regressor(TS_SKLearn_Regressor):
     base_class = ExtraTreesEstimator
 
-    def fit(self, X_train, y_train, budget=None, **kwargs):
-        current_time = time.time()
-        self._fit(self.base_class, X_train, y_train, budget=budget, **kwargs)
-        train_time = time.time() - current_time
-        return train_time
+
+class XGBoostLimitDepth_TS_Regressor(TS_SKLearn_Regressor):
+    base_class = XGBoostLimitDepthEstimator
 
 
 class suppress_stdout_stderr(object):
