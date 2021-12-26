@@ -20,8 +20,9 @@ from sklearn.metrics import (
 from sklearn.model_selection import RepeatedStratifiedKFold, GroupKFold, TimeSeriesSplit
 from .model import (
     XGBoostSklearnEstimator,
-    XGBoostLimitDepthEstimator,
     XGBoost_TS_Regressor,
+    XGBoostLimitDepthEstimator,
+    XGBoostLimitDepth_TS_Regressor,
     RandomForestEstimator,
     RF_TS_Regressor,
     LGBMEstimator,
@@ -93,22 +94,13 @@ huggingface_submetric_to_metric = {"rouge1": "rouge", "rouge2": "rouge"}
 def get_estimator_class(task, estimator_name):
     # when adding a new learner, need to add an elif branch
     if "xgboost" == estimator_name:
-        if TS_FORECAST == task:
-            estimator_class = XGBoost_TS_Regressor
-        else:
-            estimator_class = XGBoostSklearnEstimator
+        estimator_class = XGBoost_TS_Regressor if TS_FORECAST == task else XGBoostSklearnEstimator
     elif "xgb_limitdepth" == estimator_name:
-        estimator_class = XGBoostLimitDepthEstimator
+        estimator_class = XGBoostLimitDepth_TS_Regressor if TS_FORECAST == task else XGBoostLimitDepthEstimator
     elif "rf" == estimator_name:
-        if TS_FORECAST == task:
-            estimator_class = RF_TS_Regressor
-        else:
-            estimator_class = RandomForestEstimator
+        estimator_class = RF_TS_Regressor if TS_FORECAST == task else RandomForestEstimator
     elif "lgbm" == estimator_name:
-        if TS_FORECAST == task:
-            estimator_class = LGBM_TS_Regressor
-        else:
-            estimator_class = LGBMEstimator
+        estimator_class = LGBM_TS_Regressor if TS_FORECAST == task else LGBMEstimator
     elif "lrl1" == estimator_name:
         estimator_class = LRL1Classifier
     elif "lrl2" == estimator_name:
@@ -116,10 +108,7 @@ def get_estimator_class(task, estimator_name):
     elif "catboost" == estimator_name:
         estimator_class = CatBoostEstimator
     elif "extra_tree" == estimator_name:
-        if TS_FORECAST == task:
-            estimator_class = ExtraTrees_TS_Regressor
-        else:
-            estimator_class = ExtraTreesEstimator
+        estimator_class = ExtraTrees_TS_Regressor if TS_FORECAST == task else ExtraTreesEstimator
     elif "kneighbor" == estimator_name:
         estimator_class = KNeighborsEstimator
     elif "prophet" in estimator_name:
