@@ -813,6 +813,37 @@ class AutoML(BaseEstimator):
             X = self._transformer.transform(X)
         return X
 
+    def _validate_ts_data(
+        self,
+        dataframe,
+        y_train_all=None,
+    ):
+        assert (
+            dataframe[dataframe.columns[0]].dtype.name == "datetime64[ns]"
+        ), f"For '{TS_FORECAST}' task, the first column must contain timestamp values."
+        ts_col = dataframe[[dataframe.columns[0]]]
+        if y_train_all is not None:
+            y_df = dataframe.join(y_train_all)
+        if any(ts_col.duplicated()):
+            logger.warning(
+                f"Duplicate timestamp values found in timestamp column. "
+                f"\n{dataframe.loc[ts_col.duplicated(), dataframe.columns[0]]}"
+            )
+            dataframe = dataframe.drop_duplicates()
+            logger.warning(f"Removed duplicate rows based on all columns")
+            assert (
+                dataframe[[dataframe.columns[0]]].duplicated() is None
+            ), "Duplicate timestamp values with differnt values for other columns."
+        ts_series = pd.to_datetime(dataframe[dataframe.columns[0]])
+        inferred_freq = pd.infer_freq(ts_series)
+        if inferred_freq == None:
+            logger.warning(
+                f"Missing timestamps detected. To avoid error with estimators, set estimator list to ['prophet']. "
+            )
+        if y_train_all is not None:
+            return dataframe.iloc[:,:-1], dataframe.iloc[:, -1]
+        return dataframe
+
     def _validate_data(
         self,
         X_train_all,
@@ -851,25 +882,7 @@ class AutoML(BaseEstimator):
             self._nrow, self._ndim = X_train_all.shape
             if self._state.task == TS_FORECAST:
                 X_train_all = pd.DataFrame(X_train_all)
-                assert (
-                    X_train_all[X_train_all.columns[0]].dtype.name == "datetime64[ns]"
-                ), f"For '{TS_FORECAST}' task, the first column must contain timestamp values."
-                ts_col = X_train_all[[X_train_all.columns[0]]]
-                if any(ts_col.duplicated()):
-                    import warnings
-                    warnings.warn(f"Duplicate timestamp values found in timestamp column. "
-                                  f"\n{X_train_all.loc[ts_col.duplicated(), :]}")
-                    X_train_all = X_train_all.copy().drop_duplicates()
-                    y_train_all = y_train_all.copy().drop_duplicates()
-                    warnings.warn(f"Removed duplicate rows based on all columns.")
-                    assert (
-                        not X_train_all[[X_train_all.columns[0]]].duplicated()
-                    ), "Duplicate timestamp values with different values for other columns."
-                ts_series = pd.to_datetime(X_train_all[X_train_all.columns[0]])
-                inferred_freq = pd.infer_freq(ts_series)
-                if inferred_freq == None:
-                    import warnings
-                    warnings.warn(f"Missing timestamps detected. To avoid error with estimators, set estimator list to ['prophet']. ")
+                X_train_all, y_train_all = self._validate_ts_data(X_train_all, y_train_all)
             X, y = X_train_all, y_train_all
         elif dataframe is not None and label is not None:
             assert isinstance(
@@ -878,23 +891,7 @@ class AutoML(BaseEstimator):
             assert label in dataframe.columns, "label must a column name in dataframe"
             self._df = True
             if self._state.task == TS_FORECAST:
-                assert (
-                    dataframe[dataframe.columns[0]].dtype.name == "datetime64[ns]"
-                ), f"For '{TS_FORECAST}' task, the first column must contain timestamp values."
-                ts_col = dataframe[[dataframe.columns[0]]]
-                if any(ts_col.duplicated()):
-                    import warnings
-                    warnings.warn(f"Duplicate timestamp values found in timestamp column. "
-                                  f"\n{dataframe.loc[ts_col.duplicated(), :]}")
-                    dataframe = dataframe.copy().drop_duplicates()
-                    warnings.warn(f"Removed duplicate rows based on all columns")
-                    assert not dataframe[[dataframe.columns[0]]].duplicated(), (
-                        "Duplicate timestamp values with differnt values for other columns.")
-                ts_series = pd.to_datetime(dataframe[dataframe.columns[0]])
-                inferred_freq = pd.infer_freq(ts_series)
-                if inferred_freq == None:
-                    import warnings
-                    warnings.warn(f"Missing timestamps detected. To avoid error with estimators, set estimator list to ['prophet']. ")
+                dataframe = self._validate_ts_data(dataframe)
             X = dataframe.drop(columns=label)
             self._nrow, self._ndim = X.shape
             y = dataframe[label]
@@ -2126,7 +2123,6 @@ class AutoML(BaseEstimator):
                     ]
                 if TS_FORECAST == self._state.task:
                     estimator_list.remove("catboost")
-                    estimator_list.remove("xgb_limitdepth")
                     try:
                         import prophet
 
