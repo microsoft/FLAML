@@ -105,6 +105,7 @@ def test_numpy():
             task="ts_forecast",
             time_budget=3,  # time budget in seconds
             log_file_name="test/ts_forecast.log",
+            n_splits=3,  # number of splits
         )
         print(automl.predict(X_train[72:]))
     except ImportError:
@@ -280,7 +281,6 @@ def load_multi_dataset_cat(time_horizon):
 def test_multivariate_forecast_cat(budget=5):
     time_horizon = 180
     train_df, test_df = load_multi_dataset_cat(time_horizon)
-    print(train_df)
     X_test = test_df[
         ["timeStamp", "season", "above_monthly_avg"]
     ]  # test dataframe must contain values for the regressors / multivariate variables

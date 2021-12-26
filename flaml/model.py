@@ -1794,7 +1794,7 @@ class TS_SKLearn_Regressor(SKLearnEstimator):
 
         X_train = self.transform_X(X_train)
         X_train = self._preprocess(X_train)
-        params = self.params
+        params = self.params.copy()
         lags = params.pop("lags")
         optimize_for_horizon = params.pop("optimize_for_horizon")
         estimator = flaml_estimator(task="regression", **params)
