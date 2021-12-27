@@ -1763,11 +1763,12 @@ class TS_SKLearn_Regressor(SKLearnEstimator):
         space.update({
             "optimize_for_horizon": {
                 "domain": tune.choice([True, False]),
-                "low_cost_init_value": False
+                "init_value": False,
+                "low_cost_init_value": False,
             },
             "lags": {
                 "domain": tune.randint(lower=1, upper=data_size[0]-pred_horizon),
-                "init_value": 1
+                "init_value": 3,
             },
         })
         return space
