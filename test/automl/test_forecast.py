@@ -24,7 +24,7 @@ def test_forecast_automl(budget=5):
         "time_budget": budget,  # total running time in seconds
         "metric": "mape",  # primary metric
         "task": "ts_forecast",  # task type
-        "log_file_name": "test/CO2_forecast.log",  # flaml log file
+        "log_file_name": "CO2_forecast.log",  # flaml log file
         "eval_method": "holdout",
         "label": "y",
     }
@@ -104,7 +104,7 @@ def test_numpy():
             period=12,  # time horizon to forecast, e.g., 12 months
             task="ts_forecast",
             time_budget=3,  # time budget in seconds
-            log_file_name="test/ts_forecast.log",
+            log_file_name="ts_forecast.log",
             n_splits=3,  # number of splits
         )
         print(automl.predict(X_train[72:]))
@@ -163,7 +163,7 @@ def test_multivariate_forecast_num(budget=5):
         "time_budget": budget,  # total running time in seconds
         "metric": "mape",  # primary metric
         "task": "ts_forecast",  # task type
-        "log_file_name": "test/energy_forecast_numerical.log",  # flaml log file
+        "log_file_name": "energy_forecast_numerical.log",  # flaml log file
         "eval_method": "holdout",
         "log_type": "all",
         "label": "demand",
@@ -290,7 +290,7 @@ def test_multivariate_forecast_cat(budget=5):
         "time_budget": budget,  # total running time in seconds
         "metric": "mape",  # primary metric
         "task": "ts_forecast",  # task type
-        "log_file_name": "test/energy_forecast_numerical.log",  # flaml log file
+        "log_file_name": "energy_forecast_categorical.log",  # flaml log file
         "eval_method": "holdout",
         "log_type": "all",
         "label": "demand",
@@ -360,3 +360,4 @@ if __name__ == "__main__":
     test_forecast_automl(60)
     test_multivariate_forecast_num(60)
     test_multivariate_forecast_cat(60)
+    test_numpy()
