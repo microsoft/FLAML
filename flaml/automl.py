@@ -823,7 +823,7 @@ class AutoML(BaseEstimator):
         ), f"For '{TS_FORECAST}' task, the first column must contain timestamp values."
         ts_col = dataframe[[dataframe.columns[0]]]
         if y_train_all is not None:
-            y_df = dataframe.join(y_train_all)
+            dataframe = dataframe.join(y_train_all)
         if any(ts_col.duplicated()):
             logger.warning(
                 f"Duplicate timestamp values found in timestamp column. "
