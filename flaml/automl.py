@@ -825,7 +825,7 @@ class AutoML(BaseEstimator):
         if any(duplicates):
             logger.warning(
                 "Duplicate timestamp values found in timestamp column. "
-                f"\n{dataframe.loc[duplicated, dataframe.columns[0]]}"
+                f"\n{dataframe.loc[duplicates, dataframe.columns[0]]}"
             )
             dataframe = dataframe.drop_duplicates()
             logger.warning(f"Removed duplicate rows based on all columns")
