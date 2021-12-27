@@ -827,7 +827,7 @@ class AutoML(BaseEstimator):
             dataframe = dataframe.join(y_df)
         if any(ts_col.duplicated()):
             logger.warning(
-                f"Duplicate timestamp values found in timestamp column. "
+                "Duplicate timestamp values found in timestamp column. "
                 f"\n{dataframe.loc[ts_col.duplicated(), dataframe.columns[0]]}"
             )
             dataframe = dataframe.drop_duplicates()
@@ -837,12 +837,12 @@ class AutoML(BaseEstimator):
             ), "Duplicate timestamp values with differnt values for other columns."
         ts_series = pd.to_datetime(dataframe[dataframe.columns[0]])
         inferred_freq = pd.infer_freq(ts_series)
-        if inferred_freq == None:
+        if inferred_freq is None:
             logger.warning(
-                f"Missing timestamps detected. To avoid error with estimators, set estimator list to ['prophet']. "
+                "Missing timestamps detected. To avoid error with estimators, set estimator list to ['prophet']. "
             )
         if y_train_all is not None:
-            return dataframe.iloc[:,:-1], dataframe.iloc[:, -1]
+            return dataframe.iloc[:, :-1], dataframe.iloc[:, -1]
         return dataframe
 
     def _validate_data(

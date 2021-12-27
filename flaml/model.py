@@ -1767,7 +1767,7 @@ class TS_SKLearn_Regressor(SKLearnEstimator):
                 "low_cost_init_value": False,
             },
             "lags": {
-                "domain": tune.randint(lower=1, upper=data_size[0]-pred_horizon),
+                "domain": tune.randint(lower=1, upper=data_size[0] - pred_horizon),
                 "init_value": 3,
             },
         })
