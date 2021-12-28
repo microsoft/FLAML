@@ -73,8 +73,6 @@ def tokenize_glue(this_row, this_tokenizer, custom_hpo_args):
 
 
 def tokenize_text(X, Y=None, task=None, custom_hpo_args=None):
-    import pdb
-    pdb.set_trace()
     if task in (SEQCLASSIFICATION, SEQREGRESSION):
         X_tokenized, _ = tokenize_onedataframe(
             X, this_tokenizer=None, task=task, custom_hpo_args=custom_hpo_args

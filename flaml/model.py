@@ -543,8 +543,6 @@ class DistillingEstimator(TransformersEstimator):
         y_val = kwargs.get("y_val")
 
         if self._task not in NLG_TASKS:
-            import pdb
-            pdb.set_trace()
             X_train, _ = self._preprocess(X=X_train, **kwargs)
             #X_train = self._preprocess(X=X_train, task=self._task, **kwargs)
         else:
@@ -790,9 +788,6 @@ class DistillingEstimator(TransformersEstimator):
         from datasets import Dataset
         from .nlp.utils import load_model
         from .nlp.huggingface.trainer import TrainerForAuto
-        
-        # import pdb
-        # pdb.set_trace()
 
         X_test, _ = self._preprocess(X=X_test, task=self._task, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
