@@ -741,10 +741,6 @@ class AutoML(BaseEstimator):
             )
             return None
         X_test = self._preprocess(X_test)
-        # TODO: check to see length of X_test is the same as inputted period
-        # if self._state.task == TS_FORECAST:
-        #     assert self._state.fit_kwargs.get("period") == len(X_test), (
-        #         "length of X_test needs to be the same as `periods`")
         y_pred = estimator.predict(X_test)
         if (
             isinstance(y_pred, np.ndarray)
@@ -831,7 +827,7 @@ class AutoML(BaseEstimator):
             logger.warning(f"Removed duplicate rows based on all columns")
             assert (
                 dataframe[[dataframe.columns[0]]].duplicated() is None
-            ), "Duplicate timestamp values with differnt values for other columns."
+            ), "Duplicate timestamp values with different values for other columns."
         ts_series = pd.to_datetime(dataframe[dataframe.columns[0]])
         inferred_freq = pd.infer_freq(ts_series)
         if inferred_freq is None:
