@@ -36,42 +36,87 @@ def load_default_huggingface_metric_for_task(task):
 
 global tokenized_column_names
 
+def tokenize_text(X, task, custom_hpo_task):
+    from ..data import SEQCLASSIFICATION, SEQREGRESSION
 
-def tokenize_text(X, Y=None, task=None, custom_hpo_args=None):
     if task in (SEQCLASSIFICATION, SEQREGRESSION):
-        # return tokenize_text_seqclassification(X, custom_hpo_task)
+        return tokenize_text_seqclassification(X, custom_hpo_task)
     # TODO: elif task == your task, return the tokenized result
     #  for example, if your task == MULTIPLE CHOICE, you should
     #  create a function named tokenize_text_multiplechoice(X, custom_hpo_args)
     #  and what it does is the same as preprocess_function at
     #  https://github.com/huggingface/transformers/blob/master/examples/pytorch/multiple-choice/run_swag.py#L329
-#     elif task == QUESTIONANSWERING:
-#         return tokenize_text_questionanswering(X, custom_hpo_task)
 
-# def tokenize_text_questionanswering(X, custom_hpo_args, is_train=True):
-#     https://github.com/huggingface/transformers/blob/84ea427f460ffc8d2ddc08a341ccda076c24fc1f/examples/legacy/question-answering/run_squad.py
-#     from transformers import AutoTokenizer
-#     tokenizer = AutoTokenizer.from_pretrained(
-#         custom_hpo_args.model_path,
-#         use_fast=True,
-#     )
-#     column_names = X.column_names
-#     question_column_name = "question" if "question" in column_names else column_names[0]
-#     context_column_name = "context" if "context" in column_names else column_names[1]
-#     answer_column_name = "answers" if "answers" in column_names else column_names[2]
-#     # rm left whitespace
-#     X[question_column_name] = [q.lstrip() for q in X[question_column_name]]
-#     pad_on_right = tokenizer.padding_side == "right"
-#     # set max_seq_length
-#     max_seq_length = min(custom_hpo_args.max_seq_length, tokenizer.model_max_length)
-#     pass
-        X_tokenized, _ = tokenize_onedataframe(
-            X, this_tokenizer=None, task=task, custom_hpo_args=custom_hpo_args
-        )
-        return X_tokenized, None
-    elif task in NLG_TASKS:
-        return tokenize_seq2seq(X, Y, task=task, custom_hpo_args=custom_hpo_args)
 
+def tokenize_text_seqclassification(X, custom_hpo_args):
+    from transformers import AutoTokenizer
+    import pandas
+
+    global tokenized_column_names
+    this_tokenizer = AutoTokenizer.from_pretrained(
+        custom_hpo_args.model_path, use_fast=True
+    )
+    d = X.apply(
+        lambda x: tokenize_glue(x, this_tokenizer, custom_hpo_args),
+        axis=1,
+        result_type="expand",
+    )
+    X_tokenized = pandas.DataFrame(columns=tokenized_column_names)
+    X_tokenized[tokenized_column_names] = d
+    return X_tokenized
+
+
+def tokenize_glue(this_row, this_tokenizer, custom_hpo_args):
+    global tokenized_column_names
+    assert (
+        "max_seq_length" in custom_hpo_args.__dict__
+    ), "max_seq_length must be provided for glue"
+
+    tokenized_example = this_tokenizer(
+        *tuple(this_row),
+        padding="max_length",
+        max_length=custom_hpo_args.max_seq_length,
+        truncation=True,
+    )
+    tokenized_column_names = sorted(tokenized_example.keys())
+    return [tokenized_example[x] for x in tokenized_column_names]
+
+# ******************DELETE THE FOLLOWING*****************
+# def tokenize_text(X, Y=None, task=None, custom_hpo_args=None):
+#     if task in (SEQCLASSIFICATION, SEQREGRESSION):
+#         # return tokenize_text_seqclassification(X, custom_hpo_task)
+#     # TODO: elif task == your task, return the tokenized result
+#     #  for example, if your task == MULTIPLE CHOICE, you should
+#     #  create a function named tokenize_text_multiplechoice(X, custom_hpo_args)
+#     #  and what it does is the same as preprocess_function at
+#     #  https://github.com/huggingface/transformers/blob/master/examples/pytorch/multiple-choice/run_swag.py#L329
+# #     elif task == QUESTIONANSWERING:
+# #         return tokenize_text_questionanswering(X, custom_hpo_task)
+
+# # def tokenize_text_questionanswering(X, custom_hpo_args, is_train=True):
+# #     https://github.com/huggingface/transformers/blob/84ea427f460ffc8d2ddc08a341ccda076c24fc1f/examples/legacy/question-answering/run_squad.py
+# #     from transformers import AutoTokenizer
+# #     tokenizer = AutoTokenizer.from_pretrained(
+# #         custom_hpo_args.model_path,
+# #         use_fast=True,
+# #     )
+# #     column_names = X.column_names
+# #     question_column_name = "question" if "question" in column_names else column_names[0]
+# #     context_column_name = "context" if "context" in column_names else column_names[1]
+# #     answer_column_name = "answers" if "answers" in column_names else column_names[2]
+# #     # rm left whitespace
+# #     X[question_column_name] = [q.lstrip() for q in X[question_column_name]]
+# #     pad_on_right = tokenizer.padding_side == "right"
+# #     # set max_seq_length
+# #     max_seq_length = min(custom_hpo_args.max_seq_length, tokenizer.model_max_length)
+# #     pass
+#         X_tokenized, _ = tokenize_onedataframe(
+#             X, this_tokenizer=None, task=task, custom_hpo_args=custom_hpo_args
+#         )
+#         return X_tokenized, None
+#     elif task in NLG_TASKS:
+#         return tokenize_seq2seq(X, Y, task=task, custom_hpo_args=custom_hpo_args)
+# ******************DELETE ABOVE*****************
 
 def tokenize_seq2seq(X, Y, task=None, custom_hpo_args=None):
     model_inputs, tokenizer = tokenize_onedataframe(
@@ -98,48 +143,48 @@ def tokenize_seq2seq(X, Y, task=None, custom_hpo_args=None):
     return model_inputs, labels
 
 
-def tokenize_onedataframe(
-    X,
-    this_tokenizer=None,
-    task=None,
-    custom_hpo_args=None,
-):
-    from transformers import AutoTokenizer
-    import pandas
+# def tokenize_onedataframe(
+#     X,
+#     this_tokenizer=None,
+#     task=None,
+#     custom_hpo_args=None,
+# ):
+#     from transformers import AutoTokenizer
+#     import pandas
 
-    global tokenized_column_names
+#     global tokenized_column_names
 
-    if this_tokenizer:
-        with this_tokenizer.as_target_tokenizer():
-            d = X.apply(
-                lambda x: tokenize_row(
-                    x,
-                    this_tokenizer,
-                    prefix=("",) if task is SUMMARIZATION else None,
-                    task=task,
-                    custom_hpo_args=custom_hpo_args,
-                ),
-                axis=1,
-                result_type="expand",
-            )
-    else:
-        this_tokenizer = AutoTokenizer.from_pretrained(
-            custom_hpo_args.model_path, use_fast=True
-        )
-        d = X.apply(
-            lambda x: tokenize_row(
-                x,
-                this_tokenizer,
-                prefix=("summarize: ",) if task is SUMMARIZATION else None,
-                task=task,
-                custom_hpo_args=custom_hpo_args,
-            ),
-            axis=1,
-            result_type="expand",
-        )
-    X_tokenized = pandas.DataFrame(columns=tokenized_column_names)
-    X_tokenized[tokenized_column_names] = d
-    return X_tokenized, this_tokenizer
+#     if this_tokenizer:
+#         with this_tokenizer.as_target_tokenizer():
+#             d = X.apply(
+#                 lambda x: tokenize_row(
+#                     x,
+#                     this_tokenizer,
+#                     prefix=("",) if task is SUMMARIZATION else None,
+#                     task=task,
+#                     custom_hpo_args=custom_hpo_args,
+#                 ),
+#                 axis=1,
+#                 result_type="expand",
+#             )
+#     else:
+#         this_tokenizer = AutoTokenizer.from_pretrained(
+#             custom_hpo_args.model_path, use_fast=True
+#         )
+#         d = X.apply(
+#             lambda x: tokenize_row(
+#                 x,
+#                 this_tokenizer,
+#                 prefix=("summarize: ",) if task is SUMMARIZATION else None,
+#                 task=task,
+#                 custom_hpo_args=custom_hpo_args,
+#             ),
+#             axis=1,
+#             result_type="expand",
+#         )
+#     X_tokenized = pandas.DataFrame(columns=tokenized_column_names)
+#     X_tokenized[tokenized_column_names] = d
+#     return X_tokenized, this_tokenizer
 
 
 def postprocess_text(preds, labels):
@@ -490,6 +535,11 @@ class DISTILHPOArgs:
                                 "help": "Path to pretrained model or model identifier from huggingface.co/models"}
     )
 
+    model_path: str = field(
+        default=None, metadata={"required":True,
+                                "help": "Path to pretrained model or model identifier from huggingface.co/models"}
+    )
+
     output_dir: str = field(
         default="data/output/", metadata={"help": "The output directory where the model checkpoints and predictions will be written",
                                           "required": True}
@@ -506,7 +556,7 @@ class DISTILHPOArgs:
     )
 
     tokenizer_name: str = field(
-        default="distilbert",
+        default="distilbert-base-uncased",
         metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"},
     )
 
