@@ -854,7 +854,10 @@ class FineTuningEstimator(TransformersEstimator):
         self._TrainingArguments = TrainingArguments
 
          # @classmethod
-        search_space_dict = super().search_space()
+    @classmethod
+    def search_space(cls, data_size, task, **params):
+        search_space_dict = super().search_space(data_size, task)
+        # search_space_dict = super().search_space()
         if task in NLG_TASKS:
             search_space_dict["generation_num_beams"] = {
                 "domain": tune.randint(2, 5),
@@ -865,7 +868,7 @@ class FineTuningEstimator(TransformersEstimator):
                 "init_value": 64,
             }
         #
-        # return search_space_dict
+        return search_space_dict
 
     def _init_hpo_args(self, automl_fit_kwargs: dict = None):
         from .nlp.utils import HPOArgs
