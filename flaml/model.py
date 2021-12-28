@@ -309,7 +309,8 @@ class TransformersEstimator(BaseEstimator):
             from transformers import TrainingArguments
         self._TrainingArguments = TrainingArguments
 
-    def _join(self, X_train, y_train):
+    @staticmethod
+    def _join(X_train, y_train):
         y_train = DataFrame(y_train, columns=["label"], index=X_train.index)
         train_df = X_train.join(y_train)
         return train_df
@@ -359,13 +360,17 @@ class TransformersEstimator(BaseEstimator):
             setattr(custom_hpo_args, key, val)
         self.custom_hpo_args = custom_hpo_args
 
-    def _preprocess(self, X, task, **kwargs):
+    def _preprocess(self, X, y=None, **kwargs):
         from .nlp.utils import tokenize_text
 
-        if X.dtypes[0] == "string":
-            return tokenize_text(X, task, self.custom_hpo_args)
+        is_str = str(X.dtypes[0]) in ("string", "str")
+
+        if is_str:
+            return tokenize_text(
+                X=X, Y=y, task=self._task, custom_hpo_args=self.custom_hpo_args
+            )
         else:
-            return X
+            return X, None
 
     def _compute_metrics_by_dataset_name(self, eval_pred):
         from .ml import metric_loss_score
@@ -538,15 +543,17 @@ class DistillingEstimator(TransformersEstimator):
         y_val = kwargs.get("y_val")
 
         if self._task not in NLG_TASKS:
-            # X_train, _ = self._preprocess(X=X_train, task=self._task, **kwargs)
-            X_train = self._preprocess(X=X_train, task=self._task, **kwargs)
+            import pdb
+            pdb.set_trace()
+            X_train, _ = self._preprocess(X=X_train, **kwargs)
+            #X_train = self._preprocess(X=X_train, task=self._task, **kwargs)
         else:
-            # X_train, y_train = self._preprocess(
-            #     X=X_train, y=y_train, task=self._task, **kwargs
-            # )
-            X_train = self._preprocess(
-                X=X_train, task=self._task, **kwargs
+            X_train, y_train = self._preprocess(
+                X=X_train, y=y_train, **kwargs
             )
+            # X_train = self._preprocess(
+            #     X=X_train, task=self._task, **kwargs
+            # )
 
         train_dataset = Dataset.from_pandas(self._join(X_train, y_train))
 
@@ -558,15 +565,15 @@ class DistillingEstimator(TransformersEstimator):
 
         if X_val is not None:
             if self._task not in NLG_TASKS:
-                # X_val, _ = self._preprocess(X=X_val, task=self._task, **kwargs)
-                X_val = self._preprocess(X=X_val, task=self._task, **kwargs)
+                X_val, _ = self._preprocess(X=X_val, task=self._task, **kwargs)
+                # X_val = self._preprocess(X=X_val, task=self._task, **kwargs)
             else:
-                # X_val, y_val = self._preprocess(
-                #     X=X_val, y=y_val, task=self._task, **kwargs
-                # )
-                X_val = self._preprocess(
-                    X=X_val, task=self._task, **kwargs
+                X_val, y_val = self._preprocess(
+                    X=X_val, y=y_val, task=self._task, **kwargs
                 )
+                # X_val = self._preprocess(
+                #     X=X_val, task=self._task, **kwargs
+                # )
                 
             eval_dataset = Dataset.from_pandas(self._join(X_val, y_val))
         else:
@@ -762,7 +769,7 @@ class DistillingEstimator(TransformersEstimator):
         from transformers import TrainingArguments
         from .nlp.utils import load_model
 
-        X_test = self._preprocess(X_test, task=self._task, **self._kwargs)
+        X_test, _ = self._preprocess(X_test, task=self._task, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
 
         best_model = load_model(
@@ -787,7 +794,7 @@ class DistillingEstimator(TransformersEstimator):
         # import pdb
         # pdb.set_trace()
 
-        X_test = self._preprocess(X=X_test, task=self._task, **self._kwargs)
+        X_test, _ = self._preprocess(X=X_test, task=self._task, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
 
         best_model = load_model(
@@ -851,11 +858,6 @@ class FineTuningEstimator(TransformersEstimator):
             from transformers import TrainingArguments
         self._TrainingArguments = TrainingArguments
 
-    # def _join(self, X_train, y_train):
-    #     y_train = DataFrame(y_train, columns=["label"], index=X_train.index)
-    #     train_df = X_train.join(y_train)
-    #     return train_df
-
          # @classmethod
         search_space_dict = super().search_space()
         if task in NLG_TASKS:
@@ -883,12 +885,20 @@ class FineTuningEstimator(TransformersEstimator):
             setattr(custom_hpo_args, key, val)
         self.custom_hpo_args = custom_hpo_args
 
-    def _preprocess(self, X, y=None, task=None, **kwargs):
+    def _preprocess(self, X, y=None, **kwargs):
         from .nlp.utils import tokenize_text
 
-        if X.dtypes[0] == "string":
+        # is_str = False
+        # for each_type in ["string", "str"]:
+        #     try:
+        #         is_str = is_str or (X.dtypes[0] == each_type)
+        #     except TypeError:
+        #         pass
+        is_str = str(X.dtypes[0]) in ("string", "str")
+
+        if is_str:
             return tokenize_text(
-                X=X, Y=y, task=task, custom_hpo_args=self.custom_hpo_args
+                X=X, Y=y, task=self._task, custom_hpo_args=self.custom_hpo_args
             )
         else:
             return X, None
@@ -953,7 +963,7 @@ class FineTuningEstimator(TransformersEstimator):
         set_seed(self.params.get("seed", self._TrainingArguments.seed))
 
         self._init_hpo_args(kwargs)
-        self._metric_name = kwargs["metric"]
+        self._metric = kwargs["metric"]
         if hasattr(self, "use_ray") is False:
             self.use_ray = kwargs["use_ray"]
 
@@ -961,13 +971,16 @@ class FineTuningEstimator(TransformersEstimator):
         y_val = kwargs.get("y_val")
 
         if self._task not in NLG_TASKS:
-            X_train = self._preprocess(X=X_train, task=self._task, **kwargs)
+            self._X_train, _ = self._preprocess(X=X_train, **kwargs)
+            self._y_train = y_train
         else:
-            X_train, y_train = self._preprocess(
-                X=X_train, y=y_train, task=self._task, **kwargs
+            self._X_train, self._y_train = self._preprocess(
+                X=X_train, y=y_train, **kwargs
             )
 
-        train_dataset = Dataset.from_pandas(self._join(X_train, y_train))
+        train_dataset = Dataset.from_pandas(
+            TransformersEstimator._join(self._X_train, self._y_train)
+        )
 
         # TODO: set a breakpoint here, observe the resulting train_dataset,
         #  compare it with the output of the tokenized results in your transformer example
@@ -977,12 +990,13 @@ class FineTuningEstimator(TransformersEstimator):
 
         if X_val is not None:
             if self._task not in NLG_TASKS:
-                X_val, _ = self._preprocess(X=X_val, task=self._task, **kwargs)
+                self._X_val, _ = self._preprocess(X=X_val, **kwargs)
+                self._y_val = y_val
             else:
-                X_val, y_val = self._preprocess(
-                    X=X_val, y=y_val, task=self._task, **kwargs
-                )
-            eval_dataset = Dataset.from_pandas(self._join(X_val, y_val))
+                self._X_val, self._y_val = self._preprocess(X=X_val, y=y_val, **kwargs)
+            eval_dataset = Dataset.from_pandas(
+                TransformersEstimator._join(self._X_val, self._y_val)
+            )
         else:
             eval_dataset = None
 
@@ -991,13 +1005,13 @@ class FineTuningEstimator(TransformersEstimator):
         )
         self._tokenizer = tokenizer
 
-        num_labels = get_num_labels(self._task, y_train)
+        num_labels = get_num_labels(self._task, self._y_train)
 
         training_args_config, per_model_config = separate_config(
             self.params, self._task
         )
         ckpt_freq = compute_checkpoint_freq(
-            train_data_size=len(X_train),
+            train_data_size=len(self._X_train),
             custom_hpo_args=self.custom_hpo_args,
             num_train_epochs=training_args_config.get(
                 "num_train_epochs", self._TrainingArguments.num_train_epochs
@@ -1103,7 +1117,7 @@ class FineTuningEstimator(TransformersEstimator):
 
         if trainer.ckpt_to_metric:
             best_ckpt, _ = min(
-                trainer.ckpt_to_metric.items(), key=lambda x: x[1]["val_loss"]
+                trainer.ckpt_to_metric.items(), key=lambda x: x[1]["eval_loss"]
             )
             best_ckpt_global_step = trainer.ckpt_to_global_step[best_ckpt]
             for each_ckpt in list(trainer.ckpt_to_metric):
@@ -1123,34 +1137,43 @@ class FineTuningEstimator(TransformersEstimator):
         return best_ckpt
 
     def _compute_metrics_by_dataset_name(self, eval_pred):
-        from .ml import metric_loss_score
-        from .nlp.utils import postprocess_text
+        if isinstance(self._metric, str):
+            from .ml import metric_loss_score
+            from .nlp.utils import postprocess_text
 
-        predictions, labels = eval_pred
-
-        if self._task in NLG_TASKS:
-            if isinstance(predictions, tuple):
-                predictions = np.argmax(predictions[0], axis=2)
-            decoded_preds = self._tokenizer.batch_decode(
-                predictions, skip_special_tokens=True
-            )
-            labels = np.where(labels != -100, labels, self._tokenizer.pad_token_id)
-            decoded_labels = self._tokenizer.batch_decode(
-                labels, skip_special_tokens=True
-            )
-            predictions, labels = postprocess_text(decoded_preds, decoded_labels)
+            predictions, labels = eval_pred
+            if self._task in NLG_TASKS:
+                if isinstance(predictions, tuple):
+                    predictions = np.argmax(predictions[0], axis=2)
+                decoded_preds = self._tokenizer.batch_decode(
+                    predictions, skip_special_tokens=True
+                )
+                labels = np.where(labels != -100, labels, self._tokenizer.pad_token_id)
+                decoded_labels = self._tokenizer.batch_decode(
+                    labels, skip_special_tokens=True
+                )
+                predictions, labels = postprocess_text(decoded_preds, decoded_labels)
+            else:
+                predictions = (
+                    np.squeeze(predictions)
+                    if self._task == SEQREGRESSION
+                    else np.argmax(predictions, axis=1)
+                )
+            return {
+                "val_loss": metric_loss_score(
+                    metric_name=self._metric, y_predict=predictions, y_true=labels
+                )
+            }
         else:
-            predictions = (
-                np.squeeze(predictions)
-                if self._task == SEQREGRESSION
-                else np.argmax(predictions, axis=1)
+            agg_metric, metric_dict = self._metric(
+                X_test=self._X_val,
+                y_test=self._y_val,
+                estimator=self,
+                labels=None,
+                X_train=self._X_train,
+                y_train=self._y_train,
             )
-
-        return {
-            "val_loss": metric_loss_score(
-                metric_name=self._metric_name, y_predict=predictions, y_true=labels
-            )
-        }
+            return metric_dict
 
     def predict_proba(self, X_test):
         assert (
@@ -1162,7 +1185,7 @@ class FineTuningEstimator(TransformersEstimator):
         from transformers import TrainingArguments
         from .nlp.utils import load_model
 
-        X_test, _ = self._preprocess(X_test, task=self._task, **self._kwargs)
+        X_test, _ = self._preprocess(X_test, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
 
         best_model = load_model(
@@ -1183,8 +1206,8 @@ class FineTuningEstimator(TransformersEstimator):
         from datasets import Dataset
         from .nlp.utils import load_model
         from .nlp.huggingface.trainer import TrainerForAuto
-        
-        X_test, _ = self._preprocess(X=X_test, task=self._task, **self._kwargs)
+
+        X_test, _ = self._preprocess(X=X_test, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
 
         best_model = load_model(
@@ -1230,364 +1253,6 @@ class FineTuningEstimator(TransformersEstimator):
         )
         return params
 
-# class DistilBertEstimator(BaseEstimator):
-#     """Dstill Bert Estimator.
-#     初始化的时候应该输入一个teacher (well-trained), 一个 student.
-#     然后对于给定的数据X, Y, 找到最佳的超参数使得此时的student能最好地模仿teacher.
-#     """
-#
-#     name = "DistilBertEstimator"
-#
-#     def __init__(self, task="seq-classification", student_type='distilbert',teacher_type='bert',**config):
-#         super().__init__(task, **config)
-#         self.trial_id = str(uuid.uuid1().hex)[:8]
-#         print(f"Initialized {self.trial_id}")
-#
-#         MODEL_CLASSES = {
-#             "distilbert": (DistilBertConfig, DistilBertForMaskedLM, DistilBertTokenizer),
-#             "roberta": (RobertaConfig, RobertaForMaskedLM, RobertaTokenizer),
-#             "bert": (BertConfig, BertForMaskedLM, BertTokenizer),
-#             "gpt2": (GPT2Config, GPT2LMHeadModel, GPT2Tokenizer),
-#         }
-#
-#         self.student_type = student_type
-#         self.teacher_type = teacher_type
-#
-#         self._model = None
-#         self.student_config_class, self.student_model_class, _ = MODEL_CLASSES[self.student_type]
-#         self.teacher_config_class, self.teacher_model_class, self.teacher_tokenizer_class = MODEL_CLASSES[self.teacher_type]
-#
-#     @classmethod
-#     def search_space(cls, **params):
-#         return {
-#             "learning_rate": {
-#                 "domain": tune.loguniform(lower=1e-6, upper=1e-3),
-#                 "init_value": 1e-5,
-#             },
-#             "batch_size": {
-#                 "domain": tune.choice([4, 8, 16, 32]),
-#                 "init_value": 32,
-#             },
-#             # "gradient_accumulation_steps": {
-#             #     "domain": tune.randint(lower=2, upper=60),
-#             #     "init_value": 2,
-#             # },
-#             "weight_decay": {
-#                 "domain": tune.uniform(lower=0.0, upper=0.3),
-#                 "init_value": 0.0,
-#             },
-#             "adam_epsilon": {
-#                 "domain": tune.loguniform(lower=1e-8, upper=1e-6),
-#                 "init_value": 1e-6,
-#             },
-#             "seed": {
-#               "domain": tune.chioce(list(range(40,45))),
-#               "init value": 42
-#             },
-#             "global_max_steps":{
-#                 "domain":sys.maxsize,"init_value":sys.maxsize
-#             },
-#             "alpha_ce": {
-#                 "domain": tune.uniform(lower=0.0, upper=1.0),
-#                 "init_value": 0.5,
-#             },
-#             "alpha_mlm": {
-#                 "domain": tune.uniform(lower=0.0, upper=1.0),
-#                 "init_value": 0.0,
-#             },  # if mlm, use mlm over clm
-#             "alpha_clm": {
-#                 "domain": tune.uniform(lower=0.0, upper=1.0),
-#                 "init_value": 0.5,
-#             },
-#             "alpha_cos": {
-#                 "domain": tune.uniform(lower=0.0, upper=1.0),
-#                 "init_value": 0.0,
-#             },
-#             "alpha_mse": {
-#                 "domain": tune.uniform(lower=0.0, upper=1.0),
-#                 "init_value": 0.1,
-#             },
-#         }
-#
-#
-#     def _init_hpo_args(self, automl_fit_kwargs: dict = None):
-#         from utils import DISTILHPOArgs
-#
-#         custom_hpo_args = DISTILHPOArgs()
-#         for key, val in automl_fit_kwargs["custom_hpo_args"].items():
-#             assert (
-#                 key in custom_hpo_args.__dict__
-#         ), "The specified key {} is not in the argument list of flaml.nlp.utils::HPOArgs".format(
-#             key
-#         )
-#             setattr(custom_hpo_args, key, val)
-#         self.custom_hpo_args = custom_hpo_args
-#
-#
-#     def sanity_checks(self):
-#         """
-#         A bunch of args sanity checks to perform even starting...
-#         """
-#         assert (self.custom_hpo_args.mlm and self.params["alpha_mlm"] > 0.0) or (not self.custom_hpo_args.mlm and self.params["alpha_mlm"] == 0.0)
-#         assert (self.params["alpha_mlm"] > 0.0 and self.params["alpha_clm"] == 0.0) or (self.params["alpha_mlm"] == 0.0 and self.params["alpha_clm"] > 0.0)
-#         if self.custom_hpo_args.mlm:
-#             # assert os.path.isfile(args.token_counts)
-#             assert (self.student_type in ["roberta", "distilbert"]) and (self.teacher_type in ["roberta", "bert"])
-#         else:
-#             assert (self.student_type in ["gpt2"]) and (self.teacher_type in ["gpt2"])
-#
-#         assert self.teacher_type == self.student_type or (
-#                 self.student_type == "distilbert" and self.teacher_type == "bert"
-#         )
-#         # assert os.path.isfile(args.student_config)
-#         if self.custom_hpo_args.student_pretrained_weights is not None:
-#             assert os.path.isfile(self.custom_hpo_args.student_pretrained_weights)
-#
-#         if self.custom_hpo_args.freeze_token_type_embds:
-#             assert self.student_type in ["roberta"]
-#
-#         assert self.params["alpha_ce"] >= 0.0
-#         assert self.params["alpha_mlm"] >= 0.0
-#         assert self.params["alpha_clm"] >= 0.0
-#         assert self.params["alpha_mse"] >= 0.0
-#         assert self.params["alpha_cos"] >= 0.0
-#         assert self.params["alpha_ce"] + self.params["alpha_mlm"] + self.params["alpha_clm"] + self.params["alpha_mse"] + self.params["alpha_cos"] > 0.0
-#
-#
-#     def freeze_pos_embeddings(self,student):
-#         if self.student_type == "roberta":
-#             student.roberta.embeddings.position_embeddings.weight.requires_grad = False
-#         elif self.student_type == "gpt2":
-#             student.transformer.wpe.weight.requires_grad = False
-#
-#
-#     def freeze_token_type_embeddings(self,student):
-#         if self.student_type == "roberta":
-#             student.roberta.embeddings.token_type_embeddings.weight.requires_grad = False
-#
-#     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
-#         import math
-#         from torch.optim import AdamW
-#         from transformers import get_linear_schedule_with_warmup
-#
-#         self._init_hpo_args(kwargs)
-#         self.sanity_checks()
-#
-#         # hyperpremeter start
-#         learning_rate = self.params["learning_rate"]
-#         batch_size = self.params["batch_size"]
-#
-#
-#         gradient_accumulation_steps = self.params["gradient_accumulation_steps"]
-#         alpha_ce = self.params["alpha_ce"]
-#         alpha_clm = self.params["alpha_clm"]
-#         alpha_mlm = self.params["alpha_mlm"]
-#         alpha_cos = self.params["alpha_cos"]
-#         alpha_mse = self.params["alpha_mse"]
-#
-#         adam_epsilon = self.params["adam_epsilon"]
-#         weight_decay = self.params["weight_decay"]
-#         warmup_prop = self.params["warmup_prop"]
-#         # hyerpremeter end
-#
-#
-#         # teacher
-#         teacher_name = "{}-base-uncased".format(self.teacher_type)
-#         teacher = self.teacher_class.from_pretrained(
-#             teacher_name, output_hidden_states=True
-#         )
-#
-#         # student
-#
-#         student_config = "{}-base-uncased.json".format(self.student_type)
-#         stu_architecture_config = DistilBertConfig.from_pretrained(student_config)
-#         student = self.student_class(stu_architecture_config)
-#
-#         # freezing #
-#         if self.custom_hpo_args.freeze_pos_embs:
-#             self.freeze_pos_embeddings(student)
-#         if self.custom_hpo_args.freeze_token_type_embds:
-#             self.freeze_token_type_embeddings(student)
-#
-#         # student.train()
-#         # teacher.eval()
-#
-#         assert student.config.vocab_size == teacher.config.vocab_size
-#         assert student.config.hidden_size == teacher.config.hidden_size
-#         assert (
-#             student.config.max_position_embeddings == teacher.config.max_position_embeddings
-#         )
-#
-#         # student_config = student.config
-#         # vocab_size = student.config.vocab_size
-#
-#         # DISTILLER #
-#         torch.cuda.empty_cache()
-#         distiller = Distiller(
-#             params=args, dataset=train_lm_seq_dataset, token_probs=token_probs, student=student, teacher=teacher
-#         )
-#         distiller.train()
-#
-#         dataloader = self._preprocess(X_train, y_train, batch_size=batch_size)
-#
-#         ce_loss_fct = nn.KLDivLoss(reduction="batchmean")
-#         lm_loss_fct = nn.CrossEntropyLoss()
-#         cosine_loss_fct = nn.CosineEmbeddingLoss(reduction="mean")
-#
-#         num_steps_epoch = len(dataloader)
-#         num_train_optimization_steps = (
-#             int(num_steps_epoch / gradient_accumulation_steps * n_epoch) + 1
-#         )
-#         warmup_steps = math.ceil(num_train_optimization_steps * warmup_prop)
-#
-#         # # Prepare optimizer and schedule (linear warmup and decay)
-#         #
-#         # no_decay = ["bias", "LayerNorm.weight"]
-#         # optimizer_grouped_parameters = [
-#         #     {
-#         #         "params": [
-#         #             p
-#         #             for n, p in student.named_parameters()
-#         #             if not any(nd in n for nd in no_decay) and p.requires_grad
-#         #         ],
-#         #         "weight_decay": weight_decay,
-#         #     },
-#         #     {
-#         #         "params": [
-#         #             p
-#         #             for n, p in student.named_parameters()
-#         #             if any(nd in n for nd in no_decay) and p.requires_grad
-#         #         ],
-#         #         "weight_decay": 0.0,
-#         #     },
-#         # ]
-#         #
-#         # optimizer = AdamW(
-#         #     optimizer_grouped_parameters,
-#         #     lr=learning_rate,
-#         #     eps=adam_epsilon,
-#         #     betas=(0.9, 0.98),
-#         # )
-#         #
-#         # scheduler = get_linear_schedule_with_warmup(
-#         #     optimizer,
-#         #     num_warmup_steps=warmup_steps,
-#         #     num_training_steps=num_train_optimization_steps,
-#         # )
-#
-#         # n_total_iter = 0
-#         # epoch = 0
-#         # total_loss_epochs = []
-#         # n_epoch = 3
-#         # for _ in range(n_epoch):
-#         #     total_loss_epoch = 0
-#         #     n_iter = 0
-#         #     student.train()
-#         #     teacher.eval()
-#         #     for batch in tqdm(dataloader):
-#         #         student_outputs = student(batch[0], output_hidden_states=True)
-#         #         teacher_outputs = teacher(batch[0], output_hidden_states=True)
-#         #
-#         #         s_logits, s_h = (
-#         #             student_outputs["logits"],
-#         #             student_outputs["hidden_states"],
-#         #         )
-#         #         t_logits, t_h = (
-#         #             teacher_outputs["logits"],
-#         #             teacher_outputs["hidden_states"],
-#         #         )
-#         #
-#         #         assert s_logits.size() == t_logits.size()
-#         #
-#         #         loss_ce = (
-#         #             ce_loss_fct(
-#         #                 nn.functional.log_softmax(s_logits / temperature, dim=-1),
-#         #                 nn.functional.softmax(t_logits / temperature, dim=-1),
-#         #             )
-#         #             * (temperature) ** 2
-#         #         )
-#         #         loss = alpha_ce * loss_ce
-#         #
-#         #         loss_clm = lm_loss_fct(s_logits, batch[1])
-#         #
-#         #         loss += alpha_clm * loss_clm
-#         #
-#         #         dim = s_h[-1].shape[0]
-#         #         slh = s_h[-1].view(dim, -1)
-#         #         tlh = t_h[-1].view(dim, -1)
-#         #         loss_cos = cosine_loss_fct(
-#         #             slh, tlh, target=slh.new(slh.size(0)).fill_(1)
-#         #         )
-#         #         loss += alpha_ca * loss_cos
-#         #
-#         #         total_loss_epoch += loss.item()
-#         #
-#         #         # Check for NaN
-#         #         if (loss != loss).data.any():
-#         #             raise ValueError("NaN detected")
-#         #             # sys.exit(1)
-#         #
-#         #         loss.backward()
-#         #         n_iter += 1
-#         #         n_total_iter += 1
-#         #
-#         #         if n_iter % gradient_accumulation_steps == 0:
-#         #             optimizer.step()
-#         #             optimizer.zero_grad()
-#         #             scheduler.step()
-#         #
-#         #             break
-#         #
-#         #     total_loss_epochs.append(total_loss_epoch)
-#         #     epoch += 1
-#         #
-#         # self._model = student
-#         # self._model.model_id = self.trial_id
-#         # return total_loss_epochs[-1]
-#
-#     def _get_best_student(self):
-#         if self._model:
-#             print(f"Model id is: {self._model.model_id}")
-#             return self._model
-#         else:
-#             return ValueError("no model")
-#
-#     def predict_proba(self, X_test):
-#
-#         y_test_fake = Series(np.zeros(len(X_test)))
-#         dataloader = self._preprocess(
-#             X_test, y_test_fake, batch_size=min(512, len(X_test) // 10)
-#         )
-#         best_model = self._get_best_student()  #
-#         probas = []
-#         for batch in tqdm(dataloader):
-#             student_outputs = best_model(batch[0])
-#             proba = nn.functional.softmax(student_outputs["logits"], dim=-1)
-#             probas.append(proba)
-#
-#         probas = torch.cat(probas)
-#         return probas.data.numpy()
-#
-#     def predict(self, X_test):
-#
-#         probas = self.predict_proba(X_test)
-#         return np.argmax(probas, axis=1)
-#
-#     def _preprocess(self, X_train, y_train, batch_size=10):
-#
-#         dataset = LmSeqsDataset(
-#             [np.array(v) for v in X_train["token_ids"].values],
-#             y_train,
-#             max_model_input_size=50,
-#             min_model_input_size=3,
-#         )
-#
-#         dataloader = DataLoader(
-#             dataset=dataset,
-#             batch_size=batch_size,
-#             collate_fn=dataset.batch_sequences,
-#         )
-#         return dataloader
 
 class SKLearnEstimator(BaseEstimator):
     """The base class for tuning scikit-learn estimators."""
