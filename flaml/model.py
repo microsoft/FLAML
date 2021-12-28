@@ -565,8 +565,12 @@ class TransformersEstimator(BaseEstimator):
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             tokenizer=tokenizer,
-            data_collator=DataCollatorForAuto(tokenizer=tokenizer, pad_to_multiple_of=8 if training_args.fp16 else None)
-            if self._task == MULTICHOICECLASSIFICATION else None,
+            data_collator=DataCollatorForAuto(
+                tokenizer=tokenizer,
+                pad_to_multiple_of=8 if training_args.fp16 else None,
+            )
+            if self._task == MULTICHOICECLASSIFICATION
+            else None,
             compute_metrics=self._compute_metrics_by_dataset_name,
             callbacks=[EarlyStoppingCallbackForAuto],
         )
@@ -671,8 +675,8 @@ class TransformersEstimator(BaseEstimator):
         from .nlp.huggingface.trainer import TrainerForAuto
         from transformers import TrainingArguments
         from .nlp.utils import load_model
-        from transformers import AutoTokenizer # added
-        from .nlp.huggingface.data_collator import DataCollatorForPredict  # added
+        from transformers import AutoTokenizer  # team of MultipleChoiceClassification added
+        from .nlp.huggingface.data_collator import DataCollatorForPredict  # team of MultipleChoiceClassification added
 
         X_test, _ = self._preprocess(X_test, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
@@ -687,16 +691,20 @@ class TransformersEstimator(BaseEstimator):
             per_device_eval_batch_size=1,
             output_dir=self.custom_hpo_args.output_dir,
         )
-        tokenizer = AutoTokenizer.from_pretrained(  # added
+        tokenizer = AutoTokenizer.from_pretrained(  # team of MultipleChoiceClassification added
             self.custom_hpo_args.model_path, use_fast=True
         )
         # self._model = TrainerForAuto(model=best_model, args=training_args)
-        self._model = TrainerForAuto(model=best_model,  # added
-                                     args=training_args,
-                                     data_collator=DataCollatorForPredict(tokenizer=tokenizer,
-                                                                       pad_to_multiple_of=8 if training_args.fp16 else None)
-                                     if self._task == MULTICHOICECLASSIFICATION else None
-                                     )
+        self._model = TrainerForAuto(
+            model=best_model,  # team of MultipleChoiceClassification added
+            args=training_args,
+            data_collator=DataCollatorForPredict(
+                tokenizer=tokenizer,
+                pad_to_multiple_of=8 if training_args.fp16 else None,
+            )
+            if self._task == MULTICHOICECLASSIFICATION
+            else None,
+        )
         predictions = self._model.predict(test_dataset)
         return predictions.predictions
 
@@ -704,8 +712,8 @@ class TransformersEstimator(BaseEstimator):
         from datasets import Dataset
         from .nlp.utils import load_model
         from .nlp.huggingface.trainer import TrainerForAuto
-        from transformers import AutoTokenizer # added
-        from .nlp.huggingface.data_collator import DataCollatorForPredict  # added
+        from transformers import AutoTokenizer  # team of MultipleChoiceClassification added
+        from .nlp.huggingface.data_collator import DataCollatorForPredict  # team of MultipleChoiceClassification added
 
         X_test, _ = self._preprocess(X=X_test, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
@@ -721,16 +729,20 @@ class TransformersEstimator(BaseEstimator):
             output_dir=self.custom_hpo_args.output_dir,
             **self._training_args_config,
         )
-        tokenizer = AutoTokenizer.from_pretrained(  # added
+        tokenizer = AutoTokenizer.from_pretrained(  # team of MultipleChoiceClassification added
             self.custom_hpo_args.model_path, use_fast=True
         )
         # self._model = TrainerForAuto(model=best_model, args=training_args)
-        self._model = TrainerForAuto(model=best_model,  # added
-                                     args=training_args,
-                                     data_collator=DataCollatorForPredict(tokenizer=tokenizer,
-                                                                       pad_to_multiple_of=8 if training_args.fp16 else None)
-                                     if self._task == MULTICHOICECLASSIFICATION else None
-                                     )
+        self._model = TrainerForAuto(  # team of MultipleChoiceClassification added
+            model=best_model,
+            args=training_args,
+            data_collator=DataCollatorForPredict(
+                tokenizer=tokenizer,
+                pad_to_multiple_of=8 if training_args.fp16 else None,
+            )
+            if self._task == MULTICHOICECLASSIFICATION
+            else None,
+        )
         if self._task not in NLG_TASKS:
             predictions = self._model.predict(test_dataset)
         else:

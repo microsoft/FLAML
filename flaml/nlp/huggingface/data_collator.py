@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*- 
-# @Time : 12/22/2021 5:22 PM 
+# -*- coding: utf-8 -*-
+# @Time : 12/22/2021 5:22 PM
 # @Author : Ethan
-# @File : data_collator.py 
+# @File : data_collator.py
 # @Description :
 from dataclasses import dataclass
 from transformers.data.data_collator import DataCollatorWithPadding
@@ -16,7 +16,8 @@ class DataCollatorForAuto(DataCollatorWithPadding):
         batch_size = len(features)
         num_choices = len(features[0]["input_ids"])
         flattened_features = [
-            [{k: v[i] for k, v in feature.items()} for i in range(num_choices)] for feature in features
+            [{k: v[i] for k, v in feature.items()} for i in range(num_choices)]
+            for feature in features
         ]
         flattened_features = list(chain(*flattened_features))
         batch = super(DataCollatorForAuto, self).__call__(flattened_features)
@@ -27,12 +28,17 @@ class DataCollatorForAuto(DataCollatorWithPadding):
         return batch
 
 class DataCollatorForPredict(DataCollatorWithPadding):
+    """
+    This data collator works for predict and predict_proba,
+    it just flattens and unflattens the data, without labels.
+    """
     def __call__(self, features):
         from itertools import chain
         batch_size = len(features)
         num_choices = len(features[0]["input_ids"])
         flattened_features = [
-            [{k: v[i] for k, v in feature.items()} for i in range(num_choices)] for feature in features
+            [{k: v[i] for k, v in feature.items()} for i in range(num_choices)]
+            for feature in features
         ]
         flattened_features = list(chain(*flattened_features))
         batch = super(DataCollatorForPredict, self).__call__(flattened_features)

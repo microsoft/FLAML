@@ -3,7 +3,13 @@ from dataclasses import dataclass, field
 from itertools import chain
 from typing import Dict, Any
 
-from ..data import SUMMARIZATION, SEQREGRESSION, SEQCLASSIFICATION, NLG_TASKS, MULTICHOICECLASSIFICATION
+from ..data import (
+    SUMMARIZATION,
+    SEQREGRESSION,
+    SEQCLASSIFICATION,
+    NLG_TASKS,
+    MULTICHOICECLASSIFICATION,
+)
 
 
 def load_default_huggingface_metric_for_task(task):
@@ -39,6 +45,7 @@ def tokenize_text(X, Y=None, task=None, custom_hpo_args=None):
     elif task == MULTICHOICECLASSIFICATION:
         return tokenize_text_multiplechoice(X, custom_hpo_args)
 
+
 def tokenize_seq2seq(X, Y, task=None, custom_hpo_args=None):
     model_inputs, tokenizer = tokenize_onedataframe(
         X,
@@ -65,10 +72,10 @@ def tokenize_seq2seq(X, Y, task=None, custom_hpo_args=None):
 
 
 def tokenize_onedataframe(
-    X,
-    this_tokenizer=None,
-    task=None,
-    custom_hpo_args=None,
+        X,
+        this_tokenizer=None,
+        task=None,
+        custom_hpo_args=None,
 ):
     from transformers import AutoTokenizer
     import pandas
@@ -123,11 +130,11 @@ def postprocess_text(preds, labels):
 
 
 def tokenize_row(
-    this_row, this_tokenizer, prefix=None, task=None, custom_hpo_args=None
+        this_row, this_tokenizer, prefix=None, task=None, custom_hpo_args=None
 ):
     global tokenized_column_names
     assert (
-        "max_seq_length" in custom_hpo_args.__dict__
+            "max_seq_length" in custom_hpo_args.__dict__
     ), "max_seq_length must be provided for glue"
 
     if prefix:
@@ -155,10 +162,10 @@ def tokenize_text_multiplechoice(X, custom_hpo_args):
         custom_hpo_args.model_path,  # 'roberta-base'
         cache_dir=None,
         use_fast=True,
-        revision='main',
+        revision="main",
         use_auth_token=None,
     )
-    t = X[['sent1', 'sent2', 'ending0', 'ending1', 'ending2', 'ending3']]
+    t = X[["sent1", "sent2", "ending0", "ending1", "ending2", "ending3"]]
     d = t.apply(
         lambda x: tokenize_swag(x, this_tokenizer, custom_hpo_args),
         axis=1,
@@ -166,13 +173,6 @@ def tokenize_text_multiplechoice(X, custom_hpo_args):
     )
 
     X_tokenized = pandas.DataFrame(columns=tokenized_column_names)
-    # for row in d.iterrows():
-    #     unflattend_attention_mask = row[1][0]
-    #     unflattend_input_ids = row[1][1]
-    #     for i in range(len(unflattend_attention_mask)):
-    #         X_tokenized = X_tokenized.append(
-    #             pandas.DataFrame({'attention_mask': [unflattend_attention_mask[i]],
-    #                               'input_ids': [unflattend_input_ids[i]]}), ignore_index=True)
     X_tokenized[tokenized_column_names] = d
     output = X_tokenized.join(X)
     return output, None
@@ -181,37 +181,33 @@ def tokenize_text_multiplechoice(X, custom_hpo_args):
 def tokenize_swag(this_row, this_tokenizer, custom_hpo_args):
     global tokenized_column_names
 
-    first_sentences = [[this_row['sent1']] * 4]
+    first_sentences = [[this_row["sent1"]] * 4]
     # get each 1st sentence, multiply to 4 sentences
-    question_headers = this_row['sent2']
+    question_headers = this_row["sent2"]
     # sent2 are the noun part of 2nd line
     second_sentences = [
-        question_headers + ' ' + i for i in
-        [this_row['ending0'], this_row['ending1'], this_row['ending2'], this_row['ending3']]
+        question_headers + " " + i
+        for i in [
+            this_row["ending0"],
+            this_row["ending1"],
+            this_row["ending2"],
+            this_row["ending3"],
+        ]
     ]
     # now the 2nd-sentences are formed by combing the noun part and 4 ending parts
 
     # Flatten out
     # From 2 dimension to 1 dimension array
     first_sentences = list(chain(*first_sentences))
-    # second_sentences = list(chain(*second_sentences))
 
     tokenized_example = this_tokenizer(
         *tuple([first_sentences, second_sentences]),
         truncation=True,
         max_length=custom_hpo_args.max_seq_length,
         padding=False,
-        # padding="max_length" if data_args.pad_to_max_length else False
     )
     tokenized_column_names = sorted(tokenized_example.keys())
-    # output = [tokenized_example[x] for x in tokenized_column_names]
-    # output1 = []
-    # for x in tokenized_column_names:
-    #     for y in tokenized_example[x]:
-    #         output1.append(y)
-    # return output1
     return [tokenized_example[x] for x in tokenized_column_names]
-    # return {k: [v[i: i + 4] for i in range(0, len(v), 4)]p for k, v in tokenized_examples.items()}
 
 
 def separate_config(config, task):
@@ -223,7 +219,6 @@ def separate_config(config, task):
         from transformers import TrainingArguments
 
         trainargs_class_list = [TrainingArguments]
-
 
     training_args_config = {}
     per_model_config = {}
@@ -401,19 +396,19 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
 
 
 def compute_checkpoint_freq(
-    train_data_size,
-    custom_hpo_args,
-    num_train_epochs,
-    batch_size,
+        train_data_size,
+        custom_hpo_args,
+        num_train_epochs,
+        batch_size,
 ):
     ckpt_step_freq = (
-        int(
-            min(num_train_epochs, 1)
-            * train_data_size
-            / batch_size
-            / custom_hpo_args.ckpt_per_epoch
-        )
-        + 1
+            int(
+                min(num_train_epochs, 1)
+                * train_data_size
+                / batch_size
+                / custom_hpo_args.ckpt_per_epoch
+            )
+            + 1
     )
     return ckpt_step_freq
 

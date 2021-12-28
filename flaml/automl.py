@@ -746,9 +746,8 @@ class AutoML(BaseEstimator):
         ):
             y_pred = y_pred.flatten()
         if self._label_transformer:
-            tmp = pd.Series(y_pred.astype(int))
             return self._label_transformer.inverse_transform(
-                tmp
+                pd.Series(y_pred.astype(int))
             )
         else:
             return y_pred
