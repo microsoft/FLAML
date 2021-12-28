@@ -1777,6 +1777,8 @@ class SARIMAX(ARIMA):
 
 
 class TS_SKLearn_Regressor(SKLearnEstimator):
+    """ The class for tuning SKLearn Regressors for time-series forecasting, using hcrystalball"""
+
     base_class = SKLearnEstimator
 
     @classmethod
@@ -1823,6 +1825,7 @@ class TS_SKLearn_Regressor(SKLearnEstimator):
         self.hcrystaball_model.lags = int(lags)
         self.hcrystaball_model.fit(X_train, y_train)
         if optimize_for_horizon:
+            # Direct Multi-step Forecast Strategy - fit a seperate model for each horizon
             model_list = []
             for i in range(1, kwargs["period"] + 1):
                 X_fit, y_fit = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X_train, y_train, i)
@@ -1869,10 +1872,14 @@ class TS_SKLearn_Regressor(SKLearnEstimator):
 
 
 class LGBM_TS_Regressor(TS_SKLearn_Regressor):
+    """ The class for tuning LGBM Regressor for time-series forecasting"""
+
     base_class = LGBMEstimator
 
 
 class XGBoost_TS_Regressor(TS_SKLearn_Regressor):
+    """ The class for tuning XGBoost Regressor for time-series forecasting"""
+
     base_class = XGBoostSklearnEstimator
 
 
@@ -1881,14 +1888,20 @@ class XGBoost_TS_Regressor(TS_SKLearn_Regressor):
 
 
 class RF_TS_Regressor(TS_SKLearn_Regressor):
+    """ The class for tuning Random Forest Regressor for time-series forecasting"""
+
     base_class = RandomForestEstimator
 
 
 class ExtraTrees_TS_Regressor(TS_SKLearn_Regressor):
+    """ The class for tuning Extra Trees Regressor for time-series forecasting"""
+
     base_class = ExtraTreesEstimator
 
 
 class XGBoostLimitDepth_TS_Regressor(TS_SKLearn_Regressor):
+    """ The class for tuning XGBoost Regressor with unlimited depth for time-series forecasting"""
+
     base_class = XGBoostLimitDepthEstimator
 
 
