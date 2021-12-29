@@ -460,8 +460,6 @@ class DISTILHPOArgs:
 
     """
     from transformers import (
-        # WEIGHTS_NAME,
-        # AdamW,
         BertConfig,
         BertForQuestionAnswering,
         BertTokenizer,
@@ -477,8 +475,6 @@ class DISTILHPOArgs:
         XLNetConfig,
         XLNetForQuestionAnswering,
         XLNetTokenizer,
-        # get_linear_schedule_with_warmup,
-        # squad_convert_examples_to_features,
     )
 
     MODEL_CLASSES = {

@@ -290,8 +290,6 @@ class BaseEstimator:
         params = config.copy()
         return params
 
-
-################# ADDED BY QSONG #################
 class TransformersEstimator(BaseEstimator):
     """
     The base class for fine-tuning & distill model
@@ -435,13 +433,6 @@ class DistillingEstimator(TransformersEstimator):
     modify ml.py by: adding import at L34, set estimator_class at L116
     """
     ITER_HP = "global_max_steps"
-
-    from transformers import (
-    WEIGHTS_NAME,
-    AdamW,
-    get_linear_schedule_with_warmup,
-    squad_convert_examples_to_features,
-    )
 
     def __init__(self, task="qa", **config):       
         super().__init__(task, **config)
@@ -643,13 +634,6 @@ class DistillingEstimator(TransformersEstimator):
                 **training_args_config,
             )
 
-        # model_init
-        # self.student = load_model(
-        #         checkpoint_path=self.custom_hpo_args.student_name_or_path,
-        #         task=self._task,
-        #         num_labels=num_labels,
-        #         per_model_config=per_model_config,
-        #     )
         def _model_init():
             return load_model(
                 checkpoint_path=self.custom_hpo_args.student_name_or_path,
@@ -834,8 +818,6 @@ class DistillingEstimator(TransformersEstimator):
             FineTuningEstimator.ITER_HP, sys.maxsize
         )
         return params
-    
-################# END ADDED BY QSONG #################
 
 class FineTuningEstimator(TransformersEstimator):
     """The class for fine-tuning language models, using huggingface transformers API."""
