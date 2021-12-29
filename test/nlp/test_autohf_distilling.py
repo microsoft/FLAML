@@ -104,7 +104,7 @@ def test_distilling_emo():
             load_dataset("emotion", split="train[:1%]").to_pandas().iloc[0:10]
         )
         dev_dataset = (
-            load_dataset("emotion", split="train[1%:2%]").to_pandas().iloc[0:5]
+            load_dataset("emotion", split="train[1%:2%]").to_pandas().iloc[0:10]
         )
         test_dataset = (
             load_dataset("emotion", split="test[:1%]").to_pandas().iloc[0:10]
