@@ -48,6 +48,7 @@ def test_distilling_hf():
         "starting_points": {"transformer": {"num_train_epochs": 1}},
         "use_ray": True,
         "estimator_list": ['distilling'],
+        "log_file_name": "seqclass.log",
         # "teacher_type": "bert",
         # "student_type": "distilbert",
     }
@@ -105,6 +106,9 @@ def test_distilling_emo():
         dev_dataset = (
             load_dataset("emotion", split="train[1%:2%]").to_pandas().iloc[0:5]
         )
+        test_dataset = (
+            load_dataset("emotion", split="test[:1%]").to_pandas().iloc[0:10]
+        )
     except requests.exceptions.ConnectionError:
         return
 
@@ -125,6 +129,7 @@ def test_distilling_emo():
         "time_budget": 10,
         "task": "seq-classification",
         "metric": "accuracy",
+        "log_file_name": "seqclass.log",
         "starting_points": {"transformer": {"num_train_epochs": 1}},
         "use_ray": True,
         "estimator_list": ['distilling'],
