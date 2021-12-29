@@ -114,7 +114,7 @@ def get_estimator_class(task, estimator_name):
         estimator_class = ARIMA
     elif estimator_name == "sarimax":
         estimator_class = SARIMAX
-    elif estimator_name == "fine_tuning":
+    elif estimator_name == "transformer":
         estimator_class = FineTuningEstimator
     elif estimator_name == "distilling":
         estimator_class = DistillingEstimator
