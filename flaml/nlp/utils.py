@@ -1,7 +1,7 @@
 import argparse
 from dataclasses import dataclass, field
 from typing import Dict, Any
-from ..data import SUMMARIZATION, SEQREGRESSION, SEQCLASSIFICATION, NLG_TASKS
+from ..data import SUMMARIZATION,QUESTIONANSWERING, SEQREGRESSION, SEQCLASSIFICATION, NLG_TASKS
 
 
 def load_default_huggingface_metric_for_task(task):
@@ -11,6 +11,8 @@ def load_default_huggingface_metric_for_task(task):
         return "rmse", "max"
     elif task == SUMMARIZATION:
         return "rouge", "max"
+    elif task == QUESTIONANSWERING:
+        return 'squad'
     # TODO: elif task == your task, return the default metric name for your task,
     #  e.g., if task == MULTIPLECHOICE, return "accuracy"
     #  notice this metric name has to be in ['accuracy', 'bertscore', 'bleu', 'bleurt',
@@ -32,7 +34,106 @@ def tokenize_text(X, Y=None, task=None, custom_hpo_args=None):
         return X_tokenized, None
     elif task in NLG_TASKS:
         return tokenize_seq2seq(X, Y, task=task, custom_hpo_args=custom_hpo_args)
+    elif task == QUESTIONANSWERING:
+        return tokenize_text_questionanswering(X, Y, task=task, custom_hpo_args=custom_hpo_args)
 
+
+def tokenize_text_questionanswering(X, Y, task=None, custom_hpo_args=None):
+    from transformers import AutoTokenizer
+
+    doc_stride = 128
+    max_length = 384
+
+    question_column_name = 'question'
+    context_column_name = 'context'
+    # answer_column_name = 'answers'
+    X[question_column_name] = [q.lstrip() for q in X[question_column_name]]
+
+    # tokenizer = AutoTokenizer.from_pretrained(
+    #    custom_hpo_args.model_path,
+    #    cache_dir=None,
+    #    use_fast=True,
+    #    revision="main",
+    #    use_auth_token=True,
+    # )
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        custom_hpo_args.model_path, use_fast=True,
+    )
+
+    pad_on_right = tokenizer.padding_side == "right"
+    # max_seq_length = min(custom_hpo_args.max_seq_length, tokenizer.model_max_length)
+    # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results
+    # in one example possible giving several features when a context is long, each of those features having a
+    # context that overlaps a bit the context of the previous feature.
+
+    tokenized_examples = tokenizer(
+        X[question_column_name if pad_on_right else context_column_name].tolist(),
+        X[context_column_name if pad_on_right else question_column_name].tolist(),
+        truncation="only_second" if pad_on_right else "only_first",
+        max_length=max_length,
+        stride=doc_stride,
+        return_overflowing_tokens=True,
+        return_offsets_mapping=True,
+        padding="max_length",
+    )
+
+    # Since one example might give us several features if it has a long context, we need a map from a feature to
+    # its corresponding example. This key gives us just that.
+    sample_mapping = tokenized_examples.pop("overflow_to_sample_mapping")
+    # The offset mappings will give us a map from token to character position in the original context. This will
+    # help us compute the start_positions and end_positions.
+    offset_mapping = tokenized_examples.pop("offset_mapping")
+
+    # Let's label those examples!
+    tokenized_examples["start_positions"] = []
+    tokenized_examples["end_positions"] = []
+
+    for i, offsets in enumerate(offset_mapping):
+        # We will label impossible answers with the index of the CLS token.
+        input_ids = tokenized_examples["input_ids"][i]
+        cls_index = input_ids.index(tokenizer.cls_token_id)
+
+        # Grab the sequence corresponding to that example (to know what is the context and what is the question).
+        sequence_ids = tokenized_examples.sequence_ids(i)
+
+        # One example can give several spans, this is the index of the example containing this span of text.
+        sample_index = sample_mapping[i]
+        answers = Y[sample_index].split("###")
+        # If no answers are given, set the cls_index as answer.
+        if answers[0] == "":
+            tokenized_examples["start_positions"].append(cls_index)
+            tokenized_examples["end_positions"].append(cls_index)
+        else:
+            # Start/end character index of the answer in the text.
+            start_char = int(answers[0])
+            end_char = start_char + int(answers[1])
+
+            # Start token index of the current span in the text.
+            token_start_index = 0
+            while sequence_ids[token_start_index] != (1 if pad_on_right else 0):
+                token_start_index += 1
+
+            # End token index of the current span in the text.
+            token_end_index = len(input_ids) - 1
+            while sequence_ids[token_end_index] != (1 if pad_on_right else 0):
+                token_end_index -= 1
+
+            # Detect if the answer is out of the span (in which case this feature is labeled with the CLS index).
+            if not (offsets[token_start_index][0] <= start_char and offsets[token_end_index][1] >= end_char):
+                tokenized_examples["start_positions"].append(cls_index)
+                tokenized_examples["end_positions"].append(cls_index)
+            else:
+                # Otherwise move the token_start_index and token_end_index to the two ends of the answer.
+                # Note: we could go after the last offset if the answer is the last word (edge case).
+                while token_start_index < len(offsets) and offsets[token_start_index][0] <= start_char:
+                    token_start_index += 1
+                tokenized_examples["start_positions"].append(token_start_index - 1)
+                while offsets[token_end_index][1] >= end_char:
+                    token_end_index -= 1
+                tokenized_examples["end_positions"].append(token_end_index + 1)
+
+    return tokenized_examples
 
 def tokenize_seq2seq(X, Y, task=None, custom_hpo_args=None):
     model_inputs, tokenizer = tokenize_onedataframe(
@@ -247,11 +348,15 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
 
     def get_this_model(task):
         from transformers import AutoModelForSequenceClassification
-        from transformers import AutoModelForSeq2SeqLM
+        from transformers import AutoModelForSeq2SeqLM, AutoModelForQuestionAnswering
 
         if task in (SEQCLASSIFICATION, SEQREGRESSION):
             return AutoModelForSequenceClassification.from_pretrained(
                 checkpoint_path, config=model_config
+            )
+        elif task == QUESTIONANSWERING:
+            return AutoModelForQuestionAnswering.from_pretrained(
+                checkpoint_path, config=model_config,
             )
         elif task in NLG_TASKS:
             return AutoModelForSeq2SeqLM.from_pretrained(
@@ -272,6 +377,17 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
             else:
                 model_config = AutoConfig.from_pretrained(
                     checkpoint_path, num_labels=model_config_num_labels
+                )
+            return model_config
+        elif task == QUESTIONANSWERING:
+            if per_model_config and len(per_model_config) > 0:
+                model_config = AutoConfig.from_pretrained(
+                     checkpoint_path,
+                     **per_model_config,
+                )
+            else:
+                model_config = AutoConfig.from_pretrained(
+                     checkpoint_path
                 )
             return model_config
         else:

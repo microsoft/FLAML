@@ -46,6 +46,7 @@ from .data import (
     _is_nlp_task,
     SUMMARIZATION,
     NLG_TASKS,
+    QUESTIONANSWERING,
 )
 from . import tune
 from .training_log import training_log_reader, training_log_writer
@@ -925,7 +926,7 @@ class AutoML(BaseEstimator):
                 self._state.X_val = X_val
             # If it's NLG_TASKS, y_val is a pandas series containing the output sequence tokens,
             # so we cannot use label_transformer.transform to process it
-            if self._label_transformer:
+            if self._label_transformer and self._state.task != QUESTIONANSWERING:
                 self._state.y_val = self._label_transformer.transform(y_val)
             else:
                 self._state.y_val = y_val
@@ -1438,6 +1439,9 @@ class AutoML(BaseEstimator):
             assert split_type in ["auto", "group"]
             self._split_type = "group"
         elif self._state.task in NLG_TASKS:
+            assert split_type in ["auto", "uniform", "time", "group"]
+            self._split_type = split_type if split_type != "auto" else "uniform"
+        elif self._state.task == QUESTIONANSWERING:
             assert split_type in ["auto", "uniform", "time", "group"]
             self._split_type = split_type if split_type != "auto" else "uniform"
 

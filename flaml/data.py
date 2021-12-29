@@ -22,6 +22,7 @@ TS_TIMESTAMP_COL = "ds"
 TS_VALUE_COL = "y"
 FORECAST = "forecast"
 SUMMARIZATION = "summarization"
+QUESTIONANSWERING = "question-answering"
 NLG_TASKS = (SUMMARIZATION,)
 NLU_TASKS = (
     SEQREGRESSION,
@@ -30,7 +31,7 @@ NLU_TASKS = (
 
 
 def _is_nlp_task(task):
-    if task in NLU_TASKS or task in NLG_TASKS:
+    if task in NLU_TASKS or task in NLG_TASKS or task == QUESTIONANSWERING:
         return True
     else:
         return False
@@ -351,6 +352,7 @@ class DataTransformer:
             task in CLASSIFICATION
             or not pd.api.types.is_numeric_dtype(y)
             and task not in NLG_TASKS
+            and task != QUESTIONANSWERING
         ):
             from sklearn.preprocessing import LabelEncoder
 

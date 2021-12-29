@@ -27,6 +27,7 @@ from .data import (
     SEQREGRESSION,
     SUMMARIZATION,
     NLG_TASKS,
+    QUESTIONANSWERING,
 )
 
 import pandas as pd
@@ -452,8 +453,12 @@ class TransformersEstimator(BaseEstimator):
 
         X_val = kwargs.get("X_val")
         y_val = kwargs.get("y_val")
-
-        if self._task not in NLG_TASKS:
+        if self._task == QUESTIONANSWERING:
+            self._X_train= self._preprocess(
+                X=X_train, y=y_train, task=self._task, **kwargs
+            )
+            self._y_train = y_train
+        elif self._task not in NLG_TASKS:
             self._X_train, _ = self._preprocess(X=X_train, **kwargs)
             self._y_train = y_train
         else:
@@ -728,6 +733,8 @@ class TransformersEstimator(BaseEstimator):
                 predictions, skip_special_tokens=True
             )
             return decoded_preds
+        elif self._task == QUESTIONANSWERING:
+            return predictions.predictions
 
     def config2params(self, config: dict) -> dict:
         params = config.copy()
