@@ -41,7 +41,7 @@ def test_hf_data():
         "task": "seq-classification",
         "metric": "accuracy",
         "log_file_name": "seqclass.log",
-        "estimator_list": ['fine_tuning'],
+        "estimator_list": ['transformer'],
     }
 
     automl_settings["custom_hpo_args"] = {
@@ -108,7 +108,7 @@ def _test_custom_data():
         "time_budget": 5,
         "task": "seq-classification",
         "metric": "accuracy",
-        "estimator_list": ['fine_tuning'],
+        "estimator_list": ['transformer'],
     }
 
     automl_settings["custom_hpo_args"] = {
