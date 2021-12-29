@@ -121,6 +121,9 @@ def test_distilling_emo():
     X_val = dev_dataset[custom_sent_keys]
     y_val = dev_dataset[label_key]
 
+    X_test = test_dataset[custom_sent_keys]
+    Y_test = test_dataset[label_key]
+
     automl = AutoML()
 
     automl_settings = {
