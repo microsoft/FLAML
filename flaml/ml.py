@@ -31,7 +31,9 @@ from .model import (
     Prophet,
     ARIMA,
     SARIMAX,
-    TransformersEstimator,
+    #TransformersEstimator,
+    FineTuningEstimator,
+    DistillingEstimator,
 )
 from .data import CLASSIFICATION, group_counts, TS_FORECAST, TS_VALUE_COL
 import logging
@@ -83,6 +85,7 @@ huggingface_metric_to_mode = {
     "ter": "min",
     "wer": "min",
 }
+huggingface_submetric_to_metric = {"rouge1": "rouge", "rouge2": "rouge"}
 
 
 def get_estimator_class(task, estimator_name):
@@ -111,8 +114,10 @@ def get_estimator_class(task, estimator_name):
         estimator_class = ARIMA
     elif estimator_name == "sarimax":
         estimator_class = SARIMAX
-    elif estimator_name == "transformer":
-        estimator_class = TransformersEstimator
+    elif estimator_name == "fine_tuning":
+        estimator_class = FineTuningEstimator
+    elif estimator_name == "distilling":
+        estimator_class = DistillingEstimator
     else:
         raise ValueError(
             estimator_name + " is not a built-in learner. "
@@ -153,11 +158,21 @@ def metric_loss_score(
             try:
                 import datasets
 
-                metric = datasets.load_metric(metric_name)
-                metric_mode = huggingface_metric_to_mode[metric_name]
-                score = metric.compute(predictions=y_predict, references=y_true)[
-                    metric_name
-                ]
+                datasets_metric_name = huggingface_submetric_to_metric.get(
+                    metric_name, metric_name
+                )
+                metric = datasets.load_metric(datasets_metric_name)
+                metric_mode = huggingface_metric_to_mode[datasets_metric_name]
+
+                if "rouge" in metric_name:
+                    score = metric.compute(predictions=y_predict, references=y_true)[
+                        metric_name
+                    ].mid.fmeasure
+                else:
+                    score = metric.compute(predictions=y_predict, references=y_true)[
+                        metric_name
+                    ]
+
             except ImportError:
                 raise Exception(
                     metric_name
@@ -412,7 +427,7 @@ def evaluate_model_CV(
     else:
         labels = None
     groups = None
-    shuffle = True
+    shuffle = False if task == TS_FORECAST else True
     if isinstance(kf, RepeatedStratifiedKFold):
         kf = kf.split(X_train_split, y_train_split)
     elif isinstance(kf, GroupKFold):
@@ -423,7 +438,6 @@ def evaluate_model_CV(
         y_train_all = pd.DataFrame(y_train_all, columns=[TS_VALUE_COL])
         train = X_train_all.join(y_train_all)
         kf = kf.split(train)
-        shuffle = False
     elif isinstance(kf, TimeSeriesSplit):
         kf = kf.split(X_train_split, y_train_split)
     else:
