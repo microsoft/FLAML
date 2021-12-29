@@ -404,7 +404,7 @@ class TransformersEstimator(BaseEstimator):
 
         if trainer.ckpt_to_metric:
             best_ckpt, _ = min(
-                trainer.ckpt_to_metric.items(), key=lambda x: x[1]["val_loss"]
+                trainer.ckpt_to_metric.items(), key=lambda x: x[1]["eval_loss"]
             )
             best_ckpt_global_step = trainer.ckpt_to_global_step[best_ckpt]
             for each_ckpt in list(trainer.ckpt_to_metric):
@@ -692,7 +692,7 @@ class DistillingEstimator(TransformersEstimator):
 
         if trainer.ckpt_to_metric:
             best_ckpt, _ = min(
-                trainer.ckpt_to_metric.items(), key=lambda x: x[1]["val_loss"]
+                trainer.ckpt_to_metric.items(), key=lambda x: x[1]["eval_loss"]
             )
             best_ckpt_global_step = trainer.ckpt_to_global_step[best_ckpt]
             for each_ckpt in list(trainer.ckpt_to_metric):
