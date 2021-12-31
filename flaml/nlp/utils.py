@@ -49,23 +49,11 @@ def tokenize_text_questionanswering(X, Y, task=None, custom_hpo_args=None):
     # answer_column_name = 'answers'
     X[question_column_name] = [q.lstrip() for q in X[question_column_name]]
 
-    # tokenizer = AutoTokenizer.from_pretrained(
-    #    custom_hpo_args.model_path,
-    #    cache_dir=None,
-    #    use_fast=True,
-    #    revision="main",
-    #    use_auth_token=True,
-    # )
-
     tokenizer = AutoTokenizer.from_pretrained(
         custom_hpo_args.model_path, use_fast=True,
     )
 
     pad_on_right = tokenizer.padding_side == "right"
-    # max_seq_length = min(custom_hpo_args.max_seq_length, tokenizer.model_max_length)
-    # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results
-    # in one example possible giving several features when a context is long, each of those features having a
-    # context that overlaps a bit the context of the previous feature.
 
     tokenized_examples = tokenizer(
         X[question_column_name if pad_on_right else context_column_name].tolist(),
@@ -78,14 +66,10 @@ def tokenize_text_questionanswering(X, Y, task=None, custom_hpo_args=None):
         padding="max_length",
     )
 
-    # Since one example might give us several features if it has a long context, we need a map from a feature to
-    # its corresponding example. This key gives us just that.
     sample_mapping = tokenized_examples.pop("overflow_to_sample_mapping")
-    # The offset mappings will give us a map from token to character position in the original context. This will
-    # help us compute the start_positions and end_positions.
     offset_mapping = tokenized_examples.pop("offset_mapping")
 
-    # Let's label those examples!
+    # Let's label those examples
     tokenized_examples["start_positions"] = []
     tokenized_examples["end_positions"] = []
 
