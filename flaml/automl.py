@@ -45,6 +45,7 @@ from .data import (
     REGRESSION,
     _is_nlp_task,
     SUMMARIZATION,
+    MAKE_TOKENS,
     NLG_TASKS,
 )
 from . import tune
@@ -875,12 +876,18 @@ class AutoML(BaseEstimator):
                         is_list_of_int = isinstance(each_cell, list) and all(
                             isinstance(x, int) for x in each_cell
                         )
-                        assert is_str or is_list_of_int, (
+                        is_list_of_str = isinstance(each_cell, np.ndarray) and all(
+                            isinstance(x, str) for x in each_cell
+                        )
+                        if self._state.task == TOKENCLASSIFICATION:
+                            assert is_list_of_str, (...)
+                        else:
+                            assert is_str or is_list_of_int, (
                             "Each column of the input must either be str (untokenized) "
                             "or a list of integers (tokenized)"
                         )
                         is_all_str &= is_str
-                        is_all_list &= is_list_of_int
+                        is_all_list &= is_list_of_int or is_list_of_str
             assert is_all_str or is_all_list, (
                 "Currently FLAML only supports two modes for NLP: either all columns of X are string (non-tokenized), "
                 "or all columns of X are integer ids (tokenized)"
@@ -959,7 +966,7 @@ class AutoML(BaseEstimator):
             and self._auto_augment
             and self._state.fit_kwargs.get("sample_weight") is None
             and self._split_type in ["stratified", "uniform"]
-        ):
+        )and self._state.task != MAKE_TOKENS:
             # logger.info(f"label {pd.unique(y_train_all)}")
             label_set, counts = np.unique(y_train_all, return_counts=True)
             # augment rare classes

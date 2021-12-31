@@ -14,7 +14,8 @@ from typing import Dict, Union, List
 
 # TODO: if your task is not specified in here, define your task as an all-capitalized word
 SEQCLASSIFICATION = "seq-classification"
-CLASSIFICATION = ("binary", "multi", "classification", SEQCLASSIFICATION)
+MAKE_TOKENS = "make-tokens"
+CLASSIFICATION = ("binary", "multi", "classification", SEQCLASSIFICATION, MAKE_TOKENS)
 SEQREGRESSION = "seq-regression"
 REGRESSION = ("regression", SEQREGRESSION)
 TS_FORECAST = "ts_forecast"
@@ -26,6 +27,7 @@ NLG_TASKS = (SUMMARIZATION,)
 NLU_TASKS = (
     SEQREGRESSION,
     SEQCLASSIFICATION,
+    MAKE_TOKENS,
 )
 
 
@@ -351,7 +353,7 @@ class DataTransformer:
             task in CLASSIFICATION
             or not pd.api.types.is_numeric_dtype(y)
             and task not in NLG_TASKS
-        ):
+        ) and task != MAKE_TOKENS:
             from sklearn.preprocessing import LabelEncoder
 
             self.label_transformer = LabelEncoder()

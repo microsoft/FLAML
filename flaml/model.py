@@ -27,6 +27,7 @@ from .data import (
     SEQREGRESSION,
     SUMMARIZATION,
     NLG_TASKS,
+    MAKE_TOKENS
 )
 
 import pandas as pd
@@ -309,7 +310,8 @@ class TransformersEstimator(BaseEstimator):
 
     @staticmethod
     def _join(X_train, y_train):
-        y_train = DataFrame(y_train, columns=["label"], index=X_train.index)
+        y_train = DataFrame(y_train, index=X_train.index)
+        y_train.columns = ['label']
         train_df = X_train.join(y_train)
         return train_df
 
@@ -368,7 +370,7 @@ class TransformersEstimator(BaseEstimator):
             setattr(custom_hpo_args, key, val)
         self.custom_hpo_args = custom_hpo_args
 
-    def _preprocess(self, X, y=None, **kwargs):
+    def _preprocess(self, X, y=None, task=None,  **kwargs):
         from .nlp.utils import tokenize_text
 
         # is_str = False
@@ -472,7 +474,7 @@ class TransformersEstimator(BaseEstimator):
         #  make sure they are the same
 
         if X_val is not None:
-            if self._task not in NLG_TASKS:
+            if (self._task not in NLG_TASKS) and (self._task != MAKE_TOKENS):
                 self._X_val, _ = self._preprocess(X=X_val, **kwargs)
                 self._y_val = y_val
             else:
@@ -640,6 +642,9 @@ class TransformersEstimator(BaseEstimator):
                 predictions = (
                     np.squeeze(predictions)
                     if self._task == SEQREGRESSION
+                    else
+                        np.argmax(predictions, axis=2)
+                    if self._task == MAKE_TOKENS
                     else np.argmax(predictions, axis=1)
                 )
             return {
@@ -668,7 +673,7 @@ class TransformersEstimator(BaseEstimator):
         from transformers import TrainingArguments
         from .nlp.utils import load_model
 
-        X_test, _ = self._preprocess(X_test, **self._kwargs)
+        X_test, _ = self._preprocess(X=X_test, task=self._task **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
 
         best_model = load_model(
@@ -718,6 +723,8 @@ class TransformersEstimator(BaseEstimator):
             return np.argmax(predictions.predictions, axis=1)
         elif self._task == SEQREGRESSION:
             return predictions.predictions
+        elif self._task == MAKE_TOKENS:
+            return np.argmax(predictions.predictions, axis=2)
         # TODO: elif self._task == your task, return the corresponding prediction
         #  e.g., if your task == QUESTIONANSWERING, you need to return the answer instead
         #  of the index
