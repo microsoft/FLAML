@@ -102,11 +102,14 @@ def test_mlflow():
     }
     mlflow.set_experiment("flaml")
     with mlflow.start_run():
-        """The main flaml automl API"""
         automl.fit(X_train=X_train, y_train=y_train, **settings)
     # subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "mlflow"])
     automl._mem_thres = 0
     print(automl.trainable(automl.points_to_evaluate[0]))
+
+    settings["use_ray"] = True
+    with mlflow.start_run():
+        automl.fit(X_train=X_train, y_train=y_train, **settings)
 
 
 if __name__ == "__main__":

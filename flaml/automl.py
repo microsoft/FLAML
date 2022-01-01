@@ -2278,17 +2278,34 @@ class AutoML(BaseEstimator):
                     self._time_taken_best_iter = self._state.time_from_start
                     better = True
                     self._search_states[estimator].best_config = config
-                if (better or self._log_type == "all") and self._training_log:
-                    self._training_log.append(
-                        self._iter_per_learner[estimator],
-                        search_state.metric_for_logging,
-                        search_state.trial_time,
-                        self._state.time_from_start,
-                        search_state.val_loss,
-                        config,
-                        estimator,
-                        search_state.sample_size,
-                    )
+                if better or self._log_type == "all":
+                    self._log_trial(search_state, estimator)
+
+    def _log_trial(self, search_state, estimator):
+        if self._training_log:
+            self._training_log.append(
+                self._iter_per_learner[estimator],
+                search_state.metric_for_logging,
+                search_state.trial_time,
+                self._state.time_from_start,
+                search_state.val_loss,
+                search_state.config,
+                estimator,
+                search_state.sample_size,
+            )
+        if mlflow is not None and mlflow.active_run():
+            with mlflow.start_run(nested=True):
+                mlflow.log_metric("iter_counter", self._iter_per_learner[estimator])
+                mlflow.log_param("metric_for_logging", search_state.metric_for_logging)
+                mlflow.log_metric("trial_time", search_state.trial_time)
+                mlflow.log_metric("wall_clock_time", self._state.time_from_start)
+                mlflow.log_metric("validation_loss", search_state.val_loss)
+                mlflow.log_param("config", search_state.config)
+                mlflow.log_param("learner", estimator)
+                mlflow.log_param("sample_size", search_state.sample_size)
+                mlflow.log_metric("best_validation_loss", search_state.best_loss)
+                mlflow.log_param("best_config", search_state.best_config)
+                mlflow.log_param("best_learner", self._best_estimator)
 
     def _search_sequential(self):
         try:
@@ -2500,38 +2517,8 @@ class AutoML(BaseEstimator):
                 ):
                     search_state.trained_estimator.cleanup()
                 if better or self._log_type == "all":
-                    if self._training_log:
-                        self._training_log.append(
-                            self._iter_per_learner[estimator],
-                            search_state.metric_for_logging,
-                            search_state.trial_time,
-                            self._state.time_from_start,
-                            search_state.val_loss,
-                            search_state.config,
-                            estimator,
-                            search_state.sample_size,
-                        )
-                    if mlflow is not None and mlflow.active_run():
-                        with mlflow.start_run(nested=True):
-                            mlflow.log_metric(
-                                "iter_counter", self._iter_per_learner[estimator]
-                            )
-                            mlflow.log_param(
-                                "metric_for_logging", search_state.metric_for_logging
-                            )
-                            mlflow.log_metric("trial_time", search_state.trial_time)
-                            mlflow.log_metric(
-                                "wall_clock_time", self._state.time_from_start
-                            )
-                            mlflow.log_metric("validation_loss", search_state.val_loss)
-                            mlflow.log_param("config", search_state.config)
-                            mlflow.log_param("learner", estimator)
-                            mlflow.log_param("sample_size", search_state.sample_size)
-                            mlflow.log_metric(
-                                "best_validation_loss", search_state.best_loss
-                            )
-                            mlflow.log_param("best_config", search_state.best_config)
-                            mlflow.log_param("best_learner", self._best_estimator)
+                    self._log_trial(search_state, estimator)
+
                 logger.info(
                     " at {:.1f}s,\testimator {}'s best error={:.4f},\tbest estimator {}'s best error={:.4f}".format(
                         self._state.time_from_start,
