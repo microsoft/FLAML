@@ -108,8 +108,11 @@ def test_mlflow():
     print(automl.trainable(automl.points_to_evaluate[0]))
 
     settings["use_ray"] = True
-    with mlflow.start_run():
-        automl.fit(X_train=X_train, y_train=y_train, **settings)
+    try:
+        with mlflow.start_run():
+            automl.fit(X_train=X_train, y_train=y_train, **settings)
+    except ImportError:
+        pass
 
 
 if __name__ == "__main__":
