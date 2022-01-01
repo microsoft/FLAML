@@ -41,12 +41,16 @@ settings = {
     "task": "classification",  # task type  
     "log_file_name": "airlines_experiment.log",  # flaml log file
 }
-mlflow.set_experiment("flaml")  # the experiment name in AzureML workspace
+experiment = mlflow.set_experiment("flaml")  # the experiment name in AzureML workspace
 with mlflow.start_run() as run:  # create a mlflow run
     automl.fit(X_train=X_train, y_train=y_train, **settings)
 ```
 
-The metrics in the run will be automatically logged in an experiment named "flaml" in your AzureML workspace.
+The metrics in the run will be automatically logged in an experiment named "flaml" in your AzureML workspace. They can be retrieved by `mlflow.search_runs`:
+
+```python
+mlflow.search_runs(experiment_ids=[experiment.experiment_id], filter_string="params.learner = 'xgboost'")
+```
 
 [Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/integrate_azureml.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/integrate_azureml.ipynb)
 
