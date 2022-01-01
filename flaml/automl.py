@@ -2247,7 +2247,7 @@ class AutoML(BaseEstimator):
                 trial
                 for trial in analysis.trials
                 if trial.last_result
-                and trial.last_result["wall_clock_time"] is not None
+                and trial.last_result.get("wall_clock_time") is not None
             ),
             key=lambda x: x.last_result["wall_clock_time"],
         )
@@ -2259,8 +2259,9 @@ class AutoML(BaseEstimator):
                 estimator = config.get("ml", config)["learner"]
                 search_state = self._search_states[estimator]
                 search_state.update(result, 0)
-                if result["wall_clock_time"] is not None:
-                    self._state.time_from_start = result["wall_clock_time"]
+                wall_time = result.get("wall_clock_time")
+                if wall_time is not None:
+                    self._state.time_from_start = wall_time
                 if search_state.sample_size == self._state.data_size[0]:
                     self._iter_per_learner[estimator] += 1
                     if not self._fullsize_reached:
@@ -2478,8 +2479,9 @@ class AutoML(BaseEstimator):
                         f"Estimated sufficient time budget={max_budget:.0f}s."
                         f" Estimated necessary time budget={min_budget:.0f}s."
                     )
-                if result["wall_clock_time"] is not None:
-                    self._state.time_from_start = result["wall_clock_time"]
+                wall_time = result.get("wall_clock_time")
+                if wall_time is not None:
+                    self._state.time_from_start = wall_time
                 # logger.info(f"{self._search_states[estimator].sample_size}, {data_size}")
                 if search_state.sample_size == self._state.data_size[0]:
                     self._iter_per_learner[estimator] += 1
