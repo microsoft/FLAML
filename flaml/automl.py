@@ -2156,7 +2156,6 @@ class AutoML(BaseEstimator):
                         self._time_taken_best_iter / self._state.time_budget * 100
                     )
                 )
-            self._estimator_type = self._trained_estimator._estimator_type
 
         if not keep_search_state:
             # release space
@@ -2633,6 +2632,7 @@ class AutoML(BaseEstimator):
             )
             if self._trained_estimator:
                 logger.info(f"selected model: {self._trained_estimator.model}")
+            estimators = []
             if self._ensemble and self._state.task in (
                 "binary",
                 "multi",
@@ -2666,8 +2666,7 @@ class AutoML(BaseEstimator):
                     if x[1].best_loss < 4 * self._selected.best_loss
                 ]
                 logger.info(estimators)
-                if len(estimators) <= 1:
-                    return
+            if len(estimators) > 1:
                 if self._state.task in CLASSIFICATION:
                     from sklearn.ensemble import StackingClassifier as Stacker
                 else:
