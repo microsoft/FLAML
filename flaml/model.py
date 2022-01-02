@@ -666,10 +666,27 @@ class TransformersEstimator(BaseEstimator):
             )
             return metric_dict
 
-    def init_model_for_predict(self, best_model, training_args):
+    def init_model_for_predict(self, X_test):
+        from datasets import Dataset
+        from transformers import TrainingArguments
+        from .nlp.utils import load_model
         from transformers import AutoTokenizer
         from .nlp.huggingface.trainer import TrainerForAuto
         from .nlp.huggingface.data_collator import DataCollatorForPredict
+
+        test_dataset = Dataset.from_pandas(X_test)
+        X_test, _ = self._preprocess(X_test, **self._kwargs)
+        best_model = load_model(
+            checkpoint_path=self._checkpoint_path,
+            task=self._task,
+            num_labels=self._num_labels,
+            per_model_config=self._per_model_config,
+        )
+        training_args = TrainingArguments(
+            per_device_eval_batch_size=1,
+            output_dir=self.custom_hpo_args.output_dir,
+            **self._training_args_config,
+        )
         tokenizer = AutoTokenizer.from_pretrained(
             self.custom_hpo_args.model_path, use_fast=True
         )
@@ -683,52 +700,19 @@ class TransformersEstimator(BaseEstimator):
             if self._task == MULTICHOICECLASSIFICATION
             else None,
         )
+        return test_dataset, training_args
 
     def predict_proba(self, X_test):
         assert (
             self._task in CLASSIFICATION
         ), "predict_proba() only for classification tasks."
 
-        from datasets import Dataset
-        from transformers import TrainingArguments
-        from .nlp.utils import load_model
-
-        X_test, _ = self._preprocess(X_test, **self._kwargs)
-        test_dataset = Dataset.from_pandas(X_test)
-
-        best_model = load_model(
-            checkpoint_path=self._checkpoint_path,
-            task=self._task,
-            num_labels=self._num_labels,
-            per_model_config=self._per_model_config,
-        )
-        training_args = TrainingArguments(
-            per_device_eval_batch_size=1,
-            output_dir=self.custom_hpo_args.output_dir,
-        )
-        self.init_model_for_predict(best_model, training_args)
+        test_dataset, _ = self.init_model_for_predict(X_test)
         predictions = self._model.predict(test_dataset)
         return predictions.predictions
 
     def predict(self, X_test):
-        from datasets import Dataset
-        from .nlp.utils import load_model
-
-        X_test, _ = self._preprocess(X=X_test, **self._kwargs)
-        test_dataset = Dataset.from_pandas(X_test)
-
-        best_model = load_model(
-            checkpoint_path=self._checkpoint_path,
-            task=self._task,
-            num_labels=self._num_labels,
-            per_model_config=self._per_model_config,
-        )
-        training_args = self._TrainingArguments(
-            per_device_eval_batch_size=1,
-            output_dir=self.custom_hpo_args.output_dir,
-            **self._training_args_config,
-        )
-        self.init_model_for_predict(best_model, training_args)
+        test_dataset, training_args = self.init_model_for_predict(X_test)
         if self._task not in NLG_TASKS:
             predictions = self._model.predict(test_dataset)
         else:
