@@ -675,8 +675,8 @@ class TransformersEstimator(BaseEstimator):
         from .nlp.huggingface.trainer import TrainerForAuto
         from transformers import TrainingArguments
         from .nlp.utils import load_model
-        from transformers import AutoTokenizer  # team of MultipleChoiceClassification added
-        from .nlp.huggingface.data_collator import DataCollatorForPredict  # team of MultipleChoiceClassification added
+        from transformers import AutoTokenizer
+        from .nlp.huggingface.data_collator import DataCollatorForPredict
 
         X_test, _ = self._preprocess(X_test, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
@@ -691,12 +691,11 @@ class TransformersEstimator(BaseEstimator):
             per_device_eval_batch_size=1,
             output_dir=self.custom_hpo_args.output_dir,
         )
-        tokenizer = AutoTokenizer.from_pretrained(  # team of MultipleChoiceClassification added
+        tokenizer = AutoTokenizer.from_pretrained(
             self.custom_hpo_args.model_path, use_fast=True
         )
-        # self._model = TrainerForAuto(model=best_model, args=training_args)
         self._model = TrainerForAuto(
-            model=best_model,  # team of MultipleChoiceClassification added
+            model=best_model,
             args=training_args,
             data_collator=DataCollatorForPredict(
                 tokenizer=tokenizer,
@@ -712,8 +711,8 @@ class TransformersEstimator(BaseEstimator):
         from datasets import Dataset
         from .nlp.utils import load_model
         from .nlp.huggingface.trainer import TrainerForAuto
-        from transformers import AutoTokenizer  # team of MultipleChoiceClassification added
-        from .nlp.huggingface.data_collator import DataCollatorForPredict  # team of MultipleChoiceClassification added
+        from transformers import AutoTokenizer
+        from .nlp.huggingface.data_collator import DataCollatorForPredict
 
         X_test, _ = self._preprocess(X=X_test, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
@@ -729,11 +728,10 @@ class TransformersEstimator(BaseEstimator):
             output_dir=self.custom_hpo_args.output_dir,
             **self._training_args_config,
         )
-        tokenizer = AutoTokenizer.from_pretrained(  # team of MultipleChoiceClassification added
+        tokenizer = AutoTokenizer.from_pretrained(
             self.custom_hpo_args.model_path, use_fast=True
         )
-        # self._model = TrainerForAuto(model=best_model, args=training_args)
-        self._model = TrainerForAuto(  # team of MultipleChoiceClassification added
+        self._model = TrainerForAuto(
             model=best_model,
             args=training_args,
             data_collator=DataCollatorForPredict(

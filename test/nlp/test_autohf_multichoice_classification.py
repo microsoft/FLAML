@@ -2,25 +2,9 @@ import os
 import pytest
 
 
-@pytest.mark.skipif(os.name == "posix", reason="do not run on mac os")
-def test_hf_data():
+@pytest.mark.skipif(os.name == "darwin", reason="do not run on mac os")
+def test_mcc():
     from flaml import AutoML
-
-    # from datasets import load_dataset
-
-    # train_dataset = (
-    #     load_dataset("swag", "regular", split="train[1%:2%]").to_pandas().iloc[0:100]
-    # )
-    # dev_dataset = (
-    #     load_dataset("swag", "regular", split="validation[1%:2%]")
-    #     .to_pandas()
-    #     .iloc[0:100]
-    # )
-    # test_dataset = (
-    #     load_dataset("swag", "regular", split="validation[1%:2%]")
-    #     .to_pandas()
-    #     .iloc[0:100]
-    # )
 
     import pandas as pd
 
@@ -162,8 +146,6 @@ def test_hf_data():
     }
 
     automl_settings["custom_hpo_args"] = {
-        # "model_path": "roberta-base",
-        # "model_path": "google/electra-small-discriminator",
         "model_path": "bert-base-uncased",
         "output_dir": "test/data/output/",
         "ckpt_per_epoch": 5,
@@ -172,25 +154,8 @@ def test_hf_data():
     automl.fit(
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
     )
-    # automl = AutoML()
-    # automl.retrain_from_log(
-    #     X_train=X_train,
-    #     y_train=y_train,
-    #     train_full=True,
-    #     record_id=0,
-    #     **automl_settings
-    # )
 
     y_pred = automl.predict(X_test)
-    # automl.predict(["test test", "test test"])
-    # automl.predict(
-    #     [
-    #         ["test test", "test test1"],
-    #         ["test test", "test test"],
-    #         ["test test", "test test"],
-    #     ]
-    # )
-
     proba = automl.predict_proba(X_test)
     print(str(len(automl.classes_)) + " classes")
     print(y_pred)
@@ -205,4 +170,4 @@ def test_hf_data():
 
 
 if __name__ == "__main__":
-    test_hf_data()
+    test_mcc()

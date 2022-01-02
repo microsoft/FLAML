@@ -1,10 +1,6 @@
-# -*- coding: utf-8 -*-
-# @Time : 12/22/2021 5:22 PM
-# @Author : Ethan
-# @File : data_collator.py
-# @Description :
 from dataclasses import dataclass
 from transformers.data.data_collator import DataCollatorWithPadding
+
 
 @dataclass
 class DataCollatorForAuto(DataCollatorWithPadding):
@@ -27,11 +23,8 @@ class DataCollatorForAuto(DataCollatorWithPadding):
         batch["labels"] = torch.tensor(labels, dtype=torch.int64)
         return batch
 
+
 class DataCollatorForPredict(DataCollatorWithPadding):
-    """
-    This data collator works for predict and predict_proba,
-    it just flattens and unflattens the data, without labels.
-    """
     def __call__(self, features):
         from itertools import chain
         batch_size = len(features)
