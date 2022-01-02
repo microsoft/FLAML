@@ -699,6 +699,10 @@ class AutoML(BaseEstimator):
         return None
 
     @property
+    def n_features_in_(self):
+        return self._trained_estimator.n_features_in_
+
+    @property
     def time_to_find_best_model(self) -> float:
         """Time taken to find best model in seconds."""
         return self.__dict__.get("_time_taken_best_iter")
@@ -2152,6 +2156,7 @@ class AutoML(BaseEstimator):
                         self._time_taken_best_iter / self._state.time_budget * 100
                     )
                 )
+            self._estimator_type = self._trained_estimator._estimator_type
 
         if not keep_search_state:
             # release space
@@ -2160,7 +2165,6 @@ class AutoML(BaseEstimator):
             del self._state.y_train, self._state.y_train_all, self._state.y_val
             del self._sample_weight_full, self._state.fit_kwargs
             del self._state.groups, self._state.groups_all, self._state.groups_val
-        # if verbose == 0:
         logger.setLevel(old_level)
 
     def _search_parallel(self):
@@ -2721,6 +2725,7 @@ class AutoML(BaseEstimator):
                 if (
                     self._state.task == TS_FORECAST
                     or self._trained_estimator is None
+                    or self._trained_estimator.model is None
                     or (
                         self._state.time_budget - self._state.time_from_start
                         > self._selected.est_retrain_time(self.data_size_full)
@@ -2747,8 +2752,6 @@ class AutoML(BaseEstimator):
                         logger.info(f"retrained model: {self._trained_estimator.model}")
                 else:
                     logger.info("not retraining because the time budget is too small.")
-        if self.model and mlflow is not None and mlflow.active_run():
-            mlflow.sklearn.log_model(self.model, "best_model")
 
     def __del__(self):
         if (

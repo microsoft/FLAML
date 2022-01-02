@@ -115,7 +115,7 @@ class BaseEstimator:
 
     @property
     def n_features_in_(self):
-        return self.model.n_features_in_
+        return self._model.n_features_in_
 
     @property
     def model(self):
