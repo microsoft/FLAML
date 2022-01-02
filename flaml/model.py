@@ -668,7 +668,6 @@ class TransformersEstimator(BaseEstimator):
 
     def init_model_for_predict(self, X_test):
         from datasets import Dataset
-        from transformers import TrainingArguments
         from .nlp.utils import load_model
         from transformers import AutoTokenizer
         from .nlp.huggingface.trainer import TrainerForAuto
@@ -682,7 +681,7 @@ class TransformersEstimator(BaseEstimator):
             num_labels=self._num_labels,
             per_model_config=self._per_model_config,
         )
-        training_args = TrainingArguments(
+        training_args = self._TrainingArguments(
             per_device_eval_batch_size=1,
             output_dir=self.custom_hpo_args.output_dir,
             **self._training_args_config,
