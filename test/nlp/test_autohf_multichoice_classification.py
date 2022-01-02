@@ -2,7 +2,7 @@ import os
 import pytest
 
 
-@pytest.mark.skipif(os.name == "posix", reason="do not run on mac os")
+@pytest.mark.skipif(os.name == "darwin", reason="do not run on mac os")
 def test_mcc():
     from flaml import AutoML
 
