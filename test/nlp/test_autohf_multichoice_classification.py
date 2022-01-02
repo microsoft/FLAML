@@ -149,6 +149,7 @@ def test_mcc():
         "model_path": "google/electra-small-discriminator",
         "output_dir": "test/data/output/",
         "ckpt_per_epoch": 5,
+        "fp16": False,
     }
 
     automl.fit(
