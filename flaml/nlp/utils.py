@@ -433,7 +433,7 @@ class HPOArgs:
         metadata={"help": "model path model for HPO"},
     )
 
-    fp16: bool = field(default=False, metadata={"help": "whether to use the FP16 mode"})
+    fp16: bool = field(default=True, metadata={"help": "whether to use the FP16 mode"})
 
     max_seq_length: int = field(default=128, metadata={"help": "max seq length"})
 
