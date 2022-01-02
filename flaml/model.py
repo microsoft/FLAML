@@ -674,8 +674,8 @@ class TransformersEstimator(BaseEstimator):
         from .nlp.huggingface.trainer import TrainerForAuto
         from .nlp.huggingface.data_collator import DataCollatorForPredict
 
-        test_dataset = Dataset.from_pandas(X_test)
         X_test, _ = self._preprocess(X_test, **self._kwargs)
+        test_dataset = Dataset.from_pandas(X_test)
         best_model = load_model(
             checkpoint_path=self._checkpoint_path,
             task=self._task,
