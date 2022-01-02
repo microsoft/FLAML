@@ -139,7 +139,7 @@ def test_mcc():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 2,
-        "time_budget": 10000,
+        "time_budget": 5,
         "task": "multichoice-classification",
         "metric": "accuracy",
         "log_file_name": "seqclass.log",
