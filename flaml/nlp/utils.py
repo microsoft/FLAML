@@ -188,7 +188,6 @@ def tokenize_swag(this_row, this_tokenizer, custom_hpo_args):
     second_sentences = [
         question_headers + " " + this_row[key]
         for key in ["ending0", "ending1", "ending2", "ending3"]
-        ]
     ]
     # now the 2nd-sentences are formed by combing the noun part and 4 ending parts
 

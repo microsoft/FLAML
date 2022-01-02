@@ -666,16 +666,32 @@ class TransformersEstimator(BaseEstimator):
             )
             return metric_dict
 
+    def init_model_for_predict(self, best_model, training_args):
+        from transformers import AutoTokenizer
+        from .nlp.huggingface.trainer import TrainerForAuto
+        from .nlp.huggingface.data_collator import DataCollatorForPredict
+        tokenizer = AutoTokenizer.from_pretrained(
+            self.custom_hpo_args.model_path, use_fast=True
+        )
+        self._model = TrainerForAuto(
+            model=best_model,
+            args=training_args,
+            data_collator=DataCollatorForPredict(
+                tokenizer=tokenizer,
+                pad_to_multiple_of=8 if training_args.fp16 else None,
+            )
+            if self._task == MULTICHOICECLASSIFICATION
+            else None,
+        )
+
     def predict_proba(self, X_test):
         assert (
             self._task in CLASSIFICATION
         ), "predict_proba() only for classification tasks."
 
         from datasets import Dataset
-        from .nlp.huggingface.trainer import TrainerForAuto
-        from transformers import TrainingArguments, AutoTokenizer
+        from transformers import TrainingArguments
         from .nlp.utils import load_model
-        from .nlp.huggingface.data_collator import DataCollatorForPredict
 
         X_test, _ = self._preprocess(X_test, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
@@ -690,28 +706,13 @@ class TransformersEstimator(BaseEstimator):
             per_device_eval_batch_size=1,
             output_dir=self.custom_hpo_args.output_dir,
         )
-        tokenizer = AutoTokenizer.from_pretrained(
-            self.custom_hpo_args.model_path, use_fast=True
-        )
-        self._model = TrainerForAuto(
-            model=best_model,
-            args=training_args,
-            data_collator=DataCollatorForPredict(
-                tokenizer=tokenizer,
-                pad_to_multiple_of=8 if training_args.fp16 else None,
-            )
-            if self._task == MULTICHOICECLASSIFICATION
-            else None,
-        )
+        self.init_model_for_predict(best_model, training_args)
         predictions = self._model.predict(test_dataset)
         return predictions.predictions
 
     def predict(self, X_test):
         from datasets import Dataset
         from .nlp.utils import load_model
-        from .nlp.huggingface.trainer import TrainerForAuto
-        from transformers import AutoTokenizer
-        from .nlp.huggingface.data_collator import DataCollatorForPredict
 
         X_test, _ = self._preprocess(X=X_test, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
@@ -727,19 +728,7 @@ class TransformersEstimator(BaseEstimator):
             output_dir=self.custom_hpo_args.output_dir,
             **self._training_args_config,
         )
-        tokenizer = AutoTokenizer.from_pretrained(
-            self.custom_hpo_args.model_path, use_fast=True
-        )
-        self._model = TrainerForAuto(
-            model=best_model,
-            args=training_args,
-            data_collator=DataCollatorForPredict(
-                tokenizer=tokenizer,
-                pad_to_multiple_of=8 if training_args.fp16 else None,
-            )
-            if self._task == MULTICHOICECLASSIFICATION
-            else None,
-        )
+        self.init_model_for_predict(best_model, training_args)
         if self._task not in NLG_TASKS:
             predictions = self._model.predict(test_dataset)
         else:
