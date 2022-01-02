@@ -673,9 +673,8 @@ class TransformersEstimator(BaseEstimator):
 
         from datasets import Dataset
         from .nlp.huggingface.trainer import TrainerForAuto
-        from transformers import TrainingArguments
+        from transformers import TrainingArguments, AutoTokenizer
         from .nlp.utils import load_model
-        from transformers import AutoTokenizer
         from .nlp.huggingface.data_collator import DataCollatorForPredict
 
         X_test, _ = self._preprocess(X_test, **self._kwargs)
