@@ -863,6 +863,8 @@ class AutoML(BaseEstimator):
 
         # check the validity of input dimensions under the nlp mode
         if _is_nlp_task(self._state.task):
+            from .nlp.utils import is_a_list_of_str
+
             is_all_str = True
             is_all_list = True
             for column in X.columns:
@@ -876,9 +878,7 @@ class AutoML(BaseEstimator):
                         is_list_of_int = isinstance(each_cell, list) and all(
                             isinstance(x, int) for x in each_cell
                         )
-                        is_list_of_str = isinstance(each_cell, np.ndarray) and all(
-                            isinstance(x, str) for x in each_cell
-                        )
+                        is_list_of_str = is_a_list_of_str(each_cell)
                         if self._state.task == TOKENCLASSIFICATION:
                             assert is_list_of_str, (
                                 "For the token-classification task, the input column needs to be a list of string,"

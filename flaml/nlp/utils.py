@@ -336,6 +336,10 @@ def get_num_labels(task, y_train):
         return None
 
 
+def is_a_list_of_str(this_obj):
+    return isinstance(this_obj, list) and all(isinstance(x, str) for x in this_obj)
+
+
 def _clean_value(value: Any) -> str:
     if isinstance(value, float):
         return "{:.5}".format(value)

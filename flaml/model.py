@@ -311,7 +311,8 @@ class TransformersEstimator(BaseEstimator):
 
     @staticmethod
     def _join(X_train, y_train):
-        y_train = DataFrame(y_train, columns=["label"], index=X_train.index)
+        y_train = DataFrame(y_train, index=X_train.index)
+        y_train.columns = ["label"]
         train_df = X_train.join(y_train)
         return train_df
 
@@ -371,11 +372,12 @@ class TransformersEstimator(BaseEstimator):
         self.custom_hpo_args = custom_hpo_args
 
     def _preprocess(self, X, y=None, **kwargs):
-        from .nlp.utils import tokenize_text
+        from .nlp.utils import tokenize_text, is_a_list_of_str
 
         is_str = str(X.dtypes[0]) in ("string", "str")
+        is_list_of_str = is_a_list_of_str(X[list(X.keys())[0]][0])
 
-        if is_str:
+        if is_str or is_list_of_str:
             return tokenize_text(
                 X=X, Y=y, task=self._task, custom_hpo_args=self.custom_hpo_args
             )
@@ -386,6 +388,7 @@ class TransformersEstimator(BaseEstimator):
         from transformers import EarlyStoppingCallback
         from transformers.trainer_utils import set_seed
         from transformers import AutoTokenizer
+        from transformers.data import DataCollatorWithPadding
 
         import transformers
         from datasets import Dataset
@@ -643,6 +646,8 @@ class TransformersEstimator(BaseEstimator):
                 predictions = (
                     np.squeeze(predictions)
                     if self._task == SEQREGRESSION
+                    else np.argmax(predictions, axis=2)
+                    if self._task == TOKENCLASSIFICATION
                     else np.argmax(predictions, axis=1)
                 )
             return {
