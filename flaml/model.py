@@ -25,6 +25,7 @@ from .data import (
     TS_VALUE_COL,
     SEQCLASSIFICATION,
     SEQREGRESSION,
+    TOKENCLASSIFICATION,
     SUMMARIZATION,
     NLG_TASKS,
     MULTICHOICECLASSIFICATION,
@@ -372,12 +373,6 @@ class TransformersEstimator(BaseEstimator):
     def _preprocess(self, X, y=None, **kwargs):
         from .nlp.utils import tokenize_text
 
-        # is_str = False
-        # for each_type in ["string", "str"]:
-        #     try:
-        #         is_str = is_str or (X.dtypes[0] == each_type)
-        #     except TypeError:
-        #         pass
         is_str = str(X.dtypes[0]) in ("string", "str")
 
         if is_str:
@@ -455,7 +450,7 @@ class TransformersEstimator(BaseEstimator):
         X_val = kwargs.get("X_val")
         y_val = kwargs.get("y_val")
 
-        if self._task not in NLG_TASKS:
+        if (self._task not in NLG_TASKS) and (self._task != TOKENCLASSIFICATION):
             self._X_train, _ = self._preprocess(X=X_train, **kwargs)
             self._y_train = y_train
         else:
@@ -474,7 +469,7 @@ class TransformersEstimator(BaseEstimator):
         #  make sure they are the same
 
         if X_val is not None:
-            if self._task not in NLG_TASKS:
+            if (self._task not in NLG_TASKS) and (self._task != TOKENCLASSIFICATION):
                 self._X_val, _ = self._preprocess(X=X_val, **kwargs)
                 self._y_val = y_val
             else:
@@ -724,7 +719,9 @@ class TransformersEstimator(BaseEstimator):
         if self._task == SEQCLASSIFICATION:
             return np.argmax(predictions.predictions, axis=1)
         elif self._task == SEQREGRESSION:
-            return predictions.predictions
+            return predictions.predictions.reshape((len(predictions.predictions),))
+        elif self._task == TOKENCLASSIFICATION:
+            return np.argmax(predictions.predictions, axis=2)
         # TODO: elif self._task == your task, return the corresponding prediction
         #  e.g., if your task == QUESTIONANSWERING, you need to return the answer instead
         #  of the index

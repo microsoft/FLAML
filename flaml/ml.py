@@ -164,11 +164,25 @@ def metric_loss_score(
                     score = metric.compute(predictions=y_predict, references=y_true)[
                         metric_name
                     ].mid.fmeasure
+                elif metric_name == "seqeval":
+                    if any(
+                        [len(y_true[x]) < len(y_predict[x]) for x in range(len(y_true))]
+                    ):
+                        y_true_new = np.array(
+                            [[-100] * y_predict.shape[1]] * y_predict.shape[0]
+                        )
+                        for y_true_idx in range(len(y_true_new)):
+                            y_true_new[y_true_idx, : len(y_true[y_true_idx])] = y_true[
+                                y_true_idx
+                            ]
+                        y_true = y_true_new
+                    score = metric.compute(predictions=y_predict, references=y_true)[
+                        "overall_accuracy"
+                    ]
                 else:
                     score = metric.compute(predictions=y_predict, references=y_true)[
                         metric_name
                     ]
-
             except ImportError:
                 raise Exception(
                     metric_name
@@ -226,6 +240,7 @@ def sklearn_metric_loss_score(
     Returns:
         score: A float number of the loss, the lower the better.
     """
+
     metric_name = metric_name.lower()
 
     if "r2" == metric_name:
@@ -271,6 +286,14 @@ def sklearn_metric_loss_score(
         score = 1 - average_precision_score(
             y_true, y_predict, sample_weight=sample_weight
         )
+
+    elif metric_name == "seqeval":
+        from seqeval.metrics import accuracy_score as tok_classification_accuracy_score
+
+        score = tok_classification_accuracy_score(
+            y_true, y_predict, sample_weight=sample_weight
+        )
+
     elif "ndcg" in metric_name:
         if "@" in metric_name:
             k = int(metric_name.split("@", 1)[-1])
