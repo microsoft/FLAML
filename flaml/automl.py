@@ -880,7 +880,11 @@ class AutoML(BaseEstimator):
                             isinstance(x, str) for x in each_cell
                         )
                         if self._state.task == TOKENCLASSIFICATION:
-                            assert is_list_of_str, ...
+                            assert is_list_of_str, (
+                                "For the token-classification task, the input column needs to be a list of string,"
+                                "instead of string, e.g., ['EU', 'rejects','German', 'call','to','boycott','British','lamb','.',].",
+                                "For more examples, please refer to test/nlp/test_autohf_tokenclassification.py",
+                            )
                         else:
                             assert is_str or is_list_of_int, (
                                 "Each column of the input must either be str (untokenized) "
