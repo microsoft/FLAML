@@ -375,7 +375,7 @@ class TransformersEstimator(BaseEstimator):
         from .nlp.utils import tokenize_text, is_a_list_of_str
 
         is_str = str(X.dtypes[0]) in ("string", "str")
-        is_list_of_str = is_a_list_of_str(X[list(X.keys())[0]][0])
+        is_list_of_str = is_a_list_of_str(X[list(X.keys())[0]].to_list()[0])
 
         if is_str or is_list_of_str:
             return tokenize_text(
