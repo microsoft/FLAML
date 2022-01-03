@@ -720,7 +720,7 @@ def test_tokenclassification():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 2,
-        "time_budget": 500,
+        "time_budget": 5,
         "task": "token-classification",
         "metric": "seqeval",
     }
