@@ -706,12 +706,12 @@ class TransformersEstimator(BaseEstimator):
             self._task in CLASSIFICATION
         ), "predict_proba() only for classification tasks."
 
-        test_dataset, _ = self.init_model_for_predict(X_test)
+        test_dataset, _ = self._init_model_for_predict(X_test)
         predictions = self._model.predict(test_dataset)
         return predictions.predictions
 
     def predict(self, X_test):
-        test_dataset, training_args = self.init_model_for_predict(X_test)
+        test_dataset, training_args = self._init_model_for_predict(X_test)
         if self._task not in NLG_TASKS:
             predictions = self._model.predict(test_dataset)
         else:
