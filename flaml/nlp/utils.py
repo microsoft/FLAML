@@ -14,7 +14,6 @@ from ..data import (
 
 
 def load_default_huggingface_metric_for_task(task):
-    from ..data import SEQCLASSIFICATION, SEQREGRESSION, TOKENCLASSIFICATION, NLG_TASKS
 
     if task == SEQCLASSIFICATION:
         return "accuracy", "max"

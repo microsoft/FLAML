@@ -970,7 +970,8 @@ class AutoML(BaseEstimator):
             and self._auto_augment
             and self._state.fit_kwargs.get("sample_weight") is None
             and self._split_type in ["stratified", "uniform"]
-        ) and self._state.task != TOKENCLASSIFICATION:
+            and self._state.task != TOKENCLASSIFICATION
+        ):
             # logger.info(f"label {pd.unique(y_train_all)}")
             label_set, counts = np.unique(y_train_all, return_counts=True)
             # augment rare classes

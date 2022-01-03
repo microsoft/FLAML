@@ -720,13 +720,13 @@ def test_tokenclassification():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 2,
-        "time_budget": 5,
+        "time_budget": 500,
         "task": "token-classification",
         "metric": "seqeval",
     }
 
     automl_settings["custom_hpo_args"] = {
-        "model_path": "google/electra-small-discriminator",
+        "model_path": "bert-base-uncased",
         "output_dir": "test/data/output/",
         "ckpt_per_epoch": 5,
         "fp16": False,
