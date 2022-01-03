@@ -666,7 +666,7 @@ class TransformersEstimator(BaseEstimator):
             )
             return metric_dict
 
-    def init_model_for_predict(self, X_test):
+    def _init_model_for_predict(self, X_test):
         from datasets import Dataset
         from .nlp.utils import load_model
         from transformers import AutoTokenizer
