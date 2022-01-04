@@ -3,7 +3,7 @@ import os
 
 here = os.path.abspath(os.path.dirname(__file__))
 
-with open("README.md", "r") as fh:
+with open("README.md", "r", encoding="UTF-8") as fh:
     long_description = fh.read()
 
 
@@ -60,6 +60,7 @@ setuptools.setup(
             "torch",
             "nltk",
             "rouge_score",
+            "seqeval",
         ],
         "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],
@@ -76,7 +77,7 @@ setuptools.setup(
         "vw": [
             "vowpalwabbit",
         ],
-        "nlp": ["transformers", "datasets", "torch", "nltk", "rouge_score"],
+        "nlp": ["transformers", "datasets", "torch", "seqeval", "nltk", "rouge_score"],
         "ts_forecast": ["prophet>=1.0.1", "statsmodels>=0.12.2"],
         "forecast": ["prophet>=1.0.1", "statsmodels>=0.12.2"],
         "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3"],
