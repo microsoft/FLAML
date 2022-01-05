@@ -1990,7 +1990,7 @@ class AutoML(BaseEstimator):
             n_cpus = use_ray and ray.available_resources()["CPU"] or os.cpu_count()
             self._state.resources_per_trial = (
                 # when using gpu, default cpu is 1 per job; otherwise, default cpu is n_cpus / n_concurrent_trials
-                {"cpu": int(n_cpus / n_concurrent_trials), "gpu": gpu_per_trial}
+                {"cpu": max(int(n_cpus / n_concurrent_trials), 1), "gpu": gpu_per_trial}
                 if gpu_per_trial == 0
                 else {"cpu": 1, "gpu": gpu_per_trial}
                 if n_jobs < 0
