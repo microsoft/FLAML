@@ -558,7 +558,7 @@ class TransformersEstimator(BaseEstimator):
                 **training_args_config,
             )
 
-        trainer = TrainerForAuto(
+        self._trainer = TrainerForAuto(
             args=training_args,
             model_init=partial(self._model_init, num_labels, per_model_config),
             train_dataset=train_dataset,
@@ -574,26 +574,27 @@ class TransformersEstimator(BaseEstimator):
             callbacks=[EarlyStoppingCallbackForAuto],
         )
 
-        setattr(trainer, "_use_ray", self.use_ray)
+        setattr(self._trainer, "_use_ray", self.use_ray)
         if self._task in NLG_TASKS:
-            setattr(trainer, "_is_seq2seq", True)
-        trainer.train()
+            setattr(self._trainer, "_is_seq2seq", True)
+        self._trainer.train()
 
-        self.params[self.ITER_HP] = trainer.state.global_step
-        self._checkpoint_path = self._select_checkpoint(trainer)
+        self.params[self.ITER_HP] = self._trainer.state.global_step
+        self._checkpoint_path = self._select_checkpoint(self._trainer)
 
         self._kwargs = kwargs
         self._num_labels = num_labels
         self._per_model_config = per_model_config
         self._training_args_config = training_args_config
 
-        self._ckpt_remains = list(trainer.ckpt_to_metric.keys())
+        self._ckpt_remains = list(self._trainer.ckpt_to_metric.keys())
         self._model = load_model(
             checkpoint_path=self._checkpoint_path,
             task=self._task,
             num_labels=self._num_labels,
             per_model_config=self._per_model_config,
         )
+        self._trainer = None
 
     def _delete_one_ckpt(self, ckpt_location):
         if self.use_ray is False:
