@@ -1882,7 +1882,7 @@ class XGBoost_TS_Regressor(TS_SKLearn_Regressor):
 
     base_class = XGBoostSklearnEstimator
 
-
+# catboost regressor is invalid because it has a `name` parameter, making it incompatible with hcrystalball
 # class CatBoost_TS_Regressor(TS_Regressor):
 #     base_class = CatBoostEstimator
 

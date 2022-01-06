@@ -2112,6 +2112,7 @@ class AutoML(BaseEstimator):
                         "xgb_limitdepth",
                     ]
                 if TS_FORECAST == self._state.task:
+                    # catboost is removed because it has a `name` parameter, making it incompatible with hcrystalball
                     estimator_list.remove("catboost")
                     try:
                         import prophet
