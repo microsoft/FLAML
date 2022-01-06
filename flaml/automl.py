@@ -321,7 +321,10 @@ class AutoMLState:
             if self.time_budget is None
             else self.time_budget - self.time_from_start
         )
-        if self.resources_per_trial.get("gpu", 0) > 0:
+        if (
+            hasattr(self, "resources_per_trial")
+            and self.resources_per_trial.get("gpu", 0) > 0
+        ):
 
             def _trainable_function_wrapper(config: dict):
 
