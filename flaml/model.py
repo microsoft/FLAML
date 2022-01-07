@@ -663,10 +663,6 @@ class TransformersEstimator(BaseEstimator):
                 "val_loss": metric_loss_score(
                     metric_name=self._metric, y_predict=predictions, y_true=labels
                 )
-                if self._metric_mode == "max"
-                else -metric_loss_score(
-                    metric_name=self._metric, y_predict=predictions, y_true=labels
-                )
             }
         else:
             agg_metric, metric_dict = self._metric(

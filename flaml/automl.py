@@ -2074,17 +2074,12 @@ class AutoML(BaseEstimator):
             elif _is_nlp_task(self._state.task):
                 from .nlp.utils import load_default_huggingface_metric_for_task
 
-                metric, metric_mode = load_default_huggingface_metric_for_task(
-                    self._state.task
-                )
+                metric = load_default_huggingface_metric_for_task(self._state.task)
             else:
                 metric = "r2"
 
         if _is_nlp_task(self._state.task):
             self._state.fit_kwargs["metric"] = metric
-            self._state.fit_kwargs["metric_mode"] = (
-                metric_mode if "auto" == metric else "max"
-            )
             self._state.fit_kwargs["use_ray"] = self._use_ray
 
         self._state.metric = metric
