@@ -457,7 +457,6 @@ class TransformersEstimator(BaseEstimator):
 
         self._init_hpo_args(kwargs)
         self._metric = kwargs["metric"]
-        self._metric_mode = kwargs["metric_mode"]
         self.use_ray = kwargs.get("use_ray")
 
         X_val = kwargs.get("X_val")
