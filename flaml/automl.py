@@ -2082,7 +2082,9 @@ class AutoML(BaseEstimator):
 
         if _is_nlp_task(self._state.task):
             self._state.fit_kwargs["metric"] = metric
-            self._state.fit_kwargs["metric_mode"] = metric_mode
+            self._state.fit_kwargs["metric_mode"] = (
+                metric_mode if "auto" == metric else "max"
+            )
             self._state.fit_kwargs["use_ray"] = self._use_ray
 
         self._state.metric = metric
