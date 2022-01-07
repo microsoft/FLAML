@@ -25,8 +25,10 @@ from .data import (
     TS_VALUE_COL,
     SEQCLASSIFICATION,
     SEQREGRESSION,
+    TOKENCLASSIFICATION,
     SUMMARIZATION,
     NLG_TASKS,
+    MULTICHOICECLASSIFICATION,
 )
 
 import pandas as pd
@@ -115,7 +117,7 @@ class BaseEstimator:
 
     @property
     def n_features_in_(self):
-        return self.model.n_features_in_
+        return self._model.n_features_in_
 
     @property
     def model(self):
@@ -309,7 +311,8 @@ class TransformersEstimator(BaseEstimator):
 
     @staticmethod
     def _join(X_train, y_train):
-        y_train = DataFrame(y_train, columns=["label"], index=X_train.index)
+        y_train = DataFrame(y_train, index=X_train.index)
+        y_train.columns = ["label"]
         train_df = X_train.join(y_train)
         return train_df
 
@@ -369,27 +372,33 @@ class TransformersEstimator(BaseEstimator):
         self.custom_hpo_args = custom_hpo_args
 
     def _preprocess(self, X, y=None, **kwargs):
-        from .nlp.utils import tokenize_text
+        from .nlp.utils import tokenize_text, is_a_list_of_str
 
-        # is_str = False
-        # for each_type in ["string", "str"]:
-        #     try:
-        #         is_str = is_str or (X.dtypes[0] == each_type)
-        #     except TypeError:
-        #         pass
         is_str = str(X.dtypes[0]) in ("string", "str")
+        is_list_of_str = is_a_list_of_str(X[list(X.keys())[0]].to_list()[0])
 
-        if is_str:
+        if is_str or is_list_of_str:
             return tokenize_text(
                 X=X, Y=y, task=self._task, custom_hpo_args=self.custom_hpo_args
             )
         else:
             return X, None
 
+    def _model_init(self, num_labels, per_model_config):
+        from .nlp.utils import load_model
+
+        return load_model(
+            checkpoint_path=self.custom_hpo_args.model_path,
+            task=self._task,
+            num_labels=num_labels,
+            per_model_config=per_model_config,
+        )
+
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
         from transformers import EarlyStoppingCallback
         from transformers.trainer_utils import set_seed
         from transformers import AutoTokenizer
+        from transformers.data import DataCollatorWithPadding
 
         import transformers
         from datasets import Dataset
@@ -409,6 +418,7 @@ class TransformersEstimator(BaseEstimator):
         #     from .nlp.huggingface.trainer import Seq2SeqTrainerForAuto as TrainerForAuto
         # else:
         from .nlp.huggingface.trainer import TrainerForAuto
+        from .nlp.huggingface.data_collator import DataCollatorForAuto
 
         this_params = self.params
 
@@ -447,13 +457,12 @@ class TransformersEstimator(BaseEstimator):
 
         self._init_hpo_args(kwargs)
         self._metric = kwargs["metric"]
-        if hasattr(self, "use_ray") is False:
-            self.use_ray = kwargs["use_ray"]
+        self.use_ray = kwargs.get("use_ray")
 
         X_val = kwargs.get("X_val")
         y_val = kwargs.get("y_val")
 
-        if self._task not in NLG_TASKS:
+        if (self._task not in NLG_TASKS) and (self._task != TOKENCLASSIFICATION):
             self._X_train, _ = self._preprocess(X=X_train, **kwargs)
             self._y_train = y_train
         else:
@@ -472,7 +481,7 @@ class TransformersEstimator(BaseEstimator):
         #  make sure they are the same
 
         if X_val is not None:
-            if self._task not in NLG_TASKS:
+            if (self._task not in NLG_TASKS) and (self._task != TOKENCLASSIFICATION):
                 self._X_val, _ = self._preprocess(X=X_val, **kwargs)
                 self._y_val = y_val
             else:
@@ -549,38 +558,43 @@ class TransformersEstimator(BaseEstimator):
                 **training_args_config,
             )
 
-        def _model_init():
-            return load_model(
-                checkpoint_path=self.custom_hpo_args.model_path,
-                task=self._task,
-                num_labels=num_labels,
-                per_model_config=per_model_config,
-            )
-
-        self._model = TrainerForAuto(
+        self._trainer = TrainerForAuto(
             args=training_args,
-            model_init=_model_init,
+            model_init=partial(self._model_init, num_labels, per_model_config),
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             tokenizer=tokenizer,
+            data_collator=DataCollatorForAuto(
+                tokenizer=tokenizer,
+                pad_to_multiple_of=8 if training_args.fp16 else None,
+            )
+            if self._task == MULTICHOICECLASSIFICATION
+            else None,
             compute_metrics=self._compute_metrics_by_dataset_name,
             callbacks=[EarlyStoppingCallbackForAuto],
         )
 
-        setattr(self._model, "_use_ray", self.use_ray)
+        setattr(self._trainer, "_use_ray", self.use_ray)
         if self._task in NLG_TASKS:
-            setattr(self._model, "_is_seq2seq", True)
-        self._model.train()
+            setattr(self._trainer, "_is_seq2seq", True)
+        self._trainer.train()
 
-        self.params[self.ITER_HP] = self._model.state.global_step
-        self._checkpoint_path = self._select_checkpoint(self._model)
+        self.params[self.ITER_HP] = self._trainer.state.global_step
+        self._checkpoint_path = self._select_checkpoint(self._trainer)
 
         self._kwargs = kwargs
         self._num_labels = num_labels
         self._per_model_config = per_model_config
         self._training_args_config = training_args_config
 
-        self._ckpt_remains = list(self._model.ckpt_to_metric.keys())
+        self._ckpt_remains = list(self._trainer.ckpt_to_metric.keys())
+        self._model = load_model(
+            checkpoint_path=self._checkpoint_path,
+            task=self._task,
+            num_labels=self._num_labels,
+            per_model_config=self._per_model_config,
+        )
+        self._trainer = None
 
     def _delete_one_ckpt(self, ckpt_location):
         if self.use_ray is False:
@@ -640,6 +654,8 @@ class TransformersEstimator(BaseEstimator):
                 predictions = (
                     np.squeeze(predictions)
                     if self._task == SEQREGRESSION
+                    else np.argmax(predictions, axis=2)
+                    if self._task == TOKENCLASSIFICATION
                     else np.argmax(predictions, axis=1)
                 )
             return {
@@ -658,66 +674,61 @@ class TransformersEstimator(BaseEstimator):
             )
             return metric_dict
 
-    def predict_proba(self, X_test):
-        assert (
-            self._task in CLASSIFICATION
-        ), "predict_proba() only for classification tasks."
-
+    def _init_model_for_predict(self, X_test):
         from datasets import Dataset
+        from transformers import AutoTokenizer
         from .nlp.huggingface.trainer import TrainerForAuto
-        from transformers import TrainingArguments
-        from .nlp.utils import load_model
+        from .nlp.huggingface.data_collator import DataCollatorForPredict
 
         X_test, _ = self._preprocess(X_test, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
-
-        best_model = load_model(
-            checkpoint_path=self._checkpoint_path,
-            task=self._task,
-            num_labels=self._num_labels,
-            per_model_config=self._per_model_config,
-        )
-        training_args = TrainingArguments(
-            per_device_eval_batch_size=1,
-            output_dir=self.custom_hpo_args.output_dir,
-        )
-        self._model = TrainerForAuto(model=best_model, args=training_args)
-        predictions = self._model.predict(test_dataset)
-        return predictions.predictions
-
-    def predict(self, X_test):
-        from datasets import Dataset
-        from .nlp.utils import load_model
-        from .nlp.huggingface.trainer import TrainerForAuto
-
-        X_test, _ = self._preprocess(X=X_test, **self._kwargs)
-        test_dataset = Dataset.from_pandas(X_test)
-
-        best_model = load_model(
-            checkpoint_path=self._checkpoint_path,
-            task=self._task,
-            num_labels=self._num_labels,
-            per_model_config=self._per_model_config,
-        )
         training_args = self._TrainingArguments(
             per_device_eval_batch_size=1,
             output_dir=self.custom_hpo_args.output_dir,
             **self._training_args_config,
         )
-        self._model = TrainerForAuto(model=best_model, args=training_args)
+        tokenizer = AutoTokenizer.from_pretrained(
+            self.custom_hpo_args.model_path, use_fast=True
+        )
+        self._trainer = TrainerForAuto(
+            model=self._model,
+            args=training_args,
+            data_collator=DataCollatorForPredict(
+                tokenizer=tokenizer,
+                pad_to_multiple_of=8 if training_args.fp16 else None,
+            )
+            if self._task == MULTICHOICECLASSIFICATION
+            else None,
+        )
+        return test_dataset, training_args
+
+    def predict_proba(self, X_test):
+        assert (
+            self._task in CLASSIFICATION
+        ), "predict_proba() only for classification tasks."
+
+        test_dataset, _ = self._init_model_for_predict(X_test)
+        predictions = self._trainer.predict(test_dataset)
+        self._trainer = None
+        return predictions.predictions
+
+    def predict(self, X_test):
+        test_dataset, training_args = self._init_model_for_predict(X_test)
         if self._task not in NLG_TASKS:
-            predictions = self._model.predict(test_dataset)
+            predictions = self._trainer.predict(test_dataset)
         else:
-            predictions = self._model.predict(
+            predictions = self._trainer.predict(
                 test_dataset,
                 max_length=training_args.generation_max_length,
                 num_beams=training_args.generation_num_beams,
             )
-
+        self._trainer = None
         if self._task == SEQCLASSIFICATION:
             return np.argmax(predictions.predictions, axis=1)
         elif self._task == SEQREGRESSION:
-            return predictions.predictions
+            return predictions.predictions.reshape((len(predictions.predictions),))
+        elif self._task == TOKENCLASSIFICATION:
+            return np.argmax(predictions.predictions, axis=2)
         # TODO: elif self._task == your task, return the corresponding prediction
         #  e.g., if your task == QUESTIONANSWERING, you need to return the answer instead
         #  of the index
@@ -728,6 +739,8 @@ class TransformersEstimator(BaseEstimator):
                 predictions, skip_special_tokens=True
             )
             return decoded_preds
+        elif self._task == MULTICHOICECLASSIFICATION:
+            return np.argmax(predictions.predictions, axis=1)
 
     def config2params(self, config: dict) -> dict:
         params = config.copy()
