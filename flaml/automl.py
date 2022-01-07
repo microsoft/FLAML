@@ -819,15 +819,14 @@ class AutoML(BaseEstimator):
         assert (
             dataframe[dataframe.columns[0]].dtype.name == "datetime64[ns]"
         ), f"For '{TS_FORECAST}' task, the first column must contain timestamp values."
-        ts_col = dataframe[[dataframe.columns[0]]]
         if y_train_all is not None:
             y_df = pd.DataFrame(y_train_all) if isinstance(y_train_all, pd.Series) else pd.DataFrame(y_train_all, columns=['labels'])
             dataframe = dataframe.join(y_df)
-        duplicates = ts_col.duplicated()
+        duplicates = dataframe.duplicated()
         if any(duplicates):
             logger.warning(
                 "Duplicate timestamp values found in timestamp column. "
-                f"\n{dataframe.loc[duplicates, dataframe.columns[0]]}"
+                f"\n{dataframe.loc[duplicates, dataframe][dataframe.columns[0]]}"
             )
             dataframe = dataframe.drop_duplicates()
             logger.warning("Removed duplicate rows based on all columns")
