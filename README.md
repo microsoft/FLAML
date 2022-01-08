@@ -8,7 +8,7 @@
 # A Fast Library for Automated Machine Learning & Tuning
 
 <p align="center">
-    <img src="https://github.com/qingyun-wu/FLAML/blob/logo/website/static/img/flaml_v2.svg"  width=200>
+    <img src="https://github.com/qingyun-wu/FLAML/blob/logo/website/static/img/flaml_v3.svg"  width=200>
     <br>
 </p>
 
