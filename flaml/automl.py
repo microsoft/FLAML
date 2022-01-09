@@ -2007,7 +2007,7 @@ class AutoML(BaseEstimator):
         old_level = logger.getEffectiveLevel()
         self.verbose = verbose
         logger.setLevel(50 - verbose * 10)
-        if (not mlflow or not mlflow.active_run()) and not logger.handlers:
+        if not logger.handlers:
             # Add the console handler.
             _ch = logging.StreamHandler()
             _ch.setFormatter(logger_formatter)
