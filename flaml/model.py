@@ -537,7 +537,6 @@ class TransformersEstimator(BaseEstimator):
                 save_steps=ckpt_freq,
                 save_total_limit=0,
                 fp16=self.custom_hpo_args.fp16,
-                load_best_model_at_end=True,
                 **training_args_config,
             )
         else:
@@ -554,7 +553,6 @@ class TransformersEstimator(BaseEstimator):
                 save_steps=ckpt_freq,
                 save_total_limit=0,
                 fp16=self.custom_hpo_args.fp16,
-                load_best_model_at_end=True,
                 **training_args_config,
             )
 
