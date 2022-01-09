@@ -221,7 +221,7 @@ def run(
             used, otherwise no scheduler will be used. When set 'flaml', an
             authentic scheduler implemented in FLAML will be used. It does not
             require users to report intermediate results in evaluation_function.
-            Find more details abuot this scheduler in this paper
+            Find more details about this scheduler in this paper
             https://arxiv.org/pdf/1911.04706.pdf).
             When set 'asha', the input for arguments "resource_attr",
             "min_resource", "max_resource" and "reduction_factor" will be passed

@@ -1,6 +1,6 @@
 # Tune User Defined Function
 
-`flaml.tune` is a module for economical hyperparameter tuning. It is used internally by `flaml.AutoML`. It can also be used to directly tune a user-defined function (UDF), which is not limited to machine learning model training. You can use `flaml.tune` instead of `flaml.AutoML` if one of the following is true:
+[`flaml.tune`](../reference/tune/tune) is a module for economical hyperparameter tuning. It is used internally by `flaml.AutoML`. It can also be used to directly tune a user-defined function (UDF), which is not limited to machine learning model training. You can use `flaml.tune` instead of `flaml.AutoML` if one of the following is true:
 
 1. Your machine learning task is not one of the built-in tasks from `flaml.AutoML`.
 1. Your input cannot be represented as X_train + y_train or dataframe + label.
@@ -75,8 +75,8 @@ config_search_space = {
     "y": tune.randint(lower=1, upper=100000)
 }  
 
-# provide the search space to flaml.tune
-flaml.tune.run(..., config=config_search_space, ...)
+# provide the search space to tune.run
+tune.run(..., config=config_search_space, ...)
 ```
 
 #### More details about the search space domain
@@ -170,7 +170,7 @@ Optionally, you can provide a list of config constraints to be satisfied through
 
 
 ### Put together
-After the aforementioned key steps, one is ready to perform a tuning task by calling `flaml.tune.run()`. Below is a quick sequential tuning example using the pre-defined search space `config_search_space` and a minimization (`mode='min'`) objective for the `score` metric evaluated in `evaluate_config`, using the default serach algorithm in flaml. The time budget is 10 seconds (`time_budget_s=10`).
+After the aforementioned key steps, one is ready to perform a tuning task by calling [`flaml.tune.run()`](../reference/tune/tune#run). Below is a quick sequential tuning example using the pre-defined search space `config_search_space` and a minimization (`mode='min'`) objective for the `score` metric evaluated in `evaluate_config`, using the default serach algorithm in flaml. The time budget is 10 seconds (`time_budget_s=10`).
 ```python
 # require: pip install flaml[blendsearch]
 analysis = tune.run(

@@ -471,7 +471,7 @@ class AutoML(BaseEstimator):
                 'seq-classification', 'seq-regression', 'summarization'.
             n_jobs: An integer of the number of threads for training.
             gpu_per_trial: A float of the number of gpus per trial, only used by TransformersEstimator.
-            log_file_name: A string of the log file name. To disable logging,
+            log_file_name: A string of the log file name | default="". To disable logging,
                 set it to be an empty string "".
             estimator_list: A list of strings for estimator names, or 'auto'
                 e.g., ```['lgbm', 'xgboost', 'xgb_limitdepth', 'catboost', 'rf', 'extra_tree']```
@@ -1808,7 +1808,7 @@ class AutoML(BaseEstimator):
                 'seq-classification', 'seq-regression', 'summarization'
             n_jobs: An integer of the number of threads for training.
             gpu_per_trial: A float of the number of gpus per trial, only used by TransformersEstimator.
-            log_file_name: A string of the log file name. To disable logging,
+            log_file_name: A string of the log file name | default="". To disable logging,
                 set it to be an empty string "".
             estimator_list: A list of strings for estimator names, or 'auto'
                 e.g., ```['lgbm', 'xgboost', 'xgb_limitdepth', 'catboost', 'rf', 'extra_tree']```
