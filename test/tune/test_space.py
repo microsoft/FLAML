@@ -33,9 +33,12 @@ def test_define_by_run():
         "qlograndint": tune.qlograndint(1, 10, 2),
         # Sample an option uniformly from the specified choices
         "choice": tune.choice(["a", "b", "c"]),
+        "const": 5,
     }
     bs = BlendSearch(
-        space={"c": tune.choice([{"nested": config}])}, metric="metric", mode="max"
+        space={"c": tune.choice([{"nested": config}])},
+        metric="metric",
+        mode="max",
     )
     for i in range(1):
         config = bs._gs.suggest(f"{i}")
