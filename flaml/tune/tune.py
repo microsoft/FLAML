@@ -262,7 +262,7 @@ def run(
             needed for a config.
             It is used to skip configs which do not fit in memory.
         metric_constraints: A list of metric constraints to be satisfied.
-            e.g., `['precision', '>=', 0.9]`.
+            e.g., `['precision', '>=', 0.9]`. The sign can be ">=" or "<=".
         max_failure: int | the maximal consecutive number of failures to sample
             a trial before the tuning is terminated.
         use_ray: A boolean of whether to use ray as the backend.

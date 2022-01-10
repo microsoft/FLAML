@@ -100,7 +100,7 @@ class BlendSearch(Searcher):
                 needed for a config.
                 It is used to skip configs which do not fit in memory.
             metric_constraints: A list of metric constraints to be satisfied.
-                E.g., `['precision', '>=', 0.9]`.
+                E.g., `['precision', '>=', 0.9]`. The sign can be ">=" or "<=".
             seed: An integer of the random seed.
             experimental: A bool of whether to use experimental features.
         """
@@ -748,6 +748,10 @@ class BlendSearch(Searcher):
                     and value > threshold
                     or sign == ">="
                     and value < threshold
+                    or sign == ">"
+                    and value <= threshold
+                    or sign == "<"
+                    and value > threshold
                 ):
                     self._result[config_signature] = {
                         self._metric: np.inf * self._ls.metric_op,
