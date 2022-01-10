@@ -61,7 +61,15 @@ def define_by_run_func(trial, space: Dict, path: str = "") -> Optional[Dict[str,
             elif isinstance(sampler, sample.Uniform):
                 if quantize:
                     trial.suggest_float(key, domain.lower, domain.upper, step=quantize)
-                trial.suggest_float(key, domain.lower, domain.upper)
+                else:
+                    trial.suggest_float(key, domain.lower, domain.upper)
+            else:
+                raise ValueError(
+                    "Optuna search does not support parameters of type "
+                    "`{}` with samplers of type `{}`".format(
+                        type(domain).__name__, type(domain.sampler).__name__
+                    )
+                )
         elif isinstance(domain, sample.Integer):
             if isinstance(sampler, sample.LogUniform):
                 trial.suggest_int(
@@ -144,6 +152,8 @@ def unflatten_hierarchical(config: Dict, space: Dict) -> Tuple[Dict, Dict]:
                 key = key[:-8]
             domain = space.get(key)
             if domain is not None:
+                if isinstance(domain, dict):
+                    value, domain = unflatten_hierarchical(value, domain)
                 subspace[key] = domain
                 if isinstance(domain, sample.Domain):
                     sampler = domain.sampler

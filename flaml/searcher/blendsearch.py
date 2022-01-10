@@ -155,7 +155,7 @@ class BlendSearch(Searcher):
                 from functools import partial
 
                 gs_space = partial(define_by_run_func, space=space)
-                evaluated_rewards = None  # not supproted by define-by-run
+                evaluated_rewards = None  # not supported by define-by-run
             else:
                 gs_space = space
             gs_seed = seed - 10 if (seed - 10) >= 0 else seed - 11 + (1 << 32)
