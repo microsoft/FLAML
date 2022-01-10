@@ -209,7 +209,7 @@ There are several advanced tuning options worth mentioning.
 
 ### More constraints on the tuning
 
-A user can specify constraints on the configurations to be satisfied via the argument `config_constraints`. The `config_constraints` receives a list of such constraints to be satisfied. Specifically, each constraint is a tuple that consists of (1) a function that takes a configuration as input and returns a numerical value; (2) an operation chosen from "<="  or ">"; (3) a numerical threshold.
+A user can specify constraints on the configurations to be satisfied via the argument `config_constraints`. The `config_constraints` receives a list of such constraints to be satisfied. Specifically, each constraint is a tuple that consists of (1) a function that takes a configuration as input and returns a numerical value; (2) an operation chosen from "<=", ">=", "<" or ">"; (3) a numerical threshold.
 
 In the following code example, we constrain the output of `area`, which takes a configuration as input and outputs a numerical value, to be no larger than 1000.
 
@@ -222,7 +222,7 @@ flaml.tune.run(evaluation_function=evaluate_config, mode="min",
                config_constraints=[(area, "<=", 1000)], ...)
 ```
 
- You can also specify a list of metric constraints to be satisfied via the argument `metric_constraints`. Each element in the `metric_constraints` list is a tuple that consists of (1) a string specifying the name of the metric (the metric name must be defined and returned in the user-defined `evaluation_function`); (2) an operation chosen from "<="  or ">"; (3) a numerical threshold.  
+ You can also specify a list of metric constraints to be satisfied via the argument `metric_constraints`. Each element in the `metric_constraints` list is a tuple that consists of (1) a string specifying the name of the metric (the metric name must be defined and returned in the user-defined `evaluation_function`); (2) an operation chosen from "<=" or ">="; (3) a numerical threshold.  
 
  In the following code example, we constrain the metric `score` to be no larger than 0.4.
 
