@@ -1,5 +1,7 @@
+from flaml import BlendSearch, CFO, tune
+
+
 def test_define_by_run():
-    from flaml import BlendSearch, CFO, tune
     from flaml.tune.space import (
         unflatten_hierarchical,
         normalize,
@@ -64,3 +66,50 @@ def test_define_by_run():
         cfo.suggest(f"t{i}")
     # print(normalize(config, bs._gs.space, config, {}, False))
     print(complete_config({}, cfo._ls.space, cfo._ls))
+
+
+def test_grid():
+    from flaml.searcher.variant_generator import (
+        generate_variants,
+        grid_search,
+        TuneError,
+        has_unresolved_values,
+    )
+    from flaml.tune import sample
+
+    space = {
+        "activation": grid_search(["relu", "tanh"]),
+        "learning_rate": grid_search([1e-3, 1e-4, 1e-5]),
+        "c": sample.choice([2, 3]),
+    }
+    for _, generated in generate_variants({"config": space}):
+        config = generated["config"]
+        print(config)
+    for _, generated in generate_variants({"config": space}, True):
+        config = generated["config"]
+        print(config)
+    space = {
+        "activation": grid_search([{"c": sample.choice([2, 3])}]),
+        "learning_rate": grid_search([1e-3, 1e-4, 1e-5]),
+    }
+    try:
+        for _, generated in generate_variants({"config": space}, True):
+            config = generated["config"]
+            print(config)
+    except ValueError:
+        # The variable `('config', 'activation', 'c')` could not be unambiguously resolved to a single value.
+        pass
+    space = {
+        "c": sample.choice([{"c1": sample.choice([1, 2])}]),
+        "a": sample.randint(1, 10),
+        "b": sample.choice([sample.uniform(10, 20), sample.choice([1, 2])]),
+    }
+    for _, generated in generate_variants({"config": space}):
+        config = generated["config"]
+        print(config)
+    space = {"a": grid_search(3)}
+    try:
+        print(has_unresolved_values(space))
+    except TuneError:
+        # Grid search expected list of values, got: 3
+        pass
