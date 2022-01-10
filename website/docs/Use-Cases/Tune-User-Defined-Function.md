@@ -121,9 +121,9 @@ config = {
     # while sampling in log space
     "lograndint": tune.lograndint(1, 10),
 
-    # Sample a integer uniformly between 1 (inclusive) and 10 (inclusive (!)),
+    # Sample a integer uniformly between 2 (inclusive) and 10 (inclusive (!)),
     # while sampling in log space and rounding to increments of 2
-    "qlograndint": tune.qlograndint(1, 10, 2),
+    "qlograndint": tune.qlograndint(2, 10, 2),
 
     # Sample an option uniformly from the specified choices
     "choice": tune.choice(["a", "b", "c"]),

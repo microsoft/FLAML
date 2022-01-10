@@ -414,8 +414,8 @@ def denormalize(
                 elif str(sampler) == "Normal":
                     # denormalization for 'Normal'
                     config_denorm[key] = value * sampler.sd + sampler.mean
-                else:
-                    config_denorm[key] = value
+                # else:
+                #     config_denorm[key] = value
                 # Handle quantized
                 if quantize is not None:
                     config_denorm[key] = (
@@ -427,6 +427,14 @@ def denormalize(
         else:  # resource_attr
             config_denorm[key] = value
     return config_denorm
+
+
+def equal(config, const) -> bool:
+    if config == const:
+        return True
+    if not isinstance(config, Dict) or not isinstance(const, Dict):
+        return False
+    return all(equal(config[key], value) for key, value in const.items())
 
 
 def indexof(domain: Dict, config: Dict) -> int:
@@ -445,8 +453,7 @@ def indexof(domain: Dict, config: Dict) -> int:
         # print(cat.keys())
         if not set(config.keys()).issubset(set(cat.keys())):
             continue
-        # print(domain.const[i])
-        if all(config[key] == value for key, value in domain.const[i].items()):
+        if equal(config, domain.const[i]):
             # assumption: the concatenation of constants is a unique identifier
             return i
     return None

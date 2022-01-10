@@ -1,8 +1,13 @@
 def test_define_by_run():
-    from flaml import BlendSearch, tune
-    from flaml.tune.space import unflatten_hierarchical
+    from flaml import BlendSearch, CFO, tune
+    from flaml.tune.space import (
+        unflatten_hierarchical,
+        normalize,
+        indexof,
+        complete_config,
+    )
 
-    config = {
+    space = {
         # Sample a float uniformly between -5.0 and -1.0
         "uniform": tune.uniform(-5, -1),
         # Sample a float uniformly between 3.2 and 5.4,
@@ -28,19 +33,34 @@ def test_define_by_run():
         # Sample a integer uniformly between 1 (inclusive) and 10 (exclusive),
         # while sampling in log space
         "lograndint": tune.lograndint(1, 10),
-        # Sample a integer uniformly between 1 (inclusive) and 10 (inclusive (!)),
+        # Sample a integer uniformly between 2 (inclusive) and 10 (inclusive (!)),
         # while sampling in log space and rounding to increments of 2
-        "qlograndint": tune.qlograndint(1, 10, 2),
+        "qlograndint": tune.qlograndint(2, 10, 2),
         # Sample an option uniformly from the specified choices
         "choice": tune.choice(["a", "b", "c"]),
         "const": 5,
     }
+    choice = {"nested": space}
     bs = BlendSearch(
-        space={"c": tune.choice([{"nested": config}])},
+        space={"c": tune.choice([choice])},
+        low_cost_partial_config={"c": choice},
         metric="metric",
         mode="max",
     )
-    for i in range(1):
-        config = bs._gs.suggest(f"{i}")
-        print(config)
-        print(unflatten_hierarchical(config, bs._gs.space)[0])
+    print(indexof(bs._gs.space["c"], choice))
+    print(indexof(bs._gs.space["c"], {"nested": {"const": 1}}))
+    config = bs._gs.suggest("t1")
+    print(config)
+    config = unflatten_hierarchical(config, bs._gs.space)[0]
+    print(config)
+    print(normalize({"c": [choice]}, bs._gs.space, config, {}, False))
+    space["randn"] = tune.randn(10, 2)
+    cfo = CFO(
+        space={"c": tune.choice([0, choice])},
+        metric="metric",
+        mode="max",
+    )
+    for i in range(5):
+        cfo.suggest(f"t{i}")
+    # print(normalize(config, bs._gs.space, config, {}, False))
+    print(complete_config({}, cfo._ls.space, cfo._ls))
