@@ -60,6 +60,7 @@ setuptools.setup(
             "torch",
             "nltk",
             "rouge_score",
+            "hcrystalball==0.1.10",
             "seqeval",
             "hcrystalball==0.1.10",
         ],
