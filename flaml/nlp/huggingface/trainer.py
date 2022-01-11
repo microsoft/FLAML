@@ -87,6 +87,7 @@ class TrainerForAuto(Seq2SeqTrainer):
             self.ckpt_to_metric = {ckpt_dir: metrics} if metrics else {}
         return metrics
 
+
 # TODO: if your task is SUMMARIZATION, you need a different
 #  class Seq2SeqTrainerForAuto, uncomment the code below
 #  Note: I have implemented it here,

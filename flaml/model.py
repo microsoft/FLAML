@@ -537,6 +537,7 @@ class TransformersEstimator(BaseEstimator):
                 evaluate_during_training=True,
                 save_steps=ckpt_freq,
                 save_total_limit=0,
+                metric_for_best_model="loss",
                 fp16=self.custom_hpo_args.fp16,
                 **training_args_config,
             )
@@ -553,6 +554,7 @@ class TransformersEstimator(BaseEstimator):
                 evaluation_strategy=IntervalStrategy.STEPS,
                 save_steps=ckpt_freq,
                 save_total_limit=0,
+                metric_for_best_model="loss",
                 fp16=self.custom_hpo_args.fp16,
                 **training_args_config,
             )
