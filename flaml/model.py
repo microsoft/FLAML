@@ -629,8 +629,8 @@ class TransformersEstimator(BaseEstimator):
                 f"{PREFIX_CHECKPOINT_DIR}-{best_ckpt_global_step}",
             )
         self.params[self.ITER_HP] = best_ckpt_global_step
-        print(trainer.state.global_step)
-        print(trainer.ckpt_to_global_step)
+        logger.debug(trainer.state.global_step)
+        logger.debug(trainer.ckpt_to_global_step)
         return best_ckpt
 
     def _compute_metrics_by_dataset_name(self, eval_pred):
