@@ -5,7 +5,7 @@ import shutil
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
-def test_hf_data():
+def _test_hf_data():
     from flaml import AutoML
     import requests
     from datasets import load_dataset
@@ -79,4 +79,4 @@ def test_hf_data():
 
 
 if __name__ == "__main__":
-    test_hf_data()
+    _test_hf_data()
