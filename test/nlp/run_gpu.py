@@ -11,9 +11,9 @@ def _test_hf_data():
     from datasets import load_dataset
 
     try:
-        train_dataset = load_dataset("glue", "mrpc", split="train").to_pandas()
-        dev_dataset = load_dataset("glue", "mrpc", split="validation").to_pandas()
-        test_dataset = load_dataset("glue", "mrpc", split="test").to_pandas()
+        train_dataset = load_dataset("glue", "mrpc", split="train[:1%]").to_pandas()
+        dev_dataset = load_dataset("glue", "mrpc", split="validation[:1%]").to_pandas()
+        test_dataset = load_dataset("glue", "mrpc", split="test[:1%]").to_pandas()
     except requests.exceptions.ConnectionError:
         return
 
