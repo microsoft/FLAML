@@ -394,11 +394,14 @@ class TransformersEstimator(BaseEstimator):
         )
 
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
+        import transformers
+
+        transformers.logging.set_verbosity_error()
+
         from transformers import EarlyStoppingCallback
         from transformers.trainer_utils import set_seed
         from transformers import AutoTokenizer
 
-        import transformers
         from datasets import Dataset
         from .nlp.utils import (
             get_num_labels,
