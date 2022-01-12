@@ -2331,8 +2331,8 @@ class AutoML(BaseEstimator):
                 wall_time = result.get("wall_clock_time")
                 if wall_time is not None:
                     self._state.time_from_start = wall_time
+                self._iter_per_learner[estimator] += 1
                 if search_state.sample_size == self._state.data_size[0]:
-                    self._iter_per_learner[estimator] += 1
                     if not self._fullsize_reached:
                         self._fullsize_reached = True
                 if search_state.best_loss < self._state.best_loss:
