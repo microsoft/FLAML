@@ -38,9 +38,6 @@ def custom_metric(
     metrics = trainer.evaluate(eval_dataset)
     trainer.compute_metrics = trainer_compute_metrics_cache
 
-    # import json
-    # json.dump({"key": str(estimator._metric)},
-    #           open("/data/xliu127/projects/hyperopt/FLAML/test/nlp/test.json", "w"))
     auto_metric = load_default_huggingface_metric_for_task(estimator._task)
 
     estimator_metric_cache = estimator._metric
