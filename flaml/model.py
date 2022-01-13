@@ -675,9 +675,6 @@ class TransformersEstimator(BaseEstimator):
                 X_train=self._X_train,
                 y_train=self._y_train,
             )
-            if not hasattr(self, "intermediate_results"):
-                self.intermediate_results = []
-            self.intermediate_results.append(metric_dict)
             return metric_dict
 
     def _init_model_for_predict(self, X_test):

@@ -18,7 +18,7 @@ def load_default_huggingface_metric_for_task(task):
     if task == SEQCLASSIFICATION:
         return "accuracy"
     elif task == SEQREGRESSION:
-        return "pearsonr"
+        return "r2"
     elif task == SUMMARIZATION:
         return "rouge"
     elif task == MULTICHOICECLASSIFICATION:
@@ -401,6 +401,7 @@ def get_trial_fold_name(local_dir, trial_config, trial_id):
 
 def load_model(checkpoint_path, task, num_labels, per_model_config=None):
     import transformers
+
     transformers.logging.set_verbosity_error()
 
     from transformers import AutoConfig
