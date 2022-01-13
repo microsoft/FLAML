@@ -705,6 +705,7 @@ class TransformersEstimator(BaseEstimator):
             )
             if self._task == MULTICHOICECLASSIFICATION
             else None,
+            compute_metrics=self._compute_metrics_by_dataset_name,
         )
         return test_dataset, training_args
 
