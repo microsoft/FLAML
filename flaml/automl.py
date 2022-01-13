@@ -2320,7 +2320,7 @@ class AutoML(BaseEstimator):
             ),
             key=lambda x: x.last_result["wall_clock_time"],
         )
-        for _track_iter, trial in enumerate(trials):
+        for self._track_iter, trial in enumerate(trials):
             result = trial.last_result
             better = False
             if result:
@@ -2338,13 +2338,13 @@ class AutoML(BaseEstimator):
                 if search_state.best_loss < self._state.best_loss:
                     self._state.best_loss = search_state.best_loss
                     self._best_estimator = estimator
-                    self._config_history[_track_iter] = (
+                    self._config_history[self._track_iter] = (
                         self._best_estimator,
                         config,
                         self._time_taken_best_iter,
                     )
                     self._trained_estimator = search_state.trained_estimator
-                    self._best_iteration = _track_iter
+                    self._best_iteration = self._track_iter
                     self._time_taken_best_iter = self._state.time_from_start
                     better = True
                     self._search_states[estimator].best_config = config
@@ -2365,7 +2365,7 @@ class AutoML(BaseEstimator):
             )
         if mlflow is not None and mlflow.active_run():
             with mlflow.start_run(nested=True):
-                mlflow.log_metric("iter_counter", self._iter_per_learner[estimator])
+                mlflow.log_metric("iter_counter", self._track_iter)
                 mlflow.log_param("metric_for_logging", search_state.metric_for_logging)
                 mlflow.log_metric("trial_time", search_state.trial_time)
                 mlflow.log_metric("wall_clock_time", self._state.time_from_start)
