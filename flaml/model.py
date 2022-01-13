@@ -653,7 +653,7 @@ class TransformersEstimator(BaseEstimator):
                     if self._task == TOKENCLASSIFICATION
                     else np.argmax(predictions, axis=1)
                 )
-            return {
+            metric_dict = {
                 "val_loss": metric_loss_score(
                     metric_name=self._metric, y_predict=predictions, y_true=labels
                 )
@@ -668,7 +668,10 @@ class TransformersEstimator(BaseEstimator):
                 y_train=self._y_train,
             )
             metric_dict["val_loss"] = loss
-            return metric_dict
+        if not hasattr(self, "intermediate_results"):
+            self.intermediate_results = []
+        self.intermediate_results.append(metric_dict)
+        return metric_dict
 
     def _init_model_for_predict(self, X_test):
         from datasets import Dataset
@@ -695,6 +698,7 @@ class TransformersEstimator(BaseEstimator):
             )
             if self._task == MULTICHOICECLASSIFICATION
             else None,
+            compute_metrics=self._compute_metrics_by_dataset_name,
         )
         return test_dataset, training_args
 
