@@ -217,8 +217,10 @@ def metric_loss_score(
                     + ", ".join(huggingface_metric_to_mode.keys())
                     + ". Please pass a customized metric function to AutoML.fit(metric=func)"
                 )
-        multiplier = -1 if metric_mode == "max" else 1
-        return score * multiplier
+        if metric_mode == "max":
+            return 1 - score
+        else:
+            return score
 
 
 def is_in_sklearn_metric_name_set(metric_name):
