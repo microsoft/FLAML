@@ -36,11 +36,11 @@ def test_regression():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 2,
-        "time_budget": 50,
+        "time_budget": 5,
         "task": "seq-regression",
         "metric": "pearsonr",
         "starting_points": {"transformer": {"num_train_epochs": 1}},
-        # "use_ray": True,
+        "use_ray": True,
     }
 
     automl_settings["custom_hpo_args"] = {
