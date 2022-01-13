@@ -40,7 +40,7 @@ def test_regression():
         "task": "seq-regression",
         "metric": "pearsonr",
         "starting_points": {"transformer": {"num_train_epochs": 1}},
-        #"use_ray": True,
+        "use_ray": True,
     }
 
     automl_settings["custom_hpo_args"] = {
