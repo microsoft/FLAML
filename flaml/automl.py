@@ -73,7 +73,9 @@ class SearchState:
             self.total_time_used - self.time_best_found,
         )
 
-    def __init__(self, learner_class, data_size, task, starting_point=None, period=None):
+    def __init__(
+        self, learner_class, data_size, task, starting_point=None, period=None
+    ):
         self.init_eci = learner_class.cost_relative2lgbm()
         self._search_space_domain = {}
         self.init_config = {}
@@ -83,7 +85,9 @@ class SearchState:
         self.ls_ever_converged = False
         self.learner_class = learner_class
         if task == TS_FORECAST:
-            search_space = learner_class.search_space(data_size=data_size, task=task, pred_horizon=period)
+            search_space = learner_class.search_space(
+                data_size=data_size, task=task, pred_horizon=period
+            )
         else:
             search_space = learner_class.search_space(data_size=data_size, task=task)
         for name, space in search_space.items():
@@ -820,7 +824,11 @@ class AutoML(BaseEstimator):
             dataframe[dataframe.columns[0]].dtype.name == "datetime64[ns]"
         ), f"For '{TS_FORECAST}' task, the first column must contain timestamp values."
         if y_train_all is not None:
-            y_df = pd.DataFrame(y_train_all) if isinstance(y_train_all, pd.Series) else pd.DataFrame(y_train_all, columns=['labels'])
+            y_df = (
+                pd.DataFrame(y_train_all)
+                if isinstance(y_train_all, pd.Series)
+                else pd.DataFrame(y_train_all, columns=["labels"])
+            )
             dataframe = dataframe.join(y_df)
         duplicates = dataframe.duplicated()
         if any(duplicates):
@@ -881,7 +889,9 @@ class AutoML(BaseEstimator):
             self._nrow, self._ndim = X_train_all.shape
             if self._state.task == TS_FORECAST:
                 X_train_all = pd.DataFrame(X_train_all)
-                X_train_all, y_train_all = self._validate_ts_data(X_train_all, y_train_all)
+                X_train_all, y_train_all = self._validate_ts_data(
+                    X_train_all, y_train_all
+                )
             X, y = X_train_all, y_train_all
         elif dataframe is not None and label is not None:
             assert isinstance(
@@ -2136,7 +2146,8 @@ class AutoML(BaseEstimator):
                     ]
                 if TS_FORECAST == self._state.task:
                     # catboost is removed because it has a `name` parameter, making it incompatible with hcrystalball
-                    estimator_list.remove("catboost")
+                    if "catboost" in estimator_list:
+                        estimator_list.remove("catboost")
                     try:
                         import prophet
 
@@ -2355,7 +2366,17 @@ class AutoML(BaseEstimator):
         if mlflow is not None and mlflow.active_run():
             with mlflow.start_run(nested=True):
                 mlflow.log_metric("iter_counter", self._iter_per_learner[estimator])
-                mlflow.log_param("metric_for_logging", search_state.metric_for_logging)
+                if "intermediate_results" in search_state.metric_for_logging:
+                    for each_entry in search_state.metric_for_logging[
+                        "intermediate_results"
+                    ]:
+                        with mlflow.start_run(nested=True):
+                            mlflow.log_metrics(each_entry)
+                            mlflow.log_metric(
+                                "iter_counter", self._iter_per_learner[estimator]
+                            )
+                    del search_state.metric_for_logging["intermediate_results"]
+                mlflow.log_metrics(search_state.metric_for_logging)
                 mlflow.log_metric("trial_time", search_state.trial_time)
                 mlflow.log_metric("wall_clock_time", self._state.time_from_start)
                 mlflow.log_metric("validation_loss", search_state.val_loss)
