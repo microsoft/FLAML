@@ -37,7 +37,7 @@ def test_hf_data():
     automl = AutoML()
 
     automl_settings = {
-        "gpu_per_trial": 1,
+        "gpu_per_trial": 0,
         "max_iter": 3,
         "time_budget": 5,
         "task": "seq-classification",
@@ -48,7 +48,7 @@ def test_hf_data():
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "test/data/output/",
-        "ckpt_per_epoch": 1,
+        "ckpt_per_epoch": 5,
         "fp16": False,
     }
 
