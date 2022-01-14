@@ -1915,7 +1915,7 @@ class AutoML(BaseEstimator):
                 you run into OOM failures.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Include:
-                    period: int | A key word argument for 'ts_forecast' task
+                    period: int | forecast horizon for 'ts_forecast' task.
                     gpu_per_trial: float, default = 0 | A float of the number of gpus per trial,
                     only used by TransformersEstimator.
         """
