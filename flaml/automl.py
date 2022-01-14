@@ -2558,8 +2558,9 @@ class AutoML(BaseEstimator):
                     self._state.time_from_start = wall_time
                 # logger.info(f"{self._search_states[estimator].sample_size}, {data_size}")
                 if search_state.sample_size == self._state.data_size[0]:
-                    self._iter_per_learner[estimator] += 1
+                    self._iter_per_learner_fullsize[estimator] += 1
                     self._fullsize_reached = True
+                self._iter_per_learner[estimator] += 1
                 if search_state.best_loss < self._state.best_loss:
                     best_config_sig = estimator + search_state.get_hist_config_sig(
                         self.data_size_full, search_state.best_config
@@ -2681,6 +2682,7 @@ class AutoML(BaseEstimator):
         self._config_history = {}
         self._max_iter_per_learner = 10000
         self._iter_per_learner = dict([(e, 0) for e in self.estimator_list])
+        self._iter_per_learner_fullsize = dict([(e, 0) for e in self.estimator_list])
         self._fullsize_reached = False
         self._trained_estimator = None
         self._best_estimator = None
@@ -2849,7 +2851,8 @@ class AutoML(BaseEstimator):
                 if (
                     self._search_states[estimator].time2eval_best
                     > self._state.time_budget - self._state.time_from_start
-                    or self._iter_per_learner[estimator] >= self._max_iter_per_learner
+                    or self._iter_per_learner_fullsize[estimator]
+                    >= self._max_iter_per_learner
                 ):
                     inv.append(0)
                     continue
