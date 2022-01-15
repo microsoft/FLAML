@@ -1,6 +1,6 @@
 # AutoML for NLP
 
-The nlp module automatically tunes the hyperparameters for NLP tasks, currently we support four tasks: sequence classification, sequence regression, multiple choice and summarization. 
+This directory contains utility functions for the nlp module, which automatically tunes the hyperparameters for NLP tasks, currently we support four tasks: sequence classification, sequence regression, multiple choice and summarization. 
 
 For how to install NLP and usage cases please refer to:
 
