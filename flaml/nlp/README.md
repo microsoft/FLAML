@@ -4,7 +4,6 @@ This directory contains utility functions used by AutoNLP. Currently we support 
 
 Please refer to this [link](https://microsoft.github.io/FLAML/docs/Examples/AutoML-NLP) for examples:
 
-https://microsoft.github.io/FLAML/docs/Examples/AutoML-NLP
 
 # Troubleshooting fine-tuning HPO for pre-trained language models
 
