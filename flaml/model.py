@@ -1103,12 +1103,12 @@ class XGBoostEstimator(SKLearnEstimator):
         train_time = time.time() - start_time
         return train_time
 
-    def predict(self, X_test):
+    def predict(self, X):
         import xgboost as xgb
 
-        if not issparse(X_test):
-            X_test = self._preprocess(X_test)
-        dtest = xgb.DMatrix(X_test)
+        if not issparse(X):
+            X = self._preprocess(X)
+        dtest = xgb.DMatrix(X)
         return super().predict(dtest)
 
     @classmethod
