@@ -9,7 +9,7 @@ Please refer to this [link](https://microsoft.github.io/FLAML/docs/Examples/Auto
 
 The frequent updates of transformers may lead to fluctuations in the results of tuning. To help users quickly troubleshoot the result of AutoNLP when a tuning failure occurs (e.g., failing to reproduce previous results), we have provided the following jupyter notebook:
 
-[Troubleshooting HPO for fine-tuning pre-trained language models](https://github.com/microsoft/FLAML/blob/main/notebook/research/acl2021.ipynb)
+* [Troubleshooting HPO for fine-tuning pre-trained language models](https://github.com/microsoft/FLAML/blob/main/notebook/research/acl2021.ipynb)
 
 Our findings on troubleshooting fine-tuning the Electra and RoBERTa model for the GLUE dataset can be seen in the following paper published in ACL 2021:
 
