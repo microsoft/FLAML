@@ -2,6 +2,10 @@
 
 The nlp module automatically tunes the hyperparameters for NLP tasks, currently we support four tasks: sequence classification, sequence regression, multiple choice and summarization. 
 
+For how to install NLP and usage cases please refer to:
+
+https://microsoft.github.io/FLAML/docs/Examples/AutoML-NLP
+
 # Troubleshooting fine-tuning HPO for pre-trained language models
 
 To reproduce the results for our ACL2021 paper:
