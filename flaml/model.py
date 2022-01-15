@@ -1593,22 +1593,22 @@ class Prophet(SKLearnEstimator):
         self._model = model
         return train_time
 
-    def predict(self, X_test):
-        if isinstance(X_test, int):
+    def predict(self, X):
+        if isinstance(X, int):
             raise ValueError(
                 "predict() with steps is only supported for arima/sarimax."
                 " For Prophet, pass a dataframe with the first column containing"
                 " the timestamp values."
             )
         if self._model is not None:
-            X_test = self._preprocess(X_test)
-            forecast = self._model.predict(X_test)
+            X = self._preprocess(X)
+            forecast = self._model.predict(X)
             return forecast["yhat"]
         else:
             logger.warning(
                 "Estimator is not fit yet. Please run fit() before predict()."
             )
-            return np.ones(X_test.shape[0])
+            return np.ones(X.shape[0])
 
 
 class ARIMA(Prophet):
