@@ -2,7 +2,7 @@
 
 This directory contains utility functions used by AutoNLP. Currently we support four NLP tasks: sequence classification, sequence regression, multiple choice and summarization. 
 
-Please refer to the following link for examples for NLP:
+Please refer to the following link for examples:
 
 https://microsoft.github.io/FLAML/docs/Examples/AutoML-NLP
 
