@@ -1868,42 +1868,40 @@ class TS_SKLearn_Regressor(SKLearnEstimator):
         train_time = time.time() - current_time
         return train_time
 
-    def predict(self, X_test):
+    def predict(self, X):
         if self._model is not None:
-            X_test = self.transform_X(X_test)
-            X_test = self._preprocess(X_test)
+            X = self.transform_X(X)
+            X = self._preprocess(X)
             if isinstance(self._model, list):
                 assert len(self._model) == len(
-                    X_test
-                ), "Model is optimized for horizon, length of X_test must be equal to `period`."
+                    X
+                ), "Model is optimized for horizon, length of X must be equal to `period`."
                 preds = []
                 for i in range(1, len(self._model) + 1):
                     (
                         X_pred,
                         _,
                     ) = self.hcrystaball_model._transform_data_to_tsmodel_input_format(
-                        X_test.iloc[:i, :]
+                        X.iloc[:i, :]
                     )
                     preds.append(self._model[i - 1].predict(X_pred)[-1])
                 forecast = DataFrame(
                     data=np.asarray(preds).reshape(-1, 1),
                     columns=[self.hcrystaball_model.name],
-                    index=X_test.index,
+                    index=X.index,
                 )
             else:
                 (
                     X_pred,
                     _,
-                ) = self.hcrystaball_model._transform_data_to_tsmodel_input_format(
-                    X_test
-                )
+                ) = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X)
                 forecast = self._model.predict(X_pred)
             return forecast
         else:
             logger.warning(
                 "Estimator is not fit yet. Please run fit() before predict()."
             )
-            return np.ones(X_test.shape[0])
+            return np.ones(X.shape[0])
 
 
 class LGBM_TS_Regressor(TS_SKLearn_Regressor):
