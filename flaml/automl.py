@@ -2362,14 +2362,18 @@ class AutoML(BaseEstimator):
             with mlflow.start_run(nested=True):
                 mlflow.log_metric("iter_counter", self._track_iter)
                 if "intermediate_results" in search_state.metric_for_logging:
-                    for each_entry in search_state.metric_for_logging[
+                    for each_ir_key in search_state.metric_for_logging[
                         "intermediate_results"
                     ]:
-                        with mlflow.start_run(nested=True):
-                            mlflow.log_metrics(each_entry)
-                            mlflow.log_metric(
-                                "iter_counter", self._iter_per_learner[estimator]
-                            )
+                        for each_entry in search_state.metric_for_logging[
+                            "intermediate_results"
+                        ][each_ir_key]:
+                            with mlflow.start_run(nested=True):
+                                mlflow.log_metrics(each_entry)
+                                mlflow.log_param("train_or_eval", each_ir_key)
+                                mlflow.log_metric(
+                                    "iter_counter", self._iter_per_learner[estimator]
+                                )
                     del search_state.metric_for_logging["intermediate_results"]
                 mlflow.log_metrics(search_state.metric_for_logging)
                 mlflow.log_metric("trial_time", search_state.trial_time)

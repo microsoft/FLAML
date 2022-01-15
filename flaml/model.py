@@ -592,7 +592,7 @@ class TransformersEstimator(BaseEstimator):
             per_model_config=self._per_model_config,
         )
         if hasattr(self._trainer, "intermediate_results"):
-            self._intermediate_results = self._trainer.intermediate_results
+            self.intermediate_results = self._trainer.intermediate_results
         self._trainer = None
 
     def _delete_one_ckpt(self, ckpt_location):

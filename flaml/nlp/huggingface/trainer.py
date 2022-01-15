@@ -44,6 +44,23 @@ class TrainerForAuto(Seq2SeqTrainer):
                 model, inputs, prediction_loss_only, ignore_keys
             )
 
+    def log(self, logs) -> None:
+        if getattr(self, "_is_seq2seq", None):
+            super().log(logs)
+        else:
+            super(Seq2SeqTrainer, self).log(logs)
+        is_eval = any([key for key in logs if key.startswith("eval")])
+        is_train = any([key for key in logs if key.startswith("train")])
+        if is_eval:
+            ir_key = "eval"
+        elif is_train:
+            ir_key = "train"
+
+        if not hasattr(self, "intermediate_results"):
+            self.intermediate_results = {}
+        self.intermediate_results.setdefault(ir_key, [])
+        self.intermediate_results[ir_key].append(logs)
+
     def evaluate(
         self,
         eval_dataset=None,
@@ -74,13 +91,6 @@ class TrainerForAuto(Seq2SeqTrainer):
                 ignore_keys,
                 metric_key_prefix,
             )
-        if not hasattr(self, "intermediate_results"):
-            self.intermediate_results = []
-        self.intermediate_results.append(metrics)
-        # if metrics:
-        #     for key in list(metrics.keys()):
-        #         if key.startswith("eval_"):
-        #             metrics[key[5:]] = metrics.pop(key)
         if hasattr(self, "ckpt_to_global_step"):
             self.ckpt_to_global_step[ckpt_dir] = self.state.global_step
             if metrics:
