@@ -658,7 +658,7 @@ class TransformersEstimator(BaseEstimator):
                     else np.argmax(predictions, axis=1)
                 )
             metric_dict = {
-                "auto_metric": metric_loss_score(
+                "automl_metric": metric_loss_score(
                     metric_name=self._metric, y_predict=predictions, y_true=labels
                 )
             }
@@ -671,7 +671,7 @@ class TransformersEstimator(BaseEstimator):
                 X_train=self._X_train,
                 y_train=self._y_train,
             )
-            metric_dict["auto_metric"] = loss
+            metric_dict["automl_metric"] = loss
         return metric_dict
 
     def _init_model_for_predict(self, X_test):
