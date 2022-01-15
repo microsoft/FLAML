@@ -197,32 +197,32 @@ class BaseEstimator:
             train_time = self._fit(X_train, y_train, **kwargs)
         return train_time
 
-    def predict(self, X_test):
+    def predict(self, X):
         """Predict label from features.
 
         Args:
-            X_test: A numpy array or a dataframe of featurized instances, shape n*m.
+            X: A numpy array or a dataframe of featurized instances, shape n*m.
 
         Returns:
             A numpy array of shape n*1.
             Each element is the label for a instance.
         """
         if self._model is not None:
-            X_test = self._preprocess(X_test)
-            return self._model.predict(X_test)
+            X = self._preprocess(X)
+            return self._model.predict(X)
         else:
             logger.warning(
                 "Estimator is not fit yet. Please run fit() before predict()."
             )
-            return np.ones(X_test.shape[0])
+            return np.ones(X.shape[0])
 
-    def predict_proba(self, X_test):
+    def predict_proba(self, X):
         """Predict the probability of each class from features.
 
         Only works for classification problems
 
         Args:
-            X_test: A numpy array of featurized instances, shape n*m.
+            X: A numpy array of featurized instances, shape n*m.
 
         Returns:
             A numpy array of shape n*c. c is the # classes.
@@ -231,8 +231,8 @@ class BaseEstimator:
         """
         assert self._task in CLASSIFICATION, "predict_proba() only for classification."
 
-        X_test = self._preprocess(X_test)
-        return self._model.predict_proba(X_test)
+        X = self._preprocess(X)
+        return self._model.predict_proba(X)
 
     def cleanup(self):
         del self._model
@@ -703,18 +703,18 @@ class TransformersEstimator(BaseEstimator):
         )
         return test_dataset, training_args
 
-    def predict_proba(self, X_test):
+    def predict_proba(self, X):
         assert (
             self._task in CLASSIFICATION
         ), "predict_proba() only for classification tasks."
 
-        test_dataset, _ = self._init_model_for_predict(X_test)
+        test_dataset, _ = self._init_model_for_predict(X)
         predictions = self._trainer.predict(test_dataset)
         self._trainer = None
         return predictions.predictions
 
-    def predict(self, X_test):
-        test_dataset, training_args = self._init_model_for_predict(X_test)
+    def predict(self, X):
+        test_dataset, training_args = self._init_model_for_predict(X)
         if self._task not in NLG_TASKS:
             predictions = self._trainer.predict(test_dataset)
         else:
