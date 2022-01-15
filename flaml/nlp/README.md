@@ -11,7 +11,7 @@ The frequent updates of transformers may lead to fluctuations in the results of 
 
 [Troubleshooting HPO for fine-tuning pre-trained language models](https://github.com/microsoft/FLAML/blob/main/notebook/research/acl2021.ipynb)
 
-Our findings can be seen in the following paper published in ACL 2021:
+Our findings on troubleshooting fine-tuning the Electra and RoBERTa model for the GLUE dataset can be seen in the following paper published in ACL 2021:
 
 * [An Empirical Study on Hyperparameter Optimization for Fine-Tuning Pre-trained Language Models](https://arxiv.org/abs/2106.09204). Xueqing Liu, Chi Wang. ACL-IJCNLP 2021.
 
