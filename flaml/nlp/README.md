@@ -7,7 +7,7 @@ Please refer to this [link](https://microsoft.github.io/FLAML/docs/Examples/Auto
 
 # Troubleshooting fine-tuning HPO for pre-trained language models
 
-To reproduce the results for our ACL2021 paper:
+When using AutoNLP for hypperparameter tuning, there can be multiple reasons for a suboptimal results. To help users troubleshooting such tuning failures, we have investigated the following research question: how to systematically trouble shoot AutoNLP's failure and improve the performance? Our findings can be seen in the following paper published in ACL 2021:
 
 * [An Empirical Study on Hyperparameter Optimization for Fine-Tuning Pre-trained Language Models](https://arxiv.org/abs/2106.09204). Xueqing Liu, Chi Wang. ACL-IJCNLP 2021.
 
