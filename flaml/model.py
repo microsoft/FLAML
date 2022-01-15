@@ -1673,30 +1673,30 @@ class ARIMA(Prophet):
         self._model = model
         return train_time
 
-    def predict(self, X_test):
+    def predict(self, X):
         if self._model is not None:
-            if isinstance(X_test, int):
-                forecast = self._model.forecast(steps=X_test)
-            elif isinstance(X_test, DataFrame):
-                start = X_test[TS_TIMESTAMP_COL].iloc[0]
-                end = X_test[TS_TIMESTAMP_COL].iloc[-1]
-                if len(X_test.columns) > 1:
-                    X_test = self._preprocess(X_test.drop(columns=TS_TIMESTAMP_COL))
-                    regressors = list(X_test)
-                    print(start, end, X_test.shape)
+            if isinstance(X, int):
+                forecast = self._model.forecast(steps=X)
+            elif isinstance(X, DataFrame):
+                start = X[TS_TIMESTAMP_COL].iloc[0]
+                end = X[TS_TIMESTAMP_COL].iloc[-1]
+                if len(X.columns) > 1:
+                    X = self._preprocess(X.drop(columns=TS_TIMESTAMP_COL))
+                    regressors = list(X)
+                    print(start, end, X.shape)
                     forecast = self._model.predict(
-                        start=start, end=end, exog=X_test[regressors]
+                        start=start, end=end, exog=X[regressors]
                     )
                 else:
                     forecast = self._model.predict(start=start, end=end)
             else:
                 raise ValueError(
-                    "X_test needs to be either a pandas Dataframe with dates as the first column"
+                    "X needs to be either a pandas Dataframe with dates as the first column"
                     " or an int number of periods for predict()."
                 )
             return forecast
         else:
-            return np.ones(X_test if isinstance(X_test, int) else X_test.shape[0])
+            return np.ones(X if isinstance(X, int) else X.shape[0])
 
 
 class SARIMAX(ARIMA):
