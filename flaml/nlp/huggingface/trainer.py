@@ -53,9 +53,8 @@ class TrainerForAuto(Seq2SeqTrainer):
             self.intermediate_results = {}
         try:
             epoch_num = logs["epoch"]
-            for each_key, each_val in logs.items():
-                self.intermediate_results.setdefault(epoch_num, {})
-                self.intermediate_results[epoch_num][each_key] = each_val
+            self.intermediate_results.setdefault(epoch_num, {})
+            self.intermediate_results[epoch_num].update(logs)
         except KeyError:
             pass
 
