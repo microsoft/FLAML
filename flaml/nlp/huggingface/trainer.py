@@ -52,9 +52,12 @@ class TrainerForAuto(Seq2SeqTrainer):
         if not hasattr(self, "intermediate_results"):
             self.intermediate_results = {}
 
-        epoch_num = logs["epoch"]
-        self.intermediate_results.setdefault(epoch_num, {})
-        self.intermediate_results[epoch_num].update(logs)
+        try:
+            epoch_num = logs["epoch"]
+            self.intermediate_results.setdefault(epoch_num, {})
+            self.intermediate_results[epoch_num].update(logs)
+        except KeyError:
+            pass
 
     def evaluate(
         self,
