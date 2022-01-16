@@ -402,7 +402,7 @@ class TransformersEstimator(BaseEstimator):
 
         transformers.logging.set_verbosity_error()
 
-        from transformers import EarlyStoppingCallback
+        from transformers import TrainerCallback
         from transformers.trainer_utils import set_seed
 
         from datasets import Dataset
@@ -427,7 +427,7 @@ class TransformersEstimator(BaseEstimator):
 
         this_params = self.params
 
-        class EarlyStoppingCallbackForAuto(EarlyStoppingCallback):
+        class EarlyStoppingCallbackForAuto(TrainerCallback):
             def on_train_begin(self, args, state, control, **callback_kwargs):
                 self.train_begin_time = time.time()
 
