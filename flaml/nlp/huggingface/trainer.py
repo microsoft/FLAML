@@ -51,11 +51,10 @@ class TrainerForAuto(Seq2SeqTrainer):
             super(Seq2SeqTrainer, self).log(logs)
         if not hasattr(self, "intermediate_results"):
             self.intermediate_results = {}
-            
+
         epoch_num = logs["epoch"]
-        for each_key, each_val in logs.items():
-            self.intermediate_results.setdefault(epoch_num, {})
-            self.intermediate_results[epoch_num][each_key] = each_val
+        self.intermediate_results.setdefault(epoch_num, {})
+        self.intermediate_results[epoch_num].update(logs)
 
     def evaluate(
         self,
