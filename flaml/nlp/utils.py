@@ -274,7 +274,7 @@ def tokenize_text_multiplechoice(X, this_tokenizer, custom_hpo_args=None):
     return output, None
 
 
-def tokenize_swag(this_row, this_tokenizer, custom_hpo_args=None):
+def tokenize_swag(this_row, tokenizer, custom_hpo_args=None):
     global tokenized_column_names
 
     first_sentences = [[this_row["sent1"]] * 4]
