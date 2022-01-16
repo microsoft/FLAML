@@ -378,7 +378,11 @@ class TransformersEstimator(BaseEstimator):
 
         if is_str or is_list_of_str:
             return tokenize_text(
-                X=X, Y=y, task=self._task, custom_hpo_args=self.custom_hpo_args
+                X=X,
+                Y=y,
+                task=self._task,
+                custom_hpo_args=self.custom_hpo_args,
+                tokenizer=self._tokenizer,
             )
         else:
             return X, None
@@ -400,7 +404,6 @@ class TransformersEstimator(BaseEstimator):
 
         from transformers import EarlyStoppingCallback
         from transformers.trainer_utils import set_seed
-        from transformers import AutoTokenizer
 
         from datasets import Dataset
         from .nlp.utils import (
@@ -420,6 +423,7 @@ class TransformersEstimator(BaseEstimator):
         # else:
         from .nlp.huggingface.trainer import TrainerForAuto
         from .nlp.huggingface.data_collator import DataCollatorForAuto
+        from .nlp.utils import get_auto_tokenizer
 
         this_params = self.params
 
@@ -457,6 +461,10 @@ class TransformersEstimator(BaseEstimator):
         set_seed(self.params.get("seed", self._TrainingArguments.seed))
 
         self._init_hpo_args(kwargs)
+        self._tokenizer = get_auto_tokenizer(
+            self.custom_hpo_args.model_path, self._task
+        )
+
         self._metric = kwargs["metric"]
         self.use_ray = kwargs.get("use_ray")
 
@@ -487,13 +495,7 @@ class TransformersEstimator(BaseEstimator):
         else:
             eval_dataset = None
 
-        tokenizer = AutoTokenizer.from_pretrained(
-            self.custom_hpo_args.model_path, use_fast=True
-        )
-        self._tokenizer = tokenizer
-
         num_labels = get_num_labels(self._task, self._y_train)
-
         training_args_config, per_model_config = separate_config(
             self.params, self._task
         )
@@ -558,9 +560,9 @@ class TransformersEstimator(BaseEstimator):
             model_init=partial(self._model_init, num_labels, per_model_config),
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
-            tokenizer=tokenizer,
+            tokenizer=self._tokenizer,
             data_collator=DataCollatorForAuto(
-                tokenizer=tokenizer,
+                tokenizer=self._tokenizer,
                 pad_to_multiple_of=8 if training_args.fp16 else None,
             )
             if self._task == MULTICHOICECLASSIFICATION
@@ -676,7 +678,6 @@ class TransformersEstimator(BaseEstimator):
 
     def _init_model_for_predict(self, X_test):
         from datasets import Dataset
-        from transformers import AutoTokenizer
         from .nlp.huggingface.trainer import TrainerForAuto
         from .nlp.huggingface.data_collator import DataCollatorForPredict
 
@@ -687,14 +688,11 @@ class TransformersEstimator(BaseEstimator):
             output_dir=self.custom_hpo_args.output_dir,
             **self._training_args_config,
         )
-        tokenizer = AutoTokenizer.from_pretrained(
-            self.custom_hpo_args.model_path, use_fast=True
-        )
         self._trainer = TrainerForAuto(
             model=self._model,
             args=training_args,
             data_collator=DataCollatorForPredict(
-                tokenizer=tokenizer,
+                tokenizer=self._tokenizer,
                 pad_to_multiple_of=8 if training_args.fp16 else None,
             )
             if self._task == MULTICHOICECLASSIFICATION

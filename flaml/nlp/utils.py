@@ -30,37 +30,67 @@ def load_default_huggingface_metric_for_task(task):
 global tokenized_column_names
 
 
-def tokenize_text(X, Y=None, task=None, custom_hpo_args=None):
-    if task in (SEQCLASSIFICATION, SEQREGRESSION):
-        X_tokenized, _ = tokenize_onedataframe(
-            X, this_tokenizer=None, task=task, custom_hpo_args=custom_hpo_args
+def get_auto_tokenizer(model_path, task):
+    from transformers import AutoTokenizer
+
+    if task == SUMMARIZATION:
+        return AutoTokenizer.from_pretrained(
+            model_path,  # 'roberta-base'
+            cache_dir=None,
+            use_fast=True,
+            revision="main",
+            use_auth_token=None,
         )
-        return X_tokenized, None
-    elif task == TOKENCLASSIFICATION:
-        return tokenize_text_tokclassification(X, Y, custom_hpo_args)
-    elif task in NLG_TASKS:
-        return tokenize_seq2seq(X, Y, task=task, custom_hpo_args=custom_hpo_args)
-    elif task == MULTICHOICECLASSIFICATION:
-        return tokenize_text_multiplechoice(X, custom_hpo_args)
+    else:
+        return AutoTokenizer.from_pretrained(model_path, use_fast=True)
 
 
-def tokenize_seq2seq(X, Y, task=None, custom_hpo_args=None):
-    model_inputs, tokenizer = tokenize_onedataframe(
-        X,
-        this_tokenizer=None,
-        task=task,
-        custom_hpo_args=custom_hpo_args,
-    )
-    labels = None
-    if Y is not None:
-        labels, _ = tokenize_onedataframe(
-            Y.to_frame(),
+def tokenize_text(X, Y=None, task=None, custom_hpo_args=None, tokenizer=None):
+    if task in (SEQCLASSIFICATION, SEQREGRESSION):
+        X_tokenized = tokenize_onedataframe(
+            X,
             this_tokenizer=tokenizer,
             task=task,
             custom_hpo_args=custom_hpo_args,
+            prefix_str="",
+        )
+        return X_tokenized, None
+    elif task == TOKENCLASSIFICATION:
+        return tokenize_text_tokclassification(
+            X, Y, this_tokenizer=tokenizer, custom_hpo_args=custom_hpo_args
+        )
+    elif task in NLG_TASKS:
+        return tokenize_seq2seq(
+            X, Y, this_tokenizer=tokenizer, task=task, custom_hpo_args=custom_hpo_args
+        )
+    elif task == MULTICHOICECLASSIFICATION:
+        return tokenize_text_multiplechoice(
+            X, this_tokenizer=tokenizer, custom_hpo_args=custom_hpo_args
+        )
+
+
+def tokenize_seq2seq(X, Y, this_tokenizer, task=None, custom_hpo_args=None):
+    model_inputs = tokenize_onedataframe(
+        X,
+        this_tokenizer=this_tokenizer,
+        task=task,
+        custom_hpo_args=custom_hpo_args,
+        prefix_str="summarize: ",
+    )
+    labels = None
+    if Y is not None:
+        labels = tokenize_onedataframe(
+            Y.to_frame(),
+            this_tokenizer=this_tokenizer,
+            task=task,
+            custom_hpo_args=custom_hpo_args,
+            prefix_str="",
         )
         labels["label"] = [
-            [(each_l if each_l != tokenizer.pad_token_id else -100) for each_l in label]
+            [
+                (each_l if each_l != this_tokenizer.pad_token_id else -100)
+                for each_l in label
+            ]
             for label in labels["input_ids"]
         ]
         labels = labels.drop(
@@ -70,7 +100,7 @@ def tokenize_seq2seq(X, Y, task=None, custom_hpo_args=None):
 
 
 def tokenize_and_align_labels(
-    examples, tokenizer, custom_hpo_args, X_sent_key, Y_sent_key=None
+    examples, tokenizer, custom_hpo_args=None, X_sent_key=None, Y_sent_key=None
 ):
     global tokenized_column_names
 
@@ -115,14 +145,10 @@ def tokenize_and_align_labels(
     return tokenized_input_and_labels
 
 
-def tokenize_text_tokclassification(X, Y, custom_hpo_args):
-    from transformers import AutoTokenizer
+def tokenize_text_tokclassification(X, Y, this_tokenizer, custom_hpo_args=None):
     import pandas as pd
 
     global tokenized_column_names
-    this_tokenizer = AutoTokenizer.from_pretrained(
-        custom_hpo_args.model_path, use_fast=True
-    )
     if Y is not None:
         X_and_Y = pd.concat([X, Y.to_frame()], axis=1)
         X_key = list(X.keys())[0]
@@ -167,37 +193,21 @@ def tokenize_text_tokclassification(X, Y, custom_hpo_args):
 
 def tokenize_onedataframe(
     X,
-    this_tokenizer=None,
+    this_tokenizer,
     task=None,
     custom_hpo_args=None,
+    prefix_str=None,
 ):
-    from transformers import AutoTokenizer
     import pandas
 
     global tokenized_column_names
 
-    if this_tokenizer:
-        with this_tokenizer.as_target_tokenizer():
-            d = X.apply(
-                lambda x: tokenize_row(
-                    x,
-                    this_tokenizer,
-                    prefix=("",) if task is SUMMARIZATION else None,
-                    task=task,
-                    custom_hpo_args=custom_hpo_args,
-                ),
-                axis=1,
-                result_type="expand",
-            )
-    else:
-        this_tokenizer = AutoTokenizer.from_pretrained(
-            custom_hpo_args.model_path, use_fast=True
-        )
+    with this_tokenizer.as_target_tokenizer():
         d = X.apply(
             lambda x: tokenize_row(
                 x,
                 this_tokenizer,
-                prefix=("summarize: ",) if task is SUMMARIZATION else None,
+                prefix=(prefix_str,) if task is SUMMARIZATION else None,
                 task=task,
                 custom_hpo_args=custom_hpo_args,
             ),
@@ -206,7 +216,7 @@ def tokenize_onedataframe(
         )
     X_tokenized = pandas.DataFrame(columns=tokenized_column_names)
     X_tokenized[tokenized_column_names] = d
-    return X_tokenized, this_tokenizer
+    return X_tokenized
 
 
 def postprocess_text(preds, labels):
@@ -246,19 +256,11 @@ def tokenize_row(
     return [tokenized_example[x] for x in tokenized_column_names]
 
 
-def tokenize_text_multiplechoice(X, custom_hpo_args):
-    from transformers import AutoTokenizer
+def tokenize_text_multiplechoice(X, this_tokenizer, custom_hpo_args=None):
     import pandas
 
     global tokenized_column_names
 
-    this_tokenizer = AutoTokenizer.from_pretrained(
-        custom_hpo_args.model_path,  # 'roberta-base'
-        cache_dir=None,
-        use_fast=True,
-        revision="main",
-        use_auth_token=None,
-    )
     t = X[["sent1", "sent2", "ending0", "ending1", "ending2", "ending3"]]
     d = t.apply(
         lambda x: tokenize_swag(x, this_tokenizer, custom_hpo_args),
@@ -272,7 +274,7 @@ def tokenize_text_multiplechoice(X, custom_hpo_args):
     return output, None
 
 
-def tokenize_swag(this_row, this_tokenizer, custom_hpo_args):
+def tokenize_swag(this_row, this_tokenizer, custom_hpo_args=None):
     global tokenized_column_names
 
     first_sentences = [[this_row["sent1"]] * 4]
