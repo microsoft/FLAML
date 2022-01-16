@@ -532,6 +532,7 @@ class TransformersEstimator(BaseEstimator):
                 eval_steps=ckpt_freq,
                 evaluate_during_training=True,
                 save_steps=ckpt_freq,
+                logging_steps=ckpt_freq,
                 save_total_limit=0,
                 metric_for_best_model="loss",
                 fp16=self.custom_hpo_args.fp16,
@@ -547,6 +548,7 @@ class TransformersEstimator(BaseEstimator):
                 do_eval=True,
                 per_device_eval_batch_size=1,
                 eval_steps=ckpt_freq,
+                logging_steps=ckpt_freq,
                 evaluation_strategy=IntervalStrategy.STEPS,
                 save_steps=ckpt_freq,
                 save_total_limit=0,
@@ -594,7 +596,12 @@ class TransformersEstimator(BaseEstimator):
             per_model_config=self._per_model_config,
         )
         if hasattr(self._trainer, "intermediate_results"):
-            self.intermediate_results = self._trainer.intermediate_results
+            self.intermediate_results = [
+                x[1]
+                for x in sorted(
+                    self._trainer.intermediate_results.items(), key=lambda x: x[0]
+                )
+            ]
         self._trainer = None
 
     def _delete_one_ckpt(self, ckpt_location):

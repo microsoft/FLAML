@@ -49,17 +49,15 @@ class TrainerForAuto(Seq2SeqTrainer):
             super().log(logs)
         else:
             super(Seq2SeqTrainer, self).log(logs)
-        is_eval = any([key for key in logs if key.startswith("eval")])
-        is_train = any([key for key in logs if key.startswith("train")])
-        if is_eval:
-            ir_key = "eval"
-        elif is_train:
-            ir_key = "train"
-
         if not hasattr(self, "intermediate_results"):
             self.intermediate_results = {}
-        self.intermediate_results.setdefault(ir_key, [])
-        self.intermediate_results[ir_key].append(logs)
+        try:
+            epoch_num = logs["epoch"]
+            for each_key, each_val in logs.items():
+                self.intermediate_results.setdefault(epoch_num, {})
+                self.intermediate_results[epoch_num][each_key] = each_val
+        except KeyError:
+            pass
 
     def evaluate(
         self,
