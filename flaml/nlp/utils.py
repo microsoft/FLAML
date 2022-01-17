@@ -469,16 +469,16 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
             model_config_num_labels = num_labels_old
         else:
             model_config_num_labels = num_labels
-        model_config = _set_model_config(checkpoint_path)
+        new_config = _set_model_config(checkpoint_path)
 
         if is_pretrained_model_in_classification_head_list(this_model_type):
             if num_labels != num_labels_old:
                 this_model = get_this_model(task)
-                model_config.num_labels = num_labels
+                new_config.num_labels = num_labels
                 this_model.num_labels = num_labels
                 this_model.classifier = (
                     AutoSeqClassificationHead.from_model_type_and_config(
-                        this_model_type, model_config
+                        this_model_type, new_config
                     )
                 )
             else:
