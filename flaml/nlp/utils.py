@@ -408,7 +408,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
     )
     from ..data import SEQCLASSIFICATION, SEQREGRESSION, TOKENCLASSIFICATION
 
-    def get_this_model(task):
+    def get_this_model(task, model_config):
         from transformers import AutoModelForSequenceClassification
         from transformers import AutoModelForSeq2SeqLM
         from transformers import AutoModelForMultipleChoice
@@ -473,7 +473,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
 
         if is_pretrained_model_in_classification_head_list(this_model_type):
             if num_labels != num_labels_old:
-                this_model = get_this_model(task)
+                this_model = get_this_model(task, new_config)
                 new_config.num_labels = num_labels
                 this_model.num_labels = num_labels
                 this_model.classifier = (
@@ -482,9 +482,9 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
                     )
                 )
             else:
-                this_model = get_this_model(task)
+                this_model = get_this_model(task, new_config)
         else:
-            this_model = get_this_model(task)
+            this_model = get_this_model(task, new_config)
         this_model.resize_token_embeddings(this_vocab_size)
         return this_model
     else:
@@ -493,7 +493,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
         elif task == TOKENCLASSIFICATION:
             model_config_num_labels = num_labels
         model_config = _set_model_config(checkpoint_path)
-        this_model = get_this_model(task)
+        this_model = get_this_model(task, model_config)
         return this_model
 
 
