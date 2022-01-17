@@ -408,9 +408,6 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
     )
     from ..data import SEQCLASSIFICATION, SEQREGRESSION, TOKENCLASSIFICATION
 
-    this_model_type = AutoConfig.from_pretrained(checkpoint_path).model_type
-    this_vocab_size = AutoConfig.from_pretrained(checkpoint_path).vocab_size
-
     def get_this_model(task):
         from transformers import AutoModelForSequenceClassification
         from transformers import AutoModelForSeq2SeqLM
@@ -460,8 +457,14 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
                 model_config = AutoConfig.from_pretrained(checkpoint_path)
             return model_config
 
+    current_config = AutoConfig.from_pretrained(checkpoint_path)
+    this_model_type, this_vocab_size = (
+        current_config.model_type,
+        current_config.vocab_size,
+    )
+
     if task == SEQCLASSIFICATION:
-        num_labels_old = AutoConfig.from_pretrained(checkpoint_path).num_labels
+        num_labels_old = current_config.num_labels
         if is_pretrained_model_in_classification_head_list(this_model_type):
             model_config_num_labels = num_labels_old
         else:
