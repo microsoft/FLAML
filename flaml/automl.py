@@ -470,8 +470,7 @@ class AutoML(BaseEstimator):
                 'classification', 'regression', 'ts_forecast', 'rank',
                 'seq-classification', 'seq-regression', 'summarization'.
             n_jobs: An integer of the number of threads for training.
-            gpu_per_trial: A float of the number of gpus per trial, only used by TransformersEstimator.
-            log_file_name: A string of the log file name. To disable logging,
+            log_file_name: A string of the log file name | default="". To disable logging,
                 set it to be an empty string "".
             estimator_list: A list of strings for estimator names, or 'auto'
                 e.g., ```['lgbm', 'xgboost', 'xgb_limitdepth', 'catboost', 'rf', 'extra_tree']```
@@ -576,7 +575,6 @@ class AutoML(BaseEstimator):
         settings["time_budget"] = settings.get("time_budget", 60)
         settings["task"] = settings.get("task", "classification")
         settings["n_jobs"] = settings.get("n_jobs", -1)
-        settings["gpu_per_trial"] = settings.get("gpu_per_trial", 0)
         settings["eval_method"] = settings.get("eval_method", "auto")
         settings["split_ratio"] = settings.get("split_ratio", SPLIT_RATIO)
         settings["n_splits"] = settings.get("n_splits", N_SPLITS)
@@ -716,13 +714,11 @@ class AutoML(BaseEstimator):
         """Time taken to find best model in seconds."""
         return self.__dict__.get("_time_taken_best_iter")
 
-    def predict(
-        self, X_test: Union[np.array, pd.DataFrame, List[str], List[List[str]]]
-    ):
+    def predict(self, X: Union[np.array, pd.DataFrame, List[str], List[List[str]]]):
         """Predict label from features.
 
         Args:
-            X_test: A numpy array of featurized instances, shape n * m,
+            X: A numpy array of featurized instances, shape n * m,
                 or for 'ts_forecast' task:
                     a pandas dataframe with the first column containing
                     timestamp values (datetime type) or an integer n for
@@ -750,8 +746,8 @@ class AutoML(BaseEstimator):
                 "No estimator is trained. Please run fit with enough budget."
             )
             return None
-        X_test = self._preprocess(X_test)
-        y_pred = estimator.predict(X_test)
+        X = self._preprocess(X)
+        y_pred = estimator.predict(X)
         if (
             isinstance(y_pred, np.ndarray)
             and y_pred.ndim > 1
@@ -765,12 +761,12 @@ class AutoML(BaseEstimator):
         else:
             return y_pred
 
-    def predict_proba(self, X_test):
+    def predict_proba(self, X):
         """Predict the probability of each class from features, only works for
         classification problems.
 
         Args:
-            X_test: A numpy array of featurized instances, shape n * m.
+            X: A numpy array of featurized instances, shape n * m.
 
         Returns:
             A numpy array of shape n * c. c is the  # classes. Each element at
@@ -782,8 +778,8 @@ class AutoML(BaseEstimator):
                 "No estimator is trained. Please run fit with enough budget."
             )
             return None
-        X_test = self._preprocess(X_test)
-        proba = self._trained_estimator.predict_proba(X_test)
+        X = self._preprocess(X)
+        proba = self._trained_estimator.predict_proba(X)
         return proba
 
     def _preprocess(self, X):
@@ -1306,7 +1302,7 @@ class AutoML(BaseEstimator):
         split_type=None,
         groups=None,
         n_jobs=-1,
-        gpu_per_trial=0,
+        # gpu_per_trial=0,
         train_best=True,
         train_full=False,
         record_id=-1,
@@ -1358,7 +1354,6 @@ class AutoML(BaseEstimator):
                 for training data.
             n_jobs: An integer of the number of threads for training. Use all
                 available resources when n_jobs == -1.
-            gpu_per_trial: A float of the number of gpus per trial. Only used by TransformersEstimator.
             train_best: A boolean of whether to train the best config in the
                 time budget; if false, train the last config in the budget.
             train_full: A boolean of whether to train on the full data. If true,
@@ -1451,9 +1446,9 @@ class AutoML(BaseEstimator):
         import os
 
         self._state.resources_per_trial = (
-            {"cpu": os.cpu_count(), "gpu": gpu_per_trial}
+            {"cpu": os.cpu_count(), "gpu": fit_kwargs.get("gpu_per_trial", 0)}
             if self._state.n_jobs < 0
-            else {"cpu": self._state.n_jobs, "gpu": gpu_per_trial}
+            else {"cpu": self._state.n_jobs, "gpu": fit_kwargs.get("gpu_per_trial", 0)}
         )
         self._trained_estimator = self._state._train_with_config(
             best_estimator,
@@ -1711,7 +1706,7 @@ class AutoML(BaseEstimator):
         metric=None,
         task=None,
         n_jobs=None,
-        gpu_per_trial=0,
+        # gpu_per_trial=0,
         log_file_name=None,
         estimator_list=None,
         time_budget=None,
@@ -1807,8 +1802,7 @@ class AutoML(BaseEstimator):
                 'classification', 'regression', 'ts_forecast', 'rank',
                 'seq-classification', 'seq-regression', 'summarization'
             n_jobs: An integer of the number of threads for training.
-            gpu_per_trial: A float of the number of gpus per trial, only used by TransformersEstimator.
-            log_file_name: A string of the log file name. To disable logging,
+            log_file_name: A string of the log file name | default="". To disable logging,
                 set it to be an empty string "".
             estimator_list: A list of strings for estimator names, or 'auto'
                 e.g., ```['lgbm', 'xgboost', 'xgb_limitdepth', 'catboost', 'rf', 'extra_tree']```
@@ -1918,8 +1912,10 @@ class AutoML(BaseEstimator):
                 datasets, but will incur more overhead in time. Only use it if
                 you run into OOM failures.
             **fit_kwargs: Other key word arguments to pass to fit() function of
-                the searched learners, such as sample_weight. Include period as
-                a key word argument for 'ts_forecast' task.
+                the searched learners, such as sample_weight. Include:
+                    period: int | forecast horizon for 'ts_forecast' task.
+                    gpu_per_trial: float, default = 0 | A float of the number of gpus per trial,
+                    only used by TransformersEstimator.
         """
 
         self._state._start_time_flag = self._start_time_flag = time.time()
@@ -1927,11 +1923,7 @@ class AutoML(BaseEstimator):
         self._estimator_type = "classifier" if task in CLASSIFICATION else "regressor"
         time_budget = time_budget or self._settings.get("time_budget")
         n_jobs = n_jobs or self._settings.get("n_jobs")
-        gpu_per_trial = (
-            self._settings.get("gpu_per_trial")
-            if gpu_per_trial is None
-            else gpu_per_trial
-        )
+        gpu_per_trial = fit_kwargs.get("gpu_per_trial", 0)
         eval_method = eval_method or self._settings.get("eval_method")
         split_ratio = split_ratio or self._settings.get("split_ratio")
         n_splits = n_splits or self._settings.get("n_splits")
@@ -2007,7 +1999,7 @@ class AutoML(BaseEstimator):
         old_level = logger.getEffectiveLevel()
         self.verbose = verbose
         logger.setLevel(50 - verbose * 10)
-        if (not mlflow or not mlflow.active_run()) and not logger.handlers:
+        if not logger.handlers:
             # Add the console handler.
             _ch = logging.StreamHandler()
             _ch.setFormatter(logger_formatter)
@@ -2081,6 +2073,7 @@ class AutoML(BaseEstimator):
         if _is_nlp_task(self._state.task):
             self._state.fit_kwargs["metric"] = metric
             self._state.fit_kwargs["use_ray"] = self._use_ray
+            self._state.fit_kwargs["gpu_per_trial"] = gpu_per_trial
 
         self._state.metric = metric
 
@@ -2321,7 +2314,7 @@ class AutoML(BaseEstimator):
             ),
             key=lambda x: x.last_result["wall_clock_time"],
         )
-        for _track_iter, trial in enumerate(trials):
+        for self._track_iter, trial in enumerate(trials):
             result = trial.last_result
             better = False
             if result:
@@ -2332,20 +2325,20 @@ class AutoML(BaseEstimator):
                 wall_time = result.get("wall_clock_time")
                 if wall_time is not None:
                     self._state.time_from_start = wall_time
+                self._iter_per_learner[estimator] += 1
                 if search_state.sample_size == self._state.data_size[0]:
-                    self._iter_per_learner[estimator] += 1
                     if not self._fullsize_reached:
                         self._fullsize_reached = True
                 if search_state.best_loss < self._state.best_loss:
                     self._state.best_loss = search_state.best_loss
                     self._best_estimator = estimator
-                    self._config_history[_track_iter] = (
+                    self._config_history[self._track_iter] = (
                         self._best_estimator,
                         config,
                         self._time_taken_best_iter,
                     )
                     self._trained_estimator = search_state.trained_estimator
-                    self._best_iteration = _track_iter
+                    self._best_iteration = self._track_iter
                     self._time_taken_best_iter = self._state.time_from_start
                     better = True
                     self._search_states[estimator].best_config = config
@@ -2366,8 +2359,18 @@ class AutoML(BaseEstimator):
             )
         if mlflow is not None and mlflow.active_run():
             with mlflow.start_run(nested=True):
-                mlflow.log_metric("iter_counter", self._iter_per_learner[estimator])
-                mlflow.log_param("metric_for_logging", search_state.metric_for_logging)
+                mlflow.log_metric("iter_counter", self._track_iter)
+                if "intermediate_results" in search_state.metric_for_logging:
+                    for each_entry in search_state.metric_for_logging[
+                        "intermediate_results"
+                    ]:
+                        with mlflow.start_run(nested=True):
+                            mlflow.log_metrics(each_entry)
+                            mlflow.log_metric(
+                                "iter_counter", self._iter_per_learner[estimator]
+                            )
+                    del search_state.metric_for_logging["intermediate_results"]
+                mlflow.log_metrics(search_state.metric_for_logging)
                 mlflow.log_metric("trial_time", search_state.trial_time)
                 mlflow.log_metric("wall_clock_time", self._state.time_from_start)
                 mlflow.log_metric("validation_loss", search_state.val_loss)
@@ -2554,8 +2557,9 @@ class AutoML(BaseEstimator):
                     self._state.time_from_start = wall_time
                 # logger.info(f"{self._search_states[estimator].sample_size}, {data_size}")
                 if search_state.sample_size == self._state.data_size[0]:
-                    self._iter_per_learner[estimator] += 1
+                    self._iter_per_learner_fullsize[estimator] += 1
                     self._fullsize_reached = True
+                self._iter_per_learner[estimator] += 1
                 if search_state.best_loss < self._state.best_loss:
                     best_config_sig = estimator + search_state.get_hist_config_sig(
                         self.data_size_full, search_state.best_config
@@ -2677,6 +2681,7 @@ class AutoML(BaseEstimator):
         self._config_history = {}
         self._max_iter_per_learner = 10000
         self._iter_per_learner = dict([(e, 0) for e in self.estimator_list])
+        self._iter_per_learner_fullsize = dict([(e, 0) for e in self.estimator_list])
         self._fullsize_reached = False
         self._trained_estimator = None
         self._best_estimator = None
@@ -2845,7 +2850,8 @@ class AutoML(BaseEstimator):
                 if (
                     self._search_states[estimator].time2eval_best
                     > self._state.time_budget - self._state.time_from_start
-                    or self._iter_per_learner[estimator] >= self._max_iter_per_learner
+                    or self._iter_per_learner_fullsize[estimator]
+                    >= self._max_iter_per_learner
                 ):
                     inv.append(0)
                     continue

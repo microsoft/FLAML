@@ -31,12 +31,12 @@ def custom_metric(
         X_test, _ = estimator._preprocess(X_test)
         eval_dataset = Dataset.from_pandas(X_test)
 
-    trainer_compute_metrics_cache = trainer.compute_metrics
-    trainer.compute_metrics = None
-
+    estimator_metric_backup = estimator._metric
+    estimator._metric = "rmse"
     metrics = trainer.evaluate(eval_dataset)
-    trainer.compute_metrics = trainer_compute_metrics_cache
-    return metrics["eval_loss"], metrics
+    estimator._metric = estimator_metric_backup
+
+    return metrics.pop("eval_automl_metric"), metrics
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
