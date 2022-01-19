@@ -54,6 +54,7 @@ class TestTrainingLog(unittest.TestCase):
                     estimator_list=[estimator],
                     n_jobs=1,
                     starting_points={estimator: config},
+                    use_ray=True,
                 )
                 print(automl.best_config)
                 # then the fitted model should be equivalent to model
@@ -99,6 +100,13 @@ class TestTrainingLog(unittest.TestCase):
             print("PermissionError happens as expected in windows.")
 
     def test_each_estimator(self):
+        try:
+            import ray
+
+            ray.shutdown()
+            ray.init()
+        except ImportError:
+            pass
         self.test_training_log(estimator_list=["xgboost"])
         self.test_training_log(estimator_list=["catboost"])
         self.test_training_log(estimator_list=["extra_tree"])
