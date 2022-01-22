@@ -379,7 +379,7 @@ def test_forecast_classification(budget=5):
         "time_budget": budget,  # total running time in seconds
         "metric": "accuracy",  # primary metric
         "task": "ts_forecast_classification",  # task type
-        "log_file_name": "sales_classification_forecast.log", #  # flaml log file
+        "log_file_name": "test/sales_classification_forecast.log", #  # flaml log file
         "eval_method": "holdout",
     }
     """The main flaml automl API"""
