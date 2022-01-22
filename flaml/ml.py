@@ -94,19 +94,13 @@ huggingface_submetric_to_metric = {"rouge1": "rouge", "rouge2": "rouge"}
 def get_estimator_class(task, estimator_name):
     # when adding a new learner, need to add an elif branch
     if "xgboost" == estimator_name:
-        estimator_class = (
-            XGBoost_TS if task in TS_FORECAST else XGBoostSklearnEstimator
-        )
+        estimator_class = XGBoost_TS if task in TS_FORECAST else XGBoostSklearnEstimator
     elif "xgb_limitdepth" == estimator_name:
         estimator_class = (
-            XGBoostLimitDepth_TS
-            if task in TS_FORECAST
-            else XGBoostLimitDepthEstimator
+            XGBoostLimitDepth_TS if task in TS_FORECAST else XGBoostLimitDepthEstimator
         )
     elif "rf" == estimator_name:
-        estimator_class = (
-            RF_TS if task in TS_FORECAST else RandomForestEstimator
-        )
+        estimator_class = RF_TS if task in TS_FORECAST else RandomForestEstimator
     elif "lgbm" == estimator_name:
         estimator_class = LGBM_TS if task in TS_FORECAST else LGBMEstimator
     elif "lrl1" == estimator_name:
@@ -116,9 +110,7 @@ def get_estimator_class(task, estimator_name):
     elif "catboost" == estimator_name:
         estimator_class = CatBoostEstimator
     elif "extra_tree" == estimator_name:
-        estimator_class = (
-            ExtraTrees_TS if task in TS_FORECAST else ExtraTreesEstimator
-        )
+        estimator_class = ExtraTrees_TS if task in TS_FORECAST else ExtraTreesEstimator
     elif "kneighbor" == estimator_name:
         estimator_class = KNeighborsEstimator
     elif "prophet" in estimator_name:

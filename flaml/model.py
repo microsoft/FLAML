@@ -1821,7 +1821,9 @@ class TS_SKLearn(SKLearnEstimator):
     def __init__(self, task="ts_forecast", **params):
         super().__init__(task, **params)
         self.hcrystaball_model = None
-        self.ts_task = "regression" if task in TS_FORECASTREGRESSION else "classification"
+        self.ts_task = (
+            "regression" if task in TS_FORECASTREGRESSION else "classification"
+        )
 
     def transform_X(self, X):
         cols = list(X)

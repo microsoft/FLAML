@@ -361,25 +361,26 @@ def test_forecast_classification(budget=5):
     from hcrystalball.wrappers import get_sklearn_wrapper
 
     time_horizon = 30
-    df = get_sales_data(n_dates=180,
-                        n_assortments=1,
-                        n_states=1,
-                        n_stores=1)
-    df = df[['Sales', 'Open', 'Promo', 'Promo2']]
+    df = get_sales_data(n_dates=180, n_assortments=1, n_states=1, n_stores=1)
+    df = df[["Sales", "Open", "Promo", "Promo2"]]
     # feature engineering
     import numpy as np
+
     df["above_mean_sales"] = np.where(df["Sales"] > df["Sales"].mean(), 1, 0)
     df.reset_index(inplace=True)
     train_df = df[:-time_horizon]
     test_df = df[-time_horizon:]
-    X_train, X_test = train_df[["Date", "Open", "Promo", "Promo2"]], test_df[["Date", "Open", "Promo", "Promo2"]]
+    X_train, X_test = (
+        train_df[["Date", "Open", "Promo", "Promo2"]],
+        test_df[["Date", "Open", "Promo", "Promo2"]],
+    )
     y_train, y_test = train_df["above_mean_sales"], test_df["above_mean_sales"]
     automl = AutoML()
     settings = {
         "time_budget": budget,  # total running time in seconds
         "metric": "accuracy",  # primary metric
         "task": "ts_forecast_classification",  # task type
-        "log_file_name": "test/sales_classification_forecast.log", #  # flaml log file
+        "log_file_name": "test/sales_classification_forecast.log",  # flaml log file
         "eval_method": "holdout",
     }
     """The main flaml automl API"""
@@ -419,11 +420,11 @@ def test_forecast_classification(budget=5):
     print(automl.min_resource)
     import matplotlib.pyplot as plt
 
-    plt.title('Learning Curve')
-    plt.xlabel('Wall Clock Time (s)')
-    plt.ylabel('Validation Accuracy')
+    plt.title("Learning Curve")
+    plt.xlabel("Wall Clock Time (s)")
+    plt.ylabel("Validation Accuracy")
     plt.scatter(time_history, 1 - np.array(valid_loss_history))
-    plt.step(time_history, 1 - np.array(best_valid_loss_history), where='post')
+    plt.step(time_history, 1 - np.array(best_valid_loss_history), where="post")
     plt.show()
 
 
