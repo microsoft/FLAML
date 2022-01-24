@@ -1,15 +1,31 @@
 def test_classification_head():
     from flaml import AutoML
     import requests
-    from datasets import load_dataset
+    import pandas as pd
 
     try:
-        train_dataset = (
-            load_dataset("emotion", split="train[:1%]").to_pandas().iloc[0:10]
-        )
-        dev_dataset = (
-            load_dataset("emotion", split="train[1%:2%]").to_pandas().iloc[0:10]
-        )
+        train_data = {
+            "text": [
+                "i didnt feel humiliated",
+                "i can go from feeling so hopeless to so damned hopeful just from being around someone who cares and is awake",
+                "im grabbing a minute to post i feel greedy wrong",
+                "i am ever feeling nostalgic about the fireplace i will know that it is still on the property",
+            ],
+            "label": [0, 0, 3, 2],
+        }
+        train_dataset = pd.DataFrame(train_data)
+
+        dev_data = {
+            "text": [
+                "i am feeling grouchy",
+                "ive been feeling a little burdened lately wasnt sure why that was",
+                "ive been taking or milligrams or times recommended amount and ive fallen asleep a lot faster but i also feel like so funny",
+                "i feel as confused about life as a teenager or as jaded as a year old man",
+            ],
+            "label": [3, 0, 5, 4],
+        }
+        dev_dataset = pd.DataFrame(dev_data)
+
     except requests.exceptions.ConnectionError:
         return
 
