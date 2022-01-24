@@ -414,19 +414,19 @@ def test_forecast_classification(budget=5):
     print(automl.resource_attr)
     print(automl.max_resource)
     print(automl.min_resource)
-    import matplotlib.pyplot as plt
-
-    plt.title("Learning Curve")
-    plt.xlabel("Wall Clock Time (s)")
-    plt.ylabel("Validation Accuracy")
-    plt.scatter(time_history, 1 - np.array(valid_loss_history))
-    plt.step(time_history, 1 - np.array(best_valid_loss_history), where="post")
-    plt.show()
+    # import matplotlib.pyplot as plt
+    #
+    # plt.title("Learning Curve")
+    # plt.xlabel("Wall Clock Time (s)")
+    # plt.ylabel("Validation Accuracy")
+    # plt.scatter(time_history, 1 - np.array(valid_loss_history))
+    # plt.step(time_history, 1 - np.array(best_valid_loss_history), where="post")
+    # plt.show()
 
 
 if __name__ == "__main__":
-    # test_forecast_automl(60)
-    # test_multivariate_forecast_num(60)
-    # test_multivariate_forecast_cat(60)
-    # test_numpy()
+    test_forecast_automl(60)
+    test_multivariate_forecast_num(60)
+    test_multivariate_forecast_cat(60)
+    test_numpy()
     test_forecast_classification()
