@@ -5,17 +5,27 @@ from sklearn.model_selection import train_test_split
 from sklearn.datasets import fetch_california_housing
 from sklearn.metrics import mean_squared_error
 
-X, y = fetch_california_housing(return_X_y=True)
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.33, random_state=42
+data = fetch_california_housing(return_X_y=False, as_frame=True)
+df, X, y = data.frame, data.data, data.target
+df_train, _, X_train, X_test, _, y_test = train_test_split(
+    df, X, y, test_size=0.33, random_state=42
 )
+csv_file_name = "test/housing.csv"
+df_train.to_csv(csv_file_name, index=False)
+# X, y = fetch_california_housing(return_X_y=True, as_frame=True)
+# X_train, X_test, y_train, y_test = train_test_split(
+#     X, y, test_size=0.33, random_state=42
+# )
 
 
 def train_lgbm(config: dict) -> dict:
     # convert config dict to lgbm params
     params = LGBMEstimator(**config).params
     # train the model
-    train_set = lightgbm.Dataset(X_train, y_train)
+    # train_set = lightgbm.Dataset(X_train, y_train)
+    train_set = lightgbm.Dataset(
+        csv_file_name, params={"label_column": "name:MedHouseVal", "header": True}
+    )
     model = lightgbm.train(params, train_set)
     # evaluate the model
     pred = model.predict(X_test)
@@ -55,3 +65,4 @@ analysis = tune.run(
     time_budget_s=3,
     num_samples=-1,
 )
+print(analysis.best_result)
