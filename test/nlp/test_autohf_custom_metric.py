@@ -118,7 +118,7 @@ def test_custom_metric():
             y_val=y_val,
             **automl_settings
         )
-    except requests.exceptions.ConnectionError:
+    except requests.exceptions.HTTPError:
         return
 
     # testing calling custom metric in TransformersEstimator._compute_metrics_by_dataset_name

@@ -741,7 +741,7 @@ def test_tokenclassification():
             y_val=y_val,
             **automl_settings
         )
-    except requests.exceptions.ConnectionError:
+    except requests.exceptions.HTTPError:
         return
 
 

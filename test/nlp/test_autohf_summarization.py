@@ -73,7 +73,7 @@ def test_summarization():
             y_val=y_val,
             **automl_settings
         )
-    except requests.exceptions.ConnectionError:
+    except requests.exceptions.HTTPError:
         return
     automl = AutoML()
     automl.retrain_from_log(

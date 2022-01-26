@@ -231,7 +231,7 @@ def test_mcc():
             y_val=y_val,
             **automl_settings
         )
-    except requests.exceptions.ConnectionError:
+    except requests.exceptions.HTTPError:
         return
 
     y_pred = automl.predict(X_test)

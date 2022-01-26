@@ -52,7 +52,7 @@ def test_cv():
 
     try:
         automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
-    except requests.exceptions.ConnectionError:
+    except requests.exceptions.HTTPError:
         return
 
 
