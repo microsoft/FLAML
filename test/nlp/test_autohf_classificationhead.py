@@ -1,6 +1,7 @@
 def test_classification_head():
     from flaml import AutoML
     import pandas as pd
+    import requests
 
     train_data = {
         "text": [
@@ -58,6 +59,13 @@ def test_classification_head():
         "fp16": False,
     }
 
-    automl.fit(
-        X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
-    )
+    try:
+        automl.fit(
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
+            **automl_settings
+        )
+    except requests.exceptions.ConnectionError:
+        return

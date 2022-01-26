@@ -10,6 +10,7 @@ def test_regression():
         return
     from flaml import AutoML
     import pandas as pd
+    import requests
 
     train_data = {
         "sentence1": [
@@ -77,9 +78,16 @@ def test_regression():
 
     ray.shutdown()
     ray.init()
-    automl.fit(
-        X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
-    )
+    try:
+        automl.fit(
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
+            **automl_settings
+        )
+    except requests.exceptions.ConnectionError:
+        return
     automl.predict(X_val)
 
 
