@@ -383,7 +383,9 @@ class TestAutoVW(unittest.TestCase):
             "final average loss:", sum(cumulative_loss_list) / len(cumulative_loss_list)
         )
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="do not run on windows")
+    @pytest.mark.skipif(
+        sys.platform in ["win32", "darwin"], reason="do not run on windows or mac"
+    )
     def test_supervised_vw_tune_namespace(self):
         # basic experiment setting
         from flaml import AutoVW
@@ -409,7 +411,9 @@ class TestAutoVW(unittest.TestCase):
             "final average loss:", sum(cumulative_loss_list) / len(cumulative_loss_list)
         )
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="do not run on windows")
+    @pytest.mark.skipif(
+        sys.platform in ["win32", "darwin"], reason="do not run on windows or mac"
+    )
     def test_supervised_vw_tune_namespace_learningrate(self):
         from flaml import AutoVW
 
