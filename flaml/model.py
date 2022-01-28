@@ -1814,7 +1814,8 @@ class TS_SKLearn(SKLearnEstimator):
                 },
                 "lags": {
                     "domain": tune.randint(
-                        lower=1, upper=np.floor(np.sqrt(data_size[0]))
+                        lower=1, upper=int(np.sqrt(data_size[0]))
+
                     ),
                     "init_value": 3,
                 },
