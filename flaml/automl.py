@@ -1673,7 +1673,7 @@ class AutoML(BaseEstimator):
                     search_state.training_function = with_parameters(
                         AutoMLState._compute_with_config_base,
                         self=self._state,
-                        estimato=estimator,
+                        estimator=estimator,
                     )
                 else:
                     search_state.training_function = partial(
