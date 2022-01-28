@@ -1667,9 +1667,18 @@ class AutoML(BaseEstimator):
         for estimator in self.estimator_list:
             search_state = self._search_states[estimator]
             if not hasattr(search_state, "training_function"):
-                search_state.training_function = partial(
-                    AutoMLState._compute_with_config_base, self._state, estimator
-                )
+                if self._use_ray:
+                    from ray.tune import with_parameters
+
+                    search_state.training_function = with_parameters(
+                        AutoMLState._compute_with_config_base,
+                        self=self._state,
+                        estimato=estimator,
+                    )
+                else:
+                    search_state.training_function = partial(
+                        AutoMLState._compute_with_config_base, self._state, estimator
+                    )
         states = self._search_states
         mem_res = self._mem_thres
 
