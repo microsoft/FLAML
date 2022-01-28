@@ -1,17 +1,15 @@
 import unittest
-
+import pytest
+import sys
 import numpy as np
 import scipy.sparse
-
 import pandas as pd
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import logging
-from flaml.tune import loguniform, polynomial_expansion_set
-from vowpalwabbit import pyvw
-from flaml import AutoVW
 import string
 import os
 import openml
+from flaml.tune import loguniform, polynomial_expansion_set
 
 VW_DS_DIR = "test/data/"
 NS_LIST = list(string.ascii_lowercase) + list(string.ascii_uppercase)
@@ -129,8 +127,6 @@ def get_oml_to_vw(did, max_ns_num, ds_dir=VW_DS_DIR):
 
 
 def load_vw_dataset(did, ds_dir, is_regression, max_ns_num):
-    import os
-
     if is_regression:
         # the second field specifies the largest number of namespaces using.
         fname = "ds_{}_{}_{}.vw".format(did, max_ns_num, 0)
@@ -206,6 +202,8 @@ def get_data(
 
 class VowpalWabbitNamesspaceTuningProblem:
     def __init__(self, max_iter_num, dataset_id, ns_num, **kwargs):
+        from flaml import AutoVW
+
         use_log = (kwargs.get("use_log", True),)
         shuffle = kwargs.get("shuffle", False)
         vw_format = kwargs.get("vw_format", True)
@@ -366,6 +364,11 @@ def get_vw_tuning_problem(tuning_hp="NamesapceInteraction"):
 
 class TestAutoVW(unittest.TestCase):
     def test_vw_oml_problem_and_vanilla_vw(self):
+        try:
+            from vowpalwabbit import pyvw
+        except ImportError:
+            return
+
         vw_oml_problem_args, vw_online_aml_problem = get_vw_tuning_problem()
         vanilla_vw = pyvw.vw(**vw_oml_problem_args["fixed_hp_config"])
         cumulative_loss_list = online_learning_loop(
@@ -380,8 +383,11 @@ class TestAutoVW(unittest.TestCase):
             "final average loss:", sum(cumulative_loss_list) / len(cumulative_loss_list)
         )
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="do not run on windows")
     def test_supervised_vw_tune_namespace(self):
         # basic experiment setting
+        from flaml import AutoVW
+
         vw_oml_problem_args, vw_online_aml_problem = get_vw_tuning_problem()
         autovw = AutoVW(
             max_live_model_num=5,
@@ -403,7 +409,10 @@ class TestAutoVW(unittest.TestCase):
             "final average loss:", sum(cumulative_loss_list) / len(cumulative_loss_list)
         )
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="do not run on windows")
     def test_supervised_vw_tune_namespace_learningrate(self):
+        from flaml import AutoVW
+
         # basic experiment setting
         vw_oml_problem_args, vw_online_aml_problem = get_vw_tuning_problem(
             tuning_hp="NamesapceInteraction+LearningRate"
