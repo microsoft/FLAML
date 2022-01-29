@@ -4,6 +4,23 @@ import pickle
 import shutil
 
 
+def _test_xgboost():
+    from flaml import AutoML
+    from sklearn.datasets import make_moons
+
+    train, label = make_moons(
+        n_samples=300000, shuffle=True, noise=0.3, random_state=None
+    )
+    automl = AutoML()
+    automl.fit(
+        train,
+        label,
+        estimator_list=["xgboost", "xgb_limitdepth"],
+        time_budget=2,
+        gpu_per_trial=1,
+    )
+
+
 @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
 def _test_hf_data():
     from flaml import AutoML
@@ -79,4 +96,5 @@ def _test_hf_data():
 
 
 if __name__ == "__main__":
+    _test_xgboost()
     _test_hf_data()
