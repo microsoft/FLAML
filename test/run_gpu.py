@@ -7,6 +7,19 @@ import shutil
 def _test_xgboost():
     from flaml import AutoML
     from sklearn.datasets import make_moons
+    import scipy.sparse
+    import numpy as np
+
+    X_train = scipy.sparse.eye(900000)
+    y_train = np.random.randint(2, size=900000)
+    automl = AutoML()
+    automl.fit(
+        X_train,
+        y_train,
+        estimator_list=["xgb_limitdepth", "xgboost"],
+        time_budget=5,
+        gpu_per_trial=1,
+    )
 
     train, label = make_moons(
         n_samples=300000, shuffle=True, noise=0.3, random_state=None
