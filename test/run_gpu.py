@@ -15,9 +15,15 @@ def _test_xgboost():
     automl.fit(
         train,
         label,
-        estimator_list=["xgboost", "xgb_limitdepth"],
-        time_budget=2,
+        estimator_list=["xgb_limitdepth", "xgboost"],
+        time_budget=5,
         gpu_per_trial=1,
+    )
+    automl.fit(
+        train,
+        label,
+        estimator_list=["xgb_limitdepth", "xgboost"],
+        time_budget=5,
     )
 
 
