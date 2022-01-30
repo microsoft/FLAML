@@ -219,7 +219,7 @@ def test_mcc():
     automl_settings["custom_hpo_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "test/data/output/",
-        "ckpt_per_epoch": 5,
+        "ckpt_per_epoch": 1,
         "fp16": False,
     }
 

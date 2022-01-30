@@ -61,7 +61,7 @@ def test_summarization():
     automl_settings["custom_hpo_args"] = {
         "model_path": "patrickvonplaten/t5-tiny-random",
         "output_dir": "test/data/output/",
-        "ckpt_per_epoch": 5,
+        "ckpt_per_epoch": 1,
         "fp16": False,
     }
 
