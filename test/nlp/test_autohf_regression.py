@@ -10,7 +10,6 @@ def test_regression():
         return
     from flaml import AutoML
     import pandas as pd
-    import requests
 
     train_data = {
         "sentence1": [
