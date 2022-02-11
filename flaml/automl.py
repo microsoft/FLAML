@@ -295,6 +295,7 @@ class AutoMLState:
         if sampled_weight is not None:
             state.fit_kwargs["sample_weight"] = weight
         tune.report(**result)
+        return result
 
     def _train_with_config(
         self,
