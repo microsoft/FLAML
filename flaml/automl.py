@@ -562,8 +562,9 @@ class AutoML(BaseEstimator):
 
             seed: int or None, default=None | The random seed for hpo.
             n_concurrent_trials: [Experimental] int, default=1 | The number of
-                concurrent trials. For n_concurrent_trials > 1, installation of
-                ray is required: `pip install flaml[ray]`.
+                concurrent trials. When n_concurrent_trials > 1, flaml performes
+                [parallel tuning](https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML#parallel-tuning)
+                is enabled and installation of ray is required: `pip install flaml[ray]`.
             keep_search_state: boolean, default=False | Whether to keep data needed
                 for model search after fit(). By default the state is deleted for
                 space saving.
