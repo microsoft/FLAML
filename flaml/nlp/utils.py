@@ -27,9 +27,6 @@ def load_default_huggingface_metric_for_task(task):
         return "seqeval"
 
 
-global tokenized_column_names
-
-
 def get_auto_tokenizer(model_path, task):
     from transformers import AutoTokenizer
 
@@ -97,10 +94,8 @@ def tokenize_seq2seq(X, Y, tokenizer, task=None, custom_hpo_args=None):
 
 
 def tokenize_and_align_labels(
-    examples, tokenizer, custom_hpo_args=None, X_sent_key=None, Y_sent_key=None
+    examples, tokenizer, custom_hpo_args=None, X_sent_key=None, Y_sent_key=None, is_return_column_name=False
 ):
-    global tokenized_column_names
-
     tokenized_inputs = tokenizer(
         [list(examples[X_sent_key])],
         padding="max_length",
@@ -134,29 +129,38 @@ def tokenize_and_align_labels(
                 #     label_ids.append(b_to_i_label[label_to_id[label[word_idx]]])
             previous_word_idx = word_idx
         tokenized_inputs["label"] = label_ids
-    tokenized_column_names = sorted(tokenized_inputs.keys())
-    tokenized_input_and_labels = [tokenized_inputs[x] for x in tokenized_column_names]
-    for key_idx, each_key in enumerate(tokenized_column_names):
+    tmp_column_names = sorted(tokenized_inputs.keys())
+    tokenized_input_and_labels = [tokenized_inputs[x] for x in tmp_column_names]
+    for key_idx, each_key in enumerate(tmp_column_names):
         if each_key != "label":
             tokenized_input_and_labels[key_idx] = tokenized_input_and_labels[key_idx][0]
-    return tokenized_input_and_labels
+    if is_return_column_name:
+        return tokenized_input_and_labels, tmp_column_names
+    else:
+        return tokenized_input_and_labels
 
 
 def tokenize_text_tokclassification(X, Y, tokenizer, custom_hpo_args=None):
     import pandas as pd
 
-    global tokenized_column_names
     if Y is not None:
         X_and_Y = pd.concat([X, Y.to_frame()], axis=1)
         X_key = list(X.keys())[0]
         Y_key = list(Y.to_frame().keys())[0]
+        _, tokenized_column_names = tokenize_and_align_labels(
+                                        X_and_Y.iloc[0],
+                                        tokenizer=tokenizer,
+                                        custom_hpo_args=custom_hpo_args,
+                                        X_sent_key=X_key,
+                                        Y_sent_key=Y_key,
+                                        is_return_column_name=True)
         X_and_Y_tokenized = X_and_Y.apply(
             lambda x: tokenize_and_align_labels(
                 x,
                 tokenizer=tokenizer,
                 custom_hpo_args=custom_hpo_args,
                 X_sent_key=X_key,
-                Y_sent_key=Y_key,
+                Y_sent_key=Y_key
             ),
             axis=1,
             result_type="expand",
@@ -170,6 +174,14 @@ def tokenize_text_tokclassification(X, Y, tokenizer, custom_hpo_args=None):
         y_tokenized = X_and_Y_tokenized.iloc[:, label_idx]
     else:
         X_key = list(X.keys())[0]
+
+        _, tokenized_column_names = tokenize_and_align_labels(X.iloc[0],
+                                                              tokenizer=tokenizer,
+                                                              custom_hpo_args=custom_hpo_args,
+                                                              X_sent_key=X_key,
+                                                              Y_sent_key=None,
+                                                              is_return_column_name=True)
+
         d = X.apply(
             lambda x: tokenize_and_align_labels(
                 x,
@@ -197,9 +209,13 @@ def tokenize_onedataframe(
 ):
     import pandas
 
-    global tokenized_column_names
-
     with tokenizer.as_target_tokenizer():
+        _, tokenized_column_names = tokenize_row(dict(X.iloc[0]),
+                                                 tokenizer,
+                                                 prefix=(prefix_str,) if task is SUMMARIZATION else None,
+                                                 task=task,
+                                                 custom_hpo_args=custom_hpo_args,
+                                                 is_return_column_name=True)
         d = X.apply(
             lambda x: tokenize_row(
                 x,
@@ -211,9 +227,9 @@ def tokenize_onedataframe(
             axis=1,
             result_type="expand",
         )
-    X_tokenized = pandas.DataFrame(columns=tokenized_column_names)
-    X_tokenized[tokenized_column_names] = d
-    return X_tokenized
+        X_tokenized = pandas.DataFrame(columns=tokenized_column_names)
+        X_tokenized[tokenized_column_names] = d
+        return X_tokenized
 
 
 def postprocess_text(preds, labels):
@@ -230,8 +246,7 @@ def postprocess_text(preds, labels):
     return preds, labels
 
 
-def tokenize_row(this_row, tokenizer, prefix=None, task=None, custom_hpo_args=None):
-    global tokenized_column_names
+def tokenize_row(this_row, tokenizer, prefix=None, task=None, custom_hpo_args=None, is_return_column_name=False):
     assert (
         "max_seq_length" in custom_hpo_args.__dict__
     ), "max_seq_length must be provided for glue"
@@ -247,18 +262,24 @@ def tokenize_row(this_row, tokenizer, prefix=None, task=None, custom_hpo_args=No
     )
     if task in NLG_TASKS:
         tokenized_example["decoder_input_ids"] = tokenized_example["input_ids"]
-    tokenized_column_names = sorted(tokenized_example.keys())
-    return [tokenized_example[x] for x in tokenized_column_names]
-
+    tmp_column_names = sorted(tokenized_example.keys())
+    if is_return_column_name:
+        return [tokenized_example[x] for x in tmp_column_names], tmp_column_names
+    else:
+        return [tokenized_example[x] for x in tmp_column_names]
 
 def tokenize_text_multiplechoice(X, tokenizer, custom_hpo_args=None):
     import pandas
 
-    global tokenized_column_names
-
     t = X[["sent1", "sent2", "ending0", "ending1", "ending2", "ending3"]]
+    _, tokenized_column_names = tokenize_swag(t.iloc[0],
+                                              tokenizer=tokenizer,
+                                              custom_hpo_args=custom_hpo_args,
+                                              is_return_column_name=True)
     d = t.apply(
-        lambda x: tokenize_swag(x, tokenizer, custom_hpo_args),
+        lambda x: tokenize_swag(x,
+                                tokenizer = tokenizer,
+                                custom_hpo_args = custom_hpo_args),
         axis=1,
         result_type="expand",
     )
@@ -269,9 +290,7 @@ def tokenize_text_multiplechoice(X, tokenizer, custom_hpo_args=None):
     return output, None
 
 
-def tokenize_swag(this_row, tokenizer, custom_hpo_args=None):
-    global tokenized_column_names
-
+def tokenize_swag(this_row, tokenizer, custom_hpo_args=None, is_return_column_name=False):
     first_sentences = [[this_row["sent1"]] * 4]
     # get each 1st sentence, multiply to 4 sentences
     question_headers = this_row["sent2"]
@@ -292,8 +311,12 @@ def tokenize_swag(this_row, tokenizer, custom_hpo_args=None):
         max_length=custom_hpo_args.max_seq_length,
         padding=False,
     )
-    tokenized_column_names = sorted(tokenized_example.keys())
-    return [tokenized_example[x] for x in tokenized_column_names]
+    tmp_column_names = sorted(tokenized_example.keys())
+
+    if is_return_column_name:
+        return [tokenized_example[x] for x in tmp_column_names], tmp_column_names
+    else:
+        return [tokenized_example[x] for x in tmp_column_names]
 
 
 def separate_config(config, task):
