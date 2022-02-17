@@ -9,25 +9,29 @@ pip install "flaml[nlp]"
 
 ### A simple sequence classification example
 
+To use the sequence classification module in FLAML, simply load your data, convert it to the pandas format, and call automl.fit:
+
 ```python
 from flaml import AutoML
 from datasets import load_dataset
 
-train_dataset = load_dataset("glue", "mrpc", split="train").to_pandas()
+train_dataset = load_dataset("glue", "mrpc", split="train").to_pandas()  
 dev_dataset = load_dataset("glue", "mrpc", split="validation").to_pandas()
 test_dataset = load_dataset("glue", "mrpc", split="test").to_pandas()
-custom_sent_keys = ["sentence1", "sentence2"]
-label_key = "label"
+
+custom_sent_keys = ["sentence1", "sentence2"]          # specify the column names of the input sentences
+label_key = "label"                                    # specify the column name of the label
+
 X_train, y_train = train_dataset[custom_sent_keys], train_dataset[label_key]
 X_val, y_val = dev_dataset[custom_sent_keys], dev_dataset[label_key]
 X_test = test_dataset[custom_sent_keys]
 
 automl = AutoML()
 automl_settings = {
-    "time_budget": 100,
-    "task": "seq-classification",
-    "custom_hpo_args": {"output_dir": "data/output/"},
-    "gpu_per_trial": 1,  # set to 0 if no GPU is available
+    "time_budget": 100,                                 # setting the time budget
+    "task": "seq-classification",                       # specifying your task is seq-classification 
+    "custom_hpo_args": {"output_dir": "data/output/"},  # specifying your output directory
+    "gpu_per_trial": 1,                                 # set to 0 if no GPU is available
 }
 automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings)
 automl.predict(X_test)
@@ -53,6 +57,8 @@ automl.predict(X_test)
 
 ### A simple sequence regression example
 
+Sequence regression is for tasks such as predicting the likert scales from reviews. The usage is similar to sequence classification:  
+
 ```python
 from flaml import AutoML
 from datasets import load_dataset
@@ -63,8 +69,10 @@ train_dataset = (
 dev_dataset = (
     load_dataset("glue", "stsb", split="train").to_pandas()
 )
-custom_sent_keys = ["sentence1", "sentence2"]
-label_key = "label"
+
+custom_sent_keys = ["sentence1", "sentence2"]   # specify the column names of the input sentences
+label_key = "label"                             # specify the column name of the label
+
 X_train = train_dataset[custom_sent_keys]
 y_train = train_dataset[label_key]
 X_val = dev_dataset[custom_sent_keys]
@@ -72,10 +80,10 @@ y_val = dev_dataset[label_key]
 
 automl = AutoML()
 automl_settings = {
-    "gpu_per_trial": 0,
-    "time_budget": 20,
-    "task": "seq-regression",
-    "metric": "rmse",
+    "gpu_per_trial": 0,   
+    "time_budget": 20,                          # specifying the time budget
+    "task": "seq-regression",                   # setting the task to sequence regression
+    "metric": "rmse",                           # setting the evaluation metric 
 }
 automl_settings["custom_hpo_args"] = {
     "model_path": "google/electra-small-discriminator",
@@ -88,18 +96,10 @@ automl.fit(
 )
 ```
 
-#### Sample output
-
-```
-[flaml.automl: 12-20 11:47:28] {1965} INFO - task = seq-regression
-[flaml.automl: 12-20 11:47:28] {1967} INFO - Data split method: uniform
-[flaml.automl: 12-20 11:47:28] {1971} INFO - Evaluation method: holdout
-[flaml.automl: 12-20 11:47:28] {2063} INFO - Minimizing error metric: rmse
-[flaml.automl: 12-20 11:47:28] {2115} INFO - List of ML learners in AutoML Run: ['transformer']
-[flaml.automl: 12-20 11:47:28] {2355} INFO - iteration 0, current learner transformer
-```
 
 ### A simple summarization example
+
+Similarly, you can use FLAML for summarizing a long document into a short document: 
 
 ```python
 from flaml import AutoML
@@ -111,8 +111,9 @@ train_dataset = (
 dev_dataset = (
     load_dataset("xsum", split="validation").to_pandas()
 )
-custom_sent_keys = ["document"]
-label_key = "summary"
+
+custom_sent_keys = ["document"]                  # specify the column names of the input document, i.e., the original document
+label_key = "summary"                            # specify the column name of the output summarization
 
 X_train = train_dataset[custom_sent_keys]
 y_train = train_dataset[label_key]
@@ -123,9 +124,9 @@ y_val = dev_dataset[label_key]
 automl = AutoML()
 automl_settings = {
     "gpu_per_trial": 1,
-    "time_budget": 20,
-    "task": "summarization",
-    "metric": "rouge1",
+    "time_budget": 20,                           # specifying the time budget
+    "task": "summarization",                     # setting the task to summarization
+    "metric": "rouge1",                          # setting the metric 
 }
 automl_settings["custom_hpo_args"] = {
     "model_path": "t5-small",
@@ -137,72 +138,126 @@ automl.fit(
     X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
 )
 ```
-#### Sample Output
 
-```
-[flaml.automl: 12-20 11:44:03] {1965} INFO - task = summarization
-[flaml.automl: 12-20 11:44:03] {1967} INFO - Data split method: uniform
-[flaml.automl: 12-20 11:44:03] {1971} INFO - Evaluation method: holdout
-[flaml.automl: 12-20 11:44:03] {2063} INFO - Minimizing error metric: -rouge
-[flaml.automl: 12-20 11:44:03] {2115} INFO - List of ML learners in AutoML Run: ['transformer']
-[flaml.automl: 12-20 11:44:03] {2355} INFO - iteration 0, current learner transformer
-loading configuration file https://huggingface.co/t5-small/resolve/main/config.json from cache at /home/xliu127/.cache/huggingface/transformers/fe501e8fd6425b8ec93df37767fcce78ce626e34cc5edc859c662350cf712e41.406701565c0afd9899544c1cb8b93185a76f00b31e5ce7f6e18bbaef02241985
-Model config T5Config {
-  "_name_or_path": "t5-small",
-  "architectures": [
-    "T5WithLMHeadModel"
-  ],
-  "d_ff": 2048,
-  "d_kv": 64,
-  "d_model": 512,
-  "decoder_start_token_id": 0,
-  "dropout_rate": 0.1,
-  "eos_token_id": 1,
-  "feed_forward_proj": "relu",
-  "initializer_factor": 1.0,
-  "is_encoder_decoder": true,
-  "layer_norm_epsilon": 1e-06,
-  "model_type": "t5",
-  "n_positions": 512,
-  "num_decoder_layers": 6,
-  "num_heads": 8,
-  "num_layers": 6,
-  "output_past": true,
-  "pad_token_id": 0,
-  "relative_attention_num_buckets": 32,
-  "task_specific_params": {
-    "summarization": {
-      "early_stopping": true,
-      "length_penalty": 2.0,
-      "max_length": 200,
-      "min_length": 30,
-      "no_repeat_ngram_size": 3,
-      "num_beams": 4,
-      "prefix": "summarize: "
-    },
-    "translation_en_to_de": {
-      "early_stopping": true,
-      "max_length": 300,
-      "num_beams": 4,
-      "prefix": "translate English to German: "
-    },
-    "translation_en_to_fr": {
-      "early_stopping": true,
-      "max_length": 300,
-      "num_beams": 4,
-      "prefix": "translate English to French: "
-    },
-    "translation_en_to_ro": {
-      "early_stopping": true,
-      "max_length": 300,
-      "num_beams": 4,
-      "prefix": "translate English to Romanian: "
+### A simple token classification example
+
+The token classification can be used for tasks such as named entity recognition and part-of-speech tagging. An example of using FLAML for NER is:
+
+```python
+from flaml import AutoML
+from datasets import load_dataset
+
+train_dataset = (
+    load_dataset("conll2003", split="train").to_pandas()
+)
+dev_dataset = (
+    load_dataset("conll2003", split="validation").to_pandas()
+)
+
+custom_sent_keys = ["tokens"]                   # specify the column names of the input data
+label_key = "ner_tags"                          # specify the column name of the output token tags
+
+X_train = train_dataset[custom_sent_keys]
+y_train = train_dataset[label_key]
+
+X_val = dev_dataset[custom_sent_keys]
+y_val = dev_dataset[label_key]
+
+automl = AutoML()
+automl_settings = {
+        "gpu_per_trial": 0,
+        "max_iter": 2,
+        "time_budget": 5,                       # specify the time budget 
+        "task": "token-classification",         # specify the task to token classification
+        "metric": "seqeval",                    # specify the metric
     }
-  },
-  "transformers_version": "4.14.1",
-  "use_cache": true,
-  "vocab_size": 32128
-}
+
+automl_settings["custom_hpo_args"] = {
+        "model_path": "bert-base-uncased",
+        "output_dir": "test/data/output/",
+        "ckpt_per_epoch": 1,
+        "fp16": False,
+    }
+automl.fit(
+    X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
+)
+```
+
+### A simple multiple choice example
+
+The multiple choice task is for selecting from options to finish a sentence based on common sense reasoning. For example:
+
+On stage, a woman takes a seat at the piano. She
+a) sits on a bench as her sister plays with the doll.
+b) smiles with someone as the music plays.
+c) is in the crowd, watching the dancers.
+d) nervously sets her fingers on the keys
+
+An example of running FLAML for the multiple choice task:
+
+```python
+from flaml import AutoML
+from datasets import load_dataset
+
+train_dataset = (
+    load_dataset("swag", split="train").to_pandas()
+)
+dev_dataset = (
+    load_dataset("swag", split="validation").to_pandas()
+)
+
+custom_sent_keys = [                            # specify the column names of the first sentence and choices
+        "sent1",
+        "sent2",
+        "ending0",
+        "ending1",
+        "ending2",
+        "ending3",
+        "gold-source",
+        "video-id",
+        "startphrase",
+        "fold-ind",
+    ]
+label_key = "label"                         # specify the column name of the output token tags
+
+X_train = train_dataset[custom_sent_keys]
+y_train = train_dataset[label_key]
+
+X_val = dev_dataset[custom_sent_keys]
+y_val = dev_dataset[label_key]
+
+automl = AutoML()
+automl_settings = {
+        "gpu_per_trial": 0,
+        "max_iter": 2,
+        "time_budget": 5,                      # specify the time budget 
+        "task": "multichoice-classification",  # specify the task to multiple choice
+        "metric": "accuracy",                  # specify the evaluation metric
+        "log_file_name": "seqclass.log",
+    }
+
+automl_settings["custom_hpo_args"] = {
+        "model_path": "google/electra-small-discriminator",
+        "output_dir": "test/data/output/",
+        "ckpt_per_epoch": 1,
+        "fp16": False,
+    }
+automl.fit(
+    X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
+)
+```
+
+### A simple example of running your own dataset
+
+If you want to run your own dataset in csv or json, simply load it into a pandas dataframe and the rest are the same:
+
+```python
+from flaml import AutoML
+from datasets import load_dataset
+
+train_dataset = pd.read_csv("train.tsv", delimiter="\t", quoting=3)
+dev_dataset = pd.read_csv("dev.tsv", delimiter="\t", quoting=3)
+test_dataset = pd.read_csv("test.tsv", delimiter="\t", quoting=3)
 ```
 
 For tasks that are not currently supported, use `flaml.tune` for [customized tuning](Tune-HuggingFace).
