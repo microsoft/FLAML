@@ -16,8 +16,8 @@ from datasets import load_dataset
 train_dataset = load_dataset("glue", "mrpc", split="train").to_pandas()
 dev_dataset = load_dataset("glue", "mrpc", split="validation").to_pandas()
 test_dataset = load_dataset("glue", "mrpc", split="test").to_pandas()
-custom_sent_keys = ["sentence1", "sentence2"]
-label_key = "label"
+custom_sent_keys = ["sentence1", "sentence2"] # specifying the sentence keys (column names of your input)
+label_key = "label"                           # specifying the label key (column name of your label)
 X_train, y_train = train_dataset[custom_sent_keys], train_dataset[label_key]
 X_val, y_val = dev_dataset[custom_sent_keys], dev_dataset[label_key]
 X_test = test_dataset[custom_sent_keys]
