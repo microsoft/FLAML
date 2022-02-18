@@ -539,6 +539,7 @@ class TransformersEstimator(BaseEstimator):
                 metric_for_best_model="loss",
                 fp16=self.custom_hpo_args.fp16,
                 **training_args_config,
+                no_cuda=True if kwargs.get("gpu_per_trial") == 0 else False
             )
         else:
             from transformers import IntervalStrategy
@@ -557,6 +558,7 @@ class TransformersEstimator(BaseEstimator):
                 metric_for_best_model="loss",
                 fp16=self.custom_hpo_args.fp16,
                 **training_args_config,
+                no_cuda=True if kwargs.get("gpu_per_trial") == 0 else False
             )
 
         self._trainer = TrainerForAuto(
@@ -580,6 +582,10 @@ class TransformersEstimator(BaseEstimator):
             setattr(self._trainer, "_is_seq2seq", True)
         if kwargs.get("gpu_per_trial"):
             self._trainer.args._n_gpu = kwargs.get("gpu_per_trial")
+
+        if kwargs.get("gpu_per_trial") == 0:
+            os.environ["CUDA_VISIBLE_DEVICES"]=""
+
         self._trainer.train()
 
         self.params[self.ITER_HP] = self._trainer.state.global_step
