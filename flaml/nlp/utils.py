@@ -410,14 +410,17 @@ def get_logdir_name(dirname, local_dir):
     return logdir
 
 
-def get_trial_fold_name(local_dir, trial_config, trial_id):
-    global counter
-    counter = counter + 1
-    experiment_tag = "{0}_{1}".format(str(counter), format_vars(trial_config))
-    logdir = get_logdir_name(
-        _generate_dirname(experiment_tag, trial_id=trial_id), local_dir
-    )
-    return logdir
+class Counter:
+    counter = 0
+
+    @staticmethod
+    def get_trial_fold_name(local_dir, trial_config, trial_id):
+        Counter.counter += 1
+        experiment_tag = "{0}_{1}".format(str(Counter.counter), format_vars(trial_config))
+        logdir = get_logdir_name(
+            _generate_dirname(experiment_tag, trial_id=trial_id), local_dir
+        )
+        return logdir
 
 
 def load_model(checkpoint_path, task, num_labels, per_model_config=None):

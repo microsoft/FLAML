@@ -413,7 +413,7 @@ class TransformersEstimator(BaseEstimator):
             separate_config,
             load_model,
             compute_checkpoint_freq,
-            get_trial_fold_name,
+            Counter,
             date_str,
         )
 
@@ -519,7 +519,7 @@ class TransformersEstimator(BaseEstimator):
 
         if not self.use_ray:
             # if self.params = {}, don't include configuration in trial fold name
-            trial_dir = get_trial_fold_name(local_dir, self.params, self.trial_id)
+            trial_dir = Counter.get_trial_fold_name(local_dir, self.params, self.trial_id)
         else:
             import ray
 
