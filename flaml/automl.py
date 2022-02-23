@@ -2200,7 +2200,7 @@ class AutoML(BaseEstimator):
                     get_estimator_class(self._state.task, estimator_name),
                 )
         # set up learner search space
-        if starting_points.startswith("data"):
+        if isinstance(starting_points, str) and starting_points.startswith("data"):
             from flaml.default import suggest_config
 
             location = starting_points[5:]
@@ -2234,8 +2234,7 @@ class AutoML(BaseEstimator):
             except FileNotFoundError:
                 pass
 
-        elif isinstance(starting_points, str):
-            starting_points = {}
+        starting_points = {} if starting_points == "static" else starting_points
         for estimator_name in estimator_list:
             estimator_class = self._state.learner_classes[estimator_name]
             estimator_class.init()
