@@ -100,7 +100,7 @@ class BlendSearch(Searcher):
                 needed for a config.
                 It is used to skip configs which do not fit in memory.
             metric_constraints: A list of metric constraints to be satisfied.
-                E.g., `['precision', '>=', 0.9]`.
+                E.g., `['precision', '>=', 0.9]`. The sign can be ">=" or "<=".
             seed: An integer of the random seed.
             experimental: A bool of whether to use experimental features.
         """
@@ -130,7 +130,10 @@ class BlendSearch(Searcher):
             self._evaluated_rewards = evaluated_rewards or []
         self._config_constraints = config_constraints
         self._metric_constraints = metric_constraints
-        if self._metric_constraints:
+        if metric_constraints:
+            assert all(
+                x[1] in ["<=", ">="] for x in metric_constraints
+            ), "sign of metric constraints must be <= or >=."
             # metric modified by lagrange
             metric += self.lagrange
         self._cat_hp_cost = cat_hp_cost or {}
@@ -155,7 +158,7 @@ class BlendSearch(Searcher):
                 from functools import partial
 
                 gs_space = partial(define_by_run_func, space=space)
-                evaluated_rewards = None  # not supproted by define-by-run
+                evaluated_rewards = None  # not supported by define-by-run
             else:
                 gs_space = space
             gs_seed = seed - 10 if (seed - 10) >= 0 else seed - 11 + (1 << 32)
@@ -348,7 +351,6 @@ class BlendSearch(Searcher):
                 metric_constraint, sign, threshold = constraint
                 value = result.get(metric_constraint)
                 if value:
-                    # sign is <= or >=
                     sign_op = 1 if sign == "<=" else -1
                     violation = (value - threshold) * sign_op
                     if violation > 0:
@@ -748,6 +750,10 @@ class BlendSearch(Searcher):
                     and value > threshold
                     or sign == ">="
                     and value < threshold
+                    or sign == ">"
+                    and value <= threshold
+                    or sign == "<"
+                    and value > threshold
                 ):
                     self._result[config_signature] = {
                         self._metric: np.inf * self._ls.metric_op,

@@ -1,5 +1,5 @@
 # !
-#  * Copyright (c) Microsoft Corporation. All rights reserved.
+#  * Copyright (c) FLAML authors. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
 from contextlib import contextmanager
@@ -16,11 +16,13 @@ from sklearn.dummy import DummyClassifier, DummyRegressor
 from scipy.sparse import issparse
 import logging
 import shutil
+from pandas import DataFrame, Series, to_datetime
+import sys
 from . import tune
 from .data import (
     group_counts,
     CLASSIFICATION,
-    TS_FORECAST,
+    TS_FORECASTREGRESSION,
     TS_TIMESTAMP_COL,
     TS_VALUE_COL,
     SEQCLASSIFICATION,
@@ -30,10 +32,6 @@ from .data import (
     NLG_TASKS,
     MULTICHOICECLASSIFICATION,
 )
-
-import pandas as pd
-from pandas import DataFrame, Series
-import sys
 
 try:
     import psutil
@@ -199,32 +197,32 @@ class BaseEstimator:
             train_time = self._fit(X_train, y_train, **kwargs)
         return train_time
 
-    def predict(self, X_test):
+    def predict(self, X):
         """Predict label from features.
 
         Args:
-            X_test: A numpy array or a dataframe of featurized instances, shape n*m.
+            X: A numpy array or a dataframe of featurized instances, shape n*m.
 
         Returns:
             A numpy array of shape n*1.
             Each element is the label for a instance.
         """
         if self._model is not None:
-            X_test = self._preprocess(X_test)
-            return self._model.predict(X_test)
+            X = self._preprocess(X)
+            return self._model.predict(X)
         else:
             logger.warning(
                 "Estimator is not fit yet. Please run fit() before predict()."
             )
-            return np.ones(X_test.shape[0])
+            return np.ones(X.shape[0])
 
-    def predict_proba(self, X_test):
+    def predict_proba(self, X):
         """Predict the probability of each class from features.
 
         Only works for classification problems
 
         Args:
-            X_test: A numpy array of featurized instances, shape n*m.
+            X: A numpy array of featurized instances, shape n*m.
 
         Returns:
             A numpy array of shape n*c. c is the # classes.
@@ -233,8 +231,8 @@ class BaseEstimator:
         """
         assert self._task in CLASSIFICATION, "predict_proba() only for classification."
 
-        X_test = self._preprocess(X_test)
-        return self._model.predict_proba(X_test)
+        X = self._preprocess(X)
+        return self._model.predict_proba(X)
 
     def cleanup(self):
         del self._model
@@ -290,6 +288,8 @@ class BaseEstimator:
             A dict that will be passed to self.estimator_class's constructor.
         """
         params = config.copy()
+        if "FLAML_sample_size" in params:
+            params.pop("FLAML_sample_size")
         return params
 
 
@@ -325,6 +325,7 @@ class TransformersEstimator(BaseEstimator):
             },
             "num_train_epochs": {
                 "domain": tune.loguniform(lower=0.1, upper=10.0),
+                "init_value": 3,
             },
             "per_device_train_batch_size": {
                 "domain": tune.choice([4, 8, 16, 32]),
@@ -379,7 +380,11 @@ class TransformersEstimator(BaseEstimator):
 
         if is_str or is_list_of_str:
             return tokenize_text(
-                X=X, Y=y, task=self._task, custom_hpo_args=self.custom_hpo_args
+                X=X,
+                Y=y,
+                task=self._task,
+                custom_hpo_args=self.custom_hpo_args,
+                tokenizer=self._tokenizer,
             )
         else:
             return X, None
@@ -395,12 +400,13 @@ class TransformersEstimator(BaseEstimator):
         )
 
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
-        from transformers import EarlyStoppingCallback
-        from transformers.trainer_utils import set_seed
-        from transformers import AutoTokenizer
-        from transformers.data import DataCollatorWithPadding
-
         import transformers
+
+        transformers.logging.set_verbosity_error()
+
+        from transformers import TrainerCallback
+        from transformers.trainer_utils import set_seed
+
         from datasets import Dataset
         from .nlp.utils import (
             get_num_labels,
@@ -419,10 +425,11 @@ class TransformersEstimator(BaseEstimator):
         # else:
         from .nlp.huggingface.trainer import TrainerForAuto
         from .nlp.huggingface.data_collator import DataCollatorForAuto
+        from .nlp.utils import get_auto_tokenizer
 
         this_params = self.params
 
-        class EarlyStoppingCallbackForAuto(EarlyStoppingCallback):
+        class EarlyStoppingCallbackForAuto(TrainerCallback):
             def on_train_begin(self, args, state, control, **callback_kwargs):
                 self.train_begin_time = time.time()
 
@@ -456,6 +463,10 @@ class TransformersEstimator(BaseEstimator):
         set_seed(self.params.get("seed", self._TrainingArguments.seed))
 
         self._init_hpo_args(kwargs)
+        self._tokenizer = get_auto_tokenizer(
+            self.custom_hpo_args.model_path, self._task
+        )
+
         self._metric = kwargs["metric"]
         self.use_ray = kwargs.get("use_ray")
 
@@ -474,12 +485,6 @@ class TransformersEstimator(BaseEstimator):
             TransformersEstimator._join(self._X_train, self._y_train)
         )
 
-        # TODO: set a breakpoint here, observe the resulting train_dataset,
-        #  compare it with the output of the tokenized results in your transformer example
-        #  for example, if your task is MULTIPLECHOICE, you need to compare train_dataset with
-        #  the output of https://github.com/huggingface/transformers/blob/master/examples/pytorch/multiple-choice/run_swag.py#L329
-        #  make sure they are the same
-
         if X_val is not None:
             if (self._task not in NLG_TASKS) and (self._task != TOKENCLASSIFICATION):
                 self._X_val, _ = self._preprocess(X=X_val, **kwargs)
@@ -492,13 +497,7 @@ class TransformersEstimator(BaseEstimator):
         else:
             eval_dataset = None
 
-        tokenizer = AutoTokenizer.from_pretrained(
-            self.custom_hpo_args.model_path, use_fast=True
-        )
-        self._tokenizer = tokenizer
-
         num_labels = get_num_labels(self._task, self._y_train)
-
         training_args_config, per_model_config = separate_config(
             self.params, self._task
         )
@@ -535,9 +534,10 @@ class TransformersEstimator(BaseEstimator):
                 eval_steps=ckpt_freq,
                 evaluate_during_training=True,
                 save_steps=ckpt_freq,
+                logging_steps=ckpt_freq,
                 save_total_limit=0,
+                metric_for_best_model="loss",
                 fp16=self.custom_hpo_args.fp16,
-                load_best_model_at_end=True,
                 **training_args_config,
             )
         else:
@@ -550,11 +550,12 @@ class TransformersEstimator(BaseEstimator):
                 do_eval=True,
                 per_device_eval_batch_size=1,
                 eval_steps=ckpt_freq,
+                logging_steps=ckpt_freq,
                 evaluation_strategy=IntervalStrategy.STEPS,
                 save_steps=ckpt_freq,
                 save_total_limit=0,
+                metric_for_best_model="loss",
                 fp16=self.custom_hpo_args.fp16,
-                load_best_model_at_end=True,
                 **training_args_config,
             )
 
@@ -563,9 +564,9 @@ class TransformersEstimator(BaseEstimator):
             model_init=partial(self._model_init, num_labels, per_model_config),
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
-            tokenizer=tokenizer,
+            tokenizer=self._tokenizer,
             data_collator=DataCollatorForAuto(
-                tokenizer=tokenizer,
+                tokenizer=self._tokenizer,
                 pad_to_multiple_of=8 if training_args.fp16 else None,
             )
             if self._task == MULTICHOICECLASSIFICATION
@@ -577,6 +578,8 @@ class TransformersEstimator(BaseEstimator):
         setattr(self._trainer, "_use_ray", self.use_ray)
         if self._task in NLG_TASKS:
             setattr(self._trainer, "_is_seq2seq", True)
+        if kwargs.get("gpu_per_trial"):
+            self._trainer.args._n_gpu = kwargs.get("gpu_per_trial")
         self._trainer.train()
 
         self.params[self.ITER_HP] = self._trainer.state.global_step
@@ -594,6 +597,13 @@ class TransformersEstimator(BaseEstimator):
             num_labels=self._num_labels,
             per_model_config=self._per_model_config,
         )
+        if hasattr(self._trainer, "intermediate_results"):
+            self.intermediate_results = [
+                x[1]
+                for x in sorted(
+                    self._trainer.intermediate_results.items(), key=lambda x: x[0]
+                )
+            ]
         self._trainer = None
 
     def _delete_one_ckpt(self, ckpt_location):
@@ -629,8 +639,8 @@ class TransformersEstimator(BaseEstimator):
                 f"{PREFIX_CHECKPOINT_DIR}-{best_ckpt_global_step}",
             )
         self.params[self.ITER_HP] = best_ckpt_global_step
-        print(trainer.state.global_step)
-        print(trainer.ckpt_to_global_step)
+        logger.debug(trainer.state.global_step)
+        logger.debug(trainer.ckpt_to_global_step)
         return best_ckpt
 
     def _compute_metrics_by_dataset_name(self, eval_pred):
@@ -658,13 +668,13 @@ class TransformersEstimator(BaseEstimator):
                     if self._task == TOKENCLASSIFICATION
                     else np.argmax(predictions, axis=1)
                 )
-            return {
-                "val_loss": metric_loss_score(
+            metric_dict = {
+                "automl_metric": metric_loss_score(
                     metric_name=self._metric, y_predict=predictions, y_true=labels
                 )
             }
         else:
-            agg_metric, metric_dict = self._metric(
+            loss, metric_dict = self._metric(
                 X_test=self._X_val,
                 y_test=self._y_val,
                 estimator=self,
@@ -672,11 +682,11 @@ class TransformersEstimator(BaseEstimator):
                 X_train=self._X_train,
                 y_train=self._y_train,
             )
-            return metric_dict
+            metric_dict["automl_metric"] = loss
+        return metric_dict
 
     def _init_model_for_predict(self, X_test):
         from datasets import Dataset
-        from transformers import AutoTokenizer
         from .nlp.huggingface.trainer import TrainerForAuto
         from .nlp.huggingface.data_collator import DataCollatorForPredict
 
@@ -687,33 +697,32 @@ class TransformersEstimator(BaseEstimator):
             output_dir=self.custom_hpo_args.output_dir,
             **self._training_args_config,
         )
-        tokenizer = AutoTokenizer.from_pretrained(
-            self.custom_hpo_args.model_path, use_fast=True
-        )
         self._trainer = TrainerForAuto(
             model=self._model,
             args=training_args,
             data_collator=DataCollatorForPredict(
-                tokenizer=tokenizer,
+                tokenizer=self._tokenizer,
                 pad_to_multiple_of=8 if training_args.fp16 else None,
             )
             if self._task == MULTICHOICECLASSIFICATION
             else None,
+            compute_metrics=self._compute_metrics_by_dataset_name,
         )
         return test_dataset, training_args
 
-    def predict_proba(self, X_test):
+    def predict_proba(self, X):
         assert (
             self._task in CLASSIFICATION
         ), "predict_proba() only for classification tasks."
 
-        test_dataset, _ = self._init_model_for_predict(X_test)
+        test_dataset, _ = self._init_model_for_predict(X)
         predictions = self._trainer.predict(test_dataset)
-        self._trainer = None
+        if self.use_ray is True:
+            self._trainer = None
         return predictions.predictions
 
-    def predict(self, X_test):
-        test_dataset, training_args = self._init_model_for_predict(X_test)
+    def predict(self, X):
+        test_dataset, training_args = self._init_model_for_predict(X)
         if self._task not in NLG_TASKS:
             predictions = self._trainer.predict(test_dataset)
         else:
@@ -722,16 +731,14 @@ class TransformersEstimator(BaseEstimator):
                 max_length=training_args.generation_max_length,
                 num_beams=training_args.generation_num_beams,
             )
-        self._trainer = None
+        if self.use_ray is True:
+            self._trainer = None
         if self._task == SEQCLASSIFICATION:
             return np.argmax(predictions.predictions, axis=1)
         elif self._task == SEQREGRESSION:
             return predictions.predictions.reshape((len(predictions.predictions),))
         elif self._task == TOKENCLASSIFICATION:
             return np.argmax(predictions.predictions, axis=2)
-        # TODO: elif self._task == your task, return the corresponding prediction
-        #  e.g., if your task == QUESTIONANSWERING, you need to return the answer instead
-        #  of the index
         elif self._task == SUMMARIZATION:
             if isinstance(predictions.predictions, tuple):
                 predictions = np.argmax(predictions.predictions[0], axis=2)
@@ -743,7 +750,7 @@ class TransformersEstimator(BaseEstimator):
             return np.argmax(predictions.predictions, axis=1)
 
     def config2params(self, config: dict) -> dict:
-        params = config.copy()
+        params = super().config2params(config)
         params[TransformersEstimator.ITER_HP] = params.get(
             TransformersEstimator.ITER_HP, sys.maxsize
         )
@@ -823,7 +830,7 @@ class LGBMEstimator(BaseEstimator):
         }
 
     def config2params(self, config: dict) -> dict:
-        params = config.copy()
+        params = super().config2params(config)
         if "log_max_bin" in params:
             params["max_bin"] = (1 << params.pop("log_max_bin")) - 1
         return params
@@ -1046,7 +1053,7 @@ class XGBoostEstimator(SKLearnEstimator):
         return 1.6
 
     def config2params(self, config: dict) -> dict:
-        params = config.copy()
+        params = super().config2params(config)
         max_depth = params["max_depth"] = params.get("max_depth", 0)
         if max_depth == 0:
             params["grow_policy"] = params.get("grow_policy", "lossguide")
@@ -1105,12 +1112,12 @@ class XGBoostEstimator(SKLearnEstimator):
         train_time = time.time() - start_time
         return train_time
 
-    def predict(self, X_test):
+    def predict(self, X):
         import xgboost as xgb
 
-        if not issparse(X_test):
-            X_test = self._preprocess(X_test)
-        dtest = xgb.DMatrix(X_test)
+        if not issparse(X):
+            X = self._preprocess(X)
+        dtest = xgb.DMatrix(X)
         return super().predict(dtest)
 
     @classmethod
@@ -1150,7 +1157,7 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         return XGBoostEstimator.cost_relative2lgbm()
 
     def config2params(self, config: dict) -> dict:
-        params = config.copy()
+        params = super().config2params(config)
         max_depth = params["max_depth"] = params.get("max_depth", 0)
         if max_depth == 0:
             params["grow_policy"] = params.get("grow_policy", "lossguide")
@@ -1177,6 +1184,9 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
     def fit(self, X_train, y_train, budget=None, **kwargs):
         if issparse(X_train):
             self.params["tree_method"] = "auto"
+        if kwargs.get("gpu_per_trial"):
+            self.params["tree_method"] = "gpu_hist"
+            kwargs.pop("gpu_per_trial")
         return super().fit(X_train, y_train, budget, **kwargs)
 
     def _callbacks(self, start_time, deadline) -> List[Callable]:
@@ -1247,7 +1257,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         return 2
 
     def config2params(self, config: dict) -> dict:
-        params = config.copy()
+        params = super().config2params(config)
         if "max_leaves" in params:
             params["max_leaf_nodes"] = params.get(
                 "max_leaf_nodes", params.pop("max_leaves")
@@ -1300,7 +1310,7 @@ class LRL1Classifier(SKLearnEstimator):
         return 160
 
     def config2params(self, config: dict) -> dict:
-        params = config.copy()
+        params = super().config2params(config)
         params["tol"] = params.get("tol", 0.0001)
         params["solver"] = params.get("solver", "saga")
         params["penalty"] = params.get("penalty", "l1")
@@ -1326,7 +1336,7 @@ class LRL2Classifier(SKLearnEstimator):
         return 25
 
     def config2params(self, config: dict) -> dict:
-        params = config.copy()
+        params = super().config2params(config)
         params["tol"] = params.get("tol", 0.0001)
         params["solver"] = params.get("solver", "lbfgs")
         params["penalty"] = params.get("penalty", "l2")
@@ -1395,7 +1405,7 @@ class CatBoostEstimator(BaseEstimator):
         return X
 
     def config2params(self, config: dict) -> dict:
-        params = config.copy()
+        params = super().config2params(config)
         params["n_estimators"] = params.get("n_estimators", 8192)
         if "n_jobs" in params:
             params["thread_count"] = params.pop("n_jobs")
@@ -1505,7 +1515,7 @@ class KNeighborsEstimator(BaseEstimator):
         return 30
 
     def config2params(self, config: dict) -> dict:
-        params = config.copy()
+        params = super().config2params(config)
         params["weights"] = params.get("weights", "distance")
         return params
 
@@ -1564,7 +1574,7 @@ class Prophet(SKLearnEstimator):
         }
         return space
 
-    def __init__(self, task=TS_FORECAST, n_jobs=1, **params):
+    def __init__(self, task="ts_forecast", n_jobs=1, **params):
         super().__init__(task, **params)
 
     def _join(self, X_train, y_train):
@@ -1595,22 +1605,22 @@ class Prophet(SKLearnEstimator):
         self._model = model
         return train_time
 
-    def predict(self, X_test):
-        if isinstance(X_test, int):
+    def predict(self, X):
+        if isinstance(X, int):
             raise ValueError(
                 "predict() with steps is only supported for arima/sarimax."
                 " For Prophet, pass a dataframe with the first column containing"
                 " the timestamp values."
             )
         if self._model is not None:
-            X_test = self._preprocess(X_test)
-            forecast = self._model.predict(X_test)
+            X = self._preprocess(X)
+            forecast = self._model.predict(X)
             return forecast["yhat"]
         else:
             logger.warning(
                 "Estimator is not fit yet. Please run fit() before predict()."
             )
-            return np.ones(X_test.shape[0])
+            return np.ones(X.shape[0])
 
 
 class ARIMA(Prophet):
@@ -1639,7 +1649,7 @@ class ARIMA(Prophet):
 
     def _join(self, X_train, y_train):
         train_df = super()._join(X_train, y_train)
-        train_df.index = pd.to_datetime(train_df[TS_TIMESTAMP_COL])
+        train_df.index = to_datetime(train_df[TS_TIMESTAMP_COL])
         train_df = train_df.drop(TS_TIMESTAMP_COL, axis=1)
         return train_df
 
@@ -1675,30 +1685,30 @@ class ARIMA(Prophet):
         self._model = model
         return train_time
 
-    def predict(self, X_test):
+    def predict(self, X):
         if self._model is not None:
-            if isinstance(X_test, int):
-                forecast = self._model.forecast(steps=X_test)
-            elif isinstance(X_test, DataFrame):
-                start = X_test[TS_TIMESTAMP_COL].iloc[0]
-                end = X_test[TS_TIMESTAMP_COL].iloc[-1]
-                if len(X_test.columns) > 1:
-                    X_test = self._preprocess(X_test.drop(columns=TS_TIMESTAMP_COL))
-                    regressors = list(X_test)
-                    print(start, end, X_test.shape)
+            if isinstance(X, int):
+                forecast = self._model.forecast(steps=X)
+            elif isinstance(X, DataFrame):
+                start = X[TS_TIMESTAMP_COL].iloc[0]
+                end = X[TS_TIMESTAMP_COL].iloc[-1]
+                if len(X.columns) > 1:
+                    X = self._preprocess(X.drop(columns=TS_TIMESTAMP_COL))
+                    regressors = list(X)
+                    print(start, end, X.shape)
                     forecast = self._model.predict(
-                        start=start, end=end, exog=X_test[regressors]
+                        start=start, end=end, exog=X[regressors]
                     )
                 else:
                     forecast = self._model.predict(start=start, end=end)
             else:
                 raise ValueError(
-                    "X_test needs to be either a pandas Dataframe with dates as the first column"
+                    "X needs to be either a pandas Dataframe with dates as the first column"
                     " or an int number of periods for predict()."
                 )
             return forecast
         else:
-            return np.ones(X_test if isinstance(X_test, int) else X_test.shape[0])
+            return np.ones(X if isinstance(X, int) else X.shape[0])
 
 
 class SARIMAX(ARIMA):
@@ -1789,36 +1799,44 @@ class SARIMAX(ARIMA):
         return train_time
 
 
-class TS_SKLearn_Regressor(SKLearnEstimator):
-    """ The class for tuning SKLearn Regressors for time-series forecasting, using hcrystalball"""
+class TS_SKLearn(SKLearnEstimator):
+    """The class for tuning SKLearn Regressors for time-series forecasting, using hcrystalball"""
 
     base_class = SKLearnEstimator
 
     @classmethod
     def search_space(cls, data_size, pred_horizon, **params):
         space = cls.base_class.search_space(data_size, **params)
-        space.update({
-            "optimize_for_horizon": {
-                "domain": tune.choice([True, False]),
-                "init_value": False,
-                "low_cost_init_value": False,
-            },
-            "lags": {
-                "domain": tune.randint(lower=1, upper=data_size[0] - pred_horizon),
-                "init_value": 3,
-            },
-        })
+        space.update(
+            {
+                "optimize_for_horizon": {
+                    "domain": tune.choice([True, False]),
+                    "init_value": False,
+                    "low_cost_init_value": False,
+                },
+                "lags": {
+                    "domain": tune.randint(
+                        lower=1, upper=int(np.sqrt(data_size[0]))
+
+                    ),
+                    "init_value": 3,
+                },
+            }
+        )
         return space
 
-    def __init__(self, task=TS_FORECAST, **params):
+    def __init__(self, task="ts_forecast", **params):
         super().__init__(task, **params)
         self.hcrystaball_model = None
+        self.ts_task = (
+            "regression" if task in TS_FORECASTREGRESSION else "classification"
+        )
 
     def transform_X(self, X):
         cols = list(X)
         if len(cols) == 1:
             ds_col = cols[0]
-            X = pd.DataFrame(index=X[ds_col])
+            X = DataFrame(index=X[ds_col])
         elif len(cols) > 1:
             ds_col = cols[0]
             exog_cols = cols[1:]
@@ -1833,7 +1851,7 @@ class TS_SKLearn_Regressor(SKLearnEstimator):
         params = self.params.copy()
         lags = params.pop("lags")
         optimize_for_horizon = params.pop("optimize_for_horizon")
-        estimator = self.base_class(task="regression", **params)
+        estimator = self.base_class(task=self.ts_task, **params)
         self.hcrystaball_model = get_sklearn_wrapper(estimator.estimator_class)
         self.hcrystaball_model.lags = int(lags)
         self.hcrystaball_model.fit(X_train, y_train)
@@ -1841,13 +1859,23 @@ class TS_SKLearn_Regressor(SKLearnEstimator):
             # Direct Multi-step Forecast Strategy - fit a seperate model for each horizon
             model_list = []
             for i in range(1, kwargs["period"] + 1):
-                X_fit, y_fit = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X_train, y_train, i)
+                (
+                    X_fit,
+                    y_fit,
+                ) = self.hcrystaball_model._transform_data_to_tsmodel_input_format(
+                    X_train, y_train, i
+                )
                 self.hcrystaball_model.model.set_params(**estimator.params)
                 model = self.hcrystaball_model.model.fit(X_fit, y_fit)
                 model_list.append(model)
             self._model = model_list
         else:
-            X_fit, y_fit = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X_train, y_train, kwargs["period"])
+            (
+                X_fit,
+                y_fit,
+            ) = self.hcrystaball_model._transform_data_to_tsmodel_input_format(
+                X_train, y_train, kwargs["period"]
+            )
             self.hcrystaball_model.model.set_params(**estimator.params)
             model = self.hcrystaball_model.model.fit(X_fit, y_fit)
             self._model = model
@@ -1858,62 +1886,73 @@ class TS_SKLearn_Regressor(SKLearnEstimator):
         train_time = time.time() - current_time
         return train_time
 
-    def predict(self, X_test):
+    def predict(self, X):
         if self._model is not None:
-            X_test = self.transform_X(X_test)
-            X_test = self._preprocess(X_test)
+            X = self.transform_X(X)
+            X = self._preprocess(X)
             if isinstance(self._model, list):
-                assert (
-                    len(self._model) == len(X_test)
-                ), "Model is optimized for horizon, length of X_test must be equal to `period`."
+                assert len(self._model) == len(
+                    X
+                ), "Model is optimized for horizon, length of X must be equal to `period`."
                 preds = []
                 for i in range(1, len(self._model) + 1):
-                    X_pred, _ = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X_test.iloc[:i, :])
+                    (
+                        X_pred,
+                        _,
+                    ) = self.hcrystaball_model._transform_data_to_tsmodel_input_format(
+                        X.iloc[:i, :]
+                    )
                     preds.append(self._model[i - 1].predict(X_pred)[-1])
-                forecast = pd.DataFrame(data=np.asarray(preds).reshape(-1, 1),
-                                        columns=[self.hcrystaball_model.name],
-                                        index=X_test.index)
+                forecast = DataFrame(
+                    data=np.asarray(preds).reshape(-1, 1),
+                    columns=[self.hcrystaball_model.name],
+                    index=X.index,
+                )
             else:
-                X_pred, _ = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X_test)
+                (
+                    X_pred,
+                    _,
+                ) = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X)
                 forecast = self._model.predict(X_pred)
             return forecast
         else:
             logger.warning(
                 "Estimator is not fit yet. Please run fit() before predict()."
             )
-            return np.ones(X_test.shape[0])
+            return np.ones(X.shape[0])
 
 
-class LGBM_TS_Regressor(TS_SKLearn_Regressor):
-    """ The class for tuning LGBM Regressor for time-series forecasting"""
+class LGBM_TS(TS_SKLearn):
+    """The class for tuning LGBM Regressor for time-series forecasting"""
 
     base_class = LGBMEstimator
 
 
-class XGBoost_TS_Regressor(TS_SKLearn_Regressor):
-    """ The class for tuning XGBoost Regressor for time-series forecasting"""
+class XGBoost_TS(TS_SKLearn):
+    """The class for tuning XGBoost Regressor for time-series forecasting"""
 
     base_class = XGBoostSklearnEstimator
+
 
 # catboost regressor is invalid because it has a `name` parameter, making it incompatible with hcrystalball
 # class CatBoost_TS_Regressor(TS_Regressor):
 #     base_class = CatBoostEstimator
 
 
-class RF_TS_Regressor(TS_SKLearn_Regressor):
-    """ The class for tuning Random Forest Regressor for time-series forecasting"""
+class RF_TS(TS_SKLearn):
+    """The class for tuning Random Forest Regressor for time-series forecasting"""
 
     base_class = RandomForestEstimator
 
 
-class ExtraTrees_TS_Regressor(TS_SKLearn_Regressor):
-    """ The class for tuning Extra Trees Regressor for time-series forecasting"""
+class ExtraTrees_TS(TS_SKLearn):
+    """The class for tuning Extra Trees Regressor for time-series forecasting"""
 
     base_class = ExtraTreesEstimator
 
 
-class XGBoostLimitDepth_TS_Regressor(TS_SKLearn_Regressor):
-    """ The class for tuning XGBoost Regressor with unlimited depth for time-series forecasting"""
+class XGBoostLimitDepth_TS(TS_SKLearn):
+    """The class for tuning XGBoost Regressor with unlimited depth for time-series forecasting"""
 
     base_class = XGBoostLimitDepthEstimator
 

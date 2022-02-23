@@ -8,7 +8,7 @@
 # A Fast Library for Automated Machine Learning & Tuning
 
 <p align="center">
-    <img src="https://github.com/microsoft/FLAML/blob/main/website/static/img/FLAML.png"  width=200>
+    <img src="https://github.com/microsoft/FLAML/blob/main/website/static/img/flaml.svg"  width=200>
     <br>
 </p>
 
@@ -17,9 +17,9 @@ learning models automatically, efficiently and economically. It frees users from
 learners and hyperparameters for each learner.
 
 1. For common machine learning tasks like classification and regression, it quickly finds quality models for user-provided data with low computational resources. It supports both classifcal machine learning models and deep neural networks.
-1. It is easy to customize or extend. Users can choose their desired customizability: minimal customization (computational resource budget), medium customization (e.g., scikit-style learner, search space and metric), or full customization (arbitrary training and evaluation code).
+1. It is easy to customize or extend. Users can find their desired customizability from a smooth range: minimal customization (computational resource budget), medium customization (e.g., scikit-style learner, search space and metric), or full customization (arbitrary training and evaluation code).
 1. It supports fast automatic tuning, capable of handling complex constraints/guidance/early stopping. FLAML is powered by a new, [cost-effective
-hyperparameter optimization](https://microsoft.github.io/FLAML/Use-Cases/Tune-User-Defined-Function#hyperparameter-optimization-algorithm)
+hyperparameter optimization](https://microsoft.github.io/FLAML/docs/Use-Cases/Tune-User-Defined-Function/#hyperparameter-optimization-algorithm)
 and learner selection method invented by Microsoft Research.
 
 FLAML has a .NET implementation as well from [ML.NET Model Builder](https://dotnet.microsoft.com/apps/machinelearning-ai/ml-dotnet/model-builder) in [Visual Studio](https://visualstudio.microsoft.com/) 2022. This [ML.NET blog](https://devblogs.microsoft.com/dotnet/ml-net-june-updates/#new-and-improved-automl) describes the improvement brought by FLAML.

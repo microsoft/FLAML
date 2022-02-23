@@ -9,7 +9,7 @@ learning models automatically, efficiently and economically. It frees users from
 
 1. For common machine learning tasks like classification and regression, it quickly finds quality models for user-provided data with low computational resources. It supports both classifcal machine learning models and deep neural networks.
 
-2. It is easy to customize or extend. Users can choose their desired customizability: minimal customization (computational resource budget), medium customization (e.g., scikit-style learner, search space and metric), or full customization (arbitrary training and evaluation code).
+2. It is easy to customize or extend. Users can find their desired customizability from a smooth range: minimal customization (computational resource budget), medium customization (e.g., scikit-style learner, search space and metric), or full customization (arbitrary training and evaluation code). Users can customize only when and what they need to, and leave the rest to the library.
 
 3. It supports fast and economical automatic tuning, capable of handling large search space with heterogeneous evaluation cost and complex constraints/guidance/early stopping. FLAML is powered by a new, [cost-effective
 hyperparameter optimization](Use-Cases/Tune-User-Defined-Function#hyperparameter-optimization-algorithm)
@@ -31,7 +31,7 @@ automl = AutoML()
 automl.fit(X_train, y_train, task="classification")
 ```
 
-It automatically tunes the hyparparameters and selects the best model from default learners such as LightGBM, XGBoost, random forest etc. [Customizing](Use-Cases/task-oriented-automl#customize-automlfit) the optimization metrics, learners and search spaces etc. is very easy. For example,
+It automatically tunes the hyperparameters and selects the best model from default learners such as LightGBM, XGBoost, random forest etc. [Customizing](Use-Cases/task-oriented-automl#customize-automlfit) the optimization metrics, learners and search spaces etc. is very easy. For example,
 
 ```python
 automl.add_learner("mylgbm", MyLGBMEstimator)
@@ -50,7 +50,7 @@ def train_lgbm(config: dict) -> dict:
     # convert config dict to lgbm params
     params = LGBMEstimator(**config).params
     # train the model
-    train_set = lightgbm.Dataset(X_train, y_train)
+    train_set = lightgbm.Dataset(csv_file_name)
     model = lightgbm.train(params, train_set)
     # evaluate the model
     pred = model.predict(X_test)

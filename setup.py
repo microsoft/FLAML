@@ -66,8 +66,7 @@ setuptools.setup(
         "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],
         "ray": [
-            "ray[tune]==1.6.0",
-            "pyyaml<5.3.1",
+            "ray[tune]~=1.10",
         ],
         "azureml": [
             "azureml-mlflow",
@@ -86,7 +85,11 @@ setuptools.setup(
             "nltk",
             "rouge_score",
         ],
-        "ts_forecast": ["prophet>=1.0.1", "statsmodels>=0.12.2", "hcrystalball==0.1.10"],
+        "ts_forecast": [
+            "prophet>=1.0.1",
+            "statsmodels>=0.12.2",
+            "hcrystalball==0.1.10",
+        ],
         "forecast": ["prophet>=1.0.1", "statsmodels>=0.12.2", "hcrystalball==0.1.10"],
         "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3"],
     },

@@ -90,7 +90,9 @@ def report(_metric=None, **kwargs):
         result = kwargs
         if _metric:
             result[DEFAULT_METRIC] = _metric
-        trial = _runner.running_trial
+        trial = getattr(_runner, "running_trial", None)
+        if not trial:
+            return None
         if _running_trial == trial:
             _training_iteration += 1
         else:
@@ -102,11 +104,11 @@ def report(_metric=None, **kwargs):
             del result["config"][INCUMBENT_RESULT]
         for key, value in trial.config.items():
             result["config/" + key] = value
-        _runner.process_trial_result(_runner.running_trial, result)
+        _runner.process_trial_result(trial, result)
         result["time_total_s"] = trial.last_update_time - trial.start_time
         if _verbose > 2:
             logger.info(f"result: {result}")
-        if _runner.running_trial.is_finished():
+        if trial.is_finished():
             return None
         else:
             return True
@@ -221,7 +223,7 @@ def run(
             used, otherwise no scheduler will be used. When set 'flaml', an
             authentic scheduler implemented in FLAML will be used. It does not
             require users to report intermediate results in evaluation_function.
-            Find more details abuot this scheduler in this paper
+            Find more details about this scheduler in this paper
             https://arxiv.org/pdf/1911.04706.pdf).
             When set 'asha', the input for arguments "resource_attr",
             "min_resource", "max_resource" and "reduction_factor" will be passed
@@ -254,7 +256,9 @@ def run(
             used; or a local dir to save the tuning log.
         num_samples: An integer of the number of configs to try. Defaults to 1.
         resources_per_trial: A dictionary of the hardware resources to allocate
-            per trial, e.g., `{'cpu': 1}`. Only valid when using ray backend.
+            per trial, e.g., `{'cpu': 1}`. It is only valid when using ray backend
+            (by setting 'use_ray = True'). It shall be used when you need to do
+            [parallel tuning](https://microsoft.github.io/FLAML/docs/Use-Cases/Tune-User-Defined-Function#parallel-tuning).
         config_constraints: A list of config constraints to be satisfied.
             e.g., ```config_constraints = [(mem_size, '<=', 1024**3)]```
 
@@ -262,7 +266,7 @@ def run(
             needed for a config.
             It is used to skip configs which do not fit in memory.
         metric_constraints: A list of metric constraints to be satisfied.
-            e.g., `['precision', '>=', 0.9]`.
+            e.g., `['precision', '>=', 0.9]`. The sign can be ">=" or "<=".
         max_failure: int | the maximal consecutive number of failures to sample
             a trial before the tuning is terminated.
         use_ray: A boolean of whether to use ray as the backend.
