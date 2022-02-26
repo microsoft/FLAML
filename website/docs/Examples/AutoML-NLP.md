@@ -80,7 +80,7 @@ y_val = dev_dataset[label_key]
 
 automl = AutoML()
 automl_settings = {
-    "gpu_per_trial": 0,   
+    "gpu_per_trial": 0,
     "time_budget": 20,                          # specifying the time budget
     "task": "seq-regression",                   # setting the task to sequence regression
     "metric": "rmse",                           # setting the evaluation metric 
