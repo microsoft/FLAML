@@ -537,7 +537,7 @@ class TransformersEstimator(BaseEstimator):
                 logging_steps=ckpt_freq,
                 save_total_limit=0,
                 metric_for_best_model="loss",
-                fp16=self.custom_hpo_args.fp16,
+                fp16=self.custom_hpo_args.fp16 if kwargs.get("gpu_per_trial") == 1 else False,
                 **training_args_config,
                 no_cuda=True if kwargs.get("gpu_per_trial") == 0 else False
             )
@@ -556,7 +556,7 @@ class TransformersEstimator(BaseEstimator):
                 save_steps=ckpt_freq,
                 save_total_limit=0,
                 metric_for_best_model="loss",
-                fp16=self.custom_hpo_args.fp16,
+                fp16=self.custom_hpo_args.fp16 if kwargs.get("gpu_per_trial") == 1 else False,
                 **training_args_config,
                 no_cuda=True if kwargs.get("gpu_per_trial") == 0 else False
             )
