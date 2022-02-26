@@ -94,7 +94,12 @@ def tokenize_seq2seq(X, Y, tokenizer, task=None, custom_hpo_args=None):
 
 
 def tokenize_and_align_labels(
-    examples, tokenizer, custom_hpo_args=None, X_sent_key=None, Y_sent_key=None, is_return_column_name=False
+    examples,
+    tokenizer,
+    custom_hpo_args=None,
+    X_sent_key=None,
+    Y_sent_key=None,
+    is_return_column_name=False,
 ):
     tokenized_inputs = tokenizer(
         [list(examples[X_sent_key])],
@@ -148,19 +153,20 @@ def tokenize_text_tokclassification(X, Y, tokenizer, custom_hpo_args=None):
         X_key = list(X.keys())[0]
         Y_key = list(Y.to_frame().keys())[0]
         _, tokenized_column_names = tokenize_and_align_labels(
-                                        X_and_Y.iloc[0],
-                                        tokenizer=tokenizer,
-                                        custom_hpo_args=custom_hpo_args,
-                                        X_sent_key=X_key,
-                                        Y_sent_key=Y_key,
-                                        is_return_column_name=True)
+            X_and_Y.iloc[0],
+            tokenizer=tokenizer,
+            custom_hpo_args=custom_hpo_args,
+            X_sent_key=X_key,
+            Y_sent_key=Y_key,
+            is_return_column_name=True,
+        )
         X_and_Y_tokenized = X_and_Y.apply(
             lambda x: tokenize_and_align_labels(
                 x,
                 tokenizer=tokenizer,
                 custom_hpo_args=custom_hpo_args,
                 X_sent_key=X_key,
-                Y_sent_key=Y_key
+                Y_sent_key=Y_key,
             ),
             axis=1,
             result_type="expand",
@@ -175,12 +181,14 @@ def tokenize_text_tokclassification(X, Y, tokenizer, custom_hpo_args=None):
     else:
         X_key = list(X.keys())[0]
 
-        _, tokenized_column_names = tokenize_and_align_labels(X.iloc[0],
-                                                              tokenizer=tokenizer,
-                                                              custom_hpo_args=custom_hpo_args,
-                                                              X_sent_key=X_key,
-                                                              Y_sent_key=None,
-                                                              is_return_column_name=True)
+        _, tokenized_column_names = tokenize_and_align_labels(
+            X.iloc[0],
+            tokenizer=tokenizer,
+            custom_hpo_args=custom_hpo_args,
+            X_sent_key=X_key,
+            Y_sent_key=None,
+            is_return_column_name=True,
+        )
 
         d = X.apply(
             lambda x: tokenize_and_align_labels(
@@ -210,12 +218,14 @@ def tokenize_onedataframe(
     import pandas
 
     with tokenizer.as_target_tokenizer():
-        _, tokenized_column_names = tokenize_row(dict(X.iloc[0]),
-                                                 tokenizer,
-                                                 prefix=(prefix_str,) if task is SUMMARIZATION else None,
-                                                 task=task,
-                                                 custom_hpo_args=custom_hpo_args,
-                                                 is_return_column_name=True)
+        _, tokenized_column_names = tokenize_row(
+            dict(X.iloc[0]),
+            tokenizer,
+            prefix=(prefix_str,) if task is SUMMARIZATION else None,
+            task=task,
+            custom_hpo_args=custom_hpo_args,
+            is_return_column_name=True,
+        )
         d = X.apply(
             lambda x: tokenize_row(
                 x,
@@ -246,7 +256,14 @@ def postprocess_text(preds, labels):
     return preds, labels
 
 
-def tokenize_row(this_row, tokenizer, prefix=None, task=None, custom_hpo_args=None, is_return_column_name=False):
+def tokenize_row(
+    this_row,
+    tokenizer,
+    prefix=None,
+    task=None,
+    custom_hpo_args=None,
+    is_return_column_name=False,
+):
     assert (
         "max_seq_length" in custom_hpo_args.__dict__
     ), "max_seq_length must be provided for glue"
@@ -268,18 +285,21 @@ def tokenize_row(this_row, tokenizer, prefix=None, task=None, custom_hpo_args=No
     else:
         return [tokenized_example[x] for x in tmp_column_names]
 
+
 def tokenize_text_multiplechoice(X, tokenizer, custom_hpo_args=None):
     import pandas
 
     t = X[["sent1", "sent2", "ending0", "ending1", "ending2", "ending3"]]
-    _, tokenized_column_names = tokenize_swag(t.iloc[0],
-                                              tokenizer=tokenizer,
-                                              custom_hpo_args=custom_hpo_args,
-                                              is_return_column_name=True)
+    _, tokenized_column_names = tokenize_swag(
+        t.iloc[0],
+        tokenizer=tokenizer,
+        custom_hpo_args=custom_hpo_args,
+        is_return_column_name=True,
+    )
     d = t.apply(
-        lambda x: tokenize_swag(x,
-                                tokenizer = tokenizer,
-                                custom_hpo_args = custom_hpo_args),
+        lambda x: tokenize_swag(
+            x, tokenizer=tokenizer, custom_hpo_args=custom_hpo_args
+        ),
         axis=1,
         result_type="expand",
     )
@@ -290,7 +310,9 @@ def tokenize_text_multiplechoice(X, tokenizer, custom_hpo_args=None):
     return output, None
 
 
-def tokenize_swag(this_row, tokenizer, custom_hpo_args=None, is_return_column_name=False):
+def tokenize_swag(
+    this_row, tokenizer, custom_hpo_args=None, is_return_column_name=False
+):
     first_sentences = [[this_row["sent1"]] * 4]
     # get each 1st sentence, multiply to 4 sentences
     question_headers = this_row["sent2"]
@@ -357,7 +379,10 @@ def get_num_labels(task, y_train):
 
 def is_a_list_of_str(this_obj):
     import numpy as np
-    return (isinstance(this_obj, list) or isinstance(this_obj, np.ndarray)) and all(isinstance(x, str) for x in this_obj)
+
+    return (isinstance(this_obj, list) or isinstance(this_obj, np.ndarray)) and all(
+        isinstance(x, str) for x in this_obj
+    )
 
 
 def _clean_value(value: Any) -> str:
@@ -416,7 +441,9 @@ class Counter:
     @staticmethod
     def get_trial_fold_name(local_dir, trial_config, trial_id):
         Counter.counter += 1
-        experiment_tag = "{0}_{1}".format(str(Counter.counter), format_vars(trial_config))
+        experiment_tag = "{0}_{1}".format(
+            str(Counter.counter), format_vars(trial_config)
+        )
         logdir = get_logdir_name(
             _generate_dirname(experiment_tag, trial_id=trial_id), local_dir
         )
