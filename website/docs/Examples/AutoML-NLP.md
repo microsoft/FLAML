@@ -15,7 +15,7 @@ To use the sequence classification module in FLAML, simply load your data, conve
 from flaml import AutoML
 from datasets import load_dataset
 
-train_dataset = load_dataset("glue", "mrpc", split="train").to_pandas()  
+train_dataset = load_dataset("glue", "mrpc", split="train").to_pandas()
 dev_dataset = load_dataset("glue", "mrpc", split="validation").to_pandas()
 test_dataset = load_dataset("glue", "mrpc", split="test").to_pandas()
 
