@@ -165,19 +165,19 @@ y_val = dev_dataset[label_key]
 
 automl = AutoML()
 automl_settings = {
-        "gpu_per_trial": 0,
-        "max_iter": 2,
-        "time_budget": 5,                       # specify the time budget 
-        "task": "token-classification",         # specify the task to token classification
-        "metric": "seqeval",                    # specify the metric
-    }
+    "gpu_per_trial": 0,
+    "max_iter": 2,
+    "time_budget": 5,                       # specify the time budget 
+    "task": "token-classification",         # specify the task to token classification
+    "metric": "seqeval",                    # specify the metric
+}
 
 automl_settings["custom_hpo_args"] = {
-        "model_path": "bert-base-uncased",
-        "output_dir": "test/data/output/",
-        "ckpt_per_epoch": 1,
-        "fp16": False,
-    }
+    "model_path": "bert-base-uncased",
+    "output_dir": "test/data/output/",
+    "ckpt_per_epoch": 1,
+    "fp16": False,
+}
 automl.fit(
     X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
 )
@@ -207,17 +207,17 @@ dev_dataset = (
 )
 
 custom_sent_keys = [                            # specify the column names of the first sentence and choices
-        "sent1",
-        "sent2",
-        "ending0",
-        "ending1",
-        "ending2",
-        "ending3",
-        "gold-source",
-        "video-id",
-        "startphrase",
-        "fold-ind",
-    ]
+    "sent1",
+    "sent2",
+    "ending0",
+    "ending1",
+    "ending2",
+    "ending3",
+    "gold-source",
+    "video-id",
+    "startphrase",
+    "fold-ind",
+]
 label_key = "label"                         # specify the column name of the output token tags
 
 X_train = train_dataset[custom_sent_keys]
@@ -228,20 +228,20 @@ y_val = dev_dataset[label_key]
 
 automl = AutoML()
 automl_settings = {
-        "gpu_per_trial": 0,
-        "max_iter": 2,
-        "time_budget": 5,                      # specify the time budget 
-        "task": "multichoice-classification",  # specify the task to multiple choice
-        "metric": "accuracy",                  # specify the evaluation metric
-        "log_file_name": "seqclass.log",
-    }
+    "gpu_per_trial": 0,
+    "max_iter": 2,
+    "time_budget": 5,                      # specify the time budget 
+    "task": "multichoice-classification",  # specify the task to multiple choice
+    "metric": "accuracy",                  # specify the evaluation metric
+    "log_file_name": "seqclass.log",
+}
 
 automl_settings["custom_hpo_args"] = {
-        "model_path": "google/electra-small-discriminator",
-        "output_dir": "test/data/output/",
-        "ckpt_per_epoch": 1,
-        "fp16": False,
-    }
+    "model_path": "google/electra-small-discriminator",
+    "output_dir": "test/data/output/",
+    "ckpt_per_epoch": 1,
+    "fp16": False,
+}
 automl.fit(
     X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
 )
