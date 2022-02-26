@@ -519,7 +519,9 @@ class TransformersEstimator(BaseEstimator):
 
         if not self.use_ray:
             # if self.params = {}, don't include configuration in trial fold name
-            trial_dir = Counter.get_trial_fold_name(local_dir, self.params, self.trial_id)
+            trial_dir = Counter.get_trial_fold_name(
+                local_dir, self.params, self.trial_id
+            )
         else:
             import ray
 
@@ -537,9 +539,11 @@ class TransformersEstimator(BaseEstimator):
                 logging_steps=ckpt_freq,
                 save_total_limit=0,
                 metric_for_best_model="loss",
-                fp16=self.custom_hpo_args.fp16 if kwargs.get("gpu_per_trial") == 1 else False,
+                fp16=self.custom_hpo_args.fp16
+                if kwargs.get("gpu_per_trial") == 1
+                else False,
                 **training_args_config,
-                no_cuda=True if kwargs.get("gpu_per_trial") == 0 else False
+                no_cuda=True if kwargs.get("gpu_per_trial") == 0 else False,
             )
         else:
             from transformers import IntervalStrategy
@@ -556,9 +560,11 @@ class TransformersEstimator(BaseEstimator):
                 save_steps=ckpt_freq,
                 save_total_limit=0,
                 metric_for_best_model="loss",
-                fp16=self.custom_hpo_args.fp16 if kwargs.get("gpu_per_trial") == 1 else False,
+                fp16=self.custom_hpo_args.fp16
+                if kwargs.get("gpu_per_trial") == 1
+                else False,
                 **training_args_config,
-                no_cuda=True if kwargs.get("gpu_per_trial") == 0 else False
+                no_cuda=True if kwargs.get("gpu_per_trial") == 0 else False,
             )
 
         self._trainer = TrainerForAuto(
@@ -584,7 +590,7 @@ class TransformersEstimator(BaseEstimator):
             self._trainer.args._n_gpu = kwargs.get("gpu_per_trial")
 
         if kwargs.get("gpu_per_trial") == 0:
-            os.environ["CUDA_VISIBLE_DEVICES"]=""
+            os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
         self._trainer.train()
 
@@ -1821,10 +1827,7 @@ class TS_SKLearn(SKLearnEstimator):
                     "low_cost_init_value": False,
                 },
                 "lags": {
-                    "domain": tune.randint(
-                        lower=1, upper=int(np.sqrt(data_size[0]))
-
-                    ),
+                    "domain": tune.randint(lower=1, upper=int(np.sqrt(data_size[0]))),
                     "init_value": 3,
                 },
             }
