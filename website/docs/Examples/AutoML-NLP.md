@@ -228,8 +228,7 @@ y_val = dev_dataset[label_key]
 automl = AutoML()
 automl_settings = {
     "gpu_per_trial": 0,
-    "max_iter": 2,
-    "time_budget": 5,                      # specify the time budget 
+    "time_budget": 50,                      # specify the time budget 
     "task": "multichoice-classification",  # specify the task to multiple choice
     "metric": "accuracy",                  # specify the evaluation metric
     "log_file_name": "seqclass.log",
