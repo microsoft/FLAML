@@ -9,7 +9,7 @@ pip install "flaml[nlp]"
 
 ### A simple sequence classification example
 
-To use the sequence classification module in FLAML, simply load your data, convert it to the pandas format, and call automl.fit:
+To perform the sequence classification task in FLAML, simply load your data, convert it to the pandas format, and use `AutoML.fit()`:
 
 ```python
 from flaml import AutoML
