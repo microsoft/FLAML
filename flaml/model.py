@@ -705,7 +705,7 @@ class TransformersEstimator(BaseEstimator):
         X_test, _ = self._preprocess(X_test, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
         training_args = self._TrainingArguments(
-            per_device_eval_batch_size=1,
+            per_device_eval_batch_size=32,
             output_dir=self.custom_hpo_args.output_dir,
             **self._training_args_config,
         )
