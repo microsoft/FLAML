@@ -9,15 +9,21 @@ pip install "flaml[nlp]"
 
 ### A simple sequence classification example
 
-To perform the sequence classification task in FLAML, simply load your data, convert it to the pandas format, and use `AutoML.fit()`:
+An example of sequence classification data is the Stanford Sentiment Treebank data (SST) data:
+
+sentence  label 
+hide new secretions from the parental units       0 
+contains no wit , only labored gags       0 
+
+To perform the sequence classification task with FLAML, simply load the data, convert it to the pandas format, and use `AutoML.fit()`:
 
 ```python
 from flaml import AutoML
 from datasets import load_dataset
 
-train_dataset = load_dataset("glue", "mrpc", split="train").to_pandas()
-dev_dataset = load_dataset("glue", "mrpc", split="validation").to_pandas()
-test_dataset = load_dataset("glue", "mrpc", split="test").to_pandas()
+train_dataset = load_dataset("glue", "sst2", split="train").to_pandas()
+dev_dataset = load_dataset("glue", "sst2", split="validation").to_pandas()
+test_dataset = load_dataset("glue", "sst2", split="test").to_pandas()
 
 custom_sent_keys = ["sentence1", "sentence2"]          # specify the column names of the input sentences
 label_key = "label"                                    # specify the column name of the label
@@ -257,5 +263,11 @@ train_dataset = pd.read_csv("train.tsv", delimiter="\t", quoting=3)
 dev_dataset = pd.read_csv("dev.tsv", delimiter="\t", quoting=3)
 test_dataset = pd.read_csv("test.tsv", delimiter="\t", quoting=3)
 ```
+
+For instance, download the SST-2 dataset (https://github.com/YJiangcm/SST-2-sentiment-analysis/tree/master/data) and train.tsv looks like the following:
+
+label  sentence 
+0 hide new secretions from the parental units
+0 contains no wit , only labored gags 
 
 For tasks that are not currently supported, use `flaml.tune` for [customized tuning](Tune-HuggingFace).
