@@ -11,9 +11,9 @@ pip install "flaml[nlp]"
 
 An example of sequence classification data is the Stanford Sentiment Treebank data (SST) data:
 
-sentence  label 
-hide new secretions from the parental units       0 
-contains no wit , only labored gags       0 
+###### sentence  label 
+###### hide new secretions from the parental units       0 
+###### contains no wit , only labored gags       1 
 
 To perform the sequence classification task with FLAML, simply load the data, convert it to the pandas format, and use `AutoML.fit()`:
 
