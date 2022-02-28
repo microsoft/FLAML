@@ -2028,7 +2028,7 @@ class AutoML(BaseEstimator):
                 if gpu_per_trial == 0
                 else {"cpu": 1, "gpu": gpu_per_trial}
                 if n_jobs < 0
-                else {"cpu": n_jobs, "gpu": gpu_per_trial}
+                else {"gpu": gpu_per_trial}
             )
             if isinstance(X_train, ray.ObjectRef):
                 X_train = ray.get(X_train)
@@ -2278,6 +2278,14 @@ class AutoML(BaseEstimator):
         elif "random" == self._hpo_method:
             from ray.tune.suggest import BasicVariantGenerator as SearchAlgo
             from ray.tune.sample import Domain
+        elif "optuna" == self._hpo_method:
+            try:
+                from ray import __version__ as ray_version
+
+                assert ray_version >= "1.0.0"
+                from ray.tune.suggest.optuna import OptunaSearch as SearchAlgo
+            except (ImportError, AssertionError):
+                from .searcher.suggestion import OptunaSearch as SearchAlgo
         else:
             raise NotImplementedError(
                 f"hpo_method={self._hpo_method} is not recognized. "
@@ -2305,22 +2313,39 @@ class AutoML(BaseEstimator):
         else:
             self._state.time_from_start = time.time() - self._start_time_flag
             time_left = self._state.time_budget - self._state.time_from_start
-            search_alg = SearchAlgo(
-                metric="val_loss",
-                space=space,
-                low_cost_partial_config=self.low_cost_partial_config,
-                points_to_evaluate=self.points_to_evaluate,
-                cat_hp_cost=self.cat_hp_cost,
-                resource_attr=self.resource_attr,
-                min_resource=self.min_resource,
-                max_resource=self.max_resource,
-                config_constraints=[
-                    (partial(size, self._state), "<=", self._mem_thres)
-                ],
-                metric_constraints=self.metric_constraints,
-                seed=self._seed,
-                time_budget_s=time_left,
-            )
+            print(self._hpo_method)
+            if self._hpo_method != "optuna":
+                search_alg = SearchAlgo(
+                    metric="val_loss",
+                    space=space,
+                    low_cost_partial_config=self.low_cost_partial_config,
+                    points_to_evaluate=self.points_to_evaluate,
+                    cat_hp_cost=self.cat_hp_cost,
+                    resource_attr=self.resource_attr,
+                    min_resource=self.min_resource,
+                    max_resource=self.max_resource,
+                    config_constraints=[
+                        (partial(size, self._state), "<=", self._mem_thres)
+                    ],
+                    metric_constraints=self.metric_constraints,
+                    seed=self._seed,
+                    time_budget_s=time_left,
+                )
+            else:
+                if _is_nlp_task(self._state.task):
+                    for each_point in self.points_to_evaluate:
+                        del each_point[
+                            self._state.learner_classes.get(
+                                self.estimator_list[0]
+                            ).ITER_HP
+                        ]
+                search_alg = SearchAlgo(
+                    metric="val_loss",
+                    mode="min",
+                    points_to_evaluate=[
+                        p for p in self.points_to_evaluate if len(p) == len(space)
+                    ],
+                )
             search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
         resources_per_trial = self._state.resources_per_trial
         analysis = ray.tune.run(
@@ -2502,6 +2527,11 @@ class AutoML(BaseEstimator):
                         if isinstance(search_state.init_config, list)
                         else [search_state.init_config]
                     )
+                    if _is_nlp_task(self._state.task):
+                        for each_point in points_to_evaluate:
+                            del each_point[
+                                self._state.learner_classes.get(estimator).ITER_HP
+                            ]
                     low_cost_partial_config = search_state.low_cost_partial_config
                 if self._hpo_method in ("bs", "cfo", "grid", "cfocat", "random"):
                     algo = SearchAlgo(

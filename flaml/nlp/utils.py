@@ -2,6 +2,7 @@ import argparse
 from dataclasses import dataclass, field
 from itertools import chain
 from typing import Dict, Any
+import numpy as np
 
 from ..data import (
     SUMMARIZATION,
@@ -378,8 +379,6 @@ def get_num_labels(task, y_train):
 
 
 def is_a_list_of_str(this_obj):
-    import numpy as np
-
     return (isinstance(this_obj, list) or isinstance(this_obj, np.ndarray)) and all(
         isinstance(x, str) for x in this_obj
     )
