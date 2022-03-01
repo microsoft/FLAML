@@ -197,7 +197,7 @@ class BaseEstimator:
             train_time = self._fit(X_train, y_train, **kwargs)
         return train_time
 
-    def predict(self, X):
+    def predict(self, X, **kwargs):
         """Predict label from features.
 
         Args:
@@ -216,7 +216,7 @@ class BaseEstimator:
             )
             return np.ones(X.shape[0])
 
-    def predict_proba(self, X):
+    def predict_proba(self, X, **kwargs):
         """Predict the probability of each class from features.
 
         Only works for classification problems
@@ -344,7 +344,10 @@ class TransformersEstimator(BaseEstimator):
                 "init_value": 1e-6,
             },
             "seed": {"domain": tune.choice(list(range(40, 45))), "init_value": 42},
-            "global_max_steps": {"domain": sys.maxsize, "init_value": sys.maxsize},
+            "global_max_steps": {
+                "domain": tune.choice([sys.maxsize]),
+                "init_value": sys.maxsize,
+            },
         }
 
         if task in NLG_TASKS:
@@ -371,6 +374,16 @@ class TransformersEstimator(BaseEstimator):
             )
             setattr(custom_hpo_args, key, val)
         self.custom_hpo_args = custom_hpo_args
+
+    def _update_hpo_args(self, automl_pred_kwargs: dict = None):
+        if automl_pred_kwargs.get("custom_hpo_args"):
+            for key, val in automl_pred_kwargs.get("custom_hpo_args").items():
+                assert (
+                    key in self.custom_hpo_args.__dict__
+                ), "The specified key {} is not in the argument list of flaml.nlp.utils::HPOArgs".format(
+                    key
+                )
+                setattr(self.custom_hpo_args, key, val)
 
     def _preprocess(self, X, y=None, **kwargs):
         from .nlp.utils import tokenize_text, is_a_list_of_str
@@ -540,7 +553,7 @@ class TransformersEstimator(BaseEstimator):
                 save_total_limit=0,
                 metric_for_best_model="loss",
                 fp16=self.custom_hpo_args.fp16
-                if kwargs.get("gpu_per_trial") == 1
+                if kwargs.get("gpu_per_trial") > 0
                 else False,
                 **training_args_config,
                 no_cuda=True if kwargs.get("gpu_per_trial") == 0 else False,
@@ -561,7 +574,7 @@ class TransformersEstimator(BaseEstimator):
                 save_total_limit=0,
                 metric_for_best_model="loss",
                 fp16=self.custom_hpo_args.fp16
-                if kwargs.get("gpu_per_trial") == 1
+                if kwargs.get("gpu_per_trial") > 0
                 else False,
                 **training_args_config,
                 no_cuda=True if kwargs.get("gpu_per_trial") == 0 else False,
@@ -705,7 +718,7 @@ class TransformersEstimator(BaseEstimator):
         X_test, _ = self._preprocess(X_test, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
         training_args = self._TrainingArguments(
-            per_device_eval_batch_size=32,
+            per_device_eval_batch_size=self.custom_hpo_args.per_gpu_eval_batch_size,
             output_dir=self.custom_hpo_args.output_dir,
             **self._training_args_config,
         )
@@ -722,7 +735,8 @@ class TransformersEstimator(BaseEstimator):
         )
         return test_dataset, training_args
 
-    def predict_proba(self, X):
+    def predict_proba(self, X, **kwargs):
+        self._update_hpo_args(kwargs)
         assert (
             self._task in CLASSIFICATION
         ), "predict_proba() only for classification tasks."
@@ -733,7 +747,8 @@ class TransformersEstimator(BaseEstimator):
             self._trainer = None
         return predictions.predictions
 
-    def predict(self, X):
+    def predict(self, X, **kwargs):
+        self._update_hpo_args(kwargs)
         test_dataset, training_args = self._init_model_for_predict(X)
         if self._task not in NLG_TASKS:
             predictions = self._trainer.predict(test_dataset)
@@ -1124,7 +1139,7 @@ class XGBoostEstimator(SKLearnEstimator):
         train_time = time.time() - start_time
         return train_time
 
-    def predict(self, X):
+    def predict(self, X, **kwargs):
         import xgboost as xgb
 
         if not issparse(X):
@@ -1617,7 +1632,7 @@ class Prophet(SKLearnEstimator):
         self._model = model
         return train_time
 
-    def predict(self, X):
+    def predict(self, X, **kwargs):
         if isinstance(X, int):
             raise ValueError(
                 "predict() with steps is only supported for arima/sarimax."
@@ -1697,7 +1712,7 @@ class ARIMA(Prophet):
         self._model = model
         return train_time
 
-    def predict(self, X):
+    def predict(self, X, **kwargs):
         if self._model is not None:
             if isinstance(X, int):
                 forecast = self._model.forecast(steps=X)
@@ -1895,7 +1910,7 @@ class TS_SKLearn(SKLearnEstimator):
         train_time = time.time() - current_time
         return train_time
 
-    def predict(self, X):
+    def predict(self, X, **kwargs):
         if self._model is not None:
             X = self.transform_X(X)
             X = self._preprocess(X)

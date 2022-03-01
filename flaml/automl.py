@@ -467,10 +467,10 @@ class AutoML(BaseEstimator):
             import time
 
             start = time.time()
-            y_pred = estimator.predict_proba(X_val)
+            y_pred = estimator.predict_proba(X_val, **pred_kwargs)
             pred_time = (time.time() - start) / len(X_val)
             val_loss = log_loss(y_val, y_pred, labels=labels, sample_weight=weight_val)
-            y_pred = estimator.predict_proba(X_train)
+            y_pred = estimator.predict_proba(X_train, **pred_kwargs)
             train_loss = log_loss(y_train, y_pred, labels=labels, sample_weight=weight_train)
             alpha = 0.5
             return val_loss * (1 + alpha) - alpha * train_loss, {
@@ -729,7 +729,11 @@ class AutoML(BaseEstimator):
         """Time taken to find best model in seconds."""
         return self.__dict__.get("_time_taken_best_iter")
 
-    def predict(self, X: Union[np.array, pd.DataFrame, List[str], List[List[str]]]):
+    def predict(
+        self,
+        X: Union[np.array, pd.DataFrame, List[str], List[List[str]]],
+        **pred_kwargs,
+    ):
         """Predict label from features.
 
         Args:
@@ -741,6 +745,8 @@ class AutoML(BaseEstimator):
                     arima or sarimax). Other columns in the dataframe
                     are assumed to be exogenous variables (categorical
                     or numeric).
+            **pred_kwargs: Other key word arguments to pass to predict() function of
+                the searched learners, such as per_device_eval_batch_size
 
         ```python
         multivariate_X_test = pd.DataFrame({
@@ -762,7 +768,7 @@ class AutoML(BaseEstimator):
             )
             return None
         X = self._preprocess(X)
-        y_pred = estimator.predict(X)
+        y_pred = estimator.predict(X, **pred_kwargs)
         if (
             isinstance(y_pred, np.ndarray)
             and y_pred.ndim > 1
@@ -776,7 +782,7 @@ class AutoML(BaseEstimator):
         else:
             return y_pred
 
-    def predict_proba(self, X):
+    def predict_proba(self, X, **pred_kwargs):
         """Predict the probability of each class from features, only works for
         classification problems.
 
@@ -794,7 +800,7 @@ class AutoML(BaseEstimator):
             )
             return None
         X = self._preprocess(X)
-        proba = self._trained_estimator.predict_proba(X)
+        proba = self._trained_estimator.predict_proba(X, **pred_kwargs)
         return proba
 
     def _preprocess(self, X):
@@ -1814,10 +1820,10 @@ class AutoML(BaseEstimator):
             import time
 
             start = time.time()
-            y_pred = estimator.predict_proba(X_val)
+            y_pred = estimator.predict_proba(X_val, **pred_kwargs)
             pred_time = (time.time() - start) / len(X_val)
             val_loss = log_loss(y_val, y_pred, labels=labels, sample_weight=weight_val)
-            y_pred = estimator.predict_proba(X_train)
+            y_pred = estimator.predict_proba(X_train, **pred_kwargs)
             train_loss = log_loss(y_train, y_pred, labels=labels, sample_weight=weight_train)
             alpha = 0.5
             return val_loss * (1 + alpha) - alpha * train_loss, {
@@ -2022,13 +2028,23 @@ class AutoML(BaseEstimator):
             import ray
 
             n_cpus = use_ray and ray.available_resources()["CPU"] or os.cpu_count()
+            n_concurrent_trials = int(
+                ray.available_resources()["GPU"] if use_ray else n_concurrent_trials
+            )
+            self._n_concurrent_trials = n_concurrent_trials
+
             self._state.resources_per_trial = (
                 # when using gpu, default cpu is 1 per job; otherwise, default cpu is n_cpus / n_concurrent_trials
-                {"cpu": max(int(n_cpus / n_concurrent_trials), 1), "gpu": gpu_per_trial}
-                if gpu_per_trial == 0
-                else {"cpu": 1, "gpu": gpu_per_trial}
+                (
+                    {
+                        "cpu": max(int((n_cpus - 2) / 2 / n_concurrent_trials), 1),
+                        "gpu": gpu_per_trial,
+                    }
+                    if gpu_per_trial == 0
+                    else {"cpu": 1, "gpu": gpu_per_trial}
+                )
                 if n_jobs < 0
-                else {"gpu": gpu_per_trial}
+                else {"cpu": n_jobs, "gpu": gpu_per_trial}
             )
             if isinstance(X_train, ray.ObjectRef):
                 X_train = ray.get(X_train)
@@ -2332,13 +2348,13 @@ class AutoML(BaseEstimator):
                     time_budget_s=time_left,
                 )
             else:
-                if _is_nlp_task(self._state.task):
-                    for each_point in self.points_to_evaluate:
-                        del each_point[
-                            self._state.learner_classes.get(
-                                self.estimator_list[0]
-                            ).ITER_HP
-                        ]
+                # if _is_nlp_task(self._state.task):
+                #     for each_point in self.points_to_evaluate:
+                #         del each_point[
+                #             self._state.learner_classes.get(
+                #                 self.estimator_list[0]
+                #             ).ITER_HP
+                #         ]
                 search_alg = SearchAlgo(
                     metric="val_loss",
                     mode="min",
