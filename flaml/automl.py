@@ -2348,18 +2348,16 @@ class AutoML(BaseEstimator):
                     time_budget_s=time_left,
                 )
             else:
-                # if _is_nlp_task(self._state.task):
-                #     for each_point in self.points_to_evaluate:
-                #         del each_point[
-                #             self._state.learner_classes.get(
-                #                 self.estimator_list[0]
-                #             ).ITER_HP
-                #         ]
+                new_points_to_evaluate = []
+                for idx in range(len(self.points_to_evaluate)):
+                    r = self.points_to_evaluate[idx].copy()
+                    r.pop("learner")
+                    new_points_to_evaluate.append(r)
                 search_alg = SearchAlgo(
                     metric="val_loss",
                     mode="min",
                     points_to_evaluate=[
-                        p for p in self.points_to_evaluate if len(p) == len(space)
+                        p for p in new_points_to_evaluate if len(p) == len(space)
                     ],
                 )
             search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
@@ -2543,11 +2541,8 @@ class AutoML(BaseEstimator):
                         if isinstance(search_state.init_config, list)
                         else [search_state.init_config]
                     )
-                    if _is_nlp_task(self._state.task):
-                        for each_point in points_to_evaluate:
-                            del each_point[
-                                self._state.learner_classes.get(estimator).ITER_HP
-                            ]
+                    for each_point in points_to_evaluate:
+                        each_point.pop("learner")
                     low_cost_partial_config = search_state.low_cost_partial_config
                 if self._hpo_method in ("bs", "cfo", "grid", "cfocat", "random"):
                     algo = SearchAlgo(
