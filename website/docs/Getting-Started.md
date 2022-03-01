@@ -84,7 +84,7 @@ FLAML offers a unique, seamless and effortless way to leverage AutoML for the co
 from flaml.default import LGBMClassifier
 ```
 
-Then, you can use it just like you use the original `LGMBClassifier`. Your other code can remain unchanged. When you call the `fit()` function from `flaml.default.LGBMClassifier`, it will automatically instantiates a good data-dependent hyperparameter configuration for your dataset, which is expected to work better than the default configuration.
+Then, you can use it just like you use the original `LGMBClassifier`. Your other code can remain unchanged. When you call the `fit()` function from `flaml.default.LGBMClassifier`, it will automatically instantiate a good data-dependent hyperparameter configuration for your dataset, which is expected to work better than the default configuration.
 
 ### Where to Go Next?
 

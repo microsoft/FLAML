@@ -3,7 +3,6 @@ import numpy as np
 import argparse
 from pathlib import Path
 import json
-import sys
 from sklearn.preprocessing import RobustScaler
 from flaml.default import greedy
 from flaml.default.regret import load_result, build_regret
@@ -12,11 +11,19 @@ regret_bound = 0.01
 
 
 def config_predictor_tuple(tasks, configs, meta_features, regret_matrix):
-    """Config predictor represented in tuple."""
+    """Config predictor represented in tuple.
+
+    The returned tuple consists of (meta_features, preferences, proc).
+
+    Returns:
+        meta_features_norm: A dataframe of normalized meta features, each column for a task.
+        preferences: A dataframe of sorted configuration indicies by their performance per task (column).
+        regret_matrix: A dataframe of the configuration(row)-task(column) regret matrix.
+    """
     # pre-processing
     scaler = RobustScaler()
-    meta_features = meta_features.loc[tasks]  # this makes a copy
-    meta_features.loc[:, :] = scaler.fit_transform(meta_features)
+    meta_features_norm = meta_features.loc[tasks]  # this makes a copy
+    meta_features_norm.loc[:, :] = scaler.fit_transform(meta_features_norm)
 
     proc = {
         "center": scaler.center_.tolist(),
@@ -36,21 +43,22 @@ def config_predictor_tuple(tasks, configs, meta_features, regret_matrix):
     print(regret)
     preferences = np.argsort(regret, axis=0)
     print(preferences)
-    return (meta_features, preferences, proc)
+    return (meta_features_norm, preferences, proc)
 
 
-def build_portfolio(meta_features, regret, strat):
-    """Build a portfolio using our algorithm.
+def build_portfolio(meta_features, regret, strategy):
+    """Build a portfolio from meta features and regret matrix.
 
     Args:
-        meta_features: metafeatures matrix
-        regret: regret matrix
-        strat: one of {greedy-feedback, greedy}
+        meta_features: A dataframe of metafeatures matrix.
+        regret: A dataframe of regret matrix.
+        strategy: A str of the strategy, one of ("greedy", "greedy-feedback").
     """
-    if strat == "greedy-feedback":
-        portfolio = greedy.smart(regret, meta_features, regret_bound)
-    elif strat == "greedy":
-        portfolio = greedy.smart(regret, None, regret_bound)
+    assert strategy in ("greedy", "greedy-feedback")
+    if strategy == "greedy":
+        portfolio = greedy.construct_portfolio(regret, None, regret_bound)
+    elif strategy == "greedy-feedback":
+        portfolio = greedy.construct_portfolio(regret, meta_features, regret_bound)
     if "default" not in portfolio and "default" in regret.index:
         portfolio += ["default"]
     return portfolio
@@ -154,7 +162,7 @@ def serialize(configs, regret, meta_features, output_file, config_path):
 def main():
     parser = argparse.ArgumentParser(description="Build a portfolio.")
     parser.add_argument(
-        "--strategy", help="One of {greedy-feedback, greedy}", default="greedy-feedback"
+        "--strategy", help="One of {greedy, greedy-feedback}", default="greedy"
     )
     parser.add_argument("--input", help="Input path")
     parser.add_argument("--metafeatures", help="CSV of task metafeatures")

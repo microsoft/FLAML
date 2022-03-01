@@ -134,9 +134,9 @@ This section is intended for:
 1. AutoML providers for a particular domain.
 1. Data scientists or engineers who need to repeatedly train models for similar tasks with varying training data.
 
-Instead of running full hyperparmaeter tuning from scratch every time, one can leverage the tuning experiences in similar tasks before. While we have offered the meta-learned defaults from tuning experiences of several popular learners on benchmark datasets for classification and regression, you can customize the defaults for your own tasks/learners/metrics based on your own tuning experiences.
+Instead of running full hyperparameter tuning from scratch every time, one can leverage the tuning experiences in similar tasks before. While we have offered the meta-learned defaults from tuning experiences of several popular learners on benchmark datasets for classification and regression, you can customize the defaults for your own tasks/learners/metrics based on your own tuning experiences.
 
-### Prepare a collectioin of training tasks
+### Prepare a collection of training tasks
 
 Collect a diverse set of training tasks. For each task, extract its meta feature and save in a .csv file. For example, test/default/all/metafeatures.csv:
 
@@ -205,7 +205,7 @@ adult,0,binary,0.910763,{'_modeljson': 'lgbm/poker.json'}
 
 The `type` column indicates the type of the task, such as regression, binary or multiclass.
 The `result` column stores the evaluation result, assumed the large the better. The `params` column indicates which json config is used. For example 'lgbm/2dplanes.json' indicates that the best lgbm configuration extracted from 2dplanes is used.
-Different type of tasks can appear in the same file, as long as any json config file can be used in all the tasks. For example, 'lgbm/2dplanes.json' is extracted from a regression task, and it can be applied to binary and multiclass tasks as well.
+Different types of tasks can appear in the same file, as long as any json config file can be used in all the tasks. For example, 'lgbm/2dplanes.json' is extracted from a regression task, and it can be applied to binary and multiclass tasks as well.
 
 ### Learn data-dependent defaults
 
@@ -244,4 +244,4 @@ ExtraTreesClassifier = flamlize_estimator(
 )
 ```
 
-Then, you can share this "flamlized" `ExtraTreesClassifier` together with the location of your learned defaults with others (or the _future_ yourself). They will benefit from your past experience. Your group can also share experiences in a central place and update the learned defaults continuously. Overtime, your organization gets better collectively.
+Then, you can share this "flamlized" `ExtraTreesClassifier` together with the location of your learned defaults with others (or the _future_ yourself). They will benefit from your past experience. Your group can also share experiences in a central place and update the learned defaults continuously. Over time, your organization gets better collectively.

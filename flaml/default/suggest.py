@@ -38,6 +38,11 @@ def load_config_predictor(estimator_name, task, location=None):
 
 
 def suggest_config(task, X, y, estimator_or_predictor, location=None, k=None):
+    """Suggest a list of configs for the given task and training data.
+
+    The returned configs can be used as starting points for AutoML.fit().
+    `FLAML_sample_size` is removed from the configs.
+    """
     task = (
         get_classification_objective(len(np.unique(y)))
         if task == "classification"
@@ -81,7 +86,9 @@ def suggest_learner(
 
 
 def suggest_hyperparams(task, X, y, estimator_or_predictor, location=None):
-    """Suggest hyperparameters.
+    """Suggest hyperparameter configurations and an estimator class.
+
+    The configurations can be used to initialize the estimator class like lightgbm.LGBMRegressor.
 
     Example:
 
@@ -109,10 +116,10 @@ def suggest_hyperparams(task, X, y, estimator_or_predictor, location=None):
                 * "scale": a list of meta feature scales to normalize each dimension.
             - "neighbors": a list of dictionaries. Each dictionary contains:
                 * "features": a list of the normalized meta features for a neighbor.
-                * "choice": a integer of the configuration id in the portfolio.
+                * "choice": an integer of the configuration id in the portfolio.
             - "portfolio": a list of dictionaries, each corresponding to a configuration:
                 * "class": a str of the learner name.
-                * "hyperparameters": a dict of the config. They key "FLAML_sample_size" will be ignored.
+                * "hyperparameters": a dict of the config. The key "FLAML_sample_size" will be ignored.
         location: (Optional) A str of the location containing mined portfolio file.
             Only valid when the portfolio is a str, by default the location is flaml/default.
 

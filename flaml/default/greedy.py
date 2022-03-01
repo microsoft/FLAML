@@ -9,7 +9,22 @@ def _augment(row):
     return row.apply(lambda x: (x, max, avg, id))
 
 
-def smart(regret_matrix, meta_features, regret_bound):
+def construct_portfolio(regret_matrix, meta_features, regret_bound):
+    """The portfolio construction algorithm.
+
+    (Reference)[https://arxiv.org/abs/2202.09927].
+
+    Args:
+        regret_matrix: A dataframe of regret matrix.
+        meta_features: None or a dataframe of metafeatures matrix.
+            When set to None, the algorithm uses greedy strategy.
+            Otherwise, the algorithm uses greedy strategy with feedback
+            from the nearest neighbor predictor.
+        regret_bound: A float of the regret bound.
+
+    Returns:
+        A list of configuration names.
+    """
     configs = []
     all_configs = set(regret_matrix.index.tolist())
     tasks = regret_matrix.columns

@@ -75,7 +75,7 @@ To perform hyperparameter search starting with the data-dependent defaults, remo
 
 FLAML provides a package `flaml.default` to learn defaults customized for your own tasks/learners/metrics.
 
-### Prepare a collectioin of training tasks
+### Prepare a collection of training tasks
 
 Collect a diverse set of training tasks. For each task, extract its meta feature and save in a .csv file. For example, test/default/all/metafeatures.csv:
 
@@ -143,7 +143,7 @@ adult,0,binary,0.910763,{'_modeljson': 'lgbm/poker.json'}
 ```
 
 The `type` column indicates the type of the task, such as regression, binary or multiclass.
-The `result` column stores the evaluation result, assumed the large the better. The `params` column indicates which json config is used. For example 'lgbm/2dplanes.json' indicates that the best lgbm configuration extracted from 2dplanes is used.
+The `result` column stores the evaluation result, assuming the large the better. The `params` column indicates which json config is used. For example 'lgbm/2dplanes.json' indicates that the best lgbm configuration extracted from 2dplanes is used.
 
 ### Learn data-dependent defaults
 
