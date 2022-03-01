@@ -1695,7 +1695,6 @@ class ARIMA(Prophet):
                 if len(X.columns) > 1:
                     X = self._preprocess(X.drop(columns=TS_TIMESTAMP_COL))
                     regressors = list(X)
-                    print(start, end, X.shape)
                     forecast = self._model.predict(
                         start=start, end=end, exog=X[regressors]
                     )
@@ -1815,10 +1814,7 @@ class TS_SKLearn(SKLearnEstimator):
                     "low_cost_init_value": False,
                 },
                 "lags": {
-                    "domain": tune.randint(
-                        lower=1, upper=int(np.sqrt(data_size[0]))
-
-                    ),
+                    "domain": tune.randint(lower=1, upper=int(np.sqrt(data_size[0]))),
                     "init_value": 3,
                 },
             }
