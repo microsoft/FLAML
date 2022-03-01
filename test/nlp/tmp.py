@@ -34,7 +34,7 @@ def test_hf_data():
     automl = AutoML()
 
     automl_settings = {
-        "time_budget": 500,  # setting the time budget
+        "time_budget": 100,  # setting the time budget
         "task": "seq-classification",  # setting the task as seq-classification
         "custom_hpo_args": {
             "output_dir": "data/output/",  # setting the output directory
