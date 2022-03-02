@@ -2548,19 +2548,6 @@ class AutoML(BaseEstimator):
                         else [search_state.init_config]
                     )
 
-                    from ray.tune.suggest.optuna import OptunaSearch
-
-                    converted_space = OptunaSearch.convert_search_space(
-                        search_space.copy()
-                    )
-                    removed_keys = set(search_space.keys()).difference(
-                        converted_space.keys()
-                    )
-
-                    for idx in range(len(points_to_evaluate)):
-                        for each_key in removed_keys:
-                            points_to_evaluate[idx].pop(each_key)
-
                     low_cost_partial_config = search_state.low_cost_partial_config
                 if self._hpo_method in ("bs", "cfo", "grid", "cfocat", "random"):
                     algo = SearchAlgo(
