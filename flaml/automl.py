@@ -2366,7 +2366,7 @@ class AutoML(BaseEstimator):
                     metric="val_loss",
                     mode="min",
                     points_to_evaluate=[
-                        p for p in new_points_to_evaluate if len(p) == len(space)
+                        p for p in new_points_to_evaluate if len(p) == len(converted_space)
                     ],
                 )
             search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
