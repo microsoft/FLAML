@@ -470,7 +470,7 @@ class AutoML(BaseEstimator):
             y_pred = estimator.predict_proba(X_val)
             pred_time = (time.time() - start) / len(X_val)
             val_loss = log_loss(y_val, y_pred, labels=labels, sample_weight=weight_val)
-            y_pred = estimator.predict_proba(X_train, **pred_kwargs)
+            y_pred = estimator.predict_proba(X_train)
             train_loss = log_loss(y_train, y_pred, labels=labels, sample_weight=weight_train)
             alpha = 0.5
             return val_loss * (1 + alpha) - alpha * train_loss, {
