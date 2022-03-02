@@ -14,13 +14,22 @@ def _test_hf_data():
 
     ray.init()
 
-    train_dataset = load_dataset("glue", "mrpc", split="train").to_pandas().iloc[0:100]
-    dev_dataset = (
-        load_dataset("glue", "mrpc", split="validation").to_pandas().iloc[0:100]
-    )
-    test_dataset = load_dataset("glue", "mrpc", split="test").to_pandas().iloc[0:100]
+    train_dataset = load_dataset("swag", split="train").to_pandas().iloc[0:100]
+    dev_dataset = load_dataset("swag", split="validation").to_pandas().iloc[0:100]
+    test_dataset = load_dataset("swag", split="test").to_pandas().iloc[0:100]
 
-    custom_sent_keys = ["sentence1", "sentence2"]
+    custom_sent_keys = [
+        "sent1",
+        "sent2",
+        "ending0",
+        "ending1",
+        "ending2",
+        "ending3",
+        "gold-source",
+        "video-id",
+        "startphrase",
+        "fold-ind",
+    ]
     label_key = "label"
 
     X_train = train_dataset[custom_sent_keys]
@@ -34,19 +43,17 @@ def _test_hf_data():
     automl = AutoML()
 
     automl_settings = {
-        "time_budget": 100,  # setting the time budget
-        "task": "seq-classification",  # setting the task as seq-classification
+        "time_budget": 500,  # setting the time budget
+        "task": "multichoice-classification",  # setting the task as multiplechoice-classification
         "hf_args": {
             "output_dir": "data/output/",  # setting the output directory
             "ckpt_per_epoch": 1,  # setting the number of checkoints per epoch
-            "per_gpu_eval_batch_size": 1,  # setting the batch size for prediction (i.e., inference)
         },
-        "gpu_per_trial": 0,  # set to 0 if no GPU is available
+        "gpu_per_trial": 1,  # set to 0 if no GPU is available
         "log_file_name": "seqclass.log",  # set the file to save the log for HPO
         "log_type": "all",
         # the log type for checkpoints: all if keeping all checkpoints, best if only keeping the best checkpoints                        # the batch size for validation (inference)
-        "use_ray": False,  # set whether to use Ray
-        "hpo_method": "optuna",
+        "use_ray": True,  # set whether to use Ray
     }
 
     try:

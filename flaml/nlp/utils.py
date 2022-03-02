@@ -291,7 +291,7 @@ def tokenize_text_multiplechoice(X, tokenizer, hf_args=None):
         t.iloc[0],
         tokenizer=tokenizer,
         hf_args=hf_args,
-        is_return_column_name=True,
+        return_column_name=True,
     )
     d = t.apply(
         lambda x: tokenize_swag(x, tokenizer=tokenizer, hf_args=hf_args),
