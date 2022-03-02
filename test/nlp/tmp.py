@@ -46,7 +46,6 @@ def _test_hf_data():
         "log_type": "all",
         # the log type for checkpoints: all if keeping all checkpoints, best if only keeping the best checkpoints                        # the batch size for validation (inference)
         "use_ray": False,  # set whether to use Ray
-        "n_concurrent_trials": 1,
         "hpo_method": "optuna",
     }
 

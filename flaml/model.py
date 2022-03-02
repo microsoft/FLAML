@@ -345,7 +345,7 @@ class TransformersEstimator(BaseEstimator):
             },
             "seed": {"domain": tune.choice(list(range(40, 45))), "init_value": 42},
             "global_max_steps": {
-                "domain": tune.choice([sys.maxsize]),
+                "domain": sys.maxsize,
                 "init_value": sys.maxsize,
             },
         }
@@ -376,14 +376,16 @@ class TransformersEstimator(BaseEstimator):
         self.hf_args = hf_args
 
     def _update_hf_args(self, automl_pred_kwargs: dict = None):
-        if automl_pred_kwargs.get("hf_args"):
-            for key, val in automl_pred_kwargs.get("hf_args").items():
-                assert (
-                    key in self.hf_args.__dict__
-                ), "The specified key {} is not in the argument list of flaml.nlp.utils::HFArgs".format(
-                    key
-                )
-                setattr(self.hf_args, key, val)
+        if automl_pred_kwargs:
+            hf_args = automl_pred_kwargs.get("hf_args")
+            if hf_args:
+                for key, val in hf_args.items():
+                    assert (
+                        key in self.hf_args.__dict__
+                    ), "The specified key {} is not in the argument list of flaml.nlp.utils::HFArgs".format(
+                        key
+                    )
+                    setattr(self.hf_args, key, val)
 
     def _preprocess(self, X, y=None, **kwargs):
         from .nlp.utils import tokenize_text, is_a_list_of_str
@@ -476,9 +478,7 @@ class TransformersEstimator(BaseEstimator):
         set_seed(self.params.get("seed", self._TrainingArguments.seed))
 
         self._init_hf_args(kwargs)
-        self._tokenizer = get_auto_tokenizer(
-            self.hf_args.model_path, self._task
-        )
+        self._tokenizer = get_auto_tokenizer(self.hf_args.model_path, self._task)
 
         self._metric = kwargs["metric"]
         self.use_ray = kwargs.get("use_ray")
@@ -526,9 +526,7 @@ class TransformersEstimator(BaseEstimator):
             ),
         )
 
-        local_dir = os.path.join(
-            self.hf_args.output_dir, "train_{}".format(date_str())
-        )
+        local_dir = os.path.join(self.hf_args.output_dir, "train_{}".format(date_str()))
 
         if not self.use_ray:
             # if self.params = {}, don't include configuration in trial fold name
@@ -552,9 +550,7 @@ class TransformersEstimator(BaseEstimator):
                 logging_steps=ckpt_freq,
                 save_total_limit=0,
                 metric_for_best_model="loss",
-                fp16=self.hf_args.fp16
-                if kwargs.get("gpu_per_trial") > 0
-                else False,
+                fp16=self.hf_args.fp16 if kwargs.get("gpu_per_trial") > 0 else False,
                 **training_args_config,
                 no_cuda=True if kwargs.get("gpu_per_trial") == 0 else False,
             )
@@ -573,9 +569,7 @@ class TransformersEstimator(BaseEstimator):
                 save_steps=ckpt_freq,
                 save_total_limit=0,
                 metric_for_best_model="loss",
-                fp16=self.hf_args.fp16
-                if kwargs.get("gpu_per_trial") > 0
-                else False,
+                fp16=self.hf_args.fp16 if kwargs.get("gpu_per_trial") > 0 else False,
                 **training_args_config,
                 no_cuda=True if kwargs.get("gpu_per_trial") == 0 else False,
             )

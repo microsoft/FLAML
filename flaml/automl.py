@@ -787,7 +787,9 @@ class AutoML(BaseEstimator):
         classification problems.
 
         Args:
-            X: A numpy array of featurized instances, shape n * m.
+            X: A numpy array of featurized instances, shape n * m
+            **pred_kwargs: Other key word arguments to pass to predict_proba() function of
+                the searched learners, such as per_device_eval_batch_size
 
         Returns:
             A numpy array of shape n * c. c is the  # classes. Each element at
@@ -1820,10 +1822,10 @@ class AutoML(BaseEstimator):
             import time
 
             start = time.time()
-            y_pred = estimator.predict_proba(X_val, **pred_kwargs)
+            y_pred = estimator.predict_proba(X_val)
             pred_time = (time.time() - start) / len(X_val)
             val_loss = log_loss(y_val, y_pred, labels=labels, sample_weight=weight_val)
-            y_pred = estimator.predict_proba(X_train, **pred_kwargs)
+            y_pred = estimator.predict_proba(X_train)
             train_loss = log_loss(y_train, y_pred, labels=labels, sample_weight=weight_train)
             alpha = 0.5
             return val_loss * (1 + alpha) - alpha * train_loss, {
@@ -2002,6 +2004,7 @@ class AutoML(BaseEstimator):
             if starting_points is None
             else starting_points
         )
+        is_user_define_concurrent_trials = n_concurrent_trials
         n_concurrent_trials = n_concurrent_trials or self._settings.get(
             "n_concurrent_trials"
         )
@@ -2028,7 +2031,9 @@ class AutoML(BaseEstimator):
             import ray
 
             n_cpus = use_ray and ray.available_resources()["CPU"] or os.cpu_count()
-            if ray.available_resources().get("GPU"):
+            if ray.available_resources().get("GPU") and (
+                not is_user_define_concurrent_trials
+            ):
                 n_concurrent_trials = int(
                     ray.available_resources().get("GPU")
                     if use_ray
@@ -2332,7 +2337,6 @@ class AutoML(BaseEstimator):
         else:
             self._state.time_from_start = time.time() - self._start_time_flag
             time_left = self._state.time_budget - self._state.time_from_start
-            print(self._hpo_method)
             if self._hpo_method != "optuna":
                 search_alg = SearchAlgo(
                     metric="val_loss",
@@ -2351,9 +2355,8 @@ class AutoML(BaseEstimator):
                     time_budget_s=time_left,
                 )
             else:
-                from ray.tune.suggest.optuna import OptunaSearch
+                converted_space = SearchAlgo.convert_search_space(space)
 
-                converted_space = OptunaSearch.convert_search_space(space.copy())
                 removed_keys = set(space.keys()).difference(converted_space.keys())
                 new_points_to_evaluate = []
                 for idx in range(len(self.points_to_evaluate)):
@@ -2366,7 +2369,9 @@ class AutoML(BaseEstimator):
                     metric="val_loss",
                     mode="min",
                     points_to_evaluate=[
-                        p for p in new_points_to_evaluate if len(p) == len(converted_space)
+                        p
+                        for p in new_points_to_evaluate
+                        if len(p) == len(converted_space)
                     ],
                 )
             search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
@@ -2551,6 +2556,19 @@ class AutoML(BaseEstimator):
                         else [search_state.init_config]
                     )
 
+                    converted_space = SearchAlgo.convert_search_space(search_space)
+
+                    removed_keys = set(search_space.keys()).difference(
+                        converted_space.keys()
+                    )
+                    new_points_to_evaluate = []
+                    for idx in range(len(points_to_evaluate)):
+                        r = points_to_evaluate[idx].copy()
+                        for each_key in removed_keys:
+                            r.pop(each_key)
+                        new_points_to_evaluate.append(r)
+                    points_to_evaluate = new_points_to_evaluate
+
                     low_cost_partial_config = search_state.low_cost_partial_config
                 if self._hpo_method in ("bs", "cfo", "grid", "cfocat", "random"):
                     algo = SearchAlgo(
@@ -2570,6 +2588,7 @@ class AutoML(BaseEstimator):
                         seed=self._seed,
                     )
                 else:
+
                     algo = SearchAlgo(
                         metric="val_loss",
                         mode="min",
