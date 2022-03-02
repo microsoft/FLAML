@@ -434,6 +434,7 @@ import pandas as pd
 multi_df = pd.read_csv(
     "https://raw.githubusercontent.com/srivatsan88/YouTubeLI/master/dataset/nyc_energy_consumption.csv"
 )
+
 # preprocessing data
 multi_df["timeStamp"] = pd.to_datetime(multi_df["timeStamp"])
 multi_df = multi_df.set_index("timeStamp")
@@ -443,10 +444,8 @@ multi_df["precip"] = multi_df["precip"].fillna(method="ffill")
 multi_df = multi_df[:-2]  # last two rows are NaN for 'demand' column so remove them
 multi_df = multi_df.reset_index()
 
-# Use feature engineering to create a categorical value
 # Using temperature values create categorical values
 # where 1 denotes daily tempurature is above monthly average and 0 is below.
-
 def get_monthly_avg(data):
     data["month"] = data["timeStamp"].dt.month
     data = data[["month", "temp"]].groupby("month")
@@ -480,7 +479,10 @@ multi_X_test = multi_test_df[
 ]  # test dataframe must contain values for the regressors / multivariate variables
 multi_y_test = multi_test_df["demand"]
 
+# initialize AutoML instance
 automl = AutoML()
+
+# configure AutoML settings
 settings = {
     "time_budget": 10,  # total running time in seconds
     "metric": "mape",  # primary metric
@@ -491,12 +493,11 @@ settings = {
     "label": "demand",
 }
 
-automl.fit(
-    dataframe=multi_train_df,
-    **settings,
-    estimator_list=["arima", "sarimax"],
-    period=multi_time_horizon,
-)
+# train the model
+automl.fit(dataframe=df, **settings, period=time_horizon)
+
+# predictions
+print(automl.predict(multi_X_test))
 ```
 
 #### Sample Output
@@ -547,16 +548,18 @@ automl.fit(
 ### Forecasting Discrete Variables
 ```python
 from hcrystalball.utils import get_sales_data
+import numpy as np
+from flaml import AutoML
 
 time_horizon = 30
 df = get_sales_data(n_dates=180, n_assortments=1, n_states=1, n_stores=1)
 df = df[["Sales", "Open", "Promo", "Promo2"]]
+
 # feature engineering - create a discrete value column
 # 1 denotes above mean and 0 denotes below mean
-import numpy as np
-
 df["above_mean_sales"] = np.where(df["Sales"] > df["Sales"].mean(), 1, 0)
 df.reset_index(inplace=True)
+
 # train-test split
 discrete_train_df = df[:-time_horizon]
 discrete_test_df = df[-time_horizon:]
@@ -565,9 +568,10 @@ discrete_X_train, discrete_X_test = (
     discrete_test_df[["Date", "Open", "Promo", "Promo2"]],
 )
 discrete_y_train, discrete_y_test = discrete_train_df["above_mean_sales"], discrete_test_df["above_mean_sales"]
-from flaml import AutoML
 
+# initialize AutoML instance
 automl = AutoML()
+
 # configure the settings
 settings = {
     "time_budget": 15,  # total running time in seconds
@@ -576,11 +580,13 @@ settings = {
     "log_file_name": "sales_classification_forecast.log",  # flaml log file
     "eval_method": "holdout",
 }
+
 # train the model
 automl.fit(X_train=discrete_X_train,
            y_train=discrete_y_train,
            **settings,
            period=time_horizon)
+
 # make predictions
 discrete_y_pred = automl.predict(discrete_X_test)
 print("Predicted label", discrete_y_pred)
