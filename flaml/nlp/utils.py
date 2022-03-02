@@ -312,7 +312,7 @@ def tokenize_text_multiplechoice(X, tokenizer, custom_hpo_args=None):
 
 
 def tokenize_swag(
-    this_row, tokenizer, custom_hpo_args=None, is_return_column_name=False
+    this_row, tokenizer, custom_hpo_args=None, return_column_name=False
 ):
     first_sentences = [[this_row["sent1"]] * 4]
     # get each 1st sentence, multiply to 4 sentences
