@@ -41,11 +41,11 @@ def _test_hf_data():
             "ckpt_per_epoch": 1,  # setting the number of checkoints per epoch
             "per_gpu_eval_batch_size": 1,  # setting the batch size for prediction (i.e., inference)
         },
-        "gpu_per_trial": 1,  # set to 0 if no GPU is available
+        "gpu_per_trial": 0,  # set to 0 if no GPU is available
         "log_file_name": "seqclass.log",  # set the file to save the log for HPO
         "log_type": "all",
         # the log type for checkpoints: all if keeping all checkpoints, best if only keeping the best checkpoints                        # the batch size for validation (inference)
-        "use_ray": True,  # set whether to use Ray
+        "use_ray": False,  # set whether to use Ray
         "n_concurrent_trials": 1,
         "hpo_method": "optuna",
     }
