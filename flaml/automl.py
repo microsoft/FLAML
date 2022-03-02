@@ -2556,19 +2556,6 @@ class AutoML(BaseEstimator):
                         else [search_state.init_config]
                     )
 
-                    converted_space = SearchAlgo.convert_search_space(search_space)
-
-                    removed_keys = set(search_space.keys()).difference(
-                        converted_space.keys()
-                    )
-                    new_points_to_evaluate = []
-                    for idx in range(len(points_to_evaluate)):
-                        r = points_to_evaluate[idx].copy()
-                        for each_key in removed_keys:
-                            r.pop(each_key)
-                        new_points_to_evaluate.append(r)
-                    points_to_evaluate = new_points_to_evaluate
-
                     low_cost_partial_config = search_state.low_cost_partial_config
                 if self._hpo_method in ("bs", "cfo", "grid", "cfocat", "random"):
                     algo = SearchAlgo(
@@ -2588,6 +2575,17 @@ class AutoML(BaseEstimator):
                         seed=self._seed,
                     )
                 else:
+                    converted_space = SearchAlgo.convert_search_space(search_space)
+                    removed_keys = set(search_space.keys()).difference(
+                        converted_space.keys()
+                    )
+                    new_points_to_evaluate = []
+                    for idx in range(len(points_to_evaluate)):
+                        r = points_to_evaluate[idx].copy()
+                        for each_key in removed_keys:
+                            r.pop(each_key)
+                        new_points_to_evaluate.append(r)
+                    points_to_evaluate = new_points_to_evaluate
 
                     algo = SearchAlgo(
                         metric="val_loss",
