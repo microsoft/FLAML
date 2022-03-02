@@ -467,10 +467,10 @@ class AutoML(BaseEstimator):
             import time
 
             start = time.time()
-            y_pred = estimator.predict_proba(X_val, **pred_kwargs)
+            y_pred = estimator.predict_proba(X_val)
             pred_time = (time.time() - start) / len(X_val)
             val_loss = log_loss(y_val, y_pred, labels=labels, sample_weight=weight_val)
-            y_pred = estimator.predict_proba(X_train, **pred_kwargs)
+            y_pred = estimator.predict_proba(X_train)
             train_loss = log_loss(y_train, y_pred, labels=labels, sample_weight=weight_train)
             alpha = 0.5
             return val_loss * (1 + alpha) - alpha * train_loss, {
@@ -2366,7 +2366,7 @@ class AutoML(BaseEstimator):
                     metric="val_loss",
                     mode="min",
                     points_to_evaluate=[
-                        p for p in new_points_to_evaluate if len(p) == len(space)
+                        p for p in new_points_to_evaluate if len(p) == len(converted_space)
                     ],
                 )
             search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)

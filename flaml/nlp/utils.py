@@ -336,7 +336,7 @@ def tokenize_swag(
     )
     tmp_column_names = sorted(tokenized_example.keys())
 
-    if is_return_column_name:
+    if return_column_name:
         return [tokenized_example[x] for x in tmp_column_names], tmp_column_names
     else:
         return [tokenized_example[x] for x in tmp_column_names]
