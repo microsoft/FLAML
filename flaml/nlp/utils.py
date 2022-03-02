@@ -58,13 +58,9 @@ def tokenize_text(X, Y=None, task=None, hf_args=None, tokenizer=None):
             X, Y, tokenizer=tokenizer, hf_args=hf_args
         )
     elif task in NLG_TASKS:
-        return tokenize_seq2seq(
-            X, Y, tokenizer=tokenizer, task=task, hf_args=hf_args
-        )
+        return tokenize_seq2seq(X, Y, tokenizer=tokenizer, task=task, hf_args=hf_args)
     elif task == MULTICHOICECLASSIFICATION:
-        return tokenize_text_multiplechoice(
-            X, tokenizer=tokenizer, hf_args=hf_args
-        )
+        return tokenize_text_multiplechoice(X, tokenizer=tokenizer, hf_args=hf_args)
 
 
 def tokenize_seq2seq(X, Y, tokenizer, task=None, hf_args=None):
@@ -298,9 +294,7 @@ def tokenize_text_multiplechoice(X, tokenizer, hf_args=None):
         is_return_column_name=True,
     )
     d = t.apply(
-        lambda x: tokenize_swag(
-            x, tokenizer=tokenizer, hf_args=hf_args
-        ),
+        lambda x: tokenize_swag(x, tokenizer=tokenizer, hf_args=hf_args),
         axis=1,
         result_type="expand",
     )
@@ -311,9 +305,7 @@ def tokenize_text_multiplechoice(X, tokenizer, hf_args=None):
     return output, None
 
 
-def tokenize_swag(
-    this_row, tokenizer, hf_args=None, is_return_column_name=False
-):
+def tokenize_swag(this_row, tokenizer, hf_args=None, return_column_name=False):
     first_sentences = [[this_row["sent1"]] * 4]
     # get each 1st sentence, multiply to 4 sentences
     question_headers = this_row["sent2"]
