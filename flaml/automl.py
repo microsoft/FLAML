@@ -2348,16 +2348,16 @@ class AutoML(BaseEstimator):
                     time_budget_s=time_left,
                 )
             else:
-                new_points_to_evaluate = []
-                for idx in range(len(self.points_to_evaluate)):
-                    r = self.points_to_evaluate[idx].copy()
-                    r.pop("learner")
-                    new_points_to_evaluate.append(r)
+                # new_points_to_evaluate = []
+                # for idx in range(len(self.points_to_evaluate)):
+                #     r = self.points_to_evaluate[idx].copy()
+                #     r.pop("learner")
+                #     new_points_to_evaluate.append(r)
                 search_alg = SearchAlgo(
                     metric="val_loss",
                     mode="min",
                     points_to_evaluate=[
-                        p for p in new_points_to_evaluate if len(p) == len(space)
+                        p for p in self.points_to_evaluate if len(p) == len(space)
                     ],
                 )
             search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
