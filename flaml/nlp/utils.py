@@ -43,36 +43,36 @@ def get_auto_tokenizer(model_path, task):
         return AutoTokenizer.from_pretrained(model_path, use_fast=True)
 
 
-def tokenize_text(X, Y=None, task=None, custom_hpo_args=None, tokenizer=None):
+def tokenize_text(X, Y=None, task=None, hf_args=None, tokenizer=None):
     if task in (SEQCLASSIFICATION, SEQREGRESSION):
         X_tokenized = tokenize_onedataframe(
             X,
             tokenizer=tokenizer,
             task=task,
-            custom_hpo_args=custom_hpo_args,
+            hf_args=hf_args,
             prefix_str="",
         )
         return X_tokenized, None
     elif task == TOKENCLASSIFICATION:
         return tokenize_text_tokclassification(
-            X, Y, tokenizer=tokenizer, custom_hpo_args=custom_hpo_args
+            X, Y, tokenizer=tokenizer, hf_args=hf_args
         )
     elif task in NLG_TASKS:
         return tokenize_seq2seq(
-            X, Y, tokenizer=tokenizer, task=task, custom_hpo_args=custom_hpo_args
+            X, Y, tokenizer=tokenizer, task=task, hf_args=hf_args
         )
     elif task == MULTICHOICECLASSIFICATION:
         return tokenize_text_multiplechoice(
-            X, tokenizer=tokenizer, custom_hpo_args=custom_hpo_args
+            X, tokenizer=tokenizer, hf_args=hf_args
         )
 
 
-def tokenize_seq2seq(X, Y, tokenizer, task=None, custom_hpo_args=None):
+def tokenize_seq2seq(X, Y, tokenizer, task=None, hf_args=None):
     model_inputs = tokenize_onedataframe(
         X,
         tokenizer=tokenizer,
         task=task,
-        custom_hpo_args=custom_hpo_args,
+        hf_args=hf_args,
         prefix_str="summarize: ",
     )
     labels = None
@@ -81,7 +81,7 @@ def tokenize_seq2seq(X, Y, tokenizer, task=None, custom_hpo_args=None):
             Y.to_frame(),
             tokenizer=tokenizer,
             task=task,
-            custom_hpo_args=custom_hpo_args,
+            hf_args=hf_args,
             prefix_str="",
         )
         labels["label"] = [
@@ -97,7 +97,7 @@ def tokenize_seq2seq(X, Y, tokenizer, task=None, custom_hpo_args=None):
 def tokenize_and_align_labels(
     examples,
     tokenizer,
-    custom_hpo_args=None,
+    hf_args=None,
     X_sent_key=None,
     Y_sent_key=None,
     is_return_column_name=False,
@@ -106,7 +106,7 @@ def tokenize_and_align_labels(
         [list(examples[X_sent_key])],
         padding="max_length",
         truncation=True,
-        max_length=custom_hpo_args.max_seq_length,
+        max_length=hf_args.max_seq_length,
         # We use this argument because the texts in our dataset are lists of words (with a label for each word).
         is_split_into_words=True,
     )
@@ -146,7 +146,7 @@ def tokenize_and_align_labels(
         return tokenized_input_and_labels
 
 
-def tokenize_text_tokclassification(X, Y, tokenizer, custom_hpo_args=None):
+def tokenize_text_tokclassification(X, Y, tokenizer, hf_args=None):
     import pandas as pd
 
     if Y is not None:
@@ -156,7 +156,7 @@ def tokenize_text_tokclassification(X, Y, tokenizer, custom_hpo_args=None):
         _, tokenized_column_names = tokenize_and_align_labels(
             X_and_Y.iloc[0],
             tokenizer=tokenizer,
-            custom_hpo_args=custom_hpo_args,
+            hf_args=hf_args,
             X_sent_key=X_key,
             Y_sent_key=Y_key,
             is_return_column_name=True,
@@ -165,7 +165,7 @@ def tokenize_text_tokclassification(X, Y, tokenizer, custom_hpo_args=None):
             lambda x: tokenize_and_align_labels(
                 x,
                 tokenizer=tokenizer,
-                custom_hpo_args=custom_hpo_args,
+                hf_args=hf_args,
                 X_sent_key=X_key,
                 Y_sent_key=Y_key,
             ),
@@ -185,7 +185,7 @@ def tokenize_text_tokclassification(X, Y, tokenizer, custom_hpo_args=None):
         _, tokenized_column_names = tokenize_and_align_labels(
             X.iloc[0],
             tokenizer=tokenizer,
-            custom_hpo_args=custom_hpo_args,
+            hf_args=hf_args,
             X_sent_key=X_key,
             Y_sent_key=None,
             is_return_column_name=True,
@@ -195,7 +195,7 @@ def tokenize_text_tokclassification(X, Y, tokenizer, custom_hpo_args=None):
             lambda x: tokenize_and_align_labels(
                 x,
                 tokenizer=tokenizer,
-                custom_hpo_args=custom_hpo_args,
+                hf_args=hf_args,
                 X_sent_key=X_key,
                 Y_sent_key=None,
             ),
@@ -213,7 +213,7 @@ def tokenize_onedataframe(
     X,
     tokenizer,
     task=None,
-    custom_hpo_args=None,
+    hf_args=None,
     prefix_str=None,
 ):
     import pandas
@@ -224,7 +224,7 @@ def tokenize_onedataframe(
             tokenizer,
             prefix=(prefix_str,) if task is SUMMARIZATION else None,
             task=task,
-            custom_hpo_args=custom_hpo_args,
+            hf_args=hf_args,
             is_return_column_name=True,
         )
         d = X.apply(
@@ -233,7 +233,7 @@ def tokenize_onedataframe(
                 tokenizer,
                 prefix=(prefix_str,) if task is SUMMARIZATION else None,
                 task=task,
-                custom_hpo_args=custom_hpo_args,
+                hf_args=hf_args,
             ),
             axis=1,
             result_type="expand",
@@ -262,11 +262,11 @@ def tokenize_row(
     tokenizer,
     prefix=None,
     task=None,
-    custom_hpo_args=None,
+    hf_args=None,
     is_return_column_name=False,
 ):
     assert (
-        "max_seq_length" in custom_hpo_args.__dict__
+        "max_seq_length" in hf_args.__dict__
     ), "max_seq_length must be provided for glue"
 
     if prefix:
@@ -275,7 +275,7 @@ def tokenize_row(
     tokenized_example = tokenizer(
         *tuple(this_row),
         padding="max_length",
-        max_length=custom_hpo_args.max_seq_length,
+        max_length=hf_args.max_seq_length,
         truncation=True,
     )
     if task in NLG_TASKS:
@@ -287,19 +287,19 @@ def tokenize_row(
         return [tokenized_example[x] for x in tmp_column_names]
 
 
-def tokenize_text_multiplechoice(X, tokenizer, custom_hpo_args=None):
+def tokenize_text_multiplechoice(X, tokenizer, hf_args=None):
     import pandas
 
     t = X[["sent1", "sent2", "ending0", "ending1", "ending2", "ending3"]]
     _, tokenized_column_names = tokenize_swag(
         t.iloc[0],
         tokenizer=tokenizer,
-        custom_hpo_args=custom_hpo_args,
+        hf_args=hf_args,
         is_return_column_name=True,
     )
     d = t.apply(
         lambda x: tokenize_swag(
-            x, tokenizer=tokenizer, custom_hpo_args=custom_hpo_args
+            x, tokenizer=tokenizer, hf_args=hf_args
         ),
         axis=1,
         result_type="expand",
@@ -312,7 +312,7 @@ def tokenize_text_multiplechoice(X, tokenizer, custom_hpo_args=None):
 
 
 def tokenize_swag(
-    this_row, tokenizer, custom_hpo_args=None, is_return_column_name=False
+    this_row, tokenizer, hf_args=None, is_return_column_name=False
 ):
     first_sentences = [[this_row["sent1"]] * 4]
     # get each 1st sentence, multiply to 4 sentences
@@ -331,7 +331,7 @@ def tokenize_swag(
     tokenized_example = tokenizer(
         *tuple([first_sentences, second_sentences]),
         truncation=True,
-        max_length=custom_hpo_args.max_seq_length,
+        max_length=hf_args.max_seq_length,
         padding=False,
     )
     tmp_column_names = sorted(tokenized_example.keys())
@@ -552,7 +552,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
 
 def compute_checkpoint_freq(
     train_data_size,
-    custom_hpo_args,
+    hf_args,
     num_train_epochs,
     batch_size,
 ):
@@ -561,7 +561,7 @@ def compute_checkpoint_freq(
             min(num_train_epochs, 1)
             * train_data_size
             / batch_size
-            / custom_hpo_args.ckpt_per_epoch
+            / hf_args.ckpt_per_epoch
         )
         + 1
     )
@@ -569,7 +569,7 @@ def compute_checkpoint_freq(
 
 
 @dataclass
-class HPOArgs:
+class HFArgs:
     """The HPO setting.
     Args:
         output_dir (str): data root directory for outputing the log, etc.
@@ -615,7 +615,7 @@ class HPOArgs:
         from dataclasses import fields
 
         arg_parser = argparse.ArgumentParser()
-        for each_field in fields(HPOArgs):
+        for each_field in fields(HFArgs):
             print(each_field)
             arg_parser.add_argument(
                 "--" + each_field.name,

@@ -68,7 +68,7 @@ def test_regression():
         "use_ray": True,
     }
 
-    automl_settings["custom_hpo_args"] = {
+    automl_settings["hf_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "test/data/output/",
         "ckpt_per_epoch": 1,

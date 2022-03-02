@@ -36,7 +36,7 @@ def _test_hf_data():
     automl_settings = {
         "time_budget": 100,  # setting the time budget
         "task": "seq-classification",  # setting the task as seq-classification
-        "custom_hpo_args": {
+        "hf_args": {
             "output_dir": "data/output/",  # setting the output directory
             "ckpt_per_epoch": 1,  # setting the number of checkoints per epoch
             "per_gpu_eval_batch_size": 1,  # setting the batch size for prediction (i.e., inference)

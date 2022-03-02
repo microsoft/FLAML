@@ -362,28 +362,28 @@ class TransformersEstimator(BaseEstimator):
 
         return search_space_dict
 
-    def _init_hpo_args(self, automl_fit_kwargs: dict = None):
-        from .nlp.utils import HPOArgs
+    def _init_hf_args(self, automl_fit_kwargs: dict = None):
+        from .nlp.utils import HFArgs
 
-        custom_hpo_args = HPOArgs()
-        for key, val in automl_fit_kwargs["custom_hpo_args"].items():
+        hf_args = HFArgs()
+        for key, val in automl_fit_kwargs["hf_args"].items():
             assert (
-                key in custom_hpo_args.__dict__
-            ), "The specified key {} is not in the argument list of flaml.nlp.utils::HPOArgs".format(
+                key in hf_args.__dict__
+            ), "The specified key {} is not in the argument list of flaml.nlp.utils::HFArgs".format(
                 key
             )
-            setattr(custom_hpo_args, key, val)
-        self.custom_hpo_args = custom_hpo_args
+            setattr(hf_args, key, val)
+        self.hf_args = hf_args
 
-    def _update_hpo_args(self, automl_pred_kwargs: dict = None):
-        if automl_pred_kwargs.get("custom_hpo_args"):
-            for key, val in automl_pred_kwargs.get("custom_hpo_args").items():
+    def _update_hf_args(self, automl_pred_kwargs: dict = None):
+        if automl_pred_kwargs.get("hf_args"):
+            for key, val in automl_pred_kwargs.get("hf_args").items():
                 assert (
-                    key in self.custom_hpo_args.__dict__
-                ), "The specified key {} is not in the argument list of flaml.nlp.utils::HPOArgs".format(
+                    key in self.hf_args.__dict__
+                ), "The specified key {} is not in the argument list of flaml.nlp.utils::HFArgs".format(
                     key
                 )
-                setattr(self.custom_hpo_args, key, val)
+                setattr(self.hf_args, key, val)
 
     def _preprocess(self, X, y=None, **kwargs):
         from .nlp.utils import tokenize_text, is_a_list_of_str
@@ -396,7 +396,7 @@ class TransformersEstimator(BaseEstimator):
                 X=X,
                 Y=y,
                 task=self._task,
-                custom_hpo_args=self.custom_hpo_args,
+                hf_args=self.hf_args,
                 tokenizer=self._tokenizer,
             )
         else:
@@ -406,7 +406,7 @@ class TransformersEstimator(BaseEstimator):
         from .nlp.utils import load_model
 
         return load_model(
-            checkpoint_path=self.custom_hpo_args.model_path,
+            checkpoint_path=self.hf_args.model_path,
             task=self._task,
             num_labels=num_labels,
             per_model_config=per_model_config,
@@ -475,9 +475,9 @@ class TransformersEstimator(BaseEstimator):
 
         set_seed(self.params.get("seed", self._TrainingArguments.seed))
 
-        self._init_hpo_args(kwargs)
+        self._init_hf_args(kwargs)
         self._tokenizer = get_auto_tokenizer(
-            self.custom_hpo_args.model_path, self._task
+            self.hf_args.model_path, self._task
         )
 
         self._metric = kwargs["metric"]
@@ -516,7 +516,7 @@ class TransformersEstimator(BaseEstimator):
         )
         ckpt_freq = compute_checkpoint_freq(
             train_data_size=len(self._X_train),
-            custom_hpo_args=self.custom_hpo_args,
+            hf_args=self.hf_args,
             num_train_epochs=training_args_config.get(
                 "num_train_epochs", self._TrainingArguments.num_train_epochs
             ),
@@ -527,7 +527,7 @@ class TransformersEstimator(BaseEstimator):
         )
 
         local_dir = os.path.join(
-            self.custom_hpo_args.output_dir, "train_{}".format(date_str())
+            self.hf_args.output_dir, "train_{}".format(date_str())
         )
 
         if not self.use_ray:
@@ -552,7 +552,7 @@ class TransformersEstimator(BaseEstimator):
                 logging_steps=ckpt_freq,
                 save_total_limit=0,
                 metric_for_best_model="loss",
-                fp16=self.custom_hpo_args.fp16
+                fp16=self.hf_args.fp16
                 if kwargs.get("gpu_per_trial") > 0
                 else False,
                 **training_args_config,
@@ -573,7 +573,7 @@ class TransformersEstimator(BaseEstimator):
                 save_steps=ckpt_freq,
                 save_total_limit=0,
                 metric_for_best_model="loss",
-                fp16=self.custom_hpo_args.fp16
+                fp16=self.hf_args.fp16
                 if kwargs.get("gpu_per_trial") > 0
                 else False,
                 **training_args_config,
@@ -718,8 +718,8 @@ class TransformersEstimator(BaseEstimator):
         X_test, _ = self._preprocess(X_test, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
         training_args = self._TrainingArguments(
-            per_device_eval_batch_size=self.custom_hpo_args.per_gpu_eval_batch_size,
-            output_dir=self.custom_hpo_args.output_dir,
+            per_device_eval_batch_size=self.hf_args.per_gpu_eval_batch_size,
+            output_dir=self.hf_args.output_dir,
             **self._training_args_config,
         )
         self._trainer = TrainerForAuto(
@@ -736,7 +736,7 @@ class TransformersEstimator(BaseEstimator):
         return test_dataset, training_args
 
     def predict_proba(self, X, **kwargs):
-        self._update_hpo_args(kwargs)
+        self._update_hf_args(kwargs)
         assert (
             self._task in CLASSIFICATION
         ), "predict_proba() only for classification tasks."
@@ -748,7 +748,7 @@ class TransformersEstimator(BaseEstimator):
         return predictions.predictions
 
     def predict(self, X, **kwargs):
-        self._update_hpo_args(kwargs)
+        self._update_hf_args(kwargs)
         test_dataset, training_args = self._init_model_for_predict(X)
         if self._task not in NLG_TASKS:
             predictions = self._trainer.predict(test_dataset)

@@ -26,7 +26,7 @@ automl = AutoML()
 automl_settings = {
     "time_budget": 100,
     "task": "seq-classification",
-    "custom_hpo_args": {"output_dir": "data/output/"},
+    "hf_args": {"output_dir": "data/output/"},
     "gpu_per_trial": 1,  # set to 0 if no GPU is available
 }
 automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings)
@@ -77,7 +77,7 @@ automl_settings = {
     "task": "seq-regression",
     "metric": "rmse",
 }
-automl_settings["custom_hpo_args"] = {
+automl_settings["hf_args"] = {
     "model_path": "google/electra-small-discriminator",
     "output_dir": "data/output/",
     "ckpt_per_epoch": 5,
@@ -127,7 +127,7 @@ automl_settings = {
     "task": "summarization",
     "metric": "rouge1",
 }
-automl_settings["custom_hpo_args"] = {
+automl_settings["hf_args"] = {
     "model_path": "t5-small",
     "output_dir": "data/output/",
     "ckpt_per_epoch": 5,

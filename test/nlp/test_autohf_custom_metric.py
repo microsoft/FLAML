@@ -103,7 +103,7 @@ def test_custom_metric():
         "log_file_name": "seqclass.log",
     }
 
-    automl_settings["custom_hpo_args"] = {
+    automl_settings["hf_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "data/output/",
         "ckpt_per_epoch": 1,
