@@ -96,7 +96,7 @@ def tokenize_and_align_labels(
     hf_args=None,
     X_sent_key=None,
     Y_sent_key=None,
-    is_return_column_name=False,
+    return_column_name=False,
 ):
     tokenized_inputs = tokenizer(
         [list(examples[X_sent_key])],
@@ -136,7 +136,7 @@ def tokenize_and_align_labels(
     for key_idx, each_key in enumerate(tmp_column_names):
         if each_key != "label":
             tokenized_input_and_labels[key_idx] = tokenized_input_and_labels[key_idx][0]
-    if is_return_column_name:
+    if return_column_name:
         return tokenized_input_and_labels, tmp_column_names
     else:
         return tokenized_input_and_labels
@@ -155,7 +155,7 @@ def tokenize_text_tokclassification(X, Y, tokenizer, hf_args=None):
             hf_args=hf_args,
             X_sent_key=X_key,
             Y_sent_key=Y_key,
-            is_return_column_name=True,
+            return_column_name=True,
         )
         X_and_Y_tokenized = X_and_Y.apply(
             lambda x: tokenize_and_align_labels(
@@ -184,7 +184,7 @@ def tokenize_text_tokclassification(X, Y, tokenizer, hf_args=None):
             hf_args=hf_args,
             X_sent_key=X_key,
             Y_sent_key=None,
-            is_return_column_name=True,
+            return_column_name=True,
         )
 
         d = X.apply(
@@ -221,7 +221,7 @@ def tokenize_onedataframe(
             prefix=(prefix_str,) if task is SUMMARIZATION else None,
             task=task,
             hf_args=hf_args,
-            is_return_column_name=True,
+            return_column_name=True,
         )
         d = X.apply(
             lambda x: tokenize_row(
@@ -259,7 +259,7 @@ def tokenize_row(
     prefix=None,
     task=None,
     hf_args=None,
-    is_return_column_name=False,
+    return_column_name=False,
 ):
     assert (
         "max_seq_length" in hf_args.__dict__
@@ -277,7 +277,7 @@ def tokenize_row(
     if task in NLG_TASKS:
         tokenized_example["decoder_input_ids"] = tokenized_example["input_ids"]
     tmp_column_names = sorted(tokenized_example.keys())
-    if is_return_column_name:
+    if return_column_name:
         return [tokenized_example[x] for x in tmp_column_names], tmp_column_names
     else:
         return [tokenized_example[x] for x in tmp_column_names]

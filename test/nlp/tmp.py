@@ -14,9 +14,9 @@ def _test_hf_data():
 
     ray.init()
 
-    train_dataset = load_dataset("swag", split="train").to_pandas().iloc[0:100]
-    dev_dataset = load_dataset("swag", split="validation").to_pandas().iloc[0:100]
-    test_dataset = load_dataset("swag", split="test").to_pandas().iloc[0:100]
+    train_dataset = load_dataset("swag", split="train").to_pandas().iloc[0:10000]
+    dev_dataset = load_dataset("swag", split="validation").to_pandas().iloc[0:10000]
+    test_dataset = load_dataset("swag", split="test").to_pandas().iloc[0:10000]
 
     custom_sent_keys = [
         "sent1",
