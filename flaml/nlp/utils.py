@@ -96,7 +96,7 @@ def tokenize_and_align_labels(
     hf_args=None,
     X_sent_key=None,
     Y_sent_key=None,
-    is_return_column_name=False,
+    return_column_name=False,
 ):
     tokenized_inputs = tokenizer(
         [list(examples[X_sent_key])],
