@@ -2013,7 +2013,6 @@ class AutoML(BaseEstimator):
             if starting_points is None
             else starting_points
         )
-        is_user_define_concurrent_trials = n_concurrent_trials
         n_concurrent_trials = n_concurrent_trials or self._settings.get(
             "n_concurrent_trials"
         )
@@ -2040,15 +2039,6 @@ class AutoML(BaseEstimator):
             import ray
 
             n_cpus = use_ray and ray.available_resources()["CPU"] or os.cpu_count()
-            if ray.available_resources().get("GPU") and (
-                not is_user_define_concurrent_trials
-            ):
-                n_concurrent_trials = int(
-                    ray.available_resources().get("GPU")
-                    if use_ray
-                    else n_concurrent_trials
-                )
-            self._n_concurrent_trials = n_concurrent_trials
 
             self._state.resources_per_trial = (
                 # when using gpu, default cpu is 1 per job; otherwise, default cpu is n_cpus / n_concurrent_trials
