@@ -104,7 +104,7 @@ def tokenize_and_align_labels(
         truncation=True,
         max_length=hf_args.max_seq_length,
         # We use this argument because the texts in our dataset are lists of words (with a label for each word).
-        split_into_words=True,
+        is_split_into_words=True,
     )
     if Y_sent_key is not None:
         previous_word_idx = None
