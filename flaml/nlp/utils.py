@@ -155,7 +155,7 @@ def tokenize_text_tokclassification(X, Y, tokenizer, hf_args=None):
             hf_args=hf_args,
             X_sent_key=X_key,
             Y_sent_key=Y_key,
-            is_return_column_name=True,
+            return_column_name=True,
         )
         X_and_Y_tokenized = X_and_Y.apply(
             lambda x: tokenize_and_align_labels(
