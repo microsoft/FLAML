@@ -184,7 +184,7 @@ def tokenize_text_tokclassification(X, Y, tokenizer, hf_args=None):
             hf_args=hf_args,
             X_sent_key=X_key,
             Y_sent_key=None,
-            is_return_column_name=True,
+            return_column_name=True,
         )
 
         d = X.apply(
