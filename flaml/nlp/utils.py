@@ -221,7 +221,7 @@ def tokenize_onedataframe(
             prefix=(prefix_str,) if task is SUMMARIZATION else None,
             task=task,
             hf_args=hf_args,
-            is_return_column_name=True,
+            return_column_name=True,
         )
         d = X.apply(
             lambda x: tokenize_row(
