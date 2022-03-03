@@ -33,7 +33,7 @@ FLAML requires **Python version >= 3.6**. It can be installed from pip:
 pip install flaml
 ```
 
-To run the [`notebook example`](https://github.com/microsoft/FLAML/tree/main/notebook),
+To run the [`notebook examples`](https://github.com/microsoft/FLAML/tree/main/notebook),
 install flaml with the [notebook] option:
 
 ```bash
