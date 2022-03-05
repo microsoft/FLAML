@@ -14,9 +14,9 @@ def _test_hf_data():
 
     ray.init()
 
-    train_dataset = load_dataset("swag", split="train").to_pandas().iloc[0:10000]
-    dev_dataset = load_dataset("swag", split="validation").to_pandas().iloc[0:10000]
-    test_dataset = load_dataset("swag", split="test").to_pandas().iloc[0:10000]
+    train_dataset = load_dataset("swag", split="train").to_pandas().iloc[0:100]
+    dev_dataset = load_dataset("swag", split="validation").to_pandas().iloc[0:100]
+    test_dataset = load_dataset("swag", split="test").to_pandas().iloc[0:100]
 
     custom_sent_keys = [
         "sent1",
@@ -43,17 +43,19 @@ def _test_hf_data():
     automl = AutoML()
 
     automl_settings = {
-        "time_budget": 500,  # setting the time budget
+        "time_budget": 100,  # setting the time budget
         "task": "multichoice-classification",  # setting the task as multiplechoice-classification
         "hf_args": {
             "output_dir": "data/output/",  # setting the output directory
             "ckpt_per_epoch": 1,  # setting the number of checkoints per epoch
+            "model_path": "google/electra-small-discriminator",
         },
         "gpu_per_trial": 1,  # set to 0 if no GPU is available
         "log_file_name": "seqclass.log",  # set the file to save the log for HPO
         "log_type": "all",
         # the log type for checkpoints: all if keeping all checkpoints, best if only keeping the best checkpoints                        # the batch size for validation (inference)
-        "use_ray": True,  # set whether to use Ray
+        "use_ray": {"local_dir": "data/output/"},  # set whether to use Ray
+        # "metric": "accuracy"
     }
 
     try:

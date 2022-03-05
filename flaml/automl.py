@@ -1954,10 +1954,12 @@ class AutoML(BaseEstimator):
                 augment rare classes.
             min_sample_size: int, default=MIN_SAMPLE_TRAIN | the minimal sample
                 size when sample=True.
-            use_ray: boolean, default=False | Whether to use ray to run the training
+            use_ray: boolean or dict
+                If boolean: default=False | Whether to use ray to run the training
                 in separate processes. This can be used to prevent OOM for large
-                datasets, but will incur more overhead in time. Only use it if
-                you run into OOM failures.
+                datasets, but will incur more overhead in time.
+                If dict: ray is used, and use_ray is passed as the keywords args
+                for ray.tune.run
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Include:
                     period: int | forecast horizon for 'ts_forecast' task.
@@ -2112,7 +2114,11 @@ class AutoML(BaseEstimator):
             )
         )
         if "auto" == metric:
-            if "binary" in self._state.task:
+            if _is_nlp_task(self._state.task):
+                from .nlp.utils import load_default_huggingface_metric_for_task
+
+                metric = load_default_huggingface_metric_for_task(self._state.task)
+            elif "binary" in self._state.task:
                 metric = "roc_auc"
             elif "multi" in self._state.task:
                 metric = "log_loss"
@@ -2120,10 +2126,6 @@ class AutoML(BaseEstimator):
                 metric = "mape"
             elif self._state.task == "rank":
                 metric = "ndcg"
-            elif _is_nlp_task(self._state.task):
-                from .nlp.utils import load_default_huggingface_metric_for_task
-
-                metric = load_default_huggingface_metric_for_task(self._state.task)
             else:
                 metric = "r2"
 
@@ -2410,6 +2412,12 @@ class AutoML(BaseEstimator):
                 )
             search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
         resources_per_trial = self._state.resources_per_trial
+        ray_args = (
+            self._state.fit_kwargs.get("use_ray")
+            if isinstance(self._state.fit_kwargs.get("use_ray"), dict)
+            else None
+        )
+
         analysis = ray.tune.run(
             self.trainable,
             search_alg=search_alg,
@@ -2423,6 +2431,7 @@ class AutoML(BaseEstimator):
             raise_on_failed_trial=False,
             keep_checkpoints_num=1,
             checkpoint_score_attr="min-val_loss",
+            **ray_args if ray_args else {},
         )
         # logger.info([trial.last_result for trial in analysis.trials])
         trials = sorted(
