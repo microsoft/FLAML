@@ -21,26 +21,26 @@ def load_default_huggingface_metric_for_task(task):
     elif task == SEQREGRESSION:
         return "r2"
     elif task == SUMMARIZATION:
-        return "rouge"
+        return "rouge1"
     elif task == MULTICHOICECLASSIFICATION:
         return "accuracy"
     elif task == TOKENCLASSIFICATION:
         return "seqeval"
 
 
-def get_auto_tokenizer(model_path, task):
+def get_auto_tokenizer(tokenizer_model_path, task):
     from transformers import AutoTokenizer
 
     if task == SUMMARIZATION:
         return AutoTokenizer.from_pretrained(
-            model_path,  # 'roberta-base'
+            pretrained_model_name_or_path=tokenizer_model_path,
             cache_dir=None,
             use_fast=True,
             revision="main",
             use_auth_token=None,
         )
     else:
-        return AutoTokenizer.from_pretrained(model_path, use_fast=True)
+        return AutoTokenizer.from_pretrained(tokenizer_model_path, use_fast=True)
 
 
 def tokenize_text(X, Y=None, task=None, hf_args=None, tokenizer=None):
@@ -268,9 +268,11 @@ def tokenize_row(
     if prefix:
         this_row = tuple(["".join(x) for x in zip(prefix, this_row)])
 
+    tokenizer.pad_token = tokenizer.eos_token
     tokenized_example = tokenizer(
         *tuple(this_row),
         padding="max_length",
+        # add_special_tokens=True,
         max_length=hf_args.max_seq_length,
         truncation=True,
     )
@@ -455,7 +457,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
 
     def get_this_model(task, model_config):
         from transformers import AutoModelForSequenceClassification
-        from transformers import AutoModelForSeq2SeqLM
+        from transformers import AutoModelForCausalLM
         from transformers import AutoModelForMultipleChoice
         from transformers import AutoModelForTokenClassification
 
@@ -468,7 +470,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
                 checkpoint_path, config=model_config
             )
         elif task in NLG_TASKS:
-            return AutoModelForSeq2SeqLM.from_pretrained(
+            return AutoModelForCausalLM.from_pretrained(
                 checkpoint_path, config=model_config
             )
         elif task == MULTICHOICECLASSIFICATION:
@@ -579,7 +581,12 @@ class HFArgs:
 
     model_path: str = field(
         default="facebook/muppet-roberta-base",
-        metadata={"help": "model path model for HPO"},
+        metadata={"help": "model path for HPO"},
+    )
+
+    tokenizer_model_path: str = field(
+        default=None,
+        metadata={"help": "tokenizer model path for HPO"},
     )
 
     fp16: bool = field(default=True, metadata={"help": "whether to use the FP16 mode"})
@@ -600,6 +607,13 @@ class HFArgs:
     per_gpu_eval_batch_size: int = field(
         default=1,
         metadata={"help": "per gpu evaluation batch size"},
+    )
+
+    deepspeed: str = field(
+        default=None,
+        metadata={
+            "help": "Enable deepspeed and pass the path to deepspeed json config file (e.g. ds_config.json) or an already loaded json file as a dict"
+        },
     )
 
     @staticmethod

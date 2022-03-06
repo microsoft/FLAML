@@ -8,29 +8,18 @@ import requests
 @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
 def _test_hf_data():
     from flaml import AutoML
-    import pandas as pd
     from datasets import load_dataset
     import ray
 
     ray.init()
 
-    train_dataset = load_dataset("swag", split="train").to_pandas().iloc[0:100]
-    dev_dataset = load_dataset("swag", split="validation").to_pandas().iloc[0:100]
-    test_dataset = load_dataset("swag", split="test").to_pandas().iloc[0:100]
+    train_dataset = load_dataset("xsum", split="train").to_pandas().iloc[0:100]
+    print(len(train_dataset))
+    dev_dataset = load_dataset("xsum", split="validation").to_pandas().iloc[0:100]
+    test_dataset = load_dataset("xsum", split="test").to_pandas().iloc[0:100]
 
-    custom_sent_keys = [
-        "sent1",
-        "sent2",
-        "ending0",
-        "ending1",
-        "ending2",
-        "ending3",
-        "gold-source",
-        "video-id",
-        "startphrase",
-        "fold-ind",
-    ]
-    label_key = "label"
+    custom_sent_keys = ["document"]  # specify the column names of the input sentences
+    label_key = "summary"  # specify the column name of the label
 
     X_train = train_dataset[custom_sent_keys]
     y_train = train_dataset[label_key]
@@ -43,12 +32,14 @@ def _test_hf_data():
     automl = AutoML()
 
     automl_settings = {
-        "time_budget": 100,  # setting the time budget
-        "task": "multichoice-classification",  # setting the task as multiplechoice-classification
+        "time_budget": 500,  # setting the time budget
+        "task": "summarization",  # setting the task as multiplechoice-classification
         "hf_args": {
             "output_dir": "data/output/",  # setting the output directory
             "ckpt_per_epoch": 1,  # setting the number of checkoints per epoch
-            "model_path": "google/electra-small-discriminator",
+            "model_path": "EleutherAI/gpt-neo-125M",
+            "tokenizer_model_path": "gpt2",
+            "deepspeed": "/data/xliu127/projects/hyperopt/FLAML/test/nlp/ds_config_gptj6b.json",
         },
         "gpu_per_trial": 1,  # set to 0 if no GPU is available
         "log_file_name": "seqclass.log",  # set the file to save the log for HPO
@@ -56,6 +47,7 @@ def _test_hf_data():
         # the log type for checkpoints: all if keeping all checkpoints, best if only keeping the best checkpoints                        # the batch size for validation (inference)
         "use_ray": {"local_dir": "data/output/"},  # set whether to use Ray
         # "metric": "accuracy"
+        "n_concurrent_trials": 1,
     }
 
     try:

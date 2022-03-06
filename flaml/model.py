@@ -356,8 +356,8 @@ class TransformersEstimator(BaseEstimator):
                 "init_value": 3,
             }
             search_space_dict["generation_max_length"] = {
-                "domain": tune.choice([16, 32, 64, 128]),
-                "init_value": 64,
+                "domain": 129,  # tune.choice([16, 32, 64, 128]),
+                "init_value": 129,
             }
 
         return search_space_dict
@@ -478,7 +478,12 @@ class TransformersEstimator(BaseEstimator):
         set_seed(self.params.get("seed", self._TrainingArguments.seed))
 
         self._init_hf_args(kwargs)
-        self._tokenizer = get_auto_tokenizer(self.hf_args.model_path, self._task)
+        self._tokenizer = get_auto_tokenizer(
+            self.hf_args.tokenizer_model_path
+            if self.hf_args.tokenizer_model_path
+            else self.hf_args.model_path,
+            self._task,
+        )
 
         self._metric = kwargs["metric"]
         self.use_ray = kwargs.get("use_ray")
@@ -551,8 +556,9 @@ class TransformersEstimator(BaseEstimator):
                 save_total_limit=0,
                 metric_for_best_model="loss",
                 fp16=self.hf_args.fp16 if kwargs.get("gpu_per_trial") > 0 else False,
-                **training_args_config,
                 no_cuda=True if kwargs.get("gpu_per_trial") == 0 else False,
+                deepspeed=self.hf_args.deepspeed,
+                **training_args_config,
             )
         else:
             from transformers import IntervalStrategy
@@ -570,8 +576,10 @@ class TransformersEstimator(BaseEstimator):
                 save_total_limit=0,
                 metric_for_best_model="loss",
                 fp16=self.hf_args.fp16 if kwargs.get("gpu_per_trial") > 0 else False,
-                **training_args_config,
+                deepspeed=self.hf_args.deepspeed,
                 no_cuda=True if kwargs.get("gpu_per_trial") == 0 else False,
+                predict_with_generate=True,
+                **training_args_config,
             )
 
         self._trainer = TrainerForAuto(
@@ -671,6 +679,7 @@ class TransformersEstimator(BaseEstimator):
             if self._task in NLG_TASKS:
                 if isinstance(predictions, tuple):
                     predictions = np.argmax(predictions[0], axis=2)
+                # raise Exception(predictions)
                 decoded_preds = self._tokenizer.batch_decode(
                     predictions, skip_special_tokens=True
                 )
