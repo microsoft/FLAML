@@ -9,6 +9,7 @@ import os
 from typing import Callable, List
 import numpy as np
 import time
+import copy
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.ensemble import ExtraTreesRegressor, ExtraTreesClassifier
 from sklearn.linear_model import LogisticRegression
@@ -16,6 +17,7 @@ from sklearn.dummy import DummyClassifier, DummyRegressor
 from scipy.sparse import issparse
 import logging
 import shutil
+import pandas as pd
 from pandas import DataFrame, Series, to_datetime
 import sys
 from . import tune
@@ -1956,6 +1958,262 @@ class XGBoostLimitDepth_TS(TS_SKLearn):
 
     base_class = XGBoostLimitDepthEstimator
 
+
+
+
+# ************* AutoGluon TextPredictor Estimator *************
+class AGTexPredictorEstimator(BaseEstimator):
+    """The class for tuning AutoGluon TextPredictor"""
+    def __init__(self, task="binary", **params,):
+        import autogluon
+        # from autogluon.text_prediction import TextPredictor
+        from autogluon.text_prediction.mx.models import MultiModalTextModel 
+
+        super().__init__(task, **params)
+        
+
+        
+    @classmethod
+    def search_space(cls, **params):
+        # TODO: add the possible search space configs here, e.g. 'optimization.lr'
+        # The following dict is copied from: 
+        # https://auto.gluon.ai/stable/tutorials/text_prediction/customization.html#custom-hyperparameter-values
+        search_space_dict = {
+            # "text_backbone":"electra_base",
+            # "multimodal_fusion_strategy":"fuse_late", 
+            "decay_rate": 0.8,
+            "n_average_epoch":3, 
+            # 'model.backbone.name': 'google_electra_small',
+            'model.network.agg_net.agg_type': 'concat',
+            'model.network.aggregate_categorical': True,
+            'model.use_avg_nbest': True,
+            'optimization.batch_size': 128,
+            'optimization.layerwise_lr_decay': 0.8,
+            'optimization.lr': {
+                                "domain": tune.loguniform(lower=1e-6, upper=1e-3),
+                                "init_value": 1e-5,
+                            },
+            'optimization.nbest': 3,
+            'optimization.num_train_epochs': 10,
+            'optimization.per_device_batch_size': 8,
+            'optimization.wd': 0.0001,
+            'preprocessing.categorical.convert_to_text': False,
+            'preprocessing.numerical.convert_to_text': False,
+        }
+
+        return search_space_dict
+
+    
+
+    def _preprocess(self, X):
+        # # TODO: consider to remove this method
+        # data preprocessing 
+        from autogluon.text.text_prediction.infer_types import infer_column_problem_types
+        
+        column_types, inferred_problem_type = infer_column_problem_types(train_data1,
+                                                                         tuning_data1,
+                                                                         label_columns=label_columns,
+                                                                         problem_type=problem_type)
+
+    
+    def _set_n_average_epoch(self, cfg, nbest_epoch=3):
+        # TODO: consider remove this method
+        """Set the number of epochs to be 3 to reduce time for large datasets."""
+        new_cfg = copy.deepcopy(cfg)
+        new_cfg['models']['MultimodalTextModel']['search_space']['optimization.nbest'] = nbest_epoch
+        return new_cfg
+
+
+    def _set_lr_decay(self, cfg, decay_rate):
+        # TODO: consider remove this method
+        new_cfg = copy.deepcopy(cfg)
+        new_cfg['models']['MultimodalTextModel']['search_space']['optimization.layerwise_lr_decay'] = decay_rate
+        return new_cfg
+    
+    def _register_text_config(self, text_backbone, multimodal_fusion_strategy, decay_rate, n_average_epoch):
+
+        """"
+        Ref: ag_benchmark.py#L91
+        """
+        from autogluon.text import ag_text_presets
+
+        base_key = f'{text_backbone}_{multimodal_fusion_strategy}'
+        cfg = ag_text_presets.create(base_key)
+        cfg = self._set_lr_decay(cfg, decay_rate)
+        cfg = self._set_n_average_epoch(cfg, n_average_epoch)
+
+        new_key = f'{text_backbone}_{multimodal_fusion_strategy}_decay{decay_rate}_avg{n_average_epoch}'
+
+        def foo():
+            return cfg
+
+        ag_text_presets.register(new_key, foo)
+        return new_key, cfg
+
+
+    def _init_fix_args(self, automl_fit_kwargs: dict = None):
+        """
+        Save the customed fix args here
+        this includes:
+            "output_dir",
+            "text_backbone": "electra_base"
+            "multimodal_fusion_strategy":"fuse_late", 
+        """
+        fix_args = {}
+        fix_args_list = ["output_dir", "dataset_name", "text_backbone", "multimodal_fusion_strategy", ]
+        for key, value in automl_fit_kwargs["custom_fix_args"].items():
+            assert (
+                key in fix_args_list
+            ), "The specified key {} is not in the argument list: put_dir, dataset_name, text_backbone,\
+                multimodal_fusion_strategy".format(key)
+            
+            fix_args[key] = value
+
+        self.fix_args = fix_args
+
+    def _set_seed(self, seed):
+        import random
+        import mxnet as mx
+        import torch as th
+        th.manual_seed(seed)
+        mx.random.seed(seed)
+        np.random.seed(seed)
+        random.seed(seed)
+    
+    def _get_benchmark_dataset(self, dataset_name):
+        """
+        Get the benchmark dataset, train and test data by its name
+
+        Return the train & test datasets and their data
+
+        """
+        from auto_mm_bench.datasets import dataset_registry
+
+        train_dataset = dataset_registry.create(dataset_name, 'train')
+        test_dataset = dataset_registry.create(dataset_name, 'test')
+        train_data = train_dataset.data
+        test_data = test_dataset.data
+
+        return  train_dataset, test_dataset, train_data, test_data
+
+    def fit(self, X_train=None, y_train=None, budget=None, **kwargs):
+        import sklearn
+        from autogluon.text.text_prediction.infer_types import infer_column_problem_types
+        
+        # the seed set in the bash script for ag experiment is 123
+        seed = self.params.get("seed", 123)
+
+        # get the dataset
+        dataset_name = self.fix_args.get("dataset_name", None)
+        if dataset_name is None: 
+            # TODO: add solution for user customed dataset
+            # user input X_train and y_train
+            # assert X_train is not None and y_train is not None
+            # dataset_name = "user_customed"
+            
+            # now default to the smallest "imdb"
+            dataset_name = "imdb"
+        
+        # get the dataset by the name
+        train_dataset, test_dataset, train_data, test_data = self._get_benchmark_dataset(dataset_name)
+
+        feature_columns = train_dataset.feature_columns
+        label_columns = train_dataset.label_columns
+        metric = train_dataset.metric  # 'acc' or 'roc_auc' or 'r2'
+        problem_type = train_dataset.problem_type  # 'binary' or 'multiclass' or 'regression'
+        
+        train_data1, tuning_data1 = sklearn.model_selection.train_test_split(
+                                            train_data,
+                                            test_size=0.05,
+                                            random_state=np.random.RandomState(seed))
+
+        column_types, inferred_problem_type = infer_column_problem_types(train_data1,
+                                                                        tuning_data1,
+                                                                        label_columns=label_columns,
+                                                                        problem_type=problem_type)
+        train_data = train_data[feature_columns + label_columns]
+        
+        # get & set the save dir
+        text_backbone=self.fix_args["text_backbone"]
+        multimodal_fusion_strategy=self.fix_args["multimodal_fusion_strategy"]
+        # get the hps from self.params
+        decay_rate = self.params.get("decay_rate", 0.8)
+        n_average_epoch = self.params.get("n_average_epoch", 3)
+
+         # get & set the save dir
+        save_dir = self.fix_args["output_dir"]
+        ag_model_save_dir = os.path.join(save_dir, f"{dataset_name}_ag_text_multimodal_{text_backbone}_{decay_rate}_\
+                    {n_average_epoch}_no_ensemble_{multimodal_fusion_strategy}")
+        
+        # configuration of the hyperparameters
+        text_presets_key, text_presets = self._register_text_config(text_backbone, multimodal_fusion_strategy, 
+                                                                    decay_rate=self.params.decay_rate,
+                                                                    n_average_epoch=self.params.n_average_epoch)
+        # TODO init the HPs here, 
+        # combine the self.params into self.hyperparameters
+        self.hyperparameters = text_presets
+        
+        # TODO: train the model here. 
+        start_time = time.time()
+   
+        # predictor = self.estimator_class(path=save_dir,
+        #                           label=label_columns[0],
+        #                           problem_type=problem_type,
+        #                           eval_metric=metric)
+        # call predictor.fit
+        self._model = MultiModalTextModel(column_types=column_types,
+                                          feature_columns=feature_columns,
+                                          label_columns=label_columns,
+                                          problem_type=self._problem_type,
+                                          eval_metric=self._eval_metric,
+                                          log_metrics=log_metrics,
+                                          output_directory=ag_model_save_dir)
+        self._model.train(train_data=train_data,
+                          tuning_data=tuning_data,
+                          num_cpus=num_cpus,
+                          num_gpus=num_gpus,
+                          search_space=model_hparams['search_space'],
+                          tune_kwargs=hyperparameters['tune_kwargs'],
+                          time_limit=time_limit,
+                          seed=seed,
+                          plot_results=plot_results,
+                          verbosity=verbosity)
+
+ 
+        training_time = time.time - start_time
+        return training_time
+    
+    def predict(self, data, as_pandas=True):
+        output = self._model.predict(data)
+        if as_pandas:
+            if isinstance(data, pd.DataFrame):
+                index = data.index
+            else:
+                index = None
+            output = pd.Series(data=output, index=index, name=self.label)
+        return output
+        pass
+
+    def predict_proba():
+
+        pass
+
+
+# ************ END AutoGluon TextPredictor Estimator *************
+
+
+# ************* AutoGluon TextPredictor Estimator ****************
+class AGTabularPredictorEstimator(BaseEstimator):
+    """The class for tuning AutoGluon TextPredictor"""
+    def __init__(self, task="binary", **params,):
+        import autogluon
+        from autogluon.tabular_prediction import TabularPredictor
+        super().__init__(task, **params)
+        self._estimator_type = TabularPredictor
+
+
+
+# ************ END AutoGluon TabularPredictor Estimator **********
 
 class suppress_stdout_stderr(object):
     def __init__(self):
