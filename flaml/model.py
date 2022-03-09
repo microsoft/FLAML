@@ -786,6 +786,7 @@ class LGBMEstimator(BaseEstimator):
 
     ITER_HP = "n_estimators"
     HAS_CALLBACK = True
+    DEFAULT_ITER = 100
 
     @classmethod
     def search_space(cls, data_size, **params):
@@ -889,7 +890,7 @@ class LGBMEstimator(BaseEstimator):
     def fit(self, X_train, y_train, budget=None, **kwargs):
         start_time = time.time()
         deadline = start_time + budget if budget else np.inf
-        n_iter = self.params[self.ITER_HP]
+        n_iter = self.params.get(self.ITER_HP, self.DEFAULT_ITER)
         trained = False
         if not self.HAS_CALLBACK:
             mem0 = psutil.virtual_memory().available if psutil is not None else 1
@@ -960,10 +961,16 @@ class LGBMEstimator(BaseEstimator):
                 # when not trained, train at least one iter
                 self.params[self.ITER_HP] = max(max_iter, 1)
         if self.HAS_CALLBACK:
+            kwargs_callbacks = kwargs.get("callbacks")
+            if kwargs_callbacks:
+                callbacks = kwargs_callbacks + self._callbacks(start_time, deadline)
+                kwargs.pop("callbacks")
+            else:
+                callbacks = self._callbacks(start_time, deadline)
             self._fit(
                 X_train,
                 y_train,
-                callbacks=self._callbacks(start_time, deadline),
+                callbacks=callbacks,
                 **kwargs,
             )
             best_iteration = (
@@ -997,6 +1004,8 @@ class LGBMEstimator(BaseEstimator):
 
 class XGBoostEstimator(SKLearnEstimator):
     """The class for tuning XGBoost regressor, not using sklearn API."""
+
+    DEFAULT_ITER = 10
 
     @classmethod
     def search_space(cls, data_size, **params):
@@ -1147,6 +1156,8 @@ class XGBoostEstimator(SKLearnEstimator):
 
 class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
     """The class for tuning XGBoost with unlimited depth, using sklearn API."""
+
+    DEFAULT_ITER = 10
 
     @classmethod
     def search_space(cls, data_size, **params):
@@ -1354,6 +1365,7 @@ class CatBoostEstimator(BaseEstimator):
     """The class for tuning CatBoost."""
 
     ITER_HP = "n_estimators"
+    DEFAULT_ITER = 1000
 
     @classmethod
     def search_space(cls, data_size, **params):
@@ -1697,7 +1709,6 @@ class ARIMA(Prophet):
                 if len(X.columns) > 1:
                     X = self._preprocess(X.drop(columns=TS_TIMESTAMP_COL))
                     regressors = list(X)
-                    print(start, end, X.shape)
                     forecast = self._model.predict(
                         start=start, end=end, exog=X[regressors]
                     )
@@ -1817,10 +1828,7 @@ class TS_SKLearn(SKLearnEstimator):
                     "low_cost_init_value": False,
                 },
                 "lags": {
-                    "domain": tune.randint(
-                        lower=1, upper=int(np.sqrt(data_size[0]))
-
-                    ),
+                    "domain": tune.randint(lower=1, upper=int(np.sqrt(data_size[0]))),
                     "init_value": 3,
                 },
             }

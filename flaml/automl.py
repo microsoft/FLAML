@@ -49,6 +49,7 @@ from .data import (
 )
 from . import tune
 from .training_log import training_log_reader, training_log_writer
+from flaml.default.suggest import suggest_learner
 
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
@@ -540,9 +541,13 @@ class AutoML(BaseEstimator):
                 is used. BlendSearch can be tried when the search space is
                 complex, for example, containing multiple disjoint, discontinuous
                 subspaces. When set to 'random', random search is used.
-            starting_points: A dictionary to specify the starting hyperparameter
-                config for the estimators.
-                Keys are the name of the estimators, and values are the starting
+            starting_points: A dictionary or a str to specify the starting hyperparameter
+                config for the estimators | default="static".
+                If str:
+                    - if "data", use data-dependent defaults;
+                    - if "data:path" use data-dependent defaults which are stored at path;
+                    - if "static", use data-independent defaults.
+                If dict, keys are the name of the estimators, and values are the starting
                 hyperparamter configurations for the corresponding estimators.
                 The value can be a single hyperparamter configuration dict or a list
                 of hyperparamter configuration dicts.
@@ -611,7 +616,7 @@ class AutoML(BaseEstimator):
         settings["split_type"] = settings.get("split_type", "auto")
         settings["hpo_method"] = settings.get("hpo_method", "auto")
         settings["learner_selector"] = settings.get("learner_selector", "sample")
-        settings["starting_points"] = settings.get("starting_points", {})
+        settings["starting_points"] = settings.get("starting_points", "static")
         settings["n_concurrent_trials"] = settings.get("n_concurrent_trials", 1)
         settings["keep_search_state"] = settings.get("keep_search_state", False)
         settings["early_stop"] = settings.get("early_stop", False)
@@ -711,13 +716,13 @@ class AutoML(BaseEstimator):
 
     @property
     def classes_(self):
-        """A list of n_classes elements for class labels."""
+        """A numpy array of shape (n_classes,) for class labels."""
         attr = getattr(self, "_label_transformer", None)
         if attr:
-            return attr.classes_.tolist()
+            return attr.classes_
         attr = getattr(self, "_trained_estimator", None)
         if attr:
-            return attr.classes_.tolist()
+            return attr.classes_
         return None
 
     @property
@@ -734,7 +739,7 @@ class AutoML(BaseEstimator):
 
         Args:
             X: A numpy array of featurized instances, shape n * m,
-                or for 'ts_forecast' task:
+                or for ts_forecast tasks:
                     a pandas dataframe with the first column containing
                     timestamp values (datetime type) or an integer n for
                     the predict steps (only valid when the estimator is
@@ -1329,13 +1334,13 @@ class AutoML(BaseEstimator):
         Args:
             log_file_name: A string of the log file name.
             X_train: A numpy array or dataframe of training data in shape n*m.
-                For 'ts_forecast' task, the first column of X_train
+                For ts_forecast tasks, the first column of X_train
                 must be the timestamp column (datetime type). Other
                 columns in the dataframe are assumed to be exogenous
                 variables (categorical or numeric).
             y_train: A numpy array or series of labels in shape n*1.
             dataframe: A dataframe of training data including label column.
-                For 'ts_forecast' task, dataframe must be specified and should
+                For ts_forecast tasks, dataframe must be specified and should
                 have at least two columns: timestamp and label, where the first
                 column is the timestamp column (datetime type). Other columns
                 in the dataframe are assumed to be exogenous variables
@@ -1773,13 +1778,13 @@ class AutoML(BaseEstimator):
 
         Args:
             X_train: A numpy array or a pandas dataframe of training data in
-                shape (n, m). For 'ts_forecast' task, the first column of X_train
+                shape (n, m). For ts_forecast tasks, the first column of X_train
                 must be the timestamp column (datetime type). Other columns in
                 the dataframe are assumed to be exogenous variables (categorical or numeric).
                 When using ray, X_train can be a ray.ObjectRef.
             y_train: A numpy array or a pandas series of labels in shape (n, ).
             dataframe: A dataframe of training data including label column.
-                For 'ts_forecast' task, dataframe must be specified and must have
+                For ts_forecast tasks, dataframe must be specified and must have
                 at least two columns, timestamp and label, where the first
                 column is the timestamp column (datetime type). Other columns in
                 the dataframe are assumed to be exogenous variables (categorical or numeric).
@@ -1827,8 +1832,9 @@ class AutoML(BaseEstimator):
             }
         ```
             task: A string of the task type, e.g.,
-                'classification', 'regression', 'ts_forecast', 'rank',
-                'seq-classification', 'seq-regression', 'summarization'
+                'classification', 'regression', 'ts_forecast_regression',
+                'ts_forecast_classification', 'rank', 'seq-classification',
+                'seq-regression', 'summarization'
             n_jobs: An integer of the number of threads for training | default=-1.
                 Use all available resources when n_jobs == -1.
             log_file_name: A string of the log file name | default="". To disable logging,
@@ -1900,9 +1906,13 @@ class AutoML(BaseEstimator):
                 is used. BlendSearch can be tried when the search space is
                 complex, for example, containing multiple disjoint, discontinuous
                 subspaces. When set to 'random', random search is used.
-            starting_points: A dictionary to specify the starting hyperparameter
-                config for the estimators.
-                Keys are the name of the estimators, and values are the starting
+            starting_points: A dictionary or a str to specify the starting hyperparameter
+                config for the estimators | default="data".
+                If str:
+                    - if "data", use data-dependent defaults;
+                    - if "data:path" use data-dependent defaults which are stored at path;
+                    - if "static", use data-independent defaults.
+                If dict, keys are the name of the estimators, and values are the starting
                 hyperparamter configurations for the corresponding estimators.
                 The value can be a single hyperparamter configuration dict or a list
                 of hyperparamter configuration dicts.
@@ -1943,7 +1953,7 @@ class AutoML(BaseEstimator):
                 you run into OOM failures.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Include:
-                    period: int | forecast horizon for 'ts_forecast' task.
+                    period: int | forecast horizon for ts_forecast tasks.
                     gpu_per_trial: float, default = 0 | A float of the number of gpus per trial,
                     only used by TransformersEstimator and XGBoostSklearnEstimator.
         """
@@ -2191,6 +2201,41 @@ class AutoML(BaseEstimator):
                     get_estimator_class(self._state.task, estimator_name),
                 )
         # set up learner search space
+        if isinstance(starting_points, str) and starting_points.startswith("data"):
+            from flaml.default import suggest_config
+
+            location = starting_points[5:]
+            starting_points = {}
+            for estimator_name in estimator_list:
+                try:
+                    configs = suggest_config(
+                        self._state.task,
+                        self._X_train_all,
+                        self._y_train_all,
+                        estimator_name,
+                        location,
+                        k=1,
+                    )
+                    starting_points[estimator_name] = [
+                        x["hyperparameters"] for x in configs
+                    ]
+                except FileNotFoundError:
+                    pass
+            try:
+                learner = suggest_learner(
+                    self._state.task,
+                    self._X_train_all,
+                    self._y_train_all,
+                    estimator_list=estimator_list,
+                    location=location,
+                )
+                if learner != estimator_list[0]:
+                    estimator_list.remove(learner)
+                    estimator_list.insert(0, learner)
+            except FileNotFoundError:
+                pass
+
+        starting_points = {} if starting_points == "static" else starting_points
         for estimator_name in estimator_list:
             estimator_class = self._state.learner_classes[estimator_name]
             estimator_class.init()
