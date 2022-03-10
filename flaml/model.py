@@ -1975,31 +1975,19 @@ class AGTextPredictorEstimator(BaseEstimator):
 
     @classmethod
     def search_space(cls, **params):
-        # TODO: add the possible search space configs here, e.g. 'optimization.lr'
-        # The following dict is referred from: 
+        # Add the possible search space configs here, e.g. 'optimization.lr'
+        # reference: 
         # https://auto.gluon.ai/stable/tutorials/text_prediction/customization.html#custom-hyperparameter-values
 
         search_space_dict = {
-            # "text_backbone":"electra_base",
-            # "multimodal_fusion_strategy":"fuse_late", 
             'model.network.agg_net.mid_units': {
                                                 "domain": tune.choice(list(range(32, 129))),  
                                                 "init_value": 128
                                                 },
-            # 'model.network.aggregate_categorical': True,
-            # 'model.use_avg_nbest': True,
-            # 'optimization.batch_size': 128,   # TODO: TUNE OR NOT
-            'optimization.layerwise_lr_decay': {
-                                "domain": tune.choice([0.8, 0.9]),  # NOT SURE IF THESE CHOICES ARE OK
-                                "init_value": 0.8
+            'optimization.lr': {
+                                "domain": tune.loguniform(lower=1E-5, upper=1E-4),  
+                                "init_value": 1E-4,
                                 },
-            'optimization.lr': { # the search space is (1E-5, 1E-4) in AG
-                                "domain": tune.loguniform(lower=1e-6, upper=1e-3),  
-                                "init_value": 1e-5,
-                                },
-            # 'optimization.nbest': 3,  # TODO: TUNE OR NOT
-            # 'optimization.num_train_epochs': 10,   # TODO: TUNE OR NOT
-            # 'optimization.per_device_batch_size': 8,   # TODO: TUNE OR NOT
             'optimization.wd':{
                                 "domain": tune.choice([1E-4, 1E-3, 1E-2]), 
                                 "init_value":1E-4
@@ -2022,7 +2010,8 @@ class AGTextPredictorEstimator(BaseEstimator):
             "multimodal_fusion_strategy":"fuse_late", 
         """
         fix_args = {}
-        FIX_ARGS_LIST = ["output_dir", "dataset_name", "label_column", "text_backbone", "multimodal_fusion_strategy", ]
+        FIX_ARGS_LIST = ["output_dir", "dataset_name", "label_column", "per_device_batch_size", 
+                         "text_backbone", "multimodal_fusion_strategy", ]
         for key, value in automl_fit_kwargs["custom_fix_args"].items():
             assert (
                 key in FIX_ARGS_LIST
@@ -2062,6 +2051,8 @@ class AGTextPredictorEstimator(BaseEstimator):
                     search_space[key] = value.item()
                 else:
                     search_space[key] = value
+            search_space['optimization.per_device_batch_size'] = self.fix_args['per_device_batch_size']
+            search_space
         return cfg
    
     def _set_seed(self, seed):
@@ -2074,26 +2065,17 @@ class AGTextPredictorEstimator(BaseEstimator):
         random.seed(seed)
 
     def fit(self, X_train=None, y_train=None, budget=None, **kwargs):
-        import sklearn
-        # DEBUG 
-        print("Inside estimator fit, X_train shape:", X_train.shape)
-        print("Inside estimator fit, y_train shape:", y_train.shape)
-        print("budget: ", budget)
-        # END DEBUG
         self._kwargs = kwargs
         self._init_fix_args(kwargs)
         # the seed set in the bash script for ag experiment is 123
         seed = self.params.get("seed", 123)
         self._set_seed(seed)       
+        
         # get backbone and fusion strategy
         text_backbone=self.fix_args["text_backbone"]
         multimodal_fusion_strategy=self.fix_args["multimodal_fusion_strategy"]
 
-        # # get the hps from self.params, this can be tuned, added to the search space
-        # decay_rate = self.params.get("decay_rate", 0.8)
-        # n_average_epoch = self.params.get("n_average_epoch", 3)
-
-         # get & set the save dir, get the dataset info
+        # get & set the save dir, get the dataset info
         save_dir = self.fix_args["output_dir"]
         label_column = self.fix_args["label_column"]
         dataset_name = self.fix_args["dataset_name"]
@@ -2104,19 +2086,17 @@ class AGTextPredictorEstimator(BaseEstimator):
         self.hyperparameters = self._init_hp_config(text_backbone, multimodal_fusion_strategy)
         PROBLEM_TYPE_MAPPING = {"binary": "binary", "multi": "multiclass", "regression": "regression" }
         TASK_METRIC_MAPPING = {"multi": "acc", "binary": "roc_auc", "regression": "r2"}
-        # train the model here
+       
+       # train the model
         start_time = time.time()
         
-        # import pdb
-        # pdb.set_trace()
         self._model = self.estimator_class(path=save_dir,
                                            label=label_column,
                                            problem_type=PROBLEM_TYPE_MAPPING[self._task],
                                            eval_metric=TASK_METRIC_MAPPING[self._task])
-        # train_data = pd.DataFrame(X_train, y_train)
+        
         train_data = self._kwargs["train_data"]
-        # import pdb
-        # pdb.set_trace()
+
         self._model.fit(train_data=train_data,
                         hyperparameters=self.hyperparameters,
                         time_limit=budget, 
@@ -2126,23 +2106,12 @@ class AGTextPredictorEstimator(BaseEstimator):
         return training_time
     
     def predict(self, X, as_pandas=False):
-        print("Call predict on TextPredictor, data shape: ", self._kwargs["valid_data"].shape)
-        print(self._kwargs["valid_data"].head())
         output = self._model.predict(self._kwargs["valid_data"], as_pandas=as_pandas)
-        # remove the convertion below
-        if as_pandas:
-            if isinstance(self._kwargs["valid_data"], pd.DataFrame):
-                index = self._kwargs["valid_data"].index
-            else:
-                index = None
-            output = pd.Series(data=output, index=index, name=self.fix_args["label_column"])
         return output
 
 
     def predict_proba(self, X, as_pandas=False, as_multiclass=True):
         # only works for classification tasks
-        print("Call predict_proba on TextPredictor, data shape: ", self._kwargs["valid_data"].shape)
-        print(self._kwargs["valid_data"].head())
         assert (
             self._task in CLASSIFICATION
         ), "predict_proba() only for classification tasks."
@@ -2151,16 +2120,6 @@ class AGTextPredictorEstimator(BaseEstimator):
         if not as_multiclass:
             if self._task == "binary":
                 output = output[:, 1]
-        # remove the convertion below
-        if as_pandas:
-            if isinstance(self._kwargs["valid_data"], pd.DataFrame):
-                index = self._kwargs["valid_data"].index
-            else:
-                index = None
-            if output.ndim == 1:
-                output = pd.Series(output, index=index, name=self.label)
-            else:
-                output = pd.DataFrame(output, index=index, columns=self._model.class_labels)
         return output
 
 # ************ END AutoGluon TextPredictor Estimator *************
@@ -2168,7 +2127,7 @@ class AGTextPredictorEstimator(BaseEstimator):
 
 # ************* AutoGluon TextPredictor Estimator ****************
 class AGTabularPredictorEstimator(BaseEstimator):
-    """The class for tuning AutoGluon TextPredictor"""
+    """The class for tuning AutoGluon TabularPredictor"""
     def __init__(self, task="binary", **params,):
         import autogluon
         from autogluon.tabular_prediction import TabularPredictor

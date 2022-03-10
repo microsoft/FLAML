@@ -37,15 +37,12 @@ def default_holdout_frac(num_train_rows, hyperparameter_tune=False):
     
 def test_ag_text_predictor(dataset_name='imdb', seed=123):
     # default dataset = the smallest dataset in the benchmark
-    # TODO: is the random seed also tunable?
 
     train_dataset, test_dataset, train_data, test_data = _get_benchmark_dataset(TEXT_BENCHMARK_ALIAS_MAPPING[dataset_name])
     feature_columns = train_dataset.feature_columns
     label_columns = train_dataset.label_columns
     metric = train_dataset.metric  # 'acc' or 'roc_auc' or 'r2', 
-    # TODO: map acc to accuracy in flaml
     problem_type = train_dataset.problem_type  # 'binary' or 'multiclass' or 'regression' 
-    # TODO: map multiclass to multi in flaml
     
     train_data1, tuning_data1 = sklearn.model_selection.train_test_split(
                                         train_data,
@@ -81,9 +78,9 @@ def test_ag_text_predictor(dataset_name='imdb', seed=123):
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 5,
-        "task": TASK_MAPPING[problem_type],  # TODO: change accordingly, 
-        "metric": METRIC_MAPPING[metric],  # TODO: change accordingly
+        "time_budget": 50,
+        "task": TASK_MAPPING[problem_type],   
+        "metric": METRIC_MAPPING[metric], 
     }
 
     # the following will be add to estimator's self.fix_args
@@ -94,27 +91,13 @@ def test_ag_text_predictor(dataset_name='imdb', seed=123):
         "multimodal_fusion_strategy":"fuse_late", 
         "dataset_name": dataset_name, 
         "label_column": label_columns[0],
+        "per_device_batch_size":8,
     }
 
-         # ***** THE FOLLOWING ARE HPs TO TUNE IN THE ESTIMATOR'S SEARCH SPACE*****
-        # 'model.backbone.name': 'google_electra_small',
-        # 'model.network.agg_net.agg_type': 'concat',
-        # 'model.network.aggregate_categorical': True,
-        # 'model.use_avg_nbest': True,
-        # 'optimization.batch_size': 128,
-        # 'optimization.layerwise_lr_decay': 0.8,
-        # 'optimization.lr': Categorical[0.0001],
-        # 'optimization.nbest': 3,
-        # 'optimization.num_train_epochs': 10,
-        # 'optimization.per_device_batch_size': 8,
-        # 'optimization.wd': 0.0001,
-        # 'preprocessing.categorical.convert_to_text': False,
-        # 'preprocessing.numerical.convert_to_text': False
-    # DEBUG
-    print("Before automl fit, train data shape: ", train_data.shape)
-    print("The data pass to predictor as X_train and y_train:", train_data[feature_columns].shape, train_data[label_columns[0]].shape)
+    # SANITY CHECK
+    print("Before automl fit, train data shape: ", train_data.shape) 
     print("FLAML's X_valid and y_valid: ", valid_data[feature_columns].shape, valid_data[label_columns[0]].shape)
-    # END DEBUG
+    # END CHECK
     try:
         automl.fit(
             # X_train=train_data[feature_columns],  # pass the whole train dataset to predictor
@@ -123,9 +106,9 @@ def test_ag_text_predictor(dataset_name='imdb', seed=123):
             label = label_columns[0],
             train_data=train_data,
             valid_data=valid_data,
-            X_val=valid_data[feature_columns],  # TODO: add valid data in the autogluon way
+            X_val=valid_data[feature_columns],
             y_val=valid_data[label_columns[0]],
-            estimator_list=["agtextpredictor"],  # TODO: add this choice to the automl.py
+            estimator_list=["agtextpredictor"],  
             **automl_settings
         )
     except requests.exceptions.HTTPError:
@@ -133,22 +116,15 @@ def test_ag_text_predictor(dataset_name='imdb', seed=123):
     
     print('Begin to run inference on test set')
     save_dir = automl_settings["custom_fix_args"]["output_dir"]
-    # predictions = automl.predict(test_data, as_pandas=True)
-    # if problem_type == "multiclass" or problem_type == "binary":
-    #     prediction_prob = automl.predict_proba(test_data, as_pandas=True)
-    #     prediction_prob.to_csv(os.path.join(save_dir, 'test_prediction_prob.csv'))
-    # predictions.to_csv(os.path.join(save_dir, 'test_prediction.csv'))
-    # gt = test_data[label_columns[0]]
-    # gt.to_csv(os.path.join(save_dir, 'ground_truth.csv'))
-    
-    score = automl.model.estimator.evaluate(test_data)
+   
+    # NOTE: report score on first 100 examples to save time
+    score = automl.model.estimator.evaluate(test_data[:100])
     with open(os.path.join(save_dir, 'test_score.json'), 'w') as of:
         json.dump({metric: score}, of)
     print(f"Inference on test set complete, {metric}: {score}")
 
-# evaluation on test set should be implemented elsewhere
-
 
 if __name__ == "__main__":
-    test_ag_text_predictor(dataset_name='imdb')
-
+    # test_ag_text_predictor(dataset_name='imdb')
+    test_ag_text_predictor(dataset_name='prod')
+    # test_ag_text_predictor(dataset_name='book')
