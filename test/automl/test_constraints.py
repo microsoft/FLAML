@@ -76,9 +76,7 @@ def custom_metric(
     y_train,
     weight_val,
     weight_train,
-    config=None,
-    groups_val=None,
-    groups_train=None,
+    *args,
 ):
     from sklearn.metrics import log_loss
     import time

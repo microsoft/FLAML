@@ -586,6 +586,20 @@ class AutoML(BaseEstimator):
                 in separate processes. This can be used to prevent OOM for large
                 datasets, but will incur more overhead in time. Only use it if
                 you run into OOM failures.
+            metric_constraints: list, default=[] | The list of metric constraints.
+                Each element in this list is a 3-tuple, which shall be expressed
+                in the following format: the first element of the 3-tuple is the name of the
+                metric, the second element is the inequality sign chosen from ">=" and "<=",
+                and the third element is the constraint value. E.g., `('precision', '>=', 0.9)`.
+                Note that all the metric names in metric_constraints need to be reported via
+                the metrics_to_log dictionary returned by a customized metric function.
+                The customized metric function shall be provided via the `metric` key word
+                argument of the fit() function or the automl constructor.
+                Find examples in this [test](https://github.com/microsoft/FLAML/tree/main/test/automl/test_constraints.py)
+                If 'pred_time_limit', is provided as one of keyword arguments to fit() function or
+                the automl constructor, flaml will automatically (and under the hood)
+                add it as an additional element in the metric_constraints. Essentially 'pred_time_limit'
+                specifies a constraint about the prediction latency constraint in seconds.
 
         """
         self._track_iter = 0
@@ -1952,14 +1966,18 @@ class AutoML(BaseEstimator):
                 you run into OOM failures.
             metric_constraints: list, default=[] | The list of metric constraints.
                 Each element in this list is a 3-tuple, which shall be expressed
-                in the following format: the first element of the 3-tuple is the name of the metric,
-                the second element is the inequality sign chosen from ">=" and "<=", and
-                the third element is the constraint value.  E.g., `('precision', '>=', 0.9)`.
-                Note that all the the metric names appear in metric_constraints need to be
-                reported via the metrics_to_log dictionary returned by a customized metric function.
+                in the following format: the first element of the 3-tuple is the name of the
+                metric, the second element is the inequality sign chosen from ">=" and "<=",
+                and the third element is the constraint value. E.g., `('precision', '>=', 0.9)`.
+                Note that all the metric names in metric_constraints need to be reported via
+                the metrics_to_log dictionary returned by a customized metric function.
+                The customized metric function shall be provided via the `metric` key word argument
+                of the fit() function or the automl constructor.
                 Find examples in this [test](https://github.com/microsoft/FLAML/tree/main/test/automl/test_constraints.py)
-                If 'pred_time_limit' is provided, flaml will automatically (and under the hood)
-                add it as an additional element in the metric_constraints.
+                If `pred_time_limit`, is provided as one of keyword arguments to fit() function or
+                the automl constructor, flaml will automatically (and under the hood)
+                add it as an additional element in the metric_constraints. Essentially 'pred_time_limit'
+                specifies a constraint about the prediction latency constraint in seconds.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Include:
                     period: int | forecast horizon for ts_forecast tasks.
