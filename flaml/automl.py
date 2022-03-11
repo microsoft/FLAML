@@ -1958,7 +1958,7 @@ class AutoML(BaseEstimator):
                 Note that all the the metric names appear in metric_constraints need to be
                 reported via the metrics_to_log dictionary returned by a customized metric function.
                 Find examples in this [test](https://github.com/microsoft/FLAML/tree/main/test/automl/test_constraints.py)
-                If 'pred_time_limit' is provided (under the hood), flaml will automatically
+                If 'pred_time_limit' is provided, flaml will automatically (and under the hood)
                 add it as an additional element in the metric_constraints.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Include:
