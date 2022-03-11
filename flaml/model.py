@@ -1975,7 +1975,6 @@ class AGTextPredictorEstimator(BaseEstimator):
     The class for tuning AutoGluon TextPredictor
     """
     def __init__(self, task="binary", **params,):
-        import autogluon
         from autogluon.text import TextPredictor
 
         super().__init__(task, **params)
@@ -2132,20 +2131,6 @@ class AGTextPredictorEstimator(BaseEstimator):
 
 # ************ END AutoGluon TextPredictor Estimator *************
 
-
-# ************* AutoGluon TextPredictor Estimator ****************
-class AGTabularPredictorEstimator(BaseEstimator):
-    """The class for tuning AutoGluon TabularPredictor"""
-    def __init__(self, task="binary", **params,):
-        import autogluon
-        from autogluon.tabular_prediction import TabularPredictor
-
-        super().__init__(task, **params)
-        self._estimator_type = TabularPredictor
-
-
-
-# ************ END AutoGluon TabularPredictor Estimator **********
 
 class suppress_stdout_stderr(object):
     def __init__(self):

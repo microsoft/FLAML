@@ -89,7 +89,7 @@ def test_ag_text_predictor():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 5,
+        "time_budget": 10,
         "task": "binary",
         "metric": "roc_auc", 
     }
