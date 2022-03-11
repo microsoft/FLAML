@@ -63,11 +63,11 @@ setuptools.setup(
             "hcrystalball==0.1.10",
             "seqeval",
             "mxnet<2.0.0",
-            "autogluon==0.3.1",
+            "autogluon",
         ],
         "agtextpredictor": [
             "mxnet<2.0.0",
-            "autogluon==0.3.1", 
+            "autogluon", 
         ], 
         "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],
