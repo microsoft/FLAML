@@ -595,7 +595,7 @@ class AutoML(BaseEstimator):
                 the metrics_to_log dictionary returned by a customized metric function.
                 The customized metric function shall be provided via the `metric` key word
                 argument of the fit() function or the automl constructor.
-                Find examples in this [test](https://github.com/microsoft/FLAML/tree/main/test/automl/test_constraints.py)
+                Find examples in this [test](https://github.com/microsoft/FLAML/tree/main/test/automl/test_constraints.py).
                 If 'pred_time_limit', is provided as one of keyword arguments to fit() function or
                 the automl constructor, flaml will automatically (and under the hood)
                 add it as an additional element in the metric_constraints. Essentially 'pred_time_limit'
