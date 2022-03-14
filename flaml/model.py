@@ -1970,15 +1970,15 @@ class XGBoostLimitDepth_TS(TS_SKLearn):
 
 
 # ************* AutoGluon TextPredictor Estimator *************
-class AGTextPredictorEstimator(BaseEstimator):
+class AGMXTextPredictorEstimator(BaseEstimator):
     """
     The class for tuning AutoGluon TextPredictor
     """
     def __init__(self, task="binary", **params,):
-        from autogluon.text import TextPredictor
+        from autogluon.text.text_prediction.mx_predictor import MXTextPredictor
 
         super().__init__(task, **params)
-        self.estimator_class = TextPredictor
+        self.estimator_class = MXTextPredictor
 
     @classmethod
     def search_space(cls, **params):
@@ -2035,7 +2035,7 @@ class AGTextPredictorEstimator(BaseEstimator):
         Ref:
         https://auto.gluon.ai/stable/tutorials/text_prediction/customization.html#custom-hyperparameter-values
         """
-        from autogluon.text import ag_text_presets
+        from autogluon.text.text_prediction.legacy_presets import ag_text_presets
 
         base_key = f'{text_backbone}_{multimodal_fusion_strategy}'
         cfg = ag_text_presets.create(base_key)

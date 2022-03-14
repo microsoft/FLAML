@@ -64,11 +64,14 @@ setuptools.setup(
             "seqeval",
             "mxnet<2.0.0",
             "autogluon.text",
-        ],
-        "agtextpredictor": [
+            "autogluon.features",
+            "autogluon.tabular",
+            ],
+        "agmxtextpredictor": [
             "mxnet<2.0.0",
             "autogluon.text", 
-        ], 
+            "autogluon.features",
+            ], 
         "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],
         "ray": [

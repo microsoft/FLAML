@@ -6,7 +6,7 @@ import numpy as np
 import os
 import json
 from sklearn.model_selection import train_test_split
-
+os.environ["AUTOGLUON_TEXT_TRAIN_WITHOUT_GPU"] = "1"
 
 train_data = {
         "sentence1": [
@@ -89,7 +89,7 @@ def test_ag_text_predictor():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
-        "time_budget": 10,
+        "time_budget": 50,
         "task": "binary",
         "metric": "roc_auc", 
     }
@@ -112,7 +112,7 @@ def test_ag_text_predictor():
             valid_data=valid_dataset[feature_columns+["label"]],
             X_val=valid_dataset[feature_columns],
             y_val=valid_dataset["label"],
-            estimator_list=["agtextpredictor"],  
+            estimator_list=["agmxtextpredictor"],  
             **automl_settings
         )
     except requests.exceptions.HTTPError:
