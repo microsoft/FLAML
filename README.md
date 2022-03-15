@@ -5,7 +5,7 @@
 [![Downloads](https://pepy.tech/badge/flaml)](https://pepy.tech/project/flaml)
 [![Join the chat at https://gitter.im/FLAMLer/community](https://badges.gitter.im/FLAMLer/community.svg)](https://gitter.im/FLAMLer/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-# A Fast Library for Automated Machine Learning & Tuning
+# A Fast Library for Automated Machine Learning & Tuning.
 
 <p align="center">
     <img src="https://github.com/microsoft/FLAML/blob/main/website/static/img/flaml.svg"  width=200>
