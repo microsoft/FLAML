@@ -62,11 +62,8 @@ setuptools.setup(
             "rouge_score",
             "hcrystalball==0.1.10",
             "seqeval",
-            "mxnet<2.0.0",
-            "autogluon.text==0.4.0",
-            "autogluon.features==0.4.0",
             ],
-        "agmxtextpredictor": [
+        "autogluon": [
             "mxnet<2.0.0",
             "autogluon.text==0.4.0", 
             "autogluon.features==0.4.0",
