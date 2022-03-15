@@ -4,11 +4,35 @@ import requests
 import sklearn
 import numpy as np
 import os
+import sys
 import json
 from sklearn.model_selection import train_test_split
 os.environ["AUTOGLUON_TEXT_TRAIN_WITHOUT_GPU"] = "1"
 
-train_data = {
+def default_holdout_frac(num_train_rows, hyperparameter_tune=False):
+    """ Returns default holdout_frac used in fit().
+        Between row count 5,000 and 25,000 keep 0.1 holdout_frac, as we want to grow validation set to a stable 2500 examples.
+        Ref: https://github.com/awslabs/autogluon/blob/master/core/src/autogluon/core/utils/utils.py#L243
+    """
+    if num_train_rows < 5000:
+        holdout_frac = max(0.1, min(0.2, 500.0 / num_train_rows))
+    else:
+        holdout_frac = max(0.01, min(0.1, 2500.0 / num_train_rows))
+
+    if hyperparameter_tune:
+        holdout_frac = min(0.2, holdout_frac * 2)  # We want to allocate more validation data for HPO to avoid overfitting
+
+    return holdout_frac
+    
+def test_ag_text_predictor():
+    if float(sys.version[:3]) < 3.7:
+        # do not test on python3.6
+        return
+
+    seed = 123
+    metric = "roc_auc" 
+    problem_type = "binary"
+    train_data = {
         "sentence1": [
             'Amrozi accused his brother , whom he called " the witness " , of deliberately distorting his evidence .',
             "Yucaipa owned Dominick 's before selling the chain to Safeway in 1998 for $ 2.5 billion .",
@@ -34,48 +58,28 @@ train_data = {
         "label": [1, 0, 1, 0, 1, 1, 0, 1],
         "idx": [0, 1, 2, 3, 4, 5, 6, 7],
     }
-train_dataset = pd.DataFrame(train_data)
+    train_dataset = pd.DataFrame(train_data)
 
-test_data = {
-        "sentence1": [
-            "That compared with $ 35.18 million , or 24 cents per share , in the year-ago period .",
-            "Shares of Genentech , a much larger company with several products on the market , rose more than 2 percent .",
-            "Legislation making it harder for consumers to erase their debts in bankruptcy court won overwhelming House approval in March .",
-            "The Nasdaq composite index increased 10.73 , or 0.7 percent , to 1,514.77 .",
-        ],
-        "sentence2": [
-            "Earnings were affected by a non-recurring $ 8 million tax benefit in the year-ago period .",
-            "Shares of Xoma fell 16 percent in early trade , while shares of Genentech , a much larger company with several products on the market , were up 2 percent .",
-            "Legislation making it harder for consumers to erase their debts in bankruptcy court won speedy , House approval in March and was endorsed by the White House .",
-            "The Nasdaq Composite index , full of technology stocks , was lately up around 18 points .",
-        ],
-        "numerical1":[3, 4, 5, 6],
-        "categorical1": ["b", "a", "a", "b"],
-        "label": [0, 1, 1, 0],
-        "idx": [8, 10, 11, 12],
-    }
-test_dataset = pd.DataFrame(test_data)
+    test_data = {
+            "sentence1": [
+                "That compared with $ 35.18 million , or 24 cents per share , in the year-ago period .",
+                "Shares of Genentech , a much larger company with several products on the market , rose more than 2 percent .",
+                "Legislation making it harder for consumers to erase their debts in bankruptcy court won overwhelming House approval in March .",
+                "The Nasdaq composite index increased 10.73 , or 0.7 percent , to 1,514.77 .",
+            ],
+            "sentence2": [
+                "Earnings were affected by a non-recurring $ 8 million tax benefit in the year-ago period .",
+                "Shares of Xoma fell 16 percent in early trade , while shares of Genentech , a much larger company with several products on the market , were up 2 percent .",
+                "Legislation making it harder for consumers to erase their debts in bankruptcy court won speedy , House approval in March and was endorsed by the White House .",
+                "The Nasdaq Composite index , full of technology stocks , was lately up around 18 points .",
+            ],
+            "numerical1":[3, 4, 5, 6],
+            "categorical1": ["b", "a", "a", "b"],
+            "label": [0, 1, 1, 0],
+            "idx": [8, 10, 11, 12],
+        }
+    test_dataset = pd.DataFrame(test_data)
 
-def default_holdout_frac(num_train_rows, hyperparameter_tune=False):
-    """ Returns default holdout_frac used in fit().
-        Between row count 5,000 and 25,000 keep 0.1 holdout_frac, as we want to grow validation set to a stable 2500 examples.
-        Ref: https://github.com/awslabs/autogluon/blob/master/core/src/autogluon/core/utils/utils.py#L243
-    """
-    if num_train_rows < 5000:
-        holdout_frac = max(0.1, min(0.2, 500.0 / num_train_rows))
-    else:
-        holdout_frac = max(0.01, min(0.1, 2500.0 / num_train_rows))
-
-    if hyperparameter_tune:
-        holdout_frac = min(0.2, holdout_frac * 2)  # We want to allocate more validation data for HPO to avoid overfitting
-
-    return holdout_frac
-    
-def test_ag_text_predictor():
-    seed = 123
-    metric = "roc_auc" 
-    problem_type = "binary"
-    
     # FORCE THE SAME TRAIN-VALID SPLIT IN & OUT THE PREDICTOR
     holdout_frac = default_holdout_frac(len(train_dataset), False)
 
@@ -112,7 +116,7 @@ def test_ag_text_predictor():
             valid_data=valid_dataset[feature_columns+["label"]],
             X_val=valid_dataset[feature_columns],
             y_val=valid_dataset["label"],
-            estimator_list=["agmxtextpredictor"],  
+            estimator_list=["agtextpredictor"],  
             **automl_settings
         )
     except requests.exceptions.HTTPError:

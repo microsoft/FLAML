@@ -47,6 +47,10 @@ jobs:
         run: |
           pip install -e .[ray,forecast]
           pip install 'tensorboardX<=2.2'
+      - name: If python version > 3.6, install autogluon
+        if: matrix.python-version >= '3.7'
+        run: |
+          pip install -e .[autogluon]
       - name: Lint with flake8
         run: |
           # stop the build if there are Python syntax errors or undefined names

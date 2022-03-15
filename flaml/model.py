@@ -1970,7 +1970,7 @@ class XGBoostLimitDepth_TS(TS_SKLearn):
 
 
 # ************* AutoGluon TextPredictor Estimator *************
-class AGMXTextPredictorEstimator(BaseEstimator):
+class AGTextPredictorEstimator(BaseEstimator):
     """
     The class for tuning AutoGluon TextPredictor
     """
