@@ -78,7 +78,7 @@ def test_mlflow():
     import subprocess
     import sys
 
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "mlflow", "--user"])
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "mlflow"])
     import mlflow
     from flaml.data import load_openml_task
 

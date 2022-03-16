@@ -2103,18 +2103,17 @@ class AGTextPredictorEstimator(BaseEstimator):
         training_time = time.time() - start_time
         return training_time
     
-    def predict(self, X, as_pandas=False):
-        output = self._model.predict(self._kwargs["valid_data"], as_pandas=as_pandas)
+    def predict(self, X):
+        output = self._model.predict(self._kwargs["valid_data"], as_pandas=False)
         return output
 
-
-    def predict_proba(self, X, as_pandas=False, as_multiclass=True):
+    def predict_proba(self, X, as_multiclass=True):
         # only works for classification tasks
         assert (
             self._task in CLASSIFICATION
         ), "predict_proba() only for classification tasks."
 
-        output = self._model.predict_proba(self._kwargs["valid_data"], as_pandas=as_pandas)
+        output = self._model.predict_proba(self._kwargs["valid_data"], as_pandas=False)
         if not as_multiclass:
             if self._task == "binary":
                 output = output[:, 1]

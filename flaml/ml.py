@@ -37,6 +37,7 @@ from .model import (
     ARIMA,
     SARIMAX,
     TransformersEstimator,
+    AGTextPredictorEstimator,
 )
 from .data import CLASSIFICATION, group_counts, TS_FORECAST, TS_VALUE_COL
 import logging
@@ -121,6 +122,8 @@ def get_estimator_class(task, estimator_name):
         estimator_class = SARIMAX
     elif estimator_name == "transformer":
         estimator_class = TransformersEstimator
+    elif estimator_name == "agtextpredictor":
+        estimator_class = AGTextPredictorEstimator
     else:
         raise ValueError(
             estimator_name + " is not a built-in learner. "
