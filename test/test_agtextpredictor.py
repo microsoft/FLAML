@@ -29,7 +29,7 @@ def test_ag_text_predictor():
     if sys.version < "3.7":
         # do not test on python3.6
         return
-    elif platform.system() == "Windows" and sys.version_info.major == 3 and sys.version_info.minor == 8:
+    elif platform.system() == "Windows":
         # do not test on windows with py3.8
         return
 
