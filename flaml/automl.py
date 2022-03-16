@@ -462,7 +462,7 @@ class AutoML(BaseEstimator):
         def custom_metric(
             X_val, y_val, estimator, labels,
             X_train, y_train, weight_val=None, weight_train=None,
-            *args,
+            **args,
         ):
             from sklearn.metrics import log_loss
             import time
