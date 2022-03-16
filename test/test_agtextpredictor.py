@@ -108,7 +108,9 @@ def test_ag_text_predictor():
         "multimodal_fusion_strategy": "fuse_late", 
         "dataset_name": "test_ag", 
         "label_column": "label",
-        "per_device_batch_size": 2,
+        "per_device_batch_size": 4,
+        "num_train_epochs": 2,
+        "batch_size": 4,
     }
     
     try:

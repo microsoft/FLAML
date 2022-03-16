@@ -62,7 +62,6 @@ setuptools.setup(
             "rouge_score",
             "hcrystalball==0.1.10",
             "seqeval",
-            "mlflow",
         ],
         "autogluon": [
             "mxnet<2.0.0",

@@ -1983,19 +1983,19 @@ class AGTextPredictorEstimator(BaseEstimator):
         https://auto.gluon.ai/stable/tutorials/text_prediction/customization.html#custom-hyperparameter-values
         """
         search_space_dict = {
-            'model.network.agg_net.mid_units': {
+            "model.network.agg_net.mid_units": {
                 "domain": tune.choice(list(range(32, 129))),
                 "init_value": 128,
             },
-            'optimization.lr': {
+            "optimization.lr": {
                 "domain": tune.loguniform(lower=1E-5, upper=1E-4),
                 "init_value": 1E-4,
             },
-            'optimization.wd': {
+            "optimization.wd": {
                 "domain": tune.choice([1E-4, 1E-3, 1E-2]),
                 "init_value":1E-4,
             },
-            'optimization.warmup_portion': {
+            "optimization.warmup_portion": {
                 "domain": tune.choice([0.1, 0.2]),
                 "init_value":0.1, 
             },
@@ -2012,7 +2012,7 @@ class AGTextPredictorEstimator(BaseEstimator):
         """
         fix_args = {}
         FIX_ARGS_LIST = ["output_dir", "dataset_name", "label_column", "per_device_batch_size",
-                         "text_backbone", "multimodal_fusion_strategy", ]
+                         "text_backbone", "multimodal_fusion_strategy", "num_train_epochs", "batch_size"]
         for key, value in automl_fit_kwargs["custom_fix_args"].items():
             assert (
                 key in FIX_ARGS_LIST
@@ -2034,17 +2034,20 @@ class AGTextPredictorEstimator(BaseEstimator):
         base_key = f'{text_backbone}_{multimodal_fusion_strategy}'
         cfg = ag_text_presets.create(base_key)
         # NOTE: if the search_space() is modified, add new items or delete here too.
-        TUNABLE_HP = set(['model.network.agg_net.mid_units',
-                          'optimization.batch_size',
-                          'optimization.layerwise_lr_decay',
-                          'optimization.lr',
-                          'optimization.nbest',
-                          'optimization.num_train_epochs',
-                          'optimization.per_device_batch_size',
-                          'optimization.wd',
-                          'optimization.warmup_portion',
+        TUNABLE_HP = set(["model.network.agg_net.mid_units",
+                          "optimization.batch_size",
+                          "optimization.layerwise_lr_decay",
+                          "optimization.lr",
+                          "optimization.nbest",
+                          "optimization.num_train_epochs",
+                          "optimization.per_device_batch_size",
+                          "optimization.wd",
+                          "optimization.warmup_portion",
                           ])
-        search_space = cfg['models']['MultimodalTextModel']['search_space']
+        search_space = cfg["models"]["MultimodalTextModel"]["search_space"]
+        search_space["optimization.per_device_batch_size"] = self.fix_args.get("per_device_batch_size", 4)
+        search_space["optimization.num_train_epochs"] = self.fix_args.get("num_train_epochs", 10)
+        search_space["optimization.batch_size"] = self.fix_args.get("batch_size", 128)
         for key, value in self.params.items():
             if key in TUNABLE_HP:
                 # NOTE: FLAML uses np.float64 but AG uses float, need to transform
@@ -2052,7 +2055,8 @@ class AGTextPredictorEstimator(BaseEstimator):
                     search_space[key] = value.item()
                 else:
                     search_space[key] = value
-            search_space['optimization.per_device_batch_size'] = self.fix_args['per_device_batch_size']
+            
+
         return cfg
 
     def _set_seed(self, seed):
