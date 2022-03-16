@@ -1977,26 +1977,28 @@ class AGTextPredictorEstimator(BaseEstimator):
 
     @classmethod
     def search_space(cls, **params):
-        # Add the possible search space configs here, e.g. 'optimization.lr'
-        # reference: 
-        # https://auto.gluon.ai/stable/tutorials/text_prediction/customization.html#custom-hyperparameter-values
+        """
+        Add the possible search space configs here, e.g. 'optimization.lr'
+        reference:
+        https://auto.gluon.ai/stable/tutorials/text_prediction/customization.html#custom-hyperparameter-values
+        """
         search_space_dict = {
             'model.network.agg_net.mid_units': {
-                                                "domain": tune.choice(list(range(32, 129))),
-                                                "init_value": 128
-                                                },
+                "domain": tune.choice(list(range(32, 129))),
+                "init_value": 128,
+            },
             'optimization.lr': {
-                                "domain": tune.loguniform(lower=1E-5, upper=1E-4),
-                                "init_value": 1E-4,
-                                },
-            'optimization.wd':{
-                                "domain": tune.choice([1E-4, 1E-3, 1E-2]),
-                                "init_value":1E-4
-                                },
+                "domain": tune.loguniform(lower=1E-5, upper=1E-4),
+                "init_value": 1E-4,
+            },
+            'optimization.wd': {
+                "domain": tune.choice([1E-4, 1E-3, 1E-2]),
+                "init_value":1E-4,
+            },
             'optimization.warmup_portion': {
-                                 "domain": tune.choice([0.1, 0.2]), 
-                                "init_value":0.1, 
-                                },
+                "domain": tune.choice([0.1, 0.2]),
+                "init_value":0.1, 
+            },
         }
         return search_space_dict
 
@@ -2006,7 +2008,7 @@ class AGTextPredictorEstimator(BaseEstimator):
         this includes:
             "output_dir",
             "text_backbone": "electra_base"
-            "multimodal_fusion_strategy":"fuse_late", 
+            "multimodal_fusion_strategy":"fuse_late",
         """
         fix_args = {}
         FIX_ARGS_LIST = ["output_dir", "dataset_name", "label_column", "per_device_batch_size",
@@ -2016,7 +2018,7 @@ class AGTextPredictorEstimator(BaseEstimator):
                 key in FIX_ARGS_LIST
             ), "The specified key {} is not in the argument list: output_dir, label_column, dataset_name, text_backbone,\
                 multimodal_fusion_strategy".format(key)
-            
+
             fix_args[key] = value
 
         self.fix_args = fix_args
@@ -2033,15 +2035,15 @@ class AGTextPredictorEstimator(BaseEstimator):
         cfg = ag_text_presets.create(base_key)
         # NOTE: if the search_space() is modified, add new items or delete here too.
         TUNABLE_HP = set(['model.network.agg_net.mid_units',
-                      'optimization.batch_size',
-                      'optimization.layerwise_lr_decay',
-                      'optimization.lr',
-                      'optimization.nbest',
-                      'optimization.num_train_epochs',
-                      'optimization.per_device_batch_size',
-                      'optimization.wd',
-                      'optimization.warmup_portion',
-                     ])
+                          'optimization.batch_size',
+                          'optimization.layerwise_lr_decay',
+                          'optimization.lr',
+                          'optimization.nbest',
+                          'optimization.num_train_epochs',
+                          'optimization.per_device_batch_size',
+                          'optimization.wd',
+                          'optimization.warmup_portion',
+                          ])
         search_space = cfg['models']['MultimodalTextModel']['search_space']
         for key, value in self.params.items():
             if key in TUNABLE_HP:
@@ -2052,7 +2054,7 @@ class AGTextPredictorEstimator(BaseEstimator):
                     search_space[key] = value
             search_space['optimization.per_device_batch_size'] = self.fix_args['per_device_batch_size']
         return cfg
-   
+
     def _set_seed(self, seed):
         import random
         import mxnet as mx
@@ -2068,10 +2070,10 @@ class AGTextPredictorEstimator(BaseEstimator):
         # the seed set in the bash script for ag experiment is 123
         seed = self.params.get("seed", 123)
         self._set_seed(seed)
-        
+
         # get backbone and fusion strategy
-        text_backbone=self.fix_args["text_backbone"]
-        multimodal_fusion_strategy=self.fix_args["multimodal_fusion_strategy"]
+        text_backbone = self.fix_args["text_backbone"]
+        multimodal_fusion_strategy = self.fix_args["multimodal_fusion_strategy"]
 
         # get & set the save dir, get the dataset info
         save_dir = self.fix_args["output_dir"]
@@ -2079,30 +2081,30 @@ class AGTextPredictorEstimator(BaseEstimator):
         dataset_name = self.fix_args["dataset_name"]
         ag_model_save_dir = os.path.join(save_dir, f"{dataset_name}_ag_text_multimodal_{text_backbone}\
                                                     _{multimodal_fusion_strategy}_no_ensemble")
-        
+
         # set the of the hyperparameters
         self.hyperparameters = self._init_hp_config(text_backbone, multimodal_fusion_strategy)
         PROBLEM_TYPE_MAPPING = {"binary": "binary", "multi": "multiclass", "regression": "regression"}
         TASK_METRIC_MAPPING = {"multi": "acc", "binary": "roc_auc", "regression": "r2"}
-       
+
        # train the model
         start_time = time.time()
-        
-        self._model = self.estimator_class(path=save_dir,
+
+        self._model = self.estimator_class(path=ag_model_save_dir,
                                            label=label_column,
                                            problem_type=PROBLEM_TYPE_MAPPING[self._task],
                                            eval_metric=TASK_METRIC_MAPPING[self._task])
-        
+
         train_data = self._kwargs["train_data"]
 
         self._model.fit(train_data=train_data,
                         hyperparameters=self.hyperparameters,
-                        time_limit=budget, 
+                        time_limit=budget,
                         seed=seed)
- 
+
         training_time = time.time() - start_time
         return training_time
-    
+
     def predict(self, X):
         output = self._model.predict(self._kwargs["valid_data"], as_pandas=False)
         return output
@@ -2118,6 +2120,7 @@ class AGTextPredictorEstimator(BaseEstimator):
             if self._task == "binary":
                 output = output[:, 1]
         return output
+
 
 class suppress_stdout_stderr(object):
     def __init__(self):
