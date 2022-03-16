@@ -5,6 +5,7 @@ import gc
 import numpy as np
 import os
 import sys
+import platform
 from sklearn.model_selection import train_test_split
 os.environ["AUTOGLUON_TEXT_TRAIN_WITHOUT_GPU"] = "1"
 
@@ -27,6 +28,9 @@ def default_holdout_frac(num_train_rows, hyperparameter_tune=False):
 def test_ag_text_predictor():
     if sys.version < "3.7":
         # do not test on python3.6
+        return
+    elif platform.system() == "Windows" and sys.version_info.major == 3 and sys.version_info.minor == 8:
+        # do not test on windows with py3.8
         return
 
     seed = 123
