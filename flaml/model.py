@@ -2055,8 +2055,6 @@ class AGTextPredictorEstimator(BaseEstimator):
                     search_space[key] = value.item()
                 else:
                     search_space[key] = value
-            
-
         return cfg
 
     def _set_seed(self, seed):
@@ -2086,12 +2084,12 @@ class AGTextPredictorEstimator(BaseEstimator):
         ag_model_save_dir = os.path.join(save_dir, f"{dataset_name}_ag_text_multimodal_{text_backbone}\
                                                     _{multimodal_fusion_strategy}_no_ensemble")
 
-        # set the of the hyperparameters
+        # set the hyperparameters
         self.hyperparameters = self._init_hp_config(text_backbone, multimodal_fusion_strategy)
         PROBLEM_TYPE_MAPPING = {"binary": "binary", "multi": "multiclass", "regression": "regression"}
         TASK_METRIC_MAPPING = {"multi": "acc", "binary": "roc_auc", "regression": "r2"}
 
-       # train the model
+        # train the model
         start_time = time.time()
 
         self._model = self.estimator_class(path=ag_model_save_dir,
