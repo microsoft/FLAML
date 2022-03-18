@@ -748,7 +748,7 @@ class TransformersEstimator(BaseEstimator):
         ), "predict_proba() only for classification tasks."
 
         new_trainer, test_dataset, _ = self._init_model_for_predict(X)
-        predictions = self._trainer.predict(test_dataset)
+        predictions = new_trainer.predict(test_dataset)
         return predictions.predictions
 
     def predict(self, X, **kwargs):
