@@ -202,6 +202,7 @@ class TestMultiClass(unittest.TestCase):
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
         automl_experiment = AutoML()
+        automl_experiment._state.metric = custom_metric
         estimator = automl_experiment.get_estimator_from_log(
             automl_settings["log_file_name"], record_id=0, task="multi"
         )
