@@ -520,6 +520,7 @@ class TransformersEstimator(BaseEstimator):
         )
 
         self._metric = kwargs["metric"]
+
         try:
             from ray.tune import is_session_enabled
 
@@ -605,16 +606,24 @@ class TransformersEstimator(BaseEstimator):
 
         if self._task in NLG_TASKS:
             setattr(self._trainer, "_is_seq2seq", True)
-        if kwargs.get("gpu_per_trial"):
-            self._trainer.args._n_gpu = kwargs.get("gpu_per_trial")
 
-        if kwargs.get("gpu_per_trial") == 0:
-            os.environ["CUDA_VISIBLE_DEVICES"] = ""
+        if kwargs.get("gpu_per_trial", None):
+            tmp_cuda_visible_devices = os.environ["CUDA_VISIBLE_DEVICES"]
+            self._trainer.args._n_gpu = kwargs.get("gpu_per_trial")
+            if kwargs.get("gpu_per_trial") == 0:
+                os.environ["CUDA_VISIBLE_DEVICES"] = ""
+            else:
+                os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(
+                    [str(x) for x in range(len(kwargs.get("gpu_per_trial")))]
+                )
 
         import time
 
         start_time = time.time()
         self._trainer.train()
+
+        if kwargs.get("gpu_per_trial", None):
+            os.environ["CUDA_VISIBLE_DEVICES"] = tmp_cuda_visible_devices
 
         self.params[self.ITER_HP] = self._trainer.state.global_step
         self._checkpoint_path = self._select_checkpoint(self._trainer)

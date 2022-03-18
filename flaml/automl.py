@@ -333,9 +333,6 @@ class AutoMLState:
             else self.time_budget - self.time_from_start
         )
 
-        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(
-            [str(x) for x in range(self.resources_per_trial.get("gpu", 0))]
-        )
         estimator, train_time = train_estimator(
             X_train=sampled_X_train,
             y_train=sampled_y_train,
@@ -2024,23 +2021,21 @@ class AutoML(BaseEstimator):
             import ray
 
             n_cpus = use_ray and ray.available_resources()["CPU"] or os.cpu_count()
-        else:
-            n_cpus = os.cpu_count()
 
-        # when not using of ray, we should also provide resources_per_trial
-        self._state.resources_per_trial = (
-            # when using gpu, default cpu is 1 per job; otherwise, default cpu is n_cpus / n_concurrent_trials
-            (
-                {
-                    "cpu": max(int((n_cpus - 2) / 2 / n_concurrent_trials), 1),
-                    "gpu": gpu_per_trial,
-                }
-                if gpu_per_trial == 0
-                else {"cpu": 1, "gpu": gpu_per_trial}
+            # when not using of ray, we should also provide resources_per_trial
+            self._state.resources_per_trial = (
+                # when using gpu, default cpu is 1 per job; otherwise, default cpu is n_cpus / n_concurrent_trials
+                (
+                    {
+                        "cpu": max(int((n_cpus - 2) / 2 / n_concurrent_trials), 1),
+                        "gpu": gpu_per_trial,
+                    }
+                    if gpu_per_trial == 0
+                    else {"cpu": 1, "gpu": gpu_per_trial}
+                )
+                if n_jobs < 0
+                else {"cpu": n_jobs, "gpu": gpu_per_trial}
             )
-            if n_jobs < 0
-            else {"cpu": n_jobs, "gpu": gpu_per_trial}
-        )
 
         if self._use_ray:
             import ray
@@ -2608,6 +2603,8 @@ class AutoML(BaseEstimator):
                         seed=self._seed,
                     )
                 else:
+                    # if self._hpo_method is bo, sometimes the search space and the initial config dimension does not match
+                    # need to remove the extra keys from the search space to be consistent with the initial config
                     converted_space = SearchAlgo.convert_search_space(search_space)
                     removed_keys = set(search_space.keys()).difference(
                         converted_space.keys()

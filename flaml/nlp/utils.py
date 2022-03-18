@@ -272,7 +272,6 @@ def tokenize_row(
     tokenized_example = tokenizer(
         *tuple(this_row),
         padding="max_length",
-        # add_special_tokens=True,
         max_length=hf_args.max_seq_length,
         truncation=True,
     )
