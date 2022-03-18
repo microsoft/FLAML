@@ -84,7 +84,7 @@ def test_hf_data():
         "task": "seq-classification",
         "metric": "accuracy",
         "log_file_name": "seqclass.log",
-        "use_ray": False #{"local_dir": "data/output/"}
+        "use_ray": False,
     }
 
     automl_settings["hf_args"] = {
@@ -117,7 +117,6 @@ def test_hf_data():
         pickle.dump(automl, f, pickle.HIGHEST_PROTOCOL)
     with open("automl.pkl", "rb") as f:
         automl = pickle.load(f)
-    #shutil.rmtree("test/data/output/")
     automl.predict(X_test)
     automl.predict(["test test", "test test"])
     automl.predict(
