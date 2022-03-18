@@ -607,6 +607,7 @@ def train_estimator(
     estimator_class=None,
     budget=None,
     fit_kwargs={},
+    eval_metric=None,
 ):
     start_time = time.time()
     estimator_class = estimator_class or get_estimator_class(task, estimator_name)
@@ -615,6 +616,9 @@ def train_estimator(
         task=task,
         n_jobs=n_jobs,
     )
+    if isinstance(estimator, TransformersEstimator):
+        fit_kwargs["metric"] = eval_metric
+
     if X_train is not None:
         train_time = estimator.fit(X_train, y_train, budget, **fit_kwargs)
     else:

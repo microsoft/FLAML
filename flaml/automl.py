@@ -344,6 +344,7 @@ class AutoMLState:
             estimator_class=self.learner_classes.get(estimator),
             budget=budget,
             fit_kwargs=self.fit_kwargs,
+            eval_metric="train_time",
         )
 
         if sampled_weight is not None:
@@ -1276,6 +1277,7 @@ class AutoML(BaseEstimator):
             task=task,
             estimator_name=estimator,
             estimator_class=self._state.learner_classes.get(estimator),
+            eval_metric=self._state.metric,
         )
         return estimator
 
