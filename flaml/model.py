@@ -607,14 +607,15 @@ class TransformersEstimator(BaseEstimator):
         if self._task in NLG_TASKS:
             setattr(self._trainer, "_is_seq2seq", True)
 
-        if kwargs.get("gpu_per_trial", None):
+        gpu_per_trial = kwargs.get("gpu_per_trial", None)
+        if gpu_per_trial:
             tmp_cuda_visible_devices = os.environ["CUDA_VISIBLE_DEVICES"]
-            self._trainer.args._n_gpu = kwargs.get("gpu_per_trial")
-            if kwargs.get("gpu_per_trial") == 0:
-                os.environ["CUDA_VISIBLE_DEVICES"] = ""
-            else:
+            self._trainer.args._n_gpu = gpu_per_trial
+            # if gpu_per_trial == 0:
+            #     os.environ["CUDA_VISIBLE_DEVICES"] = ""
+            if tmp_cuda_visible_devices.count(",") != gpu_per_trial - 1:
                 os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(
-                    [str(x) for x in range(kwargs.get("gpu_per_trial"))]
+                    [str(x) for x in range(gpu_per_trial)]
                 )
 
         import time
@@ -622,7 +623,7 @@ class TransformersEstimator(BaseEstimator):
         start_time = time.time()
         self._trainer.train()
 
-        if kwargs.get("gpu_per_trial", None):
+        if gpu_per_trial:
             os.environ["CUDA_VISIBLE_DEVICES"] = tmp_cuda_visible_devices
 
         self.params[self.ITER_HP] = self._trainer.state.global_step
