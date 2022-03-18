@@ -246,6 +246,7 @@ class AutoMLState:
             * sample_size
             / state.data_size[0]
         )
+        # raise Exception("bbbbb", state.time_budget, budget)
 
         if _is_nlp_task(state.task):
             state.fit_kwargs["X_val"] = state.X_val
@@ -2112,9 +2113,6 @@ class AutoML(BaseEstimator):
                 metric = "ndcg"
             else:
                 metric = "r2"
-
-        if _is_nlp_task(self._state.task):
-            self._state.fit_kwargs["metric"] = metric
 
         self._state.metric = metric
 

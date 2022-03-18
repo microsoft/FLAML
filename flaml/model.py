@@ -616,7 +616,6 @@ class TransformersEstimator(BaseEstimator):
                 os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(
                     [str(x) for x in range(kwargs.get("gpu_per_trial"))]
                 )
-        print("sssss", os.environ["CUDA_VISIBLE_DEVICES"])
 
         import time
 
@@ -627,6 +626,7 @@ class TransformersEstimator(BaseEstimator):
             os.environ["CUDA_VISIBLE_DEVICES"] = tmp_cuda_visible_devices
 
         self.params[self.ITER_HP] = self._trainer.state.global_step
+
         self._checkpoint_path = self._select_checkpoint(self._trainer)
         self._ckpt_remains = list(self._trainer.ckpt_to_metric.keys())
 
