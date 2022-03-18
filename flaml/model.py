@@ -614,8 +614,9 @@ class TransformersEstimator(BaseEstimator):
                 os.environ["CUDA_VISIBLE_DEVICES"] = ""
             else:
                 os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(
-                    [str(x) for x in range(len(kwargs.get("gpu_per_trial")))]
+                    [str(x) for x in range(kwargs.get("gpu_per_trial"))]
                 )
+        print("sssss", os.environ["CUDA_VISIBLE_DEVICES"])
 
         import time
 
