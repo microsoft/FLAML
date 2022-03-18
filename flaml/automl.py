@@ -758,9 +758,9 @@ class AutoML(BaseEstimator):
         classification problems.
 
         Args:
-            X: A numpy array of featurized instances, shape n * m
+            X: A numpy array of featurized instances, shape n * m.
             **pred_kwargs: Other key word arguments to pass to predict_proba() function of
-                the searched learners, such as per_device_eval_batch_size
+                the searched learners, such as per_device_eval_batch_size.
 
         Returns:
             A numpy array of shape n * c. c is the  # classes. Each element at
