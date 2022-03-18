@@ -408,6 +408,9 @@ class TransformersEstimator(BaseEstimator):
     def _get_training_args(self, local_rank=-1):
         import transformers
 
+        if self._task in NLG_TASKS:
+            self._training_args_config["predict_with_generate"] = True
+
         if transformers.__version__.startswith("3"):
             training_args = self._TrainingArguments(
                 report_to=[],
@@ -426,7 +429,6 @@ class TransformersEstimator(BaseEstimator):
                 no_cuda=True if self._kwargs.get("gpu_per_trial") == 0 else False,
                 local_rank=local_rank,
                 per_gpu_eval_batch_size=self.hf_args.per_gpu_eval_batch_size,
-                predict_with_generate=True if self._task in NLG_TASKS else None,
                 **self._training_args_config,
             )
         else:
@@ -449,7 +451,6 @@ class TransformersEstimator(BaseEstimator):
                 local_rank=local_rank,
                 no_cuda=True if self._kwargs.get("gpu_per_trial") == 0 else False,
                 per_gpu_eval_batch_size=self.hf_args.per_gpu_eval_batch_size,
-                predict_with_generate=True if self._task in NLG_TASKS else None,
                 **self._training_args_config,
             )
         return training_args
