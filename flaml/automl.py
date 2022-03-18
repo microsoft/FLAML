@@ -1922,8 +1922,7 @@ class AutoML(BaseEstimator):
             use_ray: boolean or dict
                 If boolean: default=False | Whether to use ray to run the training
                 in separate processes. This can be used to prevent OOM for large
-                datasets, but will incur more overhead in time. Only use it if
-                you run into OOM failures.
+                datasets, but will incur more overhead in time.
             metric_constraints: list, default=[] | The list of metric constraints.
                 Each element in this list is a 3-tuple, which shall be expressed
                 in the following format: the first element of the 3-tuple is the name of the
