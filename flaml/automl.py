@@ -717,7 +717,7 @@ class AutoML(BaseEstimator):
                     are assumed to be exogenous variables (categorical
                     or numeric).
             **pred_kwargs: Other key word arguments to pass to predict() function of
-                the searched learners, such as per_device_eval_batch_size
+                the searched learners, such as per_device_eval_batch_size.
 
         ```python
         multivariate_X_test = pd.DataFrame({
