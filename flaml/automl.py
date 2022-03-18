@@ -2020,22 +2020,26 @@ class AutoML(BaseEstimator):
         # self._use_ray = use_ray or n_concurrent_trials > ( average_trail_time + average_trial_overhead) / (average_trial_time)
         if self._use_ray:
             import ray
-
             n_cpus = use_ray and ray.available_resources()["CPU"] or os.cpu_count()
+        else:
+            n_cpus = os.cpu_count()
 
-            self._state.resources_per_trial = (
-                # when using gpu, default cpu is 1 per job; otherwise, default cpu is n_cpus / n_concurrent_trials
-                (
-                    {
-                        "cpu": max(int((n_cpus - 2) / 2 / n_concurrent_trials), 1),
-                        "gpu": gpu_per_trial,
-                    }
-                    if gpu_per_trial == 0
-                    else {"cpu": 1, "gpu": gpu_per_trial}
-                )
-                if n_jobs < 0
-                else {"cpu": n_jobs, "gpu": gpu_per_trial}
+        self._state.resources_per_trial = (
+            # when using gpu, default cpu is 1 per job; otherwise, default cpu is n_cpus / n_concurrent_trials
+            (
+                {
+                    "cpu": max(int((n_cpus - 2) / 2 / n_concurrent_trials), 1),
+                    "gpu": gpu_per_trial,
+                }
+                if gpu_per_trial == 0
+                else {"cpu": 1, "gpu": gpu_per_trial}
             )
+            if n_jobs < 0
+            else {"cpu": n_jobs, "gpu": gpu_per_trial}
+        )
+
+        if self._use_ray:
+            import ray
             if isinstance(X_train, ray.ObjectRef):
                 X_train = ray.get(X_train)
             elif isinstance(dataframe, ray.ObjectRef):
