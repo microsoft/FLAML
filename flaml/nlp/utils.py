@@ -268,7 +268,7 @@ def tokenize_row(
     if prefix:
         this_row = tuple(["".join(x) for x in zip(prefix, this_row)])
 
-    tokenizer.pad_token = tokenizer.eos_token
+    # tokenizer.pad_token = tokenizer.eos_token
     tokenized_example = tokenizer(
         *tuple(this_row),
         padding="max_length",
@@ -457,7 +457,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
 
     def get_this_model(task, model_config):
         from transformers import AutoModelForSequenceClassification
-        from transformers import AutoModelForCausalLM
+        from transformers import AutoModelForSeq2SeqLM
         from transformers import AutoModelForMultipleChoice
         from transformers import AutoModelForTokenClassification
 
@@ -470,7 +470,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
                 checkpoint_path, config=model_config
             )
         elif task in NLG_TASKS:
-            return AutoModelForCausalLM.from_pretrained(
+            return AutoModelForSeq2SeqLM.from_pretrained(
                 checkpoint_path, config=model_config
             )
         elif task == MULTICHOICECLASSIFICATION:

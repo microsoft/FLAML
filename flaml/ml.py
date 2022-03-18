@@ -271,14 +271,7 @@ def sklearn_metric_loss_score(
             y_true, y_predict, sample_weight=sample_weight, multi_class="ovo"
         )
     elif "log_loss" == metric_name:
-        print(y_true)
-        print(y_predict)
-        # try:
         score = log_loss(y_true, y_predict, labels=labels, sample_weight=sample_weight)
-        # except Exception as e:
-        #     print(e)
-        #     import sys
-        #     sys.exit(1)
     elif "mape" == metric_name:
         try:
             score = mean_absolute_percentage_error(y_true, y_predict)
