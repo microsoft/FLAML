@@ -333,7 +333,9 @@ class AutoMLState:
             else self.time_budget - self.time_from_start
         )
 
-        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join([str(x) for x in range(self.resources_per_trial.get("gpu", 0))])
+        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(
+            [str(x) for x in range(self.resources_per_trial.get("gpu", 0))]
+        )
         estimator, train_time = train_estimator(
             X_train=sampled_X_train,
             y_train=sampled_y_train,
@@ -2020,10 +2022,12 @@ class AutoML(BaseEstimator):
         # self._use_ray = use_ray or n_concurrent_trials > ( average_trail_time + average_trial_overhead) / (average_trial_time)
         if self._use_ray:
             import ray
+
             n_cpus = use_ray and ray.available_resources()["CPU"] or os.cpu_count()
         else:
             n_cpus = os.cpu_count()
 
+        # when not using of ray, we should also provide resources_per_trial
         self._state.resources_per_trial = (
             # when using gpu, default cpu is 1 per job; otherwise, default cpu is n_cpus / n_concurrent_trials
             (
@@ -2040,6 +2044,7 @@ class AutoML(BaseEstimator):
 
         if self._use_ray:
             import ray
+
             if isinstance(X_train, ray.ObjectRef):
                 X_train = ray.get(X_train)
             elif isinstance(dataframe, ray.ObjectRef):

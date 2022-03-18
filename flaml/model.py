@@ -405,7 +405,7 @@ class TransformersEstimator(BaseEstimator):
         )
         return this_model
 
-    def _get_training_args(self, ds_arg=None, local_rank=-1):
+    def _get_training_args(self, local_rank=-1):
         import transformers
 
         if transformers.__version__.startswith("3"):
@@ -420,9 +420,10 @@ class TransformersEstimator(BaseEstimator):
                 logging_steps=self._ckpt_freq,
                 save_total_limit=0,
                 metric_for_best_model="loss",
-                fp16=self.hf_args.fp16 if self._kwargs.get("gpu_per_trial") > 0 else False,
+                fp16=self.hf_args.fp16
+                if self._kwargs.get("gpu_per_trial") > 0
+                else False,
                 no_cuda=True if self._kwargs.get("gpu_per_trial") == 0 else False,
-                deepspeed=ds_arg,
                 local_rank=local_rank,
                 per_gpu_eval_batch_size=self.hf_args.per_gpu_eval_batch_size,
                 predict_with_generate=True if self._task in NLG_TASKS else None,
@@ -442,8 +443,9 @@ class TransformersEstimator(BaseEstimator):
                 save_steps=self._ckpt_freq,
                 save_total_limit=0,
                 metric_for_best_model="loss",
-                fp16=self.hf_args.fp16 if self._kwargs.get("gpu_per_trial") > 0 else False,
-                deepspeed=ds_arg,
+                fp16=self.hf_args.fp16
+                if self._kwargs.get("gpu_per_trial") > 0
+                else False,
                 local_rank=local_rank,
                 no_cuda=True if self._kwargs.get("gpu_per_trial") == 0 else False,
                 per_gpu_eval_batch_size=self.hf_args.per_gpu_eval_batch_size,
@@ -519,6 +521,7 @@ class TransformersEstimator(BaseEstimator):
         self._metric = kwargs["metric"]
         try:
             from ray.tune import is_session_enabled
+
             self.use_ray = is_session_enabled()
         except ImportError:
             self.use_ray = False
@@ -570,6 +573,7 @@ class TransformersEstimator(BaseEstimator):
 
         if self.use_ray is True:
             import ray
+
             self._trial_dir = ray.tune.get_trial_dir()
         else:
             # if self.params = {}, don't include configuration in trial fold name
@@ -580,21 +584,7 @@ class TransformersEstimator(BaseEstimator):
         self._kwargs = kwargs
         self._num_labels = num_labels
 
-        try:
-            import deepspeed
-            os.environ['MASTER_ADDR'] = 'localhost'
-            os.environ['MASTER_PORT'] = "9994" #tr("%04d" % random.randint(0, 9999))
-            os.environ['RANK'] = "0"
-            os.environ['LOCAL_RANK'] = "0"
-            os.environ['WORLD_SIZE'] = "1"
-            assert len(os.environ["CUDA_VISIBLE_DEVICES"]) == 1 and \
-                kwargs.get("gpu_per_trial") == 1, \
-                "We only support single GPU tuning for deepspeed, please limit CUDA_VISIBLE_DEVICES to single GPU"
-            training_args = self._get_training_args(ds_arg=self.hf_args.deepspeed,
-                                                    local_rank=0)
-        except (ImportError, ModuleNotFoundError) as e:
-            print("deepspeed is not installed, skipping deepspeed")
-            training_args = self._get_training_args(local_rank=-1)
+        training_args = self._get_training_args(local_rank=-1)
 
         self._trainer = TrainerForAuto(
             args=training_args,
@@ -621,6 +611,7 @@ class TransformersEstimator(BaseEstimator):
             os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
         import time
+
         start_time = time.time()
         self._trainer.train()
 
@@ -685,8 +676,8 @@ class TransformersEstimator(BaseEstimator):
                 if isinstance(predictions, tuple):
                     predictions = np.argmax(predictions[0], axis=2)
                 decoded_preds = self._tokenizer.batch_decode(
-                        predictions, skip_special_tokens=True
-                    )
+                    predictions, skip_special_tokens=True
+                )
                 labels = np.where(labels != -100, labels, self._tokenizer.pad_token_id)
                 decoded_labels = self._tokenizer.batch_decode(
                     labels, skip_special_tokens=True
@@ -732,13 +723,7 @@ class TransformersEstimator(BaseEstimator):
             num_labels=self._num_labels,
             per_model_config=self._per_model_config,
         )
-
-        try:
-            import deepspeed
-            training_args = self._get_training_args(ds_arg=self.hf_args.deepspeed,
-                                                local_rank=-1)
-        except (ImportError, ModuleNotFoundError):
-            training_args = self._get_training_args(local_rank=-1)
+        training_args = self._get_training_args(local_rank=-1)
 
         new_trainer = TrainerForAuto(
             model=this_model,
@@ -767,6 +752,7 @@ class TransformersEstimator(BaseEstimator):
 
     def predict(self, X, **kwargs):
         import transformers
+
         transformers.logging.set_verbosity_info()
 
         self._update_hf_args(kwargs)
@@ -788,8 +774,8 @@ class TransformersEstimator(BaseEstimator):
             return np.argmax(predictions.predictions, axis=2)
         elif self._task == SUMMARIZATION:
             decoded_preds = self._tokenizer.batch_decode(
-                    predictions.predictions, skip_special_tokens=True
-                )
+                predictions.predictions, skip_special_tokens=True
+            )
             return decoded_preds
         elif self._task == MULTICHOICECLASSIFICATION:
             return np.argmax(predictions.predictions, axis=1)

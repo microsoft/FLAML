@@ -609,13 +609,6 @@ class HFArgs:
         metadata={"help": "per gpu evaluation batch size"},
     )
 
-    deepspeed: str = field(
-        default=None,
-        metadata={
-            "help": "Enable deepspeed and pass the path to deepspeed json config file (e.g. ds_config.json) or an already loaded json file as a dict"
-        },
-    )
-
     @staticmethod
     def load_args():
         from dataclasses import fields
