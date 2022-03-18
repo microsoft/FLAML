@@ -714,7 +714,7 @@ class AutoML(BaseEstimator):
                     are assumed to be exogenous variables (categorical
                     or numeric).
             **pred_kwargs: Other key word arguments to pass to predict() function of
-                the searched learners, such as per_device_eval_batch_size
+                the searched learners, such as per_device_eval_batch_size.
 
         ```python
         multivariate_X_test = pd.DataFrame({
@@ -755,9 +755,9 @@ class AutoML(BaseEstimator):
         classification problems.
 
         Args:
-            X: A numpy array of featurized instances, shape n * m
+            X: A numpy array of featurized instances, shape n * m.
             **pred_kwargs: Other key word arguments to pass to predict_proba() function of
-                the searched learners, such as per_device_eval_batch_size
+                the searched learners, such as per_device_eval_batch_size.
 
         Returns:
             A numpy array of shape n * c. c is the  # classes. Each element at
@@ -1919,8 +1919,7 @@ class AutoML(BaseEstimator):
             use_ray: boolean or dict
                 If boolean: default=False | Whether to use ray to run the training
                 in separate processes. This can be used to prevent OOM for large
-                datasets, but will incur more overhead in time. Only use it if
-                you run into OOM failures.
+                datasets, but will incur more overhead in time.
             metric_constraints: list, default=[] | The list of metric constraints.
                 Each element in this list is a 3-tuple, which shall be expressed
                 in the following format: the first element of the 3-tuple is the name of the
