@@ -19,8 +19,7 @@ def custom_metric(
     from flaml.model import TransformersEstimator
 
     if estimator._trainer is None:
-        estimator._init_model_for_predict(X_test)
-        trainer = estimator._trainer
+        trainer, _, _ = estimator._init_model_for_predict(X_test)
         estimator._trainer = None
     else:
         trainer = estimator._trainer
