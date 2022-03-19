@@ -1444,16 +1444,11 @@ class AutoML(BaseEstimator):
             if self._state.n_jobs < 0
             else {"cpu": self._state.n_jobs, "gpu": fit_kwargs.get("gpu_per_trial", 0)}
         )
-        (
-            self._trained_estimator,
-            self._state.best_config_train_time,
-        ) = self._state._train_with_config(
+        self._trained_estimator = self._state._train_with_config(
             best_estimator,
             best_config,
             sample_size=sample_size,
-        )[
-            0
-        ]
+        )[0]
         logger.info("retrain from log succeeded")
         return training_duration
 
