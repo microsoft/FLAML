@@ -428,7 +428,7 @@ class TransformersEstimator(BaseEstimator):
                 else False,
                 no_cuda=True if self._kwargs.get("gpu_per_trial") == 0 else False,
                 local_rank=local_rank,
-                per_gpu_eval_batch_size=self.hf_args.per_gpu_eval_batch_size,
+                per_device_eval_batch_size=self.hf_args.per_device_eval_batch_size,
                 **self._training_args_config,
             )
         else:
@@ -450,7 +450,7 @@ class TransformersEstimator(BaseEstimator):
                 else False,
                 local_rank=local_rank,
                 no_cuda=True if self._kwargs.get("gpu_per_trial") == 0 else False,
-                per_gpu_eval_batch_size=self.hf_args.per_gpu_eval_batch_size,
+                per_device_eval_batch_size=self.hf_args.per_device_eval_batch_size,
                 **self._training_args_config,
             )
         return training_args

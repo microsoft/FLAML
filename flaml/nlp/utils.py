@@ -603,7 +603,7 @@ class HFArgs:
 
     ckpt_per_epoch: int = field(default=1, metadata={"help": "checkpoint per epoch"})
 
-    per_gpu_eval_batch_size: int = field(
+    per_device_eval_batch_size: int = field(
         default=1,
         metadata={"help": "per gpu evaluation batch size"},
     )
