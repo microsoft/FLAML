@@ -6,6 +6,8 @@ import pytest
 def test_regression():
     try:
         import ray
+
+        ray.init()
     except ImportError:
         return
     from flaml import AutoML
@@ -65,7 +67,7 @@ def test_regression():
         "task": "seq-regression",
         "metric": "pearsonr",
         "starting_points": {"transformer": {"num_train_epochs": 1}},
-        "use_ray": True,
+        "use_ray": {"local_dir": "data/outut/"},
     }
 
     automl_settings["hf_args"] = {

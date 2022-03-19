@@ -458,7 +458,7 @@ class TransformersEstimator(BaseEstimator):
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
         import transformers
 
-        transformers.logging.set_verbosity_info()
+        transformers.logging.set_verbosity_error()
 
         from transformers import TrainerCallback
         from transformers.trainer_utils import set_seed
@@ -609,7 +609,7 @@ class TransformersEstimator(BaseEstimator):
 
         gpu_per_trial = kwargs.get("gpu_per_trial", None)
         if gpu_per_trial:
-            tmp_cuda_visible_devices = os.environ["CUDA_VISIBLE_DEVICES"]
+            tmp_cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES", "")
             self._trainer.args._n_gpu = gpu_per_trial
             # if gpu_per_trial == 0:
             #     os.environ["CUDA_VISIBLE_DEVICES"] = ""
@@ -765,7 +765,7 @@ class TransformersEstimator(BaseEstimator):
     def predict(self, X, **kwargs):
         import transformers
 
-        transformers.logging.set_verbosity_info()
+        transformers.logging.set_verbosity_error()
 
         self._update_hf_args(kwargs)
         new_trainer, test_dataset, training_args = self._init_model_for_predict(X)

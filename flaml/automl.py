@@ -2024,7 +2024,6 @@ class AutoML(BaseEstimator):
 
             n_cpus = use_ray and ray.available_resources()["CPU"] or os.cpu_count()
 
-            # when not using of ray, we should also provide resources_per_trial
             self._state.resources_per_trial = (
                 # when using gpu, default cpu is 1 per job; otherwise, default cpu is n_cpus / n_concurrent_trials
                 (
@@ -2039,13 +2038,12 @@ class AutoML(BaseEstimator):
                 else {"cpu": n_jobs, "gpu": gpu_per_trial}
             )
 
-        if self._use_ray:
-            import ray
-
             if isinstance(X_train, ray.ObjectRef):
                 X_train = ray.get(X_train)
             elif isinstance(dataframe, ray.ObjectRef):
                 dataframe = ray.get(dataframe)
+
+            fit_kwargs["use_ray"] = use_ray
 
         self._state.task = task
         self._state.log_training_metric = log_training_metric
@@ -2374,6 +2372,8 @@ class AutoML(BaseEstimator):
                     time_budget_s=time_left,
                 )
             else:
+                # if self._hpo_method is bo, sometimes the search space and the initial config dimension does not match
+                # need to remove the extra keys from the search space to be consistent with the initial config
                 converted_space = SearchAlgo.convert_search_space(space)
 
                 removed_keys = set(space.keys()).difference(converted_space.keys())
