@@ -78,7 +78,6 @@ def test_regression():
     }
 
     ray.shutdown()
-    ray.init()
     automl.fit(
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
     )

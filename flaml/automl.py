@@ -1280,7 +1280,7 @@ class AutoML(BaseEstimator):
             task=task,
             estimator_name=estimator,
             estimator_class=self._state.learner_classes.get(estimator),
-            eval_metric=self._state.metric,
+            eval_metric="train_time",
         )
         return estimator
 
