@@ -1642,8 +1642,9 @@ class AutoML(BaseEstimator):
         """
         return self._state.data_size[0] if self._sample else None
 
-    def pickle(self):
+    def pickle(self, output_file_name):
         import pickle
+
         estimator_to_training_function = {}
         for estimator in self.estimator_list:
             search_state = self._search_states[estimator]
@@ -1653,7 +1654,7 @@ class AutoML(BaseEstimator):
                 state=self._state,
                 estimator=estimator,
             )
-        with open("automl.pkl", "wb") as f:
+        with open(output_file_name, "wb") as f:
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
         for estimator in self.estimator_list:
             search_state = self._search_states[estimator]
