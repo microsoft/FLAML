@@ -1642,6 +1642,23 @@ class AutoML(BaseEstimator):
         """
         return self._state.data_size[0] if self._sample else None
 
+    def pickle(self):
+        import pickle
+        estimator_to_training_function = {}
+        for estimator in self.estimator_list:
+            search_state = self._search_states[estimator]
+            estimator_to_training_function[estimator] = search_state.training_function
+            search_state.training_function = partial(
+                AutoMLState._compute_with_config_base,
+                state=self._state,
+                estimator=estimator,
+            )
+        with open("automl.pkl", "wb") as f:
+            pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
+        for estimator in self.estimator_list:
+            search_state = self._search_states[estimator]
+            search_state.training_function = estimator_to_training_function[estimator]
+
     @property
     def trainable(self) -> Callable[[dict], Optional[float]]:
         """Training function.
