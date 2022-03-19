@@ -7,7 +7,8 @@ def test_regression():
     try:
         import ray
 
-        ray.init()
+        if not ray.is_initialized():
+            ray.init()
     except ImportError:
         return
     from flaml import AutoML
@@ -78,10 +79,7 @@ def test_regression():
     }
 
     ray.shutdown()
-    try:
-        ray.init()
-    except RuntimeError:
-        pass
+    ray.init()
 
     automl.fit(
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
