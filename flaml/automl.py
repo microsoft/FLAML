@@ -2384,7 +2384,7 @@ class AutoML(BaseEstimator):
                     time_budget_s=time_left,
                 )
             else:
-                # if self._hpo_method is bo, sometimes the search space and the initial config dimension does not match
+                # if self._hpo_method is bo, sometimes the search space and the initial config dimension do not match
                 # need to remove the extra keys from the search space to be consistent with the initial config
                 converted_space = SearchAlgo.convert_search_space(space)
 
@@ -2608,7 +2608,7 @@ class AutoML(BaseEstimator):
                         seed=self._seed,
                     )
                 else:
-                    # if self._hpo_method is bo, sometimes the search space and the initial config dimension does not match
+                    # if self._hpo_method is bo, sometimes the search space and the initial config dimension do not match
                     # need to remove the extra keys from the search space to be consistent with the initial config
                     converted_space = SearchAlgo.convert_search_space(search_space)
                     removed_keys = set(search_space.keys()).difference(
