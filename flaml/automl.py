@@ -2057,8 +2057,6 @@ class AutoML(BaseEstimator):
             elif isinstance(dataframe, ray.ObjectRef):
                 dataframe = ray.get(dataframe)
 
-            fit_kwargs["use_ray"] = use_ray
-
         self._state.task = task
         self._state.log_training_metric = log_training_metric
 
@@ -2410,12 +2408,6 @@ class AutoML(BaseEstimator):
             search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
         resources_per_trial = self._state.resources_per_trial
 
-        ray_args = (
-            self._state.fit_kwargs.get("use_ray")
-            if isinstance(self._state.fit_kwargs.get("use_ray"), dict)
-            else None
-        )
-
         analysis = ray.tune.run(
             self.trainable,
             search_alg=search_alg,
@@ -2429,7 +2421,7 @@ class AutoML(BaseEstimator):
             raise_on_failed_trial=False,
             keep_checkpoints_num=1,
             checkpoint_score_attr="min-val_loss",
-            **ray_args if ray_args else {},
+            **self._use_ray if isinstance(self._use_ray, dict) else {},
         )
         # logger.info([trial.last_result for trial in analysis.trials])
         trials = sorted(
