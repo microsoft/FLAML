@@ -334,9 +334,6 @@ class AutoMLState:
             else self.time_budget - self.time_from_start
         )
 
-        # previously "use_ray" was added to fit_kwargs to pass the args to ray.tune.run
-        # here we are not using ray.tune.run, so pop this arg
-        self.fit_kwargs.pop("use_ray", None)
         estimator, train_time = train_estimator(
             X_train=sampled_X_train,
             y_train=sampled_y_train,

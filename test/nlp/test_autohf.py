@@ -183,6 +183,16 @@ def _test_custom_data():
         ]
     )
 
+    import pickle
+
+    automl.pickle("automl.pkl")
+
+    with open("automl.pkl", "rb") as f:
+        automl = pickle.load(f)
+        config = automl.best_config.copy()
+        config["learner"] = automl.best_estimator
+        automl.trainable(config)
+
 
 if __name__ == "__main__":
     test_hf_data()
