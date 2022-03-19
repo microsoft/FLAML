@@ -224,6 +224,4 @@ def test_multioutput():
 
 
 if __name__ == "__main__":
-    test = TestRegression()
-    test.test_regression()
-    # unittest.main()
+    unittest.main()
