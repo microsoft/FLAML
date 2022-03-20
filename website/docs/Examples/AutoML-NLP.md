@@ -206,3 +206,9 @@ Model config T5Config {
 ```
 
 For tasks that are not currently supported, use `flaml.tune` for [customized tuning](Tune-HuggingFace).
+
+### Link to Jupyter notebook
+
+To run these examples in our Jupyter notebook, please go to:
+
+[Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/automl_nlp.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/automl_nlp.ipynb)
