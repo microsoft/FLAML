@@ -189,9 +189,9 @@ def _test_custom_data():
 
     with open("automl.pkl", "rb") as f:
         automl = pickle.load(f)
-        config = automl.best_config.copy()
-        config["learner"] = automl.best_estimator
-        automl.trainable(config)
+    config = automl.best_config.copy()
+    config["learner"] = automl.best_estimator
+    automl.trainable(config)
 
 
 if __name__ == "__main__":
