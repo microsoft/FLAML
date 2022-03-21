@@ -9,7 +9,6 @@ import platform
 from sklearn.model_selection import train_test_split
 os.environ["AUTOGLUON_TEXT_TRAIN_WITHOUT_GPU"] = "1"
 
-
 def default_holdout_frac(num_train_rows, hyperparameter_tune=False):
     """
     Returns default holdout_frac used in fit().
@@ -26,11 +25,7 @@ def default_holdout_frac(num_train_rows, hyperparameter_tune=False):
 
     return holdout_frac
 
-
-def test_ag_text_predictor():
-    # # DEBUG
-    # return
-    # # DEBUG
+def test_ag_mx_textpredictor():
     if sys.version < "3.7":
         # do not test on python3.6
         return
@@ -39,7 +34,7 @@ def test_ag_text_predictor():
         return
 
     seed = 123
-    metric = "roc_auc"
+    metric = "accuracy"
     train_data = {
         "sentence1": [
             'Amrozi accused his brother , whom he called " the witness " , of deliberately distorting his evidence .',
@@ -49,7 +44,11 @@ def test_ag_text_predictor():
             "The stock rose $ 2.11 , or about 11 percent , to close Friday at $ 21.51 on the New York Stock Exchange .",
             "Revenue in the first quarter of the year dropped 15 percent from the same period a year earlier .",
             "The Nasdaq had a weekly gain of 17.27 , or 1.2 percent , closing at 1,520.15 on Friday .",
-            "The DVD-CCA then appealed to the state Supreme Court .",        
+            "The DVD-CCA then appealed to the state Supreme Court .",
+            "Tab shares jumped 20 cents , or 4.6 % , to set a record closing high at A $ 4.57 .",
+            "PG & E Corp. shares jumped $ 1.63 or 8 percent to $ 21.03 on the New York Stock Exchange on Friday .",
+            "With the scandal hanging over Stewart 's company , revenue the first quarter of the year dropped 15 percent from the same period a year earlier .",
+            "The tech-laced Nasdaq Composite .IXIC rallied 30.46 points , or 2.04 percent , to 1,520.15 .",
         ],
         "sentence2": [
             'Referring to him as only " the witness " , Amrozi accused his brother of deliberately distorting his evidence .',
@@ -60,11 +59,14 @@ def test_ag_text_predictor():
             "With the scandal hanging over Stewart 's company , revenue the first quarter of the year dropped 15 percent from the same period a year earlier .",
             "The tech-laced Nasdaq Composite .IXIC rallied 30.46 points , or 2.04 percent , to 1,520.15 .",
             "The DVD CCA appealed that decision to the U.S. Supreme Court .",
+            "The Nasdaq had a weekly gain of 17.27 , or 1.2 percent , closing at 1,520.15 on Friday .",
+            "The DVD-CCA then appealed to the state Supreme Court .",  
+            "Yucaipa owned Dominick 's before selling the chain to Safeway in 1998 for $ 2.5 billion .",
+            "They had published an advertisement on the Internet on June 10 , offering the cargo for sale , he added .",
         ],
-        "numerical1": [1, 2, 3, 4, 5, 6, 7, 8],
-        "categorical1": ["a", "b", "a", "a", "a", "b", "a", "a"],
-        "label": [1, 0, 1, 0, 1, 1, 0, 1],
-        "idx": [0, 1, 2, 3, 4, 5, 6, 7],
+        "numerical1": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+        "categorical1": ["a", "b", "a", "a", "a", "b", "a", "a", "a", "b", "a", "a"],
+        "label": [1, 0, 2, 0, 1, 2, 0, 1, 1, 2, 0, 1],
     }
     train_dataset = pd.DataFrame(train_data)
 
@@ -83,9 +85,8 @@ def test_ag_text_predictor():
             ],
             "numerical1": [3, 4, 5, 6],
             "categorical1": ["b", "a", "a", "b"],
-            "label": [0, 1, 1, 0],
-            "idx": [8, 10, 11, 12],
-        }
+            "label": [0, 1, 1, 2],
+    }
     test_dataset = pd.DataFrame(test_data)
 
     # FORCE THE SAME TRAIN-VALID SPLIT IN & OUT THE PREDICTOR
@@ -94,7 +95,7 @@ def test_ag_text_predictor():
     _, valid_dataset = train_test_split(train_dataset,
                                     test_size=holdout_frac,
                                     random_state=np.random.RandomState(seed))
-
+    
     feature_columns = ["sentence1", "sentence2", "numerical1", "categorical1"]
 
     automl = AutoML()
@@ -102,12 +103,15 @@ def test_ag_text_predictor():
         "gpu_per_trial": 0,
         "max_iter": 2,
         "time_budget": 50,
-        "task": "binary",
-        "metric": "roc_auc",
+        "task": "mm_multi",
+        "metric": "accuracy",
     }
 
     automl_settings["custom_fix_args"] = {
         "output_dir": "test/ag/output/",
+        # "backend": "pytorch",
+        "backend": "mxnet",
+        # "hf_text.checkpoint_name": "google/electra-base-discriminator",
         "text_backbone": "electra_base",
         "multimodal_fusion_strategy": "fuse_late",
         "dataset_name": "test_ag",
@@ -118,17 +122,17 @@ def test_ag_text_predictor():
     }
 
     automl.fit(
-        dataframe=train_dataset[feature_columns+["label"]],
-        label="label",
-        train_data=train_dataset[feature_columns+["label"]],
-        valid_data=valid_dataset[feature_columns+["label"]],
+        X_train=train_dataset[feature_columns],
+        y_train=train_dataset["label"],
         X_val=valid_dataset[feature_columns],
         y_val=valid_dataset["label"],
+        eval_method="holdout",
+        auto_augment=False,
         estimator_list=["agtextpredictor"],
         **automl_settings
     )
 
-    print("Begin to run inference on test set")
+    print("Try to run inference on test set")
     score = automl.model.estimator.evaluate(test_dataset)
     print(f"Inference on test set complete, {metric}: {score}")
     del automl

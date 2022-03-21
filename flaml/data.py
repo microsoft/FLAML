@@ -23,9 +23,11 @@ CLASSIFICATION = (
     SEQCLASSIFICATION,
     MULTICHOICECLASSIFICATION,
     TOKENCLASSIFICATION,
+    "mm_multi",
+    "mm_binary",
 )
 SEQREGRESSION = "seq-regression"
-REGRESSION = ("regression", SEQREGRESSION)
+REGRESSION = ("regression", "mm_regression", SEQREGRESSION)
 TS_FORECASTREGRESSION = (
     "forecast",
     "ts_forecast",
@@ -46,6 +48,14 @@ NLU_TASKS = (
     MULTICHOICECLASSIFICATION,
     TOKENCLASSIFICATION,
 )
+
+MM_TASKS = ("mm_binary", "mm_multi", "mm_regression")
+
+
+ ## ***** ADDED FOR MULTIMODAL *****
+def _is_mm_task(task):
+    return True if task in MM_TASKS else False
+## ***** END ADDED FOR MULTIMODAL *****
 
 
 def _is_nlp_task(task):
