@@ -13,6 +13,18 @@ from ..data import (
     NLG_TASKS,
 )
 
+def load_default_checkpoint_path(task):
+    if task == SEQCLASSIFICATION:
+        return "google/electra-small-discriminator"
+    elif task == SEQREGRESSION:
+        return "google/electra-small-discriminator"
+    elif task == SUMMARIZATION:
+        return "t5-small"
+    elif task == MULTICHOICECLASSIFICATION:
+        return "google/electra-small-discriminator"
+    elif task == TOKENCLASSIFICATION:
+        return "google/electra-small-discriminator"
+
 
 def load_default_huggingface_metric_for_task(task):
 

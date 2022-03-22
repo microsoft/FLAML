@@ -699,6 +699,16 @@ class AutoML(BaseEstimator):
         """Time taken to find best model in seconds."""
         return self.__dict__.get("_time_taken_best_iter")
 
+    def evaluate(self, X: pd.DataFrame, y: pd.Series, **eval_kwargs):
+        estimator = getattr(self, "_trained_estimator", None)
+        if estimator is None:
+            logger.warning(
+                "No estimator is trained. Please run fit with enough budget."
+            )
+            return None
+        X = self._preprocess(X)
+        return estimator.evaluate(X, y, **eval_kwargs)
+
     def predict(
         self,
         X: Union[np.array, pd.DataFrame, List[str], List[List[str]]],

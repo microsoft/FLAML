@@ -197,6 +197,9 @@ class BaseEstimator:
             train_time = self._fit(X_train, y_train, **kwargs)
         return train_time
 
+    def evaluate(self, X, y, **kwargs):
+        return None
+
     def predict(self, X, **kwargs):
         """Predict label from features.
 
@@ -720,14 +723,10 @@ class TransformersEstimator(BaseEstimator):
             metric_dict["automl_metric"] = loss
         return metric_dict
 
-    def _init_model_for_predict(self, X_test):
-        from datasets import Dataset
+    def _init_model_for_predict(self, test_dataset):
         from .nlp.huggingface.trainer import TrainerForAuto
         from .nlp.huggingface.data_collator import DataCollatorForPredict
         from .nlp.utils import load_model
-
-        X_test, _ = self._preprocess(X_test, **self._kwargs)
-        test_dataset = Dataset.from_pandas(X_test)
 
         this_model = load_model(
             checkpoint_path=self._checkpoint_path,
@@ -753,22 +752,50 @@ class TransformersEstimator(BaseEstimator):
         return new_trainer, test_dataset, training_args
 
     def predict_proba(self, X, **kwargs):
+        from datasets import Dataset
         self._update_hf_args(kwargs)
         assert (
-            self._task in CLASSIFICATION
+                self._task in CLASSIFICATION
         ), "predict_proba() only for classification tasks."
 
-        new_trainer, test_dataset, _ = self._init_model_for_predict(X)
+        X_test, _ = self._preprocess(X, **self._kwargs)
+        test_dataset = Dataset.from_pandas(X_test)
+
+        new_trainer, test_dataset, _ = self._init_model_for_predict(test_dataset)
         predictions = new_trainer.predict(test_dataset)
         return predictions.predictions
 
+    def evaluate(self, X_val, y_val, **kwargs):
+        import transformers
+        from datasets import Dataset
+        transformers.logging.set_verbosity_error()
+
+        self._metric = kwargs.get("metric", self._metric)
+
+        if (self._task not in NLG_TASKS) and (self._task != TOKENCLASSIFICATION):
+            X_val, _ = self._preprocess(X=X_val, **kwargs)
+            y_val = y_val
+        else:
+            X_val, y_val = self._preprocess(X=X_val, y=y_val, **kwargs)
+
+        eval_dataset = Dataset.from_pandas(
+            TransformersEstimator._join(X_val, y_val)
+        )
+
+        new_trainer, eval_dataset, training_args = self._init_model_for_predict(eval_dataset)
+        return new_trainer.evaluate(eval_dataset)
+
     def predict(self, X, **kwargs):
         import transformers
-
+        from datasets import Dataset
         transformers.logging.set_verbosity_error()
 
         self._update_hf_args(kwargs)
-        new_trainer, test_dataset, training_args = self._init_model_for_predict(X)
+
+        X_test, _ = self._preprocess(X, **self._kwargs)
+        test_dataset = Dataset.from_pandas(X_test)
+
+        new_trainer, test_dataset, training_args = self._init_model_for_predict(test_dataset)
 
         if self._task not in NLG_TASKS:
             predictions = new_trainer.predict(test_dataset)
