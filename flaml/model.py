@@ -518,7 +518,6 @@ class TransformersEstimator(BaseEstimator):
             else self.hf_args.model_path,
             self._task,
         )
-
         self._metric = kwargs["metric"]
 
         try:
@@ -750,9 +749,10 @@ class TransformersEstimator(BaseEstimator):
 
     def predict_proba(self, X, **kwargs):
         from datasets import Dataset
+
         self._update_hf_args(kwargs)
         assert (
-                self._task in CLASSIFICATION
+            self._task in CLASSIFICATION
         ), "predict_proba() only for classification tasks."
 
         X_test, _ = self._preprocess(X, **self._kwargs)
@@ -763,37 +763,84 @@ class TransformersEstimator(BaseEstimator):
         return predictions.predictions
 
     def evaluate(self, X_val: DataFrame, y_val: Series, **kwargs):
-        """Report the evaluation result of TransformersEstimator.
+        """Report the evaluation score of TransformersEstimator.
 
         Args:
-            X_val: A pandas dataframe of the validation input data
-            y_val: A pandas series of the validation label
+            X_val: A pandas dataframe of the validation input data.
+            y_val: A pandas series of the validation label.
+            kwargs: keyword argument of the evaluation function, for example:
+                - metric: A string of the metric name or a function,
+                e.g., 'accuracy', 'roc_auc', 'roc_auc_ovr', 'roc_auc_ovo',
+                'f1', 'micro_f1', 'macro_f1', 'log_loss', 'mae', 'mse', 'r2',
+                'mape'. Default is 'auto'.
+                If passing a customized metric function, the function needs to
+                have the following signature:
+            ```python
+                def custom_metric(
+                    X_test,
+                    y_test,
+                    estimator,
+                    labels,
+                    X_train,
+                    y_train,
+                    weight_test=None,
+                    weight_train=None,
+                    config=None,
+                    groups_test=None,
+                    groups_train=None,
+                ):
+                    from datasets import Dataset
+                    from flaml.model import TransformersEstimator
+
+                    if estimator._trainer is None:
+                        trainer, _, _ = estimator._init_model_for_predict(X_test)
+                        estimator._trainer = None
+                    else:
+                        trainer = estimator._trainer
+                    if y_test is not None:
+                        X_test, _ = estimator._preprocess(X_test)
+                        eval_dataset = Dataset.from_pandas(TransformersEstimator._join(X_test, y_test))
+                    else:
+                        X_test, _ = estimator._preprocess(X_test)
+                        eval_dataset = Dataset.from_pandas(X_test)
+
+                    estimator_metric_backup = estimator._metric
+                    estimator._metric = "rmse"
+                    metrics = trainer.evaluate(eval_dataset)
+                    estimator._metric = estimator_metric_backup
+
+                    return metrics.pop("eval_automl_metric"), metrics
+                ```
 
         Returns:
-            The evaluation metric on the validation dataset
+            The evaluation score on the validation dataset.
         """
         import transformers
         from datasets import Dataset
+
         transformers.logging.set_verbosity_error()
 
         self._metric = kwargs.get("metric", self._metric)
 
         if (self._task not in NLG_TASKS) and (self._task != TOKENCLASSIFICATION):
-            X_val, _ = self._preprocess(X=X_val, **kwargs)
-            y_val = y_val
+            self._X_val, _ = self._preprocess(X=X_val, **kwargs)
+            self._y_val = y_val
         else:
-            X_val, y_val = self._preprocess(X=X_val, y=y_val, **kwargs)
+            self._X_val, self._y_val = self._preprocess(X=X_val, y=y_val, **kwargs)
 
         eval_dataset = Dataset.from_pandas(
-            TransformersEstimator._join(X_val, y_val)
+            TransformersEstimator._join(self._X_val, self._y_val)
         )
 
-        new_trainer, eval_dataset, training_args = self._init_model_for_predict(eval_dataset)
+        new_trainer, eval_dataset, training_args = self._init_model_for_predict(
+            eval_dataset
+        )
         return new_trainer.evaluate(eval_dataset)
 
     def predict(self, X, **kwargs):
         import transformers
         from datasets import Dataset
+
         transformers.logging.set_verbosity_error()
 
         self._update_hf_args(kwargs)
@@ -801,7 +848,9 @@ class TransformersEstimator(BaseEstimator):
         X_test, _ = self._preprocess(X, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
 
-        new_trainer, test_dataset, training_args = self._init_model_for_predict(test_dataset)
+        new_trainer, test_dataset, training_args = self._init_model_for_predict(
+            test_dataset
+        )
 
         if self._task not in NLG_TASKS:
             predictions = new_trainer.predict(test_dataset)

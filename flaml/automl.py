@@ -343,7 +343,7 @@ class AutoMLState:
             estimator_class=self.learner_classes.get(estimator),
             budget=budget,
             fit_kwargs=self.fit_kwargs,
-            eval_metric="train_time",
+            eval_metric=self.metric if (hasattr(self, "metric")) else "train_time",
         )
 
         if sampled_weight is not None:
@@ -1780,7 +1780,7 @@ class AutoML(BaseEstimator):
                 'f1', 'micro_f1', 'macro_f1', 'log_loss', 'mae', 'mse', 'r2',
                 'mape'. Default is 'auto'.
                 If passing a customized metric function, the function needs to
-                have the follwing signature:
+                have the following signature:
         ```python
         def custom_metric(
             X_test, y_test, estimator, labels,
