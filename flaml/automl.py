@@ -329,7 +329,7 @@ class AutoMLState:
         if groups is not None:
             self.fit_kwargs["groups"] = groups
 
-        budget = sys.maxsize  # (
+        budget = 100000  # (
         #     None
         #     if self.time_budget is None
         #     else self.time_budget - self.time_from_start

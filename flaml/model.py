@@ -496,6 +496,8 @@ class TransformersEstimator(BaseEstimator):
                     )
                     # or state.global_step >= this_params[TransformersEstimator.ITER_HP]
                 ):
+                    if budget == sys.maxsize:
+                        raise Exception("fff", budget)
                     control.should_training_stop = True
                     control.should_save = True
                     control.should_evaluate = True
