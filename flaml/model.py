@@ -476,7 +476,7 @@ class TransformersEstimator(BaseEstimator):
         from .nlp.huggingface.data_collator import DataCollatorForAuto
         from .nlp.utils import get_auto_tokenizer
 
-        this_params = self.params
+        # this_params = self.params
 
         class EarlyStoppingCallbackForAuto(TrainerCallback):
             def on_train_begin(self, args, state, control, **callback_kwargs):
@@ -494,7 +494,7 @@ class TransformersEstimator(BaseEstimator):
                         time.time() + self.time_per_iter
                         > self.train_begin_time + budget
                     )
-                    or state.global_step >= this_params[TransformersEstimator.ITER_HP]
+                    # or state.global_step >= this_params[TransformersEstimator.ITER_HP]
                 ):
                     control.should_training_stop = True
                     control.should_save = True

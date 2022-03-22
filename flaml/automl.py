@@ -304,6 +304,8 @@ class AutoMLState:
         config_w_resource,
         sample_size=None,
     ):
+        import sys
+
         if not sample_size:
             sample_size = config_w_resource.get(
                 "FLAML_sample_size", len(self.y_train_all)
@@ -327,11 +329,11 @@ class AutoMLState:
         if groups is not None:
             self.fit_kwargs["groups"] = groups
 
-        budget = (
-            None
-            if self.time_budget is None
-            else self.time_budget - self.time_from_start
-        )
+        budget = sys.maxsize  # (
+        #     None
+        #     if self.time_budget is None
+        #     else self.time_budget - self.time_from_start
+        # )
 
         estimator, train_time = train_estimator(
             X_train=sampled_X_train,
