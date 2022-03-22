@@ -832,7 +832,7 @@ class TransformersEstimator(BaseEstimator):
             TransformersEstimator._join(self._X_val, self._y_val)
         )
 
-        new_trainer, eval_dataset, training_args = self._init_model_for_predict()
+        new_trainer, training_args = self._init_model_for_predict()
         return new_trainer.evaluate(eval_dataset)
 
     def predict(self, X, **kwargs):
