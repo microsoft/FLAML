@@ -247,10 +247,6 @@ class AutoMLState:
             / state.data_size[0]
         )
 
-        if _is_nlp_task(state.task):
-            state.fit_kwargs["X_val"] = state.X_val
-            state.fit_kwargs["y_val"] = state.y_val
-
         (
             trained_estimator,
             val_loss,
@@ -334,6 +330,8 @@ class AutoMLState:
         #     if self.time_budget is None
         #     else self.time_budget - self.time_from_start
         # )
+
+        print("fff", "retrain")
 
         estimator, train_time = train_estimator(
             X_train=sampled_X_train,

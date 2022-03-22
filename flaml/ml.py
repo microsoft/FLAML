@@ -565,6 +565,8 @@ def compute_estimator(
 
     if isinstance(estimator, TransformersEstimator):
         fit_kwargs["metric"] = eval_metric
+        fit_kwargs["X_val"] = X_val
+        fit_kwargs["y_val"] = y_val
 
     if "holdout" == eval_method:
         val_loss, metric_for_logging, train_time, pred_time = get_val_loss(
