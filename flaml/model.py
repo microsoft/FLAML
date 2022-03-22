@@ -197,9 +197,6 @@ class BaseEstimator:
             train_time = self._fit(X_train, y_train, **kwargs)
         return train_time
 
-    def evaluate(self, X, y, **kwargs):
-        return None
-
     def predict(self, X, **kwargs):
         """Predict label from features.
 
@@ -765,7 +762,16 @@ class TransformersEstimator(BaseEstimator):
         predictions = new_trainer.predict(test_dataset)
         return predictions.predictions
 
-    def evaluate(self, X_val, y_val, **kwargs):
+    def evaluate(self, X_val: DataFrame, y_val: Series, **kwargs):
+        """Report the evaluation result of TransformersEstimator.
+
+        Args:
+            X_val: A pandas dataframe of the validation input data
+            y_val: A pandas series of the validation label
+
+        Returns:
+            The evaluation metric on the validation dataset
+        """
         import transformers
         from datasets import Dataset
         transformers.logging.set_verbosity_error()

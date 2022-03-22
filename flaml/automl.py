@@ -246,7 +246,6 @@ class AutoMLState:
             * sample_size
             / state.data_size[0]
         )
-        # raise Exception("bbbbb", state.time_budget, budget)
 
         if _is_nlp_task(state.task):
             state.fit_kwargs["X_val"] = state.X_val
@@ -698,16 +697,6 @@ class AutoML(BaseEstimator):
     def time_to_find_best_model(self) -> float:
         """Time taken to find best model in seconds."""
         return self.__dict__.get("_time_taken_best_iter")
-
-    def evaluate(self, X: pd.DataFrame, y: pd.Series, **eval_kwargs):
-        estimator = getattr(self, "_trained_estimator", None)
-        if estimator is None:
-            logger.warning(
-                "No estimator is trained. Please run fit with enough budget."
-            )
-            return None
-        X = self._preprocess(X)
-        return estimator.evaluate(X, y, **eval_kwargs)
 
     def predict(
         self,

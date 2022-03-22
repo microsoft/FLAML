@@ -128,6 +128,10 @@ def test_hf_data():
     )
 
     automl.predict_proba(X_test)
+
+    X_val = automl._preprocess(X_val)
+    automl._trained_estimator.evaluate(X_val, y_val, **{"metric": "accuracy"})
+
     print(automl.classes_)
 
 
