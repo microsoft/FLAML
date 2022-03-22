@@ -719,7 +719,7 @@ class TransformersEstimator(BaseEstimator):
             metric_dict["automl_metric"] = loss
         return metric_dict
 
-    def _init_model_for_predict(self, test_dataset):
+    def _init_model_for_predict(self):
         from .nlp.huggingface.trainer import TrainerForAuto
         from .nlp.huggingface.data_collator import DataCollatorForPredict
         from .nlp.utils import load_model
@@ -745,7 +745,7 @@ class TransformersEstimator(BaseEstimator):
         )
         if self._task in NLG_TASKS:
             setattr(new_trainer, "_is_seq2seq", True)
-        return new_trainer, test_dataset, training_args
+        return new_trainer, training_args
 
     def predict_proba(self, X, **kwargs):
         from datasets import Dataset
@@ -758,11 +758,11 @@ class TransformersEstimator(BaseEstimator):
         X_test, _ = self._preprocess(X, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
 
-        new_trainer, test_dataset, _ = self._init_model_for_predict(test_dataset)
+        new_trainer, _ = self._init_model_for_predict()
         predictions = new_trainer.predict(test_dataset)
         return predictions.predictions
 
-    def evaluate(self, X_val: DataFrame, y_val: Series, **kwargs):
+    def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         """Report the evaluation score of TransformersEstimator.
 
         Args:
@@ -848,9 +848,7 @@ class TransformersEstimator(BaseEstimator):
         X_test, _ = self._preprocess(X, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
 
-        new_trainer, test_dataset, training_args = self._init_model_for_predict(
-            test_dataset
-        )
+        new_trainer, training_args = self._init_model_for_predict()
 
         if self._task not in NLG_TASKS:
             predictions = new_trainer.predict(test_dataset)
