@@ -343,7 +343,7 @@ class AutoMLState:
             estimator_class=self.learner_classes.get(estimator),
             budget=budget,
             fit_kwargs=self.fit_kwargs,
-            eval_metric=self.metric if (hasattr(self, "metric")) else "train_time",
+            eval_metric=self.metric if hasattr(self, "metric") else "train_time",
         )
 
         if sampled_weight is not None:
