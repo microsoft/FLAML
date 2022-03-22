@@ -126,6 +126,7 @@ def test_custom_metric():
     automl.fit(
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
     )
+    X_val = automl._preprocess(X_val)
     automl._trained_estimator.evaluate(X_val, y_val, **{"metric": custom_metric})
 
     del automl
