@@ -1,3 +1,4 @@
+import sys
 from sklearn.metrics import accuracy_score
 from openml.exceptions import OpenMLServerException
 from requests.exceptions import ChunkedEncodingError
@@ -7,6 +8,8 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     from flaml.data import load_openml_dataset
     import urllib3
 
+    if sys.platform == "darwin":
+        budget = 60  # revise the buget on macos
     try:
         X_train, X_test, y_train, y_test = load_openml_dataset(
             dataset_id=1169, data_dir="test/", dataset_format=dataset_format
