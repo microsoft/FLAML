@@ -264,7 +264,7 @@ For example,
 ```python
 automl.fit(X_train, y_train, max_iter=100, train_time_limit=1, pred_time_limit=1e-3)
 ```
-4. Constraints on one or more metrics of the ML model tried in AutoML.
+4. Constraints on the metrics of the ML model tried in AutoML.
 
 When users provide a [custom metric function](https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML#optimization-metric), which returns a primary optimization metric and a dictionary of additional metrics (typically also about the model) to log, users can also specify constraints on one or more of the metrics in the dictionary of additional metrics.
 
