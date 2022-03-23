@@ -11,10 +11,13 @@
     - 'classification': classification.
     - 'regression': regression.
     - 'ts_forecast': time series forecasting.
+    - 'ts_forecast_classification': time series forecasting for classification.
     - 'rank': learning to rank.
     - 'seq-classification': sequence classification.
     - 'seq-regression': sequence regression.
     - 'summarization': text summarization.
+    - 'token-classification': token classification.
+    - 'multichoice-classification': multichoice classification.
 
 An optional input is `time_budget` for searching models and hyperparameters. When not specified, a default budget of 60 seconds will be used.
 
