@@ -1,3 +1,4 @@
+from sklearn.metrics import accuracy_score
 from openml.exceptions import OpenMLServerException
 from requests.exceptions import ChunkedEncodingError
 
@@ -53,11 +54,14 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     """ compute different metric values on testing dataset """
     from flaml.ml import sklearn_metric_loss_score
 
-    print("accuracy", "=", 1 - sklearn_metric_loss_score("accuracy", y_pred, y_test))
+    accuracy = 1 - sklearn_metric_loss_score("accuracy", y_pred, y_test)
+    print("accuracy", "=", accuracy)
     print(
         "roc_auc", "=", 1 - sklearn_metric_loss_score("roc_auc", y_pred_proba, y_test)
     )
     print("log_loss", "=", sklearn_metric_loss_score("log_loss", y_pred_proba, y_test))
+    if budget >= 60:
+        assert accuracy >= 0.67, "the accuracy of flaml should be larger than 0.67"
     from flaml.data import get_output_from_log
 
     (
@@ -128,4 +132,4 @@ def test_mlflow():
 
 
 if __name__ == "__main__":
-    test_automl(120)
+    test_automl(60)
