@@ -540,12 +540,12 @@ class AutoML(BaseEstimator):
                 Each element in this list is a 3-tuple, which shall be expressed
                 in the following format: the first element of the 3-tuple is the name of the
                 metric, the second element is the inequality sign chosen from ">=" and "<=",
-                and the third element is the constraint value. E.g., `('precision', '>=', 0.9)`.
+                and the third element is the constraint value. E.g., `('val_loss', '<=', 0.05)`.
                 Note that all the metric names in metric_constraints need to be reported via
                 the metrics_to_log dictionary returned by a customized metric function.
                 The customized metric function shall be provided via the `metric` key word
                 argument of the fit() function or the automl constructor.
-                Find examples in this [test](https://github.com/microsoft/FLAML/tree/main/test/automl/test_constraints.py).
+                Find an example in section 6 of this [notebook](https://github.com/microsoft/FLAML/blob/main/notebook/automl_classification.ipynb).
                 If `pred_time_limit` is provided as one of keyword arguments to fit() function or
                 the automl constructor, flaml will automatically (and under the hood)
                 add it as an additional element in the metric_constraints. Essentially 'pred_time_limit'
