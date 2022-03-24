@@ -106,7 +106,7 @@ def test_multimodalestimator():
         "task": "classification",
         "metric": "accuracy",
     }
-    # TODO: modify and double check
+
     automl_settings["ag_args"] = {
         "output_dir": "test/ag/output/",
         "backend": "mxnet",
@@ -130,7 +130,3 @@ def test_multimodalestimator():
     print(f"Inference on test set complete, {metric}: {score}")
     del automl
     gc.collect()
-
-
-if __name__ == "__main__":
-    test_multimodalestimator()

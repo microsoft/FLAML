@@ -2076,6 +2076,7 @@ class MultiModalEstimator(BaseEstimator):
     def _set_seed(self, seed):
         import random
         import mxnet as mx
+        # NOTE: if support pytorch backend, uncomment below
         # import torch as th
         # th.manual_seed(seed)
         mx.random.seed(seed)
@@ -2096,23 +2097,22 @@ class MultiModalEstimator(BaseEstimator):
         search_space = hyperparameters["models"]["MultimodalTextModel"]["search_space"]
         for key, value in self.params.items():
             # NOTE: FLAML uses np.float64 but AG uses float, need to transform
-            if isinstance(value, np.float64):
+            if key == "n_jobs": 
+                continue
+            elif isinstance(value, np.float64):
                 search_space[key] = value.item()
             else:
                 search_space[key] = value
-
         PROBLEM_TYPE_MAPPING = {"binary": "binary",
                                 "multi": "multiclass",
                                 "regression": "regression"
         }
-        # train the model
         start_time = time.time()
         self._model = TextPredictor(path=self.ag_args.output_dir,
                                     label="label",
                                     problem_type=PROBLEM_TYPE_MAPPING[self._task],
                                     eval_metric=kwargs["metric"],
                                     backend=self.ag_args.backend)
-
         train_data = TransformersEstimator._join(X_train, y_train)
         self._model.fit(train_data=train_data,
                         hyperparameters=hyperparameters,

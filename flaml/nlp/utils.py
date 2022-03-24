@@ -681,15 +681,13 @@ class AGArgs:
                         'searcher': 'random'}}
         Ref: https://auto.gluon.ai/0.3.1/tutorials/text_prediction/customization.html
         Return:
-            hyperparameters: a Dict of the hyperparameter settings.
+            hyperparameters: a Dict of the preset hyperparameter settings.
         """
         from autogluon.text.text_prediction.legacy_presets import ag_text_presets
 
         base_key = f'{self.text_backbone}_{self.multimodal_fusion_strategy}'
         hyperparameters = ag_text_presets.create(base_key)
-        search_space = hyperparameters["models"]["MultimodalTextModel"]["search_space"]
-        # TODO: set anything that would like to be set via ag_args here
-
+        # NOTE: set anything else that would like to be set via ag_args here
         return hyperparameters
 
 
