@@ -2121,7 +2121,6 @@ class AutoML(BaseEstimator):
                 metric = load_default_huggingface_metric_for_task(self._state.task)
             elif "binary" in self._state.task:
                 metric = "roc_auc"
-            # TODO: replace 'multi' -> 'multiclass', change all occurrence of 'multi'?
             elif "multiclass" in self._state.task:
                 metric = "log_loss"
             elif self._state.task in TS_FORECAST:

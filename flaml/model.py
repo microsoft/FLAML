@@ -241,10 +241,12 @@ class BaseEstimator:
             X_val: A pandas dataframe of the validation input data.
             y_val: A pandas series of the validation label.
             kwargs: keyword argument of the evaluation function, for example:
-                - metric: A string of the metric name or a function,
+                - metric: A string of the metric name or a function
                 e.g., 'accuracy', 'roc_auc', 'roc_auc_ovr', 'roc_auc_ovo',
                 'f1', 'micro_f1', 'macro_f1', 'log_loss', 'mae', 'mse', 'r2',
                 'mape'. Default is 'auto'.
+                If metric is given, the score will report the user specified metric
+                If metric is not given, the metric is set to accuracy for classification and r2 for regression
                 If passing a customized metric function, the function needs to
                 have the following signature:
             ```python
@@ -287,6 +289,8 @@ class BaseEstimator:
         Returns:
             The evaluation score on the validation dataset.
         """
+        from .ml import metric_loss_score
+
         if self._model is not None:
             if self._task == "rank":
                 raise NotImplementedError(
@@ -294,7 +298,12 @@ class BaseEstimator:
                 )
             else:
                 X_val = self._preprocess(X_val)
-                return self._model.score(X_val, y_val)
+                self._metric = kwargs.get("metric", None)
+                if self._metric:
+                    y_pred = self.predict(X_val, **kwargs)
+                    return metric_loss_score(self._metric, y_pred, y_val)
+                else:
+                    return self._model.score(X_val, y_val)
         else:
             logger.warning(
                 "Estimator is not fit yet. Please run fit() before predict()."
@@ -543,7 +552,7 @@ class TransformersEstimator(BaseEstimator):
         from .nlp.huggingface.data_collator import DataCollatorForAuto
         from .nlp.utils import get_auto_tokenizer
 
-        # this_params = self.params
+        this_params = self.params
 
         class EarlyStoppingCallbackForAuto(TrainerCallback):
             def on_train_begin(self, args, state, control, **callback_kwargs):
@@ -561,7 +570,7 @@ class TransformersEstimator(BaseEstimator):
                         time.time() + self.time_per_iter
                         > self.train_begin_time + budget
                     )
-                    # or state.global_step >= this_params[TransformersEstimator.ITER_HP]
+                    or state.global_step >= this_params[TransformersEstimator.ITER_HP]
                 ):
                     if budget == sys.maxsize:
                         raise Exception("fff", budget)
@@ -1774,9 +1783,14 @@ class Prophet(SKLearnEstimator):
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         from sklearn.metrics import r2_score
+        from .ml import metric_loss_score
 
         y_pred = self.predict(X_val)
-        return r2_score(y_pred, y_val)
+        self._metric = kwargs.get("metric", None)
+        if self._metric:
+            return metric_loss_score(self._metric, y_pred, y_val)
+        else:
+            return r2_score(y_pred, y_val)
 
 
 class ARIMA(Prophet):
