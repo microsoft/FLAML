@@ -330,8 +330,14 @@ class AutoMLState:
         #     if self.time_budget is None
         #     else self.time_budget - self.time_from_start
         # )
-
-        print("fff", "retrain")
+        raise Exception(
+            "fff",
+            get_estimator_class(self.task, estimator)(
+                **config,
+                task=self.task,
+                n_jobs=self.n_jobs,
+            )._metric,
+        )
 
         estimator, train_time = train_estimator(
             X_train=sampled_X_train,
@@ -698,7 +704,7 @@ class AutoML(BaseEstimator):
         """Time taken to find best model in seconds."""
         return self.__dict__.get("_time_taken_best_iter")
 
-    def score(self, X: pd.DataFrame, y: pd.Series):
+    def score(self, X: pd.DataFrame, y: pd.Series, **kwargs):
         estimator = getattr(self, "_trained_estimator", None)
         if estimator is None:
             logger.warning(
@@ -706,7 +712,7 @@ class AutoML(BaseEstimator):
             )
             return None
         X = self._preprocess(X)
-        return estimator.score(X, y)
+        return estimator.score(X, y, **kwargs)
 
     def predict(
         self,

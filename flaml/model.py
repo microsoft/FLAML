@@ -234,10 +234,64 @@ class BaseEstimator:
         X = self._preprocess(X)
         return self._model.predict_proba(X)
 
-    def score(self, X_val: DataFrame, y_val: Series):
+    def score(self, X_val: DataFrame, y_val: Series, **kwargs):
+        """Report the evaluation score of TransformersEstimator.
+
+        Args:
+            X_val: A pandas dataframe of the validation input data.
+            y_val: A pandas series of the validation label.
+            kwargs: keyword argument of the evaluation function, for example:
+                - metric: A string of the metric name or a function,
+                e.g., 'accuracy', 'roc_auc', 'roc_auc_ovr', 'roc_auc_ovo',
+                'f1', 'micro_f1', 'macro_f1', 'log_loss', 'mae', 'mse', 'r2',
+                'mape'. Default is 'auto'.
+                If passing a customized metric function, the function needs to
+                have the following signature:
+            ```python
+                def custom_metric(
+                    X_test,
+                    y_test,
+                    estimator,
+                    labels,
+                    X_train,
+                    y_train,
+                    weight_test=None,
+                    weight_train=None,
+                    config=None,
+                    groups_test=None,
+                    groups_train=None,
+                ):
+                    from datasets import Dataset
+                    from flaml.model import TransformersEstimator
+
+                    if estimator._trainer is None:
+                        trainer, _ = estimator._init_model_for_predict()
+                        estimator._trainer = None
+                    else:
+                        trainer = estimator._trainer
+                    if y_test is not None:
+                        X_test, _ = estimator._preprocess(X_test)
+                        eval_dataset = Dataset.from_pandas(TransformersEstimator._join(X_test, y_test))
+                    else:
+                        X_test, _ = estimator._preprocess(X_test)
+                        eval_dataset = Dataset.from_pandas(X_test)
+
+                    estimator_metric_backup = estimator._metric
+                    estimator._metric = "rmse"
+                    metrics = trainer.evaluate(eval_dataset)
+                    estimator._metric = estimator_metric_backup
+
+                    return metrics.pop("eval_automl_metric"), metrics
+                ```
+
+        Returns:
+            The evaluation score on the validation dataset.
+        """
         if self._model is not None:
             if self._task == "rank":
-                raise NotImplementedError("automl.score is not implemented for LGBMEstimator for ranking")
+                raise NotImplementedError(
+                    "automl.score is not implemented for LGBMEstimator for ranking"
+                )
             else:
                 X_val = self._preprocess(X_val)
                 return self._model.score(X_val, y_val)
@@ -777,62 +831,12 @@ class TransformersEstimator(BaseEstimator):
         predictions = new_trainer.predict(test_dataset)
         return predictions.predictions
 
-    def score(self, X_val: DataFrame, y_val: Series):
-        """Report the evaluation score of TransformersEstimator.
-
-        Args:
-            X_val: A pandas dataframe of the validation input data.
-            y_val: A pandas series of the validation label.
-            kwargs: keyword argument of the evaluation function, for example:
-                - metric: A string of the metric name or a function,
-                e.g., 'accuracy', 'roc_auc', 'roc_auc_ovr', 'roc_auc_ovo',
-                'f1', 'micro_f1', 'macro_f1', 'log_loss', 'mae', 'mse', 'r2',
-                'mape'. Default is 'auto'.
-                If passing a customized metric function, the function needs to
-                have the following signature:
-            ```python
-                def custom_metric(
-                    X_test,
-                    y_test,
-                    estimator,
-                    labels,
-                    X_train,
-                    y_train,
-                    weight_test=None,
-                    weight_train=None,
-                    config=None,
-                    groups_test=None,
-                    groups_train=None,
-                ):
-                    from datasets import Dataset
-                    from flaml.model import TransformersEstimator
-
-                    if estimator._trainer is None:
-                        trainer, _ = estimator._init_model_for_predict()
-                        estimator._trainer = None
-                    else:
-                        trainer = estimator._trainer
-                    if y_test is not None:
-                        X_test, _ = estimator._preprocess(X_test)
-                        eval_dataset = Dataset.from_pandas(TransformersEstimator._join(X_test, y_test))
-                    else:
-                        X_test, _ = estimator._preprocess(X_test)
-                        eval_dataset = Dataset.from_pandas(X_test)
-
-                    estimator_metric_backup = estimator._metric
-                    estimator._metric = "rmse"
-                    metrics = trainer.evaluate(eval_dataset)
-                    estimator._metric = estimator_metric_backup
-
-                    return metrics.pop("eval_automl_metric"), metrics
-                ```
-
-        Returns:
-            The evaluation score on the validation dataset.
-        """
+    def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         import transformers
         from datasets import Dataset
+
         transformers.logging.set_verbosity_error()
+        raise Exception(self._metric)
 
         if (self._task not in NLG_TASKS) and (self._task != TOKENCLASSIFICATION):
             self._X_val, _ = self._preprocess(X=X_val)
@@ -1767,8 +1771,9 @@ class Prophet(SKLearnEstimator):
             )
             return np.ones(X.shape[0])
 
-    def score(self, X_val: DataFrame, y_val: Series):
+    def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         from sklearn.metrics import r2_score
+
         y_pred = self.predict(X_val)
         return r2_score(y_pred, y_val)
 
