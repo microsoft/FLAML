@@ -46,7 +46,6 @@ from .data import (
     REGRESSION,
     _is_nlp_task,
     NLG_TASKS,
-    _is_mm_task,
 )
 from . import tune
 from .training_log import training_log_reader, training_log_writer
@@ -975,7 +974,7 @@ class AutoML(BaseEstimator):
                 "or all columns of X are integer ids (tokenized)"
             )
 
-        if issparse(X_train_all) or _is_mm_task(self._state.task):
+        if issparse(X_train_all):
             # leave the preprocessing to the mm_estimator
             self._transformer = self._label_transformer = False
             self._X_train_all, self._y_train_all = X, y

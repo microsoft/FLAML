@@ -25,7 +25,7 @@ def default_holdout_frac(num_train_rows, hyperparameter_tune=False):
 
     return holdout_frac
 
-def test_ag_mx_textpredictor():
+def test_multimodalestimator():
     if sys.version < "3.7":
         # do not test on python3.6
         return
@@ -103,22 +103,15 @@ def test_ag_mx_textpredictor():
         "gpu_per_trial": 0,
         "max_iter": 2,
         "time_budget": 50,
-        "task": "mm_multi",
+        "task": "classification",
         "metric": "accuracy",
     }
-
-    automl_settings["custom_fix_args"] = {
+    # TODO: modify and double check
+    automl_settings["ag_args"] = {
         "output_dir": "test/ag/output/",
-        # "backend": "pytorch",
         "backend": "mxnet",
-        # "hf_text.checkpoint_name": "google/electra-base-discriminator",
         "text_backbone": "electra_base",
         "multimodal_fusion_strategy": "fuse_late",
-        "dataset_name": "test_ag",
-        "label_column": "label",
-        "per_device_batch_size": 4,
-        "num_train_epochs": 2,
-        "batch_size": 4,
     }
 
     automl.fit(
@@ -128,7 +121,7 @@ def test_ag_mx_textpredictor():
         y_val=valid_dataset["label"],
         eval_method="holdout",
         auto_augment=False,
-        estimator_list=["agtextpredictor"],
+        estimator_list=["multimodal"],
         **automl_settings
     )
 
@@ -137,3 +130,7 @@ def test_ag_mx_textpredictor():
     print(f"Inference on test set complete, {metric}: {score}")
     del automl
     gc.collect()
+
+
+if __name__ == "__main__":
+    test_multimodalestimator()

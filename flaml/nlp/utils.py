@@ -573,3 +573,88 @@ class HPOArgs:
             )
         console_args, unknown = arg_parser.parse_known_args()
         return console_args
+
+
+@dataclass
+class AGArgs:
+    """
+    The Autogluon configurations
+    Args:
+        output_dir (str): data root directory for outputing the log and intermediate data, model.
+        backend (str, optional, defaults to "mxnet"): currently only support to mxnet.
+        text_backbone (str, optional, defaults to "electra_base"): the text backbone model.
+        multimodal_fusion_strategy (str, optional, defaults to "fuse_late"): the fuse strategy.
+    """
+    from autogluon.text.text_prediction.legacy_presets import ag_text_presets
+
+    output_dir: str = field(
+        default="data/mm/output/", metadata={"help": "data dir", "required": True}
+    )
+    backend: str = field(default="mxnet", metadata={"help": "the backend of the multimodal model"})
+    text_backbone: str = field(default="electra_base", metadata={"help": "text backbone model"})
+    multimodal_fusion_strategy: str = field(default="fuse_late", metadata={"help": "fusion strategy"})
+    # TODO: determine whether to tune these HPs 
+    # per_device_batch_size: int = field(default=8, metadata={"help": "per device batch size"})
+    # num_train_epochs: int = field(default=10, metadata={"help": "number of train epochs"})
+    # batch_size: int = field(default=128,  metadata={"help": "batch size"})
+    
+
+    def get_presets(self):
+        """
+        Get the preset using the AGArgs.
+        {'models': {'MultimodalTextModel': {'backend': 'gluonnlp_v0',
+                                    'search_space': {'model.backbone.name': 'google_electra_small',
+                                                    'model.network.agg_net.agg_type': 'concat',
+                                                    'model.network.agg_net.mid_units': 128,  # [in HPO example]
+                                                    'model.network.aggregate_categorical': True,
+                                                    'model.use_avg_nbest': True,
+                                                    'optimization.batch_size': 128,
+                                                    'optimization.layerwise_lr_decay': 0.8,
+                                                    'optimization.lr': Categorical[0.0001],
+                                                    'optimization.nbest': 3,
+                                                    'optimization.num_train_epochs': 10,
+                                                    'optimization.per_device_batch_size': 8,
+                                                    'optimization.wd': 0.0001,
+                                                    'optimization.warmup_portion': 0.1,  # [in HPO example]
+                                                    'preprocessing.categorical.convert_to_text': False,
+                                                    'preprocessing.numerical.convert_to_text': False}}},
+        'tune_kwargs': {'num_trials': 1,
+                        'scheduler_options': None,
+                        'search_options': None,
+                        'search_strategy': 'local',
+                        'searcher': 'random'}}
+        Ref: https://auto.gluon.ai/0.3.1/tutorials/text_prediction/customization.html
+        Return:
+            hyperparameters: a Dict of the hyperparameter settings.
+        """
+        from autogluon.text.text_prediction.legacy_presets import ag_text_presets
+
+        base_key = f'{self.text_backbone}_{self.multimodal_fusion_strategy}'
+        hyperparameters = ag_text_presets.create(base_key)
+        search_space = hyperparameters["models"]["MultimodalTextModel"]["search_space"]
+        # TODO: set anything that would like to be set via ag_args here
+
+        return hyperparameters
+
+
+    @staticmethod
+    def load_args():
+        from dataclasses import fields
+
+        arg_parser = argparse.ArgumentParser()
+        for each_field in fields(AGArgs):
+            print(each_field)
+            arg_parser.add_argument(
+                "--" + each_field.name,
+                type=each_field.type,
+                help=each_field.metadata["help"],
+                required=each_field.metadata["required"]
+                if "required" in each_field.metadata
+                else False,
+                choices=each_field.metadata["choices"]
+                if "choices" in each_field.metadata
+                else None,
+                default=each_field.default,
+            )
+        console_args, unknown = arg_parser.parse_known_args()
+        return console_args

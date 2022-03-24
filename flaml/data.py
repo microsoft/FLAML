@@ -23,11 +23,9 @@ CLASSIFICATION = (
     SEQCLASSIFICATION,
     MULTICHOICECLASSIFICATION,
     TOKENCLASSIFICATION,
-    "mm_multi",
-    "mm_binary",
 )
 SEQREGRESSION = "seq-regression"
-REGRESSION = ("regression", "mm_regression", SEQREGRESSION)
+REGRESSION = ("regression", SEQREGRESSION)
 TS_FORECASTREGRESSION = (
     "forecast",
     "ts_forecast",
@@ -48,14 +46,6 @@ NLU_TASKS = (
     MULTICHOICECLASSIFICATION,
     TOKENCLASSIFICATION,
 )
-
-MM_TASKS = ("mm_binary", "mm_multi", "mm_regression")
-
-
- ## ***** ADDED FOR MULTIMODAL *****
-def _is_mm_task(task):
-    return True if task in MM_TASKS else False
-## ***** END ADDED FOR MULTIMODAL *****
 
 
 def _is_nlp_task(task):
@@ -282,7 +272,8 @@ class DataTransformer:
         elif isinstance(X, DataFrame):
             X = X.copy()
             n = X.shape[0]
-            cat_columns, num_columns, datetime_columns = [], [], []
+            # NOTE: add str_columns here
+            str_columns, cat_columns, num_columns, datetime_columns = [], [], [], []
             drop = False
             if task in TS_FORECAST:
                 X = X.rename(columns={X.columns[0]: TS_TIMESTAMP_COL})
@@ -292,13 +283,17 @@ class DataTransformer:
             for column in X.columns:
                 # sklearn\utils\validation.py needs int/float values
                 if X[column].dtype.name in ("object", "category"):
-                    if (
-                        X[column].nunique() == 1
-                        or X[column].nunique(dropna=True)
-                        == n - X[column].isnull().sum()
-                    ):
+                    if X[column].nunique() == 1:
                         X.drop(columns=column, inplace=True)
                         drop = True
+                    elif X[column].nunique(dropna=True) >= int((n - X[column].isnull().sum()) * 0.1):
+                    # NOTE: here a threshold is applied for distinguishing str vs. cat 
+                    # if no threshold wanted = requires every non-nan str entry to be different
+                    # delete the line above and uncomment below
+                    # elif X[column].nunique(dropna=True) == n - X[column].isnull().sum():
+                        # NOTE: here detects str fields, fillna with ""
+                        X[column] = X[column].fillna("")
+                        str_columns.append(column)
                     elif X[column].dtype.name == "category":
                         current_categories = X[column].cat.categories
                         if "__NAN__" not in current_categories:
@@ -340,7 +335,7 @@ class DataTransformer:
                         del tmp_dt
                     X[column] = X[column].fillna(np.nan)
                     num_columns.append(column)
-            X = X[cat_columns + num_columns]
+            X = X[str_columns + cat_columns + num_columns]
             if task in TS_FORECAST:
                 X.insert(0, TS_TIMESTAMP_COL, ds_col)
             if cat_columns:
@@ -369,7 +364,8 @@ class DataTransformer:
                     ]
                 )
                 X[num_columns] = self.transformer.fit_transform(X_num)
-            self._cat_columns, self._num_columns, self._datetime_columns = (
+            self.str_columns, self._cat_columns, self._num_columns, self._datetime_columns = (
+                str_columns,
                 cat_columns,
                 num_columns,
                 datetime_columns,
@@ -410,7 +406,8 @@ class DataTransformer:
             if len(self._str_columns) > 0:
                 X[self._str_columns] = X[self._str_columns].astype("string")
         elif isinstance(X, DataFrame):
-            cat_columns, num_columns, datetime_columns = (
+            str_columns, cat_columns, num_columns, datetime_columns = (
+                self.str_columns,
                 self._cat_columns,
                 self._num_columns,
                 self._datetime_columns,
@@ -436,7 +433,7 @@ class DataTransformer:
                         X[new_col_name] = new_col_value
                 X[column] = X[column].map(datetime.toordinal)
                 del tmp_dt
-            X = X[cat_columns + num_columns].copy()
+            X = X[str_columns + cat_columns + num_columns].copy()
             if self._task in TS_FORECAST:
                 X.insert(0, TS_TIMESTAMP_COL, ds_col)
             for column in cat_columns:

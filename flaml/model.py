@@ -1965,16 +1965,10 @@ class XGBoostLimitDepth_TS(TS_SKLearn):
     base_class = XGBoostLimitDepthEstimator
 
 
-class AGTextPredictorEstimator(BaseEstimator):
+class MultiModalEstimator(BaseEstimator):
     """
     The class for tuning AutoGluon TextPredictor
     """
-    def __init__(self, task="binary", **params,):
-        from autogluon.text import TextPredictor
-
-        super().__init__(task, **params)
-        self.estimator_class = TextPredictor
-
     @classmethod
     def search_space(cls, **params):
         """
@@ -1982,6 +1976,7 @@ class AGTextPredictorEstimator(BaseEstimator):
         reference:
         https://auto.gluon.ai/stable/tutorials/text_prediction/customization.html#custom-hyperparameter-values
         """
+        # TODO: expand the search space
         search_space_dict = {
             "model.network.agg_net.mid_units": {
                 "domain": tune.choice(list(range(32, 129))),
@@ -1993,138 +1988,91 @@ class AGTextPredictorEstimator(BaseEstimator):
             },
             "optimization.wd": {
                 "domain": tune.choice([1E-4, 1E-3, 1E-2]),
-                "init_value":1E-4,
+                "init_value": 1E-4,
             },
             "optimization.warmup_portion": {
                 "domain": tune.choice([0.1, 0.2]),
-                "init_value":0.1, 
+                "init_value": 0.1, 
+            },
+            "optimization.layerwise_lr_decay": {
+                "domain": tune.choice([0.8, 0.9]),
+                "init_value": 0.8,
+            },
+            "optimization.nbest": {
+                "domain": tune.choice([2, 3, 4,]),
+                "init_value": 3,
+            },
+            "optimization.num_train_epochs": {
+                "domain": tune.choice([5, 10, 15,]),
+                "init_value": 10,
+            },
+            "optimization.per_device_batch_size": {
+                "domain": tune.choice([2, 4, 8,]),
+                "init_value": 10,
+            },
+            "optimization.batch_size": {
+                "domain": tune.choice([32, 64, 128,]),
+                "init_value": 128,
             },
         }
         return search_space_dict
 
-    def _init_fix_args(self, automl_fit_kwargs: dict=None):
-        """
-        Save the customed fix args here
-        this includes:
-            "output_dir",
-            "text_backbone": "electra_base"
-            "multimodal_fusion_strategy":"fuse_late",
-        """
-        fix_args = {}
-        FIX_ARGS_LIST = ["output_dir", "dataset_name", "label_column", "per_device_batch_size", "backend",
-                         "text_backbone", "multimodal_fusion_strategy", "num_train_epochs", "batch_size",]
-        for key, value in automl_fit_kwargs["custom_fix_args"].items():
+    def _init_ag_args(self, automl_fit_kwargs: dict = None):
+        from .nlp.utils import AGArgs
+
+        ag_args = AGArgs()
+        for key, val in automl_fit_kwargs["ag_args"].items():
             assert (
-                key in FIX_ARGS_LIST
-            ), "The specified key {} is not in the argument list: output_dir, backend, label_column, dataset_name, text_backbone,\
-                multimodal_fusion_strategy, num_train_epochs, batch_size, per_device_batch_size".format(key)
-
-            fix_args[key] = value
-
-        self.fix_args = fix_args
-
-    def _init_hp_config(self, text_backbone: str, multimodal_fusion_strategy: str):
-        """"
-        Ref:
-        https://auto.gluon.ai/stable/tutorials/text_prediction/customization.html#custom-hyperparameter-values
-        """
-        if self.fix_args.get("backend", "pytorch") == "mxnet":
-            from autogluon.text.text_prediction.legacy_presets import ag_text_presets
-
-            base_key = f'{text_backbone}_{multimodal_fusion_strategy}'
-            cfg = ag_text_presets.create(base_key)
-            # NOTE: if the search_space() is modified, add new items or delete here too.
-            TUNABLE_HP = set(["model.network.agg_net.mid_units",
-                            "optimization.batch_size",
-                            "optimization.layerwise_lr_decay",
-                            "optimization.lr",
-                            "optimization.nbest",
-                            "optimization.num_train_epochs",
-                            "optimization.per_device_batch_size",
-                            "optimization.wd",
-                            "optimization.warmup_portion",
-                            ])
-            search_space = cfg["models"]["MultimodalTextModel"]["search_space"]
-            search_space["optimization.per_device_batch_size"] = self.fix_args.get("per_device_batch_size", 4)
-            search_space["optimization.num_train_epochs"] = self.fix_args.get("num_train_epochs", 10)
-            search_space["optimization.batch_size"] = self.fix_args.get("batch_size", 128)
-            for key, value in self.params.items():
-                if key in TUNABLE_HP:
-                    # NOTE: FLAML uses np.float64 but AG uses float, need to transform
-                    if isinstance(value, np.float64):
-                        search_space[key] = value.item()
-                    else:
-                        search_space[key] = value
-            return cfg
-        
-        else:
-            raise ValueError("the pytorch automm model is not supported. ")
-            # from autogluon.text.text_prediction.presets import get_text_preset
-
-            # cfg, overrides = get_text_preset("default")  # get preset for text+num+cat+fusion
-            # # TODO: set the search space for the auto_mm in AG 0.4.0
-            # cfg.hf_text.checkpoint_name = self.fix_args["hf_text.checkpoint_name"]
-            # # get search configs from self.params and set here
-            # TUNABLE_HP = []
-            # for key, value in self.params.items():
-            #     if key in TUNABLE_HP:
-            #         # NOTE: FLAML uses np.float64 but AG uses float, might need to transform
-            #         if isinstance(value, np.float64):
-            #             search_space[key] = value.item()
-            #         else:
-            #             search_space[key] = value
-            return cfg
-            
+                key in ag_args.__dict__
+            ), "The specified key {} is not in the argument list of flaml.nlp.utils::AGArgs".format(
+                key
+            )
+            setattr(ag_args, key, val)
+        self.ag_args = ag_args
 
     def _set_seed(self, seed):
         import random
         import mxnet as mx
-        import torch as th
-        th.manual_seed(seed)
+        # import torch as th
+        # th.manual_seed(seed)
         mx.random.seed(seed)
         np.random.seed(seed)
         random.seed(seed)
 
     def fit(self, X_train=None, y_train=None, budget=None, **kwargs):
+        from autogluon.text import TextPredictor
+
         self._kwargs = kwargs
-        self._init_fix_args(kwargs)
-        # the seed set in the bash script for ag experiment is 123
-        seed = self.params.get("seed", 123)
+        self._init_ag_args(kwargs)
+        seed = self._kwargs.get("seed", 123)
         self._set_seed(seed)
 
-        # get backbone and fusion strategy
-        text_backbone = self.fix_args["text_backbone"]
-        multimodal_fusion_strategy = self.fix_args["multimodal_fusion_strategy"]
+        assert (self.ag_args.backend == "mxnet"), "the pytorch automm model is not supported. "
+        # get & set the hyperparameters, update with self.params
+        hyperparameters = self.ag_args.get_presets()
+        search_space = hyperparameters["models"]["MultimodalTextModel"]["search_space"]
+        for key, value in self.params.items():
+            # NOTE: FLAML uses np.float64 but AG uses float, need to transform
+            if isinstance(value, np.float64):
+                search_space[key] = value.item()
+            else:
+                search_space[key] = value
 
-        # get & set the save dir, get the dataset info
-        save_dir = self.fix_args["output_dir"]
-        label_column = self.fix_args["label_column"]
-        dataset_name = self.fix_args["dataset_name"]
-        ag_model_save_dir = os.path.join(save_dir, f"{dataset_name}_ag_text_multimodal_{text_backbone}\
-                                                    _{multimodal_fusion_strategy}_no_ensemble")
-
-        # set the hyperparameters
-        self.hyperparameters = self._init_hp_config(text_backbone, multimodal_fusion_strategy)
-        PROBLEM_TYPE_MAPPING = {"mm_binary": "binary", "mm_multi": "multiclass", "mm_regression": "regression"}
-        TASK_METRIC_MAPPING = {"mm_multi": "acc", "mm_binary": "roc_auc", "mm_regression": "r2"}
-
+        PROBLEM_TYPE_MAPPING = {"binary": "binary",
+                                "multi": "multiclass",
+                                "regression": "regression"
+        }
         # train the model
         start_time = time.time()
+        self._model = TextPredictor(path=self.ag_args.output_dir,
+                                    label="label",
+                                    problem_type=PROBLEM_TYPE_MAPPING[self._task],
+                                    eval_metric=kwargs["metric"],
+                                    backend=self.ag_args.backend)
 
-        self._model = self.estimator_class(path=ag_model_save_dir,
-                                           label=label_column,
-                                           problem_type=PROBLEM_TYPE_MAPPING[self._task],
-                                           eval_metric=TASK_METRIC_MAPPING[self._task],
-                                           backend=self.fix_args.get("backend", "pytorch"))
-
-        # train_data = self._kwargs["train_data"]
-        import pandas as pd
-        train_data = pd.concat([X_train, y_train], axis=1)
-        tuning_data = pd.concat([X_train, y_train], axis=1)
-        
+        train_data = TransformersEstimator._join(X_train, y_train)
         self._model.fit(train_data=train_data,
-                        tuning_data=kwargs.get("tuning_data", None),
-                        hyperparameters=self.hyperparameters,
+                        hyperparameters=hyperparameters,
                         time_limit=budget,
                         seed=seed)
 
@@ -2135,16 +2083,12 @@ class AGTextPredictorEstimator(BaseEstimator):
         output = self._model.predict(X, as_pandas=False)
         return output
 
-    def predict_proba(self, X, as_multiclass=True):
+    def predict_proba(self, X):
         # only works for classification tasks
         assert (
             self._task in CLASSIFICATION
         ), "predict_proba() only for classification tasks."
-
         output = self._model.predict_proba(X, as_pandas=False)
-        if not as_multiclass:
-            if self._task == "mm_binary":
-                output = output[:, 1]
         return output
 
 
