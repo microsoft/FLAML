@@ -836,7 +836,8 @@ class TransformersEstimator(BaseEstimator):
         from datasets import Dataset
 
         transformers.logging.set_verbosity_error()
-        raise Exception(self._metric)
+
+        self._metric = kwargs["metric"]
 
         if (self._task not in NLG_TASKS) and (self._task != TOKENCLASSIFICATION):
             self._X_val, _ = self._preprocess(X=X_val)

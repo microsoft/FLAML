@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 
 class TestClassification:
 
-    def _test_forecast(self, budget=5):
+    def test_forecast(self, budget=5):
         # using dataframe
         import statsmodels.api as sm
 
@@ -54,7 +54,7 @@ class TestClassification:
             )
             automl.score(X_test, y_test)
 
-    def _test_classification(self):
+    def test_classification(self):
         X = pd.DataFrame(
             {
                 "f1": [1, -2, 3, -4, 5, -6, -7, 8, -9, -10, -11, -12, -13, -14],
@@ -123,7 +123,7 @@ class TestClassification:
         automl.fit(X, y, **automl_settings)
         automl.score(X, y)
 
-    def _test_regression(self):
+    def test_regression(self):
         automl_experiment = AutoML()
 
         X_train, y_train = fetch_california_housing(return_X_y=True)
@@ -181,7 +181,7 @@ class TestClassification:
             automl.fit(X[:n], y[:n], **automl_settings)
             automl.score(X[n:], y[n:])
 
-    def _test_transformers(self):
+    def test_transformers(self):
         train_data = {
             "sentence1": [
                 'Amrozi accused his brother , whom he called " the witness " , of deliberately distorting his evidence .',
@@ -273,4 +273,4 @@ class TestClassification:
 
 if __name__ == "__main__":
     test = TestClassification()
-    test._test_transformers()
+    test.test_transformers()

@@ -325,18 +325,10 @@ class AutoMLState:
         if groups is not None:
             self.fit_kwargs["groups"] = groups
 
-        budget = 100000  # (
-        #     None
-        #     if self.time_budget is None
-        #     else self.time_budget - self.time_from_start
-        # )
-        raise Exception(
-            "fff",
-            get_estimator_class(self.task, estimator)(
-                **config,
-                task=self.task,
-                n_jobs=self.n_jobs,
-            )._metric,
+        budget = (
+            None
+            if self.time_budget is None
+            else self.time_budget - self.time_from_start
         )
 
         estimator, train_time = train_estimator(
