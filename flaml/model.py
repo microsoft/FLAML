@@ -88,7 +88,7 @@ class BaseEstimator:
 
         Args:
             task: A string of the task type, one of
-                'binary', 'multi', 'regression', 'rank', 'forecast'.
+                'binary', 'multiclass', 'regression', 'rank', 'forecast'.
             config: A dictionary containing the hyperparameter names, 'n_jobs' as keys.
                 n_jobs is the number of parallel threads.
         """
@@ -311,7 +311,7 @@ class BaseEstimator:
 
         Args:
             data_size: A tuple of two integers, number of rows and columns.
-            task: A str of the task type, e.g., "binary", "multi", "regression".
+            task: A str of the task type, e.g., "binary", "multiclass", "regression".
 
         Returns:
             A dictionary of the search space.

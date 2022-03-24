@@ -1266,7 +1266,7 @@ class AutoML(BaseEstimator):
             record_id: An integer of the record ID in the file,
                 0 corresponds to the first trial.
             task: A string of the task type,
-                'binary', 'multi', 'regression', 'ts_forecast', 'rank'.
+                'binary', 'multiclass', 'regression', 'ts_forecast', 'rank'.
 
         Returns:
             An estimator object for the given configuration.
@@ -2846,7 +2846,7 @@ class AutoML(BaseEstimator):
             estimators = []
             if self._ensemble and self._state.task in (
                 "binary",
-                "multi",
+                "multiclass",
                 "regression",
             ):
                 search_states = list(

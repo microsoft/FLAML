@@ -268,7 +268,7 @@ class TestClassification:
         )
 
         try:
-            automl.score(X_val, y_val)
+            automl.score(X_val, y_val, **{"metric": "accuracy"})
         except NotImplementedError:
             pass
 
