@@ -933,7 +933,6 @@ class AutoML(BaseEstimator):
             )
 
         if issparse(X_train_all):
-            # leave the preprocessing to the mm_estimator
             self._transformer = self._label_transformer = False
             self._X_train_all, self._y_train_all = X, y
         else:
