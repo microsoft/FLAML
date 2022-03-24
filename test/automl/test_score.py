@@ -4,7 +4,6 @@ from sklearn.datasets import (
     fetch_california_housing,
     fetch_openml
 )
-from sklearn.model_selection import train_test_split
 
 class TestClassification:
 
@@ -52,7 +51,11 @@ class TestClassification:
                 estimator_list=["arima", "sarimax"],
                 period=time_horizon,
             )
-            automl.score(X_test, y_test)
+
+            try:
+                automl.score(X_test, y_test)
+            except NotImplementedError:
+                pass
 
     def test_classification(self):
         X = pd.DataFrame(
@@ -121,7 +124,11 @@ class TestClassification:
                 "log_training_metric": True,
             }
         automl.fit(X, y, **automl_settings)
-        automl.score(X, y)
+
+        try:
+            automl.score(X, y)
+        except NotImplementedError:
+            pass
 
     def test_regression(self):
         automl_experiment = AutoML()
@@ -146,7 +153,11 @@ class TestClassification:
                 y_val=y_train[n:],
                 **automl_settings
             )
-            automl_experiment.score(X_train[n:], y_train[n:])
+
+            try:
+                automl_experiment.score(X_train[n:], y_train[n:])
+            except NotImplementedError:
+                pass
 
     def _test_rank(self):
         from sklearn.externals._arff import ArffException
@@ -179,7 +190,10 @@ class TestClassification:
                 "estimator_list": [each_estimator],
             }
             automl.fit(X[:n], y[:n], **automl_settings)
-            automl.score(X[n:], y[n:])
+            try:
+                automl.score(X[n:], y[n:])
+            except NotImplementedError:
+                pass
 
     def test_transformers(self):
         train_data = {
@@ -218,23 +232,6 @@ class TestClassification:
         }
         dev_dataset = pd.DataFrame(dev_data)
 
-        test_data = {
-            "sentence1": [
-                "That compared with $ 35.18 million , or 24 cents per share , in the year-ago period .",
-                "Shares of Genentech , a much larger company with several products on the market , rose more than 2 percent .",
-                "Legislation making it harder for consumers to erase their debts in bankruptcy court won overwhelming House approval in March .",
-                "The Nasdaq composite index increased 10.73 , or 0.7 percent , to 1,514.77 .",
-            ],
-            "sentence2": [
-                "Earnings were affected by a non-recurring $ 8 million tax benefit in the year-ago period .",
-                "Shares of Xoma fell 16 percent in early trade , while shares of Genentech , a much larger company with several products on the market , were up 2 percent .",
-                "Legislation making it harder for consumers to erase their debts in bankruptcy court won speedy , House approval in March and was endorsed by the White House .",
-                "The Nasdaq Composite index , full of technology stocks , was lately up around 18 points .",
-            ],
-            "label": [0, 0, 0, 0],
-            "idx": [8, 10, 11, 12],
-        }
-
         custom_sent_keys = ["sentence1", "sentence2"]
         label_key = "label"
 
@@ -269,7 +266,11 @@ class TestClassification:
             y_val=y_val,
             **automl_settings
         )
-        automl.score(X_val, y_val)
+
+        try:
+            automl.score(X_val, y_val)
+        except NotImplementedError:
+            pass
 
 if __name__ == "__main__":
     test = TestClassification()
