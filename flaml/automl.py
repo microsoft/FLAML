@@ -698,6 +698,16 @@ class AutoML(BaseEstimator):
         """Time taken to find best model in seconds."""
         return self.__dict__.get("_time_taken_best_iter")
 
+    def score(self, X: pd.DataFrame, y: pd.Series):
+        estimator = getattr(self, "_trained_estimator", None)
+        if estimator is None:
+            logger.warning(
+                "No estimator is trained. Please run fit with enough budget."
+            )
+            return None
+        X = self._preprocess(X)
+        return estimator.score(X, y)
+
     def predict(
         self,
         X: Union[np.array, pd.DataFrame, List[str], List[List[str]]],
@@ -2113,7 +2123,8 @@ class AutoML(BaseEstimator):
                 metric = load_default_huggingface_metric_for_task(self._state.task)
             elif "binary" in self._state.task:
                 metric = "roc_auc"
-            elif "multi" in self._state.task:
+            # TODO: replace 'multi' -> 'multiclass', change all occurrence of 'multi'?
+            elif "multiclass" in self._state.task:
                 metric = "log_loss"
             elif self._state.task in TS_FORECAST:
                 metric = "mape"

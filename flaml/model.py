@@ -234,6 +234,19 @@ class BaseEstimator:
         X = self._preprocess(X)
         return self._model.predict_proba(X)
 
+    def score(self, X_val: DataFrame, y_val: Series):
+        if self._model is not None:
+            if self._task == "rank":
+                raise NotImplementedError("automl.score is not implemented for LGBMEstimator for ranking")
+            else:
+                X_val = self._preprocess(X_val)
+                return self._model.score(X_val, y_val)
+        else:
+            logger.warning(
+                "Estimator is not fit yet. Please run fit() before predict()."
+            )
+            return np.ones(X_val.shape[0])
+
     def cleanup(self):
         del self._model
         self._model = None
@@ -764,7 +777,7 @@ class TransformersEstimator(BaseEstimator):
         predictions = new_trainer.predict(test_dataset)
         return predictions.predictions
 
-    def score(self, X_val: DataFrame, y_val: Series, **kwargs):
+    def score(self, X_val: DataFrame, y_val: Series):
         """Report the evaluation score of TransformersEstimator.
 
         Args:
@@ -819,16 +832,13 @@ class TransformersEstimator(BaseEstimator):
         """
         import transformers
         from datasets import Dataset
-
         transformers.logging.set_verbosity_error()
 
-        self._metric = kwargs.get("metric", self._metric)
-
         if (self._task not in NLG_TASKS) and (self._task != TOKENCLASSIFICATION):
-            self._X_val, _ = self._preprocess(X=X_val, **kwargs)
+            self._X_val, _ = self._preprocess(X=X_val)
             self._y_val = y_val
         else:
-            self._X_val, self._y_val = self._preprocess(X=X_val, y=y_val, **kwargs)
+            self._X_val, self._y_val = self._preprocess(X=X_val, y=y_val)
 
         eval_dataset = Dataset.from_pandas(
             TransformersEstimator._join(self._X_val, self._y_val)
@@ -1756,6 +1766,11 @@ class Prophet(SKLearnEstimator):
                 "Estimator is not fit yet. Please run fit() before predict()."
             )
             return np.ones(X.shape[0])
+
+    def score(self, X_val: DataFrame, y_val: Series):
+        from sklearn.metrics import r2_score
+        y_pred = self.predict(X_val)
+        return r2_score(y_pred, y_val)
 
 
 class ARIMA(Prophet):
