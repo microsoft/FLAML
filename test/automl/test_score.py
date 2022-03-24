@@ -1,12 +1,9 @@
 from flaml import AutoML
 import pandas as pd
-from sklearn.datasets import (
-    fetch_california_housing,
-    fetch_openml
-)
+from sklearn.datasets import fetch_california_housing, fetch_openml
+
 
 class TestClassification:
-
     def test_forecast(self, budget=5):
         # using dataframe
         import statsmodels.api as sm
@@ -14,9 +11,9 @@ class TestClassification:
         data = sm.datasets.co2.load_pandas().data["co2"].resample("MS").mean()
         data = (
             data.fillna(data.bfill())
-                .to_frame()
-                .reset_index()
-                .rename(columns={"index": "ds", "co2": "y"})
+            .to_frame()
+            .reset_index()
+            .rename(columns={"index": "ds", "co2": "y"})
         )
         num_samples = data.shape[0]
         time_horizon = 12
@@ -38,10 +35,12 @@ class TestClassification:
         try:
             import prophet
 
-            automl.fit(dataframe=df,
-                       estimator_list=["prophet", "arima", "sarimax"],
-                       **settings,
-                       period=time_horizon)
+            automl.fit(
+                dataframe=df,
+                estimator_list=["prophet", "arima", "sarimax"],
+                **settings,
+                period=time_horizon,
+            )
             automl.score(X_test, y_test)
         except ImportError:
             print("not using prophet due to ImportError")
@@ -114,7 +113,16 @@ class TestClassification:
         y = pd.Series([0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1])
 
         automl = AutoML()
-        for each_estimator in ["catboost", "lrl2", "lrl1", "rf", "lgbm", "extra_tree", "kneighbor", "xgboost"]:
+        for each_estimator in [
+            "catboost",
+            "lrl2",
+            "lrl1",
+            "rf",
+            "lgbm",
+            "extra_tree",
+            "kneighbor",
+            "xgboost",
+        ]:
             automl_settings = {
                 "time_budget": 6,
                 "task": "classification",
@@ -136,7 +144,14 @@ class TestClassification:
         X_train, y_train = fetch_california_housing(return_X_y=True)
         n = int(len(y_train) * 9 // 10)
 
-        for each_estimator in ["lgbm", "xgboost", "rf", "extra_tree", "catboost", "kneighbor"]:
+        for each_estimator in [
+            "lgbm",
+            "xgboost",
+            "rf",
+            "extra_tree",
+            "catboost",
+            "kneighbor",
+        ]:
             automl_settings = {
                 "time_budget": 2,
                 "task": "regression",
@@ -151,7 +166,7 @@ class TestClassification:
                 y_train=y_train[:n],
                 X_val=X_train[n:],
                 y_val=y_train[n:],
-                **automl_settings
+                **automl_settings,
             )
 
             try:
@@ -159,7 +174,7 @@ class TestClassification:
             except NotImplementedError:
                 pass
 
-    def _test_rank(self):
+    def test_rank(self):
         from sklearn.externals._arff import ArffException
 
         dataset = "credit-g"
@@ -183,9 +198,7 @@ class TestClassification:
                 "task": "rank",
                 "log_file_name": "test/{}.log".format(dataset),
                 "model_history": True,
-                "groups": np.array(  # group labels
-                    [0] * 200 + [1] * 200 + [2] * 100
-                ),
+                "groups": np.array([0] * 200 + [1] * 200 + [2] * 100),  # group labels
                 "learner_selector": "roundrobin",
                 "estimator_list": [each_estimator],
             }
@@ -264,13 +277,14 @@ class TestClassification:
             y_train=y_train,
             X_val=X_val,
             y_val=y_val,
-            **automl_settings
+            **automl_settings,
         )
 
         try:
             automl.score(X_val, y_val, **{"metric": "accuracy"})
         except NotImplementedError:
             pass
+
 
 if __name__ == "__main__":
     test = TestClassification()

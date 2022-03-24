@@ -303,7 +303,7 @@ class BaseEstimator:
                     y_pred = self.predict(X_val, **kwargs)
                     return metric_loss_score(self._metric, y_pred, y_val)
                 else:
-                    return self._model.score(X_val, y_val)
+                    return self._model.score(X_val, y_val, **kwargs)
         else:
             logger.warning(
                 "Estimator is not fit yet. Please run fit() before predict()."
@@ -572,8 +572,6 @@ class TransformersEstimator(BaseEstimator):
                     )
                     or state.global_step >= this_params[TransformersEstimator.ITER_HP]
                 ):
-                    if budget == sys.maxsize:
-                        raise Exception("fff", budget)
                     control.should_training_stop = True
                     control.should_save = True
                     control.should_evaluate = True
