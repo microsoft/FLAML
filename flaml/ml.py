@@ -400,6 +400,7 @@ def get_val_loss(
     #     fit_kwargs['groups_val'] = groups_val
     #     fit_kwargs['X_val'] = X_val
     #     fit_kwargs['y_val'] = y_val
+
     estimator.fit(X_train, y_train, budget, **fit_kwargs)
     val_loss, metric_for_logging, pred_time, _ = _eval_estimator(
         config,
@@ -564,6 +565,10 @@ def compute_estimator(
         task=task,
         n_jobs=n_jobs,
     )
+
+    if isinstance(estimator, TransformersEstimator):
+        fit_kwargs["metric"] = eval_metric
+
     if "holdout" == eval_method:
         val_loss, metric_for_logging, train_time, pred_time = get_val_loss(
             config_dic,
@@ -607,6 +612,7 @@ def train_estimator(
     estimator_class=None,
     budget=None,
     fit_kwargs={},
+    eval_metric=None,
 ):
     start_time = time.time()
     estimator_class = estimator_class or get_estimator_class(task, estimator_name)
@@ -615,6 +621,9 @@ def train_estimator(
         task=task,
         n_jobs=n_jobs,
     )
+    if isinstance(estimator, TransformersEstimator):
+        fit_kwargs["metric"] = eval_metric
+
     if X_train is not None:
         train_time = estimator.fit(X_train, y_train, budget, **fit_kwargs)
     else:
