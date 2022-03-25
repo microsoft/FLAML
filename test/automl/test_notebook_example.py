@@ -1,5 +1,4 @@
 import sys
-from sklearn.metrics import accuracy_score
 from openml.exceptions import OpenMLServerException
 from requests.exceptions import ChunkedEncodingError
 

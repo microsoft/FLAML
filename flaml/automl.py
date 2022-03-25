@@ -115,6 +115,7 @@ class SearchState:
         self._hp_names = list(self._search_space_domain.keys())
         self.search_alg = None
         self.best_config = None
+        self.best_result = None
         self.best_loss = self.best_loss_old = np.inf
         self.total_time_used = 0
         self.total_iter = 0
@@ -157,6 +158,7 @@ class SearchState:
         if (obj is not None) and (self.best_loss is None or obj < self.best_loss):
             self.best_loss_old = self.best_loss if self.best_loss < np.inf else 2 * obj
             self.best_loss = obj
+            self.best_result = result
             self.time_best_found_old = self.time_best_found
             self.time_best_found = self.total_time_used
             self.iter_best_found = self.total_iter
@@ -662,6 +664,20 @@ class AutoML(BaseEstimator):
     def best_loss(self):
         """A float of the best loss found."""
         return self._state.best_loss
+
+    @property
+    def best_result(self):
+        """Result dictionary for model trained with the best config."""
+        return self._search_states[self._best_estimator].best_result
+
+    @property
+    def metrics_for_best_config(self):
+        """Returns a float of the best loss, and a dictionary of the auxiliary metrics to log
+        associated with the best config. These two objects correspond to the returned
+        objects by the customized metric function for the config with the best loss."""
+        return self._state.best_loss, self._search_states[
+            self._best_estimator
+        ].best_result.get("metric_for_logging")
 
     @property
     def best_config_train_time(self):
