@@ -104,7 +104,6 @@ def report(_metric=None, **kwargs):
             del result["config"][INCUMBENT_RESULT]
         for key, value in trial.config.items():
             result["config/" + key] = value
-        result["time_total_s"] = trial.last_update_time - trial.start_time
         _runner.process_trial_result(trial, result)
         if _verbose > 2:
             logger.info(f"result: {result}")
