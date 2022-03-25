@@ -237,7 +237,8 @@ class BaseEstimator:
         return self._model.predict_proba(X)
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
-        """Report the evaluation score of BaseEstimator.
+        """Report the evaluation score of a trained estimator.
+
 
         Args:
             X_val: A pandas dataframe of the validation input data.
