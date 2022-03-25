@@ -88,7 +88,9 @@ class BaseEstimator:
 
         Args:
             task: A string of the task type, one of
-                'binary', 'multiclass', 'regression', 'rank', 'forecast'.
+                'binary', 'multiclass', 'regression', 'rank', 'forecast', 'seq-classification',
+                'seq-regression', 'token-classification', 'multichoice-classification',
+                'summarization'
             config: A dictionary containing the hyperparameter names, 'n_jobs' as keys.
                 n_jobs is the number of parallel threads.
         """
@@ -235,7 +237,7 @@ class BaseEstimator:
         return self._model.predict_proba(X)
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
-        """Report the evaluation score of TransformersEstimator.
+        """Report the evaluation score of BaseEstimator.
 
         Args:
             X_val: A pandas dataframe of the validation input data.
@@ -245,8 +247,9 @@ class BaseEstimator:
                 e.g., 'accuracy', 'roc_auc', 'roc_auc_ovr', 'roc_auc_ovo',
                 'f1', 'micro_f1', 'macro_f1', 'log_loss', 'mae', 'mse', 'r2',
                 'mape'. Default is 'auto'.
-                If metric is given, the score will report the user specified metric
-                If metric is not given, the metric is set to accuracy for classification and r2 for regression
+                If metric is given, the score will report the user specified metric.
+                If metric is not given, the metric is set to accuracy for classification and r2
+                for regression.
                 If passing a customized metric function, the function needs to
                 have the following signature:
             ```python
@@ -293,22 +296,20 @@ class BaseEstimator:
 
         if self._model is not None:
             if self._task == "rank":
-                raise NotImplementedError(
-                    "automl.score is not implemented for LGBMEstimator for ranking"
-                )
+                raise NotImplementedError("automl.score is not implemented for ranking")
             else:
                 X_val = self._preprocess(X_val)
-                self._metric = kwargs.get("metric", None)
-                if self._metric:
+                metric = kwargs.get("metric", None)
+                if metric:
                     y_pred = self.predict(X_val, **kwargs)
-                    return metric_loss_score(self._metric, y_pred, y_val)
+                    return 1.0 - metric_loss_score(metric, y_pred, y_val)
                 else:
                     return self._model.score(X_val, y_val, **kwargs)
         else:
             logger.warning(
                 "Estimator is not fit yet. Please run fit() before predict()."
             )
-            return np.ones(X_val.shape[0])
+            return 0.0
 
     def cleanup(self):
         del self._model

@@ -14,7 +14,7 @@
     - 'rank': learning to rank.
     - 'seq-classification': sequence classification.
     - 'seq-regression': sequence regression.
-    - 'multiplechoice-classification': multiple choice classification.
+    - 'multiplechoice-classification': multipe choice classification.
     - 'summarization': text summarization.
 
 An optional input is `time_budget` for searching models and hyperparameters. When not specified, a default budget of 60 seconds will be used.

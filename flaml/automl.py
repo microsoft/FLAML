@@ -300,8 +300,6 @@ class AutoMLState:
         config_w_resource,
         sample_size=None,
     ):
-        import sys
-
         if not sample_size:
             sample_size = config_w_resource.get(
                 "FLAML_sample_size", len(self.y_train_all)

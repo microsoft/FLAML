@@ -93,6 +93,14 @@ def test_custom_metric():
 
     # testing when max_iter=1 and do retrain only without hpo
 
+    try:
+        import ray
+
+        if not ray.is_initialized():
+            ray.init()
+    except ImportError:
+        return
+
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 1,
@@ -100,6 +108,7 @@ def test_custom_metric():
         "task": "seq-classification",
         "metric": custom_metric,
         "log_file_name": "seqclass.log",
+        "use_ray": {"local_dir": "data/outut/"},
     }
 
     automl_settings["hf_args"] = {
