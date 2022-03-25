@@ -286,7 +286,7 @@ class DataTransformer:
                     if X[column].nunique() == 1:
                         X.drop(columns=column, inplace=True)
                         drop = True
-                    elif X[column].nunique(dropna=True) >= int((n - X[column].isnull().sum()) * 0.1):
+                    elif X[column].nunique(dropna=True) >= int((n - X[column].isnull().sum()) * 0.9):
                     # NOTE: here a threshold is applied for distinguishing str vs. cat 
                     # if no threshold wanted = requires every non-nan str entry to be different
                     # delete the line above and uncomment below
