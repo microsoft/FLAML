@@ -250,9 +250,9 @@ class BaseEstimator:
                 If metric is given, the score will report the user specified metric.
                 If metric is not given, the metric is set to accuracy for classification and r2
                 for regression.
-                You can also pass a customized metric function, for examples on how to pass
+                You can also pass a customized metric function, for examples on how to pass a
                 customized metric function, please check test/nlp/test_autohf_custom_metric.py and
-                test/automl/test_multiclass.py
+                test/automl/test_multiclass.py.
 
                 ```
 
