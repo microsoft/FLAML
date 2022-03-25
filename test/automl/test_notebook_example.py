@@ -8,8 +8,9 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     from flaml.data import load_openml_dataset
     import urllib3
 
-    if sys.platform == "darwin":
-        budget = 60  # revise the buget on macos
+    performance_check_budget = 120
+    if sys.platform == "darwin" and budget < performance_check_budget:
+        budget = performance_check_budget  # revise the buget on macos
     try:
         X_train, X_test, y_train, y_test = load_openml_dataset(
             dataset_id=1169, data_dir="test/", dataset_format=dataset_format
@@ -63,7 +64,7 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
         "roc_auc", "=", 1 - sklearn_metric_loss_score("roc_auc", y_pred_proba, y_test)
     )
     print("log_loss", "=", sklearn_metric_loss_score("log_loss", y_pred_proba, y_test))
-    if budget >= 60:
+    if budget >= performance_check_budget:
         assert accuracy >= 0.67, "the accuracy of flaml should be larger than 0.67"
     from flaml.data import get_output_from_log
 
@@ -135,4 +136,4 @@ def test_mlflow():
 
 
 if __name__ == "__main__":
-    test_automl(60)
+    test_automl(120)
