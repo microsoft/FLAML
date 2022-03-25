@@ -220,9 +220,7 @@ def is_in_sklearn_metric_name_set(metric_name):
 
 
 def is_min_metric(metric_name):
-    if metric_name in ["rmse", "mae", "mse", "log_loss", "mape"]:
-        return True
-    return False
+    return metric_name in ["rmse", "mae", "mse", "log_loss", "mape"]
 
 
 def sklearn_metric_loss_score(
