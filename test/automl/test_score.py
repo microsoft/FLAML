@@ -42,6 +42,7 @@ class TestScore:
                 period=time_horizon,
             )
             automl.score(X_test, y_test)
+            automl.pickle("automl.pkl")
         except ImportError:
             print("not using prophet due to ImportError")
             automl.fit(
@@ -51,6 +52,7 @@ class TestScore:
                 period=time_horizon,
             )
             automl.score(X_test, y_test)
+            automl.pickle("automl.pkl")
 
     def test_classification(self):
         X = pd.DataFrame(
@@ -128,8 +130,12 @@ class TestScore:
                 "log_training_metric": True,
             }
         automl.score(X, y)  # for covering the case no estimator is trained
+
         automl.fit(X, y, **automl_settings)
+        automl.score(X, y)
         automl.score(X, y, **{"metric": "accuracy"})
+
+        automl.pickle("automl.pkl")
 
     def test_regression(self):
         automl_experiment = AutoML()
@@ -163,6 +169,7 @@ class TestScore:
             )
 
             automl_experiment.score(X_train[n:], y_train[n:], **{"metric": "mse"})
+            automl_experiment.pickle("automl.pkl")
 
     def test_rank(self):
         from sklearn.externals._arff import ArffException
@@ -195,10 +202,11 @@ class TestScore:
             automl.fit(X[:n], y[:n], **automl_settings)
             try:
                 automl.score(X[n:], y[n:])
+                automl.pickle("automl.pkl")
             except NotImplementedError:
                 pass
 
 
 if __name__ == "__main__":
     test = TestScore()
-    test.test_regression()
+    test.test_forecast()

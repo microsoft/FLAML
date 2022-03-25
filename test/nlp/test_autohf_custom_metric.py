@@ -136,6 +136,7 @@ def test_custom_metric():
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
     )
     automl.score(X_val, y_val, **{"metric": custom_metric})
+    automl.pickle("automl.pkl")
 
     del automl
 
