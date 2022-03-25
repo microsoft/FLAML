@@ -5,6 +5,8 @@ from sklearn.datasets import fetch_california_housing, fetch_openml
 
 class TestScore:
     def test_forecast(self, budget=5):
+        import pickle
+
         # using dataframe
         import statsmodels.api as sm
 
@@ -43,6 +45,8 @@ class TestScore:
             )
             automl.score(X_test, y_test)
             automl.pickle("automl.pkl")
+            with open("automl.pkl", "rb") as f:
+                pickle.load(f)
         except ImportError:
             print("not using prophet due to ImportError")
             automl.fit(
@@ -53,6 +57,8 @@ class TestScore:
             )
             automl.score(X_test, y_test)
             automl.pickle("automl.pkl")
+            with open("automl.pkl", "rb") as f:
+                pickle.load(f)
 
     def test_classification(self):
         X = pd.DataFrame(
