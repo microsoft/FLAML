@@ -219,6 +219,12 @@ def is_in_sklearn_metric_name_set(metric_name):
     return metric_name.startswith("ndcg") or metric_name in sklearn_metric_name_set
 
 
+def is_min_metric(metric_name):
+    if metric_name in ["rmse", "mae", "mse", "log_loss", "mape"]:
+        return True
+    return False
+
+
 def sklearn_metric_loss_score(
     metric_name,
     y_predict,

@@ -129,7 +129,7 @@ class TestClassification:
             }
         automl.score(X, y)  # for covering the case no estimator is trained
         automl.fit(X, y, **automl_settings)
-        automl.score(X, y)
+        automl.score(X, y, **{"metric": "accuracy"})
 
     def test_regression(self):
         automl_experiment = AutoML()
@@ -162,7 +162,7 @@ class TestClassification:
                 **automl_settings,
             )
 
-            automl_experiment.score(X_train[n:], y_train[n:])
+            automl_experiment.score(X_train[n:], y_train[n:], **{"metric": "mse"})
 
     def test_rank(self):
         from sklearn.externals._arff import ArffException
@@ -201,4 +201,4 @@ class TestClassification:
 
 if __name__ == "__main__":
     test = TestClassification()
-    test.test_classification()
+    test.test_regression()

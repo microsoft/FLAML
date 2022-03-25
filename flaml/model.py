@@ -88,9 +88,9 @@ class BaseEstimator:
 
         Args:
             task: A string of the task type, one of
-                'binary', 'multiclass', 'regression', 'rank', 'forecast', 'seq-classification',
-                'seq-regression', 'token-classification', 'multichoice-classification',
-                'summarization'
+                'binary', 'multiclass', 'regression', 'rank', 'seq-classification',
+                'seq-regression', 'token-classification', 'multichoice-classification', 'ts_forecast', 'ts_forecast_classification'.
+                'summarization', 'ts_forecast', 'ts_forecast_classification'.
             config: A dictionary containing the hyperparameter names, 'n_jobs' as keys.
                 n_jobs is the number of parallel threads.
         """
@@ -250,59 +250,32 @@ class BaseEstimator:
                 If metric is given, the score will report the user specified metric.
                 If metric is not given, the metric is set to accuracy for classification and r2
                 for regression.
-                If passing a customized metric function, the function needs to
-                have the following signature:
-            ```python
-                def custom_metric(
-                    X_test,
-                    y_test,
-                    estimator,
-                    labels,
-                    X_train,
-                    y_train,
-                    weight_test=None,
-                    weight_train=None,
-                    config=None,
-                    groups_test=None,
-                    groups_train=None,
-                ):
-                    from datasets import Dataset
-                    from flaml.model import TransformersEstimator
+                You can also pass a customized metric function, for examples on how to pass
+                customized metric function, please check test/nlp/test_autohf_custom_metric.py and
+                test/automl/test_multiclass.py
 
-                    if estimator._trainer is None:
-                        trainer, _ = estimator._init_model_for_predict()
-                        estimator._trainer = None
-                    else:
-                        trainer = estimator._trainer
-                    if y_test is not None:
-                        X_test, _ = estimator._preprocess(X_test)
-                        eval_dataset = Dataset.from_pandas(TransformersEstimator._join(X_test, y_test))
-                    else:
-                        X_test, _ = estimator._preprocess(X_test)
-                        eval_dataset = Dataset.from_pandas(X_test)
-
-                    estimator_metric_backup = estimator._metric
-                    estimator._metric = "rmse"
-                    metrics = trainer.evaluate(eval_dataset)
-                    estimator._metric = estimator_metric_backup
-
-                    return metrics.pop("eval_automl_metric"), metrics
                 ```
 
         Returns:
             The evaluation score on the validation dataset.
         """
         from .ml import metric_loss_score
+        from .ml import is_min_metric
 
         if self._model is not None:
             if self._task == "rank":
-                raise NotImplementedError("automl.score is not implemented for ranking")
+                raise NotImplementedError(
+                    "AutoML.score() is not implemented for ranking"
+                )
             else:
                 X_val = self._preprocess(X_val)
                 metric = kwargs.get("metric", None)
                 if metric:
                     y_pred = self.predict(X_val, **kwargs)
-                    return 1.0 - metric_loss_score(metric, y_pred, y_val)
+                    if is_min_metric(metric):
+                        return metric_loss_score(metric, y_pred, y_val)
+                    else:
+                        return 1.0 - metric_loss_score(metric, y_pred, y_val)
                 else:
                     return self._model.score(X_val, y_val, **kwargs)
         else:
