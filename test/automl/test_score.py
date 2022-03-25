@@ -3,7 +3,7 @@ import pandas as pd
 from sklearn.datasets import fetch_california_housing, fetch_openml
 
 
-class TestClassification:
+class TestScore:
     def test_forecast(self, budget=5):
         # using dataframe
         import statsmodels.api as sm
@@ -200,5 +200,5 @@ class TestClassification:
 
 
 if __name__ == "__main__":
-    test = TestClassification()
+    test = TestScore()
     test.test_regression()

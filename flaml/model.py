@@ -89,7 +89,7 @@ class BaseEstimator:
         Args:
             task: A string of the task type, one of
                 'binary', 'multiclass', 'regression', 'rank', 'seq-classification',
-                'seq-regression', 'token-classification', 'multichoice-classification', 'ts_forecast', 'ts_forecast_classification'.
+                'seq-regression', 'token-classification', 'multichoice-classification',
                 'summarization', 'ts_forecast', 'ts_forecast_classification'.
             config: A dictionary containing the hyperparameter names, 'n_jobs' as keys.
                 n_jobs is the number of parallel threads.
@@ -251,8 +251,9 @@ class BaseEstimator:
                 If metric is not given, the metric is set to accuracy for classification and r2
                 for regression.
                 You can also pass a customized metric function, for examples on how to pass a
-                customized metric function, please check test/nlp/test_autohf_custom_metric.py and
-                test/automl/test_multiclass.py.
+                customized metric function, please check
+                [test/nlp/test_autohf_custom_metric.py](https://github.com/microsoft/FLAML/blob/main/test/nlp/test_autohf_custom_metric.py) and
+                [test/automl/test_multiclass.py](https://github.com/microsoft/FLAML/blob/main/test/automl/test_multiclass.py).
 
                 ```
 
