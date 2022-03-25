@@ -641,8 +641,6 @@ class AGArgs:
         text_backbone (str, optional, defaults to "electra_base"): the text backbone model.
         multimodal_fusion_strategy (str, optional, defaults to "fuse_late"): the fuse strategy.
     """
-    from autogluon.text.text_prediction.legacy_presets import ag_text_presets
-
     output_dir: str = field(
         default="data/mm/output/", metadata={"help": "data dir", "required": True}
     )
