@@ -1650,8 +1650,12 @@ class AutoML(BaseEstimator):
         estimator_to_training_function = {}
         for estimator in self.estimator_list:
             search_state = self._search_states[estimator]
-            estimator_to_training_function[estimator] = search_state.training_function
-            del search_state.training_function
+            if hasattr(search_state, "training_function"):
+                estimator_to_training_function[
+                    estimator
+                ] = search_state.training_function
+                del search_state.training_function
+
         with open(output_file_name, "wb") as f:
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
 
