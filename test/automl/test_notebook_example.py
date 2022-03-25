@@ -8,7 +8,7 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     from flaml.data import load_openml_dataset
     import urllib3
 
-    performance_check_budget = 120
+    performance_check_budget = 240
     if sys.platform == "darwin" and budget < performance_check_budget:
         budget = performance_check_budget  # revise the buget on macos
     try:
@@ -33,6 +33,7 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
         "log_file_name": "airlines_experiment.log",  # flaml log file
         "seed": 7654321,  # random seed
         "hpo_method": hpo_method,
+        "n_jobs": 1,
     }
     """The main flaml automl API"""
     automl.fit(X_train=X_train, y_train=y_train, **settings)
@@ -66,21 +67,21 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     print("log_loss", "=", sklearn_metric_loss_score("log_loss", y_pred_proba, y_test))
     if budget >= performance_check_budget:
         assert accuracy >= 0.669, "the accuracy of flaml should be larger than 0.67"
-    from flaml.data import get_output_from_log
+    # from flaml.data import get_output_from_log
 
-    (
-        time_history,
-        best_valid_loss_history,
-        valid_loss_history,
-        config_history,
-        metric_history,
-    ) = get_output_from_log(filename=settings["log_file_name"], time_budget=6)
-    for config in config_history:
-        print(config)
-    print(automl.resource_attr)
-    print(automl.max_resource)
-    print(automl.min_resource)
-    automl.fit(X_train=X_train, y_train=y_train, ensemble=True, **settings)
+    # (
+    #     time_history,
+    #     best_valid_loss_history,
+    #     valid_loss_history,
+    #     config_history,
+    #     metric_history,
+    # ) = get_output_from_log(filename=settings["log_file_name"], time_budget=6)
+    # for config in config_history:
+    #     print(config)
+    # print(automl.resource_attr)
+    # print(automl.max_resource)
+    # print(automl.min_resource)
+    # automl.fit(X_train=X_train, y_train=y_train, ensemble=True, **settings)
 
 
 def test_automl_array():
@@ -136,4 +137,4 @@ def test_mlflow():
 
 
 if __name__ == "__main__":
-    test_automl(120)
+    test_automl(240)
