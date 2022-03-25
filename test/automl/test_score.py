@@ -4,7 +4,7 @@ from sklearn.datasets import fetch_california_housing, fetch_openml
 
 
 class TestScore:
-    def test_forecast(self, budget=5):
+    def test_forecast(self, budget=10):
         import pickle
 
         # using dataframe
