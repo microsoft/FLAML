@@ -261,10 +261,6 @@ def tokenize_row(
     hf_args=None,
     return_column_name=False,
 ):
-    assert (
-        "max_seq_length" in hf_args.__dict__
-    ), "max_seq_length must be provided for glue"
-
     if prefix:
         this_row = tuple(["".join(x) for x in zip(prefix, this_row)])
 
@@ -272,7 +268,7 @@ def tokenize_row(
     tokenized_example = tokenizer(
         *tuple(this_row),
         padding="max_length",
-        max_length=hf_args.max_seq_length,
+        max_length=hf_args.max_seq_length if hf_args else None,
         truncation=True,
     )
     if task in NLG_TASKS:
@@ -324,7 +320,7 @@ def tokenize_swag(this_row, tokenizer, hf_args=None, return_column_name=False):
     tokenized_example = tokenizer(
         *tuple([first_sentences, second_sentences]),
         truncation=True,
-        max_length=hf_args.max_seq_length,
+        max_length=hf_args.max_seq_length if hf_args else None,
         padding=False,
     )
     tmp_column_names = sorted(tokenized_example.keys())
