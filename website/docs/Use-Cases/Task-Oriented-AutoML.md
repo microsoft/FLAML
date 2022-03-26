@@ -275,11 +275,11 @@ Users need to provide a list of such constraints in the following format:
 Each element in this list is a 3-tuple, which shall be expressed
 in the following format: the first element of the 3-tuple is the name of the
 metric, the second element is the inequality sign chosen from ">=" and "<=",
-and the third element is the constraint value. E.g., `('val_loss', '<=', 0.05)`.
+and the third element is the constraint value. E.g., `('val_loss', '<=', 0.1)`.
 
 For example,
 ```python
-metric_constraints = [("train_loss", "<=", 0.05), ("val_loss", "<=", 0.05)]
+metric_constraints = [("train_loss", "<=", 0.1), ("val_loss", "<=", 0.1)]
 automl.fit(X_train, y_train, max_iter=100, train_time_limit=1, metric_constraints=metric_constraints)
 ```
 

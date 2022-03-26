@@ -7,7 +7,7 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     from flaml.data import load_openml_dataset
     import urllib3
 
-    performance_check_budget = 240
+    performance_check_budget = 120
     if sys.platform == "darwin" and budget < performance_check_budget:
         budget = performance_check_budget  # revise the buget on macos
     try:
@@ -135,4 +135,4 @@ def test_mlflow():
 
 
 if __name__ == "__main__":
-    test_automl(240)
+    test_automl(120)
