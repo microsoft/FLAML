@@ -663,16 +663,16 @@ class AutoML(BaseEstimator):
     @property
     def best_result(self):
         """Result dictionary for model trained with the best config."""
-        return self._search_states[self._best_estimator].best_result
+        return getattr(self._search_states[self._best_estimator], "best_result", None)
 
     @property
     def metrics_for_best_config(self):
         """Returns a float of the best loss, and a dictionary of the auxiliary metrics to log
         associated with the best config. These two objects correspond to the returned
         objects by the customized metric function for the config with the best loss."""
-        return self._state.best_loss, self._search_states[
-            self._best_estimator
-        ].best_result.get("metric_for_logging")
+        return self._state.best_loss, getattr(
+            self._search_states[self._best_estimator], "best_result", {}
+        ).get("metric_for_logging")
 
     @property
     def best_config_train_time(self):
