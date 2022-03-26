@@ -12,6 +12,7 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
         sys.platform == "darwin"
         and budget < performance_check_budget
         and dataset_format == "dataframe"
+        and "3.9" in sys.version
     ):
         budget = performance_check_budget  # revise the buget on macos
     try:
