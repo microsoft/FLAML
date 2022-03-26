@@ -274,6 +274,7 @@ def tokenize_row(
     if task in NLG_TASKS:
         tokenized_example["decoder_input_ids"] = tokenized_example["input_ids"]
     tmp_column_names = sorted(tokenized_example.keys())
+
     if return_column_name:
         return [tokenized_example[x] for x in tmp_column_names], tmp_column_names
     else:
@@ -438,7 +439,7 @@ class Counter:
         return logdir
 
 
-def load_model(checkpoint_path, task, num_labels, per_model_config=None):
+def load_model(checkpoint_path, task, num_labels=None, per_model_config=None):
     import transformers
 
     transformers.logging.set_verbosity_error()
@@ -450,7 +451,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
     )
     from ..data import SEQCLASSIFICATION, SEQREGRESSION, TOKENCLASSIFICATION
 
-    def get_this_model(task, model_config):
+    def get_this_model(checkpoint_path, task, model_config):
         from transformers import AutoModelForSequenceClassification
         from transformers import AutoModelForSeq2SeqLM
         from transformers import AutoModelForMultipleChoice
@@ -524,9 +525,9 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
                     )
                 )
             else:
-                this_model = get_this_model(task, new_config)
+                this_model = get_this_model(checkpoint_path, task, new_config)
         else:
-            this_model = get_this_model(task, new_config)
+            this_model = get_this_model(checkpoint_path, task, new_config)
         this_model.resize_token_embeddings(this_vocab_size)
         return this_model
     else:
@@ -535,7 +536,7 @@ def load_model(checkpoint_path, task, num_labels, per_model_config=None):
         elif task == TOKENCLASSIFICATION:
             model_config_num_labels = num_labels
         model_config = _set_model_config(checkpoint_path)
-        this_model = get_this_model(task, model_config)
+        this_model = get_this_model(checkpoint_path, task, model_config)
         return this_model
 
 
@@ -569,6 +570,8 @@ class HFArgs:
         max_seq_length (int, optional, defaults to 128): An integer, the max length of the sequence.
         ckpt_per_epoch (int, optional, defaults to 1): An integer, the number of checkpoints per epoch.
     """
+
+    task: str = field(default="seq-classification")
 
     output_dir: str = field(
         default="data/output/", metadata={"help": "data dir", "required": True}
@@ -604,8 +607,12 @@ class HFArgs:
         metadata={"help": "per gpu evaluation batch size"},
     )
 
+    def __init__(self, task):
+        if task in NLG_TASKS:
+            HFArgs.model_path = "t5-small"
+
     @staticmethod
-    def load_args():
+    def load_args_from_console():
         from dataclasses import fields
 
         arg_parser = argparse.ArgumentParser()
