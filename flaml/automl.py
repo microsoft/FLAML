@@ -2338,7 +2338,7 @@ class AutoML(BaseEstimator):
         try:
             from ray import __version__ as ray_version
 
-            assert ray_version >= "1.0.0"
+            assert ray_version >= "1.10.0"
             import ray
             from ray.tune.suggest import ConcurrencyLimiter
         except (ImportError, AssertionError):
@@ -2357,7 +2357,7 @@ class AutoML(BaseEstimator):
             try:
                 from ray import __version__ as ray_version
 
-                assert ray_version >= "1.0.0"
+                assert ray_version >= "1.10.0"
                 from ray.tune.suggest.optuna import OptunaSearch as SearchAlgo
             except (ImportError, AssertionError):
                 from .searcher.suggestion import OptunaSearch as SearchAlgo
@@ -2526,7 +2526,7 @@ class AutoML(BaseEstimator):
         try:
             from ray import __version__ as ray_version
 
-            assert ray_version >= "1.0.0"
+            assert ray_version >= "1.10.0"
             from ray.tune.suggest import ConcurrencyLimiter
         except (ImportError, AssertionError):
             from .searcher.suggestion import ConcurrencyLimiter
@@ -2536,7 +2536,7 @@ class AutoML(BaseEstimator):
             try:
                 from ray import __version__ as ray_version
 
-                assert ray_version >= "1.0.0"
+                assert ray_version >= "1.10.0"
                 from ray.tune.suggest.optuna import OptunaSearch as SearchAlgo
             except (ImportError, AssertionError):
                 from .searcher.suggestion import OptunaSearch as SearchAlgo
