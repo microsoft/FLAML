@@ -8,7 +8,11 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     import urllib3
 
     performance_check_budget = 240
-    if sys.platform == "darwin" and budget < performance_check_budget:
+    if (
+        sys.platform == "darwin"
+        and budget < performance_check_budget
+        and dataset_format == "dataframe"
+    ):
         budget = performance_check_budget  # revise the buget on macos
     try:
         X_train, X_test, y_train, y_test = load_openml_dataset(
