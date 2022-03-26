@@ -32,7 +32,6 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
         "log_file_name": "airlines_experiment.log",  # flaml log file
         "seed": 7654321,  # random seed
         "hpo_method": hpo_method,
-        "n_jobs": 1,
     }
     """The main flaml automl API"""
     automl.fit(X_train=X_train, y_train=y_train, **settings)
