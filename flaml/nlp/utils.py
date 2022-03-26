@@ -607,8 +607,8 @@ class HFArgs:
         metadata={"help": "per gpu evaluation batch size"},
     )
 
-    def __init__(self, task):
-        if task in NLG_TASKS:
+    def __post_init__(self):
+        if self.task in NLG_TASKS:
             HFArgs.model_path = "t5-small"
 
     @staticmethod

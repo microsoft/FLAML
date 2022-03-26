@@ -407,8 +407,8 @@ class TransformersEstimator(BaseEstimator):
     def _init_hf_args(self, automl_fit_kwargs: dict = None):
         from .nlp.utils import HFArgs
 
-        hf_args = HFArgs(self._task)
-        fit_kwargs = automl_fit_kwargs.get("hf_args")
+        hf_args = HFArgs(task=self._task)
+        fit_kwargs = automl_fit_kwargs.get("hf_args", None)
         if fit_kwargs:
             for key, val in fit_kwargs.items():
                 assert (
