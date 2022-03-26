@@ -516,7 +516,7 @@ def load_model(checkpoint_path, task, num_labels=None, per_model_config=None):
 
         if is_pretrained_model_in_classification_head_list(this_model_type):
             if num_labels != num_labels_old:
-                this_model = get_this_model(task, new_config)
+                this_model = get_this_model(checkpoint_path, task, new_config)
                 new_config.num_labels = num_labels
                 this_model.num_labels = num_labels
                 this_model.classifier = (
