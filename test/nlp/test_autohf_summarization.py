@@ -65,7 +65,6 @@ def test_summarization():
         "fp16": False,
     }
 
-    raise Exception(type(y_train))
     try:
         automl.fit(
             X_train=X_train,
