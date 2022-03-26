@@ -18,6 +18,7 @@ except (ImportError, AssertionError):
     ray_import = False
     from .analysis import ExperimentAnalysis as EA
 
+from .trial import Trial
 from .result import DEFAULT_METRIC
 import logging
 
@@ -155,6 +156,9 @@ def run(
         metric2minimize = (round(config['x'])-95000)**2
         time2eval = time.time() - current_time
         tune.report(metric2minimize=metric2minimize, time2eval=time2eval)
+        # if the evaluation fails unexpectedly and the exception is caught,
+        # return {} when not using ray
+        # raise the error when using ray
 
     analysis = tune.run(
         compute_with_config,
@@ -452,7 +456,11 @@ def run(
             result = evaluation_function(trial_to_run.config)
             if result is not None:
                 if isinstance(result, dict):
-                    report(**result)
+                    if result:
+                        report(**result)
+                    else:
+                        # When the result returned is an empty dict, set the trial status to error
+                        trial_to_run.set_status(Trial.ERROR)
                 else:
                     report(_metric=result)
             _runner.stop_trial(trial_to_run)
