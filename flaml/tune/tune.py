@@ -157,8 +157,7 @@ def run(
         time2eval = time.time() - current_time
         tune.report(metric2minimize=metric2minimize, time2eval=time2eval)
         # if the evaluation fails unexpectedly and the exception is caught,
-        # return {} when not using ray
-        # raise the error when using ray
+        # return {}
 
     analysis = tune.run(
         compute_with_config,
