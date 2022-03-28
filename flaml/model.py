@@ -2194,14 +2194,10 @@ class MultiModalEstimator(BaseEstimator):
                 search_space[key] = value.item()
             else:
                 search_space[key] = value
-        PROBLEM_TYPE_MAPPING = {"binary": "binary",
-                                "multi": "multiclass",
-                                "regression": "regression"
-        }
         start_time = time.time()
         self._model = TextPredictor(path=self.ag_args.output_dir,
                                     label="label",
-                                    problem_type=PROBLEM_TYPE_MAPPING[self._task],
+                                    problem_type=self._task,
                                     eval_metric=kwargs["metric"],
                                     backend=self.ag_args.backend)
         train_data = TransformersEstimator._join(X_train, y_train)
