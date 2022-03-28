@@ -158,6 +158,9 @@ def run(
         # if the evaluation fails unexpectedly and the exception is caught,
         # and it doesn't inform the goodness of the config,
         # return {}
+        # if the failure indicates a config is bad,
+        # report a bad metric value like np.inf or -np.inf
+        # depending on metric mode being min or max
 
     analysis = tune.run(
         compute_with_config,
