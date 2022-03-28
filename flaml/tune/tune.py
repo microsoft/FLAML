@@ -156,6 +156,7 @@ def run(
         time2eval = time.time() - current_time
         tune.report(metric2minimize=metric2minimize, time2eval=time2eval)
         # if the evaluation fails unexpectedly and the exception is caught,
+        # and it doesn't inform the goodness of the config,
         # return {}
 
     analysis = tune.run(
