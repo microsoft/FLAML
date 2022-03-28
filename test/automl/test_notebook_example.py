@@ -9,7 +9,7 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
 
     performance_check_budget = 240
     if (
-        sys.platform == "linux"
+        sys.platform == "darwin"
         and budget < performance_check_budget
         and dataset_format == "dataframe"
         and "3.9" in sys.version
