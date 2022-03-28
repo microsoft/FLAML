@@ -222,6 +222,13 @@ def is_in_sklearn_metric_name_set(metric_name):
     return metric_name.startswith("ndcg") or metric_name in sklearn_metric_name_set
 
 
+def is_min_metric(metric_name):
+    return (
+        metric_name in ["rmse", "mae", "mse", "log_loss", "mape"]
+        or huggingface_metric_to_mode.get(metric_name, None) == "min"
+    )
+
+
 def sklearn_metric_loss_score(
     metric_name,
     y_predict,
@@ -568,7 +575,9 @@ def compute_estimator(
 
     if isinstance(estimator, TransformersEstimator):
         fit_kwargs["metric"] = eval_metric
-    
+        fit_kwargs["X_val"] = X_val
+        fit_kwargs["y_val"] = y_val
+
     elif isinstance(estimator, MultiModalEstimator):
         fit_kwargs["metric"] = eval_metric
 
@@ -639,7 +648,7 @@ def get_classification_objective(num_labels: int) -> str:
     if num_labels == 2:
         objective_name = "binary"
     else:
-        objective_name = "multi"
+        objective_name = "multiclass"
     return objective_name
 
 

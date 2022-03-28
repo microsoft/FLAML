@@ -10,7 +10,7 @@ import time
 try:
     from ray import __version__ as ray_version
 
-    assert ray_version >= "1.0.0"
+    assert ray_version >= "1.10.0"
     from ray.tune.analysis import ExperimentAnalysis as EA
 
     ray_import = True
@@ -105,7 +105,6 @@ def report(_metric=None, **kwargs):
         for key, value in trial.config.items():
             result["config/" + key] = value
         _runner.process_trial_result(trial, result)
-        result["time_total_s"] = trial.last_update_time - trial.start_time
         if _verbose > 2:
             logger.info(f"result: {result}")
         if trial.is_finished():
