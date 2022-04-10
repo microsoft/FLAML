@@ -1,10 +1,9 @@
-from ..utils import (
-    get_toy_data_seqclassification,
-    get_automl_settings
-)
+from utils import get_toy_data_seqclassification, get_automl_settings
+
 
 def test_points_to_evaluate():
     from flaml import AutoML
+
     X_train, y_train, X_val, y_val = get_toy_data_seqclassification()
 
     automl = AutoML()
@@ -12,6 +11,7 @@ def test_points_to_evaluate():
     automl_settings["starting_points"] = "data"
 
     automl.fit(X_train, y_train, **automl_settings)
+
 
 def test_zero_shot_model(model_path):
     from flaml.default import preprocess_and_suggest_hyperparams
@@ -23,7 +23,7 @@ def test_zero_shot_model(model_path):
     )
     trainer = estimator_class(**hyperparams)  # estimator_class is Trainer
     trainer.train()  # LGBMClassifier can handle raw labels
-    y_pred = trainer.predict(X_val)
+
 
 def test_zero_shot_nomodel():
     from flaml.default import preprocess_and_suggest_hyperparams
@@ -34,6 +34,5 @@ def test_zero_shot_nomodel():
         "seq-classification", X_train, y_train, "transformer_ms"
     )
 
-    model = estimator_class(**hyperparams) # estimator_class is Trainer
+    model = estimator_class(**hyperparams)  # estimator_class is Trainer
     model.fit(X_train, y_train)  # LGBMClassifier can handle raw labels
-    y_pred = model.predict(X_val)
