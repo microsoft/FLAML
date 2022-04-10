@@ -1,16 +1,21 @@
 import sys
 import pytest
-from .utils import (
-    get_toy_data_multiplechoiceclassification,
-    get_automl_settings
-)
+from utils import get_toy_data_multiplechoiceclassification, get_automl_settings
+
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
 def test_mcc():
     from flaml import AutoML
     import requests
 
-    X_train, y_train, X_val, y_val, X_test, y_test = get_toy_data_multiplechoiceclassification()
+    (
+        X_train,
+        y_train,
+        X_val,
+        y_val,
+        X_test,
+        y_test,
+    ) = get_toy_data_multiplechoiceclassification()
     automl = AutoML()
 
     automl_settings = get_automl_settings()
