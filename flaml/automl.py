@@ -75,7 +75,7 @@ class SearchState:
         )
 
     def __init__(
-        self, learner_class, data_size, task, starting_point=None, period=None
+        self, learner_class, data_size, task, starting_point=None, period=None, custom_hp=None
     ):
         self.init_eci = learner_class.cost_relative2lgbm()
         self._search_space_domain = {}
@@ -91,6 +91,10 @@ class SearchState:
             )
         else:
             search_space = learner_class.search_space(data_size=data_size, task=task)
+
+        if custom_hp is not None:
+            search_space.update(custom_hp)
+
         for name, space in search_space.items():
             assert (
                 "domain" in space
@@ -112,6 +116,7 @@ class SearchState:
 
         if isinstance(starting_point, list):
             self.init_config = starting_point
+
         self._hp_names = list(self._search_space_domain.keys())
         self.search_alg = None
         self.best_config = None
@@ -1782,6 +1787,7 @@ class AutoML(BaseEstimator):
         min_sample_size=None,
         use_ray=None,
         metric_constraints=None,
+        custom_hp=None,
         **fit_kwargs,
     ):
         """Find a model for a given task.
@@ -2277,6 +2283,7 @@ class AutoML(BaseEstimator):
                 task=self._state.task,
                 starting_point=starting_points.get(estimator_name),
                 period=self._state.fit_kwargs.get("period"),
+                custom_hp=custom_hp and custom_hp.get(estimator_name)
             )
         logger.info("List of ML learners in AutoML Run: {}".format(estimator_list))
         self.estimator_list = estimator_list
