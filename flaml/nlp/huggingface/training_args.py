@@ -7,18 +7,16 @@ from ...data import (
 from typing import Optional, List
 
 try:
-    from transformers import (
-        TrainingArguments,
-        Seq2SeqTrainingArguments
-    )
+    from transformers import TrainingArguments, Seq2SeqTrainingArguments
 except ImportError:
     Seq2SeqTrainer = object
 
 from transformers import IntervalStrategy
 
+
 @dataclass
 class TrainingArgumentsForAuto(TrainingArguments):
-    """ FLAML custom TrainingArguments.
+    """FLAML custom TrainingArguments.
     Args:
         output_dir (str): data root directory for outputing the log, etc.
         model_path (str, optional, defaults to "facebook/muppet-roberta-base"): A string,
@@ -66,14 +64,20 @@ class TrainingArgumentsForAuto(TrainingArguments):
     )
 
     report_to: Optional[List[str]] = field(
-        default=None, metadata={"help": "The list of integrations to report the results and logs to."}
+        default=None,
+        metadata={
+            "help": "The list of integrations to report the results and logs to."
+        },
     )
 
     do_train: bool = field(default=False, metadata={"help": "Whether to run training."})
-    do_eval: bool = field(default=False, metadata={"help": "Whether to run eval on the dev set."})
+    do_eval: bool = field(
+        default=False, metadata={"help": "Whether to run eval on the dev set."}
+    )
 
     metric_for_best_model: Optional[str] = field(
-        default="loss", metadata={"help": "The metric to use to compare two different models."}
+        default="loss",
+        metadata={"help": "The metric to use to compare two different models."},
     )
 
     evaluation_strategy: IntervalStrategy = field(
@@ -103,11 +107,32 @@ class TrainingArgumentsForAuto(TrainingArguments):
         console_args, unknown = arg_parser.parse_known_args()
         return console_args
 
-@dataclass
-class Seq2SeqTrainingArgumentsForAuto(Seq2SeqTrainingArguments):
 
+@dataclass
+class Seq2SeqTrainingArgumentsForAuto(TrainingArgumentsForAuto):
+
+    sortish_sampler: bool = field(
+        default=False, metadata={"help": "Whether to use SortishSampler or not."}
+    )
     predict_with_generate: bool = field(
-        default=True, metadata={"help": "Whether to use generate to calculate generative metrics (ROUGE, BLEU)."}
+        default=True,
+        metadata={
+            "help": "Whether to use generate to calculate generative metrics (ROUGE, BLEU)."
+        },
+    )
+    generation_max_length: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": "The `max_length` to use on each evaluation loop when `predict_with_generate=True`. Will default "
+            "to the `max_length` value of the model configuration."
+        },
+    )
+    generation_num_beams: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": "The `num_beams` to use on each evaluation loop when `predict_with_generate=True`. Will default "
+            "to the `num_beams` value of the model configuration."
+        },
     )
 
     def __post_init__(self):
