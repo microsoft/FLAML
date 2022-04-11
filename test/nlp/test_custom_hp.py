@@ -16,9 +16,7 @@ def test_custom_hp_nlp():
     automl_settings["custom_hp"] = {
         "transformer": {
             "model_path": {
-                "domain": flaml.tune.choice(
-                    ["google/electra-small-discriminator", "bert-base-uncased"]
-                ),
+                "domain": flaml.tune.choice(["google/electra-small-discriminator"]),
             },
             "num_train_epochs": {"domain": 3},
         }
