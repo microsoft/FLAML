@@ -18,6 +18,7 @@ import logging
 import shutil
 from pandas import DataFrame, Series, to_datetime
 import sys
+import math
 from . import tune
 from .data import (
     group_counts,
@@ -666,8 +667,6 @@ class TransformersEstimator(BaseEstimator):
             so each estimator does not see all the GPUs
         """
         if gpu_per_trial:
-            import math
-
             tmp_cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES", "")
             self._trainer.args._n_gpu = gpu_per_trial
             # if gpu_per_trial == 0:
