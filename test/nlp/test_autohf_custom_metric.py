@@ -1,9 +1,7 @@
 import sys
 import pytest
-from utils import (
-    get_toy_data_seqclassification,
-    get_automl_settings
-)
+from utils import get_toy_data_seqclassification, get_automl_settings
+
 
 def custom_metric(
     X_test,

@@ -350,15 +350,19 @@ class TransformersEstimator(BaseEstimator):
 
     ITER_HP = "global_max_steps"
 
-    def __init__(self, task="seq-classification",  **config):
+    def __init__(self, task="seq-classification", **config):
         super().__init__(task, **config)
         import uuid
 
         self.trial_id = str(uuid.uuid1().hex)[:8]
-        if task not in NLG_TASKS: #TODO: not in NLG_TASKS
-            from .nlp.huggingface.training_args import TrainingArgumentsForAuto as TrainingArguments
+        if task not in NLG_TASKS:  # TODO: not in NLG_TASKS
+            from .nlp.huggingface.training_args import (
+                TrainingArgumentsForAuto as TrainingArguments,
+            )
         else:
-            from .nlp.huggingface.training_args import Seq2SeqTrainingArgumentsForAuto as TrainingArguments
+            from .nlp.huggingface.training_args import (
+                Seq2SeqTrainingArgumentsForAuto as TrainingArguments,
+            )
         self._TrainingArguments = TrainingArguments
 
     @staticmethod
@@ -407,31 +411,37 @@ class TransformersEstimator(BaseEstimator):
     @property
     def _checkpoint_freq(self):
         return (
-                int(min(self._training_args.num_train_epochs, 1) * len(self._X_train)
-                    / self._training_args.per_device_train_batch_size
-                    / self._training_args.ckpt_per_epoch) + 1
+            int(
+                min(self._training_args.num_train_epochs, 1)
+                * len(self._X_train)
+                / self._training_args.per_device_train_batch_size
+                / self._training_args.ckpt_per_epoch
+            )
+            + 1
         )
 
     @property
     def _fp16(self):
-        return self._training_args.fp16 if self._kwargs.get("gpu_per_trial") > 0 else False
+        return (
+            self._training_args.fp16 if self._kwargs.get("gpu_per_trial") > 0 else False
+        )
 
     @property
     def _no_cuda(self):
-        no_cuda=True if self._kwargs.get("gpu_per_trial") == 0 else False
+        no_cuda = True if self._kwargs.get("gpu_per_trial") == 0 else False
         return no_cuda
 
     def _set_training_args(self, **kwargs):
-        from .nlp.utils import (
-            date_str,
-            Counter
-        )
+        from .nlp.utils import date_str, Counter
+
         for (key, val) in kwargs["custom_hf_args"].items():
-            assert key not in self.params, \
-                "Since {} is in the search space, it cannot exist in 'custom_hf_args' at the same time." \
-                "If you need to fix the value of {} to {}, the only way is to add a single-value domain in the search " \
-                "space by adding:\n \"{}\": \{ \"domain\": {}\} to 'custom_hp'. Please see FLAML/test/automl/test_custom_hp.py " \
+            # TODO: lint error here flaml/model.py:439:17: F524 '...'.format(...) is missing argument(s) for placeholder(s):  'domain'
+            assert key not in self.params, (
+                "Since {} is in the search space, it cannot exist in 'custom_hf_args' at the same time."
+                "If you need to fix the value of {} to {}, the only way is to add a single-value domain in the search "
+                "space by adding:\n '{}': {{ 'domain': {} }} to 'custom_hp'. Please see FLAML/test/automl/test_custom_hp.py "
                 "for an example.".format(key, key, val, key, val)
+            )
 
         """
             If use has specified any custom args for TrainingArguments, update these arguments
@@ -448,17 +458,21 @@ class TransformersEstimator(BaseEstimator):
         """
             Update the attributes in TrainingArguments that depends on the sampled values of self.params
         """
-        local_dir = os.path.join(self._training_args.output_dir, "train_{}".format(date_str()))
+        local_dir = os.path.join(
+            self._training_args.output_dir, "train_{}".format(date_str())
+        )
         if self.use_ray is True:
             import ray
+
             self._training_args.output_dir = ray.tune.get_trial_dir()
         else:
             self._training_args.output_dir = Counter.get_trial_fold_name(
-                local_dir, self.params, self.trial_id)
+                local_dir, self.params, self.trial_id
+            )
 
-        self._training_args.eval_steps = \
-        self._training_args.loggin_steps = \
-        self._training_args.saving_steps = self._checkpoint_freq
+        self._training_args.eval_steps = (
+            self._training_args.loggin_steps
+        ) = self._training_args.saving_steps = self._checkpoint_freq
         self._training_args.fp16 = self._fp16
         self._training_args.no_cuda = self._no_cuda
 
@@ -496,9 +510,7 @@ class TransformersEstimator(BaseEstimator):
             processed_X, _ = self._preprocess(X=X, **self._kwargs)
             processed_y = y
         else:
-            processed_X, processed_y = self._preprocess(
-                X=X, y=y, **self._kwargs
-            )
+            processed_X, processed_y = self._preprocess(X=X, y=y, **self._kwargs)
 
         processed_dataset = Dataset.from_pandas(
             TransformersEstimator._join(processed_X, processed_y)
@@ -531,19 +543,26 @@ class TransformersEstimator(BaseEstimator):
                 use_auth_token=None,
             )
         else:
-            return AutoTokenizer.from_pretrained(self._training_args.model_path, use_fast=True)
+            return AutoTokenizer.from_pretrained(
+                self._training_args.model_path, use_fast=True
+            )
 
     @property
     def _data_collator(self):
         from .nlp.huggingface.data_collator import DataCollatorForAuto
 
-        return DataCollatorForAuto(
-            tokenizer=self._tokenizer,
-            pad_to_multiple_of=8 if self._training_args.fp16 else None,
-        ) if self._task == MULTICHOICECLASSIFICATION else None
+        return (
+            DataCollatorForAuto(
+                tokenizer=self._tokenizer,
+                pad_to_multiple_of=8 if self._training_args.fp16 else None,
+            )
+            if self._task == MULTICHOICECLASSIFICATION
+            else None
+        )
 
     def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
         import transformers
+
         transformers.logging.set_verbosity_error()
 
         from transformers import TrainerCallback
@@ -552,6 +571,7 @@ class TransformersEstimator(BaseEstimator):
 
         try:
             from ray.tune import is_session_enabled
+
             self.use_ray = is_session_enabled()
         except ImportError:
             self.use_ray = False
@@ -562,9 +582,13 @@ class TransformersEstimator(BaseEstimator):
         self._X_train, self._y_train = X_train, y_train
         self._set_training_args(**kwargs)
 
-        train_dataset, self._X_train, self._y_train = self.preprocess_data(X_train, y_train)
+        train_dataset, self._X_train, self._y_train = self.preprocess_data(
+            X_train, y_train
+        )
         if kwargs.get("X_val") is not None:
-            eval_dataset, self._X_val, self._y_val = self.preprocess_data(kwargs["X_val"], kwargs["y_val"])
+            eval_dataset, self._X_val, self._y_val = self.preprocess_data(
+                kwargs["X_val"], kwargs["y_val"]
+            )
         else:
             eval_dataset, self._X_val, self._y_val = None, None, None
 
@@ -608,7 +632,7 @@ class TransformersEstimator(BaseEstimator):
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             tokenizer=self._tokenizer,
-            data_collator= self._data_collator,
+            data_collator=self._data_collator,
             compute_metrics=self._compute_metrics_by_dataset_name,
             callbacks=[EarlyStoppingCallbackForAuto],
         )
@@ -618,11 +642,13 @@ class TransformersEstimator(BaseEstimator):
 
         gpu_per_trial = kwargs.get("gpu_per_trial", None)
         if gpu_per_trial:
+            import math
+
             tmp_cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES", "")
             self._trainer.args._n_gpu = gpu_per_trial
             if tmp_cuda_visible_devices.count(",") != gpu_per_trial - 1:
                 os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(
-                    [str(x) for x in range(gpu_per_trial)]
+                    [str(x) for x in range(math.ceil(gpu_per_trial))]
                 )
 
         import time
@@ -736,9 +762,9 @@ class TransformersEstimator(BaseEstimator):
             Need to reinit training_args because of a bug in deepspeed: if not reinit, the deepspeed config will be inconsistent
             with HF config https://github.com/huggingface/transformers/blob/main/src/transformers/training_args.py#L947
         """
-        training_args = self._TrainingArguments(local_rank = -1,
-                                                model_path = self._checkpoint_path,
-                                                fp16=self._fp16)
+        training_args = self._TrainingArguments(
+            local_rank=-1, model_path=self._checkpoint_path, fp16=self._fp16
+        )
         for key, val in self._training_args.__dict__.items():
             if key not in ("local_rank", "model_path", "fp16"):
                 setattr(training_args, key, val)
@@ -748,7 +774,7 @@ class TransformersEstimator(BaseEstimator):
             model=self._model_init(),
             args=self._training_args,
             data_collator=self._data_collator,
-            compute_metrics=self._compute_metrics_by_dataset_name
+            compute_metrics=self._compute_metrics_by_dataset_name,
         )
         if self._task in NLG_TASKS:
             setattr(new_trainer, "_is_seq2seq", True)
@@ -774,6 +800,7 @@ class TransformersEstimator(BaseEstimator):
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         import transformers
+
         transformers.logging.set_verbosity_error()
 
         self._metric = kwargs["metric"]
@@ -827,17 +854,31 @@ class TransformersEstimator(BaseEstimator):
         )
         return params
 
-class TransformersEstimatorModelSelection(TransformersEstimator):
 
+class TransformersEstimatorModelSelection(TransformersEstimator):
     @classmethod
-    def search_space(cls, data_size, task, memory_budget=sys.maxsize, **params):
+    def search_space(cls, data_size, task, memory_budget="small", **params):
         search_space_dict = super().search_space(cls, data_size, task, **params)
-        search_space_dict["model_path"] = \
-            {
-                "domain": tune.choice(["google/electra-small-discriminator", "bert-base-uncased"]),
+
+        if memory_budget == "small":
+            search_space_dict["model_path"] = {
+                "domain": tune.choice(
+                    [
+                        "google/electra-base-discriminator",
+                        "bert-base-uncased",
+                        "roberta-base",
+                        "facebook/muppet-roberta-base",
+                    ]
+                ),
+                "init_value": "facebook/muppet-roberta-base",
+            }
+        elif memory_budget == "base":
+            search_space_dict["model_path"] = {
+                "domain": tune.choice(["google/electra-small-discriminator"]),
                 "init_value": "google/electra-small-discriminator",
             }
         return search_space_dict
+
 
 class SKLearnEstimator(BaseEstimator):
     """The base class for tuning scikit-learn estimators."""
@@ -883,7 +924,7 @@ class LGBMEstimator(BaseEstimator):
                 "low_cost_init_value": 4,
             },
             "min_child_samples": {
-                "domain": tune.lograndint(lower=2, upper=2 ** 7 + 1),
+                "domain": tune.lograndint(lower=2, upper=2**7 + 1),
                 "init_value": 20,
             },
             "learning_rate": {

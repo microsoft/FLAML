@@ -28,11 +28,16 @@ def _test_zero_shot_model(model_path):
 def _test_zero_shot_nomodel():
     from flaml.default import preprocess_and_suggest_hyperparams
 
+    location = "test/nlp/default"
     X_train, y_train, X_val, y_val, X_test = get_toy_data_seqclassification()
 
     hyperparams, estimator_class, _, _, _, _ = preprocess_and_suggest_hyperparams(
-        "seq-classification", X_train, y_train, "transformer_ms"
+        "seq-classification", X_train, y_train, "transformer_ms", location=location
     )
 
     model = estimator_class(**hyperparams)  # estimator_class is Trainer
     model.fit(X_train, y_train)  # LGBMClassifier can handle raw labels
+
+
+if __name__ == "__main__":
+    _test_zero_shot_nomodel()

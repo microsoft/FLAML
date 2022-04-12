@@ -1,14 +1,13 @@
 import sys
 import pytest
 import requests
-from utils import (
-    get_toy_data_seqclassification,\
-    get_automl_settings
-)
+from utils import get_toy_data_seqclassification, get_automl_settings
+
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
 def test_hf_data():
     from flaml import AutoML
+
     X_train, y_train, X_val, y_val, X_test = get_toy_data_seqclassification()
 
     automl = AutoML()

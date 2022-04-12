@@ -1,5 +1,6 @@
 import pandas as pd
 
+
 def get_toy_data_seqclassification():
     train_data = {
         "sentence1": [
@@ -68,6 +69,7 @@ def get_toy_data_seqclassification():
 
     return X_train, y_train, X_val, y_val, X_test
 
+
 def get_toy_data_multiclassclassification():
     train_data = {
         "text": [
@@ -109,6 +111,7 @@ def get_toy_data_multiclassclassification():
     y_val = dev_dataset[label_key]
 
     return X_train, y_train, X_val, y_val
+
 
 def get_toy_data_multiplechoiceclassification():
     train_data = {
@@ -311,6 +314,7 @@ def get_toy_data_multiplechoiceclassification():
 
     return X_train, y_train, X_val, y_val, X_test, y_test
 
+
 def get_toy_data_seqregression():
     train_data = {
         "sentence1": [
@@ -359,6 +363,7 @@ def get_toy_data_seqregression():
 
     return X_train, y_train, X_val, y_val
 
+
 def get_toy_data_summarization():
     train_dataset = pd.DataFrame(
         [
@@ -399,6 +404,7 @@ def get_toy_data_summarization():
 
     X_test = test_dataset[custom_sent_keys]
     return X_train, y_train, X_val, y_val, X_test
+
 
 def get_toy_data_tokenclassification():
     train_data = {
@@ -1109,7 +1115,9 @@ def get_toy_data_tokenclassification():
     y_val = dev_dataset[label_key]
     return X_train, y_train, X_val, y_val
 
+
 def get_automl_settings():
+
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
