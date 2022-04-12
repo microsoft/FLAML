@@ -662,7 +662,7 @@ class TransformersEstimator(BaseEstimator):
 
         gpu_per_trial = kwargs.get("gpu_per_trial", None)
         """
-            When using FLAML (instead of Ray) for tuning, set the limit of CUDA_VISIBLE_DEVICES to math.ceil(gpu_per_trial),
+            When not using ray for tuning, set the limit of CUDA_VISIBLE_DEVICES to math.ceil(gpu_per_trial),
             so each estimator does not see all the GPUs
         """
         if gpu_per_trial:
@@ -672,7 +672,7 @@ class TransformersEstimator(BaseEstimator):
             self._trainer.args._n_gpu = gpu_per_trial
             # if gpu_per_trial == 0:
             #     os.environ["CUDA_VISIBLE_DEVICES"] = ""
-            if tmp_cuda_visible_devices.count(",") != gpu_per_trial - 1:
+            if tmp_cuda_visible_devices.count(",") != math.ceil(gpu_per_trial) - 1:
                 os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(
                     [str(x) for x in range(math.ceil(gpu_per_trial))]
                 )
