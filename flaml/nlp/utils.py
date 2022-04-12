@@ -315,8 +315,6 @@ def tokenize_swag(this_row, tokenizer, hf_args=None, return_column_name=False):
         return [tokenized_example[x] for x in tmp_column_names]
 
 
-
-
 def is_a_list_of_str(this_obj):
     return (isinstance(this_obj, list) or isinstance(this_obj, np.ndarray)) and all(
         isinstance(x, str) for x in this_obj
@@ -475,5 +473,3 @@ def load_model(checkpoint_path, task, num_labels=None):
         model_config = _set_model_config(checkpoint_path)
         this_model = get_this_model(checkpoint_path, task, model_config)
         return this_model
-
-
