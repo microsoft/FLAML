@@ -662,7 +662,8 @@ class TransformersEstimator(BaseEstimator):
 
         gpu_per_trial = kwargs.get("gpu_per_trial", None)
         """
-            When flaml.tune is used for tuning, set the limit of CUDA_VISIBLE_DEVICES to np.ceil(gpu_per_trial)
+            When using FLAML (instead of Ray) for tuning, set the limit of CUDA_VISIBLE_DEVICES to math.ceil(gpu_per_trial),
+            so each estimator does not see all the GPUs
         """
         if gpu_per_trial:
             import math
