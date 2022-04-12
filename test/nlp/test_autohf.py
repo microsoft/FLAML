@@ -89,7 +89,7 @@ def test_hf_data():
     automl_settings["hf_args"] = {
         "model_path": "google/electra-small-discriminator",
         "output_dir": "test/data/output/",
-        "ckpt_per_epoch": 5,
+        "ckpt_per_epoch": 1,
         "fp16": False,
     }
 
