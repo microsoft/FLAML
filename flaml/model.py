@@ -661,14 +661,19 @@ class TransformersEstimator(BaseEstimator):
             setattr(self._trainer, "_is_seq2seq", True)
 
         gpu_per_trial = kwargs.get("gpu_per_trial", None)
+        """
+            When flaml.tune is used for tuning, set the limit of CUDA_VISIBLE_DEVICES to np.ceil(gpu_per_trial)
+        """
         if gpu_per_trial:
+            import math
+
             tmp_cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES", "")
             self._trainer.args._n_gpu = gpu_per_trial
             # if gpu_per_trial == 0:
             #     os.environ["CUDA_VISIBLE_DEVICES"] = ""
             if tmp_cuda_visible_devices.count(",") != gpu_per_trial - 1:
                 os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(
-                    [str(x) for x in range(gpu_per_trial)]
+                    [str(x) for x in range(math.ceil(gpu_per_trial))]
                 )
 
         import time
