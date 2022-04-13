@@ -132,6 +132,13 @@ class BaseEstimator:
     def _preprocess(self, X):
         return X
 
+    @staticmethod
+    def _join(X_train, y_train):
+        y_train = DataFrame(y_train, index=X_train.index)
+        y_train.columns = ["label"]
+        train_df = X_train.join(y_train)
+        return train_df
+
     def _fit(self, X_train, y_train, **kwargs):
 
         current_time = time.time()
@@ -361,13 +368,6 @@ class TransformersEstimator(BaseEstimator):
             from transformers import TrainingArguments
         self._TrainingArguments = TrainingArguments
 
-    @staticmethod
-    def _join(X_train, y_train):
-        y_train = DataFrame(y_train, index=X_train.index)
-        y_train.columns = ["label"]
-        train_df = X_train.join(y_train)
-        return train_df
-
     @classmethod
     def search_space(cls, data_size, task, **params):
         search_space_dict = {
@@ -593,7 +593,7 @@ class TransformersEstimator(BaseEstimator):
             )
 
         train_dataset = Dataset.from_pandas(
-            TransformersEstimator._join(self._X_train, self._y_train)
+            BaseEstimator._join(self._X_train, self._y_train)
         )
 
         if X_val is not None:
@@ -603,7 +603,7 @@ class TransformersEstimator(BaseEstimator):
             else:
                 self._X_val, self._y_val = self._preprocess(X=X_val, y=y_val, **kwargs)
             eval_dataset = Dataset.from_pandas(
-                TransformersEstimator._join(self._X_val, self._y_val)
+                BaseEstimator._join(self._X_val, self._y_val)
             )
         else:
             eval_dataset = None
@@ -831,7 +831,7 @@ class TransformersEstimator(BaseEstimator):
             self._X_val, self._y_val = self._preprocess(X=X_val, y=y_val)
 
         eval_dataset = Dataset.from_pandas(
-            TransformersEstimator._join(self._X_val, self._y_val)
+            BaseEstimator._join(self._X_val, self._y_val)
         )
 
         new_trainer, training_args = self._init_model_for_predict()
@@ -2103,6 +2103,12 @@ class MultiModalEstimator(BaseEstimator):
     """
     The class for tuning AutoGluon TextPredictor
     """
+    def __init__(self, task="binary", **config):
+        super().__init__(task, **config)
+        import uuid
+
+        self.trial_id = str(uuid.uuid1().hex)[:8]
+
     @classmethod
     def search_space(cls, **params):
         """
@@ -2128,26 +2134,6 @@ class MultiModalEstimator(BaseEstimator):
                 "domain": tune.choice([0.1, 0.2]),
                 "init_value": 0.1, 
             },
-            "optimization.layerwise_lr_decay": {
-                "domain": tune.choice([0.8, 0.9]),
-                "init_value": 0.8,
-            },
-            "optimization.nbest": {
-                "domain": tune.choice([2, 3, 4,]),
-                "init_value": 3,
-            },
-            "optimization.num_train_epochs": {
-                "domain": tune.choice([5, 10, 15,]),
-                "init_value": 10,
-            },
-            "optimization.per_device_batch_size": {
-                "domain": tune.choice([2, 4, 8,]),
-                "init_value": 10,
-            },
-            "optimization.batch_size": {
-                "domain": tune.choice([32, 64, 128,]),
-                "init_value": 128,
-            },
         }
         return search_space_dict
 
@@ -2164,63 +2150,65 @@ class MultiModalEstimator(BaseEstimator):
             setattr(ag_args, key, val)
         self.ag_args = ag_args
 
-    def _set_seed(self, seed):
-        import random
-        import mxnet as mx
-        # NOTE: if support pytorch backend, uncomment below
-        # import torch as th
-        # th.manual_seed(seed)
-        mx.random.seed(seed)
-        np.random.seed(seed)
-        random.seed(seed)
-
     def fit(self, X_train=None, y_train=None, budget=None, **kwargs):
         from autogluon.text import TextPredictor
 
         self._kwargs = kwargs
         self._init_ag_args(kwargs)
         seed = self._kwargs.get("seed", 123)
-        self._set_seed(seed)
 
         assert (self.ag_args.backend == "mxnet"), "the pytorch automm model is not supported. "
         # get & set the hyperparameters, update with self.params
-        hyperparameters = self.ag_args.get_presets()
+        hyperparameters = self.ag_args.hyperparameters
         search_space = hyperparameters["models"]["MultimodalTextModel"]["search_space"]
         for key, value in self.params.items():
             # NOTE: FLAML uses np.float64 but AG uses float, need to transform
             if key == "n_jobs": 
                 continue
-            elif isinstance(value, np.float64):
-                search_space[key] = value.item()
             else:
-                search_space[key] = value
+                search_space[key] = value.item() if isinstance(value, np.float64) else value
         start_time = time.time()
-        self._model = TextPredictor(path=self.ag_args.output_dir,
-                                    label="label",
-                                    problem_type=self._task,
-                                    eval_metric=kwargs["metric"],
-                                    backend=self.ag_args.backend)
-        train_data = TransformersEstimator._join(X_train, y_train)
-        self._model.fit(train_data=train_data,
-                        hyperparameters=hyperparameters,
-                        time_limit=budget,
-                        seed=seed)
+        self.model_path = os.path.join(self.ag_args.output_dir, self.trial_id)
+        model = TextPredictor(path=self.model_path,
+                              label="label",
+                              problem_type=self._task,
+                              eval_metric=kwargs["metric"],
+                              backend=self.ag_args.backend)
+        train_data = BaseEstimator._join(X_train, y_train)
+        model.fit(train_data=train_data,
+                  hyperparameters=hyperparameters,
+                  num_gpus=kwargs.get("gpu_per_trial", None),
+                  time_limit=budget,
+                  seed=seed)
 
         training_time = time.time() - start_time
         return training_time
 
     def predict(self, X):
-        output = self._model.predict(X, as_pandas=False)
+        from autogluon.text import TextPredictor
+
+        model = TextPredictor.load(path=self.model_path, backend=self.ag_args.backend)
+        output = model.predict(X, as_pandas=False)
         return output
 
     def predict_proba(self, X):
+        from autogluon.text import TextPredictor
+
         # only works for classification tasks
         assert (
             self._task in CLASSIFICATION
         ), "predict_proba() only for classification tasks."
-        output = self._model.predict_proba(X, as_pandas=False)
+        model = TextPredictor.load(path=self.model_path, backend=self.ag_args.backend)
+        output = model.predict_proba(X, as_pandas=False)
         return output
 
+    def score(self, X_val: DataFrame, y_val: Series, **kwargs):
+        from autogluon.text import TextPredictor
+
+        model = TextPredictor.load(path=self.model_path, backend=self.ag_args.backend)
+        val_data = BaseEstimator._join(X_val, y_val)
+        return model.evaluate(val_data)
+        
 
 class suppress_stdout_stderr(object):
     def __init__(self):

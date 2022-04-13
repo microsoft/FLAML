@@ -2280,6 +2280,14 @@ class AutoML(BaseEstimator):
             )
         logger.info("List of ML learners in AutoML Run: {}".format(estimator_list))
         self.estimator_list = estimator_list
+        if self._transformer.text_columns:
+            if len(self._transformer.text_columns) == len(X_train.columns):
+                assert _is_nlp_task(self._state.task) == True
+            else:
+                self.estimator_list = ["multimodal"]
+                logger.warning("columns type of {} are set to text".format(self._transformer.text_columns))
+                logger.info("numerical columns {}".format(self._transformer._num_columns))
+                logger.info("categorical columns {}".format(self._transformer._cat_columns))
         self._state.time_budget = time_budget if time_budget > 0 else 1e10
         self._active_estimators = estimator_list.copy()
         self._ensemble = ensemble

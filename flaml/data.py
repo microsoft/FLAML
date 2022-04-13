@@ -245,6 +245,9 @@ def concat(X1, X2):
 
 class DataTransformer:
     """Transform input training data."""
+    @property
+    def text_columns(self):
+        return self._str_columns
 
     def fit_transform(self, X: Union[DataFrame, np.array], y, task):
         """Fit transformer and process the input training data according to the task type.
@@ -286,7 +289,7 @@ class DataTransformer:
                     if X[column].nunique() == 1:
                         X.drop(columns=column, inplace=True)
                         drop = True
-                    elif X[column].nunique(dropna=True) >= int((n - X[column].isnull().sum()) * 0.9):
+                    elif X[column].nunique(dropna=True) >= int((n - X[column].isnull().sum()) * 0.5):
                     # NOTE: here a threshold is applied for distinguishing str vs. cat 
                     # if no threshold wanted => requires every non-nan str entry to be different
                     # delete the line above and uncomment below
@@ -364,7 +367,7 @@ class DataTransformer:
                     ]
                 )
                 X[num_columns] = self.transformer.fit_transform(X_num)
-            self.str_columns, self._cat_columns, self._num_columns, self._datetime_columns = (
+            self._str_columns, self._cat_columns, self._num_columns, self._datetime_columns = (
                 str_columns,
                 cat_columns,
                 num_columns,
@@ -407,7 +410,7 @@ class DataTransformer:
                 X[self._str_columns] = X[self._str_columns].astype("string")
         elif isinstance(X, DataFrame):
             str_columns, cat_columns, num_columns, datetime_columns = (
-                self.str_columns,
+                self._str_columns,
                 self._cat_columns,
                 self._num_columns,
                 self._datetime_columns,

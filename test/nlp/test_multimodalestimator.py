@@ -1,11 +1,11 @@
 from flaml import AutoML
 import pandas as pd
-import requests
 import gc
 import numpy as np
 import os
 import sys
 import platform
+import pickle
 from sklearn.model_selection import train_test_split
 os.environ["AUTOGLUON_TEXT_TRAIN_WITHOUT_GPU"] = "1"
 
@@ -70,25 +70,6 @@ def test_multimodalestimator():
     }
     train_dataset = pd.DataFrame(train_data)
 
-    test_data = {
-            "sentence1": [
-                "That compared with $ 35.18 million , or 24 cents per share , in the year-ago period .",
-                "Shares of Genentech , a much larger company with several products on the market , rose more than 2 percent .",
-                "Legislation making it harder for consumers to erase their debts in bankruptcy court won overwhelming House approval in March .",
-                "The Nasdaq composite index increased 10.73 , or 0.7 percent , to 1,514.77 .",
-            ],
-            "sentence2": [
-                "Earnings were affected by a non-recurring $ 8 million tax benefit in the year-ago period .",
-                "Shares of Xoma fell 16 percent in early trade , while shares of Genentech , a much larger company with several products on the market , were up 2 percent .",
-                "Legislation making it harder for consumers to erase their debts in bankruptcy court won speedy , House approval in March and was endorsed by the White House .",
-                "The Nasdaq Composite index , full of technology stocks , was lately up around 18 points .",
-            ],
-            "numerical1": [3, 4, 5, 6],
-            "categorical1": ["b", "a", "a", "b"],
-            "label": [0, 1, 1, 2],
-    }
-    test_dataset = pd.DataFrame(test_data)
-
     # FORCE THE SAME TRAIN-VALID SPLIT IN & OUT THE PREDICTOR
     holdout_frac = default_holdout_frac(len(train_dataset), False)
 
@@ -102,15 +83,15 @@ def test_multimodalestimator():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 2,
-        "time_budget": 50,
+        "time_budget": 10,
         "task": "classification",
         "metric": "accuracy",
     }
 
     automl_settings["ag_args"] = {
-        "output_dir": "test/ag/output/",
+        "output_dir": "test/ag_output/",
         "backend": "mxnet",
-        "text_backbone": "electra_base",
+        "text_backbone": "electra_small",
         "multimodal_fusion_strategy": "fuse_late",
     }
 
@@ -124,9 +105,14 @@ def test_multimodalestimator():
         estimator_list=["multimodal"],
         **automl_settings
     )
-
-    print("Try to run inference on test set")
-    score = automl.model.estimator.evaluate(test_dataset)
-    print(f"Inference on test set complete, {metric}: {score}")
+    automl.pickle("automl.pkl")
+    with open("automl.pkl", "rb") as f:
+        automl = pickle.load(f)
+    print("Try to run inference on validation set")
+    score = automl.score(valid_dataset[feature_columns], valid_dataset["label"])
+    print(f"Inference on validation set complete, {metric}: {score}")
     del automl
     gc.collect()
+
+if __name__ == "__main__":
+    test_multimodalestimator()
