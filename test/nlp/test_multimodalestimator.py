@@ -32,8 +32,6 @@ def test_multimodalestimator():
             "The DVD-CCA then appealed to the state Supreme Court .",
             "Tab shares jumped 20 cents , or 4.6 % , to set a record closing high at A $ 4.57 .",
             "PG & E Corp. shares jumped $ 1.63 or 8 percent to $ 21.03 on the New York Stock Exchange on Friday .",
-            "With the scandal hanging over Stewart 's company , revenue the first quarter of the year dropped 15 percent from the same period a year earlier .",
-            "The tech-laced Nasdaq Composite .IXIC rallied 30.46 points , or 2.04 percent , to 1,520.15 .",
         ],
         "sentence2": [
             'Referring to him as only " the witness " , Amrozi accused his brother of deliberately distorting his evidence .',
@@ -46,12 +44,10 @@ def test_multimodalestimator():
             "The DVD CCA appealed that decision to the U.S. Supreme Court .",
             "The Nasdaq had a weekly gain of 17.27 , or 1.2 percent , closing at 1,520.15 on Friday .",
             "The DVD-CCA then appealed to the state Supreme Court .",  
-            "Yucaipa owned Dominick 's before selling the chain to Safeway in 1998 for $ 2.5 billion .",
-            "They had published an advertisement on the Internet on June 10 , offering the cargo for sale , he added .",
         ],
-        "numerical1": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-        "categorical1": ["a", "b", "a", "a", "a", "b", "a", "a", "a", "b", "a", "a"],
-        "label": [1, 0, 2, 0, 1, 2, 0, 1, 1, 2, 0, 1],
+        "numerical1": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "categorical1": ["a", "b", "a", "a", "a", "b", "a", "a", "a", "b"],
+        "label": [1, 0, 2, 0, 1, 2, 0, 1, 1, 2],
     }
     train_dataset = pd.DataFrame(train_data)
     train_dataset, valid_dataset = train_test_split(train_dataset,
@@ -64,7 +60,7 @@ def test_multimodalestimator():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 2,
-        "time_budget": 10,
+        "time_budget": 15,
         "task": "mm-classification",
         "metric": "accuracy",
     }
@@ -93,6 +89,3 @@ def test_multimodalestimator():
     print(f"Inference on validation set complete, {metric}: {score}")
     del automl
     gc.collect()
-
-if __name__ == "__main__":
-    test_multimodalestimator()
