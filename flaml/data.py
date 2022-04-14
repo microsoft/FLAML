@@ -23,9 +23,12 @@ CLASSIFICATION = (
     SEQCLASSIFICATION,
     MULTICHOICECLASSIFICATION,
     TOKENCLASSIFICATION,
+    "mm-binary",
+    "mm-multiclass",
+    "mm-classification",
 )
 SEQREGRESSION = "seq-regression"
-REGRESSION = ("regression", SEQREGRESSION)
+REGRESSION = ("regression", SEQREGRESSION, "mm-regression")
 TS_FORECASTREGRESSION = (
     "forecast",
     "ts_forecast",
@@ -46,6 +49,11 @@ NLU_TASKS = (
     MULTICHOICECLASSIFICATION,
     TOKENCLASSIFICATION,
 )
+MM_TASKS = (
+    "mm-classification", 
+    "mm-regression", 
+    "mm-binary", 
+    "mm-multiclass",)
 
 
 def _is_nlp_task(task):
@@ -245,10 +253,6 @@ def concat(X1, X2):
 
 class DataTransformer:
     """Transform input training data."""
-    @property
-    def text_columns(self):
-        return self._str_columns
-
     def fit_transform(self, X: Union[DataFrame, np.array], y, task):
         """Fit transformer and process the input training data according to the task type.
 
@@ -272,11 +276,14 @@ class DataTransformer:
             if len(str_columns) > 0:
                 X[str_columns] = X[str_columns].astype("string")
             self._str_columns = str_columns
+        # NOTE: if multimodal task, no preprocessing on X
+        elif task in MM_TASKS:
+            for column in X.columns:
+                X[column].astype("object")
         elif isinstance(X, DataFrame):
             X = X.copy()
             n = X.shape[0]
-            # NOTE: add str_columns here
-            str_columns, cat_columns, num_columns, datetime_columns = [], [], [], []
+            cat_columns, num_columns, datetime_columns = [], [], []
             drop = False
             if task in TS_FORECAST:
                 X = X.rename(columns={X.columns[0]: TS_TIMESTAMP_COL})
@@ -286,17 +293,13 @@ class DataTransformer:
             for column in X.columns:
                 # sklearn\utils\validation.py needs int/float values
                 if X[column].dtype.name in ("object", "category"):
-                    if X[column].nunique() == 1:
+                    if (
+                        X[column].nunique() == 1
+                        or X[column].nunique(dropna=True)
+                        == n - X[column].isnull().sum()
+                    ):
                         X.drop(columns=column, inplace=True)
                         drop = True
-                    elif X[column].nunique(dropna=True) >= int((n - X[column].isnull().sum()) * 0.5):
-                    # NOTE: here a threshold is applied for distinguishing str vs. cat 
-                    # if no threshold wanted => requires every non-nan str entry to be different
-                    # delete the line above and uncomment below
-                    # elif X[column].nunique(dropna=True) == n - X[column].isnull().sum():
-                        # NOTE: here detects str fields and do fillna with ""
-                        X[column] = X[column].fillna("")
-                        str_columns.append(column)
                     elif X[column].dtype.name == "category":
                         current_categories = X[column].cat.categories
                         if "__NAN__" not in current_categories:
@@ -338,7 +341,7 @@ class DataTransformer:
                         del tmp_dt
                     X[column] = X[column].fillna(np.nan)
                     num_columns.append(column)
-            X = X[str_columns + cat_columns + num_columns]
+            X = X[cat_columns + num_columns]
             if task in TS_FORECAST:
                 X.insert(0, TS_TIMESTAMP_COL, ds_col)
             if cat_columns:
@@ -367,8 +370,7 @@ class DataTransformer:
                     ]
                 )
                 X[num_columns] = self.transformer.fit_transform(X_num)
-            self._str_columns, self._cat_columns, self._num_columns, self._datetime_columns = (
-                str_columns,
+            self._cat_columns, self._num_columns, self._datetime_columns = (
                 cat_columns,
                 num_columns,
                 datetime_columns,
@@ -408,9 +410,11 @@ class DataTransformer:
             # ids (input ids, token type id, attention mask, etc.)
             if len(self._str_columns) > 0:
                 X[self._str_columns] = X[self._str_columns].astype("string")
+        elif self._task in MM_TASKS:
+            for column in X.columns:
+                X[column].astype("category")
         elif isinstance(X, DataFrame):
-            str_columns, cat_columns, num_columns, datetime_columns = (
-                self._str_columns,
+            cat_columns, num_columns, datetime_columns = (
                 self._cat_columns,
                 self._num_columns,
                 self._datetime_columns,
@@ -436,7 +440,7 @@ class DataTransformer:
                         X[new_col_name] = new_col_value
                 X[column] = X[column].map(datetime.toordinal)
                 del tmp_dt
-            X = X[str_columns + cat_columns + num_columns].copy()
+            X = X[cat_columns + num_columns].copy()
             if self._task in TS_FORECAST:
                 X.insert(0, TS_TIMESTAMP_COL, ds_col)
             for column in cat_columns:

@@ -31,6 +31,7 @@ from .data import (
     SUMMARIZATION,
     NLG_TASKS,
     MULTICHOICECLASSIFICATION,
+    MM_TASKS
 )
 
 try:
@@ -2116,7 +2117,6 @@ class MultiModalEstimator(BaseEstimator):
         reference:
         https://auto.gluon.ai/stable/tutorials/text_prediction/customization.html#custom-hyperparameter-values
         """
-        # TODO: expand the search space
         search_space_dict = {
             "model.network.agg_net.mid_units": {
                 "domain": tune.choice(list(range(32, 129))),
@@ -2169,13 +2169,16 @@ class MultiModalEstimator(BaseEstimator):
                 search_space[key] = value.item() if isinstance(value, np.float64) else value
         start_time = time.time()
         self.model_path = os.path.join(self.ag_args.output_dir, self.trial_id)
+        assert self._task in MM_TASKS, f"The task is not multimodal, but {self._task}. "
         model = TextPredictor(path=self.model_path,
                               label="label",
-                              problem_type=self._task,
+                              problem_type=self._task[3:],
                               eval_metric=kwargs["metric"],
                               backend=self.ag_args.backend)
         train_data = BaseEstimator._join(X_train, y_train)
+        tuning_data = BaseEstimator._join(kwargs.get("X_val"), kwargs.get("y_val"))
         model.fit(train_data=train_data,
+                  tuning_data=tuning_data,
                   hyperparameters=hyperparameters,
                   num_gpus=kwargs.get("gpu_per_trial", None),
                   time_limit=budget,

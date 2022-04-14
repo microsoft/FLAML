@@ -9,21 +9,6 @@ import pickle
 from sklearn.model_selection import train_test_split
 os.environ["AUTOGLUON_TEXT_TRAIN_WITHOUT_GPU"] = "1"
 
-def default_holdout_frac(num_train_rows, hyperparameter_tune=False):
-    """
-    Returns default holdout_frac used in fit().
-    Between row count 5,000 and 25,000 keep 0.1 holdout_frac, as we want to grow validation set to a stable 2500 examples.
-    Ref: https://github.com/awslabs/autogluon/blob/master/core/src/autogluon/core/utils/utils.py#L243
-    """
-    if num_train_rows < 5000:
-        holdout_frac = max(0.1, min(0.2, 500.0 / num_train_rows))
-    else:
-        holdout_frac = max(0.01, min(0.1, 2500.0 / num_train_rows))
-
-    if hyperparameter_tune:
-        holdout_frac = min(0.2, holdout_frac * 2)  # to allocate more validation data for HPO to avoid overfitting
-
-    return holdout_frac
 
 def test_multimodalestimator():
     if sys.version < "3.7":
@@ -69,12 +54,8 @@ def test_multimodalestimator():
         "label": [1, 0, 2, 0, 1, 2, 0, 1, 1, 2, 0, 1],
     }
     train_dataset = pd.DataFrame(train_data)
-
-    # FORCE THE SAME TRAIN-VALID SPLIT IN & OUT THE PREDICTOR
-    holdout_frac = default_holdout_frac(len(train_dataset), False)
-
-    _, valid_dataset = train_test_split(train_dataset,
-                                    test_size=holdout_frac,
+    train_dataset, valid_dataset = train_test_split(train_dataset,
+                                    test_size=0.2,
                                     random_state=np.random.RandomState(seed))
     
     feature_columns = ["sentence1", "sentence2", "numerical1", "categorical1"]
@@ -84,7 +65,7 @@ def test_multimodalestimator():
         "gpu_per_trial": 0,
         "max_iter": 2,
         "time_budget": 10,
-        "task": "classification",
+        "task": "mm-classification",
         "metric": "accuracy",
     }
 
@@ -102,7 +83,6 @@ def test_multimodalestimator():
         y_val=valid_dataset["label"],
         eval_method="holdout",
         auto_augment=False,
-        estimator_list=["multimodal"],
         **automl_settings
     )
     automl.pickle("automl.pkl")
