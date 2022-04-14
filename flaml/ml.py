@@ -637,6 +637,8 @@ def train_estimator(
     )
     if isinstance(estimator, TransformersEstimator):
         fit_kwargs["metric"] = eval_metric
+    elif isinstance(estimator, MultiModalEstimator):
+        fit_kwargs["metric"] = eval_metric
 
     if X_train is not None:
         train_time = estimator.fit(X_train, y_train, budget, **fit_kwargs)
