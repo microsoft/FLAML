@@ -35,8 +35,8 @@ def test_multimodalestimator():
             "PG & E Corp. shares jumped $ 1.63 or 8 percent to $ 21.03 on the New York Stock Exchange on Friday .",
         ],
         "numerical1": [1, 2, 3, 4, 5],
-        "categorical1": ["a", "b", "a", "b", "a", ],
-        "label": [1, 0, 1, 0, 1,],
+        "categorical1": ["a", "b", "a", "b", "a"],
+        "label": [5, 4, 3, 2, 1],
     }
     train_dataset = pd.DataFrame(train_data)
     train_dataset, valid_dataset = train_test_split(train_dataset,
@@ -50,8 +50,8 @@ def test_multimodalestimator():
         "gpu_per_trial": 0,
         "max_iter": 2,
         "time_budget": 15,
-        "task": "mm-classification",
-        "metric": "accuracy",
+        "task": "mm-regression",
+        "metric": "r2",
         "seed": seed,
     }
 
