@@ -2181,7 +2181,14 @@ class MultiModalEstimator(BaseEstimator):
                               eval_metric=kwargs["metric"],
                               backend=self.ag_args.backend)
         train_data = BaseEstimator._join(X_train, y_train)
-        tuning_data = BaseEstimator._join(kwargs.get("X_val"), kwargs.get("y_val"))
+        # use valid data for early stopping
+        X_val = kwargs.get("X_val")
+        y_val = kwargs.get("y_val")
+        if X_val and y_val:
+            tuning_data = BaseEstimator._join(X_val, y_val)
+        else:
+            tuning_data = None
+        # NOTE: if no tuning_data, model.fit() will holdout a fraction from train_data for early stopping
         model.fit(train_data=train_data,
                   tuning_data=tuning_data,
                   hyperparameters=hyperparameters,
