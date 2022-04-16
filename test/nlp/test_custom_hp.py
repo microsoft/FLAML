@@ -21,10 +21,12 @@ def test_custom_hp_nlp():
             "num_train_epochs": {"domain": 3},
         }
     }
-    # TODO: replace all "hf_args" with "custom_hf_args"
-    automl_settings["custom_hf_args"] = {
-        "output_dir": "test/data/output/",
-        "ckpt_per_epoch": 1,
-        "fp16": False,
+    # TODO: address this change in TransformersEstimator and automl.py
+    automl_settings["custom_fit_kwargs"] = {
+        "transformer": {
+            "output_dir": "test/data/output/",
+            "ckpt_per_epoch": 1,
+            "fp16": False,
+        }
     }
     automl.fit(X_train=X_train, y_train=y_train, **automl_settings)

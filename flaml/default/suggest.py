@@ -3,7 +3,7 @@ from sklearn.neighbors import NearestNeighbors
 import logging
 import pathlib
 import json
-from flaml.data import CLASSIFICATION, DataTransformer
+from flaml.data import CLASSIFICATION, DataTransformer, _is_nlp_task
 from flaml.ml import get_estimator_class, get_classification_objective
 
 LOCATION = pathlib.Path(__file__).parent.resolve()
@@ -11,13 +11,21 @@ logger = logging.getLogger(__name__)
 CONFIG_PREDICTORS = {}
 
 
-def meta_feature(task, X_train, y_train):
-    is_classification = task in CLASSIFICATION
-    n_row = X_train.shape[0]
-    n_feat = X_train.shape[1]
-    n_class = len(np.unique(y_train)) if is_classification else 0
-    percent_num = X_train.select_dtypes(include=np.number).shape[1] / n_feat
-    return (n_row, n_feat, n_class, percent_num)
+def meta_feature(task, X_train, y_train, strategy=None):
+    from flaml.data import _is_nlp_task
+
+    if _is_nlp_task(task):
+        if strategy == "data_size":
+            return len(X_train)
+        else:
+            return None
+    else:
+        is_classification = task in CLASSIFICATION
+        n_row = X_train.shape[0]
+        n_feat = X_train.shape[1]
+        n_class = len(np.unique(y_train)) if is_classification else 0
+        percent_num = X_train.select_dtypes(include=np.number).shape[1] / n_feat
+        return (n_row, n_feat, n_class, percent_num)
 
 
 def load_config_predictor(estimator_name, task, location=None):
@@ -55,7 +63,7 @@ def suggest_config(task, X, y, estimator_or_predictor, location=None, k=None):
     )
     assert predictor["version"] == "default"
     prep = predictor["preprocessing"]
-    feature = meta_feature(task, X, y)
+    feature = (10000,)  # meta_feature(task, X, y)
     feature = (np.array(feature) - np.array(prep["center"])) / np.array(prep["scale"])
     neighbors = predictor["neighbors"]
     nn = NearestNeighbors(n_neighbors=1)
@@ -211,13 +219,16 @@ def preprocess_and_suggest_hyperparams(
     model_class = get_estimator_class(task, estimator)
     hyperparams = config["hyperparameters"]
     model = model_class(task=task, **hyperparams)
-    estimator_class = model.estimator_class
-    X = model._preprocess(X)
-    hyperparams = hyperparams and model.params
+    if _is_nlp_task(task):
+        return hyperparams, model_class, None, None, None, None
+    else:
+        estimator_class = model.estimator_class
+        X = model._preprocess(X)
+        hyperparams = hyperparams and model.params
 
-    class AutoMLTransformer:
-        def transform(self, X):
-            return model._preprocess(dt.transform(X))
+        class AutoMLTransformer:
+            def transform(self, X):
+                return model._preprocess(dt.transform(X))
 
-    transformer = AutoMLTransformer()
-    return hyperparams, estimator_class, X, y, transformer, dt.label_transformer
+        transformer = AutoMLTransformer()
+        return hyperparams, estimator_class, X, y, transformer, dt.label_transformer

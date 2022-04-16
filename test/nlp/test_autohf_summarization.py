@@ -16,7 +16,9 @@ def test_summarization():
     automl_settings["task"] = "summarization"
     automl_settings["metric"] = "rouge1"
     automl_settings["time_budget"] = 2 * automl_settings["time_budget"]
-    automl_settings["custom_hf_args"]["model_path"] = "patrickvonplaten/t5-tiny-random"
+    automl_settings["custom_fit_kwargs"]["transformer"][
+        "model_path"
+    ] = "patrickvonplaten/t5-tiny-random"
 
     try:
         automl.fit(

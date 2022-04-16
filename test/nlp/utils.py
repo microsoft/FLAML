@@ -1116,7 +1116,7 @@ def get_toy_data_tokenclassification():
     return X_train, y_train, X_val, y_val
 
 
-def get_automl_settings():
+def get_automl_settings(estimator_name="transformer"):
 
     automl_settings = {
         "gpu_per_trial": 0,
@@ -1128,10 +1128,12 @@ def get_automl_settings():
         "use_ray": False,
     }
 
-    automl_settings["custom_hf_args"] = {
-        "model_path": "google/electra-small-discriminator",
-        "output_dir": "test/data/output/",
-        "ckpt_per_epoch": 1,
-        "fp16": False,
+    automl_settings["custom_fit_kwargs"] = {
+        estimator_name: {
+            "model_path": "google/electra-small-discriminator",
+            "output_dir": "test/data/output/",
+            "ckpt_per_epoch": 1,
+            "fp16": False,
+        }
     }
     return automl_settings

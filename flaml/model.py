@@ -364,6 +364,7 @@ class TransformersEstimator(BaseEstimator):
                 Seq2SeqTrainingArgumentsForAuto as TrainingArguments,
             )
         self._TrainingArguments = TrainingArguments
+        self.estimator_class = "transformer"
 
     @staticmethod
     def _join(X_train, y_train):
@@ -434,20 +435,24 @@ class TransformersEstimator(BaseEstimator):
     def _set_training_args(self, **kwargs):
         from .nlp.utils import date_str, Counter
 
-        for (key, val) in kwargs["custom_hf_args"].items():
-            # TODO: lint error here flaml/model.py:439:17: F524 '...'.format(...) is missing argument(s) for placeholder(s):  'domain'
-            assert key not in self.params, (
-                "Since {} is in the search space, it cannot exist in 'custom_hf_args' at the same time."
-                "If you need to fix the value of {} to {}, the only way is to add a single-value domain in the search "
-                "space by adding:\n '{}': {{ 'domain': {} }} to 'custom_hp'. Please see FLAML/test/automl/test_custom_hp.py "
-                "for an example.".format(key, key, val, key, val)
-            )
+        custom_kwargs = kwargs.get("custom_fit_kwargs") and kwargs[
+            "custom_fit_kwargs"
+        ].get(self.estimator_class)
+        if custom_kwargs:
+            for (key, val) in custom_kwargs.items():
+                assert key not in self.params, (
+                    "Since {} is in the search space, it cannot exist in 'custom_fit_kwargs' at the same time."
+                    "If you need to fix the value of {} to {}, the only way is to add a single-value domain in the search "
+                    "space by adding:\n '{}': {{ 'domain': {} }} to 'custom_hp'. Please see FLAML/test/automl/test_custom_hp.py "
+                    "for an example.".format(key, key, val, key, val)
+                )
+        else:
+            custom_kwargs = {}
 
         """
             If use has specified any custom args for TrainingArguments, update these arguments
         """
-        custom_hf_args = kwargs["custom_hf_args"] if "custom_hf_args" in kwargs else {}
-        self._training_args = self._TrainingArguments(**custom_hf_args)
+        self._training_args = self._TrainingArguments(**custom_kwargs)
 
         """
             Update the attributes in TrainingArguments with self.params values
@@ -783,9 +788,10 @@ class TransformersEstimator(BaseEstimator):
     def predict_proba(self, X, **kwargs):
         from datasets import Dataset
 
-        custom_hf_args = kwargs["custom_hf_args"] if "custom_hf_args" in kwargs else {}
-        for key, val in custom_hf_args.items():
-            setattr(self._training_args, key, val)
+        custom_kwargs = kwargs.get("custom_kwargs") and kwargs["custom_kwargs"]
+        if custom_kwargs:
+            for key, val in custom_kwargs.items():
+                setattr(self._training_args, key, val)
 
         assert (
             self._task in CLASSIFICATION
@@ -816,9 +822,10 @@ class TransformersEstimator(BaseEstimator):
 
         transformers.logging.set_verbosity_error()
 
-        custom_hf_args = kwargs["custom_hf_args"] if "custom_hf_args" in kwargs else {}
-        for key, val in custom_hf_args.items():
-            setattr(self._training_args, key, val)
+        custom_kwargs = kwargs.get("custom_kwargs") and kwargs["custom_kwargs"]
+        if custom_kwargs:
+            for key, val in custom_kwargs.items():
+                setattr(self._training_args, key, val)
 
         X_test, _ = self._preprocess(X, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
@@ -858,7 +865,9 @@ class TransformersEstimator(BaseEstimator):
 class TransformersEstimatorModelSelection(TransformersEstimator):
     @classmethod
     def search_space(cls, data_size, task, memory_budget="small", **params):
-        search_space_dict = super().search_space(cls, data_size, task, **params)
+        search_space_dict = TransformersEstimator.search_space(
+            data_size, task, **params
+        )
 
         if memory_budget == "small":
             search_space_dict["model_path"] = {
