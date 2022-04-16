@@ -2184,7 +2184,7 @@ class MultiModalEstimator(BaseEstimator):
         # use valid data for early stopping
         X_val = kwargs.get("X_val")
         y_val = kwargs.get("y_val")
-        if X_val and y_val:
+        if X_val is not None and y_val is not None:
             tuning_data = BaseEstimator._join(X_val, y_val)
         else:
             tuning_data = None
