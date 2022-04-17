@@ -77,4 +77,4 @@ def test_zero_shot_nomodel():
 
 
 if __name__ == "__main__":
-    test_starting_point_not_in_search_space()
+    test_zero_shot_nomodel()

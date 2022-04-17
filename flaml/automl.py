@@ -106,9 +106,10 @@ class SearchState:
 
         def keep_starting_point(starting_point, search_space, custom_hp):
             try:
+                import ray
                 from ray.tune import sample
             except (ImportError, AssertionError):
-                from . import sample
+                from .tune.space import sample
 
             for name, space in search_space.items():
                 if isinstance(space.get("domain"), sample.Domain):
@@ -130,7 +131,8 @@ class SearchState:
                             )
                         )
                         or (
-                            (name in custom_hp)
+                            custom_hp
+                            and (name in custom_hp)
                             and (
                                 starting_point[name]
                                 not in custom_hp[name].get("domain")
