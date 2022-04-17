@@ -7,14 +7,14 @@ def test_starting_point_not_in_search_space():
     """
         test starting_points located outside of the search space, and custom_hp is not set
     """
-    # X_train, y_train, X_val, y_val, _ = get_toy_data_seqclassification()
-    #
-    # automl = AutoML()
-    # automl_settings = get_automl_settings(estimator_name="transformer")
-    #
-    # automl_settings["starting_points"] = {"transformer": [{"learning_rate": 2e-3}]}
-    #
-    # automl.fit(X_train, y_train, **automl_settings)
+    X_train, y_train, X_val, y_val, _ = get_toy_data_seqclassification()
+
+    automl = AutoML()
+    automl_settings = get_automl_settings(estimator_name="transformer")
+
+    automl_settings["starting_points"] = {"transformer": [{"learning_rate": 2e-3}]}
+
+    automl.fit(X_train, y_train, **automl_settings)
 
     """
         test starting_points located outside of the search space, and custom_hp is set
