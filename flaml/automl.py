@@ -121,11 +121,7 @@ class SearchState:
                             space.get("domain").is_valid
                         ).parameters.values()
                     )[0].annotation
-                    type_match = (
-                        isinstance(starting_point[name], type)
-                        if type != typing.Any
-                        else True
-                    )
+                    type_match = renamed_type == typing.Any or isinstance(starting_point[name], renamed_type)
                     if name in starting_point and (
                         (
                             not (
