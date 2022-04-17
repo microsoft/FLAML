@@ -148,7 +148,7 @@ class SearchState:
         if isinstance(starting_point, dict) and not keep_starting_point(
             starting_point, search_space, custom_hp
         ):
-            logger.info(
+            logger.warning(
                 "Starting point {} removed because it is outside of the search space".format(
                     starting_point
                 )
