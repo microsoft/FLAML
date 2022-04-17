@@ -35,6 +35,7 @@ def test_starting_point_not_in_search_space():
         }
     }
     automl_settings["starting_points"] = "data:test/nlp/default/"
+    del automl_settings["custom_fit_kwargs"]["transformer_ms"]["model_path"]
 
     automl.fit(X_train, y_train, **automl_settings)
 
@@ -62,8 +63,8 @@ def test_zero_shot_nomodel():
     location = "test/nlp/default"
     X_train, y_train, X_val, y_val, X_test = get_toy_data_seqclassification()
 
-    automl_settings = get_automl_settings()
-    del automl_settings["custom_fit_kwargs"]["transformer"]["model_path"]
+    automl_settings = get_automl_settings("transformer_ms")
+    del automl_settings["custom_fit_kwargs"]["transformer_ms"]["model_path"]
 
     hyperparams, estimator_class, _, _, _, _ = preprocess_and_suggest_hyperparams(
         "seq-classification", X_train, y_train, "transformer_ms", location=location
@@ -77,4 +78,4 @@ def test_zero_shot_nomodel():
 
 
 if __name__ == "__main__":
-    test_starting_point_not_in_search_space()
+    test_zero_shot_nomodel()
