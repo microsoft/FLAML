@@ -1136,4 +1136,6 @@ def get_automl_settings(estimator_name="transformer"):
             "fp16": False,
         }
     }
+
+    automl_settings["estimator_list"] = [estimator_name]
     return automl_settings

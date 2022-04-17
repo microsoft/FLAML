@@ -51,6 +51,9 @@ from . import tune
 from .training_log import training_log_reader, training_log_writer
 from flaml.default.suggest import suggest_learner
 
+import typing
+import inspect
+
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
     "[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s", "%m-%d %H:%M:%S"
@@ -75,7 +78,13 @@ class SearchState:
         )
 
     def __init__(
-        self, learner_class, data_size, task, starting_point=None, period=None, custom_hp=None
+        self,
+        learner_class,
+        data_size,
+        task,
+        starting_point=None,
+        period=None,
+        custom_hp=None,
     ):
         self.init_eci = learner_class.cost_relative2lgbm()
         self._search_space_domain = {}
@@ -94,6 +103,63 @@ class SearchState:
 
         if custom_hp is not None:
             search_space.update(custom_hp)
+
+        def keep_starting_point(starting_point, search_space, custom_hp):
+            try:
+                from ray.tune import sample
+            except (ImportError, AssertionError):
+                from . import sample
+
+            for name, space in search_space.items():
+                if isinstance(space.get("domain"), sample.Domain):
+                    type = list(
+                        inspect.signature(
+                            space.get("domain").is_valid
+                        ).parameters.values()
+                    )[0].annotation
+                    type_match = (
+                        isinstance(starting_point[name], type)
+                        if type != typing.Any
+                        else True
+                    )
+                    if name in starting_point and (
+                        (
+                            not (
+                                type_match
+                                and space.get("domain").is_valid(starting_point[name])
+                            )
+                        )
+                        or (
+                            (name in custom_hp)
+                            and (
+                                starting_point[name]
+                                not in custom_hp[name].get("domain")
+                            )
+                        )
+                    ):
+                        return False
+            return True
+
+        if isinstance(starting_point, dict) and not keep_starting_point(
+            starting_point, search_space, custom_hp
+        ):
+            logger.info(
+                "Starting point {} removed because it is outside of the search space".format(
+                    starting_point
+                )
+            )
+            starting_point = []
+        elif isinstance(starting_point, list):
+            starting_point_len = len(starting_point)
+            starting_point = [
+                x
+                for x in starting_point
+                if keep_starting_point(x, search_space, custom_hp)
+            ]
+            if starting_point_len > len(starting_point):
+                logger.info(
+                    "Starting point removed because it is outside of the search space"
+                )
 
         for name, space in search_space.items():
             assert (
@@ -2274,6 +2340,7 @@ class AutoML(BaseEstimator):
                 pass
 
         starting_points = {} if starting_points == "static" else starting_points
+
         for estimator_name in estimator_list:
             estimator_class = self._state.learner_classes[estimator_name]
             estimator_class.init()
@@ -2283,7 +2350,7 @@ class AutoML(BaseEstimator):
                 task=self._state.task,
                 starting_point=starting_points.get(estimator_name),
                 period=self._state.fit_kwargs.get("period"),
-                custom_hp=custom_hp and custom_hp.get(estimator_name)
+                custom_hp=custom_hp and custom_hp.get(estimator_name),
             )
         logger.info("List of ML learners in AutoML Run: {}".format(estimator_list))
         self.estimator_list = estimator_list
