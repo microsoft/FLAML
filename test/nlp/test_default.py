@@ -66,7 +66,7 @@ def test_zero_shot_nomodel():
     automl_settings = get_automl_settings("transformer_ms")
     del automl_settings["custom_fit_kwargs"]["transformer_ms"]["model_path"]
 
-    hyperparams, estimator_class, _, _, _, _ = preprocess_and_suggest_hyperparams(
+    hyperparams, estimator_class, X_train, y_train, _, _ = preprocess_and_suggest_hyperparams(
         "seq-classification", X_train, y_train, "transformer_ms", location=location
     )
 
