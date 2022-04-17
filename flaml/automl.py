@@ -104,7 +104,7 @@ class SearchState:
         if custom_hp is not None:
             search_space.update(custom_hp)
 
-        def keep_starting_point(starting_point, search_space, custom_hp):
+        def valid_starting_point(starting_point, search_space, custom_hp):
             try:
                 import ray
                 from ray.tune import sample
