@@ -652,8 +652,6 @@ class TransformersEstimator(BaseEstimator):
             so each estimator does not see all the GPUs
         """
         if gpu_per_trial:
-            import math
-
             tmp_cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES", "")
             self._trainer.args._n_gpu = gpu_per_trial
 
@@ -872,6 +870,10 @@ class TransformersEstimator(BaseEstimator):
 
 
 class TransformersEstimatorModelSelection(TransformersEstimator):
+    def __init__(self, task="seq-classification", **config):
+        super().__init__(task, **config)
+        self.estimator_class = "transformer_ms"
+
     @classmethod
     def search_space(cls, data_size, task, memory_budget="small", **params):
         search_space_dict = TransformersEstimator.search_space(

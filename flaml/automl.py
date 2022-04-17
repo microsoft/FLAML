@@ -112,7 +112,10 @@ class SearchState:
                 from .tune.space import sample
 
             for name, space in search_space.items():
-                if isinstance(space.get("domain"), sample.Domain):
+                if (
+                    isinstance(space.get("domain"), sample.Domain)
+                    and name in starting_point
+                ):
                     type = list(
                         inspect.signature(
                             space.get("domain").is_valid
