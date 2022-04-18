@@ -573,12 +573,7 @@ def compute_estimator(
         n_jobs=n_jobs,
     )
 
-    if isinstance(estimator, TransformersEstimator):
-        fit_kwargs["metric"] = eval_metric
-        fit_kwargs["X_val"] = X_val
-        fit_kwargs["y_val"] = y_val
-
-    elif isinstance(estimator, MultiModalEstimator):
+    if isinstance(estimator, (TransformersEstimator, MultiModalEstimator)):
         fit_kwargs["metric"] = eval_metric
         fit_kwargs["X_val"] = X_val
         fit_kwargs["y_val"] = y_val
