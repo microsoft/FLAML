@@ -11,14 +11,13 @@ logger = logging.getLogger(__name__)
 CONFIG_PREDICTORS = {}
 
 
-def meta_feature(task, X_train, y_train, strategy=None):
-    from flaml.data import _is_nlp_task
+def meta_feature(task, estimator_class, X_train, y_train, strategy=None):
 
-    if _is_nlp_task(task):
+    if estimator_class in ["transformer", "transformer_ms"]:
         if strategy == "data_size":
-            return len(X_train)
+            return (len(X_train),)
         else:
-            return None
+            return (None,)
     else:
         is_classification = task in CLASSIFICATION
         n_row = X_train.shape[0]
@@ -63,7 +62,9 @@ def suggest_config(task, X, y, estimator_or_predictor, location=None, k=None):
     )
     assert predictor["version"] == "default"
     prep = predictor["preprocessing"]
-    feature = (10000,)  # meta_feature(task, X, y)
+    feature = meta_feature(
+        task, estimator_class=estimator_or_predictor, X_train=X, y_train=y
+    )
     feature = (np.array(feature) - np.array(prep["center"])) / np.array(prep["scale"])
     neighbors = predictor["neighbors"]
     nn = NearestNeighbors(n_neighbors=1)
@@ -220,7 +221,7 @@ def preprocess_and_suggest_hyperparams(
     hyperparams = config["hyperparameters"]
     model = model_class(task=task, **hyperparams)
     if _is_nlp_task(task):
-        return hyperparams, model_class, None, None, None, None
+        return hyperparams, model_class, X, y, None, None
     else:
         estimator_class = model.estimator_class
         X = model._preprocess(X)

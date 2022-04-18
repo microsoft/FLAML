@@ -105,43 +105,33 @@ class SearchState:
             search_space.update(custom_hp)
 
         def valid_starting_point(starting_point, search_space, custom_hp):
-            try:
-                import ray
-                from ray.tune import sample
-            except (ImportError, AssertionError):
-                from .tune.space import sample
+            from .tune.space import sample
 
-            for name, space in search_space.items():
-                if (
-                    isinstance(space.get("domain"), sample.Domain)
-                    and name in starting_point
-                ):
-                    type = list(
+            """
+                For each hp in the starting point, check the following 2 conditions:
+                (1) If the type of the starting point does not match the required type in search space, return false
+                (2) If the starting point is not in the required search space, return false
+                Notice (2) include the case starting point not in user specified search space custom_hp
+            """
+            for name in starting_point:
+                space = search_space[name]
+                if isinstance(space.get("domain"), sample.Domain):
+                    renamed_type = list(
                         inspect.signature(
                             space.get("domain").is_valid
                         ).parameters.values()
                     )[0].annotation
-                    type_match = renamed_type == typing.Any or isinstance(starting_point[name], renamed_type)
-                    if name in starting_point and (
-                        (
-                            not (
-                                type_match
-                                and space.get("domain").is_valid(starting_point[name])
-                            )
-                        )
-                        or (
-                            custom_hp
-                            and (name in custom_hp)
-                            and (
-                                starting_point[name]
-                                not in custom_hp[name].get("domain")
-                            )
-                        )
+                    type_match = renamed_type == typing.Any or isinstance(
+                        starting_point[name], renamed_type
+                    )
+                    if not (
+                        type_match
+                        and space.get("domain").is_valid(starting_point[name])
                     ):
                         return False
             return True
 
-        if isinstance(starting_point, dict) and not keep_starting_point(
+        if isinstance(starting_point, dict) and not valid_starting_point(
             starting_point, search_space, custom_hp
         ):
             logger.warning(
@@ -155,11 +145,12 @@ class SearchState:
             starting_point = [
                 x
                 for x in starting_point
-                if keep_starting_point(x, search_space, custom_hp)
+                if valid_starting_point(x, search_space, custom_hp)
             ]
             if starting_point_len > len(starting_point):
                 logger.info(
-                    "Starting point removed because it is outside of the search space"
+                    "Starting points outside of the search space are removed. "
+                    f"Remaining starting points: {starting_point}"
                 )
 
         for name, space in search_space.items():
