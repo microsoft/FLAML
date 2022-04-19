@@ -4,7 +4,8 @@
 #  * project root for license information.
 import time
 import os
-from typing import Callable, Optional, List, Union
+from typing import Callable, Optional, List, Union, Any
+import inspect
 from functools import partial
 import numpy as np
 from scipy.sparse import issparse
@@ -50,9 +51,6 @@ from .data import (
 from . import tune
 from .training_log import training_log_reader, training_log_writer
 from flaml.default.suggest import suggest_learner
-
-import typing
-import inspect
 
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
@@ -108,9 +106,10 @@ class SearchState:
             from .tune.space import sample
 
             """
-                For each hp in the starting point, check the following 2 conditions:
+                For each hp in the starting point, check the following 3 conditions:
                 (1) If the type of the starting point does not match the required type in search space, return false
                 (2) If the starting point is not in the required search space, return false
+                (3) If the search space is a value instead of a domain, return false
                 Notice (2) include the case starting point not in user specified search space custom_hp
             """
             for name in starting_point:
@@ -121,7 +120,7 @@ class SearchState:
                             space.get("domain").is_valid
                         ).parameters.values()
                     )[0].annotation
-                    type_match = renamed_type == typing.Any or isinstance(
+                    type_match = renamed_type == Any or isinstance(
                         starting_point[name], renamed_type
                     )
                     if not (
@@ -129,6 +128,8 @@ class SearchState:
                         and space.get("domain").is_valid(starting_point[name])
                     ):
                         return False
+                elif starting_point[name] != space.get("domain"):
+                    return False
             return True
 
         if isinstance(starting_point, dict) and not valid_starting_point(
@@ -2039,6 +2040,20 @@ class AutoML(BaseEstimator):
                 the automl constructor, flaml will automatically (and under the hood)
                 add it as an additional element in the metric_constraints. Essentially 'pred_time_limit'
                 specifies a constraint about the prediction latency constraint in seconds.
+            custom_hp: dict, default=None | The sub search space specified by user
+                Each key is the estimator name, each value is a dict of the custom sub search space. Notice the
+                domain of the sub search space can either be a value of a sample.Domain object.
+                e.g.,
+                    custom_hp = {
+                        "transformer_ms": {
+                            "model_path": {
+                                "domain": "albert-base-v2",
+                            },
+                            "learning_rate": {
+                                "domain": tune.choice([1e-4, 1e-5]),
+                            }
+                        }
+                    }
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Include:
                     period: int | forecast horizon for ts_forecast tasks.

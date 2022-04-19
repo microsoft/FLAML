@@ -37,7 +37,7 @@ from .model import (
     ARIMA,
     SARIMAX,
     TransformersEstimator,
-    TransformersEstimatorModelSelection
+    TransformersEstimatorModelSelection,
 )
 from .data import CLASSIFICATION, group_counts, TS_FORECAST, TS_VALUE_COL
 import logging
@@ -592,7 +592,8 @@ def compute_estimator(
             task,
             budget=budget,
             log_training_metric=log_training_metric,
-            fit_kwargs=fit_kwargs,
+            fit_kwargs=fit_kwargs.get("custom_fit_kwargs")
+            and fit_kwargs["custom_fit_kwargs"].get(estimator.estimator_class),
         )
     else:
         val_loss, metric_for_logging, train_time, pred_time = evaluate_model_CV(
@@ -606,7 +607,8 @@ def compute_estimator(
             eval_metric,
             best_val_loss,
             log_training_metric=log_training_metric,
-            fit_kwargs=fit_kwargs,
+            fit_kwargs=fit_kwargs.get("custom_fit_kwargs")
+            and fit_kwargs["custom_fit_kwargs"].get(estimator.estimator_class),
         )
     return estimator, val_loss, metric_for_logging, train_time, pred_time
 

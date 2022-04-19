@@ -30,8 +30,11 @@ def test_starting_point_not_in_search_space():
     automl_settings["custom_hp"] = {
         "transformer_ms": {
             "model_path": {
-                "domain": tune.choice(["albert-base-v2"]),
-            }
+                "domain": "albert-base-v2",
+            },
+            "learning_rate": {
+                "domain": tune.choice([1e-4, 1e-5]),
+            },
         }
     }
     automl_settings["starting_points"] = "data:test/nlp/default/"
@@ -66,7 +69,14 @@ def test_zero_shot_nomodel():
     automl_settings = get_automl_settings("transformer_ms")
     del automl_settings["custom_fit_kwargs"]["transformer_ms"]["model_path"]
 
-    hyperparams, estimator_class, X_train, y_train, _, _ = preprocess_and_suggest_hyperparams(
+    (
+        hyperparams,
+        estimator_class,
+        X_train,
+        y_train,
+        _,
+        _,
+    ) = preprocess_and_suggest_hyperparams(
         "seq-classification", X_train, y_train, "transformer_ms", location=location
     )
 

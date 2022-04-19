@@ -411,7 +411,7 @@ class TransformersEstimator(BaseEstimator):
         return search_space_dict
 
     @property
-    def _checkpoint_freq(self):
+    def checkpoint_freq(self):
         return (
             int(
                 min(self._training_args.num_train_epochs, 1)
@@ -423,22 +423,19 @@ class TransformersEstimator(BaseEstimator):
         )
 
     @property
-    def _fp16(self):
-        return (
-            self._training_args.fp16 if self._kwargs.get("gpu_per_trial") > 0 else False
-        )
+    def fp16(self):
+        return self._kwargs.get("gpu_per_trial") > 0 and self._training_args.fp16
 
     @property
-    def _no_cuda(self):
-        no_cuda = True if self._kwargs.get("gpu_per_trial") == 0 else False
-        return no_cuda
+    def no_cuda(self):
+        return not (
+            self._kwargs.get("gpu_per_trial")
+            and float(self._kwargs.get("gpu_per_trial")) > 0
+        )
 
-    def _set_training_args(self, **kwargs):
+    def _set_training_args(self, **custom_kwargs):
         from .nlp.utils import date_str, Counter
 
-        custom_kwargs = kwargs.get("custom_fit_kwargs") and kwargs[
-            "custom_fit_kwargs"
-        ].get(self.estimator_class)
         if custom_kwargs:
             for (key, val) in custom_kwargs.items():
                 assert key not in self.params, (
@@ -467,7 +464,7 @@ class TransformersEstimator(BaseEstimator):
         local_dir = os.path.join(
             self._training_args.output_dir, "train_{}".format(date_str())
         )
-        if self.use_ray is True:
+        if self._use_ray is True:
             import ray
 
             self._training_args.output_dir = ray.tune.get_trial_dir()
@@ -477,10 +474,10 @@ class TransformersEstimator(BaseEstimator):
             )
 
         self._training_args.eval_steps = (
-            self._training_args.loggin_steps
-        ) = self._training_args.saving_steps = self._checkpoint_freq
-        self._training_args.fp16 = self._fp16
-        self._training_args.no_cuda = self._no_cuda
+            self._training_args.logging_steps
+        ) = self._training_args.saving_steps = self.checkpoint_freq
+        self._training_args.fp16 = self.fp16
+        self._training_args.no_cuda = self.no_cuda
 
     def _preprocess(self, X, y=None, **kwargs):
         from .nlp.utils import tokenize_text, is_a_list_of_str
@@ -578,9 +575,9 @@ class TransformersEstimator(BaseEstimator):
         try:
             from ray.tune import is_session_enabled
 
-            self.use_ray = is_session_enabled()
+            self._use_ray = is_session_enabled()
         except ImportError:
-            self.use_ray = False
+            self._use_ray = False
 
         this_params = self.params
         self._kwargs = kwargs
@@ -688,7 +685,7 @@ class TransformersEstimator(BaseEstimator):
         return time.time() - start_time
 
     def _delete_one_ckpt(self, ckpt_location):
-        if self.use_ray is False:
+        if self._use_ray is False:
             try:
                 shutil.rmtree(ckpt_location)
             except FileNotFoundError:
@@ -775,7 +772,7 @@ class TransformersEstimator(BaseEstimator):
             with HF config https://github.com/huggingface/transformers/blob/main/src/transformers/training_args.py#L947
         """
         training_args = self._TrainingArguments(
-            local_rank=-1, model_path=self._checkpoint_path, fp16=self._fp16
+            local_rank=-1, model_path=self._checkpoint_path, fp16=self.fp16
         )
         for key, val in self._training_args.__dict__.items():
             if key not in ("local_rank", "model_path", "fp16"):
@@ -792,12 +789,11 @@ class TransformersEstimator(BaseEstimator):
             setattr(new_trainer, "_is_seq2seq", True)
         return new_trainer
 
-    def predict_proba(self, X, **kwargs):
+    def predict_proba(self, X, **pred_kwargs):
         from datasets import Dataset
 
-        custom_kwargs = kwargs.get("custom_kwargs") and kwargs["custom_kwargs"]
-        if custom_kwargs:
-            for key, val in custom_kwargs.items():
+        if pred_kwargs:
+            for key, val in pred_kwargs.items():
                 setattr(self._training_args, key, val)
 
         assert (
@@ -823,15 +819,14 @@ class TransformersEstimator(BaseEstimator):
         new_trainer = self._init_model_for_predict()
         return new_trainer.evaluate(eval_dataset)
 
-    def predict(self, X, **kwargs):
+    def predict(self, X, **pred_kwargs):
         import transformers
         from datasets import Dataset
 
         transformers.logging.set_verbosity_error()
 
-        custom_kwargs = kwargs.get("custom_kwargs") and kwargs["custom_kwargs"]
-        if custom_kwargs:
-            for key, val in custom_kwargs.items():
+        if pred_kwargs:
+            for key, val in pred_kwargs.items():
                 setattr(self._training_args, key, val)
 
         X_test, _ = self._preprocess(X, **self._kwargs)
@@ -880,7 +875,7 @@ class TransformersEstimatorModelSelection(TransformersEstimator):
             data_size, task, **params
         )
 
-        if memory_budget == "small":
+        if memory_budget == "base":
             search_space_dict["model_path"] = {
                 "domain": tune.choice(
                     [
@@ -892,7 +887,7 @@ class TransformersEstimatorModelSelection(TransformersEstimator):
                 ),
                 "init_value": "facebook/muppet-roberta-base",
             }
-        elif memory_budget == "base":
+        elif memory_budget == "small":
             search_space_dict["model_path"] = {
                 "domain": tune.choice(["google/electra-small-discriminator"]),
                 "init_value": "google/electra-small-discriminator",
