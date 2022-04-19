@@ -18,24 +18,26 @@ def test_multimodalestimator():
         return
 
     seed = 123
-    metric = "accuracy"
+    metric = "r2"
     train_data = {
         "sentence1": [
             'Amrozi accused his brother , whom he called " the witness " , of deliberately distorting his evidence .',
-            "Yucaipa owned Dominick 's before selling the chain to Safeway in 1998 for $ 2.5 billion .",
-            "They had published an advertisement on the Internet on June 10 , offering the cargo for sale , he added .",
-            "Around 0335 GMT , Tab shares were up 19 cents , or 4.4 % , at A $ 4.56 , having earlier set a record high of A $ 4.57 .",
         ],
-        "numerical1": [1, 2, 3, 4],
-        "categorical1": ["a", "b", "a", "b"],
-        "label": [5, 4, 3, 2],
+        "numerical1": [1],
+        "label": [1],
+    }
+
+    valid_data = {
+        "sentence1": [
+            "They had published an advertisement on the Internet on June 10 , offering the cargo for sale , he added .",
+        ],
+        "numerical1": [1],
+        "label": [1],
     }
     train_dataset = pd.DataFrame(train_data)
-    train_dataset, valid_dataset = train_test_split(train_dataset,
-                                    test_size=0.2,
-                                    random_state=np.random.RandomState(seed))
+    valid_dataset = pd.DataFrame(valid_data)
     
-    feature_columns = ["sentence1", "numerical1", "categorical1"]
+    feature_columns = ["sentence1", "numerical1"]
     automl = AutoML()
     automl_settings = {
         "gpu_per_trial": 0,
