@@ -21,7 +21,7 @@ def test_multimodalestimator():
     metric = "r2"
     train_data = {
         "sentence1": [
-            'Amrozi accused his brother , whom he called " the witness " , of deliberately distorting his evidence .',
+            "Amrozi accused his brother of deliberately distorting his evidence.",
         ],
         "numerical1": [1],
         "label": [1],
@@ -29,7 +29,7 @@ def test_multimodalestimator():
 
     valid_data = {
         "sentence1": [
-            "They had published an advertisement on the Internet on June 10 , offering the cargo for sale , he added .",
+            "They had published an advertisement on the Internet on June 10.",
         ],
         "numerical1": [1],
         "label": [1],
