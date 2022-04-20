@@ -42,7 +42,7 @@ def test_multimodalestimator():
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 2,
-        "time_budget": 10,
+        "time_budget": 20,
         "task": "mm-regression",
         "metric": "r2",
         "seed": seed,
