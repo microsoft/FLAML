@@ -370,7 +370,7 @@ def denormalize(
                     if isinstance(value, list):
                         # denormalize list
                         choice = min(
-                            n - 1, int(np.floor(value * n))
+                            n - 1, int(np.floor(value[-1] * n))
                         )  # max choice is n-1
                         config_denorm[key] = point = value[choice]
                         point["_choice_"] = choice
