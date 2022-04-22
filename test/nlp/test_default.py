@@ -1,4 +1,6 @@
 from utils import get_toy_data_seqclassification, get_automl_settings
+import sys
+from flaml.default import portfolio
 
 
 def pop_args(fit_kwargs_by_estimator):
@@ -7,6 +9,11 @@ def pop_args(fit_kwargs_by_estimator):
     fit_kwargs_by_estimator.pop("estimator_list", None)
     fit_kwargs_by_estimator.pop("time_budget", None)
     fit_kwargs_by_estimator.pop("log_file_name", None)
+
+
+def test_build_portfolio(path="./test/nlp/default", strategy="greedy"):
+    sys.argv = f"portfolio.py --output {path} --input {path} --metafeatures {path}/all/metafeatures.csv --task seq-classification --estimator transformer_ms --strategy {strategy}".split()
+    portfolio.main()
 
 
 def test_starting_point_not_in_search_space():
@@ -54,7 +61,6 @@ def test_starting_point_not_in_search_space():
     del automl_settings["fit_kwargs_by_estimator"][this_estimator_name]["model_path"]
 
     automl.fit(X_train, y_train, **automl_settings)
-
     assert len(automl._search_states[this_estimator_name].init_config) == 0
 
 
@@ -114,4 +120,4 @@ def test_zero_shot_nomodel():
 
 
 if __name__ == "__main__":
-    test_starting_point_not_in_search_space()
+    test_build_portfolio()
