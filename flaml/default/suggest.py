@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 CONFIG_PREDICTORS = {}
 
 
-def meta_feature(task, estimator_class, X_train, y_train, strategy=None):
+def meta_feature(task, estimator_class, X_train, y_train, strategy="data_size"):
 
     if estimator_class in ["transformer", "transformer_ms"]:
         if strategy == "data_size":
@@ -220,7 +220,7 @@ def preprocess_and_suggest_hyperparams(
     model_class = get_estimator_class(task, estimator)
     hyperparams = config["hyperparameters"]
     model = model_class(task=task, **hyperparams)
-    if _is_nlp_task(task):
+    if model.estimator_class is None:
         return hyperparams, model_class, X, y, None, None
     else:
         estimator_class = model.estimator_class

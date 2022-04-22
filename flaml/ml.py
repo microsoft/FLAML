@@ -539,10 +539,6 @@ def evaluate_model_CV(
         else:
             metric = total_metric / n
     pred_time /= n
-    # budget -= time.time() - start_time
-    # if val_loss < best_val_loss and budget > budget_per_train:
-    #     estimator.cleanup()
-    #     estimator.fit(X_train_all, y_train_all, budget, **fit_kwargs)
     return val_loss, metric, train_time, pred_time
 
 
@@ -592,8 +588,7 @@ def compute_estimator(
             task,
             budget=budget,
             log_training_metric=log_training_metric,
-            fit_kwargs=fit_kwargs.get("custom_fit_kwargs")
-            and fit_kwargs["custom_fit_kwargs"].get(estimator.estimator_class),
+            fit_kwargs=fit_kwargs,
         )
     else:
         val_loss, metric_for_logging, train_time, pred_time = evaluate_model_CV(
@@ -607,9 +602,12 @@ def compute_estimator(
             eval_metric,
             best_val_loss,
             log_training_metric=log_training_metric,
-            fit_kwargs=fit_kwargs.get("custom_fit_kwargs")
-            and fit_kwargs["custom_fit_kwargs"].get(estimator.estimator_class),
+            fit_kwargs=fit_kwargs,
         )
+
+    if isinstance(estimator, TransformersEstimator):
+        del fit_kwargs["metric"], fit_kwargs["X_val"], fit_kwargs["y_val"]
+
     return estimator, val_loss, metric_for_logging, train_time, pred_time
 
 

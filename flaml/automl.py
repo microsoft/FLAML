@@ -112,23 +112,19 @@ class SearchState:
                 (3) If the search space is a value instead of a domain, return false
                 Notice (2) include the case starting point not in user specified search space custom_hp
             """
-            for name in starting_point:
+            for name, this_starting_point in starting_point.items():
                 space = search_space[name]
-                if isinstance(space.get("domain"), sample.Domain):
+                this_domain = space.get("domain")
+                if isinstance(this_domain, sample.Domain):
                     renamed_type = list(
-                        inspect.signature(
-                            space.get("domain").is_valid
-                        ).parameters.values()
+                        inspect.signature(this_domain.is_valid).parameters.values()
                     )[0].annotation
                     type_match = renamed_type == Any or isinstance(
-                        starting_point[name], renamed_type
+                        this_starting_point, renamed_type
                     )
-                    if not (
-                        type_match
-                        and space.get("domain").is_valid(starting_point[name])
-                    ):
+                    if not (type_match and this_domain.is_valid(this_starting_point)):
                         return False
-                elif starting_point[name] != space.get("domain"):
+                elif this_starting_point != this_domain:
                     return False
             return True
 
@@ -266,7 +262,9 @@ class AutoMLState:
             else:
                 sampled_X_train = self.X_train[:sample_size]
             sampled_y_train = self.y_train[:sample_size]
-            weight = self.fit_kwargs.get("sample_weight")
+            weight = self.fit_kwargs.get(
+                "sample_weight"
+            )  # NOTE: _prepare_sample_train_data is before
             if weight is not None:
                 sampled_weight = weight[:sample_size]
             if self.groups is not None:
@@ -274,7 +272,9 @@ class AutoMLState:
         else:
             sampled_X_train = self.X_train_all
             sampled_y_train = self.y_train_all
-            if "sample_weight" in self.fit_kwargs:
+            if (
+                "sample_weight" in self.fit_kwargs
+            ):  # NOTE: _prepare_sample_train_data is before
                 sampled_weight = self.sample_weight_all
             if self.groups is not None:
                 groups = self.groups_all
@@ -286,6 +286,10 @@ class AutoMLState:
             sample_size = int(config_w_resource["FLAML_sample_size"])
         else:
             sample_size = state.data_size[0]
+
+        this_estimator_kwargs = state.fit_kwargs_by_estimator.get(
+            estimator
+        )  # NOTE: _compute_with_config_base is after
         (
             sampled_X_train,
             sampled_y_train,
@@ -293,12 +297,12 @@ class AutoMLState:
             groups,
         ) = state._prepare_sample_train_data(sample_size)
         if sampled_weight is not None:
-            weight = state.fit_kwargs["sample_weight"]
-            state.fit_kwargs["sample_weight"] = sampled_weight
+            weight = this_estimator_kwargs["sample_weight"]
+            this_estimator_kwargs["sample_weight"] = sampled_weight
         else:
             weight = None
         if groups is not None:
-            state.fit_kwargs["groups"] = groups
+            this_estimator_kwargs["groups"] = groups
         config = config_w_resource.copy()
         if "FLAML_sample_size" in config:
             del config["FLAML_sample_size"]
@@ -339,14 +343,10 @@ class AutoMLState:
             state.n_jobs,
             state.learner_classes.get(estimator),
             state.log_training_metric,
-            state.fit_kwargs,
+            this_estimator_kwargs,
         )
         if state.retrain_final and not state.model_history:
             trained_estimator.cleanup()
-
-        if _is_nlp_task(state.task):
-            del state.fit_kwargs["X_val"]
-            del state.fit_kwargs["y_val"]
 
         result = {
             "pred_time": pred_time,
@@ -356,7 +356,7 @@ class AutoMLState:
             "trained_estimator": trained_estimator,
         }
         if sampled_weight is not None:
-            state.fit_kwargs["sample_weight"] = weight
+            this_estimator_kwargs["sample_weight"] = weight
         tune.report(**result)
         return result
 
@@ -375,6 +375,10 @@ class AutoMLState:
             del config["FLAML_sample_size"]
         if "learner" in config:
             del config["learner"]
+
+        this_estimator_kwargs = self.fit_kwargs_by_estimator.get(
+            estimator
+        )  # NOTE: _train_with_config is after
         (
             sampled_X_train,
             sampled_y_train,
@@ -382,12 +386,18 @@ class AutoMLState:
             groups,
         ) = self._prepare_sample_train_data(sample_size)
         if sampled_weight is not None:
-            weight = self.fit_kwargs["sample_weight"]
-            self.fit_kwargs["sample_weight"] = sampled_weight
+            weight = this_estimator_kwargs[
+                "sample_weight"
+            ]  # NOTE: _train_with_config is after
+            this_estimator_kwargs[
+                "sample_weight"
+            ] = sampled_weight  # NOTE: _train_with_config is after
         else:
             weight = None
         if groups is not None:
-            self.fit_kwargs["groups"] = groups
+            this_estimator_kwargs[
+                "groups"
+            ] = groups  # NOTE: _train_with_config is after
 
         budget = (
             None
@@ -404,12 +414,14 @@ class AutoMLState:
             n_jobs=self.n_jobs,
             estimator_class=self.learner_classes.get(estimator),
             budget=budget,
-            fit_kwargs=self.fit_kwargs,
+            fit_kwargs=this_estimator_kwargs,  # NOTE: _train_with_config is after
             eval_metric=self.metric if hasattr(self, "metric") else "train_time",
         )
 
         if sampled_weight is not None:
-            self.fit_kwargs["sample_weight"] = weight
+            this_estimator_kwargs[
+                "sample_weight"
+            ] = weight  # NOTE: _train_with_config is after
 
         return estimator, train_time
 
@@ -611,6 +623,29 @@ class AutoML(BaseEstimator):
                 the automl constructor, flaml will automatically (and under the hood)
                 add it as an additional element in the metric_constraints. Essentially 'pred_time_limit'
                 specifies a constraint about the prediction latency constraint in seconds.
+            custom_hp: dict, default=None | The sub search space specified by user
+                Each key is the estimator name, each value is a dict of the custom sub search space. Notice the
+                domain of the sub search space can either be a value of a sample.Domain object.
+                e.g.,
+                    custom_hp = {
+                        "transformer_ms": {
+                            "model_path": {
+                                "domain": "albert-base-v2",
+                            },
+                            "learning_rate": {
+                                "domain": tune.choice([1e-4, 1e-5]),
+                            }
+                        }
+                    }
+            fit_kwargs_by_estimator: dict, default=None | The user specified keywords arguments, grouped by estimator name.
+                e.g.,
+                    fit_kwargs_by_estimator = {
+                        "transformer": {
+                             "output_dir": "test/data/output/",
+                            "ckpt_per_epoch": 1,
+                            "fp16": False,
+                        }
+                    }
 
         """
         self._track_iter = 0
@@ -649,6 +684,11 @@ class AutoML(BaseEstimator):
         settings["min_sample_size"] = settings.get("min_sample_size", MIN_SAMPLE_TRAIN)
         settings["use_ray"] = settings.get("use_ray", False)
         settings["metric_constraints"] = settings.get("metric_constraints", [])
+        settings["fit_kwargs_by_estimator"] = settings.get(
+            "fit_kwargs_by_estimator", {}
+        )
+        settings["custom_hp"] = settings.get("custom_hp", {})
+
         self._estimator_type = (
             "classifier" if settings["task"] in CLASSIFICATION else "regressor"
         )
@@ -983,7 +1023,7 @@ class AutoML(BaseEstimator):
         else:
             raise ValueError("either X_train+y_train or dataframe+label are required")
 
-        # check the validity of input dimensions under the nlp mode
+        # check the validity of input dimensions for NLP tasks, so need to check _is_nlp_task not estimator
         if _is_nlp_task(self._state.task):
             from .nlp.utils import is_a_list_of_str
 
@@ -1030,7 +1070,10 @@ class AutoML(BaseEstimator):
                 X, y, self._state.task
             )
             self._label_transformer = self._transformer.label_transformer
-        self._sample_weight_full = self._state.fit_kwargs.get("sample_weight")
+
+        self._sample_weight_full = self._state.fit_kwargs.get(
+            "sample_weight"
+        )  # NOTE: _validate_data is before
         if X_val is not None and y_val is not None:
             assert (
                 isinstance(X_val, np.ndarray)
@@ -1090,7 +1133,8 @@ class AutoML(BaseEstimator):
         if (
             self._state.task in CLASSIFICATION
             and self._auto_augment
-            and self._state.fit_kwargs.get("sample_weight") is None
+            and self._state.fit_kwargs.get("sample_weight")
+            is None  # NOTE: _prepare_data is before
             and self._split_type in ["stratified", "uniform"]
             and self._state.task != TOKENCLASSIFICATION
         ):
@@ -1132,7 +1176,9 @@ class AutoML(BaseEstimator):
                     self._sample_weight_full,
                     random_state=RANDOM_SEED,
                 )
-                self._state.fit_kwargs["sample_weight"] = self._state.sample_weight_all
+                self._state.fit_kwargs[
+                    "sample_weight"
+                ] = self._state.sample_weight_all  # NOTE: _prepare_data is before
             else:
                 X_train_all, y_train_all = shuffle(
                     X_train_all, y_train_all, random_state=RANDOM_SEED
@@ -1149,7 +1195,9 @@ class AutoML(BaseEstimator):
             if self._split_type == "time":
                 if self._state.task in TS_FORECAST:
                     num_samples = X_train_all.shape[0]
-                    period = self._state.fit_kwargs["period"]
+                    period = self._state.fit_kwargs[
+                        "period"
+                    ]  # NOTE: _prepare_data is before
                     assert (
                         period < num_samples
                     ), f"period={period}>#examples={num_samples}"
@@ -1159,18 +1207,24 @@ class AutoML(BaseEstimator):
                     X_val = X_train_all[split_idx:]
                     y_val = y_train_all[split_idx:]
                 else:
-                    if "sample_weight" in self._state.fit_kwargs:
+                    if (
+                        "sample_weight" in self._state.fit_kwargs
+                    ):  # NOTE: _prepare_data is before
                         (
                             X_train,
                             X_val,
                             y_train,
                             y_val,
-                            self._state.fit_kwargs["sample_weight"],
+                            self._state.fit_kwargs[
+                                "sample_weight"
+                            ],  # NOTE: _prepare_data is before
                             self._state.weight_val,
                         ) = train_test_split(
                             X_train_all,
                             y_train_all,
-                            self._state.fit_kwargs["sample_weight"],
+                            self._state.fit_kwargs[
+                                "sample_weight"
+                            ],  # NOTE: _prepare_data is before
                             test_size=split_ratio,
                             shuffle=False,
                         )
@@ -1211,7 +1265,9 @@ class AutoML(BaseEstimator):
                 X_rest = X_train_all.iloc[rest] if self._df else X_train_all[rest]
                 y_rest = y_train_all[rest]
                 stratify = y_rest if self._split_type == "stratified" else None
-                if "sample_weight" in self._state.fit_kwargs:
+                if (
+                    "sample_weight" in self._state.fit_kwargs
+                ):  # NOTE: _prepare_data is before
                     (
                         X_train,
                         X_val,
@@ -1222,13 +1278,19 @@ class AutoML(BaseEstimator):
                     ) = train_test_split(
                         X_rest,
                         y_rest,
-                        self._state.fit_kwargs["sample_weight"][rest],
+                        self._state.fit_kwargs["sample_weight"][
+                            rest
+                        ],  # NOTE: _prepare_data is before
                         test_size=split_ratio,
                         random_state=RANDOM_SEED,
                     )
-                    weight1 = self._state.fit_kwargs["sample_weight"][first]
+                    weight1 = self._state.fit_kwargs["sample_weight"][
+                        first
+                    ]  # NOTE: _prepare_data is before
                     self._state.weight_val = concat(weight1, weight_val)
-                    self._state.fit_kwargs["sample_weight"] = concat(
+                    self._state.fit_kwargs[
+                        "sample_weight"
+                    ] = concat(  # NOTE: _prepare_data is before
                         weight1, weight_train
                     )
                 else:
@@ -1252,18 +1314,24 @@ class AutoML(BaseEstimator):
                     else np.concatenate([label_set, y_val])
                 )
             elif self._state.task in REGRESSION:
-                if "sample_weight" in self._state.fit_kwargs:
+                if (
+                    "sample_weight" in self._state.fit_kwargs
+                ):  # NOTE: _prepare_data is before
                     (
                         X_train,
                         X_val,
                         y_train,
                         y_val,
-                        self._state.fit_kwargs["sample_weight"],
+                        self._state.fit_kwargs[
+                            "sample_weight"
+                        ],  # NOTE: _prepare_data is before
                         self._state.weight_val,
                     ) = train_test_split(
                         X_train_all,
                         y_train_all,
-                        self._state.fit_kwargs["sample_weight"],
+                        self._state.fit_kwargs[
+                            "sample_weight"
+                        ],  # NOTE: _prepare_data is before
                         test_size=split_ratio,
                         random_state=RANDOM_SEED,
                     )
@@ -1309,7 +1377,9 @@ class AutoML(BaseEstimator):
         elif self._split_type == "time":
             # logger.info("Using TimeSeriesSplit")
             if self._state.task in TS_FORECAST:
-                period = self._state.fit_kwargs["period"]
+                period = self._state.fit_kwargs[
+                    "period"
+                ]  # NOTE: _prepare_data is before
                 if period * (n_splits + 1) > y_train_all.size:
                     n_splits = int(y_train_all.size / period - 1)
                     assert n_splits >= 2, (
@@ -1388,6 +1458,8 @@ class AutoML(BaseEstimator):
         train_full=False,
         record_id=-1,
         auto_augment=None,
+        custom_hp=None,
+        fit_kwargs_by_estimator=None,
         **fit_kwargs,
     ):
         """Retrain from log file.
@@ -1460,6 +1532,10 @@ class AutoML(BaseEstimator):
         self._estimator_type = "classifier" if task in CLASSIFICATION else "regressor"
 
         self._state.fit_kwargs = fit_kwargs
+        self._state.custom_hp = custom_hp or self._settings.get("custom_hp")
+        self._state.fit_kwargs_by_estimator = (
+            fit_kwargs_by_estimator or self._settings.get("fit_kwargs_by_estimator")
+        )
         self._validate_data(X_train, y_train, dataframe, label, groups=groups)
 
         logger.info("log file name {}".format(log_file_name))
@@ -1506,6 +1582,12 @@ class AutoML(BaseEstimator):
         best_estimator = best.learner
         best_config = best.config
         sample_size = len(self._y_train_all) if train_full else best.sample_size
+
+        this_estimator = self._state.fit_kwargs_by_estimator.get(best_estimator)
+        if this_estimator:
+            this_estimator.update(self._state.fit_kwargs)
+        else:
+            self._state.fit_kwargs_by_estimator[best_estimator] = self._state.fit_kwargs
 
         logger.info(
             "estimator = {}, config = {}, #training instances = {}".format(
@@ -1562,8 +1644,10 @@ class AutoML(BaseEstimator):
         elif self._state.task in TS_FORECAST:
             assert split_type in ["auto", "time"]
             self._split_type = "time"
+
             assert isinstance(
-                self._state.fit_kwargs.get("period"), int
+                self._state.fit_kwargs.get("period"),
+                int,  # NOTE: _decide_split_type is before
             ), f"missing a required integer 'period' for '{TS_FORECAST}' task."
         elif self._state.task == "rank":
             assert (
@@ -1847,6 +1931,7 @@ class AutoML(BaseEstimator):
         use_ray=None,
         metric_constraints=None,
         custom_hp=None,
+        fit_kwargs_by_estimator=None,
         **fit_kwargs,
     ):
         """Find a model for a given task.
@@ -2054,6 +2139,15 @@ class AutoML(BaseEstimator):
                             }
                         }
                     }
+            fit_kwargs_by_estimator: dict, default=None | The user specified keywords arguments, grouped by estimator name.
+                e.g.,
+                    fit_kwargs_by_estimator = {
+                        "transformer": {
+                             "output_dir": "test/data/output/",
+                            "ckpt_per_epoch": 1,
+                            "fp16": False,
+                        }
+                    }
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Include:
                     period: int | forecast horizon for ts_forecast tasks.
@@ -2164,6 +2258,13 @@ class AutoML(BaseEstimator):
         self._state.log_training_metric = log_training_metric
 
         self._state.fit_kwargs = fit_kwargs
+        custom_hp = custom_hp or self._settings.get("custom_hp")
+        fit_kwargs_by_estimator = fit_kwargs_by_estimator or self._settings.get(
+            "fit_kwargs_by_estimator"
+        )
+        self._state.fit_kwargs_by_estimator = (
+            fit_kwargs_by_estimator.copy()
+        )  # shallow copy of fit_kwargs_by_estimator
         self._state.weight_val = sample_weight_val
 
         self._validate_data(
@@ -2351,12 +2452,32 @@ class AutoML(BaseEstimator):
         for estimator_name in estimator_list:
             estimator_class = self._state.learner_classes[estimator_name]
             estimator_class.init()
+            this_estimator_kwargs = self._state.fit_kwargs_by_estimator.get(
+                estimator_name
+            )
+            if this_estimator_kwargs:
+                this_estimator_kwargs = (
+                    this_estimator_kwargs.copy()
+                )  # make another shallow copy of the value (a dict obj), so user's fit_kwargs_by_estimator won't be updated
+                this_estimator_kwargs.update(
+                    self._state.fit_kwargs
+                )  # update the shallow copy
+                self._state.fit_kwargs_by_estimator[
+                    estimator_name
+                ] = this_estimator_kwargs  # set self._state.fit_kwargs_by_estimator[estimator_name] to the update, so only self._state.fit_kwargs_by_estimator will be updated
+            else:
+                self._state.fit_kwargs_by_estimator[
+                    estimator_name
+                ] = self._state.fit_kwargs
+
             self._search_states[estimator_name] = SearchState(
                 learner_class=estimator_class,
                 data_size=self._state.data_size,
                 task=self._state.task,
                 starting_point=starting_points.get(estimator_name),
-                period=self._state.fit_kwargs.get("period"),
+                period=self._state.fit_kwargs_by_estimator.get(
+                    "period"
+                ),  # NOTE: this is after
                 custom_hp=custom_hp and custom_hp.get(estimator_name),
             )
         logger.info("List of ML learners in AutoML Run: {}".format(estimator_list))
@@ -2413,7 +2534,10 @@ class AutoML(BaseEstimator):
             del self._X_train_all, self._y_train_all, self._state.kf
             del self._state.X_train, self._state.X_train_all, self._state.X_val
             del self._state.y_train, self._state.y_train_all, self._state.y_val
-            del self._sample_weight_full, self._state.fit_kwargs
+            del (
+                self._sample_weight_full,
+                self._state.fit_kwargs_by_estimator,
+            )  # NOTE: this is after
             del self._state.groups, self._state.groups_all, self._state.groups_val
         logger.setLevel(old_level)
 
@@ -2996,13 +3120,20 @@ class AutoML(BaseEstimator):
                     n_jobs=self._state.n_jobs,
                     passthrough=passthrough,
                 )
+                this_estimator_kwargs = self._state.fit_kwargs_by_estimator.get(
+                    estimator
+                )
                 if self._sample_weight_full is not None:
-                    self._state.fit_kwargs["sample_weight"] = self._sample_weight_full
+                    this_estimator_kwargs[
+                        "sample_weight"
+                    ] = self._sample_weight_full  # NOTE: _search is after
                 for e in estimators:
                     e[1].__class__.init()
                 try:
                     stacker.fit(
-                        self._X_train_all, self._y_train_all, **self._state.fit_kwargs
+                        self._X_train_all,
+                        self._y_train_all,
+                        **this_estimator_kwargs,  # NOTE: _search is after
                     )
                     logger.info(f"ensemble: {stacker}")
                     self._trained_estimator = stacker
@@ -3021,7 +3152,7 @@ class AutoML(BaseEstimator):
                         stacker.fit(
                             self._X_train_all,
                             self._y_train_all,
-                            **self._state.fit_kwargs,
+                            **this_estimator_kwargs,  # NOTE: _search is after
                         )
                         logger.info(f"ensemble: {stacker}")
                         self._trained_estimator = stacker

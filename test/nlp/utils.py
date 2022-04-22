@@ -1128,7 +1128,7 @@ def get_automl_settings(estimator_name="transformer"):
         "use_ray": False,
     }
 
-    automl_settings["custom_fit_kwargs"] = {
+    automl_settings["fit_kwargs_by_estimator"] = {
         estimator_name: {
             "model_path": "google/electra-small-discriminator",
             "output_dir": "test/data/output/",

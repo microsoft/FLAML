@@ -13,6 +13,7 @@ def test_custom_hp_nlp():
     automl = AutoML()
 
     automl_settings = get_automl_settings()
+    automl_settings["custom_hp"] = None
     automl_settings["custom_hp"] = {
         "transformer": {
             "model_path": {
@@ -21,8 +22,7 @@ def test_custom_hp_nlp():
             "num_train_epochs": {"domain": 3},
         }
     }
-    # TODO: address this change in TransformersEstimator and automl.py
-    automl_settings["custom_fit_kwargs"] = {
+    automl_settings["fit_kwargs_by_estimator"] = {
         "transformer": {
             "output_dir": "test/data/output/",
             "ckpt_per_epoch": 1,
@@ -30,3 +30,7 @@ def test_custom_hp_nlp():
         }
     }
     automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
+
+
+if __name__ == "__main__":
+    test_custom_hp_nlp()

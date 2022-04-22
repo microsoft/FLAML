@@ -29,9 +29,7 @@ class TrainingArgumentsForAuto(TrainingArguments):
 
     task: str = field(default="seq-classification")
 
-    output_dir: str = field(
-        default="data/output/", metadata={"help": "data dir", "required": True}
-    )
+    output_dir: str = field(default="data/output/", metadata={"help": "data dir"})
 
     model_path: str = field(
         default="facebook/muppet-roberta-base",

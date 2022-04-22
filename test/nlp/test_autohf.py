@@ -28,6 +28,11 @@ def test_hf_data():
         return
 
     automl = AutoML()
+
+    automl_settings.pop("max_iter", None)
+    automl_settings.pop("use_ray", None)
+    automl_settings.pop("estimator_list", None)
+
     automl.retrain_from_log(
         X_train=X_train,
         y_train=y_train,

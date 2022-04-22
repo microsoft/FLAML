@@ -365,7 +365,6 @@ class TransformersEstimator(BaseEstimator):
                 Seq2SeqTrainingArgumentsForAuto as TrainingArguments,
             )
         self._TrainingArguments = TrainingArguments
-        self.estimator_class = "transformer"
 
     @staticmethod
     def _join(X_train, y_train):
@@ -424,7 +423,11 @@ class TransformersEstimator(BaseEstimator):
 
     @property
     def fp16(self):
-        return self._kwargs.get("gpu_per_trial") > 0 and self._training_args.fp16
+        return (
+            self._kwargs.get("gpu_per_trial")
+            and self._kwargs.get("gpu_per_trial") > 0
+            and self._training_args.fp16
+        )
 
     @property
     def no_cuda(self):
@@ -433,24 +436,21 @@ class TransformersEstimator(BaseEstimator):
             and float(self._kwargs.get("gpu_per_trial")) > 0
         )
 
-    def _set_training_args(self, **custom_kwargs):
+    def _set_training_args(self, **kwargs):
         from .nlp.utils import date_str, Counter
 
-        if custom_kwargs:
-            for (key, val) in custom_kwargs.items():
-                assert key not in self.params, (
-                    "Since {} is in the search space, it cannot exist in 'custom_fit_kwargs' at the same time."
-                    "If you need to fix the value of {} to {}, the only way is to add a single-value domain in the search "
-                    "space by adding:\n '{}': {{ 'domain': {} }} to 'custom_hp'. Please see FLAML/test/automl/test_custom_hp.py "
-                    "for an example.".format(key, key, val, key, val)
-                )
-        else:
-            custom_kwargs = {}
+        for (key, val) in kwargs.items():
+            assert key not in self.params, (
+                "Since {} is in the search space, it cannot exist in 'custom_fit_kwargs' at the same time."
+                "If you need to fix the value of {} to {}, the only way is to add a single-value domain in the search "
+                "space by adding:\n '{}': {{ 'domain': {} }} to 'custom_hp'. Please see FLAML/test/automl/test_custom_hp.py "
+                "for an example.".format(key, key, val, key, val)
+            )
 
         """
             If use has specified any custom args for TrainingArguments, update these arguments
         """
-        self._training_args = self._TrainingArguments(**custom_kwargs)
+        self._training_args = self._TrainingArguments(**kwargs)
 
         """
             Update the attributes in TrainingArguments with self.params values
@@ -563,7 +563,18 @@ class TransformersEstimator(BaseEstimator):
             else None
         )
 
-    def fit(self, X_train: DataFrame, y_train: Series, budget=None, **kwargs):
+    # TODO: as long as it's not in TrainingArguments, can put here as optional args
+    def fit(
+        self,
+        X_train: DataFrame,
+        y_train: Series,
+        budget=None,
+        X_val=None,
+        y_val=None,
+        gpu_per_trial=None,
+        metric=None,
+        **kwargs,
+    ):
         import transformers
 
         transformers.logging.set_verbosity_error()
@@ -588,15 +599,13 @@ class TransformersEstimator(BaseEstimator):
         train_dataset, self._X_train, self._y_train = self.preprocess_data(
             X_train, y_train
         )
-        if kwargs.get("X_val") is not None:
-            eval_dataset, self._X_val, self._y_val = self.preprocess_data(
-                kwargs["X_val"], kwargs["y_val"]
-            )
+        if X_val is not None:
+            eval_dataset, self._X_val, self._y_val = self.preprocess_data(X_val, y_val)
         else:
             eval_dataset, self._X_val, self._y_val = None, None, None
 
         set_seed(self.params.get("seed", self._training_args.seed))
-        self._metric = kwargs["metric"]
+        self._metric = metric
 
         class EarlyStoppingCallbackForAuto(TrainerCallback):
             def on_train_begin(self, args, state, control, **callback_kwargs):
@@ -643,12 +652,11 @@ class TransformersEstimator(BaseEstimator):
         if self._task in NLG_TASKS:
             setattr(self._trainer, "_is_seq2seq", True)
 
-        gpu_per_trial = kwargs.get("gpu_per_trial", None)
         """
             When not using ray for tuning, set the limit of CUDA_VISIBLE_DEVICES to math.ceil(gpu_per_trial),
             so each estimator does not see all the GPUs
         """
-        if gpu_per_trial:
+        if gpu_per_trial is not None:
             tmp_cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES", "")
             self._trainer.args._n_gpu = gpu_per_trial
 
@@ -665,7 +673,7 @@ class TransformersEstimator(BaseEstimator):
         start_time = time.time()
         self._trainer.train()
 
-        if gpu_per_trial:
+        if gpu_per_trial is not None:
             os.environ["CUDA_VISIBLE_DEVICES"] = tmp_cuda_visible_devices
 
         self.params[self.ITER_HP] = self._trainer.state.global_step
@@ -867,31 +875,25 @@ class TransformersEstimator(BaseEstimator):
 class TransformersEstimatorModelSelection(TransformersEstimator):
     def __init__(self, task="seq-classification", **config):
         super().__init__(task, **config)
-        self.estimator_class = "transformer_ms"
 
     @classmethod
-    def search_space(cls, data_size, task, memory_budget="small", **params):
+    def search_space(cls, data_size, task, **params):
         search_space_dict = TransformersEstimator.search_space(
             data_size, task, **params
         )
 
-        if memory_budget == "base":
-            search_space_dict["model_path"] = {
-                "domain": tune.choice(
-                    [
-                        "google/electra-base-discriminator",
-                        "bert-base-uncased",
-                        "roberta-base",
-                        "facebook/muppet-roberta-base",
-                    ]
-                ),
-                "init_value": "facebook/muppet-roberta-base",
-            }
-        elif memory_budget == "small":
-            search_space_dict["model_path"] = {
-                "domain": tune.choice(["google/electra-small-discriminator"]),
-                "init_value": "google/electra-small-discriminator",
-            }
+        search_space_dict["model_path"] = {
+            "domain": tune.choice(
+                [
+                    "google/electra-base-discriminator",
+                    "bert-base-uncased",
+                    "roberta-base",
+                    "facebook/muppet-roberta-base",
+                    "google/electra-small-discriminator",
+                ]
+            ),
+            "init_value": "facebook/muppet-roberta-base",
+        }
         return search_space_dict
 
 

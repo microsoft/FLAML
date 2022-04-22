@@ -26,7 +26,7 @@ automl = AutoML()
 automl_settings = {
     "time_budget": 100,
     "task": "seq-classification",
-    "custom_fit_kwargs": {
+    "fit_kwargs_by_estimator": {
         "transformer":
        {
            "output_dir": "data/output/"
@@ -82,7 +82,7 @@ automl_settings = {
     "task": "seq-regression",
     "metric": "rmse",
 }
-automl_settings["custom_fit_kwargs"] = {  # setting the huggingface arguments
+automl_settings["fit_kwargs_by_estimator"] = {  # setting the huggingface arguments
     "transformer": {
         "model_path": "google/electra-small-discriminator", # setting the language model
         "output_dir": "data/output/",                       # setting the output directory
@@ -134,7 +134,7 @@ automl_settings = {
     "task": "summarization",
     "metric": "rouge1",
 }
-automl_settings["custom_fit_kwargs"] = {      # setting the huggingface arguments
+automl_settings["fit_kwargs_by_estimator"] = {      # setting the huggingface arguments
     "transformer": {
         "model_path": "t5-small",             # setting the language model
         "output_dir": "data/output/",         # setting the output directory

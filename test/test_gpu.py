@@ -81,7 +81,7 @@ def _test_hf_data():
         "use_ray": True,
     }
 
-    automl_settings["custom_fit_kwargs"] = {
+    automl_settings["fit_kwargs_by_estimator"] = {
         "transformer": {
             "model_path": "facebook/muppet-roberta-base",
             "output_dir": "test/data/output/",
