@@ -1073,7 +1073,7 @@ class AutoML(BaseEstimator):
 
         self._sample_weight_full = self._state.fit_kwargs.get(
             "sample_weight"
-        )  # NOTE: _validate_data is before
+        )  # NOTE: _validate_data is before,
         if X_val is not None and y_val is not None:
             assert (
                 isinstance(X_val, np.ndarray)
