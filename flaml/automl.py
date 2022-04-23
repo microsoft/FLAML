@@ -3120,20 +3120,18 @@ class AutoML(BaseEstimator):
                     n_jobs=self._state.n_jobs,
                     passthrough=passthrough,
                 )
-                this_estimator_kwargs = self._state.fit_kwargs_by_estimator.get(
-                    estimator
+                sample_weight_dict = (
+                    self._sample_weight_full
+                    and {"sample_weight": self._sample_weight_full}
+                    or {}
                 )
-                if self._sample_weight_full is not None:
-                    this_estimator_kwargs[
-                        "sample_weight"
-                    ] = self._sample_weight_full  # NOTE: _search is after
                 for e in estimators:
                     e[1].__class__.init()
                 try:
                     stacker.fit(
                         self._X_train_all,
                         self._y_train_all,
-                        **this_estimator_kwargs,  # NOTE: _search is after
+                        **sample_weight_dict,  # NOTE: _search is after
                     )
                     logger.info(f"ensemble: {stacker}")
                     self._trained_estimator = stacker
@@ -3152,7 +3150,7 @@ class AutoML(BaseEstimator):
                         stacker.fit(
                             self._X_train_all,
                             self._y_train_all,
-                            **this_estimator_kwargs,  # NOTE: _search is after
+                            **sample_weight_dict,  # NOTE: _search is after
                         )
                         logger.info(f"ensemble: {stacker}")
                         self._trained_estimator = stacker
