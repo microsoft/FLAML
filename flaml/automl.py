@@ -3052,6 +3052,8 @@ class AutoML(BaseEstimator):
                 state.init_config
                 if isinstance(state.init_config, dict)
                 else state.init_config[0]
+                if (isinstance(state.init_config, list) and len(state.init_config) > 0)
+                else None
             )
         elif not self._use_ray:
             self._search_sequential()
@@ -3121,7 +3123,7 @@ class AutoML(BaseEstimator):
                     passthrough=passthrough,
                 )
                 sample_weight_dict = (
-                    self._sample_weight_full
+                    (self._sample_weight_full is not None)
                     and {"sample_weight": self._sample_weight_full}
                     or {}
                 )
