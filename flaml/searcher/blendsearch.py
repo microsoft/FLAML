@@ -883,6 +883,7 @@ class BlendSearch(Searcher):
         """A list of dicts of results for each evaluated configuration.
 
         Each dict has "config" and metric names as keys.
+        The returned dict includes the initial results provided via `evaluated_reward`.
         """
         return [x for x in getattr(self, "_result", {}).values() if x]
 
