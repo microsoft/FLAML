@@ -93,7 +93,7 @@ class TestTrainingLog(unittest.TestCase):
             automl = AutoML()
             automl.fit(X_train=X_train, y_train=y_train, max_iter=0, task="regression")
 
-    def test_illfilename(self):
+    def _test_illfilename(self):
         try:
             self.test_training_log("/")
         except IsADirectoryError:
@@ -110,8 +110,13 @@ class TestTrainingLog(unittest.TestCase):
             use_ray = True
         except ImportError:
             use_ray = False
-        self.test_training_log(estimator_list=["xgboost"], use_ray=use_ray)
+        # self.test_training_log(estimator_list=["xgboost"], use_ray=use_ray)
         self.test_training_log(estimator_list=["catboost"], use_ray=use_ray)
         self.test_training_log(estimator_list=["extra_tree"], use_ray=use_ray)
         self.test_training_log(estimator_list=["rf"], use_ray=use_ray)
         self.test_training_log(estimator_list=["lgbm"], use_ray=use_ray)
+
+
+if __name__ == "__main__":
+    test = TestTrainingLog()
+    test.test_each_estimator()

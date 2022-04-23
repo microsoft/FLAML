@@ -83,6 +83,7 @@ class SearchState:
         starting_point=None,
         period=None,
         custom_hp=None,
+        max_iter=None,
     ):
         self.init_eci = learner_class.cost_relative2lgbm()
         self._search_space_domain = {}
@@ -128,16 +129,18 @@ class SearchState:
                     return False
             return True
 
-        if isinstance(starting_point, dict) and not valid_starting_point(
-            starting_point, search_space, custom_hp
+        if (
+            isinstance(starting_point, dict)
+            and max_iter > 1
+            and not valid_starting_point(starting_point, search_space, custom_hp)
         ):
             logger.warning(
                 "Starting point {} removed because it is outside of the search space".format(
                     starting_point
                 )
             )
-            starting_point = []
-        elif isinstance(starting_point, list):
+            starting_point = None
+        elif isinstance(starting_point, list) and max_iter > len(starting_point):
             starting_point_len = len(starting_point)
             starting_point = [
                 x
@@ -145,10 +148,11 @@ class SearchState:
                 if valid_starting_point(x, search_space, custom_hp)
             ]
             if starting_point_len > len(starting_point):
-                logger.info(
+                logger.warning(
                     "Starting points outside of the search space are removed. "
                     f"Remaining starting points: {starting_point}"
                 )
+            starting_point = starting_point or None
 
         for name, space in search_space.items():
             assert (
@@ -370,7 +374,10 @@ class AutoMLState:
             sample_size = config_w_resource.get(
                 "FLAML_sample_size", len(self.y_train_all)
             )
-        config = config_w_resource.get("ml", config_w_resource).copy()
+        try:
+            config = config_w_resource.get("ml", config_w_resource).copy()
+        except:
+            stop = 0
         if "FLAML_sample_size" in config:
             del config["FLAML_sample_size"]
         if "learner" in config:
@@ -2479,6 +2486,7 @@ class AutoML(BaseEstimator):
                     "period"
                 ),  # NOTE: this is after
                 custom_hp=custom_hp and custom_hp.get(estimator_name),
+                max_iter=max_iter,
             )
         logger.info("List of ML learners in AutoML Run: {}".format(estimator_list))
         self.estimator_list = estimator_list
@@ -3040,7 +3048,9 @@ class AutoML(BaseEstimator):
         self._warn_threshold = 10
         self._selected = None
         self.modelcount = 0
-        if self._max_iter < 2 and self.estimator_list and self._state.retrain_final:
+        if (
+            self._max_iter < 2 and self.estimator_list and self._state.retrain_final
+        ):  # and self._search_state[self.estimator_list[0]].init_config:
             # when max_iter is 1, no need to search
             # TODO: otherwise, need to make sure SearchStates.init_config is inside search space
             self.modelcount = self._max_iter
@@ -3048,12 +3058,12 @@ class AutoML(BaseEstimator):
             self._best_estimator = estimator = self.estimator_list[0]
             self._selected = state = self._search_states[estimator]
             state.best_config_sample_size = self._state.data_size[0]
+            if not isinstance(state.init_config, dict):
+                stop = 0
             state.best_config = (
                 state.init_config
                 if isinstance(state.init_config, dict)
                 else state.init_config[0]
-                if (isinstance(state.init_config, list) and len(state.init_config) > 0)
-                else None
             )
         elif not self._use_ray:
             self._search_sequential()
