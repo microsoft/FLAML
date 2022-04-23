@@ -103,7 +103,7 @@ class SearchState:
         if custom_hp is not None:
             search_space.update(custom_hp)
 
-        def valid_starting_point(starting_point, search_space, custom_hp):
+        def valid_starting_point_one_dim(value_one_dim, domain_one_dim):
             from .tune.space import sample
 
             """
@@ -113,26 +113,34 @@ class SearchState:
                 (3) If the search space is a value instead of a domain, return false
                 Notice (2) include the case starting point not in user specified search space custom_hp
             """
-            for name, this_starting_point in starting_point.items():
-                space = search_space[name]
-                this_domain = space.get("domain")
-                if isinstance(this_domain, sample.Domain):
-                    renamed_type = list(
-                        inspect.signature(this_domain.is_valid).parameters.values()
-                    )[0].annotation
-                    type_match = renamed_type == Any or isinstance(
-                        this_starting_point, renamed_type
-                    )
-                    if not (type_match and this_domain.is_valid(this_starting_point)):
-                        return False
-                elif this_starting_point != this_domain:
+            if isinstance(domain_one_dim, sample.Domain):
+                renamed_type = list(
+                    inspect.signature(domain_one_dim.is_valid).parameters.values()
+                )[0].annotation
+                type_match = renamed_type == Any or isinstance(
+                    value_one_dim, renamed_type
+                )
+                if not (type_match and domain_one_dim.is_valid(value_one_dim)):
                     return False
+            elif value_one_dim != domain_one_dim:
+                return False
             return True
+
+        def valid_starting_point(starting_point, search_space):
+            return any(
+                [
+                    valid_starting_point_one_dim(
+                        this_starting_point, search_space[name].get("domain")
+                    )
+                    for name, this_starting_point in starting_point.items()
+                ]
+            )
 
         if (
             isinstance(starting_point, dict)
-            and max_iter > 1
-            and not valid_starting_point(starting_point, search_space, custom_hp)
+            and max_iter
+            > 1  # If the number of starting point is larger than max iter, avoid the checking
+            and not valid_starting_point(starting_point, search_space)
         ):
             logger.warning(
                 "Starting point {} removed because it is outside of the search space".format(
@@ -140,12 +148,12 @@ class SearchState:
                 )
             )
             starting_point = None
-        elif isinstance(starting_point, list) and max_iter > len(starting_point):
+        elif isinstance(starting_point, list) and max_iter > len(
+            starting_point
+        ):  # If the number of starting point is larger than max iter, avoid the checking
             starting_point_len = len(starting_point)
             starting_point = [
-                x
-                for x in starting_point
-                if valid_starting_point(x, search_space, custom_hp)
+                x for x in starting_point if valid_starting_point(x, search_space)
             ]
             if starting_point_len > len(starting_point):
                 logger.warning(
@@ -159,8 +167,7 @@ class SearchState:
                 "domain" in space
             ), f"{name}'s domain is missing in the search space spec {space}"
             self._search_space_domain[name] = space["domain"]
-            if "init_value" in space:
-                self.init_config[name] = space["init_value"]
+
             if "low_cost_init_value" in space:
                 self.low_cost_partial_config[name] = space["low_cost_init_value"]
             if "cat_hp_cost" in space:
@@ -172,6 +179,14 @@ class SearchState:
                 and starting_point.get(name) is not None
             ):
                 self.init_config[name] = starting_point[name]
+            elif (
+                not isinstance(starting_point, list)
+                and "init_value" in space
+                and valid_starting_point_one_dim(space["init_value"], space["domain"])
+            ):  # If starting point is list, no need to check the validity of self.init_config w.r.t search space
+                self.init_config[name] = space[
+                    "init_value"
+                ]  # If starting_point is list, no need to assign value to self.init_config
 
         if isinstance(starting_point, list):
             self.init_config = starting_point
@@ -374,10 +389,7 @@ class AutoMLState:
             sample_size = config_w_resource.get(
                 "FLAML_sample_size", len(self.y_train_all)
             )
-        try:
-            config = config_w_resource.get("ml", config_w_resource).copy()
-        except:
-            stop = 0
+        config = config_w_resource.get("ml", config_w_resource).copy()
         if "FLAML_sample_size" in config:
             del config["FLAML_sample_size"]
         if "learner" in config:
@@ -3058,8 +3070,6 @@ class AutoML(BaseEstimator):
             self._best_estimator = estimator = self.estimator_list[0]
             self._selected = state = self._search_states[estimator]
             state.best_config_sample_size = self._state.data_size[0]
-            if not isinstance(state.init_config, dict):
-                stop = 0
             state.best_config = (
                 state.init_config
                 if isinstance(state.init_config, dict)

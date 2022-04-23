@@ -33,7 +33,9 @@ def test_starting_point_not_in_search_space():
     }
 
     automl.fit(X_train, y_train, **automl_settings)
-    assert len(automl._search_states[this_estimator_name].init_config) == 0
+    assert (
+        automl._search_states[this_estimator_name].init_config["learning_rate"] != 2e-3
+    )
 
     """
         test starting_points located outside of the search space, and custom_hp is set
@@ -61,7 +63,13 @@ def test_starting_point_not_in_search_space():
     del automl_settings["fit_kwargs_by_estimator"][this_estimator_name]["model_path"]
 
     automl.fit(X_train, y_train, **automl_settings)
-    assert len(automl._search_states[this_estimator_name].init_config) == 0
+    assert (
+        len(automl._search_states[this_estimator_name].init_config) == 0
+    )  # check that init config is not updated, but search space is updated
+    assert (
+        automl._search_states[this_estimator_name].search_space["model_path"]
+        == "albert-base-v2"
+    )
 
 
 def test_points_to_evaluate():
@@ -120,4 +128,4 @@ def test_zero_shot_nomodel():
 
 
 if __name__ == "__main__":
-    test_build_portfolio()
+    test_starting_point_not_in_search_space()
