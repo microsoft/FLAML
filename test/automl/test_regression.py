@@ -33,7 +33,7 @@ class MyXGB2(XGBoostEstimator):
 
 
 class TestRegression(unittest.TestCase):
-    def test_regression(self):
+    def _test_regression(self):
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 2,
@@ -77,7 +77,7 @@ class TestRegression(unittest.TestCase):
             time_budget=0,
         )
 
-    def test_sparse_matrix_regression(self):
+    def _test_sparse_matrix_regression(self):
         X_train = scipy.sparse.random(300, 900, density=0.0001)
         y_train = np.random.uniform(size=300)
         X_val = scipy.sparse.random(100, 900, density=0.0001)
@@ -112,7 +112,7 @@ class TestRegression(unittest.TestCase):
         print(automl_experiment.best_loss)
         print(automl_experiment.best_config_train_time)
 
-    def test_parallel(self, hpo_method=None):
+    def _test_parallel(self, hpo_method=None):
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 10,
@@ -158,7 +158,7 @@ class TestRegression(unittest.TestCase):
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
 
-    def test_regression_xgboost(self):
+    def _test_regression_xgboost(self):
         X_train = scipy.sparse.random(300, 900, density=0.0001)
         y_train = np.random.uniform(size=300)
         X_val = scipy.sparse.random(100, 900, density=0.0001)
@@ -195,7 +195,7 @@ class TestRegression(unittest.TestCase):
         print(automl_experiment.best_config_train_time)
 
 
-def test_multioutput():
+def _test_multioutput():
     from sklearn.datasets import make_regression
     from sklearn.model_selection import train_test_split
     from sklearn.multioutput import MultiOutputRegressor, RegressorChain
@@ -224,4 +224,6 @@ def test_multioutput():
 
 
 if __name__ == "__main__":
-    unittest.main()
+    # unittest.main()
+    test = TestRegression()
+    test.test_sparse_matrix_regression_holdout()

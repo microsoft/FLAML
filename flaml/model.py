@@ -928,7 +928,7 @@ class LGBMEstimator(BaseEstimator):
 
     @classmethod
     def search_space(cls, data_size, **params):
-        upper = min(32768, int(data_size[0]))
+        upper = max(5, min(32768, int(data_size[0])))  # upper must be larger than lower
         return {
             "n_estimators": {
                 "domain": tune.lograndint(lower=4, upper=upper),
@@ -941,7 +941,7 @@ class LGBMEstimator(BaseEstimator):
                 "low_cost_init_value": 4,
             },
             "min_child_samples": {
-                "domain": tune.lograndint(lower=2, upper=2**7 + 1),
+                "domain": tune.lograndint(lower=2, upper=2 ** 7 + 1),
                 "init_value": 20,
             },
             "learning_rate": {
@@ -1147,7 +1147,7 @@ class XGBoostEstimator(SKLearnEstimator):
 
     @classmethod
     def search_space(cls, data_size, **params):
-        upper = min(32768, int(data_size[0]))
+        upper = max(5, min(32768, int(data_size[0])))  # upper must be larger than lower
         return {
             "n_estimators": {
                 "domain": tune.lograndint(lower=4, upper=upper),
@@ -1353,7 +1353,9 @@ class XGBoostLimitDepthEstimator(XGBoostSklearnEstimator):
         space.pop("max_leaves")
         upper = max(6, int(np.log2(data_size[0])))
         space["max_depth"] = {
-            "domain": tune.randint(lower=1, upper=min(upper, 16)),
+            "domain": tune.randint(
+                lower=1, upper=max(2, min(upper, 16))
+            ),  # upper must be larger than lower
             "init_value": 6,
             "low_cost_init_value": 1,
         }
@@ -1380,7 +1382,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         lower = min(0.1, init)
         space = {
             "n_estimators": {
-                "domain": tune.lograndint(lower=4, upper=upper),
+                "domain": tune.lograndint(lower=4, upper=max(5, upper)),
                 "init_value": 4,
                 "low_cost_init_value": 4,
             },
@@ -1390,7 +1392,8 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
             },
             "max_leaves": {
                 "domain": tune.lograndint(
-                    lower=4, upper=min(32768, RandomForestEstimator.nrows >> 1)
+                    lower=4,
+                    upper=max(5, min(32768, RandomForestEstimator.nrows >> 1)),  #
                 ),
                 "init_value": 4,
                 "low_cost_init_value": 4,
@@ -1510,7 +1513,7 @@ class CatBoostEstimator(BaseEstimator):
         upper = max(min(round(1500000 / data_size[0]), 150), 12)
         return {
             "early_stopping_rounds": {
-                "domain": tune.lograndint(lower=10, upper=upper),
+                "domain": tune.lograndint(lower=10, upper=max(11, upper)),
                 "init_value": 10,
                 "low_cost_init_value": 10,
             },
@@ -1656,7 +1659,7 @@ class KNeighborsEstimator(BaseEstimator):
         upper = min(512, int(data_size[0] / 2))
         return {
             "n_neighbors": {
-                "domain": tune.lograndint(lower=1, upper=upper),
+                "domain": tune.lograndint(lower=1, upper=max(2, upper)),
                 "init_value": 5,
                 "low_cost_init_value": 1,
             },
@@ -1977,7 +1980,9 @@ class TS_SKLearn(SKLearnEstimator):
                     "low_cost_init_value": False,
                 },
                 "lags": {
-                    "domain": tune.randint(lower=1, upper=int(np.sqrt(data_size[0]))),
+                    "domain": tune.randint(
+                        lower=1, upper=max(2, int(np.sqrt(data_size[0])))
+                    ),
                     "init_value": 3,
                 },
             }
