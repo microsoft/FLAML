@@ -119,7 +119,7 @@ def test_zero_shot_nomodel():
     fit_kwargs = automl_settings.pop("fit_kwargs_by_estimator", {}).get(estimator_name)
     fit_kwargs.update(automl_settings)
     pop_args(fit_kwargs)
-    model.fit(X_train, y_train, fit_kwargs)
+    model.fit(X_train, y_train, **fit_kwargs)
 
 
 if __name__ == "__main__":
