@@ -1,7 +1,7 @@
 {
     "version": "1.0.2",
     "meta_feature_names": [
-        "NumberOfInstances"
+        "NumberOfInstances","NumberOfFeatures","NumberOfClasses","PercentageOfNumericFeatures"
     ],
     "portfolio": [
         {
