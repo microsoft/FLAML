@@ -443,8 +443,11 @@ class TransformersEstimator(BaseEstimator):
             assert key not in self.params, (
                 "Since {} is in the search space, it cannot exist in 'custom_fit_kwargs' at the same time."
                 "If you need to fix the value of {} to {}, the only way is to add a single-value domain in the search "
-                "space by adding:\n '{}': {{ 'domain': {} }} to 'custom_hp'. Please see FLAML/test/automl/test_custom_hp.py "
-                "for an example.".format(key, key, val, key, val)
+                "space by adding:\n '{}': {{ 'domain': {} }} to 'custom_hp'. For example:"
+                'automl_settings["custom_hp"] = {{ "transformer": {{ "model_path": {{ "domain" : '
+                'flaml.tune.choice(["google/electra-small-discriminator"]) }} }} }}'.format(
+                    key, key, val, key, val
+                )
             )
 
         """
@@ -456,10 +459,11 @@ class TransformersEstimator(BaseEstimator):
             Update the attributes in TrainingArguments with self.params values
         """
         for key, val in self.params.items():
-            setattr(self._training_args, key, val)
+            if hasattr(self._training_args, key):
+                setattr(self._training_args, key, val)
 
         """
-            Update the attributes in TrainingArguments that depends on the sampled values of self.params
+            Update the attributes in TrainingArguments that depends on the values of self.params
         """
         local_dir = os.path.join(
             self._training_args.output_dir, "train_{}".format(date_str())
@@ -563,7 +567,6 @@ class TransformersEstimator(BaseEstimator):
             else None
         )
 
-    # TODO: as long as it's not in TrainingArguments, can put here as optional args
     def fit(
         self,
         X_train: DataFrame,
@@ -1353,9 +1356,7 @@ class XGBoostLimitDepthEstimator(XGBoostSklearnEstimator):
         space.pop("max_leaves")
         upper = max(6, int(np.log2(data_size[0])))
         space["max_depth"] = {
-            "domain": tune.randint(
-                lower=1, upper=max(2, min(upper, 16))
-            ),  # upper must be larger than lower
+            "domain": tune.randint(lower=1, upper=min(upper, 16)),
             "init_value": 6,
             "low_cost_init_value": 1,
         }
@@ -1513,7 +1514,7 @@ class CatBoostEstimator(BaseEstimator):
         upper = max(min(round(1500000 / data_size[0]), 150), 12)
         return {
             "early_stopping_rounds": {
-                "domain": tune.lograndint(lower=10, upper=max(11, upper)),
+                "domain": tune.lograndint(lower=10, upper=upper),
                 "init_value": 10,
                 "low_cost_init_value": 10,
             },

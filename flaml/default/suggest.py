@@ -3,7 +3,7 @@ from sklearn.neighbors import NearestNeighbors
 import logging
 import pathlib
 import json
-from flaml.data import CLASSIFICATION, DataTransformer, _is_nlp_task
+from flaml.data import CLASSIFICATION, DataTransformer
 from flaml.ml import get_estimator_class, get_classification_objective
 
 LOCATION = pathlib.Path(__file__).parent.resolve()
@@ -11,20 +11,25 @@ logger = logging.getLogger(__name__)
 CONFIG_PREDICTORS = {}
 
 
-def meta_feature(task, estimator_class, X_train, y_train, strategy="data_size"):
+def meta_feature(task, X_train, y_train, meta_feature_names):
+    this_feature = []
+    n_row = X_train.shape[0]
+    n_feat = X_train.shape[1]
 
-    if estimator_class in ["transformer", "transformer_ms"]:
-        if strategy == "data_size":
-            return (len(X_train),)
-        else:
-            return (None,)
-    else:
-        is_classification = task in CLASSIFICATION
-        n_row = X_train.shape[0]
-        n_feat = X_train.shape[1]
-        n_class = len(np.unique(y_train)) if is_classification else 0
-        percent_num = X_train.select_dtypes(include=np.number).shape[1] / n_feat
-        return (n_row, n_feat, n_class, percent_num)
+    is_classification = task in CLASSIFICATION
+    for each_feature_name in meta_feature_names:
+        if each_feature_name == "NumberOfInstances":
+            this_feature.append(n_row)
+        elif each_feature_name == "NumberOfFeatures":
+            this_feature.append(n_feat)
+        elif each_feature_name == "NumberOfClasses":
+            this_feature.append(len(np.unique(y_train)) if is_classification else 0)
+        elif each_feature_name == "PercentageOfNumericFeatures":
+            this_feature.append(
+                X_train.select_dtypes(include=np.number).shape[1] / n_feat
+            )
+
+    return this_feature
 
 
 def load_config_predictor(estimator_name, task, location=None):
@@ -60,10 +65,14 @@ def suggest_config(task, X, y, estimator_or_predictor, location=None, k=None):
         if isinstance(estimator_or_predictor, str)
         else estimator_or_predictor
     )
-    assert predictor["version"] == "default"
+    from flaml import __version__
+
+    older_version = "1.0.2"
+    # TODO: update older_version when the newer code can no longer handle the older versioned json file
+    assert __version__ >= predictor["version"] >= older_version
     prep = predictor["preprocessing"]
     feature = meta_feature(
-        task, estimator_class=estimator_or_predictor, X_train=X, y_train=y
+        task, X_train=X, y_train=y, meta_feature_names=predictor["meta_feature_names"]
     )
     feature = (np.array(feature) - np.array(prep["center"])) / np.array(prep["scale"])
     neighbors = predictor["neighbors"]

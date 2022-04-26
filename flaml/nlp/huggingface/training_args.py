@@ -7,11 +7,9 @@ from ...data import (
 from typing import Optional, List
 
 try:
-    from transformers import TrainingArguments, Seq2SeqTrainingArguments
+    from transformers import TrainingArguments
 except ImportError:
-    Seq2SeqTrainer = object
-
-from transformers import IntervalStrategy
+    TrainingArguments = object
 
 
 @dataclass
@@ -76,11 +74,6 @@ class TrainingArgumentsForAuto(TrainingArguments):
     metric_for_best_model: Optional[str] = field(
         default="loss",
         metadata={"help": "The metric to use to compare two different models."},
-    )
-
-    evaluation_strategy: IntervalStrategy = field(
-        default=IntervalStrategy.STEPS,
-        metadata={"help": "The evaluation strategy to use."},
     )
 
     @staticmethod
