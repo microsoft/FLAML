@@ -68,7 +68,7 @@ def suggest_config(task, X, y, estimator_or_predictor, location=None, k=None):
     from flaml import __version__
 
     older_version = "1.0.2"
-    # TODO: update older_version when the newer code can no longer handle the older versioned json file
+    # TODO: update older_version when the newer code can no longer handle the older version json file
     assert __version__ >= predictor["version"] >= older_version
     prep = predictor["preprocessing"]
     feature = meta_feature(
