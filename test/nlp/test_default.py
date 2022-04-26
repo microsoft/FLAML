@@ -3,12 +3,12 @@ import sys
 from flaml.default import portfolio
 
 
-def pop_args(fit_kwargs_by_estimator):
-    fit_kwargs_by_estimator.pop("max_iter", None)
-    fit_kwargs_by_estimator.pop("use_ray", None)
-    fit_kwargs_by_estimator.pop("estimator_list", None)
-    fit_kwargs_by_estimator.pop("time_budget", None)
-    fit_kwargs_by_estimator.pop("log_file_name", None)
+def pop_args(fit_kwargs):
+    fit_kwargs.pop("max_iter", None)
+    fit_kwargs.pop("use_ray", None)
+    fit_kwargs.pop("estimator_list", None)
+    fit_kwargs.pop("time_budget", None)
+    fit_kwargs.pop("log_file_name", None)
 
 
 def test_build_portfolio(path="./test/nlp/default", strategy="greedy"):
@@ -116,15 +116,10 @@ def test_zero_shot_nomodel():
         **hyperparams
     )  # estimator_class is TransformersEstimatorModelSelection
 
-    fit_kwargs_by_estimator = automl_settings.get("fit_kwargs_by_estimator", {}).get(
-        estimator_name
-    )
-    del automl_settings["fit_kwargs_by_estimator"]
-    fit_kwargs_by_estimator.update(automl_settings)
-
-    pop_args(fit_kwargs_by_estimator)
-
-    model.fit(X_train, y_train, **fit_kwargs_by_estimator)
+    fit_kwargs = automl_settings.pop("fit_kwargs_by_estimator", {}).get(estimator_name)
+    fit_kwargs.update(automl_settings)
+    pop_args(fit_kwargs)
+    model.fit(X_train, y_train, fit_kwargs)
 
 
 if __name__ == "__main__":
