@@ -219,4 +219,4 @@ def test_xgboost():
 
 
 if __name__ == "__main__":
-    test_build_portfolio("flaml/default")
+    test_iris()
