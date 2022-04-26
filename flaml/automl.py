@@ -1630,13 +1630,13 @@ class AutoML(BaseEstimator):
         best_config = best.config
         sample_size = len(self._y_train_all) if train_full else best.sample_size
 
-        this_estimator_kwargs = self._state.fit_kwargs_by_estimator.get(
-            best_estimator
-        ).copy()
+        this_estimator_kwargs = self._state.fit_kwargs_by_estimator.get(best_estimator)
         if this_estimator_kwargs:
-            this_estimator_kwargs.update(
-                self._state.fit_kwargs
-            )  # TODO: change to copy the values
+            this_estimator_kwargs = (
+                this_estimator_kwargs.copy()
+            )  # make another shallow copy of the value (a dict obj), so user's fit_kwargs_by_estimator won't be updated
+            this_estimator_kwargs.update(self._state.fit_kwargs)
+            self._state.fit_kwargs_by_estimator[best_estimator] = this_estimator_kwargs
         else:
             self._state.fit_kwargs_by_estimator[best_estimator] = self._state.fit_kwargs
 
@@ -2509,11 +2509,10 @@ class AutoML(BaseEstimator):
             estimator_class.init()
             this_estimator_kwargs = self._state.fit_kwargs_by_estimator.get(
                 estimator_name
-            ).copy()
+            )
             if this_estimator_kwargs:
-                this_estimator_kwargs = (
-                    this_estimator_kwargs.copy()
-                )  # make another shallow copy of the value (a dict obj), so user's fit_kwargs_by_estimator won't be updated
+                # make another shallow copy of the value (a dict obj), so user's fit_kwargs_by_estimator won't be updated
+                this_estimator_kwargs = this_estimator_kwargs.copy()
                 this_estimator_kwargs.update(
                     self._state.fit_kwargs
                 )  # update the shallow copy
