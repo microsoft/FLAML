@@ -79,9 +79,10 @@ class SearchState:
         from .tune.space import sample
 
         """
-            For each hp in the starting point, check the following 2 conditions:
+            For each hp in the starting point, check the following 3 conditions:
             (1) If the type of the starting point does not match the required type in search space, return false
             (2) If the starting point is not in the required search space, return false
+            (3) If the search space is a value instead of domain, and the value is not equal to the starting point
             Notice (2) include the case starting point not in user specified search space custom_hp
         """
         if isinstance(domain_one_dim, sample.Domain):
@@ -485,6 +486,7 @@ class AutoML(BaseEstimator):
                  'mape'. Default is 'auto'.
                  If passing a customized metric function, the function needs to
                  have the follwing signature:
+
          ```python
          def custom_metric(
              X_test, y_test, estimator, labels,
@@ -495,6 +497,7 @@ class AutoML(BaseEstimator):
          ```
                  which returns a float number as the minimization objective,
                  and a dictionary as the metrics to log. E.g.,
+
          ```python
          def custom_metric(
              X_val, y_val, estimator, labels,
@@ -1539,7 +1542,8 @@ class AutoML(BaseEstimator):
                 augment rare classes.
             custom_hp: dict, default=None | The custom search space specified by user
                 Each key is the estimator name, each value is a dict of the custom search space for that estimator. Notice the
-                domain of the custom search space can either be a value of a sample.Domain object.
+                domain of the custom search space can either be a value or a sample.Domain object.
+
         ```python
         custom_hp = {
             "transformer_ms": {
@@ -2010,6 +2014,7 @@ class AutoML(BaseEstimator):
                 'mape'. Default is 'auto'.
                 If passing a customized metric function, the function needs to
                 have the following signature:
+
         ```python
         def custom_metric(
             X_test, y_test, estimator, labels,
@@ -2020,6 +2025,7 @@ class AutoML(BaseEstimator):
         ```
                 which returns a float number as the minimization objective,
                 and a dictionary as the metrics to log. E.g.,
+
         ```python
         def custom_metric(
             X_val, y_val, estimator, labels,
@@ -2179,6 +2185,7 @@ class AutoML(BaseEstimator):
             custom_hp: dict, default=None | The custom search space specified by user
                 Each key is the estimator name, each value is a dict of the custom search space for that estimator. Notice the
                 domain of the custom search space can either be a value of a sample.Domain object.
+
         ```python
         custom_hp = {
             "transformer_ms": {

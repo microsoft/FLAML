@@ -445,7 +445,7 @@ class TransformersEstimator(BaseEstimator):
                 "If you need to fix the value of {} to {}, the only way is to add a single-value domain in the search "
                 "space by adding:\n '{}': {{ 'domain': {} }} to 'custom_hp'. For example:"
                 'automl_settings["custom_hp"] = {{ "transformer": {{ "model_path": {{ "domain" : '
-                'flaml.tune.choice(["google/electra-small-discriminator"]) }} }} }}'.format(
+                '"google/electra-small-discriminator" }} }} }}'.format(
                     key, key, val, key, val
                 )
             )
@@ -525,7 +525,7 @@ class TransformersEstimator(BaseEstimator):
         return processed_dataset, processed_X, processed_y
 
     @property
-    def _num_labels(self):
+    def num_labels(self):
         from .data import SEQCLASSIFICATION, SEQREGRESSION, TOKENCLASSIFICATION
 
         if self._task == SEQREGRESSION:
@@ -538,7 +538,7 @@ class TransformersEstimator(BaseEstimator):
             return None
 
     @property
-    def _tokenizer(self):
+    def tokenizer(self):
         from transformers import AutoTokenizer
 
         if self._task == SUMMARIZATION:
@@ -555,7 +555,7 @@ class TransformersEstimator(BaseEstimator):
             )
 
     @property
-    def _data_collator(self):
+    def data_collator(self):
         from .nlp.huggingface.data_collator import DataCollatorForAuto
 
         return (

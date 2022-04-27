@@ -15,6 +15,7 @@ except ImportError:
 @dataclass
 class TrainingArgumentsForAuto(TrainingArguments):
     """FLAML custom TrainingArguments.
+
     Args:
         output_dir (str): data root directory for outputing the log, etc.
         model_path (str, optional, defaults to "facebook/muppet-roberta-base"): A string,

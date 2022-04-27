@@ -28,6 +28,8 @@ def meta_feature(task, X_train, y_train, meta_feature_names):
             this_feature.append(
                 X_train.select_dtypes(include=np.number).shape[1] / n_feat
             )
+        else:
+            raise Exception("Feature {} not implemented. ".format(each_feature_name))
 
     return this_feature
 
