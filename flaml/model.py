@@ -878,6 +878,11 @@ class TransformersEstimatorModelSelection(TransformersEstimator):
             data_size, task, **params
         )
 
+        """
+            For model selection, use the same search space regardless of memory constraint
+            If OOM, user should change the search space themselves
+        """
+
         search_space_dict["model_path"] = {
             "domain": tune.choice(
                 [

@@ -224,6 +224,4 @@ def test_multioutput():
 
 
 if __name__ == "__main__":
-    # unittest.main()
-    test = TestRegression()
-    test.test_sparse_matrix_regression_holdout()
+    unittest.main()

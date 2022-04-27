@@ -115,8 +115,3 @@ class TestTrainingLog(unittest.TestCase):
         self.test_training_log(estimator_list=["extra_tree"], use_ray=use_ray)
         self.test_training_log(estimator_list=["rf"], use_ray=use_ray)
         self.test_training_log(estimator_list=["lgbm"], use_ray=use_ray)
-
-
-if __name__ == "__main__":
-    test = TestTrainingLog()
-    test.test_each_estimator()

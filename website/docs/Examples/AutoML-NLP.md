@@ -26,10 +26,10 @@ automl = AutoML()
 automl_settings = {
     "time_budget": 100,
     "task": "seq-classification",
-    "fit_kwargs_by_estimator": {
+    "fit_kwargs_by_estimator": {  
         "transformer":
        {
-           "output_dir": "data/output/"
+           "output_dir": "data/output/"  # if model_path is not set, the default model is facebook/muppet-roberta-base: https://huggingface.co/facebook/muppet-roberta-base
        }
     },  # setting the huggingface arguments: output directory
     "gpu_per_trial": 1,                         # set to 0 if no GPU is available
@@ -84,7 +84,7 @@ automl_settings = {
 }
 automl_settings["fit_kwargs_by_estimator"] = {  # setting the huggingface arguments
     "transformer": {
-        "model_path": "google/electra-small-discriminator", # setting the language model
+        "model_path": "google/electra-small-discriminator", # if model_path is not set, the default model is facebook/muppet-roberta-base: https://huggingface.co/facebook/muppet-roberta-base
         "output_dir": "data/output/",                       # setting the output directory
         "ckpt_per_epoch": 5,                                # setting the number of checkpoints per epoch
         "fp16": False,  
@@ -136,7 +136,7 @@ automl_settings = {
 }
 automl_settings["fit_kwargs_by_estimator"] = {      # setting the huggingface arguments
     "transformer": {
-        "model_path": "t5-small",             # setting the language model
+        "model_path": "t5-small",             # if model_path is not set, the default model is t5-small: https://huggingface.co/t5-small
         "output_dir": "data/output/",         # setting the output directory
         "ckpt_per_epoch": 5,                  # setting the number of checkpoints per epoch
         "fp16": False,  

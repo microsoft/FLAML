@@ -216,3 +216,7 @@ def test_xgboost():
     regressor.fit(X_train[:100], y_train[:100])
     regressor.predict(X_train)
     print(regressor)
+
+
+if __name__ == "__main__":
+    test_build_portfolio("flaml/default")
