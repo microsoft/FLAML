@@ -3101,9 +3101,7 @@ class AutoML(BaseEstimator):
         self._warn_threshold = 10
         self._selected = None
         self.modelcount = 0
-        if (
-            self._max_iter < 2 and self.estimator_list and self._state.retrain_final
-        ):  # and self._search_state[self.estimator_list[0]].init_config:
+        if self._max_iter < 2 and self.estimator_list and self._state.retrain_final:
             # when max_iter is 1, no need to search
             # TODO: otherwise, need to make sure SearchStates.init_config is inside search space
             self.modelcount = self._max_iter

@@ -423,18 +423,11 @@ class TransformersEstimator(BaseEstimator):
 
     @property
     def fp16(self):
-        return (
-            self._kwargs.get("gpu_per_trial")
-            and self._kwargs.get("gpu_per_trial") > 0
-            and self._training_args.fp16
-        )
+        return self._kwargs.get("gpu_per_trial") and self._training_args.fp16
 
     @property
     def no_cuda(self):
-        return not (
-            self._kwargs.get("gpu_per_trial")
-            and float(self._kwargs.get("gpu_per_trial")) > 0
-        )
+        return not self._kwargs.get("gpu_per_trial")
 
     def _set_training_args(self, **kwargs):
         from .nlp.utils import date_str, Counter
@@ -495,7 +488,7 @@ class TransformersEstimator(BaseEstimator):
                 Y=y,
                 task=self._task,
                 hf_args=self._training_args,
-                tokenizer=self._tokenizer,
+                tokenizer=self.tokenizer,
             )
         else:
             return X, None
@@ -506,7 +499,7 @@ class TransformersEstimator(BaseEstimator):
         this_model = load_model(
             checkpoint_path=self._training_args.model_path,
             task=self._task,
-            num_labels=self._num_labels,
+            num_labels=self.num_labels,
         )
         return this_model
 
@@ -560,7 +553,7 @@ class TransformersEstimator(BaseEstimator):
 
         return (
             DataCollatorForAuto(
-                tokenizer=self._tokenizer,
+                tokenizer=self.tokenizer,
                 pad_to_multiple_of=8 if self._training_args.fp16 else None,
             )
             if self._task == MULTICHOICECLASSIFICATION
@@ -646,8 +639,8 @@ class TransformersEstimator(BaseEstimator):
             model_init=self._model_init,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
-            tokenizer=self._tokenizer,
-            data_collator=self._data_collator,
+            tokenizer=self.tokenizer,
+            data_collator=self.data_collator,
             compute_metrics=self._compute_metrics_by_dataset_name,
             callbacks=[EarlyStoppingCallbackForAuto],
         )
@@ -741,11 +734,11 @@ class TransformersEstimator(BaseEstimator):
             if self._task in NLG_TASKS:
                 if isinstance(predictions, tuple):
                     predictions = np.argmax(predictions[0], axis=2)
-                decoded_preds = self._tokenizer.batch_decode(
+                decoded_preds = self.tokenizer.batch_decode(
                     predictions, skip_special_tokens=True
                 )
-                labels = np.where(labels != -100, labels, self._tokenizer.pad_token_id)
-                decoded_labels = self._tokenizer.batch_decode(
+                labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
+                decoded_labels = self.tokenizer.batch_decode(
                     labels, skip_special_tokens=True
                 )
                 predictions, labels = postprocess_text(decoded_preds, decoded_labels)
@@ -793,7 +786,7 @@ class TransformersEstimator(BaseEstimator):
         new_trainer = TrainerForAuto(
             model=self._model_init(),
             args=self._training_args,
-            data_collator=self._data_collator,
+            data_collator=self.data_collator,
             compute_metrics=self._compute_metrics_by_dataset_name,
         )
         if self._task in NLG_TASKS:
@@ -860,7 +853,7 @@ class TransformersEstimator(BaseEstimator):
         elif self._task == TOKENCLASSIFICATION:
             return np.argmax(predictions.predictions, axis=2)
         elif self._task == SUMMARIZATION:
-            decoded_preds = self._tokenizer.batch_decode(
+            decoded_preds = self.tokenizer.batch_decode(
                 predictions.predictions, skip_special_tokens=True
             )
             return decoded_preds

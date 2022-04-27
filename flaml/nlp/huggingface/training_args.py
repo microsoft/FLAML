@@ -103,6 +103,11 @@ class TrainingArgumentsForAuto(TrainingArguments):
 @dataclass
 class Seq2SeqTrainingArgumentsForAuto(TrainingArgumentsForAuto):
 
+    model_path: str = field(
+        default="t5-small",
+        metadata={"help": "model path for HPO"},
+    )
+
     sortish_sampler: bool = field(
         default=False, metadata={"help": "Whether to use SortishSampler or not."}
     )
