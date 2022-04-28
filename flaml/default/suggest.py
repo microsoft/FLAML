@@ -29,7 +29,7 @@ def meta_feature(task, X_train, y_train, meta_feature_names):
                 X_train.select_dtypes(include=np.number).shape[1] / n_feat
             )
         else:
-            raise Exception("Feature {} not implemented. ".format(each_feature_name))
+            raise ValueError("Feature {} not implemented. ".format(each_feature_name))
 
     return this_feature
 

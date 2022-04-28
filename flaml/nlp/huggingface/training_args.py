@@ -32,7 +32,9 @@ class TrainingArgumentsForAuto(TrainingArguments):
 
     model_path: str = field(
         default="facebook/muppet-roberta-base",
-        metadata={"help": "model path for HPO"},
+        metadata={
+            "help": "model path for HPO natural language understanding tasks, default is set to facebook/muppet-roberta-base"
+        },
     )
 
     tokenizer_model_path: str = field(
@@ -105,7 +107,9 @@ class Seq2SeqTrainingArgumentsForAuto(TrainingArgumentsForAuto):
 
     model_path: str = field(
         default="t5-small",
-        metadata={"help": "model path for HPO"},
+        metadata={
+            "help": "model path for HPO natural language generation tasks, default is set to t5-small"
+        },
     )
 
     sortish_sampler: bool = field(

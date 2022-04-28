@@ -122,5 +122,37 @@ def test_zero_shot_nomodel():
     model.fit(X_train, y_train, **fit_kwargs)
 
 
+def test_build_error_portfolio(path="./test/nlp/default", strategy="greedy"):
+    sys.argv = f"portfolio.py --output {path} --input {path} --metafeatures {path}/all/metafeatures_err.csv --task seq-classification --estimator transformer_ms --strategy {strategy}".split()
+    portfolio.main()
+
+
+def test_zero_shot_error_case():
+    from flaml.default import preprocess_and_suggest_hyperparams
+
+    estimator_name = "transformer_ms"
+
+    location = "test/nlp/default"
+    X_train, y_train, X_val, y_val, X_test = get_toy_data_seqclassification()
+
+    automl_settings = get_automl_settings(estimator_name)
+
+    del automl_settings["fit_kwargs_by_estimator"][estimator_name]["model_path"]
+
+    try:
+        (
+            hyperparams,
+            estimator_class,
+            X_train,
+            y_train,
+            _,
+            _,
+        ) = preprocess_and_suggest_hyperparams(
+            "seq-classification", X_train, y_train, estimator_name, location=location
+        )
+    except ValueError:
+        print("Feature not implemented")
+
+
 if __name__ == "__main__":
-    test_zero_shot_nomodel()
+    test_zero_shot_error_case()
