@@ -129,8 +129,6 @@ def test_build_error_portfolio(path="./test/nlp/default", strategy="greedy"):
     sys.argv = f"portfolio.py --output {path} --input {path} --metafeatures {path}/all/metafeatures_err.csv --task seq-classification --estimator transformer_ms --strategy {strategy}".split()
     portfolio.main()
 
-
-def test_zero_shot_error_case():
     from flaml.default import preprocess_and_suggest_hyperparams
 
     estimator_name = "transformer_ms"
@@ -155,8 +153,3 @@ def test_zero_shot_error_case():
         )
     except ValueError:
         print("Feature not implemented")
-
-
-if __name__ == "__main__":
-    test_build_error_portfolio()
-    test_zero_shot_error_case()
