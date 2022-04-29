@@ -2,27 +2,29 @@
 #  * Copyright (c) Microsoft Corporation. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
-from flaml.tune.sample import Domain
 from typing import Dict, Optional, Tuple
 import numpy as np
+import logging
 
 try:
     from ray import __version__ as ray_version
 
     assert ray_version >= "1.0.0"
     from ray.tune.suggest import Searcher
-    from ray.tune.suggest.variant_generator import generate_variants
     from ray.tune import sample
     from ray.tune.utils.util import flatten_dict, unflatten_dict
 except (ImportError, AssertionError):
     from .suggestion import Searcher
-    from .variant_generator import generate_variants
     from ..tune import sample
     from ..tune.trial import flatten_dict, unflatten_dict
-from ..tune.space import complete_config, denormalize, normalize
-
-
-import logging
+from flaml.tune.sample import _BackwardsCompatibleNumpyRng
+from flaml.config import SAMPLE_MULTIPLY_FACTOR
+from ..tune.space import (
+    complete_config,
+    denormalize,
+    normalize,
+    generate_variants_compatible,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +44,7 @@ class FLOW2(Searcher):
         resource_attr: Optional[str] = None,
         min_resource: Optional[float] = None,
         max_resource: Optional[float] = None,
-        resource_multiple_factor: Optional[float] = 4,
+        resource_multiple_factor: Optional[float] = None,
         cost_attr: Optional[str] = "time_total_s",
         seed: Optional[int] = 20,
     ):
@@ -58,14 +60,8 @@ class FLOW2(Searcher):
                 minimization or maximization.
             cat_hp_cost: A dictionary from a subset of categorical dimensions
                 to the relative cost of each choice.
-                e.g.,
-
-                .. code-block:: python
-
-                    {'tree_method': [1, 1, 2]}
-
-                i.e., the relative cost of the
-                three choices of 'tree_method' is 1, 1 and 2 respectively.
+                E.g., ```{'tree_method': [1, 1, 2]}```. I.e., the relative cost
+                of the three choices of 'tree_method' is 1, 1 and 2 respectively.
             space: A dictionary to specify the search space.
             resource_attr: A string to specify the resource dimension and the best
                 performance is assumed to be at the max_resource.
@@ -90,12 +86,13 @@ class FLOW2(Searcher):
         self.space = space or {}
         self._space = flatten_dict(self.space, prevent_delimiter=True)
         self._random = np.random.RandomState(seed)
+        self.rs_random = _BackwardsCompatibleNumpyRng(seed + 19823)
         self.seed = seed
         self.init_config = init_config
         self.best_config = flatten_dict(init_config)
         self.resource_attr = resource_attr
         self.min_resource = min_resource
-        self.resource_multiple_factor = resource_multiple_factor or 4
+        self.resource_multiple_factor = resource_multiple_factor or SAMPLE_MULTIPLY_FACTOR
         self.cost_attr = cost_attr
         self.max_resource = max_resource
         self._resource = None
@@ -470,8 +467,8 @@ class FLOW2(Searcher):
             # random
             for i, key in enumerate(self._tunable_keys):
                 if self._direction_tried[i] != 0:
-                    for _, generated in generate_variants(
-                        {"config": {key: self._space[key]}}
+                    for _, generated in generate_variants_compatible(
+                        {"config": {key: self._space[key]}}, random_state=self.rs_random
                     ):
                         if generated["config"][key] != best_config[key]:
                             config[key] = generated["config"][key]

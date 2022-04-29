@@ -10,7 +10,7 @@ import time
 try:
     from ray import __version__ as ray_version
 
-    assert ray_version >= "1.0.0"
+    assert ray_version >= "1.10.0"
     from ray.tune.analysis import ExperimentAnalysis as EA
 
     ray_import = True
@@ -18,6 +18,7 @@ except (ImportError, AssertionError):
     ray_import = False
     from .analysis import ExperimentAnalysis as EA
 
+from .trial import Trial
 from .result import DEFAULT_METRIC
 import logging
 
@@ -29,6 +30,8 @@ _runner = None
 _verbose = 0
 _running_trial = None
 _training_iteration = 0
+
+INCUMBENT_RESULT = "__incumbent_result__"
 
 
 class ExperimentAnalysis(EA):
@@ -49,27 +52,27 @@ def report(_metric=None, **kwargs):
 
     Example:
 
-    .. code-block:: python
+    ```python
+    import time
+    from flaml import tune
 
-        import time
-        from flaml import tune
+    def compute_with_config(config):
+        current_time = time.time()
+        metric2minimize = (round(config['x'])-95000)**2
+        time2eval = time.time() - current_time
+        tune.report(metric2minimize=metric2minimize, time2eval=time2eval)
 
-        def compute_with_config(config):
-            current_time = time.time()
-            metric2minimize = (round(config['x'])-95000)**2
-            time2eval = time.time() - current_time
-            tune.report(metric2minimize=metric2minimize, time2eval=time2eval)
+    analysis = tune.run(
+        compute_with_config,
+        config={
+            'x': tune.lograndint(lower=1, upper=1000000),
+            'y': tune.randint(lower=1, upper=1000000)
+        },
+        metric='metric2minimize', mode='min',
+        num_samples=1000000, time_budget_s=60, use_ray=False)
 
-        analysis = tune.run(
-            compute_with_config,
-            config={
-                'x': tune.lograndint(lower=1, upper=1000000),
-                'y': tune.randint(lower=1, upper=1000000)
-            },
-            metric='metric2minimize', mode='min',
-            num_samples=1000000, time_budget_s=60, use_ray=False)
-
-        print(analysis.trials[-1].last_result)
+    print(analysis.trials[-1].last_result)
+    ```
 
     Args:
         _metric: Optional default anonymous metric for ``tune.report(value)``.
@@ -88,7 +91,9 @@ def report(_metric=None, **kwargs):
         result = kwargs
         if _metric:
             result[DEFAULT_METRIC] = _metric
-        trial = _runner.running_trial
+        trial = getattr(_runner, "running_trial", None)
+        if not trial:
+            return None
         if _running_trial == trial:
             _training_iteration += 1
         else:
@@ -96,13 +101,14 @@ def report(_metric=None, **kwargs):
             _running_trial = trial
         result["training_iteration"] = _training_iteration
         result["config"] = trial.config
+        if INCUMBENT_RESULT in result["config"]:
+            del result["config"][INCUMBENT_RESULT]
         for key, value in trial.config.items():
             result["config/" + key] = value
-        _runner.process_trial_result(_runner.running_trial, result)
-        result["time_total_s"] = trial.last_update_time - trial.start_time
+        _runner.process_trial_result(trial, result)
         if _verbose > 2:
             logger.info(f"result: {result}")
-        if _runner.running_trial.is_finished():
+        if trial.is_finished():
             return None
         else:
             return True
@@ -134,32 +140,39 @@ def run(
     metric_constraints: Optional[List[Tuple[str, str, float]]] = None,
     max_failure: Optional[int] = 100,
     use_ray: Optional[bool] = False,
+    use_incumbent_result_in_evaluation: Optional[bool] = None,
 ):
     """The trigger for HPO.
 
     Example:
 
-    .. code-block:: python
+    ```python
+    import time
+    from flaml import tune
 
-        import time
-        from flaml import tune
+    def compute_with_config(config):
+        current_time = time.time()
+        metric2minimize = (round(config['x'])-95000)**2
+        time2eval = time.time() - current_time
+        tune.report(metric2minimize=metric2minimize, time2eval=time2eval)
+        # if the evaluation fails unexpectedly and the exception is caught,
+        # and it doesn't inform the goodness of the config,
+        # return {}
+        # if the failure indicates a config is bad,
+        # report a bad metric value like np.inf or -np.inf
+        # depending on metric mode being min or max
 
-        def compute_with_config(config):
-            current_time = time.time()
-            metric2minimize = (round(config['x'])-95000)**2
-            time2eval = time.time() - current_time
-            tune.report(metric2minimize=metric2minimize, time2eval=time2eval)
+    analysis = tune.run(
+        compute_with_config,
+        config={
+            'x': tune.lograndint(lower=1, upper=1000000),
+            'y': tune.randint(lower=1, upper=1000000)
+        },
+        metric='metric2minimize', mode='min',
+        num_samples=-1, time_budget_s=60, use_ray=False)
 
-        analysis = tune.run(
-            compute_with_config,
-            config={
-                'x': tune.lograndint(lower=1, upper=1000000),
-                'y': tune.randint(lower=1, upper=1000000)
-            },
-            metric='metric2minimize', mode='min',
-            num_samples=-1, time_budget_s=60, use_ray=False)
-
-        print(analysis.trials[-1].last_result)
+    print(analysis.trials[-1].last_result)
+    ```
 
     Args:
         evaluation_function: A user-defined evaluation function.
@@ -171,20 +184,11 @@ def run(
         config: A dictionary to specify the search space.
         low_cost_partial_config: A dictionary from a subset of
             controlled dimensions to the initial low-cost values.
-            e.g.,
-
-            .. code-block:: python
-
-                {'n_estimators': 4, 'max_leaves': 4}
+            e.g., ```{'n_estimators': 4, 'max_leaves': 4}```
 
         cat_hp_cost: A dictionary from a subset of categorical dimensions
             to the relative cost of each choice.
-            e.g.,
-
-            .. code-block:: python
-
-                {'tree_method': [1, 1, 2]}
-
+            e.g., ```{'tree_method': [1, 1, 2]}```
             i.e., the relative cost of the
             three choices of 'tree_method' is 1, 1 and 2 respectively
         metric: A string of the metric name to optimize for.
@@ -197,21 +201,20 @@ def run(
             parameters passed in as points_to_evaluate you can avoid
             re-running those trials by passing in the reward attributes
             as a list so the optimiser can be told the results without
-            needing to re-compute the trial. Must be the same length as
+            needing to re-compute the trial. Must be the same or shorter length than
             points_to_evaluate.
             e.g.,
 
-            .. code-block:: python
+    ```python
+    points_to_evaluate = [
+        {"b": .99, "cost_related": {"a": 3}},
+        {"b": .99, "cost_related": {"a": 2}},
+    ]
+    evaluated_rewards = [3.0]
+    ```
 
-                points_to_evaluate = [
-                    {"b": .99, "cost_related": {"a": 3}},
-                    {"b": .99, "cost_related": {"a": 2}},
-                ]
-                evaluated_rewards=[3.0, 1.0]
-
-            means that you know the reward for the two configs in
-            points_to_evaluate are 3.0 and 1.0 respectively and want to
-            inform run().
+            means that you know the reward for the first config in
+            points_to_evaluate is 3.0 and want to inform run().
 
         resource_attr: A string to specify the resource dimension used by
             the scheduler via "scheduler".
@@ -225,7 +228,7 @@ def run(
             used, otherwise no scheduler will be used. When set 'flaml', an
             authentic scheduler implemented in FLAML will be used. It does not
             require users to report intermediate results in evaluation_function.
-            Find more details abuot this scheduler in this paper
+            Find more details about this scheduler in this paper
             https://arxiv.org/pdf/1911.04706.pdf).
             When set 'asha', the input for arguments "resource_attr",
             "min_resource", "max_resource" and "reduction_factor" will be passed
@@ -240,16 +243,16 @@ def run(
             to be used. The same instance can be used for iterative tuning.
             e.g.,
 
-            .. code-block:: python
-
-                from flaml import BlendSearch
-                algo = BlendSearch(metric='val_loss', mode='min',
-                        space=search_space,
-                        low_cost_partial_config=low_cost_partial_config)
-                for i in range(10):
-                    analysis = tune.run(compute_with_config,
-                        search_alg=algo, use_ray=False)
-                    print(analysis.trials[-1].last_result)
+    ```python
+    from flaml import BlendSearch
+    algo = BlendSearch(metric='val_loss', mode='min',
+            space=search_space,
+            low_cost_partial_config=low_cost_partial_config)
+    for i in range(10):
+        analysis = tune.run(compute_with_config,
+            search_alg=algo, use_ray=False)
+        print(analysis.trials[-1].last_result)
+    ```
 
         verbose: 0, 1, 2, or 3. Verbosity mode for ray if ray backend is used.
             0 = silent, 1 = only status updates, 2 = status and brief trial
@@ -258,19 +261,17 @@ def run(
             used; or a local dir to save the tuning log.
         num_samples: An integer of the number of configs to try. Defaults to 1.
         resources_per_trial: A dictionary of the hardware resources to allocate
-            per trial, e.g., `{'cpu': 1}`. Only valid when using ray backend.
+            per trial, e.g., `{'cpu': 1}`. It is only valid when using ray backend
+            (by setting 'use_ray = True'). It shall be used when you need to do
+            [parallel tuning](https://microsoft.github.io/FLAML/docs/Use-Cases/Tune-User-Defined-Function#parallel-tuning).
         config_constraints: A list of config constraints to be satisfied.
-            e.g.,
-
-            .. code-block: python
-
-                config_constraints = [(mem_size, '<=', 1024**3)]
+            e.g., ```config_constraints = [(mem_size, '<=', 1024**3)]```
 
             mem_size is a function which produces a float number for the bytes
             needed for a config.
             It is used to skip configs which do not fit in memory.
         metric_constraints: A list of metric constraints to be satisfied.
-            e.g., `['precision', '>=', 0.9]`.
+            e.g., `['precision', '>=', 0.9]`. The sign can be ">=" or "<=".
         max_failure: int | the maximal consecutive number of failures to sample
             a trial before the tuning is terminated.
         use_ray: A boolean of whether to use ray as the backend.
@@ -308,7 +309,7 @@ def run(
         else:
             logger.setLevel(logging.CRITICAL)
 
-    from ..searcher.blendsearch import BlendSearch
+    from ..searcher.blendsearch import BlendSearch, CFO
 
     if search_alg is None:
         flaml_scheduler_resource_attr = (
@@ -325,7 +326,17 @@ def run(
             flaml_scheduler_max_resource = max_resource
             flaml_scheduler_reduction_factor = reduction_factor
             scheduler = None
-        search_alg = BlendSearch(
+        try:
+            import optuna
+
+            SearchAlgorithm = BlendSearch
+        except ImportError:
+            SearchAlgorithm = CFO
+            logger.warning(
+                "Using CFO for search. To use BlendSearch, run: pip install flaml[blendsearch]"
+            )
+
+        search_alg = SearchAlgorithm(
             metric=metric or DEFAULT_METRIC,
             mode=mode,
             space=config,
@@ -341,6 +352,7 @@ def run(
             reduction_factor=flaml_scheduler_reduction_factor,
             config_constraints=config_constraints,
             metric_constraints=metric_constraints,
+            use_incumbent_result_in_evaluation=use_incumbent_result_in_evaluation,
         )
     else:
         if metric is None or mode is None:
@@ -350,6 +362,18 @@ def run(
             from ray.tune.suggest import ConcurrencyLimiter
         else:
             from flaml.searcher.suggestion import ConcurrencyLimiter
+        if (
+            search_alg.__class__.__name__
+            in [
+                "BlendSearch",
+                "CFO",
+                "CFOCat",
+            ]
+            and use_incumbent_result_in_evaluation is not None
+        ):
+            search_alg.use_incumbent_result_in_evaluation = (
+                use_incumbent_result_in_evaluation
+            )
         searcher = (
             search_alg.searcher
             if isinstance(search_alg, ConcurrencyLimiter)
@@ -433,7 +457,11 @@ def run(
             result = evaluation_function(trial_to_run.config)
             if result is not None:
                 if isinstance(result, dict):
-                    report(**result)
+                    if result:
+                        report(**result)
+                    else:
+                        # When the result returned is an empty dict, set the trial status to error
+                        trial_to_run.set_status(Trial.ERROR)
                 else:
                     report(_metric=result)
             _runner.stop_trial(trial_to_run)

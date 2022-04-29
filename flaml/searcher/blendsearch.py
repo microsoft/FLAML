@@ -11,13 +11,14 @@ import pickle
 try:
     from ray import __version__ as ray_version
 
-    assert ray_version >= "1.0.0"
+    assert ray_version >= "1.10.0"
     from ray.tune.suggest import Searcher
     from ray.tune.suggest.optuna import OptunaSearch as GlobalSearch
 except (ImportError, AssertionError):
     from .suggestion import Searcher
     from .suggestion import OptunaSearch as GlobalSearch
 from ..tune.trial import unflatten_dict, flatten_dict
+from ..tune import INCUMBENT_RESULT
 from .search_thread import SearchThread
 from .flow2 import FLOW2
 from ..tune.space import add_cost_to_space, indexof, normalize, define_by_run_func
@@ -56,6 +57,7 @@ class BlendSearch(Searcher):
         metric_constraints: Optional[List[Tuple[str, str, float]]] = None,
         seed: Optional[int] = 20,
         experimental: Optional[bool] = False,
+        use_incumbent_result_in_evaluation=False,
     ):
         """Constructor.
 
@@ -66,29 +68,19 @@ class BlendSearch(Searcher):
             space: A dictionary to specify the search space.
             low_cost_partial_config: A dictionary from a subset of
                 controlled dimensions to the initial low-cost values.
-                e.g.,
-
-                .. code-block:: python
-
-                    {'n_estimators': 4, 'max_leaves': 4}
-
+                E.g., ```{'n_estimators': 4, 'max_leaves': 4}```.
             cat_hp_cost: A dictionary from a subset of categorical dimensions
                 to the relative cost of each choice.
-                e.g.,
-
-                .. code-block:: python
-
-                    {'tree_method': [1, 1, 2]}
-
-                i.e., the relative cost of the
-                three choices of 'tree_method' is 1, 1 and 2 respectively.
+                E.g., ```{'tree_method': [1, 1, 2]}```.
+                I.e., the relative cost of the three choices of 'tree_method'
+                is 1, 1 and 2 respectively.
             points_to_evaluate: Initial parameter suggestions to be run first.
             evaluated_rewards (list): If you have previously evaluated the
                 parameters passed in as points_to_evaluate you can avoid
                 re-running those trials by passing in the reward attributes
                 as a list so the optimiser can be told the results without
-                needing to re-compute the trial. Must be the same length as
-                points_to_evaluate.
+                needing to re-compute the trial. Must be the same or shorter length than
+                points_to_evaluate. When provided, `mode` must be specified.
             time_budget_s: int or float | Time budget in seconds.
             num_samples: int | The number of configs to try.
             resource_attr: A string to specify the resource dimension and the best
@@ -103,21 +95,17 @@ class BlendSearch(Searcher):
                 - HyperOptSearch raises exception sometimes
                 - TuneBOHB has its own scheduler
             config_constraints: A list of config constraints to be satisfied.
-                e.g.,
-
-                .. code-block: python
-
-                    config_constraints = [(mem_size, '<=', 1024**3)]
-
-                mem_size is a function which produces a float number for the bytes
+                E.g., ```config_constraints = [(mem_size, '<=', 1024**3)]```.
+                `mem_size` is a function which produces a float number for the bytes
                 needed for a config.
                 It is used to skip configs which do not fit in memory.
             metric_constraints: A list of metric constraints to be satisfied.
-                e.g., `['precision', '>=', 0.9]`
+                E.g., `['precision', '>=', 0.9]`. The sign can be ">=" or "<=".
             seed: An integer of the random seed.
             experimental: A bool of whether to use experimental features.
         """
         self._metric, self._mode = metric, mode
+        self._use_incumbent_result_in_evaluation = use_incumbent_result_in_evaluation
         init_config = low_cost_partial_config or {}
         if not init_config:
             logger.info(
@@ -125,11 +113,16 @@ class BlendSearch(Searcher):
                 "For cost-frugal search, "
                 "consider providing low-cost values for cost-related hps via "
                 "'low_cost_partial_config'. More info can be found at "
-                "https://github.com/microsoft/FLAML/wiki/About-%60low_cost_partial_config%60"
+                "https://microsoft.github.io/FLAML/docs/FAQ#about-low_cost_partial_config-in-tune"
             )
-        if evaluated_rewards and mode:
+        if evaluated_rewards:
+            assert mode, "mode must be specified when evaluted_rewards is provided."
             self._points_to_evaluate = []
             self._evaluated_rewards = []
+            n = len(evaluated_rewards)
+            self._evaluated_points = points_to_evaluate[:n]
+            new_points_to_evaluate = points_to_evaluate[n:]
+            self._all_rewards = evaluated_rewards
             best = max(evaluated_rewards) if mode == "max" else min(evaluated_rewards)
             # only keep the best points as start points
             for i, r in enumerate(evaluated_rewards):
@@ -137,12 +130,16 @@ class BlendSearch(Searcher):
                     p = points_to_evaluate[i]
                     self._points_to_evaluate.append(p)
                     self._evaluated_rewards.append(r)
+            self._points_to_evaluate.extend(new_points_to_evaluate)
         else:
             self._points_to_evaluate = points_to_evaluate or []
             self._evaluated_rewards = evaluated_rewards or []
         self._config_constraints = config_constraints
         self._metric_constraints = metric_constraints
-        if self._metric_constraints:
+        if metric_constraints:
+            assert all(
+                x[1] in ["<=", ">="] for x in metric_constraints
+            ), "sign of metric constraints must be <= or >=."
             # metric modified by lagrange
             metric += self.lagrange
         self._cat_hp_cost = cat_hp_cost or {}
@@ -167,7 +164,7 @@ class BlendSearch(Searcher):
                 from functools import partial
 
                 gs_space = partial(define_by_run_func, space=space)
-                evaluated_rewards = None  # not supproted by define-by-run
+                evaluated_rewards = None  # not supported by define-by-run
             else:
                 gs_space = space
             gs_seed = seed - 10 if (seed - 10) >= 0 else seed - 11 + (1 << 32)
@@ -180,16 +177,17 @@ class BlendSearch(Searcher):
             else:
                 sampler = None
             try:
+                assert evaluated_rewards
                 self._gs = GlobalSearch(
                     space=gs_space,
                     metric=metric,
                     mode=mode,
                     seed=gs_seed,
                     sampler=sampler,
-                    points_to_evaluate=points_to_evaluate,
+                    points_to_evaluate=self._evaluated_points,
                     evaluated_rewards=evaluated_rewards,
                 )
-            except ValueError:
+            except (AssertionError, ValueError):
                 self._gs = GlobalSearch(
                     space=gs_space,
                     metric=metric,
@@ -313,7 +311,26 @@ class BlendSearch(Searcher):
         )
         self._gs_admissible_min = self._ls_bound_min.copy()
         self._gs_admissible_max = self._ls_bound_max.copy()
-        self._result = {}  # config_signature: tuple -> result: Dict
+        # config_signature: tuple -> result: Dict
+        self._result = (
+            {
+                self._ls.config_signature(
+                    *self._ls.complete_config(
+                        self._evaluated_points[i],
+                        self._ls_bound_min,
+                        self._ls_bound_max,
+                    )
+                ): {
+                    self._metric: r,
+                    self.cost_attr: 1,
+                    "config": self._evaluated_points[i],
+                }
+                for i, r in enumerate(self._all_rewards)
+            }
+            if self._evaluated_rewards  # store all the evaluated rewards
+            else {}
+        )
+
         if self._metric_constraints:
             self._metric_constraint_satisfied = False
             self._metric_constraint_penalty = [
@@ -360,7 +377,6 @@ class BlendSearch(Searcher):
                 metric_constraint, sign, threshold = constraint
                 value = result.get(metric_constraint)
                 if value:
-                    # sign is <= or >=
                     sign_op = 1 if sign == "<=" else -1
                     violation = (value - threshold) * sign_op
                     if violation > 0:
@@ -717,8 +733,8 @@ class BlendSearch(Searcher):
             config, space = self._ls.complete_config(
                 init_config, self._ls_bound_min, self._ls_bound_max
             )
+            config_signature = self._ls.config_signature(config, space)
             if reward is None:
-                config_signature = self._ls.config_signature(config, space)
                 result = self._result.get(config_signature)
                 if result:  # tried before
                     return None
@@ -731,9 +747,16 @@ class BlendSearch(Searcher):
             self._search_thread_pool[0].running += 1
             self._subspace[trial_id] = space
             if reward is not None:
-                result = {self._metric: reward, self.cost_attr: 1, "config": config}
+                # result = {self._metric: reward, self.cost_attr: 1, "config": config}
+                result = self._result[config_signature]
                 self.on_trial_complete(trial_id, result)
                 return None
+        if self._use_incumbent_result_in_evaluation:
+            if self._trial_proposed_by[trial_id] > 0:
+                choice_thread = self._search_thread_pool[
+                    self._trial_proposed_by[trial_id]
+                ]
+                config[INCUMBENT_RESULT] = choice_thread.best_result
         return config
 
     def _should_skip(self, choice, trial_id, config, space) -> bool:
@@ -754,6 +777,10 @@ class BlendSearch(Searcher):
                     and value > threshold
                     or sign == ">="
                     and value < threshold
+                    or sign == ">"
+                    and value <= threshold
+                    or sign == "<"
+                    and value > threshold
                 ):
                     self._result[config_signature] = {
                         self._metric: np.inf * self._ls.metric_op,
@@ -851,11 +878,20 @@ class BlendSearch(Searcher):
                     return False
         return True
 
+    @property
+    def results(self) -> List[Dict]:
+        """A list of dicts of results for each evaluated configuration.
+
+        Each dict has "config" and metric names as keys.
+        The returned dict includes the initial results provided via `evaluated_reward`.
+        """
+        return [x for x in getattr(self, "_result", {}).values() if x]
+
 
 try:
     from ray import __version__ as ray_version
 
-    assert ray_version >= "1.0.0"
+    assert ray_version >= "1.10.0"
     from ray.tune import (
         uniform,
         quniform,

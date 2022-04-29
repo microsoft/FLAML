@@ -16,14 +16,14 @@ logger = logging.getLogger(__name__)
 
 
 class Nologger:
-    """Logger without logging"""
+    """Logger without logging."""
 
     def on_result(self, result):
         pass
 
 
 class SimpleTrial(Trial):
-    """A simple trial class"""
+    """A simple trial class."""
 
     def __init__(self, config, trial_id=None):
         self.trial_id = Trial.generate_id() if trial_id is None else trial_id
@@ -43,7 +43,7 @@ class SimpleTrial(Trial):
 
 
 class BaseTrialRunner:
-    """Implementation of a simple trial runner
+    """Implementation of a simple trial runner.
 
     Note that the caller usually should not mutate trial state directly.
     """
@@ -82,6 +82,8 @@ class BaseTrialRunner:
 
     def process_trial_result(self, trial, result):
         trial.update_last_result(result)
+        if "time_total_s" not in result.keys():
+            result["time_total_s"] = trial.last_update_time - trial.start_time
         self._search_alg.on_trial_result(trial.trial_id, result)
         if self._scheduler_alg:
             decision = self._scheduler_alg.on_trial_result(self, trial, result)
@@ -101,17 +103,23 @@ class BaseTrialRunner:
             trial.set_status(Trial.TERMINATED)
         elif self._scheduler_alg:
             self._scheduler_alg.on_trial_remove(self, trial)
+            if trial.status == Trial.ERROR:
+                self._search_alg.on_trial_complete(
+                    trial.trial_id, trial.last_result, error=True
+                )
 
 
 class SequentialTrialRunner(BaseTrialRunner):
-    """Implementation of the sequential trial runner"""
+    """Implementation of the sequential trial runner."""
 
     def step(self) -> Trial:
         """Runs one step of the trial event loop.
+
         Callers should typically run this method repeatedly in a loop. They
         may inspect or modify the runner's state in between calls to step().
 
-        returns a Trial to run
+        Returns:
+            a trial to run.
         """
         trial_id = Trial.generate_id()
         config = self._search_alg.suggest(trial_id)
@@ -123,3 +131,7 @@ class SequentialTrialRunner(BaseTrialRunner):
             trial = None
         self.running_trial = trial
         return trial
+
+    def stop_trial(self, trial):
+        super().stop_trial(trial)
+        self.running_trial = None

@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 import scipy.sparse
 from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
 import pandas as pd
 from datetime import datetime
 from flaml import AutoML
@@ -98,6 +99,7 @@ class TestClassification(unittest.TestCase):
             "ensemble": True,
         }
         automl.fit(X, y, **automl_settings)
+        assert automl.model is not None
 
         automl = AutoML()
         automl_settings = {
@@ -212,7 +214,12 @@ class TestClassification(unittest.TestCase):
         }
         X_train = scipy.sparse.eye(900000)
         y_train = np.random.randint(2, size=900000)
-        automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
+        import xgboost as xgb
+
+        callback = xgb.callback.TrainingCallback()
+        automl_experiment.fit(
+            X_train=X_train, y_train=y_train, callbacks=[callback], **automl_settings
+        )
         print(automl_experiment.predict(X_train))
         print(automl_experiment.model)
         print(automl_experiment.config_history)
@@ -221,14 +228,28 @@ class TestClassification(unittest.TestCase):
         print(automl_experiment.best_estimator)
 
     def test_ray_classification(self):
-        from sklearn.datasets import make_classification
+        X, y = load_breast_cancer(return_X_y=True)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25)
 
-        X, y = make_classification(1000, 10)
         automl = AutoML()
         try:
-            automl.fit(X, y, time_budget=10, task="classification", use_ray=True)
             automl.fit(
-                X, y, time_budget=10, task="classification", n_concurrent_trials=2
+                X_train,
+                y_train,
+                X_val=X_test,
+                y_val=y_test,
+                time_budget=10,
+                task="classification",
+                use_ray=True,
+            )
+            automl.fit(
+                X_train,
+                y_train,
+                X_val=X_test,
+                y_val=y_test,
+                time_budget=10,
+                task="classification",
+                n_concurrent_trials=2,
             )
         except ImportError:
             return
@@ -249,7 +270,12 @@ class TestClassification(unittest.TestCase):
         X_train = scipy.sparse.eye(900000)
         y_train = np.random.randint(2, size=900000)
         try:
-            automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
+            import ray
+
+            X_train_ref = ray.put(X_train)
+            automl_experiment.fit(
+                X_train=X_train_ref, y_train=y_train, **automl_settings
+            )
             print(automl_experiment.predict(X_train))
             print(automl_experiment.model)
             print(automl_experiment.config_history)

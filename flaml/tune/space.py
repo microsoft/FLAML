@@ -1,17 +1,26 @@
 try:
     from ray import __version__ as ray_version
 
-    assert ray_version >= "1.0.0"
+    assert ray_version >= "1.10.0"
     from ray.tune import sample
     from ray.tune.suggest.variant_generator import generate_variants
 except (ImportError, AssertionError):
     from . import sample
     from ..searcher.variant_generator import generate_variants
-from typing import Dict, Optional, Any, Tuple
+from typing import Dict, Optional, Any, Tuple, Generator
 import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def generate_variants_compatible(
+    unresolved_spec: Dict, constant_grid_search: bool = False, random_state=None
+) -> Generator[Tuple[Dict, Dict], None, None]:
+    try:
+        return generate_variants(unresolved_spec, constant_grid_search, random_state)
+    except TypeError:
+        return generate_variants(unresolved_spec, constant_grid_search)
 
 
 def define_by_run_func(trial, space: Dict, path: str = "") -> Optional[Dict[str, Any]]:
@@ -52,7 +61,15 @@ def define_by_run_func(trial, space: Dict, path: str = "") -> Optional[Dict[str,
             elif isinstance(sampler, sample.Uniform):
                 if quantize:
                     trial.suggest_float(key, domain.lower, domain.upper, step=quantize)
-                trial.suggest_float(key, domain.lower, domain.upper)
+                else:
+                    trial.suggest_float(key, domain.lower, domain.upper)
+            else:
+                raise ValueError(
+                    "Optuna search does not support parameters of type "
+                    "`{}` with samplers of type `{}`".format(
+                        type(domain).__name__, type(domain.sampler).__name__
+                    )
+                )
         elif isinstance(domain, sample.Integer):
             if isinstance(sampler, sample.LogUniform):
                 trial.suggest_int(
@@ -135,6 +152,8 @@ def unflatten_hierarchical(config: Dict, space: Dict) -> Tuple[Dict, Dict]:
                 key = key[:-8]
             domain = space.get(key)
             if domain is not None:
+                if isinstance(domain, dict):
+                    value, domain = unflatten_hierarchical(value, domain)
                 subspace[key] = domain
                 if isinstance(domain, sample.Domain):
                     sampler = domain.sampler
@@ -350,7 +369,9 @@ def denormalize(
                     n = len(domain.categories)
                     if isinstance(value, list):
                         # denormalize list
-                        choice = int(np.floor(value[-1] * n))
+                        choice = min(
+                            n - 1, int(np.floor(value[-1] * n))
+                        )  # max choice is n-1
                         config_denorm[key] = point = value[choice]
                         point["_choice_"] = choice
                         continue
@@ -360,8 +381,8 @@ def denormalize(
                         ]
                     else:
                         assert key in normalized_reference_config
-                        if np.floor(value * n) == np.floor(
-                            normalized_reference_config[key] * n
+                        if min(n - 1, np.floor(value * n)) == min(
+                            n - 1, np.floor(normalized_reference_config[key] * n)
                         ):
                             config_denorm[key] = reference_config[key]
                         else:  # ****random value each time!****
@@ -395,8 +416,8 @@ def denormalize(
                 elif str(sampler) == "Normal":
                     # denormalization for 'Normal'
                     config_denorm[key] = value * sampler.sd + sampler.mean
-                else:
-                    config_denorm[key] = value
+                # else:
+                #     config_denorm[key] = value
                 # Handle quantized
                 if quantize is not None:
                     config_denorm[key] = (
@@ -410,6 +431,14 @@ def denormalize(
     return config_denorm
 
 
+def equal(config, const) -> bool:
+    if config == const:
+        return True
+    if not isinstance(config, Dict) or not isinstance(const, Dict):
+        return False
+    return all(equal(config[key], value) for key, value in const.items())
+
+
 def indexof(domain: Dict, config: Dict) -> int:
     """Find the index of config in domain.categories."""
     index = config.get("_choice_")
@@ -417,7 +446,6 @@ def indexof(domain: Dict, config: Dict) -> int:
         return index
     if config in domain.categories:
         return domain.categories.index(config)
-    # print(config)
     for i, cat in enumerate(domain.categories):
         if not isinstance(cat, dict):
             continue
@@ -427,8 +455,7 @@ def indexof(domain: Dict, config: Dict) -> int:
         # print(cat.keys())
         if not set(config.keys()).issubset(set(cat.keys())):
             continue
-        # print(domain.const[i])
-        if all(config[key] == value for key, value in domain.const[i].items()):
+        if equal(config, domain.const[i]):
             # assumption: the concatenation of constants is a unique identifier
             return i
     return None
@@ -491,7 +518,9 @@ def complete_config(
     for key, value in space.items():
         if key not in config:
             config[key] = value
-    for _, generated in generate_variants({"config": config}):
+    for _, generated in generate_variants_compatible(
+        {"config": config}, random_state=flow2.rs_random
+    ):
         config = generated["config"]
         break
     subspace = {}
