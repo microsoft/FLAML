@@ -2358,7 +2358,7 @@ class AutoML(BaseEstimator):
         self._state.retrain_final = (
             retrain_full is True
             and eval_method == "holdout"
-            and (self._state.X_val is None or use_ray is not False)
+            and (self._state.X_val is None or self._use_ray is not False)
             or eval_method == "cv"
             and (max_iter > 0 or retrain_full is True)
             or max_iter == 1
@@ -3116,7 +3116,7 @@ class AutoML(BaseEstimator):
                 if isinstance(state.init_config, dict)
                 else state.init_config[0]
             )
-        elif self._use_ray is not False:
+        elif self._use_ray is False:
             self._search_sequential()
         else:
             self._search_parallel()
