@@ -95,7 +95,7 @@ def test_scheduler(scheduler=None, use_ray=False, time_budget_s=1):
         max_resource=max_resource,
         min_resource=100,
         reduction_factor=2,
-        time_budget_s=3,
+        time_budget_s=time_budget_s,
         num_samples=500,
         use_ray=use_ray,
     )
