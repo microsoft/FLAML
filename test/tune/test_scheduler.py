@@ -41,7 +41,11 @@ def obj_w_intermediate_report(resource, config):
             score_avg = np.mean(np.array(score_sequence))
             score_std = np.std(np.array(score_sequence))
             score_lb = score_avg - 1.96 * score_std / np.sqrt(i + 1)
-            tune.report(samplesize=i + 1, sphere_projection=score_lb)
+            trial_not_finished = tune.report(
+                samplesize=i + 1, sphere_projection=score_lb
+            )
+            if trial_not_finished is False:
+                return
 
 
 def obj_w_suggested_resource(resource_attr, config):
@@ -49,12 +53,12 @@ def obj_w_suggested_resource(resource_attr, config):
     simple_obj(config, resource)
 
 
-def test_scheduler(scheduler=None):
+def test_scheduler(scheduler=None, use_ray=False, time_budget_s=1):
     from functools import partial
 
     resource_attr = "samplesize"
     max_resource = 10000
-
+    time_budget_s = time_budget_s
     # specify the objective functions
     if scheduler is None:
         evaluation_obj = simple_obj
@@ -91,10 +95,10 @@ def test_scheduler(scheduler=None):
         max_resource=max_resource,
         min_resource=100,
         reduction_factor=2,
-        time_budget_s=1,
+        time_budget_s=3,
         num_samples=500,
+        use_ray=use_ray,
     )
-
     print("Best hyperparameters found were: ", analysis.best_config)
     # print(analysis.get_best_trial)
     return analysis.best_config
@@ -105,13 +109,15 @@ def test_no_scheduler():
     print("No scheduler, test error:", abs(10 / 2 - best_config["z"] / 2))
 
 
-def test_asha_scheduler():
+def test_asha_scheduler(use_ray=False, time_budget_s=1):
     try:
         from ray.tune.schedulers import ASHAScheduler
     except ImportError:
         print("skip the test as ray tune cannot be imported.")
         return
-    best_config = test_scheduler(scheduler="asha")
+    best_config = test_scheduler(
+        scheduler="asha", use_ray=use_ray, time_budget_s=time_budget_s
+    )
     print("Auto ASHA scheduler, test error:", abs(10 / 2 - best_config["z"] / 2))
 
 
@@ -150,6 +156,7 @@ def test_flaml_scheduler():
 if __name__ == "__main__":
     test_no_scheduler()
     test_asha_scheduler()
+    test_asha_scheduler(use_ray=True, time_budget_s=3)
     test_custom_scheduler()
     test_custom_scheduler_default_time_attr()
     test_flaml_scheduler()

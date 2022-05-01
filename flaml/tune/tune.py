@@ -109,7 +109,7 @@ def report(_metric=None, **kwargs):
         if _verbose > 2:
             logger.info(f"result: {result}")
         if trial.is_finished():
-            return None
+            return False
         else:
             return True
 
@@ -223,7 +223,7 @@ def run(
         reduction_factor: A float of the reduction factor used for incremental
             pruning.
         scheduler: A scheduler for executing the experiment. Can be None, 'flaml',
-            'asha' or a custom instance of the TrialScheduler class. Default is None:
+            'asha' (or  'async_hyperband', 'asynchyperband') or a custom instance of the TrialScheduler class. Default is None:
             in this case when resource_attr is provided, the 'flaml' scheduler will be
             used, otherwise no scheduler will be used. When set 'flaml', an
             authentic scheduler implemented in FLAML will be used. It does not
@@ -236,9 +236,21 @@ def run(
             respectively. You can also provide a self-defined scheduler instance
             of the TrialScheduler class. When 'asha' or self-defined scheduler is
             used, you usually need to report intermediate results in the evaluation
-            function. Please find examples using different types of schedulers
+            function via 'tune.report()'. In addition, when 'use_ray' is not enabled,
+            you also need to stop the evaluation function according to the returned result
+            of 'tune.report()' as shown in the following example.
+            Please find more examples using different types of schedulers
             and how to set up the corresponding evaluation functions in
-            test/tune/test_scheduler.py. TODO: point to notebook examples.
+            test/tune/test_scheduler.py, and test/tune/example_scheduler.py.
+    ```python
+    def easy_objective(config):
+        width, height = config["width"], config["height"]
+        for step in range(config["steps"]):
+            intermediate_score = evaluation_fn(step, width, height)
+            trial_not_finished = tune.report(iterations=step, mean_loss=intermediate_score)
+            if trial_not_finished is False:
+                return
+    ```
         search_alg: An instance of BlendSearch as the search algorithm
             to be used. The same instance can be used for iterative tuning.
             e.g.,
@@ -388,7 +400,11 @@ def run(
             searcher.set_search_properties(metric, mode, config, setting)
         else:
             searcher.set_search_properties(metric, mode, config)
-    if scheduler == "asha":
+    if (
+        scheduler == "asha"
+        or scheduler == "asynchyperband"
+        or scheduler == "async_hyperband"
+    ):
         params = {}
         # scheduler resource_dimension=resource_attr
         if resource_attr:
