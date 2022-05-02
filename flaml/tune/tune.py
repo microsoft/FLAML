@@ -400,11 +400,7 @@ def run(
             searcher.set_search_properties(metric, mode, config, setting)
         else:
             searcher.set_search_properties(metric, mode, config)
-    if (
-        scheduler == "asha"
-        or scheduler == "asynchyperband"
-        or scheduler == "async_hyperband"
-    ):
+    if scheduler in ("asha", "asynchyperband", "async_hyperband"):
         params = {}
         # scheduler resource_dimension=resource_attr
         if resource_attr:
