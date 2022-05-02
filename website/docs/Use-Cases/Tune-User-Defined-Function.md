@@ -352,7 +352,7 @@ tune.run(.., scheduler=my_scheduler, ...)
 
 - Different from the case when the `flaml` scheduler is used, the amount of resources to use at each iteration is not suggested by the search algorithm through the `resource_attr` in a configuration. You need to specify the evaluation schedule explicitly by yourself in the `evaluation_function` and **report intermediate results (using `tune.report()`) accordingly**. In the following code example, we use the ASHA scheduler by setting `scheduler="asha"`, we specify `resource_attr`, `min_resource`, `min_resource` and `reduction_factor` the same way as in the previous example (when "flaml" is used as the scheduler). We perform the evaluation in a customized schedule.
 
-- Use ray backend or not? You can choose to use ray backend or not by specifying `use_ray=True` or  `use_ray=False`. When ray backend is not used, i.e., `use_ray=False`, you need to stop the evaluation function according to the returned result of `tune.report()` as shown in the last two lines of the evaluation function`obj_w_intermediate_report()` in the following code example.
+- Use ray backend or not? You can choose to use ray backend or not by specifying `use_ray=True` or  `use_ray=False`. When ray backend is not used, i.e., `use_ray=False`, you need to stop the evaluation function according to the returned result of `tune.report()` as shown in the last two lines of the evaluation function `obj_w_intermediate_report()` in the following code example.
 
 ```python
 def obj_w_intermediate_report(resource_attr, X_train, X_test, y_train, y_test, min_resource, max_resource, config):
