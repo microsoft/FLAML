@@ -46,7 +46,7 @@ class ExperimentAnalysis(EA):
             self.default_mode = mode
 
 
-def report(_metric=None, **kwargs):
+def report(_metric=None, **kwargs) -> bool:
     """A function called by the HPO application to report final or intermediate
     results.
 
@@ -78,6 +78,9 @@ def report(_metric=None, **kwargs):
         _metric: Optional default anonymous metric for ``tune.report(value)``.
             (For compatibility with ray.tune.report)
         **kwargs: Any key value pair to be reported.
+
+    Returns:
+        A bool indicating whether the trial is finished or not.
     """
     global _use_ray
     global _verbose
@@ -108,11 +111,7 @@ def report(_metric=None, **kwargs):
         _runner.process_trial_result(trial, result)
         if _verbose > 2:
             logger.info(f"result: {result}")
-        if trial.is_finished():
-            return False
-        else:
-            return True
-
+        return not trial.is_finished()
 
 def run(
     evaluation_function,
