@@ -1,5 +1,15 @@
 from dataclasses import dataclass
-from transformers.data.data_collator import DataCollatorWithPadding
+from transformers.data.data_collator import (
+    DataCollatorWithPadding,
+    DataCollatorForTokenClassification,
+)
+
+# @dataclass
+# class DataCollatorForAutoTokenClassification(DataCollatorForTokenClassification):
+#     def __call__(self, features):
+#         batch = super().__call__(features)
+#         batch["labels"] = batch.pop("label", None)
+#         return batch
 
 
 @dataclass

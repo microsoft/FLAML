@@ -365,9 +365,9 @@ class TransformersEstimator(BaseEstimator):
         self._TrainingArguments = TrainingArguments
 
     @staticmethod
-    def _join(X_train, y_train):
+    def _join(X_train, y_train, task):
         y_train = DataFrame(y_train, index=X_train.index)
-        y_train.columns = ["label"]
+        y_train.columns = ["label"] if task != TOKENCLASSIFICATION else ["labels"]
         train_df = X_train.join(y_train)
         return train_df
 
@@ -380,7 +380,7 @@ class TransformersEstimator(BaseEstimator):
             },
             "num_train_epochs": {
                 "domain": tune.loguniform(lower=0.1, upper=10.0),
-                "init_value": 1,
+                "init_value": 3.0,
             },
             "per_device_train_batch_size": {
                 "domain": tune.choice([4, 8, 16, 32]),
@@ -511,7 +511,7 @@ class TransformersEstimator(BaseEstimator):
             processed_X, processed_y = self._preprocess(X=X, y=y, **self._kwargs)
 
         processed_dataset = Dataset.from_pandas(
-            TransformersEstimator._join(processed_X, processed_y)
+            TransformersEstimator._join(processed_X, processed_y, self._task)
         )
         return processed_dataset, processed_X, processed_y
 
@@ -548,6 +548,7 @@ class TransformersEstimator(BaseEstimator):
     @property
     def data_collator(self):
         from .nlp.huggingface.data_collator import DataCollatorForAuto
+        from transformers.data.data_collator import DataCollatorForTokenClassification
 
         return (
             DataCollatorForAuto(
@@ -555,6 +556,11 @@ class TransformersEstimator(BaseEstimator):
                 pad_to_multiple_of=8 if self._training_args.fp16 else None,
             )
             if self._task == MULTICHOICECLASSIFICATION
+            else DataCollatorForTokenClassification(
+                self.tokenizer,
+                pad_to_multiple_of=8 if self._training_args.fp16 else None,
+            )
+            if self._task == TOKENCLASSIFICATION
             else None
         )
 
@@ -731,17 +737,19 @@ class TransformersEstimator(BaseEstimator):
             predictions, labels = eval_pred
             if self._task in NLG_TASKS:
                 if isinstance(predictions, tuple):
-                    predictions = np.argmax(predictions[0], axis=2)
+                    predictions_final = np.argmax(predictions[0], axis=2)
                 decoded_preds = self.tokenizer.batch_decode(
-                    predictions, skip_special_tokens=True
+                    predictions_final, skip_special_tokens=True
                 )
                 labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
                 decoded_labels = self.tokenizer.batch_decode(
                     labels, skip_special_tokens=True
                 )
-                predictions, labels = postprocess_text(decoded_preds, decoded_labels)
+                predictions_final, labels = postprocess_text(
+                    decoded_preds, decoded_labels
+                )
             else:
-                predictions = (
+                predictions_final = (
                     np.squeeze(predictions)
                     if self._task == SEQREGRESSION
                     else np.argmax(predictions, axis=2)
@@ -750,7 +758,10 @@ class TransformersEstimator(BaseEstimator):
                 )
             metric_dict = {
                 "automl_metric": metric_loss_score(
-                    metric_name=self._metric, y_predict=predictions, y_true=labels
+                    metric_name=self._metric,
+                    y_predict=predictions_final,
+                    y_true=labels,
+                    labels=self._training_args.label_list,
                 )
             }
         else:

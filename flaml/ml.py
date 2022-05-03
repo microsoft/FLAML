@@ -175,13 +175,19 @@ def metric_loss_score(
                         metric_name
                     ].mid.fmeasure
                 elif metric_name == "seqeval":
-                    y_true = [
-                        [x for x in each_y_true if x != -100] for each_y_true in y_true
+                    zip_pred_true = [
+                        [(p, lb) for (p, lb) in zip(prediction, label) if lb != -100]
+                        for (prediction, label) in zip(y_predict, y_true)
                     ]
                     y_pred = [
-                        y_predict[each_idx][: len(y_true[each_idx])]
-                        for each_idx in range(len(y_predict))
+                        [labels[p] for (p, l) in each_list]
+                        for each_list in zip_pred_true
                     ]
+                    y_true = [
+                        [labels[l] for (p, l) in each_list]
+                        for each_list in zip_pred_true
+                    ]
+
                     score = metric.compute(predictions=y_pred, references=y_true)[
                         "overall_accuracy"
                     ]
@@ -586,6 +592,7 @@ def compute_estimator(
             groups_val,
             eval_metric,
             task,
+            labels=fit_kwargs["label_list"],
             budget=budget,
             log_training_metric=log_training_metric,
             fit_kwargs=fit_kwargs,

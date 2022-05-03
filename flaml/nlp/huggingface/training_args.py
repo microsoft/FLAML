@@ -79,6 +79,10 @@ class TrainingArgumentsForAuto(TrainingArguments):
         metadata={"help": "The metric to use to compare two different models."},
     )
 
+    label_list: Optional[List[str]] = field(
+        default=None, metadata={"help": "The string list of the label names. "}
+    )
+
     @staticmethod
     def load_args_from_console():
         from dataclasses import fields
