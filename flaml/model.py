@@ -737,19 +737,17 @@ class TransformersEstimator(BaseEstimator):
             predictions, labels = eval_pred
             if self._task in NLG_TASKS:
                 if isinstance(predictions, tuple):
-                    predictions_final = np.argmax(predictions[0], axis=2)
+                    predictions = np.argmax(predictions[0], axis=2)
                 decoded_preds = self.tokenizer.batch_decode(
-                    predictions_final, skip_special_tokens=True
+                    predictions, skip_special_tokens=True
                 )
                 labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
                 decoded_labels = self.tokenizer.batch_decode(
                     labels, skip_special_tokens=True
                 )
-                predictions_final, labels = postprocess_text(
-                    decoded_preds, decoded_labels
-                )
+                predictions, labels = postprocess_text(decoded_preds, decoded_labels)
             else:
-                predictions_final = (
+                predictions = (
                     np.squeeze(predictions)
                     if self._task == SEQREGRESSION
                     else np.argmax(predictions, axis=2)
@@ -759,7 +757,7 @@ class TransformersEstimator(BaseEstimator):
             metric_dict = {
                 "automl_metric": metric_loss_score(
                     metric_name=self._metric,
-                    y_predict=predictions_final,
+                    y_predict=predictions,
                     y_true=labels,
                     labels=self._training_args.label_list,
                 )
