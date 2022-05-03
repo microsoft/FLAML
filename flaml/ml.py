@@ -592,7 +592,7 @@ def compute_estimator(
             groups_val,
             eval_metric,
             task,
-            labels=fit_kwargs["label_list"],
+            labels=fit_kwargs.get("label_list"),
             budget=budget,
             log_training_metric=log_training_metric,
             fit_kwargs=fit_kwargs,
