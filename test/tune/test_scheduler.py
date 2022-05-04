@@ -42,9 +42,7 @@ def obj_w_intermediate_report(resource, config):
             score_std = np.std(np.array(score_sequence))
             score_lb = score_avg - 1.96 * score_std / np.sqrt(i + 1)
             try:
-                tune.report(
-                samplesize=i + 1, sphere_projection=score_lb
-            )
+                tune.report(samplesize=i + 1, sphere_projection=score_lb)
             except StopIteration:
                 return
 
@@ -104,8 +102,10 @@ def test_scheduler(scheduler=None, use_ray=False, time_budget_s=1):
         use_ray=use_ray,
     )
     print("Best hyperparameters found were: ", analysis.best_config)
-    print(f"{len(analysis.results)} trials finished \
-        in {time_budget_s} seconds with {str(scheduler)} scheduler" )
+    print(
+        f"{len(analysis.results)} trials finished \
+        in {time_budget_s} seconds with {str(scheduler)} scheduler"
+    )
     return analysis.best_config
 
 
