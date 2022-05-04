@@ -47,7 +47,7 @@ class TrainingArgumentsForAuto(TrainingArguments):
     max_seq_length: int = field(default=128, metadata={"help": "max seq length"})
 
     pad_to_max_length: bool = field(
-        default=True,
+        default=False,
         metadata={
             "help": "Whether to pad all samples to model maximum sentence length. "
             "If False, will pad the samples dynamically when batching to the maximum length in the batch. More "

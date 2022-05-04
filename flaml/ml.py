@@ -189,7 +189,7 @@ def metric_loss_score(
                     ]
 
                     score = metric.compute(predictions=y_pred, references=y_true)[
-                        "overall_accuracy"
+                        "overall_f1"
                     ]
                 else:
                     score = metric.compute(predictions=y_predict, references=y_true)[

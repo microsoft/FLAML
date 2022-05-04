@@ -83,7 +83,9 @@ def tokenize_and_align_labels(
 ):
     tokenized_inputs = tokenizer(
         [list(examples[X_sent_key])],
-        padding=False,
+        padding="max_length"
+        if hf_args.pad_to_max_length
+        else False,  # to be consistent with https://github.com/huggingface/transformers/blob/main/examples/pytorch/token-classification/run_ner.py#L394
         truncation=True,
         max_length=hf_args.max_seq_length,
         # We use this argument because the texts in our dataset are lists of words (with a label for each word).
