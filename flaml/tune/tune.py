@@ -46,7 +46,8 @@ class ExperimentAnalysis(EA):
             self.default_mode = mode
 
 
-def report(_metric=None, **kwargs) -> bool:
+def report(_metric=None, **kwargs):
+
     """A function called by the HPO application to report final or intermediate
     results.
 
