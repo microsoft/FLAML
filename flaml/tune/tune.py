@@ -81,7 +81,8 @@ def report(_metric=None, **kwargs):
         **kwargs: Any key value pair to be reported.
 
     Raises:
-        StopIteration: A StopIteration exception is raised if the trial has been signaled to stop.
+        StopIteration (when not using ray, i.e., _use_ray=False):
+            A StopIteration exception is raised if the trial has been signaled to stop.
     """
     global _use_ray
     global _verbose
