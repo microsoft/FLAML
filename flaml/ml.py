@@ -38,6 +38,7 @@ from .model import (
     SARIMAX,
     TransformersEstimator,
     MultiModalEstimator,
+    TransformersEstimatorModelSelection,
 )
 from .data import CLASSIFICATION, group_counts, TS_FORECAST, TS_VALUE_COL
 import logging
@@ -124,6 +125,8 @@ def get_estimator_class(task, estimator_name):
         estimator_class = TransformersEstimator
     elif estimator_name == "multimodal":
         estimator_class = MultiModalEstimator
+    elif estimator_name == "transformer_ms":
+        estimator_class = TransformersEstimatorModelSelection
     else:
         raise ValueError(
             estimator_name + " is not a built-in learner. "
@@ -539,10 +542,6 @@ def evaluate_model_CV(
         else:
             metric = total_metric / n
     pred_time /= n
-    # budget -= time.time() - start_time
-    # if val_loss < best_val_loss and budget > budget_per_train:
-    #     estimator.cleanup()
-    #     estimator.fit(X_train_all, y_train_all, budget, **fit_kwargs)
     return val_loss, metric, train_time, pred_time
 
 
@@ -608,6 +607,10 @@ def compute_estimator(
             log_training_metric=log_training_metric,
             fit_kwargs=fit_kwargs,
         )
+
+    if isinstance(estimator, TransformersEstimator):
+        del fit_kwargs["metric"], fit_kwargs["X_val"], fit_kwargs["y_val"]
+
     return estimator, val_loss, metric_for_logging, train_time, pred_time
 
 
