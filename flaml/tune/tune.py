@@ -114,6 +114,7 @@ def report(_metric=None, **kwargs) -> bool:
         if trial.is_finished():
             raise StopIteration
 
+
 def run(
     evaluation_function,
     config: Optional[dict] = None,
