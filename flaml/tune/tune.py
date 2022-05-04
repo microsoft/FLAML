@@ -10,7 +10,7 @@ import time
 try:
     from ray import __version__ as ray_version
 
-    assert ray_version >= "1.0.0"
+    assert ray_version >= "1.10.0"
     from ray.tune.analysis import ExperimentAnalysis as EA
 
     ray_import = True
@@ -18,6 +18,7 @@ except (ImportError, AssertionError):
     ray_import = False
     from .analysis import ExperimentAnalysis as EA
 
+from .trial import Trial
 from .result import DEFAULT_METRIC
 import logging
 
@@ -105,7 +106,6 @@ def report(_metric=None, **kwargs):
         for key, value in trial.config.items():
             result["config/" + key] = value
         _runner.process_trial_result(trial, result)
-        result["time_total_s"] = trial.last_update_time - trial.start_time
         if _verbose > 2:
             logger.info(f"result: {result}")
         if trial.is_finished():
@@ -155,6 +155,12 @@ def run(
         metric2minimize = (round(config['x'])-95000)**2
         time2eval = time.time() - current_time
         tune.report(metric2minimize=metric2minimize, time2eval=time2eval)
+        # if the evaluation fails unexpectedly and the exception is caught,
+        # and it doesn't inform the goodness of the config,
+        # return {}
+        # if the failure indicates a config is bad,
+        # report a bad metric value like np.inf or -np.inf
+        # depending on metric mode being min or max
 
     analysis = tune.run(
         compute_with_config,
@@ -195,7 +201,7 @@ def run(
             parameters passed in as points_to_evaluate you can avoid
             re-running those trials by passing in the reward attributes
             as a list so the optimiser can be told the results without
-            needing to re-compute the trial. Must be the same length as
+            needing to re-compute the trial. Must be the same or shorter length than
             points_to_evaluate.
             e.g.,
 
@@ -204,12 +210,11 @@ def run(
         {"b": .99, "cost_related": {"a": 3}},
         {"b": .99, "cost_related": {"a": 2}},
     ]
-    evaluated_rewards=[3.0, 1.0]
+    evaluated_rewards = [3.0]
     ```
 
-            means that you know the reward for the two configs in
-            points_to_evaluate are 3.0 and 1.0 respectively and want to
-            inform run().
+            means that you know the reward for the first config in
+            points_to_evaluate is 3.0 and want to inform run().
 
         resource_attr: A string to specify the resource dimension used by
             the scheduler via "scheduler".
@@ -452,7 +457,11 @@ def run(
             result = evaluation_function(trial_to_run.config)
             if result is not None:
                 if isinstance(result, dict):
-                    report(**result)
+                    if result:
+                        report(**result)
+                    else:
+                        # When the result returned is an empty dict, set the trial status to error
+                        trial_to_run.set_status(Trial.ERROR)
                 else:
                     report(_metric=result)
             _runner.stop_trial(trial_to_run)

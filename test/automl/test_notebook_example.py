@@ -1,15 +1,29 @@
+import sys
 from openml.exceptions import OpenMLServerException
 from requests.exceptions import ChunkedEncodingError
 
 
 def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     from flaml.data import load_openml_dataset
+    import urllib3
 
+    performance_check_budget = 600
+    if (
+        sys.platform == "darwin"
+        and budget < performance_check_budget
+        and dataset_format == "dataframe"
+        and "3.9" in sys.version
+    ):
+        budget = performance_check_budget  # revise the buget on macos
     try:
         X_train, X_test, y_train, y_test = load_openml_dataset(
             dataset_id=1169, data_dir="test/", dataset_format=dataset_format
         )
-    except (OpenMLServerException, ChunkedEncodingError) as e:
+    except (
+        OpenMLServerException,
+        ChunkedEncodingError,
+        urllib3.exceptions.ReadTimeoutError,
+    ) as e:
         print(e)
         return
     """ import AutoML class from flaml package """
@@ -48,11 +62,14 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     """ compute different metric values on testing dataset """
     from flaml.ml import sklearn_metric_loss_score
 
-    print("accuracy", "=", 1 - sklearn_metric_loss_score("accuracy", y_pred, y_test))
+    accuracy = 1 - sklearn_metric_loss_score("accuracy", y_pred, y_test)
+    print("accuracy", "=", accuracy)
     print(
         "roc_auc", "=", 1 - sklearn_metric_loss_score("roc_auc", y_pred_proba, y_test)
     )
     print("log_loss", "=", sklearn_metric_loss_score("log_loss", y_pred_proba, y_test))
+    if budget >= performance_check_budget:
+        assert accuracy >= 0.669, "the accuracy of flaml should be larger than 0.67"
     from flaml.data import get_output_from_log
 
     (
@@ -67,7 +84,8 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     print(automl.resource_attr)
     print(automl.max_resource)
     print(automl.min_resource)
-    automl.fit(X_train=X_train, y_train=y_train, ensemble=True, **settings)
+    if budget < performance_check_budget:
+        automl.fit(X_train=X_train, y_train=y_train, ensemble=True, **settings)
 
 
 def test_automl_array():
@@ -123,4 +141,4 @@ def test_mlflow():
 
 
 if __name__ == "__main__":
-    test_automl(120)
+    test_automl(600)
