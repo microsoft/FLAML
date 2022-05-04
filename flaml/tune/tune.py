@@ -79,8 +79,8 @@ def report(_metric=None, **kwargs) -> bool:
             (For compatibility with ray.tune.report)
         **kwargs: Any key value pair to be reported.
 
-    Returns:
-        A bool indicating whether the trial is finished or not.
+    Raises:
+        StopIteration: A StopIteration exception is raised if the trial has been signaled to stop.
     """
     global _use_ray
     global _verbose
@@ -111,7 +111,8 @@ def report(_metric=None, **kwargs) -> bool:
         _runner.process_trial_result(trial, result)
         if _verbose > 2:
             logger.info(f"result: {result}")
-        return not trial.is_finished()
+        if trial.is_finished():
+            raise StopIteration
 
 def run(
     evaluation_function,
@@ -236,8 +237,8 @@ def run(
             of the TrialScheduler class. When 'asha' or self-defined scheduler is
             used, you usually need to report intermediate results in the evaluation
             function via 'tune.report()'. In addition, when 'use_ray' is not enabled,
-            you also need to stop the evaluation function according to the returned result
-            of 'tune.report()' as shown in the following example.
+            you also need to stop the evaluation function by explicitly catching the
+            `StopIteration` exception, as shown in the following example.
             Please find more examples using different types of schedulers
             and how to set up the corresponding evaluation functions in
             test/tune/test_scheduler.py, and test/tune/example_scheduler.py.
@@ -246,8 +247,9 @@ def run(
         width, height = config["width"], config["height"]
         for step in range(config["steps"]):
             intermediate_score = evaluation_fn(step, width, height)
-            trial_not_finished = tune.report(iterations=step, mean_loss=intermediate_score)
-            if trial_not_finished is False:
+            try:
+                tune.report(iterations=step, mean_loss=intermediate_score)
+            except StopIteration:
                 return
     ```
         search_alg: An instance of BlendSearch as the search algorithm
@@ -327,8 +329,7 @@ def run(
             flaml_scheduler_min_resource
         ) = flaml_scheduler_max_resource = flaml_scheduler_reduction_factor = None
         if scheduler in (None, "flaml"):
-
-            # when scheduler is set 'flaml', we will use a scheduler that is
+            # when scheduler is set 'flaml' or None, we will use a scheduler that is
             # authentic to the search algorithms in flaml. After setting up
             # the search algorithm accordingly, we need to set scheduler to
             # None in case it is later used in the trial runner.

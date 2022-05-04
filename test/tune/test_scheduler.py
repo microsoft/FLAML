@@ -15,7 +15,7 @@ def rand_vector_unit_sphere(dim):
     return vec / mag
 
 
-def simple_obj(config, resource=10000):
+def simple_obj(resource, config):
     config_value_vector = np.array([config["x"], config["y"], config["z"]])
     score_sequence = []
     for i in range(resource):
@@ -41,16 +41,17 @@ def obj_w_intermediate_report(resource, config):
             score_avg = np.mean(np.array(score_sequence))
             score_std = np.std(np.array(score_sequence))
             score_lb = score_avg - 1.96 * score_std / np.sqrt(i + 1)
-            trial_not_finished = tune.report(
+            try:
+                tune.report(
                 samplesize=i + 1, sphere_projection=score_lb
             )
-            if trial_not_finished is False:
+            except StopIteration:
                 return
 
 
 def obj_w_suggested_resource(resource_attr, config):
     resource = config[resource_attr]
-    simple_obj(config, resource)
+    simple_obj(resource, config)
 
 
 def test_scheduler(scheduler=None, use_ray=False, time_budget_s=1):
@@ -58,10 +59,13 @@ def test_scheduler(scheduler=None, use_ray=False, time_budget_s=1):
 
     resource_attr = "samplesize"
     max_resource = 10000
+    min_resource = 1000
+    reduction_factor = 2
     time_budget_s = time_budget_s
     # specify the objective functions
     if scheduler is None:
-        evaluation_obj = simple_obj
+        evaluation_obj = partial(simple_obj, max_resource)
+        min_resource = max_resource = reduction_factor = None
     elif scheduler == "flaml":
         evaluation_obj = partial(obj_w_suggested_resource, resource_attr)
     elif scheduler == "asha" or isinstance(scheduler, TrialScheduler):
@@ -93,14 +97,15 @@ def test_scheduler(scheduler=None, use_ray=False, time_budget_s=1):
         resource_attr=resource_attr,
         scheduler=scheduler,
         max_resource=max_resource,
-        min_resource=100,
-        reduction_factor=2,
+        min_resource=min_resource,
+        reduction_factor=reduction_factor,
         time_budget_s=time_budget_s,
         num_samples=500,
         use_ray=use_ray,
     )
     print("Best hyperparameters found were: ", analysis.best_config)
-    # print(analysis.get_best_trial)
+    print(f"{len(analysis.results)} trials finished \
+        in {time_budget_s} seconds with {str(scheduler)} scheduler" )
     return analysis.best_config
 
 

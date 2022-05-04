@@ -18,8 +18,9 @@ def easy_objective(use_raytune, config):
         # Iterative training function - can be any arbitrary training procedure
         intermediate_score = evaluation_fn(step, width, height)
         # Feed the score back back to Tune.
-        trial_not_finished = tune.report(iterations=step, mean_loss=intermediate_score)
-        if trial_not_finished is False:
+        try:
+            tune.report(iterations=step, mean_loss=intermediate_score)
+        except StopIteration:
             return
 
 
