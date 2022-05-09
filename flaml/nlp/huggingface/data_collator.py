@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from transformers.data.data_collator import (
     DataCollatorWithPadding,
     DataCollatorForTokenClassification,
-    DefaultDataCollator,
     DataCollatorMixin,
 )
 from typing import Optional
@@ -43,7 +42,6 @@ class DataCollatorForMultipleChoiceClassification(DataCollatorWithPadding):
 
 @dataclass
 class DataCollatorForAuto(
-    DefaultDataCollator,
     DataCollatorForTokenClassification,
     DataCollatorForMultipleChoiceClassification,
 ):
@@ -55,8 +53,6 @@ class DataCollatorForAuto(
                 features
             )  # Will call DataCollatorForMultipleChoiceClassification
         elif self.task == TOKENCLASSIFICATION:
-            return super(DefaultDataCollator, self).torch_call(
+            return super().torch_call(
                 features
             )  # Will call DataCollatorForTokenClassification
-        else:
-            return super().__call__(features)  # Will call DefaultDataCollator
