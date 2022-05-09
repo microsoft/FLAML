@@ -64,6 +64,7 @@ setuptools.setup(
             "seqeval",
             "pytorch-forecasting>=0.9.0",
             "pytorch-lightning==1.5.10",
+            "tensorflow>=2.5.1",
         ],
         "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],
@@ -93,6 +94,7 @@ setuptools.setup(
             "hcrystalball==0.1.10",
             "pytorch-forecasting>=0.9.0",
             "pytorch-lightning==1.5.10",
+            "tensorflow>=2.5.1",
         ],
         "forecast": [
             "prophet>=1.0.1",
@@ -100,6 +102,7 @@ setuptools.setup(
             "hcrystalball==0.1.10",
             "pytorch-forecasting>=0.9.0",
             "pytorch-lightning==1.5.10",
+            "tensorflow>=2.5.1",
         ],
         "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3"],
     },
