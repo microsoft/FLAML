@@ -2214,40 +2214,31 @@ class TemporalFusionTransformer(SKLearnEstimator):
         import copy
         from pathlib import Path
         import warnings
-
         import numpy as np
         import pandas as pd
         import pytorch_lightning as pl
         from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
         from pytorch_lightning.loggers import TensorBoardLogger
         import torch
-
         from pytorch_forecasting import TemporalFusionTransformer
         from pytorch_forecasting.metrics import QuantileLoss
-
         import tensorflow as tf
         import tensorboard as tb
 
         tf.io.gfile = tb.compat.tensorflow_stub.io.gfile
-
         current_time = time.time()
-
         training, train_dataloader, val_dataloader = self.transform_ds(
             X_train, y_train, **kwargs
         )
-
         params = self.params.copy()
         gradient_clip_val = params.pop("gradient_clip_val")
         params.pop("n_jobs")
-
         max_epochs = 1
-
         early_stop_callback = EarlyStopping(
             monitor="val_loss", min_delta=1e-4, patience=10, verbose=False, mode="min"
         )
         lr_logger = LearningRateMonitor()  # log the learning rate
         logger = TensorBoardLogger("lightning_logs")  # logging results to a tensorboard
-
         default_trainer_kwargs = dict(
             gpus=[0] if torch.cuda.is_available() else None,
             max_epochs=max_epochs,
@@ -2256,11 +2247,9 @@ class TemporalFusionTransformer(SKLearnEstimator):
             logger=logger,
             weights_summary="top",
         )
-
         trainer = pl.Trainer(
             **default_trainer_kwargs,
         )
-
         tft = TemporalFusionTransformer.from_dataset(
             training,
             **params,
@@ -2270,17 +2259,14 @@ class TemporalFusionTransformer(SKLearnEstimator):
             log_interval=10,  # uncomment for learning rate finder and otherwise, e.g. to 10 for logging every 10 batches
             reduce_on_plateau_patience=4,
         )
-
         # fit network
         trainer.fit(
             tft,
             train_dataloaders=train_dataloader,
             val_dataloaders=val_dataloader,
         )
-
         best_model_path = trainer.checkpoint_callback.best_model_path
         best_tft = TemporalFusionTransformer.load_from_checkpoint(best_model_path)
-
         train_time = time.time() - current_time
         self._model = best_tft
         return train_time
@@ -2293,10 +2279,8 @@ class TemporalFusionTransformer(SKLearnEstimator):
         encoder_data = self.data[
             lambda x: x.time_idx > x.time_idx.max() - self.max_encoder_length
         ]
-
         # TODO: follow pytorchforecasting example, make all target values equal to the last data
         # last_data = self.data[lambda x: x.time_idx == x.time_idx.max()]
-
         decoder_data = X
         decoder_data["time_idx"] = (
             decoder_data[TS_TIMESTAMP_COL].dt.year * 12
@@ -2307,14 +2291,10 @@ class TemporalFusionTransformer(SKLearnEstimator):
         )
         decoder_data[TS_VALUE_COL] = 0
         decoder_data = decoder_data.sort_values(ids)
-
         new_prediction_data = pd.concat([encoder_data, decoder_data], ignore_index=True)
         new_raw_predictions = self._model.predict(new_prediction_data)
-
         index = [decoder_data[idx].to_numpy() for idx in ids]
         predictions = pd.Series(list(new_raw_predictions.numpy().ravel()), index=index)
-        print(predictions)
-
         return predictions
 
 

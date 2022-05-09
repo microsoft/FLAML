@@ -445,11 +445,9 @@ def get_stalliion_data():
     from pytorch_forecasting.data.examples import get_stallion_data
 
     data = get_stallion_data()
-
     # add time index
     data["time_idx"] = data["date"].dt.year * 12 + data["date"].dt.month
     data["time_idx"] -= data["time_idx"].min()
-
     # add additional features
     data["month"] = data.date.dt.month.astype(str).astype(
         "category"
@@ -461,7 +459,6 @@ def get_stalliion_data():
     data["avg_volume_by_agency"] = data.groupby(
         ["time_idx", "agency"], observed=True
     ).volume.transform("mean")
-
     # we want to encode special days as one variable and thus need to first reverse one-hot encoding
     special_days = [
         "easter_day",
@@ -480,7 +477,6 @@ def get_stalliion_data():
         .apply(lambda x: x.map({0: "-", 1: x.name}))
         .astype("category")
     )
-
     return data, special_days
 
 
