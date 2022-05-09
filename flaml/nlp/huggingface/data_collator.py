@@ -1,9 +1,15 @@
 from dataclasses import dataclass
-from transformers.data.data_collator import DataCollatorWithPadding
+from transformers.data.data_collator import (
+    DataCollatorWithPadding,
+    DataCollatorForTokenClassification,
+)
+from typing import Optional
+
+from flaml.data import MULTICHOICECLASSIFICATION, TOKENCLASSIFICATION
 
 
 @dataclass
-class DataCollatorForAuto(DataCollatorWithPadding):
+class DataCollatorForMultipleChoiceClassification(DataCollatorWithPadding):
     def __call__(self, features):
         from itertools import chain
         import torch
@@ -31,18 +37,20 @@ class DataCollatorForAuto(DataCollatorWithPadding):
         return batch
 
 
-class DataCollatorForPredict(DataCollatorWithPadding):
-    def __call__(self, features):
-        from itertools import chain
+@dataclass
+class DataCollatorForAuto(
+    DataCollatorForMultipleChoiceClassification, DataCollatorForTokenClassification
+):
+    task: Optional[str] = None
 
-        batch_size = len(features)
-        num_choices = len(features[0]["input_ids"])
-        flattened_features = [
-            [{k: v[i] for k, v in feature.items()} for i in range(num_choices)]
-            for feature in features
-        ]
-        flattened_features = list(chain(*flattened_features))
-        batch = super(DataCollatorForPredict, self).__call__(flattened_features)
-        # Un-flatten
-        batch = {k: v.view(batch_size, num_choices, -1) for k, v in batch.items()}
-        return batch
+    def __call__(self, features):
+        if self.task == MULTICHOICECLASSIFICATION:
+            return super().__call__(
+                features
+            )  # Will call DataCollatorForMultipleChoiceClassification
+        elif self.task == TOKENCLASSIFICATION:
+            return super(DataCollatorWithPadding, self).torch_call(
+                features
+            )  # Will call DataCollatorForTokenClassification
+        else:
+            return None

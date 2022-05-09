@@ -175,6 +175,8 @@ def metric_loss_score(
                         metric_name
                     ].mid.fmeasure
                 elif metric_name == "seqeval":
+                    st = time.time()
+
                     zip_pred_true = [
                         [(p, lb) for (p, lb) in zip(prediction, label) if lb != -100]
                         for (prediction, label) in zip(y_predict, y_true)
@@ -188,9 +190,16 @@ def metric_loss_score(
                         for each_list in zip_pred_true
                     ]
 
+                    ed = time.time()
+
                     score = metric.compute(predictions=y_pred, references=y_true)[
                         "overall_f1"
                     ]
+
+                    ed2 = time.time()
+
+                    print("time for metric.compute:", ed2 - ed)
+                    print("time for preparing y_pred and y_true:", ed - st)
                 else:
                     score = metric.compute(predictions=y_predict, references=y_true)[
                         metric_name
