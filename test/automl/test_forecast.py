@@ -578,4 +578,4 @@ if __name__ == "__main__":
     test_multivariate_forecast_cat(60)
     test_numpy()
     test_forecast_classification(60)
-    test_forecast_hierarchical(120)
+    test_forecast_hierarchical(60)
