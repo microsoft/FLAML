@@ -32,9 +32,11 @@ TS_FORECASTREGRESSION = (
     "ts_forecast_regression",
 )
 TS_FORECASTCLASSIFICATION = "ts_forecast_classification"
+TS_FORECASTHIERARCHICAL = "ts_forecast_hierarchical"
 TS_FORECAST = (
     *TS_FORECASTREGRESSION,
     TS_FORECASTCLASSIFICATION,
+    TS_FORECASTHIERARCHICAL,
 )
 TS_TIMESTAMP_COL = "ds"
 TS_VALUE_COL = "y"

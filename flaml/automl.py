@@ -44,6 +44,8 @@ from .data import (
     TOKENCLASSIFICATION,
     TS_FORECAST,
     TS_FORECASTREGRESSION,
+    TS_FORECASTHIERARCHICAL,
+    TS_TIMESTAMP_COL,
     REGRESSION,
     _is_nlp_task,
     NLG_TASKS,
@@ -1217,18 +1219,43 @@ class AutoML(BaseEstimator):
             # if eval_method = holdout, make holdout data
             if self._split_type == "time":
                 if self._state.task in TS_FORECAST:
-                    num_samples = X_train_all.shape[0]
                     period = self._state.fit_kwargs[
                         "period"
                     ]  # NOTE: _prepare_data is before
-                    assert (
-                        period < num_samples
-                    ), f"period={period}>#examples={num_samples}"
-                    split_idx = num_samples - period
-                    X_train = X_train_all[:split_idx]
-                    y_train = y_train_all[:split_idx]
-                    X_val = X_train_all[split_idx:]
-                    y_val = y_train_all[split_idx:]
+                    if self._state.task == TS_FORECASTHIERARCHICAL:
+                        # add time index as a feature - incremented by one for each time step
+                        X_train_all["time_idx"] = (
+                            X_train_all[TS_TIMESTAMP_COL].dt.year * 12
+                            + X_train_all[TS_TIMESTAMP_COL].dt.month
+                        )
+                        X_train_all["time_idx"] -= X_train_all["time_idx"].min()
+                        ids = self._state.fit_kwargs["group_ids"].copy()
+                        ids.append(TS_TIMESTAMP_COL)
+                        ids.append("time_idx")
+                        y_train_all = pd.DataFrame(y_train_all)
+                        y_train_all[ids] = X_train_all[ids]
+                        X_train_all = X_train_all.sort_values(ids)
+                        y_train_all = y_train_all.sort_values(ids)
+                        training_cutoff = X_train_all["time_idx"].max() - period
+                        X_train = X_train_all[lambda x: x.time_idx <= training_cutoff]
+                        y_train = y_train_all[
+                            lambda x: x.time_idx <= training_cutoff
+                        ].drop(columns=ids)
+                        X_val = X_train_all[lambda x: x.time_idx > training_cutoff]
+                        y_val = y_train_all[
+                            lambda x: x.time_idx > training_cutoff
+                        ].drop(columns=ids)
+                        print(y_val)
+                    else:
+                        num_samples = X_train_all.shape[0]
+                        assert (
+                            period < num_samples
+                        ), f"period={period}>#examples={num_samples}"
+                        split_idx = num_samples - period
+                        X_train = X_train_all[:split_idx]
+                        y_train = y_train_all[:split_idx]
+                        X_val = X_train_all[split_idx:]
+                        y_val = y_train_all[split_idx:]
                 else:
                     if (
                         "sample_weight" in self._state.fit_kwargs
@@ -1399,7 +1426,10 @@ class AutoML(BaseEstimator):
             )
         elif self._split_type == "time":
             # logger.info("Using TimeSeriesSplit")
-            if self._state.task in TS_FORECAST:
+            if (
+                self._state.task in TS_FORECAST
+                and self._state.task is not TS_FORECASTHIERARCHICAL
+            ):
                 period = self._state.fit_kwargs[
                     "period"
                 ]  # NOTE: _prepare_data is before
@@ -1704,6 +1734,10 @@ class AutoML(BaseEstimator):
                 self._state.fit_kwargs.get("period"),
                 int,  # NOTE: _decide_split_type is before
             ), f"missing a required integer 'period' for '{TS_FORECAST}' task."
+            if self._state.task == TS_FORECASTHIERARCHICAL:
+                assert isinstance(
+                    self._state.fit_kwargs.get("group_ids"), list
+                ), f"missing a required List[str] 'group_ids' for '{TS_FORECASTHIERARCHICAL}' task."
         elif self._state.task == "rank":
             assert (
                 self._state.groups is not None
@@ -2465,6 +2499,8 @@ class AutoML(BaseEstimator):
                             estimator_list += ["prophet", "arima", "sarimax"]
                         except ImportError:
                             estimator_list += ["arima", "sarimax"]
+                    if self._state.task == TS_FORECASTHIERARCHICAL:
+                        estimator_list = ["tft"]
                 elif "regression" != self._state.task:
                     estimator_list += ["lrl1"]
 
