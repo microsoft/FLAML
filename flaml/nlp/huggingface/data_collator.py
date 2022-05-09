@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from transformers.data.data_collator import (
     DataCollatorWithPadding,
     DataCollatorForTokenClassification,
+    DefaultDataCollator,
+    DataCollatorMixin,
 )
 from typing import Optional
 
@@ -28,7 +30,9 @@ class DataCollatorForMultipleChoiceClassification(DataCollatorWithPadding):
             for feature in features
         ]
         flattened_features = list(chain(*flattened_features))
-        batch = super(DataCollatorForAuto, self).__call__(flattened_features)
+        batch = super(DataCollatorForMultipleChoiceClassification, self).__call__(
+            flattened_features
+        )
         # Un-flatten
         batch = {k: v.view(batch_size, num_choices, -1) for k, v in batch.items()}
         # Add back labels
@@ -39,18 +43,20 @@ class DataCollatorForMultipleChoiceClassification(DataCollatorWithPadding):
 
 @dataclass
 class DataCollatorForAuto(
-    DataCollatorForMultipleChoiceClassification, DataCollatorForTokenClassification
+    DefaultDataCollator,
+    DataCollatorForTokenClassification,
+    DataCollatorForMultipleChoiceClassification,
 ):
     task: Optional[str] = None
 
     def __call__(self, features):
         if self.task == MULTICHOICECLASSIFICATION:
-            return super().__call__(
+            return super(DataCollatorMixin, self).__call__(
                 features
             )  # Will call DataCollatorForMultipleChoiceClassification
         elif self.task == TOKENCLASSIFICATION:
-            return super(DataCollatorWithPadding, self).torch_call(
+            return super(DefaultDataCollator, self).torch_call(
                 features
             )  # Will call DataCollatorForTokenClassification
         else:
-            return None
+            return super().__call__(features)  # Will call DefaultDataCollator
