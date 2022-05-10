@@ -345,6 +345,12 @@ class BlendSearch(Searcher):
         """save states to a checkpoint path."""
         self._time_used += time.time() - self._start_time
         self._start_time = time.time()
+        #remove rs_random avoid pickle.UnpicklingError
+        if self._ls is not None and isinstance(self._ls, FLOW2):
+            self._ls.rs_random = None
+        for thread in self._search_thread_pool.values():
+            if isinstance(thread._search_alg, FLOW2):
+                thread._search_alg.rs_random = None
         save_object = self
         with open(checkpoint_path, "wb") as outputFile:
             pickle.dump(save_object, outputFile)
@@ -356,6 +362,13 @@ class BlendSearch(Searcher):
         self.__dict__ = state.__dict__
         self._start_time = time.time()
         self._set_deadline()
+        # restore rs_random
+        from flaml.tune.sample import _BackwardsCompatibleNumpyRng
+        if self._ls is not None and isinstance(self._ls, FLOW2):
+            self._ls.rs_random = _BackwardsCompatibleNumpyRng(self._ls.seed + 19823)
+        for thread in self._search_thread_pool.values():
+            if isinstance(thread._search_alg, FLOW2):
+                thread._search_alg.rs_random = _BackwardsCompatibleNumpyRng(thread._search_alg.seed + 19823)
 
     @property
     def metric_target(self):
