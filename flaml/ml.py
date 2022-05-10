@@ -183,7 +183,8 @@ def metric_loss_score(
                     y_pred = [
                         [labels[p] for (p, l) in each_list]
                         for each_list in zip_pred_true
-                    ]  # To compute precision and recall, y_pred and y_true must be converted to string labels (B-PER, I-PER, etc.), so that the category-based precision/recall (i.e., PER, LOC, etc.) scores can be computed
+                    ]  # To compute precision and recall, y_pred and y_true must be converted to string labels
+                    # (B-PER, I-PER, etc.), so that the category-based precision/recall (i.e., PER, LOC, etc.) scores can be computed
                     y_true = [
                         [labels[l] for (p, l) in each_list]
                         for each_list in zip_pred_true
