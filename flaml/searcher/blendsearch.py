@@ -365,10 +365,10 @@ class BlendSearch(Searcher):
         # restore rs_random
         from flaml.tune.sample import _BackwardsCompatibleNumpyRng
         if self._ls is not None and isinstance(self._ls, FLOW2):
-            self._ls.rs_random = _BackwardsCompatibleNumpyRng(self._ls.seed + 19823)
+            self._ls.rs_random = self._ls.get_rs_ramdom(self._ls.seed)
         for thread in self._search_thread_pool.values():
             if isinstance(thread._search_alg, FLOW2):
-                thread._search_alg.rs_random = _BackwardsCompatibleNumpyRng(thread._search_alg.seed + 19823)
+                thread._search_alg.rs_random = thread._search_alg.get_rs_ramdom(thread._search_alg.seed)
 
     @property
     def metric_target(self):

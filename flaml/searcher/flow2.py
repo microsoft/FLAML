@@ -86,7 +86,7 @@ class FLOW2(Searcher):
         self.space = space or {}
         self._space = flatten_dict(self.space, prevent_delimiter=True)
         self._random = np.random.RandomState(seed)
-        self.rs_random = _BackwardsCompatibleNumpyRng(seed + 19823)
+        self.rs_random = self.get_rs_ramdom(seed)
         self.seed = seed
         self.init_config = init_config
         self.best_config = flatten_dict(init_config)
@@ -227,6 +227,9 @@ class FLOW2(Searcher):
 
     def rand_vector_gaussian(self, dim, std=1.0):
         return self._random.normal(0, std, dim)
+
+    def get_rs_ramdom(self, seed):
+        return _BackwardsCompatibleNumpyRng(seed + 19823)
 
     def complete_config(
         self,
