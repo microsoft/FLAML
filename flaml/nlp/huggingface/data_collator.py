@@ -48,11 +48,15 @@ class DataCollatorForAuto(
     task: Optional[str] = None
 
     def __call__(self, features):
+        # Call the right data collator based on the task
+        # The MRO looks like below:
+        #    DataCollatorForAuto --> DataCollatorForTokenClassification --> DataCollatorMixin
+        #                        --> DataCollatorForMultipleChoiceClassification --> DataCollatorWithPadding
         if self.task == MULTICHOICECLASSIFICATION:
             return super(DataCollatorMixin, self).__call__(
                 features
-            )  # Will call DataCollatorForMultipleChoiceClassification
+            )  # Will call DataCollatorForMultipleChoiceClassification based on MRO (DFS)
         elif self.task == TOKENCLASSIFICATION:
             return super().torch_call(
                 features
-            )  # Will call DataCollatorForTokenClassification
+            )  # Will call DataCollatorForTokenClassification based on MRO (DFS)
