@@ -547,13 +547,12 @@ class TransformersEstimator(BaseEstimator):
 
     @property
     def data_collator(self):
-        from .nlp.huggingface.data_collator import DataCollatorForAuto
+        from .nlp.huggingface.data_collator import task_to_datacollator_class
 
         return (
-            DataCollatorForAuto(
+            task_to_datacollator_class[self._task](
                 tokenizer=self.tokenizer,
                 pad_to_multiple_of=8,  # if self._training_args.fp16 else None,
-                task=self._task,
             )
             if self._task in (MULTICHOICECLASSIFICATION, TOKENCLASSIFICATION)
             else None

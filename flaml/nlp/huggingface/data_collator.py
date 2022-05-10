@@ -2,11 +2,10 @@ from dataclasses import dataclass
 from transformers.data.data_collator import (
     DataCollatorWithPadding,
     DataCollatorForTokenClassification,
-    DataCollatorMixin,
 )
-from typing import Optional
+from collections import OrderedDict
 
-from flaml.data import MULTICHOICECLASSIFICATION, TOKENCLASSIFICATION
+from flaml.data import TOKENCLASSIFICATION, MULTICHOICECLASSIFICATION
 
 
 @dataclass
@@ -40,23 +39,9 @@ class DataCollatorForMultipleChoiceClassification(DataCollatorWithPadding):
         return batch
 
 
-@dataclass
-class DataCollatorForAuto(
-    DataCollatorForTokenClassification,
-    DataCollatorForMultipleChoiceClassification,
-):
-    task: Optional[str] = None
-
-    def __call__(self, features):
-        # Call the right data collator based on the task
-        # The MRO looks like below:
-        #    DataCollatorForAuto --> DataCollatorForTokenClassification --> DataCollatorMixin
-        #                        --> DataCollatorForMultipleChoiceClassification --> DataCollatorWithPadding
-        if self.task == MULTICHOICECLASSIFICATION:
-            return super(DataCollatorMixin, self).__call__(
-                features
-            )  # Will call DataCollatorForMultipleChoiceClassification based on MRO (DFS)
-        elif self.task == TOKENCLASSIFICATION:
-            return super().torch_call(
-                features
-            )  # Will call DataCollatorForTokenClassification based on MRO (DFS)
+task_to_datacollator_class = OrderedDict(
+    [
+        (TOKENCLASSIFICATION, DataCollatorForTokenClassification),
+        (MULTICHOICECLASSIFICATION, DataCollatorForMultipleChoiceClassification),
+    ]
+)
