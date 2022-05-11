@@ -542,7 +542,11 @@ class TransformersEstimator(BaseEstimator):
             )
         else:
             return AutoTokenizer.from_pretrained(
-                self._training_args.model_path, use_fast=True
+                self._training_args.model_path,
+                use_fast=True,
+                add_prefix_space=True
+                if "roberta" in self._training_args.model_path
+                else False,
             )
 
     @property
