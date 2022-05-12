@@ -491,7 +491,8 @@ class AGArgs:
         default="data/mm/output/", metadata={"help": "data dir", "required": True}
     )
     backend: str = field(default="mxnet", metadata={"help": "the backend of the multimodal model"})
-    text_backbone: str = field(default="electra_base", metadata={"help": "text backbone model"})
+    text_backbone: str = field(default="electra_base", metadata={"help": "mxnet text backbone model"})
+    hf_model_checkpoint_name: str = field(default="google/electra-base-discriminator", metadata={"help": "HF model"})
     multimodal_fusion_strategy: str = field(default="fuse_late", metadata={"help": "fusion strategy"})
     per_device_batch_size: int = field(default=8, metadata={"help": "per device batch size"})
     num_train_epochs: int = field(default=10, metadata={"help": "number of train epochs"})
@@ -504,14 +505,27 @@ class AGArgs:
         Ref: https://auto.gluon.ai/0.3.1/tutorials/text_prediction/customization.html
         """
         from autogluon.text.text_prediction.legacy_presets import ag_text_presets
+        from autogluon.text.text_prediction.presets import get_text_preset
 
-        base_key = f'{self.text_backbone}_{self.multimodal_fusion_strategy}'
-        self.hyperparameters = ag_text_presets.create(base_key)
-        # NOTE: set batch & epoch
-        search_space = self.hyperparameters["models"]["MultimodalTextModel"]["search_space"]
-        search_space["optimization.per_device_batch_size"] = self.per_device_batch_size
-        search_space["optimization.batch_size"] = self.batch_size
-        search_space["optimization.num_train_epochs"] = self.num_train_epochs
+        if self.backend == "mxnet":
+            base_key = f'{self.text_backbone}_{self.multimodal_fusion_strategy}'
+            self.hyperparameters = ag_text_presets.create(base_key)
+            # NOTE: set batch & epoch
+            search_space = self.hyperparameters["models"]["MultimodalTextModel"]["search_space"]
+            search_space["optimization.per_device_batch_size"] = self.per_device_batch_size
+            search_space["optimization.batch_size"] = self.batch_size
+            search_space["optimization.num_train_epochs"] = self.num_train_epochs
+        elif self.backend == "pytorch":
+            # get the override from the text preset tuple
+            self.hyperparameters = get_text_preset("default")[1]
+
+            self.hyperparameters["model.hf_text.checkpoint_name"] = self.hf_model_checkpoint_name
+            self.hyperparameters["env.per_gpu_batch_size"] = self.per_device_batch_size
+            self.hyperparameters["env.batch_size"] = self.batch_size
+            self.hyperparameters["optimization.max_epochs"] = self.num_train_epochs
+
+        else:
+            raise ValueError(f"No {self.backend} backend, please choose mxnet or pytorch.")
 
     @staticmethod
     def load_args():

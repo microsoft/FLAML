@@ -2159,14 +2159,14 @@ class MultiModalEstimator(BaseEstimator):
     def _init_ag_args(self, automl_fit_kwargs: dict = None):
         from .nlp.utils import AGArgs
 
-        ag_args = AGArgs()
-        for key, val in automl_fit_kwargs["ag_args"].items():
-            assert (
-                key in ag_args.__dict__
-            ), "The specified key {} is not in the argument list of flaml.nlp.utils::AGArgs".format(
-                key
-            )
-            setattr(ag_args, key, val)
+        ag_args = AGArgs(**automl_fit_kwargs["ag_args"])
+        # for key, val in automl_fit_kwargs["ag_args"].items():
+        #     assert (
+        #         key in ag_args.__dict__
+        #     ), "The specified key {} is not in the argument list of flaml.nlp.utils::AGArgs".format(
+        #         key
+        #     )
+        #     setattr(ag_args, key, val)
         self.ag_args = ag_args
 
     def fit(self, X_train=None, y_train=None, budget=None, **kwargs):
@@ -2176,16 +2176,34 @@ class MultiModalEstimator(BaseEstimator):
         self._init_ag_args(kwargs)
         seed = self._kwargs.get("seed", 123)
 
-        assert (self.ag_args.backend == "mxnet"), "the pytorch automm model is not supported. "
         # get & set the hyperparameters, update with self.params
         hyperparameters = self.ag_args.hyperparameters
-        search_space = hyperparameters["models"]["MultimodalTextModel"]["search_space"]
-        for key, value in self.params.items():
-            # NOTE: FLAML uses np.float64 but AG uses float, need to transform
-            if key == "n_jobs": 
-                continue
-            else:
-                search_space[key] = value.item() if isinstance(value, np.float64) else value
+        if self.ag_args.backend == "mxnet":
+            search_space = hyperparameters["models"]["MultimodalTextModel"]["search_space"]
+            for key, value in self.params.items():
+                # NOTE: FLAML uses np.float64 but AG uses float, need to transform
+                if key == "n_jobs": 
+                    continue
+                else:
+                    search_space[key] = value.item() if isinstance(value, np.float64) else value
+        # elif using pytorch backend
+        else:
+            # TODO: if pytorch only, remove this mapper and modify the search space keys directly
+            # then AGargs in utils.py should be modify accordingly
+            KEY_MAPPER = {
+                "model.network.agg_net.mid_units": "model.fusion_mlp.hidden_sizes",
+                "optimization.lr": "optimization.learning_rate",
+                "optimization.wd": "optimization.weight_decay",
+                "optimization.warmup_portion": "warmup_steps",
+            }
+            for key, value in self.params.items():
+                if key == "n_jobs":
+                    continue
+                elif key == "model.network.agg_net.mid_units":
+                    hyperparameters[KEY_MAPPER[key]] = [value]
+                else:
+                    hyperparameters[key] = value.item() if isinstance(value, np.float64) else value
+
         start_time = time.time()
         self.model_path = os.path.join(self.ag_args.output_dir, self.trial_id)
         assert self._task in MM_TASKS, f"The task is not multimodal, but {self._task}. "
