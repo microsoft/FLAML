@@ -85,7 +85,7 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     print(automl.max_resource)
     print(automl.min_resource)
     if budget < performance_check_budget:
-        automl.fit(X_train=X_train, y_train=y_train, ensemble=True, **settings)
+        automl.fit(X_train=X_train, y_train=y_train, ensemble=True, n_jobs=1, **settings)
 
 
 def test_automl_array():
