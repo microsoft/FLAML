@@ -534,10 +534,12 @@ class AutoML(BaseEstimator):
              max_iter: An integer of the maximal number of iterations.
              sample: A boolean of whether to sample the training data during
                  search.
-             ensemble: boolean or dict | default=False. Whether to perform
-                 ensemble after search. Can be a dict with keys 'passthrough'
-                 and 'final_estimator' to specify the passthrough and
-                 final_estimator in the stacker.
+            ensemble: boolean or dict | default=False. Whether to perform
+                ensemble after search. Can be a dict with keys 'passthrough'
+                and 'final_estimator' to specify the passthrough and
+                final_estimator in the stacker. The dict can also contain
+                'n_jobs' as the key to specify the n_jobs for the stacker,
+                default to 1.
              eval_method: A string of resampling strategy, one of
                  ['auto', 'cv', 'holdout'].
              split_ratio: A float of the valiation data percentage for holdout.
@@ -2070,7 +2072,9 @@ class AutoML(BaseEstimator):
             ensemble: boolean or dict | default=False. Whether to perform
                 ensemble after search. Can be a dict with keys 'passthrough'
                 and 'final_estimator' to specify the passthrough and
-                final_estimator in the stacker.
+                final_estimator in the stacker. The dict can also contain
+                'n_jobs' as the key to specify the n_jobs for the stacker,
+                default to 1.
             eval_method: A string of resampling strategy, one of
                 ['auto', 'cv', 'holdout'].
             split_ratio: A float of the valiation data percentage for holdout.
@@ -3179,13 +3183,15 @@ class AutoML(BaseEstimator):
                         "final_estimator", self._trained_estimator
                     )
                     passthrough = self._ensemble.get("passthrough", True)
+                    n_jobs = self._ensemble.get("n_jobs", 1)
                 else:
                     final_estimator = self._trained_estimator
                     passthrough = True
+                    n_jobs = 1
                 stacker = Stacker(
                     estimators,
                     final_estimator,
-                    n_jobs=self._state.n_jobs,
+                    n_jobs=n_jobs,
                     passthrough=passthrough,
                 )
                 sample_weight_dict = (
