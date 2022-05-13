@@ -1569,7 +1569,10 @@ class AutoML(BaseEstimator):
         ```
 
             **fit_kwargs: Other key word arguments to pass to fit() function of
-                the searched learners, such as sample_weight.
+                the searched learners, such as sample_weight. Include:
+                    period: int | forecast horizon for ts_forecast tasks.
+                    gpu_per_trial: float, default = 0 | A float of the number of gpus per trial,
+                    only used by TransformersEstimator and XGBoostSklearnEstimator.
         """
         task = task or self._settings.get("task")
         eval_method = eval_method or self._settings.get("eval_method")
@@ -1891,7 +1894,7 @@ class AutoML(BaseEstimator):
         for estimator in self.estimator_list:
             search_state = self._search_states[estimator]
             if not hasattr(search_state, "training_function"):
-                if self._use_ray:
+                if self._use_ray is not False:
                     from ray.tune import with_parameters
 
                     search_state.training_function = with_parameters(
@@ -2198,6 +2201,8 @@ class AutoML(BaseEstimator):
             }
         }
             fit_kwargs_by_estimator: dict, default=None | The user specified keywords arguments, grouped by estimator name.
+                For TransformersEstimator, available fit_kwargs can be found from
+                [flaml/nlp/training_args.py:TrainingArgumentsForAuto](https://microsoft.github.io/FLAML/docs/reference/nlp/huggingface/training_args).
                 e.g.,
 
         ```python
@@ -2292,7 +2297,7 @@ class AutoML(BaseEstimator):
         self._use_ray = use_ray or n_concurrent_trials > 1
         # use the following condition if we have an estimation of average_trial_time and average_trial_overhead
         # self._use_ray = use_ray or n_concurrent_trials > ( average_trail_time + average_trial_overhead) / (average_trial_time)
-        if self._use_ray:
+        if self._use_ray is not False:
             import ray
 
             n_cpus = use_ray and ray.available_resources()["CPU"] or os.cpu_count()
@@ -2358,7 +2363,7 @@ class AutoML(BaseEstimator):
         self._state.retrain_final = (
             retrain_full is True
             and eval_method == "holdout"
-            and (self._state.X_val is None or self._use_ray)
+            and (self._state.X_val is None or self._use_ray is not False)
             or eval_method == "cv"
             and (max_iter > 0 or retrain_full is True)
             or max_iter == 1
@@ -2557,7 +2562,9 @@ class AutoML(BaseEstimator):
             if hpo_method != "auto"
             else (
                 "bs"
-                if n_concurrent_trials > 1 or self._use_ray and len(estimator_list) > 1
+                if n_concurrent_trials > 1
+                or self._use_ray is not False
+                and len(estimator_list) > 1
                 else "cfo"
             )
         )
@@ -3114,7 +3121,7 @@ class AutoML(BaseEstimator):
                 if isinstance(state.init_config, dict)
                 else state.init_config[0]
             )
-        elif not self._use_ray:
+        elif self._use_ray is False:
             self._search_sequential()
         else:
             self._search_parallel()
