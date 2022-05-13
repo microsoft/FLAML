@@ -3201,6 +3201,8 @@ class AutoML(BaseEstimator):
                 )
                 for e in estimators:
                     e[1].__class__.init()
+                import joblib
+
                 try:
                     stacker.fit(
                         self._X_train_all,
@@ -3231,6 +3233,11 @@ class AutoML(BaseEstimator):
                         self._trained_estimator.model = stacker
                     else:
                         raise e
+                except joblib.externals.loky.process_executor.TerminatedWorkerError:
+                    logger.error(
+                        "No enough memory to build the ensemble."
+                        " Please try increasing available RAM or disable ensemble."
+                    )
             elif self._state.retrain_final:
                 # reset time budget for retraining
                 if self._max_iter > 1:
