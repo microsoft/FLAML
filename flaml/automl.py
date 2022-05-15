@@ -44,7 +44,7 @@ from .data import (
     TOKENCLASSIFICATION,
     TS_FORECAST,
     TS_FORECASTREGRESSION,
-    TS_FORECASTHIERARCHICAL,
+    TS_FORECASTPANEL,
     TS_TIMESTAMP_COL,
     REGRESSION,
     _is_nlp_task,
@@ -1222,7 +1222,7 @@ class AutoML(BaseEstimator):
                     period = self._state.fit_kwargs[
                         "period"
                     ]  # NOTE: _prepare_data is before
-                    if self._state.task == TS_FORECASTHIERARCHICAL:
+                    if self._state.task == TS_FORECASTPANEL:
                         # add time index as a feature - incremented by one for each time step
                         X_train_all["time_idx"] = (
                             X_train_all[TS_TIMESTAMP_COL].dt.year * 12
@@ -1428,7 +1428,7 @@ class AutoML(BaseEstimator):
             # logger.info("Using TimeSeriesSplit")
             if (
                 self._state.task in TS_FORECAST
-                and self._state.task is not TS_FORECASTHIERARCHICAL
+                and self._state.task is not TS_FORECASTPANEL
             ):
                 period = self._state.fit_kwargs[
                     "period"
@@ -1729,15 +1729,15 @@ class AutoML(BaseEstimator):
         elif self._state.task in TS_FORECAST:
             assert split_type in ["auto", "time"]
             self._split_type = "time"
-
             assert isinstance(
                 self._state.fit_kwargs.get("period"),
                 int,  # NOTE: _decide_split_type is before
             ), f"missing a required integer 'period' for '{TS_FORECAST}' task."
-            if self._state.task == TS_FORECASTHIERARCHICAL:
+            if self._state.fit_kwargs.get("group_ids"):
+                self._state.task == TS_FORECASTPANEL
                 assert isinstance(
                     self._state.fit_kwargs.get("group_ids"), list
-                ), f"missing a required List[str] 'group_ids' for '{TS_FORECASTHIERARCHICAL}' task."
+                ), f"missing a required List[str] 'group_ids' for '{TS_FORECASTPANEL}' task."
         elif self._state.task == "rank":
             assert (
                 self._state.groups is not None
@@ -2249,6 +2249,17 @@ class AutoML(BaseEstimator):
                     period: int | forecast horizon for ts_forecast tasks.
                     gpu_per_trial: float, default = 0 | A float of the number of gpus per trial,
                     only used by TransformersEstimator and XGBoostSklearnEstimator.
+                    group_ids: list of strings of column names identifying a time series, only
+                    used for panel time series forecasting
+                    TemporalFusionTransformer: [TimeSeriesDataSet pytorchforecasting](https://pytorch-forecasting.readthedocs.io/en/stable/api/pytorch_forecasting.data.timeseries.TimeSeriesDataSet.html)
+                        static_categoricals
+                        static_reals
+                        time_varying_known_categoricals
+                        time_varying_known_reals
+                        time_varying_unknown_categoricals
+                        time_varying_unknown_reals
+                        variable_groups
+                        lags
         """
 
         self._state._start_time_flag = self._start_time_flag = time.time()
@@ -2499,7 +2510,7 @@ class AutoML(BaseEstimator):
                             estimator_list += ["prophet", "arima", "sarimax"]
                         except ImportError:
                             estimator_list += ["arima", "sarimax"]
-                    if self._state.task == TS_FORECASTHIERARCHICAL:
+                    if self._state.task == TS_FORECASTPANEL:
                         estimator_list = ["tft"]
                 elif "regression" != self._state.task:
                     estimator_list += ["lrl1"]
