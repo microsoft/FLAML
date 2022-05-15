@@ -2174,17 +2174,20 @@ class TemporalFusionTransformer(SKLearnEstimator):
             max_encoder_length=self.max_encoder_length,
             min_prediction_length=1,
             max_prediction_length=max_prediction_length,
-            static_categoricals=kwargs["static_categoricals"],
-            static_reals=kwargs["static_reals"],
-            time_varying_known_categoricals=kwargs["time_varying_known_categoricals"],
-            time_varying_known_reals=kwargs["time_varying_known_reals"],
-            time_varying_unknown_categoricals=kwargs[
-                "time_varying_unknown_categoricals"
-            ],
-            time_varying_unknown_reals=kwargs["time_varying_unknown_reals"],
-            variable_groups=kwargs[
-                "variable_groups"
-            ],  # group of categorical variables can be treated as one variable
+            static_categoricals=kwargs.get("static_categoricals", []),
+            static_reals=kwargs.get("static_reals", []),
+            time_varying_known_categoricals=kwargs.get(
+                "time_varying_known_categoricals", []
+            ),
+            time_varying_known_reals=kwargs.get("time_varying_known_reals", []),
+            time_varying_unknown_categoricals=kwargs.get(
+                "time_varying_unknown_categoricals", []
+            ),
+            time_varying_unknown_reals=kwargs.get("time_varying_unknown_reals", []),
+            variable_groups=kwargs.get(
+                "variable_groups", {}
+            ),  # group of categorical variables can be treated as one variable
+            lags=kwargs.get("lags", {}),
             target_normalizer=GroupNormalizer(
                 groups=kwargs["group_ids"], transformation="softplus"
             ),  # use softplus and normalize by group
@@ -2225,6 +2228,7 @@ class TemporalFusionTransformer(SKLearnEstimator):
         import tensorflow as tf
         import tensorboard as tb
 
+        warnings.filterwarnings("ignore")
         tf.io.gfile = tb.compat.tensorflow_stub.io.gfile
         current_time = time.time()
         training, train_dataloader, val_dataloader = self.transform_ds(
