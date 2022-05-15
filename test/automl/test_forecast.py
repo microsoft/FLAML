@@ -499,8 +499,8 @@ def test_forecast_hierarchical(budget=5):
     settings = {
         "time_budget": budget,  # total running time in seconds
         "metric": "mape",  # primary metric
-        "task": "ts_forecast_hierarchical",  # task type
-        "log_file_name": "stallion_forecast.log",  # flaml log file
+        "task": "ts_forecast_panel",  # task type
+        "log_file_name": "test/stallion_forecast.log",  # flaml log file
         "eval_method": "holdout",
     }
     """The main flaml automl API"""
