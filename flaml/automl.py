@@ -538,7 +538,7 @@ class AutoML(BaseEstimator):
                 ensemble after search. Can be a dict with keys 'passthrough'
                 and 'final_estimator' to specify the passthrough and
                 final_estimator in the stacker. The dict can also contain
-                'n_jobs' as the key to specify the n_jobs for the stacker.
+                'n_jobs' as the key to specify the number of jobs for the stacker.
              eval_method: A string of resampling strategy, one of
                  ['auto', 'cv', 'holdout'].
              split_ratio: A float of the valiation data percentage for holdout.
@@ -2075,7 +2075,7 @@ class AutoML(BaseEstimator):
                 ensemble after search. Can be a dict with keys 'passthrough'
                 and 'final_estimator' to specify the passthrough and
                 final_estimator in the stacker. The dict can also contain
-                'n_jobs' as the key to specify the n_jobs for the stacker.
+                'n_jobs' as the key to specify the number of jobs for the stacker.
             eval_method: A string of resampling strategy, one of
                 ['auto', 'cv', 'holdout'].
             split_ratio: A float of the valiation data percentage for holdout.
@@ -3194,7 +3194,7 @@ class AutoML(BaseEstimator):
                 else:
                     n_cpus = os.cpu_count()
                 n_jobs = (
-                    -self._state.n_jobs
+                    -self._state.n_jobs  # 1 and -1 correspond to min/max parallelization
                     if abs(self._state.n_jobs) == 1
                     else max(1, int(n_cpus / 2 / self._state.n_jobs))
                 )
