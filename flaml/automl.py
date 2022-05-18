@@ -3193,25 +3193,26 @@ class AutoML(BaseEstimator):
                     )
                 else:
                     n_cpus = os.cpu_count()
-                n_jobs = (
-                    -self._state.n_jobs  # the total degree of parallelization is bounded
+                ensemble_n_jobs = (
+                    -self._state.n_jobs  # maximize total parallelization degree
                     if abs(self._state.n_jobs)
                     == 1  # 1 and -1 correspond to min/max parallelization
                     else max(1, int(n_cpus / 2 / self._state.n_jobs))
+                    # the total degree of parallelization = parallelization degree per estimator * parallelization degree of ensemble
                 )
                 if isinstance(self._ensemble, dict):
                     final_estimator = self._ensemble.get(
                         "final_estimator", self._trained_estimator
                     )
                     passthrough = self._ensemble.get("passthrough", True)
-                    n_jobs = self._ensemble.get("n_jobs", n_jobs)
+                    ensemble_n_jobs = self._ensemble.get("n_jobs", ensemble_n_jobs)
                 else:
                     final_estimator = self._trained_estimator
                     passthrough = True
                 stacker = Stacker(
                     estimators,
                     final_estimator,
-                    n_jobs=n_jobs,
+                    n_jobs=ensemble_n_jobs,
                     passthrough=passthrough,
                 )
                 sample_weight_dict = (
