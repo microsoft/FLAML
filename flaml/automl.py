@@ -3194,8 +3194,9 @@ class AutoML(BaseEstimator):
                 else:
                     n_cpus = os.cpu_count()
                 n_jobs = (
-                    -self._state.n_jobs  # 1 and -1 correspond to min/max parallelization
-                    if abs(self._state.n_jobs) == 1
+                    -self._state.n_jobs  # the total degree of parallelization is bounded
+                    if abs(self._state.n_jobs)
+                    == 1  # 1 and -1 correspond to min/max parallelization
                     else max(1, int(n_cpus / 2 / self._state.n_jobs))
                 )
                 if isinstance(self._ensemble, dict):
