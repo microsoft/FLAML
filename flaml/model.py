@@ -372,6 +372,13 @@ class TransformersEstimator(BaseEstimator):
             )
         self._TrainingArguments = TrainingArguments
 
+    @staticmethod
+    def _join(X_train, y_train, task):
+        y_train = DataFrame(y_train, index=X_train.index)
+        y_train.columns = ["label"] if task != TOKENCLASSIFICATION else ["labels"]
+        train_df = X_train.join(y_train)
+        return train_df
+
     @classmethod
     def search_space(cls, data_size, task, **params):
         search_space_dict = {
@@ -381,7 +388,7 @@ class TransformersEstimator(BaseEstimator):
             },
             "num_train_epochs": {
                 "domain": tune.loguniform(lower=0.1, upper=10.0),
-                "init_value": 1,
+                "init_value": 3.0,  # to be consistent with roberta
             },
             "per_device_train_batch_size": {
                 "domain": tune.choice([4, 8, 16, 32]),
@@ -512,7 +519,7 @@ class TransformersEstimator(BaseEstimator):
             processed_X, processed_y = self._preprocess(X=X, y=y, **self._kwargs)
 
         processed_dataset = Dataset.from_pandas(
-            TransformersEstimator._join(processed_X, processed_y)
+            TransformersEstimator._join(processed_X, processed_y, self._task)
         )
         return processed_dataset, processed_X, processed_y
 
@@ -543,19 +550,25 @@ class TransformersEstimator(BaseEstimator):
             )
         else:
             return AutoTokenizer.from_pretrained(
-                self._training_args.model_path, use_fast=True
+                self._training_args.model_path,
+                use_fast=True,
+                add_prefix_space=True
+                if "roberta" in self._training_args.model_path
+                else False,  # If roberta model, must set add_prefix_space to True to avoid the assertion error at
+
+                # https://github.com/huggingface/transformers/blob/main/src/transformers/models/roberta/tokenization_roberta_fast.py#L249
             )
 
     @property
     def data_collator(self):
-        from .nlp.huggingface.data_collator import DataCollatorForAuto
+        from .nlp.huggingface.data_collator import task_to_datacollator_class
 
         return (
-            DataCollatorForAuto(
+            task_to_datacollator_class[self._task](
                 tokenizer=self.tokenizer,
-                pad_to_multiple_of=8 if self._training_args.fp16 else None,
+                pad_to_multiple_of=8,  # if self._training_args.fp16 else None,
             )
-            if self._task == MULTICHOICECLASSIFICATION
+            if self._task in (MULTICHOICECLASSIFICATION, TOKENCLASSIFICATION)
             else None
         )
 
@@ -751,7 +764,10 @@ class TransformersEstimator(BaseEstimator):
                 )
             metric_dict = {
                 "automl_metric": metric_loss_score(
-                    metric_name=self._metric, y_predict=predictions, y_true=labels
+                    metric_name=self._metric,
+                    y_predict=predictions,
+                    y_true=labels,
+                    labels=self._training_args.label_list,
                 )
             }
         else:
@@ -2205,7 +2221,7 @@ class MultiModalEstimator(BaseEstimator):
     def predict(self, X):
         from autogluon.text import TextPredictor
 
-        model = TextPredictor.load(path=self.model_path, backend=self.ag_args.backend)
+        model = TextPredictor.load(path=self.model_path, backend="pytorch")
         output = model.predict(X, as_pandas=False)
         return output
 
@@ -2216,7 +2232,7 @@ class MultiModalEstimator(BaseEstimator):
         assert (
             self._task in CLASSIFICATION
         ), "predict_proba() only for classification tasks."
-        model = TextPredictor.load(path=self.model_path, backend=self.ag_args.backend)
+        model = TextPredictor.load(path=self.model_path, backend="pytorch")
         output = model.predict_proba(X, as_pandas=False)
         return output
 
