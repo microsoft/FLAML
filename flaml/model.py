@@ -2137,72 +2137,42 @@ class MultiModalEstimator(BaseEstimator):
         https://auto.gluon.ai/stable/tutorials/text_prediction/customization.html#custom-hyperparameter-values
         """
         search_space_dict = {
-            "model.network.agg_net.mid_units": {
+            "model.fusion_mlp.hidden_sizes": {
                 "domain": tune.choice(list(range(32, 129))),
                 "init_value": 128,
             },
-            "optimization.lr": {
+            "optimization.learning_rate": {
                 "domain": tune.loguniform(lower=1E-5, upper=1E-4),
                 "init_value": 1E-4,
             },
-            "optimization.wd": {
+            "optimization.weight_decay": {
                 "domain": tune.choice([1E-4, 1E-3, 1E-2]),
                 "init_value": 1E-4,
             },
-            "optimization.warmup_portion": {
+            "optimization.warmup_steps": {
                 "domain": tune.choice([0.1, 0.2]),
                 "init_value": 0.1, 
             },
         }
         return search_space_dict
 
-    def _init_ag_args(self, automl_fit_kwargs: dict = None):
-        from .nlp.utils import AGArgs
-
-        ag_args = AGArgs(**automl_fit_kwargs["ag_args"])
-        # for key, val in automl_fit_kwargs["ag_args"].items():
-        #     assert (
-        #         key in ag_args.__dict__
-        #     ), "The specified key {} is not in the argument list of flaml.nlp.utils::AGArgs".format(
-        #         key
-        #     )
-        #     setattr(ag_args, key, val)
-        self.ag_args = ag_args
-
     def fit(self, X_train=None, y_train=None, budget=None, **kwargs):
         from autogluon.text import TextPredictor
+        from .nlp.utils import AGArgs
 
         self._kwargs = kwargs
-        self._init_ag_args(kwargs)
+        self.ag_args = AGArgs(**kwargs["ag_args"])
         seed = self._kwargs.get("seed", 123)
 
         # get & set the hyperparameters, update with self.params
         hyperparameters = self.ag_args.hyperparameters
-        if self.ag_args.backend == "mxnet":
-            search_space = hyperparameters["models"]["MultimodalTextModel"]["search_space"]
-            for key, value in self.params.items():
-                # NOTE: FLAML uses np.float64 but AG uses float, need to transform
-                if key == "n_jobs": 
-                    continue
-                else:
-                    search_space[key] = value.item() if isinstance(value, np.float64) else value
-        # elif using pytorch backend
-        else:
-            # TODO: if pytorch only, remove this mapper and modify the search space keys directly
-            # then AGargs in utils.py should be modify accordingly
-            KEY_MAPPER = {
-                "model.network.agg_net.mid_units": "model.fusion_mlp.hidden_sizes",
-                "optimization.lr": "optimization.learning_rate",
-                "optimization.wd": "optimization.weight_decay",
-                "optimization.warmup_portion": "warmup_steps",
-            }
-            for key, value in self.params.items():
-                if key == "n_jobs":
-                    continue
-                elif key == "model.network.agg_net.mid_units":
-                    hyperparameters[KEY_MAPPER[key]] = [value]
-                else:
-                    hyperparameters[key] = value.item() if isinstance(value, np.float64) else value
+        for key, value in self.params.items():
+            if key == "n_jobs":
+                continue
+            elif key == "model.fusion_mlp.hidden_sizes":
+                hyperparameters[key] = [value]
+            else:
+                hyperparameters[key] = value.item() if isinstance(value, np.float64) else value
 
         start_time = time.time()
         self.model_path = os.path.join(self.ag_args.output_dir, self.trial_id)
@@ -2211,7 +2181,7 @@ class MultiModalEstimator(BaseEstimator):
                               label="label",
                               problem_type=self._task[3:],
                               eval_metric=kwargs["metric"],
-                              backend=self.ag_args.backend,
+                              backend="pytorch",
                               verbosity=0)
         train_data = BaseEstimator._join(X_train, y_train)
         # use valid data for early stopping
@@ -2253,7 +2223,7 @@ class MultiModalEstimator(BaseEstimator):
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         from autogluon.text import TextPredictor
 
-        model = TextPredictor.load(path=self.model_path, backend=self.ag_args.backend)
+        model = TextPredictor.load(path=self.model_path, backend="pytorch")
         val_data = BaseEstimator._join(X_val, y_val)
         return model.evaluate(val_data)
         

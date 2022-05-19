@@ -483,17 +483,13 @@ class AGArgs:
     The Autogluon configurations
     Args:
         output_dir (str): data root directory for outputing the log and intermediate data, model.
-        backend (str, optional, defaults to "mxnet"): currently only support to mxnet.
-        text_backbone (str, optional, defaults to "electra_base"): the text backbone model.
-        multimodal_fusion_strategy (str, optional, defaults to "fuse_late"): the fuse strategy.
+        hf_model_checkpoint_name (str, optional, defaults to "google/electra-base-discriminator"): the HF model checkpoint.
+        per_device_batch_size (int, optional, defaults to 8)
+        num_train_epochs (int, optional, defaults to 10)
+        batch_size (int, optional, defaults to 128)
     """
-    output_dir: str = field(
-        default="data/mm/output/", metadata={"help": "data dir", "required": True}
-    )
-    backend: str = field(default="pytorch", metadata={"help": "the backend of the multimodal model"})
-    text_backbone: str = field(default="electra_base", metadata={"help": "mxnet text backbone model"})
-    hf_model_checkpoint_name: str = field(default="google/electra-base-discriminator", metadata={"help": "HF model"})
-    multimodal_fusion_strategy: str = field(default="fuse_late", metadata={"help": "fusion strategy"})
+    output_dir: str = field(default="data/mm_output/", metadata={"help": "data dir", "required": True})
+    hf_model_path: str = field(default="google/electra-base-discriminator", metadata={"help": "Hugging Face model path"})
     per_device_batch_size: int = field(default=8, metadata={"help": "per device batch size"})
     num_train_epochs: int = field(default=10, metadata={"help": "number of train epochs"})
     batch_size: int = field(default=128,  metadata={"help": "batch size"})
@@ -502,32 +498,16 @@ class AGArgs:
     def __post_init__(self):
         """
         Get the preset using the AGArgs. Save as self.hyperparameters.
-        Ref: https://auto.gluon.ai/0.3.1/tutorials/text_prediction/customization.html
         """
-        if self.backend == "pytorch":
-            from autogluon.text.text_prediction.presets import get_text_preset
-            
-            # get the override from the text preset tuple
-            self.hyperparameters = get_text_preset("default")[1]
-
-            self.hyperparameters["model.hf_text.checkpoint_name"] = self.hf_model_checkpoint_name
-            self.hyperparameters["env.per_gpu_batch_size"] = self.per_device_batch_size
-            self.hyperparameters["env.batch_size"] = self.batch_size
-            self.hyperparameters["optimization.max_epochs"] = self.num_train_epochs
+        from autogluon.text.text_prediction.presets import get_text_preset
         
-        elif self.backend == "mxnet":
-            from autogluon.text.text_prediction.legacy_presets import ag_text_presets
+        # get the override from the text preset tuple
+        self.hyperparameters = get_text_preset("default")[1]
 
-            base_key = f'{self.text_backbone}_{self.multimodal_fusion_strategy}'
-            self.hyperparameters = ag_text_presets.create(base_key)
-            # NOTE: set batch & epoch
-            search_space = self.hyperparameters["models"]["MultimodalTextModel"]["search_space"]
-            search_space["optimization.per_device_batch_size"] = self.per_device_batch_size
-            search_space["optimization.batch_size"] = self.batch_size
-            search_space["optimization.num_train_epochs"] = self.num_train_epochs
-
-        else:
-            raise ValueError(f"No {self.backend} backend, please choose mxnet or pytorch.")
+        self.hyperparameters["model.hf_text.checkpoint_name"] = self.hf_model_path
+        self.hyperparameters["env.per_gpu_batch_size"] = self.per_device_batch_size
+        self.hyperparameters["env.batch_size"] = self.batch_size
+        self.hyperparameters["optimization.max_epochs"] = self.num_train_epochs
 
     @staticmethod
     def load_args():
