@@ -29,7 +29,7 @@ def test_multimodalestimator():
     }
     train_dataset = pd.DataFrame(train_data)
     valid_dataset = pd.DataFrame(valid_data)
-    
+
     feature_columns = ["sentence1", "numerical1"]
     metric = "r2"
     automl = AutoML()

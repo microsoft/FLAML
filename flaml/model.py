@@ -2167,7 +2167,7 @@ class MultiModalEstimator(BaseEstimator):
             },
             "optimization.warmup_steps": {
                 "domain": tune.choice([0.1, 0.2]),
-                "init_value": 0.1, 
+                "init_value": 0.1,
             },
         }
         return search_space_dict
@@ -2242,7 +2242,7 @@ class MultiModalEstimator(BaseEstimator):
         model = TextPredictor.load(path=self.model_path, backend="pytorch")
         val_data = BaseEstimator._join(X_val, y_val)
         return model.evaluate(val_data)
-        
+
 
 class suppress_stdout_stderr(object):
     def __init__(self):

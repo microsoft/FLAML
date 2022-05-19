@@ -50,9 +50,9 @@ NLU_TASKS = (
     TOKENCLASSIFICATION,
 )
 MM_TASKS = (
-    "mm-classification", 
-    "mm-regression", 
-    "mm-binary", 
+    "mm-classification",
+    "mm-regression",
+    "mm-binary",
     "mm-multiclass",)
 
 

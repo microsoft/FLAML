@@ -494,7 +494,7 @@ class AGArgs:
     hf_model_path: str = field(default="google/electra-base-discriminator", metadata={"help": "Hugging Face model path"})
     per_device_batch_size: int = field(default=8, metadata={"help": "per device batch size"})
     num_train_epochs: int = field(default=10, metadata={"help": "number of train epochs"})
-    batch_size: int = field(default=128,  metadata={"help": "batch size"})
+    batch_size: int = field(default=128, metadata={"help": "batch size"})
     hyperparameters: dict = field(init=False)
 
     def __post_init__(self):
@@ -502,7 +502,7 @@ class AGArgs:
         Get the preset using the AGArgs. Save as self.hyperparameters.
         """
         from autogluon.text.text_prediction.presets import get_text_preset
-        
+
         # get the override from the text preset tuple
         self.hyperparameters = get_text_preset("default")[1]
 

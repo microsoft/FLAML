@@ -1692,7 +1692,7 @@ class AutoML(BaseEstimator):
                 len(np.unique(self._y_train_all))
             )
         elif self._state.task == "mm-classification":
-             self._state.task = "mm-" + get_classification_objective(
+            self._state.task = "mm-" + get_classification_objective(
                 len(np.unique(self._y_train_all))
             )
         if not isinstance(split_type, str):
@@ -2457,7 +2457,7 @@ class AutoML(BaseEstimator):
                 estimator_list = ["transformer"]
             # NOTE: if multimodal task, use multimodal estimator
             elif self._state.task in MM_TASKS:
-                estimator_list=["multimodal"]
+                estimator_list = ["multimodal"]
             else:
                 try:
                     import catboost
