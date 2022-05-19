@@ -13,6 +13,9 @@ def test_multimodalestimator():
     if sys.version < "3.7":
         # do not test on python3.6
         return
+    elif platform.system() == "Windows":
+        # do not test on windows
+        return
     train_data = {
         "sentence1": [
             "Mary had a little lamb.",
