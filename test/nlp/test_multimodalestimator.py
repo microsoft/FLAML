@@ -10,6 +10,9 @@ os.environ["AUTOGLUON_TEXT_TRAIN_WITHOUT_GPU"] = "1"
 
 
 def test_multimodalestimator():
+    if sys.version < "3.7":
+        # do not test on python3.6
+        return
     train_data = {
         "sentence1": [
             "Mary had a little lamb.",
