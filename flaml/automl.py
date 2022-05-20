@@ -495,8 +495,8 @@ class AutoML(BaseEstimator):
         ):
             return metric_to_minimize, metrics_to_log
         ```
-            which returns a float number as the minimization objective,
-            and a dictionary as the metrics to log. E.g.,
+                which returns a float number as the minimization objective,
+                and a dictionary as the metrics to log. E.g.,
 
         ```python
         def custom_metric(
