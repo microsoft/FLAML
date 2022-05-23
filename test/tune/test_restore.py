@@ -6,7 +6,6 @@ import numpy as np
 from flaml.searcher.suggestion import ConcurrencyLimiter
 from flaml import tune
 from flaml import CFO
-from flaml import BlendSearch
 
 
 class AbstractWarmStartTest:
@@ -82,21 +81,22 @@ class CFOWarmStartTest(AbstractWarmStartTest, unittest.TestCase):
         return search_alg, cost
 
 
-class BlendsearchWarmStartTest(AbstractWarmStartTest, unittest.TestCase):
-    def set_basic_conf(self):
-        space = {
-            "height": tune.uniform(-100, 100),
-            "width": tune.randint(0, 100),
-        }
+# class BlendsearchWarmStartTest(AbstractWarmStartTest, unittest.TestCase):
+#     def set_basic_conf(self):
+#         from flaml import BlendSearch
+#         space = {
+#             "height": tune.uniform(-100, 100),
+#             "width": tune.randint(0, 100),
+#         }
 
-        def cost(param):
-            tune.report(loss=(param["height"] - 14) ** 2 - abs(param["width"] - 3))
+#         def cost(param):
+#             tune.report(loss=(param["height"] - 14) ** 2 - abs(param["width"] - 3))
 
-        search_alg = BlendSearch(
-            space=space,
-            metric="loss",
-            mode="min",
-            seed=20,
-        )
+#         search_alg = BlendSearch(
+#             space=space,
+#             metric="loss",
+#             mode="min",
+#             seed=20,
+#         )
 
-        return search_alg, cost
+#         return search_alg, cost
