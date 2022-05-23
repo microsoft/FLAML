@@ -34,11 +34,9 @@ class AbstractWarmStartTest:
         return results_exp_1, np.random.get_state(), checkpoint_path
 
     def run_explicit_restore(self, random_state, checkpoint_path):
-        print("testing explicit restore")
         search_alg2, cost = self.set_basic_conf()
         search_alg2 = ConcurrencyLimiter(search_alg2, 1)
         search_alg2.restore(checkpoint_path)
-        print("finished restoring", search_alg2)
         return tune.run(cost, num_samples=5, search_alg=search_alg2, verbose=0)
 
     def run_full(self):
