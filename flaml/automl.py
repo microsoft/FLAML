@@ -2505,7 +2505,7 @@ class AutoML(BaseEstimator):
         self._state.retrain_final = (
             retrain_full is True
             and eval_method == "holdout"
-            and (self._state.X_val is None or self._use_ray is not False)
+            and (X_val is None or self._use_ray is not False)
             or eval_method == "cv"
             and (max_iter > 0 or retrain_full is True)
             or max_iter == 1
