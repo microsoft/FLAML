@@ -7,7 +7,6 @@ import os
 from typing import Callable, Optional, List, Union, Any
 import inspect
 from functools import partial
-from isodate import time_isoformat
 import numpy as np
 from scipy.sparse import issparse
 from sklearn.model_selection import (
