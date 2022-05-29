@@ -311,25 +311,6 @@ class BlendSearch(Searcher):
         )
         self._gs_admissible_min = self._ls_bound_min.copy()
         self._gs_admissible_max = self._ls_bound_max.copy()
-        # # config_signature: tuple -> result: Dict
-        # self._result = (
-        #     {
-        #         self._ls.config_signature(
-        #             *self._ls.complete_config(
-        #                 self._evaluated_points[i],
-        #                 self._ls_bound_min,
-        #                 self._ls_bound_max,
-        #             )
-        #         ): {
-        #             self._metric: r,
-        #             self.cost_attr: 1,
-        #             "config": self._evaluated_points[i],
-        #         }
-        #         for i, r in enumerate(self._all_rewards)
-        #     }
-        #     if self._evaluated_rewards  # store all the evaluated rewards
-        #     else {}
-        # )
 
         if self._metric_constraints:
             self._metric_constraint_satisfied = False
@@ -341,6 +322,7 @@ class BlendSearch(Searcher):
             self._metric_constraint_penalty = None
         self.best_resource = self._ls.min_resource
         i = 0
+        # config_signature: tuple -> result: Dict
         self._result = {}
         while self._evaluated_rewards:
             # go over the evaluated rewards
