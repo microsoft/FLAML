@@ -43,6 +43,7 @@ automl_settings["custom_hp"] = {
     }
 }
 automl.fit(X_train, y_train, **automl_settings)
+print(automl.model)
 ```
 
 
