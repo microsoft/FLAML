@@ -38,7 +38,7 @@ automl_settings = {
 automl_settings["custom_hp"] = {
     "rf": {
         "class_weight": {
-            "domain": {0:2, 1:1}
+            "domain": {0: 2, 1: 1}
         }
     }
 }
