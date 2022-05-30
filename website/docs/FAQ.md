@@ -32,7 +32,7 @@ automl_settings = {
     "task": "classification",
     "log_file_name": "test/iris.log",
     "estimator_list": ["rf"],
-    "max_iter": 0,
+    "max_iter": 2,
 }
 
 automl_settings["custom_hp"] = {
