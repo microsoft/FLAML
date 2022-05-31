@@ -22,28 +22,32 @@ Currently FLAML does several things for imbalanced data.
 
 ```python
 from flaml import AutoML
-from pandas.tests.extension.conftest import as_frame
 from sklearn.datasets import load_iris
 
-X_train, y_train = load_iris(return_X_y=True, as_frame=as_frame)
+X_train, y_train = load_iris(return_X_y=True)
 automl = AutoML()
-    automl_settings = {
-        "time_budget": 2,
-        "task": "classification",
-        "log_file_name": "test/iris.log",
-        "estimator_list": ["rf"],
-        "max_iter": 2,
-    }
+automl_settings = {
+    "time_budget": 2,
+    "task": "classification",
+    "log_file_name": "test/iris.log",
+    "estimator_list": ["rf", "xgboost"],
+    "max_iter": 2,
+}
 
-    automl_settings["custom_hp"] = {
-        "rf": {
-            "class_weight": {
-                "domain": "balanced",
-                "init_value": "balanced"
-            }
+automl_settings["custom_hp"] = {
+    "xgboost": {
+        "scale_pos_weight": {
+            "domain": 0.5,
+            "init_value": 0.5,
+        }
+    },
+    "rf": {
+        "class_weight": {
+            "domain": "balanced",
+            "init_value": "balanced"
         }
     }
-automl.fit(X_train, y_train, **automl_settings)
+}
 print(automl.model)
 ```
 
