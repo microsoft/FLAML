@@ -27,21 +27,22 @@ from sklearn.datasets import load_iris
 
 X_train, y_train = load_iris(return_X_y=True, as_frame=as_frame)
 automl = AutoML()
-automl_settings = {
-    "time_budget": 2,
-    "task": "classification",
-    "log_file_name": "test/iris.log",
-    "estimator_list": ["rf"],
-    "max_iter": 2,
-}
+    automl_settings = {
+        "time_budget": 2,
+        "task": "classification",
+        "log_file_name": "test/iris.log",
+        "estimator_list": ["rf"],
+        "max_iter": 2,
+    }
 
-automl_settings["custom_hp"] = {
-    "rf": {
-        "class_weight": {
-            "domain": {0: 2, 1: 1}
+    automl_settings["custom_hp"] = {
+        "rf": {
+            "class_weight": {
+                "domain": "balanced",
+                "init_value": "balanced"
+            }
         }
     }
-}
 automl.fit(X_train, y_train, **automl_settings)
 print(automl.model)
 ```
