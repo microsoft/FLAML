@@ -14,7 +14,7 @@ with open(os.path.join(here, "flaml/version.py")) as fp:
 __version__ = version["__version__"]
 
 install_requires = [
-    "NumPy>=1.16.2",
+    "NumPy>=1.17.0rc1",
     "lightgbm>=2.3.1",
     "xgboost>=0.90,<=1.3.3",
     "scipy>=1.4.1",
@@ -33,6 +33,10 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/microsoft/FLAML",
     packages=setuptools.find_packages(include=["flaml*"]),
+    package_data={
+        "flaml.default": ["*/*.json"],
+    },
+    include_package_data=True,
     install_requires=install_requires,
     extras_require={
         "notebook": [
@@ -62,6 +66,7 @@ setuptools.setup(
             "rouge_score",
             "hcrystalball==0.1.10",
             "seqeval",
+            "protobuf<4",  # to prevent TypeError in ray
         ],
         "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],

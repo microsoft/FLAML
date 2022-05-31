@@ -164,6 +164,9 @@ class SearchState:
             assert (
                 "domain" in space
             ), f"{name}'s domain is missing in the search space spec {space}"
+            if space["domain"] is None:
+                # don't search this hp
+                continue
             self._search_space_domain[name] = space["domain"]
 
             if "low_cost_init_value" in space:
@@ -477,178 +480,178 @@ class AutoML(BaseEstimator):
     def __init__(self, **settings):
         """Constructor.
 
-         Many settings in fit() can be passed to the constructor too.
-         If an argument in fit() is provided, it will override the setting passed to the constructor.
-         If an argument in fit() is not provided but provided in the constructor, the value passed to the constructor will be used.
+        Many settings in fit() can be passed to the constructor too.
+        If an argument in fit() is provided, it will override the setting passed to the constructor.
+        If an argument in fit() is not provided but provided in the constructor, the value passed to the constructor will be used.
 
-         Args:
-             metric: A string of the metric name or a function,
-                 e.g., 'accuracy', 'roc_auc', 'roc_auc_ovr', 'roc_auc_ovo',
-                 'f1', 'micro_f1', 'macro_f1', 'log_loss', 'mae', 'mse', 'r2',
-                 'mape'. Default is 'auto'.
-                 If passing a customized metric function, the function needs to
-                 have the follwing signature:
+        Args:
+            metric: A string of the metric name or a function,
+                e.g., 'accuracy', 'roc_auc', 'roc_auc_ovr', 'roc_auc_ovo',
+                'f1', 'micro_f1', 'macro_f1', 'log_loss', 'mae', 'mse', 'r2',
+                'mape'. Default is 'auto'.
+                If passing a customized metric function, the function needs to
+                have the follwing signature:
 
-         ```python
-         def custom_metric(
-             X_test, y_test, estimator, labels,
-             X_train, y_train, weight_test=None, weight_train=None,
-             config=None, groups_test=None, groups_train=None,
-         ):
-             return metric_to_minimize, metrics_to_log
-         ```
-                 which returns a float number as the minimization objective,
-                 and a dictionary as the metrics to log. E.g.,
+        ```python
+        def custom_metric(
+            X_test, y_test, estimator, labels,
+            X_train, y_train, weight_test=None, weight_train=None,
+            config=None, groups_test=None, groups_train=None,
+        ):
+            return metric_to_minimize, metrics_to_log
+        ```
+                which returns a float number as the minimization objective,
+                and a dictionary as the metrics to log. E.g.,
 
-         ```python
-         def custom_metric(
-             X_val, y_val, estimator, labels,
-             X_train, y_train, weight_val=None, weight_train=None,
-             *args,
-         ):
-             from sklearn.metrics import log_loss
-             import time
+        ```python
+        def custom_metric(
+            X_val, y_val, estimator, labels,
+            X_train, y_train, weight_val=None, weight_train=None,
+            *args,
+        ):
+            from sklearn.metrics import log_loss
+            import time
 
-             start = time.time()
-             y_pred = estimator.predict_proba(X_val)
-             pred_time = (time.time() - start) / len(X_val)
-             val_loss = log_loss(y_val, y_pred, labels=labels, sample_weight=weight_val)
-             y_pred = estimator.predict_proba(X_train)
-             train_loss = log_loss(y_train, y_pred, labels=labels, sample_weight=weight_train)
-             alpha = 0.5
-             return val_loss * (1 + alpha) - alpha * train_loss, {
-                 "val_loss": val_loss,
-                 "train_loss": train_loss,
-                 "pred_time": pred_time,
-             }
-         ```
-             task: A string of the task type, e.g.,
-                 'classification', 'regression', 'ts_forecast', 'rank',
-                 'seq-classification', 'seq-regression', 'summarization'.
-             n_jobs: An integer of the number of threads for training | default=-1.
-                 Use all available resources when n_jobs == -1.
-             log_file_name: A string of the log file name | default="". To disable logging,
-                 set it to be an empty string "".
-             estimator_list: A list of strings for estimator names, or 'auto'
-                 e.g., ```['lgbm', 'xgboost', 'xgb_limitdepth', 'catboost', 'rf', 'extra_tree']```
-             time_budget: A float number of the time budget in seconds.
-                 Use -1 if no time limit.
-             max_iter: An integer of the maximal number of iterations.
-             sample: A boolean of whether to sample the training data during
-                 search.
+            start = time.time()
+            y_pred = estimator.predict_proba(X_val)
+            pred_time = (time.time() - start) / len(X_val)
+            val_loss = log_loss(y_val, y_pred, labels=labels, sample_weight=weight_val)
+            y_pred = estimator.predict_proba(X_train)
+            train_loss = log_loss(y_train, y_pred, labels=labels, sample_weight=weight_train)
+            alpha = 0.5
+            return val_loss * (1 + alpha) - alpha * train_loss, {
+                "val_loss": val_loss,
+                "train_loss": train_loss,
+                "pred_time": pred_time,
+            }
+        ```
+            task: A string of the task type, e.g.,
+                'classification', 'regression', 'ts_forecast', 'rank',
+                'seq-classification', 'seq-regression', 'summarization'.
+            n_jobs: An integer of the number of threads for training | default=-1.
+                Use all available resources when n_jobs == -1.
+            log_file_name: A string of the log file name | default="". To disable logging,
+                set it to be an empty string "".
+            estimator_list: A list of strings for estimator names, or 'auto'.
+                e.g., ```['lgbm', 'xgboost', 'xgb_limitdepth', 'catboost', 'rf', 'extra_tree']```.
+            time_budget: A float number of the time budget in seconds.
+                Use -1 if no time limit.
+            max_iter: An integer of the maximal number of iterations.
+            sample: A boolean of whether to sample the training data during
+                search.
             ensemble: boolean or dict | default=False. Whether to perform
                 ensemble after search. Can be a dict with keys 'passthrough'
                 and 'final_estimator' to specify the passthrough and
                 final_estimator in the stacker. The dict can also contain
                 'n_jobs' as the key to specify the number of jobs for the stacker.
-             eval_method: A string of resampling strategy, one of
-                 ['auto', 'cv', 'holdout'].
-             split_ratio: A float of the valiation data percentage for holdout.
-             n_splits: An integer of the number of folds for cross - validation.
-             log_type: A string of the log type, one of
-                 ['better', 'all'].
-                 'better' only logs configs with better loss than previos iters
-                 'all' logs all the tried configs.
-             model_history: A boolean of whether to keep the best
-                 model per estimator. Make sure memory is large enough if setting to True.
-             log_training_metric: A boolean of whether to log the training
-                 metric for each model.
-             mem_thres: A float of the memory size constraint in bytes.
-             pred_time_limit: A float of the prediction latency constraint in seconds.
-                 It refers to the average prediction time per row in validation data.
-             train_time_limit: A float of the training time constraint in seconds.
-             verbose: int, default=3 | Controls the verbosity, higher means more
-                 messages.
-             retrain_full: bool or str, default=True | whether to retrain the
-                 selected model on the full training data when using holdout.
-                 True - retrain only after search finishes; False - no retraining;
-                 'budget' - do best effort to retrain without violating the time
-                 budget.
-             split_type: str or splitter object, default="auto" | the data split type.
-                 * A valid splitter object is an instance of a derived class of scikit-learn
-                 [KFold](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html#sklearn.model_selection.KFold)
-                 and have ``split`` and ``get_n_splits`` methods with the same signatures.
-                 Set eval_method to "cv" to use the splitter object.
-                 * Valid str options depend on different tasks.
-                 For classification tasks, valid choices are
-                     ["auto", 'stratified', 'uniform', 'time', 'group']. "auto" -> stratified.
-                 For regression tasks, valid choices are ["auto", 'uniform', 'time'].
-                     "auto" -> uniform.
-                 For ts_forecast tasks, must be "auto" or 'time'.
-                 For ranking task, must be "auto" or 'group'.
-             hpo_method: str, default="auto" | The hyperparameter
-                 optimization method. By default, CFO is used for sequential
-                 search and BlendSearch is used for parallel search.
-                 No need to set when using flaml's default search space or using
-                 a simple customized search space. When set to 'bs', BlendSearch
-                 is used. BlendSearch can be tried when the search space is
-                 complex, for example, containing multiple disjoint, discontinuous
-                 subspaces. When set to 'random', random search is used.
-             starting_points: A dictionary or a str to specify the starting hyperparameter
-                 config for the estimators | default="static".
-                 If str:
-                     - if "data", use data-dependent defaults;
-                     - if "data:path" use data-dependent defaults which are stored at path;
-                     - if "static", use data-independent defaults.
-                 If dict, keys are the name of the estimators, and values are the starting
-                 hyperparamter configurations for the corresponding estimators.
-                 The value can be a single hyperparamter configuration dict or a list
-                 of hyperparamter configuration dicts.
-                 In the following code example, we get starting_points from the
-                 `automl` object and use them in the `new_automl` object.
-                 e.g.,
+            eval_method: A string of resampling strategy, one of
+                ['auto', 'cv', 'holdout'].
+            split_ratio: A float of the valiation data percentage for holdout.
+            n_splits: An integer of the number of folds for cross - validation.
+            log_type: A string of the log type, one of
+                ['better', 'all'].
+                'better' only logs configs with better loss than previos iters
+                'all' logs all the tried configs.
+            model_history: A boolean of whether to keep the best
+                model per estimator. Make sure memory is large enough if setting to True.
+            log_training_metric: A boolean of whether to log the training
+                metric for each model.
+            mem_thres: A float of the memory size constraint in bytes.
+            pred_time_limit: A float of the prediction latency constraint in seconds.
+                It refers to the average prediction time per row in validation data.
+            train_time_limit: A float of the training time constraint in seconds.
+            verbose: int, default=3 | Controls the verbosity, higher means more
+                messages.
+            retrain_full: bool or str, default=True | whether to retrain the
+                selected model on the full training data when using holdout.
+                True - retrain only after search finishes; False - no retraining;
+                'budget' - do best effort to retrain without violating the time
+                budget.
+            split_type: str or splitter object, default="auto" | the data split type.
+                * A valid splitter object is an instance of a derived class of scikit-learn
+                [KFold](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html#sklearn.model_selection.KFold)
+                and have ``split`` and ``get_n_splits`` methods with the same signatures.
+                Set eval_method to "cv" to use the splitter object.
+                * Valid str options depend on different tasks.
+                For classification tasks, valid choices are
+                    ["auto", 'stratified', 'uniform', 'time', 'group']. "auto" -> stratified.
+                For regression tasks, valid choices are ["auto", 'uniform', 'time'].
+                    "auto" -> uniform.
+                For ts_forecast tasks, must be "auto" or 'time'.
+                For ranking task, must be "auto" or 'group'.
+            hpo_method: str, default="auto" | The hyperparameter
+                optimization method. By default, CFO is used for sequential
+                search and BlendSearch is used for parallel search.
+                No need to set when using flaml's default search space or using
+                a simple customized search space. When set to 'bs', BlendSearch
+                is used. BlendSearch can be tried when the search space is
+                complex, for example, containing multiple disjoint, discontinuous
+                subspaces. When set to 'random', random search is used.
+            starting_points: A dictionary or a str to specify the starting hyperparameter
+                config for the estimators | default="static".
+                If str:
+                    - if "data", use data-dependent defaults;
+                    - if "data:path" use data-dependent defaults which are stored at path;
+                    - if "static", use data-independent defaults.
+                If dict, keys are the name of the estimators, and values are the starting
+                hyperparamter configurations for the corresponding estimators.
+                The value can be a single hyperparamter configuration dict or a list
+                of hyperparamter configuration dicts.
+                In the following code example, we get starting_points from the
+                `automl` object and use them in the `new_automl` object.
+                e.g.,
 
-         ```python
-         from flaml import AutoML
-         automl = AutoML()
-         X_train, y_train = load_iris(return_X_y=True)
-         automl.fit(X_train, y_train)
-         starting_points = automl.best_config_per_estimator
+        ```python
+        from flaml import AutoML
+        automl = AutoML()
+        X_train, y_train = load_iris(return_X_y=True)
+        automl.fit(X_train, y_train)
+        starting_points = automl.best_config_per_estimator
 
-         new_automl = AutoML()
-         new_automl.fit(X_train, y_train, starting_points=starting_points)
-         ```
+        new_automl = AutoML()
+        new_automl.fit(X_train, y_train, starting_points=starting_points)
+        ```
 
-             seed: int or None, default=None | The random seed for hpo.
-             n_concurrent_trials: [Experimental] int, default=1 | The number of
-                 concurrent trials. When n_concurrent_trials > 1, flaml performes
-                 [parallel tuning](https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML#parallel-tuning)
-                 and installation of ray is required: `pip install flaml[ray]`.
-             keep_search_state: boolean, default=False | Whether to keep data needed
-                 for model search after fit(). By default the state is deleted for
-                 space saving.
-             early_stop: boolean, default=False | Whether to stop early if the
-                 search is considered to converge.
-             append_log: boolean, default=False | Whetehr to directly append the log
-                 records to the input log file if it exists.
-             auto_augment: boolean, default=True | Whether to automatically
-                 augment rare classes.
-             min_sample_size: int, default=MIN_SAMPLE_TRAIN | the minimal sample
-                 size when sample=True.
-             use_ray: boolean or dict,
+            seed: int or None, default=None | The random seed for hpo.
+            n_concurrent_trials: [Experimental] int, default=1 | The number of
+                concurrent trials. When n_concurrent_trials > 1, flaml performes
+                [parallel tuning](https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML#parallel-tuning)
+                and installation of ray is required: `pip install flaml[ray]`.
+            keep_search_state: boolean, default=False | Whether to keep data needed
+                for model search after fit(). By default the state is deleted for
+                space saving.
+            early_stop: boolean, default=False | Whether to stop early if the
+                search is considered to converge.
+            append_log: boolean, default=False | Whetehr to directly append the log
+                records to the input log file if it exists.
+            auto_augment: boolean, default=True | Whether to automatically
+                augment rare classes.
+            min_sample_size: int, default=MIN_SAMPLE_TRAIN | the minimal sample
+                size when sample=True.
+            use_ray: boolean or dict,
                 If boolean: default=False | Whether to use ray to run the training
                 in separate processes. This can be used to prevent OOM for large
                 datasets, but will incur more overhead in time.
                 If dict: the dict contains the keywords arguments to be passed to
                 [ray.tune.run](https://docs.ray.io/en/latest/tune/api_docs/execution.html).
-             metric_constraints: list, default=[] | The list of metric constraints.
-                 Each element in this list is a 3-tuple, which shall be expressed
-                 in the following format: the first element of the 3-tuple is the name of the
-                 metric, the second element is the inequality sign chosen from ">=" and "<=",
-                 and the third element is the constraint value. E.g., `('val_loss', '<=', 0.1)`.
-                 Note that all the metric names in metric_constraints need to be reported via
-                 the metrics_to_log dictionary returned by a customized metric function.
-                 The customized metric function shall be provided via the `metric` key word
-                 argument of the fit() function or the automl constructor.
-                 Find an example in the 4th constraint type in this [doc](https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML#constraint).
-                 If `pred_time_limit` is provided as one of keyword arguments to fit() function or
-                 the automl constructor, flaml will automatically (and under the hood)
-                 add it as an additional element in the metric_constraints. Essentially 'pred_time_limit'
-                 specifies a constraint about the prediction latency constraint in seconds.
-             custom_hp: dict, default=None | The custom search space specified by user
-                 Each key is the estimator name, each value is a dict of the custom search space for that estimator. Notice the
-                 domain of the custom search space can either be a value of a sample.Domain object.
-                 e.g.,
+            metric_constraints: list, default=[] | The list of metric constraints.
+                Each element in this list is a 3-tuple, which shall be expressed
+                in the following format: the first element of the 3-tuple is the name of the
+                metric, the second element is the inequality sign chosen from ">=" and "<=",
+                and the third element is the constraint value. E.g., `('val_loss', '<=', 0.1)`.
+                Note that all the metric names in metric_constraints need to be reported via
+                the metrics_to_log dictionary returned by a customized metric function.
+                The customized metric function shall be provided via the `metric` key word
+                argument of the fit() function or the automl constructor.
+                Find an example in the 4th constraint type in this [doc](https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML#constraint).
+                If `pred_time_limit` is provided as one of keyword arguments to fit() function or
+                the automl constructor, flaml will automatically (and under the hood)
+                add it as an additional element in the metric_constraints. Essentially 'pred_time_limit'
+                specifies a constraint about the prediction latency constraint in seconds.
+            custom_hp: dict, default=None | The custom search space specified by user
+                Each key is the estimator name, each value is a dict of the custom search space for that estimator. Notice the
+                domain of the custom search space can either be a value of a sample.Domain object.
+                e.g.,
 
         ```python
         custom_hp = {
@@ -661,26 +664,27 @@ class AutoML(BaseEstimator):
                  }
              }
          }
-         ```
-             fit_kwargs_by_estimator: dict, default=None | The user specified keywords arguments, grouped by estimator name.
-                 e.g.,
+        ```
+            fit_kwargs_by_estimator: dict, default=None | The user specified keywords arguments, grouped by estimator name.
+                e.g.,
 
-         ```python
-         fit_kwargs_by_estimator = {
-             "transformer": {
-                 "output_dir": "test/data/output/",
-                 "ckpt_per_epoch": 1,
-                 "fp16": False,
-             }
-         }
-         ```
+        ```python
+        fit_kwargs_by_estimator = {
+            "transformer": {
+                "output_dir": "test/data/output/",
+                "ckpt_per_epoch": 1,
+                "fp16": False,
+            }
+        }
+        ```
 
         """
         self._track_iter = 0
         self._state = AutoMLState()
         self._state.learner_classes = {}
         self._settings = settings
-        settings["time_budget"] = settings.get("time_budget", 60)
+        # no budget by default
+        settings["time_budget"] = settings.get("time_budget", -1)
         settings["task"] = settings.get("task", "classification")
         settings["n_jobs"] = settings.get("n_jobs", -1)
         settings["eval_method"] = settings.get("eval_method", "auto")
@@ -690,7 +694,7 @@ class AutoML(BaseEstimator):
         settings["metric"] = settings.get("metric", "auto")
         settings["estimator_list"] = settings.get("estimator_list", "auto")
         settings["log_file_name"] = settings.get("log_file_name", "")
-        settings["max_iter"] = settings.get("max_iter", 1000000)
+        settings["max_iter"] = settings.get("max_iter")  # no budget by default
         settings["sample"] = settings.get("sample", True)
         settings["ensemble"] = settings.get("ensemble", False)
         settings["log_type"] = settings.get("log_type", "better")
@@ -1564,6 +1568,7 @@ class AutoML(BaseEstimator):
                 }
             }
         }
+        ```
             fit_kwargs_by_estimator: dict, default=None | The user specified keywords arguments, grouped by estimator name.
                 e.g.,
 
@@ -2063,17 +2068,18 @@ class AutoML(BaseEstimator):
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast_regression',
                 'ts_forecast_classification', 'rank', 'seq-classification',
-                'seq-regression', 'summarization'
+                'seq-regression', 'summarization'.
             n_jobs: An integer of the number of threads for training | default=-1.
                 Use all available resources when n_jobs == -1.
             log_file_name: A string of the log file name | default="". To disable logging,
                 set it to be an empty string "".
-            estimator_list: A list of strings for estimator names, or 'auto'
-                e.g., ```['lgbm', 'xgboost', 'xgb_limitdepth', 'catboost', 'rf', 'extra_tree']```
-
+            estimator_list: A list of strings for estimator names, or 'auto'.
+                e.g., ```['lgbm', 'xgboost', 'xgb_limitdepth', 'catboost', 'rf', 'extra_tree']```.
             time_budget: A float number of the time budget in seconds.
                 Use -1 if no time limit.
             max_iter: An integer of the maximal number of iterations.
+                NOTE: when both time_budget and max_iter are unspecified,
+                only one model will be trained per estimator.
             sample: A boolean of whether to sample the training data during
                 search.
             ensemble: boolean or dict | default=False. Whether to perform
@@ -2212,7 +2218,9 @@ class AutoML(BaseEstimator):
                 }
             }
         }
-            fit_kwargs_by_estimator: dict, default=None | The user specified keywords arguments, grouped by estimator name.
+        ```
+
+        fit_kwargs_by_estimator: dict, default=None | The user specified keywords arguments, grouped by estimator name.
                 For TransformersEstimator, available fit_kwargs can be found from
                 [flaml/nlp/training_args.py:TrainingArgumentsForAuto](https://microsoft.github.io/FLAML/docs/reference/nlp/huggingface/training_args).
                 e.g.,
@@ -2254,7 +2262,9 @@ class AutoML(BaseEstimator):
             else log_file_name
         )
         max_iter = self._settings.get("max_iter") if max_iter is None else max_iter
-        sample = self._settings.get("sample") if sample is None else sample
+        sample_is_none = sample is None
+        if sample_is_none:
+            sample = self._settings.get("sample")
         ensemble = self._settings.get("ensemble") if ensemble is None else ensemble
         log_type = log_type or self._settings.get("log_type")
         model_history = (
@@ -2282,11 +2292,9 @@ class AutoML(BaseEstimator):
         split_type = split_type or self._settings.get("split_type")
         hpo_method = hpo_method or self._settings.get("hpo_method")
         learner_selector = learner_selector or self._settings.get("learner_selector")
-        starting_points = (
-            self._settings.get("starting_points")
-            if starting_points is None
-            else starting_points
-        )
+        no_starting_points = starting_points is None
+        if no_starting_points:
+            starting_points = self._settings.get("starting_points")
         n_concurrent_trials = n_concurrent_trials or self._settings.get(
             "n_concurrent_trials"
         )
@@ -2298,6 +2306,8 @@ class AutoML(BaseEstimator):
         early_stop = (
             self._settings.get("early_stop") if early_stop is None else early_stop
         )
+        # no search budget is provided?
+        no_budget = time_budget == -1 and max_iter is None and not early_stop
         append_log = (
             self._settings.get("append_log") if append_log is None else append_log
         )
@@ -2375,14 +2385,6 @@ class AutoML(BaseEstimator):
 
         self._retrain_in_budget = retrain_full == "budget" and (
             eval_method == "holdout" and self._state.X_val is None
-        )
-        self._state.retrain_final = (
-            retrain_full is True
-            and eval_method == "holdout"
-            and (self._state.X_val is None or self._use_ray is not False)
-            or eval_method == "cv"
-            and (max_iter > 0 or retrain_full is True)
-            or max_iter == 1
         )
         self._auto_augment = auto_augment
         self._min_sample_size = min_sample_size
@@ -2488,7 +2490,32 @@ class AutoML(BaseEstimator):
                             estimator_list += ["arima", "sarimax"]
                 elif "regression" != self._state.task:
                     estimator_list += ["lrl1"]
-
+        # When no search budget is specified
+        if no_budget:
+            max_iter = len(estimator_list)
+            self._learner_selector = "roundrobin"
+            if sample_is_none:
+                self._sample = False
+            if no_starting_points:
+                starting_points = "data"
+            logger.warning(
+                "No search budget is provided via time_budget or max_iter."
+                " Training only one model per estimator."
+                " To tune hyperparameters for each estimator,"
+                " please provide budget either via time_budget or max_iter."
+            )
+        elif max_iter is None:
+            # set to a large number
+            max_iter = 1000000
+        self._state.retrain_final = (
+            retrain_full is True
+            and eval_method == "holdout"
+            and (X_val is None or self._use_ray is not False)
+            or eval_method == "cv"
+            and (max_iter > 0 or retrain_full is True)
+            or max_iter == 1
+        )
+        # add custom learner
         for estimator_name in estimator_list:
             if estimator_name not in self._state.learner_classes:
                 self.add_learner(
