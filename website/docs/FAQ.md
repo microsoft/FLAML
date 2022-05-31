@@ -31,7 +31,6 @@ automl_settings = {
     "task": "classification",
     "log_file_name": "test/iris.log",
     "estimator_list": ["rf", "xgboost"],
-    "max_iter": 2,
 }
 
 automl_settings["custom_hp"] = {
