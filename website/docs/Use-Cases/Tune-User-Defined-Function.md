@@ -4,7 +4,8 @@
 
 1. Your machine learning task is not one of the built-in tasks from `flaml.AutoML`.
 1. Your input cannot be represented as X_train + y_train or dataframe + label.
-1. You want to tune a function that may not even be a machine learning procedure.
+1. The optimization metric is not measurable via validation data only. For example, when you want to directly optimize a downstream application instead of a model accuracy metric.
+1. You need to tune a function that may not even be a machine learning procedure.
 
 ## Basic Tuning Procedure
 
@@ -43,7 +44,7 @@ def evaluate_config(config: dict):
     # we can return a single float as a score on the input config:
     # return score
     # or, we can return a dictionary that maps metric name to metric value:
-    return {"score": score, "evaluation_cost": faked_evaluation_cost, "constraint_metric": x * y}
+    return {"score": score, "evaluation_cost": faked_evaluation_cost, "constraint_metric": config["x"] * config["y"]}
 ```
 
 When the evaluation function returns a dictionary of metrics, you need to specify the name of the metric to optimize via the argument `metric` (this can be skipped when the function is just returning a scalar). In addition, you need to specify a mode of your optimization/tuning task (maximization or minimization) via the argument `mode` by choosing from "min" or "max".
@@ -403,7 +404,7 @@ analysis = tune.run(
 Related arguments:
 
 - `points_to_evaluate`: A list of initial hyperparameter configurations to run first.
-- `evaluated_rewards`: If you have previously evaluated the parameters passed in as `points_to_evaluate` , you can avoid re-running those trials by passing in the reward attributes as a list so the optimizer can be told the results without needing to re-compute the trial. Must be the same length as `points_to_evaluate`.
+- `evaluated_rewards`: If you have previously evaluated the parameters passed in as `points_to_evaluate` , you can avoid re-running those trials by passing in the reward attributes as a list so the optimizer can be told the results without needing to re-compute the trial. Must be the same length or shorter length than `points_to_evaluate`.
 
 If you are aware of some good hyperparameter configurations, you are encouraged to provide them via `points_to_evaluate`. The search algorithm will try them first and use them to bootstrap the search.
 
@@ -425,6 +426,8 @@ config_search_space = {
 points_to_evaluate = [
     {"b": .99, "a": 3},
     {"b": .99, "a": 2},
+    {"b": .80, "a": 3},
+    {"b": .80, "a": 2},
 ]
 evaluated_rewards = [3.99, 2.99]
 
