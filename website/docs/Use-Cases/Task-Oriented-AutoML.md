@@ -382,34 +382,37 @@ with mlflow.start_run():
 
 ### Extra fit arguments
 
-Extra fit arguments that are needed as one of the argument for model.fit(). The following code shows how you can pass the extra fit argument using the `fit_kwargs_by_estimator` argument in AutoML.fit():
+
+Extra fit arguments that are needed by the estimators can be passed to `AutoML.fit()`. For example, if there is a weight associated with each training example, they can be passed via `sample_weight`. For another example, `period` can be passed for time series forecaster. For any extra keywork argument passed to `AutoML.fit()` which has not been explicitly listed in the function signature, it will be passed to the underlying estimators' `fit()` as is.
+
+In addition, you can specify the arguments needed by each estimator using the `fit_kwargs_by_estimator` argument. For example, you can set the custom arguments for a Transformers model:
 
 ```python
 from flaml import AutoML
-from pandas.tests.extension.conftest import as_frame
-from sklearn.datasets import load_iris
 
-X_train, y_train = load_iris(return_X_y=True, as_frame=as_frame)
+train_dataset = load_dataset("glue", "mrpc", split="train").to_pandas()
+
+custom_sent_keys = ["sentence1", "sentence2"]
+label_key = "label"
+
+X_train = train_dataset[custom_sent_keys]
+y_train = train_dataset[label_key]
+
 automl = AutoML()
 automl_settings = {
-    "time_budget": 2,
-    "task": "classification",
-    "log_file_name": "test/iris.log",
-    "estimator_list": ["rf"],
-    "max_iter": 0,
+    "time_budget": 100,
+    "task": "seq-classification",
+    "fit_kwargs_by_estimator": {
+        "transformer":
+            {
+                "output_dir": "data/output/"
+                # if model_path is not set, the default model is facebook/muppet-roberta-base: https://huggingface.co/facebook/muppet-roberta-base
+            }
+    },  # setting the huggingface arguments: output directory
+    "gpu_per_trial": 1,  # set to 0 if no GPU is available
 }
-
-automl_settings["fit_kwargs_by_estimator"] = {
-    "rf": {
-        "sample_weight":  [1,2,3]
-    }
-}
-automl.fit(X_train, y_train, **automl_settings)
+automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
 ```
-
-In the above example, the sample_weight [1,2,3] was set to be passed to the sample_weight argument in RandomForestClassifier.fit() in the RandomForestEstimator.
-
-Extra fit arguments that are needed by the estimators can be passed to `AutoML.fit()`. For example, if there is a weight associated with each training example, they can be passed via `sample_weight`. For another example, `period` can be passed for time series forecaster. For any extra keywork argument passed to `AutoML.fit()` which has not been explicitly listed in the function signature, it will be passed to the underlying estimators' `fit()` as is.
 
 ## Retrieve and analyze the outcomes of AutoML.fit()
 
