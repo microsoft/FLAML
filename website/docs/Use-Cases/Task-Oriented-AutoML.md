@@ -382,7 +382,6 @@ with mlflow.start_run():
 
 ### Extra fit arguments
 
-
 Extra fit arguments that are needed by the estimators can be passed to `AutoML.fit()`. For example, if there is a weight associated with each training example, they can be passed via `sample_weight`. For another example, `period` can be passed for time series forecaster. For any extra keywork argument passed to `AutoML.fit()` which has not been explicitly listed in the function signature, it will be passed to the underlying estimators' `fit()` as is.
 
 In addition, you can specify the arguments needed by each estimator using the `fit_kwargs_by_estimator` argument. For example, you can set the custom arguments for a Transformers model:
