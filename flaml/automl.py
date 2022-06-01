@@ -628,7 +628,7 @@ class AutoML(BaseEstimator):
                 augment rare classes.
             min_sample_size: int, default=MIN_SAMPLE_TRAIN | the minimal sample
                 size when sample=True.
-            use_ray: boolean or dict,
+            use_ray: boolean or dict.
                 If boolean: default=False | Whether to use ray to run the training
                 in separate processes. This can be used to prevent OOM for large
                 datasets, but will incur more overhead in time.
