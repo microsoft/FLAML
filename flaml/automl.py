@@ -210,15 +210,13 @@ class SearchState:
         self.trial_time = 0
 
     def update(self, result, time_used):
-        obj = None
         if result:
             config = result["config"]
             if config and "FLAML_sample_size" in config:
                 self.sample_size = config["FLAML_sample_size"]
             else:
                 self.sample_size = self.data_size[0]
-            obj = result.get("val_loss")
-        if obj:
+            obj = result["val_loss"]
             metric_for_logging = result["metric_for_logging"]
             time2eval = result["time_total_s"]
             trained_estimator = result["trained_estimator"]

@@ -355,3 +355,4 @@ class TestClassification(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
     test = TestClassification()
+    test.test_preprocess()
