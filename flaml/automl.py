@@ -1906,10 +1906,27 @@ class AutoML(BaseEstimator):
             A function that evaluates each config and returns the loss.
         """
         self._state.time_from_start = 0
+        for estimator in self.estimator_list:
+            search_state = self._search_states[estimator]
+            if not hasattr(search_state, "training_function"):
+                if self._use_ray is not False:
+                    from ray.tune import with_parameters
+
+                    search_state.training_function = with_parameters(
+                        AutoMLState._compute_with_config_base,
+                        state=self._state,
+                        estimator=estimator,
+                    )
+                else:
+                    search_state.training_function = partial(
+                        AutoMLState._compute_with_config_base,
+                        state=self._state,
+                        estimator=estimator,
+                    )
         states = self._search_states
         mem_res = self._mem_thres
 
-        def train(config: dict, state):
+        def train(config: dict):
 
             sample_size = config.get("FLAML_sample_size")
             config = config.get("ml", config).copy()
@@ -1919,10 +1936,7 @@ class AutoML(BaseEstimator):
             # check memory constraints before training
             if states[estimator].learner_class.size(config) <= mem_res:
                 del config["learner"]
-                result = AutoMLState._compute_with_config_base(
-                    config, state=state, estimator=estimator
-                )
-                tune.report(**result)
+                result = states[estimator].training_function(config)
                 return result
             else:
                 return {
@@ -1933,18 +1947,7 @@ class AutoML(BaseEstimator):
                     "trained_estimator": None,
                 }
 
-        if self._use_ray is not False:
-            from ray.tune import with_parameters
-
-            return with_parameters(
-                train,
-                state=self._state,
-            )
-        else:
-            return partial(
-                train,
-                state=self._state,
-            )
+        return train
 
     @property
     def metric_constraints(self) -> list:
@@ -2568,7 +2571,7 @@ class AutoML(BaseEstimator):
                 this_estimator_kwargs = this_estimator_kwargs.copy()
                 this_estimator_kwargs.update(
                     self._state.fit_kwargs
-                )  # update the shallow copy
+                )  # update the shallow copy of fit_kwargs to fit_kwargs_by_estimator
                 self._state.fit_kwargs_by_estimator[
                     estimator_name
                 ] = this_estimator_kwargs  # set self._state.fit_kwargs_by_estimator[estimator_name] to the update, so only self._state.fit_kwargs_by_estimator will be updated
