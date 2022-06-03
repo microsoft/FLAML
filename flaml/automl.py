@@ -216,7 +216,7 @@ class SearchState:
                 self.sample_size = config["FLAML_sample_size"]
             else:
                 self.sample_size = self.data_size[0]
-            obj = result.get("val_loss", np.inf)
+            obj = result["val_loss"]
             metric_for_logging = result["metric_for_logging"]
             time2eval = result["time_total_s"]
             trained_estimator = result["trained_estimator"]
@@ -237,7 +237,7 @@ class SearchState:
 
         if self.base_eci is None:
             self.base_eci = time_used
-        if (obj is not None) and (self.best_loss is None or obj < self.best_loss):
+        if (obj is not None) and (obj < self.best_loss):
             self.best_loss_old = self.best_loss if self.best_loss < np.inf else 2 * obj
             self.best_loss = obj
             self.best_result = result
