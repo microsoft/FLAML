@@ -399,7 +399,7 @@ automl_settings = {
     "estimator_list": ["xgboost"],
     "fit_kwargs_by_estimator": {
         "xgboost": {
-            "verbose": True,
+            "verbose": True,  # setting the verbosity of xgboost to True
         }
     },
 }
