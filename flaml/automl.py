@@ -286,7 +286,7 @@ class AutoMLState:
             sampled_y_train = self.y_train[:sample_size]
             weight = self.fit_kwargs.get(
                 "sample_weight"
-            )  # NOTE: _prepare_sample_train_data is before kwargs is updated to fit_kwargs_by_estimator.
+            )  # NOTE: _prepare_sample_train_data is before kwargs is updated to fit_kwargs_by_estimator
             if weight is not None:
                 sampled_weight = weight[:sample_size]
             if self.groups is not None:
