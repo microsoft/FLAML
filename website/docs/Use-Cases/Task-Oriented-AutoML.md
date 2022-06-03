@@ -438,7 +438,7 @@ automl_settings = {
     "estimator_list": ["catboost"],
     "fit_kwargs_by_estimator": {
         "catboost": {
-            "verbose": False,  # setting the verbosity of xgboost to True
+            "verbose": True,  # setting the verbosity of catboost to True
         }
     },
 }
