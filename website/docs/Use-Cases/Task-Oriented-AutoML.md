@@ -387,28 +387,21 @@ Extra fit arguments that are needed by the estimators can be passed to `AutoML.f
 In addition, you can specify the different arguments needed by different estimators using the `fit_kwargs_by_estimator` argument. For example, you can set the custom arguments for a Transformers model:
 
 ```python
+from flaml.data import load_openml_dataset
 from flaml import AutoML
 
-train_dataset = load_dataset("glue", "mrpc", split="train").to_pandas()
-
-custom_sent_keys = ["sentence1", "sentence2"]
-label_key = "label"
-
-X_train = train_dataset[custom_sent_keys]
-y_train = train_dataset[label_key]
+X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=1169, data_dir="./")
 
 automl = AutoML()
 automl_settings = {
-    "time_budget": 100,
-    "task": "seq-classification",
+    "task": "classification",
+    "time_budget": 10,
+    "estimator_list": ["xgboost"],
     "fit_kwargs_by_estimator": {
-        "transformer":
-            {
-                "output_dir": "data/output/"
-                # if model_path is not set, the default model is facebook/muppet-roberta-base: https://huggingface.co/facebook/muppet-roberta-base
-            }
-    },  # setting the huggingface arguments: output directory
-    "gpu_per_trial": 1,  # set to 0 if no GPU is available
+        "xgboost": {
+            "verbose": True,
+        }
+    },
 }
 automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
 ```
