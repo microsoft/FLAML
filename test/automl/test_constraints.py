@@ -9,7 +9,7 @@ from flaml import tune
 dataset = "credit-g"
 
 
-def test_metric_constraints():
+def _test_metric_constraints():
     # impose metric constrains via "pred_time_limit"
     automl = AutoML()
 
@@ -176,4 +176,5 @@ def test_metric_constraints_custom():
 
 
 if __name__ == "__main__":
-    unittest.main()
+    # unittest.main()
+    _test_metric_constraints()
