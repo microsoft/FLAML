@@ -1921,16 +1921,17 @@ class AutoML(BaseEstimator):
                 result = AutoMLState._compute_with_config_base(
                     config, state=state, estimator=estimator
                 )
-                tune.report(**result)
-                return result
             else:
-                return {
+                # If search algorithm is not in flaml, it does not handle the config constraint, should also tune.report before return
+                result = {
                     "pred_time": 0,
                     "wall_clock_time": None,
                     "metric_for_logging": np.inf,
                     "val_loss": np.inf,
                     "trained_estimator": None,
                 }
+            tune.report(**result)
+            return result
 
         if self._use_ray is not False:
             from ray.tune import with_parameters
