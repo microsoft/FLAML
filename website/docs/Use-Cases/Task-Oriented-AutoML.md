@@ -435,7 +435,7 @@ automl = AutoML()
 automl_settings = {
     "task": "classification",
     "time_budget": 10,
-    "estimator_list": ["catboost"],
+    "estimator_list": ["catboost", "rf"],
     "fit_kwargs_by_estimator": {
         "catboost": {
             "verbose": True,  # setting the verbosity of catboost to True
