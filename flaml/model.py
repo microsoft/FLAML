@@ -1047,7 +1047,6 @@ class LGBMEstimator(BaseEstimator):
                 self.params[self.ITER_HP] = 1
                 self._t1 = self._fit(X_train, y_train, **kwargs)
                 if budget is not None and self._t1 >= budget or n_iter == 1:
-                    # self.params[self.ITER_HP] = n_iter
                     return self._t1
                 mem1 = psutil.virtual_memory().available if psutil is not None else 1
                 self._mem1 = mem0 - mem1
