@@ -228,6 +228,7 @@ class SearchState:
             )
             if n_iter:
                 config[trained_estimator.ITER_HP] = n_iter
+                print(n_iter)
         else:
             obj, time2eval, trained_estimator = np.inf, 0.0, None
             metric_for_logging = config = None
@@ -1497,6 +1498,10 @@ class AutoML(BaseEstimator):
         **fit_kwargs,
     ):
         """Retrain from log file.
+
+        This function is intended to retrain the logged configurations.
+        NOTE: In some rare case, the last config is early stopped to meet time_budget and it's the best config.
+        But the logged config's ITER_HP (e.g., n_estimators) is not reduced.
 
         Args:
             log_file_name: A string of the log file name.
