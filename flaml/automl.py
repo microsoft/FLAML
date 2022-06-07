@@ -89,7 +89,12 @@ class SearchState:
             renamed_type = list(
                 inspect.signature(domain_one_dim.is_valid).parameters.values()
             )[0].annotation
-            type_match = renamed_type == Any or isinstance(value_one_dim, renamed_type)
+            type_match = (
+                renamed_type == Any
+                or isinstance(value_one_dim, renamed_type)
+                or isinstance(value_one_dim, int)
+                and renamed_type is float
+            )
             if not (type_match and domain_one_dim.is_valid(value_one_dim)):
                 return False
         elif value_one_dim != domain_one_dim:

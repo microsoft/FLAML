@@ -948,7 +948,7 @@ class LGBMEstimator(BaseEstimator):
                 "low_cost_init_value": 4,
             },
             "min_child_samples": {
-                "domain": tune.lograndint(lower=2, upper=2 ** 7 + 1),
+                "domain": tune.lograndint(lower=2, upper=2**7 + 1),
                 "init_value": 20,
             },
             "learning_rate": {
@@ -1168,7 +1168,7 @@ class XGBoostEstimator(SKLearnEstimator):
             },
             "min_child_weight": {
                 "domain": tune.loguniform(lower=0.001, upper=128),
-                "init_value": 1,
+                "init_value": 1.0,
             },
             "learning_rate": {
                 "domain": tune.loguniform(lower=1 / 1024, upper=1.0),
@@ -1797,17 +1797,17 @@ class ARIMA(Prophet):
     def search_space(cls, **params):
         space = {
             "p": {
-                "domain": tune.quniform(lower=0, upper=10, q=1),
+                "domain": tune.qrandint(lower=0, upper=10, q=1),
                 "init_value": 2,
                 "low_cost_init_value": 0,
             },
             "d": {
-                "domain": tune.quniform(lower=0, upper=10, q=1),
+                "domain": tune.qrandint(lower=0, upper=10, q=1),
                 "init_value": 2,
                 "low_cost_init_value": 0,
             },
             "q": {
-                "domain": tune.quniform(lower=0, upper=10, q=1),
+                "domain": tune.qrandint(lower=0, upper=10, q=1),
                 "init_value": 1,
                 "low_cost_init_value": 0,
             },
@@ -1884,32 +1884,32 @@ class SARIMAX(ARIMA):
     def search_space(cls, **params):
         space = {
             "p": {
-                "domain": tune.quniform(lower=0, upper=10, q=1),
+                "domain": tune.qrandint(lower=0, upper=10, q=1),
                 "init_value": 2,
                 "low_cost_init_value": 0,
             },
             "d": {
-                "domain": tune.quniform(lower=0, upper=10, q=1),
+                "domain": tune.qrandint(lower=0, upper=10, q=1),
                 "init_value": 2,
                 "low_cost_init_value": 0,
             },
             "q": {
-                "domain": tune.quniform(lower=0, upper=10, q=1),
+                "domain": tune.qrandint(lower=0, upper=10, q=1),
                 "init_value": 1,
                 "low_cost_init_value": 0,
             },
             "P": {
-                "domain": tune.quniform(lower=0, upper=10, q=1),
+                "domain": tune.qrandint(lower=0, upper=10, q=1),
                 "init_value": 1,
                 "low_cost_init_value": 0,
             },
             "D": {
-                "domain": tune.quniform(lower=0, upper=10, q=1),
+                "domain": tune.qrandint(lower=0, upper=10, q=1),
                 "init_value": 1,
                 "low_cost_init_value": 0,
             },
             "Q": {
-                "domain": tune.quniform(lower=0, upper=10, q=1),
+                "domain": tune.qrandint(lower=0, upper=10, q=1),
                 "init_value": 1,
                 "low_cost_init_value": 0,
             },
