@@ -12,7 +12,7 @@ from flaml import AutoVW
 import string
 import os
 import openml
-from requests.exceptions import OpenMLServerException, ChunkedEncodingError, SSLError
+from requests.exceptions import SSLError
 
 VW_DS_DIR = "test/data/"
 NS_LIST = list(string.ascii_lowercase) + list(string.ascii_uppercase)
@@ -102,7 +102,7 @@ def get_oml_to_vw(did, max_ns_num, ds_dir=VW_DS_DIR):
         target_attribute = ds.default_target_attribute
         # if target_attribute is None and did in OML_target_attribute_dict:
         #     target_attribute = OML_target_attribute_dict[did]
-    except (OpenMLServerException, ChunkedEncodingError, SSLError) as e:
+    except (SSLError) as e:
         print(e)
         return
 
