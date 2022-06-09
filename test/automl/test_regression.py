@@ -87,7 +87,7 @@ class TestRegression(unittest.TestCase):
         )
         print(automl.model.estimator)
         y_pred2 = automl.predict(X_train)
-        # In some rare case, the last config is early stopped and it's the best config. But the logged config's ITER_HP is not reduced.
+        # In some rare case, the last config is early stopped and it's the best config. But the logged config's n_estimator is not reduced.
         assert (
             n_iter != automl.model.estimator.get_params("n_estimator")
             or (y_pred == y_pred2).all()
