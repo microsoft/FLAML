@@ -233,7 +233,6 @@ class SearchState:
             )
             if n_iter:
                 config[trained_estimator.ITER_HP] = n_iter
-                print(n_iter)
         else:
             obj, time2eval, trained_estimator = np.inf, 0.0, None
             metric_for_logging = config = None
