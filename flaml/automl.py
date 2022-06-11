@@ -3203,7 +3203,7 @@ class AutoML(BaseEstimator):
                         x[1].learner_class(
                             task=self._state.task,
                             n_jobs=self._state.n_jobs,
-                            **x[1].best_config,
+                            **x[1].best_config.get("ml", x[1].best_config),
                         ),
                     )
                     for x in search_states[:2]
@@ -3214,13 +3214,15 @@ class AutoML(BaseEstimator):
                         x[1].learner_class(
                             task=self._state.task,
                             n_jobs=self._state.n_jobs,
-                            **x[1].best_config,
+                            **x[1].best_config.get("ml", x[1].best_config),
                         ),
                     )
                     for x in search_states[2:]
                     if x[1].best_loss < 4 * self._selected.best_loss
                 ]
-                logger.info(estimators)
+                logger.info(
+                    [(estimator[0], estimator[1].params) for estimator in estimators]
+                )
             if len(estimators) > 1:
                 if self._state.task in CLASSIFICATION:
                     from sklearn.ensemble import StackingClassifier as Stacker
