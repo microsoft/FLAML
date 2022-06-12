@@ -23,8 +23,6 @@ from .result import DEFAULT_METRIC
 import logging
 
 logger = logging.getLogger(__name__)
-
-
 _use_ray = True
 _runner = None
 _verbose = 0
@@ -299,6 +297,12 @@ def run(
     """
     global _use_ray
     global _verbose
+    global _running_trial
+    global _training_iteration
+    old_use_ray = _use_ray
+    old_verbose = _verbose
+    old_running_trial = _running_trial
+    old_training_iteration = _training_iteration
     if not use_ray:
         _verbose = verbose
         if verbose > 0:
@@ -347,7 +351,7 @@ def run(
             flaml_scheduler_reduction_factor = reduction_factor
             scheduler = None
         try:
-            import optuna
+            import optuna as _
 
             SearchAlgorithm = BlendSearch
         except ImportError:
@@ -432,7 +436,7 @@ def run(
                 "Please install ray[tune] or set use_ray=False"
             )
         _use_ray = True
-        return tune.run(
+        analysis = tune.run(
             evaluation_function,
             metric=metric,
             mode=mode,
@@ -444,6 +448,11 @@ def run(
             num_samples=num_samples,
             resources_per_trial=resources_per_trial,
         )
+        _use_ray = old_use_ray
+        _verbose = old_verbose
+        _running_trial = old_running_trial
+        _training_iteration = old_training_iteration
+        return analysis
 
     # simple sequential run without using tune.run() from ray
     time_start = time.time()
@@ -453,6 +462,7 @@ def run(
     from .trial_runner import SequentialTrialRunner
 
     global _runner
+    old_runner = _runner
     _runner = SequentialTrialRunner(
         search_alg=search_alg,
         scheduler=scheduler,
@@ -494,4 +504,11 @@ def run(
         )
     if verbose > 0:
         logger.handlers.clear()
-    return ExperimentAnalysis(_runner.get_trials(), metric=metric, mode=mode)
+    analysis = ExperimentAnalysis(_runner.get_trials(), metric=metric, mode=mode)
+    # recover the global variables in case of nested run
+    _use_ray = old_use_ray
+    _verbose = old_verbose
+    _running_trial = old_running_trial
+    _training_iteration = old_training_iteration
+    _runner = old_runner
+    return analysis
