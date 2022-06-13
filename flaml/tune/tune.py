@@ -305,10 +305,20 @@ def run(
     old_training_iteration = _training_iteration
     if not use_ray:
         _verbose = verbose
+        old_handlers = logger.handlers
+        old_level = logger.getEffectiveLevel()
+        logger.handlers = []
+        if (
+            old_handlers
+            and isinstance(old_handlers[0], logging.StreamHandler)
+            and not isinstance(old_handlers[0], logging.FileHandler)
+        ):
+            # Add the console handler.
+            logger.addHandler(old_handlers[0])
         if verbose > 0:
-            import os
-
             if local_dir:
+                import os
+
                 os.makedirs(local_dir, exist_ok=True)
                 logger.addHandler(
                     logging.FileHandler(
@@ -318,7 +328,7 @@ def run(
                         + ".log"
                     )
                 )
-            elif not logger.handlers:
+            elif not logger.hasHandlers():
                 # Add the console handler.
                 _ch = logging.StreamHandler()
                 logger_formatter = logging.Formatter(
@@ -436,23 +446,24 @@ def run(
                 "Please install ray[tune] or set use_ray=False"
             )
         _use_ray = True
-        analysis = tune.run(
-            evaluation_function,
-            metric=metric,
-            mode=mode,
-            search_alg=search_alg,
-            scheduler=scheduler,
-            time_budget_s=time_budget_s,
-            verbose=verbose,
-            local_dir=local_dir,
-            num_samples=num_samples,
-            resources_per_trial=resources_per_trial,
-        )
-        _use_ray = old_use_ray
-        _verbose = old_verbose
-        _running_trial = old_running_trial
-        _training_iteration = old_training_iteration
-        return analysis
+        try:
+            return tune.run(
+                evaluation_function,
+                metric=metric,
+                mode=mode,
+                search_alg=search_alg,
+                scheduler=scheduler,
+                time_budget_s=time_budget_s,
+                verbose=verbose,
+                local_dir=local_dir,
+                num_samples=num_samples,
+                resources_per_trial=resources_per_trial,
+            )
+        finally:
+            _use_ray = old_use_ray
+            _verbose = old_verbose
+            _running_trial = old_running_trial
+            _training_iteration = old_training_iteration
 
     # simple sequential run without using tune.run() from ray
     time_start = time.time()
@@ -463,52 +474,54 @@ def run(
 
     global _runner
     old_runner = _runner
-    _runner = SequentialTrialRunner(
-        search_alg=search_alg,
-        scheduler=scheduler,
-        metric=metric,
-        mode=mode,
-    )
-    num_trials = 0
-    if time_budget_s is None:
-        time_budget_s = np.inf
-    fail = 0
-    ub = (len(evaluated_rewards) if evaluated_rewards else 0) + max_failure
-    while (
-        time.time() - time_start < time_budget_s
-        and (num_samples < 0 or num_trials < num_samples)
-        and fail < ub
-    ):
-        trial_to_run = _runner.step()
-        if trial_to_run:
-            num_trials += 1
-            if verbose:
-                logger.info(f"trial {num_trials} config: {trial_to_run.config}")
-            result = evaluation_function(trial_to_run.config)
-            if result is not None:
-                if isinstance(result, dict):
-                    if result:
-                        report(**result)
-                    else:
-                        # When the result returned is an empty dict, set the trial status to error
-                        trial_to_run.set_status(Trial.ERROR)
-                else:
-                    report(_metric=result)
-            _runner.stop_trial(trial_to_run)
-            fail = 0
-        else:
-            fail += 1  # break with ub consecutive failures
-    if fail == ub:
-        logger.warning(
-            f"fail to sample a trial for {max_failure} times in a row, stopping."
+    try:
+        _runner = SequentialTrialRunner(
+            search_alg=search_alg,
+            scheduler=scheduler,
+            metric=metric,
+            mode=mode,
         )
-    if verbose > 0:
-        logger.handlers.clear()
-    analysis = ExperimentAnalysis(_runner.get_trials(), metric=metric, mode=mode)
-    # recover the global variables in case of nested run
-    _use_ray = old_use_ray
-    _verbose = old_verbose
-    _running_trial = old_running_trial
-    _training_iteration = old_training_iteration
-    _runner = old_runner
-    return analysis
+        num_trials = 0
+        if time_budget_s is None:
+            time_budget_s = np.inf
+        fail = 0
+        ub = (len(evaluated_rewards) if evaluated_rewards else 0) + max_failure
+        while (
+            time.time() - time_start < time_budget_s
+            and (num_samples < 0 or num_trials < num_samples)
+            and fail < ub
+        ):
+            trial_to_run = _runner.step()
+            if trial_to_run:
+                num_trials += 1
+                if verbose:
+                    logger.info(f"trial {num_trials} config: {trial_to_run.config}")
+                result = evaluation_function(trial_to_run.config)
+                if result is not None:
+                    if isinstance(result, dict):
+                        if result:
+                            report(**result)
+                        else:
+                            # When the result returned is an empty dict, set the trial status to error
+                            trial_to_run.set_status(Trial.ERROR)
+                    else:
+                        report(_metric=result)
+                _runner.stop_trial(trial_to_run)
+                fail = 0
+            else:
+                fail += 1  # break with ub consecutive failures
+        if fail == ub:
+            logger.warning(
+                f"fail to sample a trial for {max_failure} times in a row, stopping."
+            )
+        return ExperimentAnalysis(_runner.get_trials(), metric=metric, mode=mode)
+    finally:
+        # recover the global variables in case of nested run
+        _use_ray = old_use_ray
+        _verbose = old_verbose
+        _running_trial = old_running_trial
+        _training_iteration = old_training_iteration
+        _runner = old_runner
+        if not use_ray:
+            logger.handlers = old_handlers
+            logger.setLevel(old_level)

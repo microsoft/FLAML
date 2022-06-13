@@ -46,6 +46,7 @@ def test_nested_run():
         metric="loss",
         mode="min",
         num_samples=5,
+        local_dir="logs",
     )
     print(analysis.best_result)
 
