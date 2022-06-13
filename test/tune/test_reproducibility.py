@@ -1,11 +1,11 @@
 from functools import partial
 
 
-def evaluation_fn(step, width, height):
+def _evaluation_fn(step, width, height):
     return (0.1 + width * step / 100) ** (-1) + height * 0.1
 
 
-def easy_objective(use_raytune, config):
+def _easy_objective(use_raytune, config):
     if use_raytune:
         from ray import tune
     else:
@@ -15,7 +15,7 @@ def easy_objective(use_raytune, config):
 
     for step in range(config["steps"]):
         # Iterative training function - can be any arbitrary training procedure
-        intermediate_score = evaluation_fn(step, width, height)
+        intermediate_score = _evaluation_fn(step, width, height)
         # Feed the score back back to Tune.
         try:
             tune.report(iterations=step, mean_loss=intermediate_score)
@@ -30,7 +30,7 @@ def test_tune(
     from flaml import tune
     from flaml.searcher.blendsearch import BlendSearch
 
-    easy_objective_custom_tune = partial(easy_objective, use_raytune)
+    easy_objective_custom_tune = partial(_easy_objective, use_raytune)
     search_space = {
         "steps": 100,
         "width": tune.uniform(0, 20),
