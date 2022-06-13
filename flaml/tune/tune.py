@@ -23,7 +23,7 @@ from .result import DEFAULT_METRIC
 import logging
 
 logger = logging.getLogger(__name__)
-_use_ray = True
+_use_ray = False
 _runner = None
 _verbose = 0
 _running_trial = None
