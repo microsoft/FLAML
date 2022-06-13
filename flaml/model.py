@@ -365,9 +365,9 @@ class TransformersEstimator(BaseEstimator):
         self._TrainingArguments = TrainingArguments
 
     @staticmethod
-    def _join(X_train, y_train):
+    def _join(X_train, y_train, task):
         y_train = DataFrame(y_train, index=X_train.index)
-        y_train.columns = ["label"]
+        y_train.columns = ["label"] if task != TOKENCLASSIFICATION else ["labels"]
         train_df = X_train.join(y_train)
         return train_df
 
@@ -380,7 +380,7 @@ class TransformersEstimator(BaseEstimator):
             },
             "num_train_epochs": {
                 "domain": tune.loguniform(lower=0.1, upper=10.0),
-                "init_value": 1,
+                "init_value": 3.0,  # to be consistent with roberta
             },
             "per_device_train_batch_size": {
                 "domain": tune.choice([4, 8, 16, 32]),
@@ -511,7 +511,7 @@ class TransformersEstimator(BaseEstimator):
             processed_X, processed_y = self._preprocess(X=X, y=y, **self._kwargs)
 
         processed_dataset = Dataset.from_pandas(
-            TransformersEstimator._join(processed_X, processed_y)
+            TransformersEstimator._join(processed_X, processed_y, self._task)
         )
         return processed_dataset, processed_X, processed_y
 
@@ -542,19 +542,24 @@ class TransformersEstimator(BaseEstimator):
             )
         else:
             return AutoTokenizer.from_pretrained(
-                self._training_args.model_path, use_fast=True
+                self._training_args.model_path,
+                use_fast=True,
+                add_prefix_space=True
+                if "roberta" in self._training_args.model_path
+                else False,  # If roberta model, must set add_prefix_space to True to avoid the assertion error at
+                # https://github.com/huggingface/transformers/blob/main/src/transformers/models/roberta/tokenization_roberta_fast.py#L249
             )
 
     @property
     def data_collator(self):
-        from .nlp.huggingface.data_collator import DataCollatorForAuto
+        from .nlp.huggingface.data_collator import task_to_datacollator_class
 
         return (
-            DataCollatorForAuto(
+            task_to_datacollator_class[self._task](
                 tokenizer=self.tokenizer,
-                pad_to_multiple_of=8 if self._training_args.fp16 else None,
+                pad_to_multiple_of=8,  # if self._training_args.fp16 else None,
             )
-            if self._task == MULTICHOICECLASSIFICATION
+            if self._task in (MULTICHOICECLASSIFICATION, TOKENCLASSIFICATION)
             else None
         )
 
@@ -750,7 +755,10 @@ class TransformersEstimator(BaseEstimator):
                 )
             metric_dict = {
                 "automl_metric": metric_loss_score(
-                    metric_name=self._metric, y_predict=predictions, y_true=labels
+                    metric_name=self._metric,
+                    y_predict=predictions,
+                    y_true=labels,
+                    labels=self._training_args.label_list,
                 )
             }
         else:
@@ -940,17 +948,13 @@ class LGBMEstimator(BaseEstimator):
                 "low_cost_init_value": 4,
             },
             "min_child_samples": {
-                "domain": tune.lograndint(lower=2, upper=2 ** 7 + 1),
+                "domain": tune.lograndint(lower=2, upper=2**7 + 1),
                 "init_value": 20,
             },
             "learning_rate": {
                 "domain": tune.loguniform(lower=1 / 1024, upper=1.0),
                 "init_value": 0.1,
             },
-            # 'subsample': {
-            #     'domain': tune.uniform(lower=0.1, upper=1.0),
-            #     'init_value': 1.0,
-            # },
             "log_max_bin": {  # log transformed with base 2
                 "domain": tune.lograndint(lower=3, upper=11),
                 "init_value": 8,
@@ -1043,7 +1047,6 @@ class LGBMEstimator(BaseEstimator):
                 self.params[self.ITER_HP] = 1
                 self._t1 = self._fit(X_train, y_train, **kwargs)
                 if budget is not None and self._t1 >= budget or n_iter == 1:
-                    # self.params[self.ITER_HP] = n_iter
                     return self._t1
                 mem1 = psutil.virtual_memory().available if psutil is not None else 1
                 self._mem1 = mem0 - mem1
@@ -1164,7 +1167,7 @@ class XGBoostEstimator(SKLearnEstimator):
             },
             "min_child_weight": {
                 "domain": tune.loguniform(lower=0.001, upper=128),
-                "init_value": 1,
+                "init_value": 1.0,
             },
             "learning_rate": {
                 "domain": tune.loguniform(lower=1 / 1024, upper=1.0),
@@ -1793,17 +1796,17 @@ class ARIMA(Prophet):
     def search_space(cls, **params):
         space = {
             "p": {
-                "domain": tune.quniform(lower=0, upper=10, q=1),
+                "domain": tune.qrandint(lower=0, upper=10, q=1),
                 "init_value": 2,
                 "low_cost_init_value": 0,
             },
             "d": {
-                "domain": tune.quniform(lower=0, upper=10, q=1),
+                "domain": tune.qrandint(lower=0, upper=10, q=1),
                 "init_value": 2,
                 "low_cost_init_value": 0,
             },
             "q": {
-                "domain": tune.quniform(lower=0, upper=10, q=1),
+                "domain": tune.qrandint(lower=0, upper=10, q=1),
                 "init_value": 1,
                 "low_cost_init_value": 0,
             },
@@ -1880,32 +1883,32 @@ class SARIMAX(ARIMA):
     def search_space(cls, **params):
         space = {
             "p": {
-                "domain": tune.quniform(lower=0, upper=10, q=1),
+                "domain": tune.qrandint(lower=0, upper=10, q=1),
                 "init_value": 2,
                 "low_cost_init_value": 0,
             },
             "d": {
-                "domain": tune.quniform(lower=0, upper=10, q=1),
+                "domain": tune.qrandint(lower=0, upper=10, q=1),
                 "init_value": 2,
                 "low_cost_init_value": 0,
             },
             "q": {
-                "domain": tune.quniform(lower=0, upper=10, q=1),
+                "domain": tune.qrandint(lower=0, upper=10, q=1),
                 "init_value": 1,
                 "low_cost_init_value": 0,
             },
             "P": {
-                "domain": tune.quniform(lower=0, upper=10, q=1),
+                "domain": tune.qrandint(lower=0, upper=10, q=1),
                 "init_value": 1,
                 "low_cost_init_value": 0,
             },
             "D": {
-                "domain": tune.quniform(lower=0, upper=10, q=1),
+                "domain": tune.qrandint(lower=0, upper=10, q=1),
                 "init_value": 1,
                 "low_cost_init_value": 0,
             },
             "Q": {
-                "domain": tune.quniform(lower=0, upper=10, q=1),
+                "domain": tune.qrandint(lower=0, upper=10, q=1),
                 "init_value": 1,
                 "low_cost_init_value": 0,
             },
