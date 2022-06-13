@@ -2748,6 +2748,7 @@ class AutoML(BaseEstimator):
             search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
         resources_per_trial = self._state.resources_per_trial
 
+        start_time = time.time()
         analysis = ray.tune.run(
             self.trainable,
             search_alg=search_alg,
@@ -2763,6 +2764,7 @@ class AutoML(BaseEstimator):
             checkpoint_score_attr="min-val_loss",
             **self._use_ray if isinstance(self._use_ray, dict) else {},
         )
+        self._state.time_from_start = time.time() - start_time
         # logger.info([trial.last_result for trial in analysis.trials])
         trials = sorted(
             (
@@ -2781,9 +2783,6 @@ class AutoML(BaseEstimator):
                 estimator = config.get("ml", config)["learner"]
                 search_state = self._search_states[estimator]
                 search_state.update(result, 0)
-                wall_time = result.get("wall_clock_time")
-                if wall_time is not None:
-                    self._state.time_from_start = wall_time
                 self._iter_per_learner[estimator] += 1
                 if search_state.sample_size == self._state.data_size[0]:
                     if not self._fullsize_reached:
