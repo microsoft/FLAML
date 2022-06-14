@@ -7,7 +7,6 @@ import numpy as np
 import time
 import pickle
 
-
 try:
     from ray import __version__ as ray_version
 
@@ -23,9 +22,11 @@ from .search_thread import SearchThread
 from .flow2 import FLOW2
 from ..tune.space import add_cost_to_space, indexof, normalize, define_by_run_func
 from ..tune.result import TIME_TOTAL_S
-from ..config import SEARCH_THREAD_EPS, PENALTY
+
 import logging
 
+SEARCH_THREAD_EPS = 1.0
+PENALTY = 1e10  # penalty term for constraints
 logger = logging.getLogger(__name__)
 
 
@@ -110,7 +111,7 @@ class BlendSearch(Searcher):
             experimental: A bool of whether to use experimental features.
         """
         self._eps = SEARCH_THREAD_EPS
-        self._org_cost_attr = cost_attr
+        self._input_cost_attr = cost_attr
         if cost_attr == "auto":
             if time_budget_s is not None:
                 self.cost_attr = TIME_TOTAL_S
@@ -279,7 +280,7 @@ class BlendSearch(Searcher):
                 self._time_used += now - self._start_time
                 self._start_time = now
                 self._set_deadline()
-                if self._org_cost_attr == "auto":
+                if self._input_cost_attr == "auto":
                     self.cost_attr = TIME_TOTAL_S
             if "metric_target" in setting:
                 self._metric_target = setting.get("metric_target")

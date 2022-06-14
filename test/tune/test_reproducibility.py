@@ -111,7 +111,7 @@ def test_reproducibility():
     best_config_2 = test_tune(smoke_test=True)
     print(best_config_1)
     print(best_config_2)
-    assert best_config_1 == best_config_2, "flaml.tune not reproducibility"
+    assert best_config_1 == best_config_2, "flaml.tune not reproducible"
 
     best_config_1 = test_tune(smoke_test=True, externally_setup_searcher=True)
     best_config_2 = test_tune(smoke_test=True, externally_setup_searcher=True)
@@ -119,7 +119,7 @@ def test_reproducibility():
     print(best_config_2)
     assert (
         best_config_1 == best_config_2
-    ), "flaml.tune not reproducibility when the searcher is set up externally"
+    ), "flaml.tune not reproducible when the searcher is set up externally"
 
 
 if __name__ == "__main__":
