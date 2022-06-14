@@ -447,7 +447,7 @@ def run(
             )
         _use_ray = True
         try:
-            return tune.run(
+            analysis = tune.run(
                 evaluation_function,
                 metric=metric,
                 mode=mode,
@@ -459,6 +459,7 @@ def run(
                 num_samples=num_samples,
                 resources_per_trial=resources_per_trial,
             )
+            return analysis
         finally:
             _use_ray = old_use_ray
             _verbose = old_verbose
@@ -514,7 +515,8 @@ def run(
             logger.warning(
                 f"fail to sample a trial for {max_failure} times in a row, stopping."
             )
-        return ExperimentAnalysis(_runner.get_trials(), metric=metric, mode=mode)
+        analysis = ExperimentAnalysis(_runner.get_trials(), metric=metric, mode=mode)
+        return analysis
     finally:
         # recover the global variables in case of nested run
         _use_ray = old_use_ray
