@@ -1,5 +1,5 @@
 # !
-#  * Copyright (c) Microsoft Corporation. All rights reserved.
+#  * Copyright (c) FLAML authors. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
 from typing import Optional, Union, List, Callable, Tuple
@@ -23,7 +23,7 @@ from .result import DEFAULT_METRIC
 import logging
 
 logger = logging.getLogger(__name__)
-_use_ray = False
+_use_ray = True
 _runner = None
 _verbose = 0
 _running_trial = None
@@ -89,32 +89,35 @@ def report(_metric=None, **kwargs):
     global _running_trial
     global _training_iteration
     if _use_ray:
-        from ray import tune
+        try:
+            from ray import tune
 
-        return tune.report(_metric, **kwargs)
+            return tune.report(_metric, **kwargs)
+        except ImportError:
+            # calling tune.report() outside tune.run()
+            return
+    result = kwargs
+    if _metric:
+        result[DEFAULT_METRIC] = _metric
+    trial = getattr(_runner, "running_trial", None)
+    if not trial:
+        return None
+    if _running_trial == trial:
+        _training_iteration += 1
     else:
-        result = kwargs
-        if _metric:
-            result[DEFAULT_METRIC] = _metric
-        trial = getattr(_runner, "running_trial", None)
-        if not trial:
-            return None
-        if _running_trial == trial:
-            _training_iteration += 1
-        else:
-            _training_iteration = 0
-            _running_trial = trial
-        result["training_iteration"] = _training_iteration
-        result["config"] = trial.config
-        if INCUMBENT_RESULT in result["config"]:
-            del result["config"][INCUMBENT_RESULT]
-        for key, value in trial.config.items():
-            result["config/" + key] = value
-        _runner.process_trial_result(trial, result)
-        if _verbose > 2:
-            logger.info(f"result: {result}")
-        if trial.is_finished():
-            raise StopIteration
+        _training_iteration = 0
+        _running_trial = trial
+    result["training_iteration"] = _training_iteration
+    result["config"] = trial.config
+    if INCUMBENT_RESULT in result["config"]:
+        del result["config"][INCUMBENT_RESULT]
+    for key, value in trial.config.items():
+        result["config/" + key] = value
+    _runner.process_trial_result(trial, result)
+    if _verbose > 2:
+        logger.info(f"result: {result}")
+    if trial.is_finished():
+        raise StopIteration
 
 
 def run(
@@ -144,6 +147,7 @@ def run(
     max_failure: Optional[int] = 100,
     use_ray: Optional[bool] = False,
     use_incumbent_result_in_evaluation: Optional[bool] = None,
+    **ray_args,
 ):
     """The trigger for HPO.
 
@@ -294,6 +298,8 @@ def run(
         max_failure: int | the maximal consecutive number of failures to sample
             a trial before the tuning is terminated.
         use_ray: A boolean of whether to use ray as the backend.
+        **ray_args: keyword arguments to pass to ray.tune.run().
+            Only valid when use_ray=True.
     """
     global _use_ray
     global _verbose
@@ -458,6 +464,7 @@ def run(
                 local_dir=local_dir,
                 num_samples=num_samples,
                 resources_per_trial=resources_per_trial,
+                **ray_args,
             )
             return analysis
         finally:
