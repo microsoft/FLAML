@@ -2762,7 +2762,6 @@ class AutoML(BaseEstimator):
             search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
         resources_per_trial = self._state.resources_per_trial
 
-        start_time = time.time()
         analysis = ray.tune.run(
             self.trainable,
             search_alg=search_alg,
@@ -2778,7 +2777,6 @@ class AutoML(BaseEstimator):
             checkpoint_score_attr="min-val_loss",
             **self._use_ray if isinstance(self._use_ray, dict) else {},
         )
-        self._state.time_from_start = time.time() - start_time
         # logger.info([trial.last_result for trial in analysis.trials])
         trials = sorted(
             (
