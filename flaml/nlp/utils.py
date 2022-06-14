@@ -1,3 +1,5 @@
+import argparse
+from dataclasses import dataclass, field
 from itertools import chain
 from typing import Dict, Any
 import numpy as np
@@ -475,3 +477,57 @@ def load_model(checkpoint_path, task, num_labels=None):
         model_config = _set_model_config(checkpoint_path)
         this_model = get_this_model(checkpoint_path, task, model_config)
         return this_model
+
+
+@dataclass
+class AGArgs:
+    """
+    The Autogluon configurations
+    Args:
+        output_dir (str): data root directory for outputing the log and intermediate data, model.
+        hf_model_checkpoint_name (str, optional, defaults to "google/electra-base-discriminator"): the HF model checkpoint.
+        per_device_batch_size (int, optional, defaults to 8)
+        num_train_epochs (int, optional, defaults to 10)
+        batch_size (int, optional, defaults to 128)
+    """
+    output_dir: str = field(default="data/mm_output/", metadata={"help": "data dir", "required": True})
+    hf_model_path: str = field(default="google/electra-base-discriminator", metadata={"help": "Hugging Face model path"})
+    per_device_batch_size: int = field(default=8, metadata={"help": "per device batch size"})
+    num_train_epochs: int = field(default=10, metadata={"help": "number of train epochs"})
+    batch_size: int = field(default=128, metadata={"help": "batch size"})
+    hyperparameters: dict = field(init=False)
+
+    def __post_init__(self):
+        """
+        Get the preset using the AGArgs. Save as self.hyperparameters.
+        """
+        from autogluon.text.text_prediction.presets import get_text_preset
+
+        # get the override from the text preset tuple
+        self.hyperparameters = get_text_preset("default")[1]
+
+        self.hyperparameters["model.hf_text.checkpoint_name"] = self.hf_model_path
+        self.hyperparameters["env.per_gpu_batch_size"] = self.per_device_batch_size
+        self.hyperparameters["env.batch_size"] = self.batch_size
+        self.hyperparameters["optimization.max_epochs"] = self.num_train_epochs
+
+    @staticmethod
+    def load_args():
+        from dataclasses import fields
+
+        arg_parser = argparse.ArgumentParser()
+        for each_field in fields(AGArgs):
+            arg_parser.add_argument(
+                "--" + each_field.name,
+                type=each_field.type,
+                help=each_field.metadata["help"],
+                required=each_field.metadata["required"]
+                if "required" in each_field.metadata
+                else False,
+                choices=each_field.metadata["choices"]
+                if "choices" in each_field.metadata
+                else None,
+                default=each_field.default,
+            )
+        console_args, unknown = arg_parser.parse_known_args()
+        return console_args

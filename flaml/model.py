@@ -32,6 +32,7 @@ from .data import (
     SUMMARIZATION,
     NLG_TASKS,
     MULTICHOICECLASSIFICATION,
+    MM_TASKS
 )
 
 try:
@@ -132,6 +133,13 @@ class BaseEstimator:
 
     def _preprocess(self, X):
         return X
+
+    @staticmethod
+    def _join(X_train, y_train):
+        y_train = DataFrame(y_train, index=X_train.index)
+        y_train.columns = ["label"]
+        train_df = X_train.join(y_train)
+        return train_df
 
     def _fit(self, X_train, y_train, **kwargs):
 
@@ -2119,6 +2127,115 @@ class XGBoostLimitDepth_TS(TS_SKLearn):
     """The class for tuning XGBoost Regressor with unlimited depth for time-series forecasting"""
 
     base_class = XGBoostLimitDepthEstimator
+
+
+class MultiModalEstimator(BaseEstimator):
+    """
+    The class for tuning AutoGluon TextPredictor
+    """
+    def __init__(self, task="binary", **config):
+        super().__init__(task, **config)
+        import uuid
+
+        self.trial_id = str(uuid.uuid1().hex)[:8]
+
+    @classmethod
+    def search_space(cls, **params):
+        """
+        Add the possible search space configs here, e.g. 'optimization.lr'
+        reference:
+        https://auto.gluon.ai/stable/tutorials/text_prediction/customization.html#custom-hyperparameter-values
+        """
+        search_space_dict = {
+            "model.fusion_mlp.hidden_sizes": {
+                "domain": tune.choice(list(range(32, 129))),
+                "init_value": 128,
+            },
+            "optimization.learning_rate": {
+                "domain": tune.loguniform(lower=1E-5, upper=1E-4),
+                "init_value": 1E-4,
+            },
+            "optimization.weight_decay": {
+                "domain": tune.choice([1E-4, 1E-3, 1E-2]),
+                "init_value": 1E-4,
+            },
+            "optimization.warmup_steps": {
+                "domain": tune.choice([0.1, 0.2]),
+                "init_value": 0.1,
+            },
+        }
+        return search_space_dict
+
+    def fit(self, X_train=None, y_train=None, budget=None, **kwargs):
+        from autogluon.text import TextPredictor
+        from .nlp.utils import AGArgs
+
+        self._kwargs = kwargs
+        self.ag_args = AGArgs(**kwargs["ag_args"])
+        seed = self._kwargs.get("seed", 123)
+
+        # get & set the hyperparameters, update with self.params
+        hyperparameters = self.ag_args.hyperparameters
+        for key, value in self.params.items():
+            if key == "n_jobs":
+                continue
+            elif key == "model.fusion_mlp.hidden_sizes":
+                hyperparameters[key] = [value]
+            else:
+                hyperparameters[key] = value.item() if isinstance(value, np.float64) else value
+
+        start_time = time.time()
+        self.model_path = os.path.join(self.ag_args.output_dir, self.trial_id)
+        assert self._task in MM_TASKS, f"The task is not multimodal, but {self._task}. "
+        model = TextPredictor(path=self.model_path,
+                              label="label",
+                              problem_type=self._task[3:],
+                              eval_metric=kwargs["metric"],
+                              backend="pytorch",
+                              verbosity=0)
+        train_data = BaseEstimator._join(X_train, y_train)
+        # use valid data for early stopping
+        X_val = kwargs.get("X_val")
+        y_val = kwargs.get("y_val")
+        if X_val is not None and y_val is not None:
+            tuning_data = BaseEstimator._join(X_val, y_val)
+        else:
+            tuning_data = None
+        # NOTE: if no tuning_data, model.fit() will holdout a fraction from train_data for early stopping
+        model.fit(train_data=train_data,
+                  tuning_data=tuning_data,
+                  hyperparameters=hyperparameters,
+                  num_gpus=kwargs.get("gpu_per_trial", None),
+                  time_limit=budget,
+                  seed=seed)
+
+        training_time = time.time() - start_time
+        return training_time
+
+    def predict(self, X):
+        from autogluon.text import TextPredictor
+
+        model = TextPredictor.load(path=self.model_path, backend="pytorch")
+        output = model.predict(X, as_pandas=False)
+        return output
+
+    def predict_proba(self, X):
+        from autogluon.text import TextPredictor
+
+        # only works for classification tasks
+        assert (
+            self._task in CLASSIFICATION
+        ), "predict_proba() only for classification tasks."
+        model = TextPredictor.load(path=self.model_path, backend="pytorch")
+        output = model.predict_proba(X, as_pandas=False)
+        return output
+
+    def score(self, X_val: DataFrame, y_val: Series, **kwargs):
+        from autogluon.text import TextPredictor
+
+        model = TextPredictor.load(path=self.model_path, backend="pytorch")
+        val_data = BaseEstimator._join(X_val, y_val)
+        return model.evaluate(val_data)
 
 
 class suppress_stdout_stderr(object):

@@ -47,6 +47,7 @@ from .data import (
     REGRESSION,
     _is_nlp_task,
     NLG_TASKS,
+    MM_TASKS,
 )
 from . import tune
 from .training_log import training_log_reader, training_log_writer
@@ -1713,6 +1714,10 @@ class AutoML(BaseEstimator):
             self._state.task = get_classification_objective(
                 len(np.unique(self._y_train_all))
             )
+        elif self._state.task == "mm-classification":
+            self._state.task = "mm-" + get_classification_objective(
+                len(np.unique(self._y_train_all))
+            )
         if not isinstance(split_type, str):
             assert hasattr(split_type, "split") and hasattr(
                 split_type, "get_n_splits"
@@ -2469,6 +2474,9 @@ class AutoML(BaseEstimator):
                 estimator_list = ["lgbm", "xgboost", "xgb_limitdepth"]
             elif _is_nlp_task(self._state.task):
                 estimator_list = ["transformer"]
+            # NOTE: if multimodal task, use multimodal estimator
+            elif self._state.task in MM_TASKS:
+                estimator_list = ["multimodal"]
             else:
                 try:
                     import catboost

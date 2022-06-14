@@ -68,6 +68,10 @@ setuptools.setup(
             "seqeval",
             "protobuf<4",  # to prevent TypeError in ray
         ],
+        "autogluon": [
+            "autogluon.text==0.4.0",
+            "autogluon.features==0.4.0",
+        ],
         "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],
         "ray": [

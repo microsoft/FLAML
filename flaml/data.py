@@ -23,9 +23,12 @@ CLASSIFICATION = (
     SEQCLASSIFICATION,
     MULTICHOICECLASSIFICATION,
     TOKENCLASSIFICATION,
+    "mm-binary",
+    "mm-multiclass",
+    "mm-classification",
 )
 SEQREGRESSION = "seq-regression"
-REGRESSION = ("regression", SEQREGRESSION)
+REGRESSION = ("regression", SEQREGRESSION, "mm-regression")
 TS_FORECASTREGRESSION = (
     "forecast",
     "ts_forecast",
@@ -46,6 +49,11 @@ NLU_TASKS = (
     MULTICHOICECLASSIFICATION,
     TOKENCLASSIFICATION,
 )
+MM_TASKS = (
+    "mm-classification",
+    "mm-regression",
+    "mm-binary",
+    "mm-multiclass",)
 
 
 def _is_nlp_task(task):
@@ -245,7 +253,6 @@ def concat(X1, X2):
 
 class DataTransformer:
     """Transform input training data."""
-
     def fit_transform(self, X: Union[DataFrame, np.array], y, task):
         """Fit transformer and process the input training data according to the task type.
 
@@ -269,6 +276,10 @@ class DataTransformer:
             if len(str_columns) > 0:
                 X[str_columns] = X[str_columns].astype("string")
             self._str_columns = str_columns
+        # NOTE: if multimodal task, no preprocessing on X
+        elif task in MM_TASKS:
+            for column in X.columns:
+                X[column].astype("object")
         elif isinstance(X, DataFrame):
             X = X.copy()
             n = X.shape[0]
@@ -395,6 +406,9 @@ class DataTransformer:
             # ids (input ids, token type id, attention mask, etc.)
             if len(self._str_columns) > 0:
                 X[self._str_columns] = X[self._str_columns].astype("string")
+        elif self._task in MM_TASKS:
+            for column in X.columns:
+                X[column].astype("category")
         elif isinstance(X, DataFrame):
             cat_columns, num_columns, datetime_columns = (
                 self._cat_columns,
