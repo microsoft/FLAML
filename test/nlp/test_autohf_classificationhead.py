@@ -1,6 +1,12 @@
+import sys
+import pytest
 from utils import get_toy_data_multiclassclassification, get_automl_settings
 
 
+@pytest.mark.skipif(
+    sys.platform == "darwin" and sys.version.startswith("3.10"),
+    reason="do not run on mac os python 3.10",
+)
 def test_classification_head():
     from flaml import AutoML
     import requests
