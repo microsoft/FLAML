@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-2019]
-        python-version: [3.6, 3.7, 3.8, 3.9]
+        python-version: [3.6, 3.7, 3.8, 3.9, 3.10]
 
     steps:
       - uses: actions/checkout@v2
@@ -42,8 +42,8 @@ jobs:
           pip install -e .
           python -c "import flaml"
           pip install -e .[test]
-      - name: If linux or mac, install ray
-        if: (matrix.os == 'macOS-latest' || matrix.os == 'ubuntu-latest') && matrix.python-version != '3.9'
+      - name: If linux or mac, install ray and prophet
+        if: (matrix.os == 'macOS-latest' || matrix.os == 'ubuntu-latest') && matrix.python-version != '3.9' && matrix.python-version != '3.10'
         run: |
           pip install -e .[ray,forecast]
           pip install 'tensorboardX<=2.2'
@@ -58,13 +58,13 @@ jobs:
         run: |
           pytest test
       - name: Coverage
-        if: ${{ matrix.python-version == '3.7' && matrix.os != 'macos-latest' }}
+        if: ${{ matrix.python-version == '3.7' && matrix.os != 'macos-latest' || matrix.python-version == '3.10' }}
         run: |
           pip install coverage
           coverage run -a -m pytest test
           coverage xml
       - name: Upload coverage to Codecov
-        if: ${{ matrix.python-version == '3.7' && matrix.os != 'macos-latest' }}
+        if: ${{ matrix.python-version == '3.7' && matrix.os != 'macos-latest' || matrix.python-version == '3.10'}}
         uses: codecov/codecov-action@v1
         with:
           file: ./coverage.xml
