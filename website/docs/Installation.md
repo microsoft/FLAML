@@ -37,7 +37,7 @@ pip install flaml[vw]
 pip install flaml[forecast]
 ```
 
-* natural language processing
+* natural language processing: transformers
 ```bash
 pip install flaml[nlp]
 ```
