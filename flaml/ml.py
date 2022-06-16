@@ -176,13 +176,14 @@ def metric_loss_score(
                     ].mid.fmeasure
                 elif metric_name.startswith("seqeval"):
 
+                    label_len = len(labels)
                     zip_pred_true = [
                         [(p, lb) for (p, lb) in zip(prediction, label) if lb != -100]
                         for (prediction, label) in zip(y_predict, y_true)
                     ]
                     y_pred = [
                         [
-                            labels[p] if p in range(len(labels)) else -1
+                            labels[p] if (p < label_len and p > 0) else -1
                             for (p, l) in each_list
                         ]
                         for each_list in zip_pred_true
