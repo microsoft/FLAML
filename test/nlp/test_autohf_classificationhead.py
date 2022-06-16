@@ -1,5 +1,3 @@
-import sys
-import pytest
 from utils import get_toy_data_multiclassclassification, get_automl_settings
 
 

@@ -1,6 +1,5 @@
 from utils import get_toy_data_seqclassification, get_automl_settings
 import sys
-import pytest
 from flaml.default import portfolio
 
 
@@ -17,10 +16,6 @@ def test_build_portfolio(path="./test/nlp/default", strategy="greedy"):
     portfolio.main()
 
 
-# @pytest.mark.skipif(
-#     sys.platform == "darwin" and sys.version.startswith("3.10"),
-#     reason="do not run on mac os python 3.10",
-# )
 def test_starting_point_not_in_search_space():
     from flaml import AutoML
 
@@ -77,10 +72,6 @@ def test_starting_point_not_in_search_space():
     )
 
 
-# @pytest.mark.skipif(
-#     sys.platform == "darwin" and sys.version.startswith("3.10"),
-#     reason="do not run on mac os python 3.10",
-# )
 def test_points_to_evaluate():
     from flaml import AutoML
 
@@ -98,10 +89,6 @@ def test_points_to_evaluate():
 
 
 # TODO: implement _test_zero_shot_model
-# @pytest.mark.skipif(
-#     sys.platform == "darwin" and sys.version.startswith("3.10"),
-#     reason="do not run on mac os python 3.10",
-# )
 def test_zero_shot_nomodel():
     from flaml.default import preprocess_and_suggest_hyperparams
 
@@ -135,10 +122,6 @@ def test_zero_shot_nomodel():
     model.fit(X_train, y_train, **fit_kwargs)
 
 
-# @pytest.mark.skipif(
-#     sys.platform == "darwin" and sys.version.startswith("3.10"),
-#     reason="do not run on mac os python 3.10",
-# )
 def test_build_error_portfolio(path="./test/nlp/default", strategy="greedy"):
     import os
 
