@@ -6,7 +6,6 @@ from contextlib import contextmanager
 from functools import partial
 import signal
 import os
-from subprocess import call
 from typing import Callable, List
 import numpy as np
 import time
