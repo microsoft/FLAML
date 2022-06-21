@@ -237,7 +237,7 @@ class TestClassification(unittest.TestCase):
         print(automl.best_iteration)
         print(automl.best_estimator)
 
-        # test a newer version of xgboost
+        # test an old version of xgboost
         import subprocess
         import sys
 
@@ -247,7 +247,7 @@ class TestClassification(unittest.TestCase):
         automl = AutoML()
         automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
         subprocess.check_call(
-            [sys.executable, "-m", "pip", "install", "xgboost==1.5.2", "--user"]
+            [sys.executable, "-m", "pip", "install", "-U", "xgboost", "--user"]
         )
 
     def test_ray_classification(self):
