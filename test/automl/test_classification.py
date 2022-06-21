@@ -247,7 +247,7 @@ class TestClassification(unittest.TestCase):
         automl = AutoML()
         automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
         subprocess.check_call(
-            [sys.executable, "-m", "pip", "install", "xgboost==1.6.1", "--user"]
+            [sys.executable, "-m", "pip", "install", "xgboost==1.5.2", "--user"]
         )
 
     def test_ray_classification(self):
