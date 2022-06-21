@@ -95,7 +95,7 @@ def test_tune(
         metric="mean_loss",
         mode="min",
         num_samples=10,
-        time_budget_s=5,
+        # time_budget_s=5,
         use_ray=use_ray,
         config=search_space,
     )
