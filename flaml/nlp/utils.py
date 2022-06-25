@@ -92,7 +92,6 @@ def tokenize_and_align_labels(
         is_split_into_words=True,
     )
     if Y_sent_key is not None:
-        previous_word_idx = None
         label_ids = []
         import numbers
 
@@ -102,19 +101,8 @@ def tokenize_and_align_labels(
             if word_idx is None:
                 label_ids.append(-100)
             # We set the label for the first token of each word.
-            elif word_idx != previous_word_idx:
-                if isinstance(examples[Y_sent_key][word_idx], numbers.Number):
-                    label_ids.append(examples[Y_sent_key][word_idx])
-                # else:
-                #     label_ids.append(label_to_id[label[word_idx]])
-            # For the other tokens in a word, we set the label to either the current label or -100, depending on
-            # the label_all_tokens flag.
-            else:
-                if isinstance(examples[Y_sent_key][word_idx], numbers.Number):
-                    label_ids.append(examples[Y_sent_key][word_idx])
-                # else:
-                #     label_ids.append(b_to_i_label[label_to_id[label[word_idx]]])
-            previous_word_idx = word_idx
+            elif isinstance(examples[Y_sent_key][word_idx], numbers.Number):
+                label_ids.append(examples[Y_sent_key][word_idx])
         tokenized_inputs["labels"] = label_ids
     tmp_column_names = sorted(tokenized_inputs.keys())
     tokenized_input_and_labels = [tokenized_inputs[x] for x in tmp_column_names]
@@ -475,3 +463,32 @@ def load_model(checkpoint_path, task, num_labels=None):
         model_config = _set_model_config(checkpoint_path)
         this_model = get_this_model(checkpoint_path, task, model_config)
         return this_model
+
+
+def postprocess_prediction(task, predictions, tokenizer):
+    if task == SEQCLASSIFICATION:
+        return np.argmax(predictions, axis=1)
+    elif task == SEQREGRESSION:
+        return np.squeeze(predictions)  # predictions.reshape((len(predictions),))
+    elif task == TOKENCLASSIFICATION:
+        return np.argmax(predictions, axis=2)
+    elif task == SUMMARIZATION:
+        if isinstance(predictions, tuple):
+            predictions = np.argmax(predictions[0], axis=2)
+        decoded_preds = tokenizer.batch_decode(predictions, skip_special_tokens=True)
+        return decoded_preds
+    elif task == MULTICHOICECLASSIFICATION:
+        return np.argmax(predictions, axis=1)
+
+
+def preprocess_labels(X_val, y_val, estimator):
+    if estimator._task == TOKENCLASSIFICATION:
+        return tokenize_text(
+            X_val,
+            y_val,
+            task=estimator._task,
+            hf_args=estimator._training_args,
+            tokenizer=estimator.tokenizer,
+        )
+    else:
+        return y_val

@@ -189,14 +189,14 @@ def metric_loss_score(
                         for each_list in zip_pred_true
                     ]  # To compute precision and recall, y_pred and y_true must be converted to string labels
                     # (B-PER, I-PER, etc.), so that the category-based precision/recall (i.e., PER, LOC, etc.) scores can be computed
-                    y_true = [
+                    y_tr = [
                         [labels[l] for (p, l) in each_list]
                         for each_list in zip_pred_true
                     ]
 
                     metric_submetric_names = metric_name.split(":")
 
-                    score = metric.compute(predictions=y_pred, references=y_true)[
+                    score = metric.compute(predictions=y_pred, references=y_tr)[
                         metric_submetric_names[1]
                         if len(metric_submetric_names) > 1
                         else "overall_accuracy"
@@ -368,6 +368,12 @@ def _eval_estimator(
         pred_start = time.time()
         val_pred_y = get_y_pred(estimator, X_val, eval_metric, obj)
         pred_time = (time.time() - pred_start) / X_val.shape[0]
+
+        if isinstance(estimator, TransformersEstimator):
+            from .nlp.utils import preprocess_labels
+
+            _, y_val = preprocess_labels(X_val, y_val, estimator)
+
         val_loss = metric_loss_score(
             eval_metric, val_pred_y, y_val, labels, weight_val, groups_val
         )

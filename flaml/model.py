@@ -522,8 +522,6 @@ class TransformersEstimator(BaseEstimator):
 
     @property
     def num_labels(self):
-        from .data import SEQCLASSIFICATION, SEQREGRESSION, TOKENCLASSIFICATION
-
         if self._task == SEQREGRESSION:
             return 1
         elif self._task == SEQCLASSIFICATION:
@@ -736,28 +734,18 @@ class TransformersEstimator(BaseEstimator):
     def _compute_metrics_by_dataset_name(self, eval_pred):
         if isinstance(self._metric, str):
             from .ml import metric_loss_score
-            from .nlp.utils import postprocess_text
+            from .nlp.utils import postprocess_prediction, postprocess_text
 
             predictions, labels = eval_pred
+            predictions = postprocess_prediction(
+                self._task, predictions, self.tokenizer
+            )
             if self._task in NLG_TASKS:
-                if isinstance(predictions, tuple):
-                    predictions = np.argmax(predictions[0], axis=2)
-                decoded_preds = self.tokenizer.batch_decode(
-                    predictions, skip_special_tokens=True
-                )
                 labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
                 decoded_labels = self.tokenizer.batch_decode(
                     labels, skip_special_tokens=True
                 )
-                predictions, labels = postprocess_text(decoded_preds, decoded_labels)
-            else:
-                predictions = (
-                    np.squeeze(predictions)
-                    if self._task == SEQREGRESSION
-                    else np.argmax(predictions, axis=2)
-                    if self._task == TOKENCLASSIFICATION
-                    else np.argmax(predictions, axis=1)
-                )
+                predictions, labels = postprocess_text(predictions, decoded_labels)
             metric_dict = {
                 "automl_metric": metric_loss_score(
                     metric_name=self._metric,
@@ -837,6 +825,7 @@ class TransformersEstimator(BaseEstimator):
     def predict(self, X, **pred_kwargs):
         import transformers
         from datasets import Dataset
+        from .nlp.utils import postprocess_prediction
 
         transformers.logging.set_verbosity_error()
 
@@ -856,20 +845,9 @@ class TransformersEstimator(BaseEstimator):
                 test_dataset,
                 metric_key_prefix="predict",
             )
-
-        if self._task == SEQCLASSIFICATION:
-            return np.argmax(predictions.predictions, axis=1)
-        elif self._task == SEQREGRESSION:
-            return predictions.predictions.reshape((len(predictions.predictions),))
-        elif self._task == TOKENCLASSIFICATION:
-            return np.argmax(predictions.predictions, axis=2)
-        elif self._task == SUMMARIZATION:
-            decoded_preds = self.tokenizer.batch_decode(
-                predictions.predictions, skip_special_tokens=True
-            )
-            return decoded_preds
-        elif self._task == MULTICHOICECLASSIFICATION:
-            return np.argmax(predictions.predictions, axis=1)
+        return postprocess_prediction(
+            self._task, predictions.predictions, self.tokenizer
+        )
 
     def config2params(self, config: dict) -> dict:
         params = super().config2params(config)
