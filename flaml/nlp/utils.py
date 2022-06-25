@@ -491,4 +491,4 @@ def preprocess_labels(X_val, y_val, estimator):
             tokenizer=estimator.tokenizer,
         )
     else:
-        return y_val
+        return None, y_val
