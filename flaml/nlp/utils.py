@@ -209,7 +209,7 @@ def tokenize_onedataframe(
         return X_tokenized
 
 
-def postprocess_seq2seq_prediction(preds, labels):
+def postprocess_seq2seq_prediction_label(preds, labels):
     import nltk
 
     nltk.download("punkt")

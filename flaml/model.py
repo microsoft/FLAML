@@ -736,7 +736,7 @@ class TransformersEstimator(BaseEstimator):
             from .ml import metric_loss_score
             from .nlp.utils import (
                 postprocess_prediction,
-                postprocess_seq2seq_prediction,
+                postprocess_seq2seq_prediction_label,
             )
 
             predictions, labels = eval_pred
@@ -748,7 +748,7 @@ class TransformersEstimator(BaseEstimator):
                 decoded_labels = self.tokenizer.batch_decode(
                     labels, skip_special_tokens=True
                 )
-                predictions, labels = postprocess_seq2seq_prediction(
+                predictions, labels = postprocess_seq2seq_prediction_label(
                     predictions, decoded_labels
                 )
             metric_dict = {
@@ -850,11 +850,9 @@ class TransformersEstimator(BaseEstimator):
                 test_dataset,
                 metric_key_prefix="predict",
             )
-        test = postprocess_prediction(
+        return postprocess_prediction(
             self._task, predictions.predictions, self.tokenizer
         )
-        raise Exception(test)
-        return test
 
     def config2params(self, config: dict) -> dict:
         params = super().config2params(config)
