@@ -96,11 +96,8 @@ def tokenize_and_align_labels(
         import numbers
 
         for word_idx in tokenized_inputs.word_ids(batch_index=0):
-            # Special tokens have a word id that is None. We set the label to -100 so they are automatically
-            # ignored in the loss function.
             if word_idx is None:
                 label_ids.append(-100)
-            # We set the label for the first token of each word.
             elif isinstance(examples[Y_sent_key][word_idx], numbers.Number):
                 label_ids.append(examples[Y_sent_key][word_idx])
         tokenized_inputs["labels"] = label_ids
@@ -212,7 +209,7 @@ def tokenize_onedataframe(
         return X_tokenized
 
 
-def postprocess_text(preds, labels):
+def postprocess_seq2seq_prediction(preds, labels):
     import nltk
 
     nltk.download("punkt")

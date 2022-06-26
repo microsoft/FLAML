@@ -181,7 +181,7 @@ def metric_loss_score(
                         [(p, lb) for (p, lb) in zip(prediction, label) if lb != -100]
                         for (prediction, label) in zip(y_predict, y_true)
                     ]
-                    y_pred = [
+                    y_pred_label = [
                         [
                             labels[p] if 0 <= p < label_len else -1
                             for (p, l) in each_list
@@ -189,14 +189,16 @@ def metric_loss_score(
                         for each_list in zip_pred_true
                     ]  # To compute precision and recall, y_pred and y_true must be converted to string labels
                     # (B-PER, I-PER, etc.), so that the category-based precision/recall (i.e., PER, LOC, etc.) scores can be computed
-                    y_tr = [
+                    y_true_label = [
                         [labels[l] for (p, l) in each_list]
                         for each_list in zip_pred_true
                     ]
 
                     metric_submetric_names = metric_name.split(":")
 
-                    score = metric.compute(predictions=y_pred, references=y_tr)[
+                    score = metric.compute(
+                        predictions=y_pred_label, references=y_true_label
+                    )[
                         metric_submetric_names[1]
                         if len(metric_submetric_names) > 1
                         else "overall_accuracy"
