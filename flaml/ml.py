@@ -1,5 +1,5 @@
 # !
-#  * Copyright (c) Microsoft Corporation. All rights reserved.
+#  * Copyright (c) FLAML authors. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
 import time
@@ -39,7 +39,7 @@ from .model import (
     TransformersEstimator,
     TransformersEstimatorModelSelection,
 )
-from .data import CLASSIFICATION, group_counts, TS_FORECAST, TS_VALUE_COL
+from .data import CLASSIFICATION, group_counts, TS_FORECAST
 import logging
 
 logger = logging.getLogger(__name__)
@@ -176,12 +176,16 @@ def metric_loss_score(
                     ].mid.fmeasure
                 elif metric_name.startswith("seqeval"):
 
+                    label_len = len(labels)
                     zip_pred_true = [
                         [(p, lb) for (p, lb) in zip(prediction, label) if lb != -100]
                         for (prediction, label) in zip(y_predict, y_true)
                     ]
                     y_pred = [
-                        [labels[p] for (p, l) in each_list]
+                        [
+                            labels[p] if 0 <= p < label_len else -1
+                            for (p, l) in each_list
+                        ]
                         for each_list in zip_pred_true
                     ]  # To compute precision and recall, y_pred and y_true must be converted to string labels
                     # (B-PER, I-PER, etc.), so that the category-based precision/recall (i.e., PER, LOC, etc.) scores can be computed

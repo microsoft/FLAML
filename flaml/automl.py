@@ -2992,9 +2992,7 @@ class AutoML(BaseEstimator):
                     search_state.search_alg.searcher.set_search_properties(
                         metric=None,
                         mode=None,
-                        setting={
-                            "metric_target": self._state.best_loss,
-                        },
+                        metric_target=self._state.best_loss,
                     )
             start_run_time = time.time()
             analysis = tune.run(
@@ -3276,6 +3274,7 @@ class AutoML(BaseEstimator):
                 import joblib
 
                 try:
+                    logger.info("Building ensemble with tuned estimators")
                     stacker.fit(
                         self._X_train_all,
                         self._y_train_all,
