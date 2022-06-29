@@ -1,6 +1,6 @@
 from sklearn.datasets import fetch_openml
 from flaml.automl import AutoML
-from sklearn.model_selection import train_test_split, KFold
+from sklearn.model_selection import GroupKFold, train_test_split, KFold
 from sklearn.metrics import accuracy_score
 
 
@@ -78,6 +78,19 @@ def test_groups():
     automl.fit(X, y, **automl_settings)
 
     automl_settings["eval_method"] = "holdout"
+    automl.fit(X, y, **automl_settings)
+
+    automl_settings["split_type"] = GroupKFold(n_splits=3)
+    try:
+        automl.fit(X, y, **automl_settings)
+        raise RuntimeError(
+            "GroupKFold object as split_type should fail when eval_method is holdout"
+        )
+    except AssertionError:
+        # eval_method must be 'auto' or 'cv' for custom data splitter.
+        pass
+
+    automl_settings["eval_method"] = "cv"
     automl.fit(X, y, **automl_settings)
 
 
