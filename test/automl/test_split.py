@@ -163,7 +163,6 @@ def test_object():
     automl = AutoML()
     automl_settings = {
         "time_budget": 2,
-        # "metric": 'accuracy',
         "task": "classification",
         "log_file_name": "test/{}.log".format(dataset),
         "model_history": True,
@@ -171,6 +170,9 @@ def test_object():
         "split_type": TestKFold(5),
     }
     automl.fit(X, y, **automl_settings)
+    assert (
+        automl._state.eval_method == "cv"
+    ), "eval_method must be 'cv' for custom data splitter"
 
 
 if __name__ == "__main__":
