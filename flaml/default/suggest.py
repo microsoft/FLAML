@@ -5,6 +5,7 @@ import pathlib
 import json
 from flaml.data import CLASSIFICATION, DataTransformer
 from flaml.ml import get_estimator_class, get_classification_objective
+import pandas
 
 LOCATION = pathlib.Path(__file__).parent.resolve()
 logger = logging.getLogger(__name__)
@@ -245,7 +246,10 @@ def preprocess_and_suggest_hyperparams(
 
         class AutoMLTransformer:
             def transform(self, X):
-                return model._preprocess(dt.transform(X))
+                try:
+                    return model._preprocess(dt.transform(X))
+                except:
+                    raise Exception(X)
 
         transformer = AutoMLTransformer()
         return hyperparams, estimator_class, X, y, transformer, dt.label_transformer

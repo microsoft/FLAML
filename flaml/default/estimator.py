@@ -131,7 +131,7 @@ def flamlize_estimator(super_class, name: str, task: str, alternatives=None):
         @wraps(super_class.predict)
         def predict(self, X, *args, **params):
             if name != "lgbm" or task not in CLASSIFICATION:
-                X = self._feature_transformer.transform(X)
+                X, _ = self._feature_transformer.transform(X)
             y_pred = super().predict(X, *args, **params)
             if self._label_transformer and y_pred.ndim == 1:
                 y_pred = self._label_transformer.inverse_transform(y_pred)
@@ -141,7 +141,7 @@ def flamlize_estimator(super_class, name: str, task: str, alternatives=None):
 
             @wraps(super_class.predict_proba)
             def predict_proba(self, X, *args, **params):
-                X_test = self._feature_transformer.transform(X)
+                X_test, _ = self._feature_transformer.transform(X)
                 y_pred = super().predict_proba(X_test, *args, **params)
                 return y_pred
 

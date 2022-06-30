@@ -361,6 +361,17 @@ automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_
 automl.predict(X_test)
 ```
 
+#### Sample Output
+
+```
+[flaml.automl: 06-30 03:10:02] {2423} INFO - task = token-classification
+[flaml.automl: 06-30 03:10:02] {2425} INFO - Data split method: stratified
+[flaml.automl: 06-30 03:10:02] {2428} INFO - Evaluation method: holdout
+[flaml.automl: 06-30 03:10:02] {2497} INFO - Minimizing error metric: seqeval:overall_f1
+[flaml.automl: 06-30 03:10:02] {2637} INFO - List of ML learners in AutoML Run: ['transformer']
+[flaml.automl: 06-30 03:10:02] {2929} INFO - iteration 0, current learner transformer
+```
+
 For tasks that are not currently supported, use `flaml.tune` for [customized tuning](Tune-HuggingFace).
 
 ### Link to Jupyter notebook
