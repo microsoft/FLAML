@@ -196,17 +196,13 @@ def metric_loss_score(
                     ]
                     metric_submetric_names = metric_name.split(":")
 
-                    try:
-
-                        score = metric.compute(
-                            predictions=y_processed_predict, references=y_processed_true
-                        )[
-                            metric_submetric_names[1]
-                            if len(metric_submetric_names) > 1
-                            else "overall_accuracy"
-                        ]
-                    except ValueError:
-                        raise Exception(y_processed_predict, y_processed_true)
+                    score = metric.compute(
+                        predictions=y_processed_predict, references=y_processed_true
+                    )[
+                        metric_submetric_names[1]
+                        if len(metric_submetric_names) > 1
+                        else "overall_accuracy"
+                    ]
 
                 else:
                     score = metric.compute(

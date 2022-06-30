@@ -78,17 +78,6 @@ def test_tokenclassification_tokenlabel():
     automl_settings[
         "metric"
     ] = "seqeval:overall_f1"  # evaluating based on the overall_f1 of seqeval
-    # automl_settings["fit_kwargs_by_estimator"]["transformer"]["label_list"] = [
-    #     "O",
-    #     "B-PER",
-    #     "I-PER",
-    #     "B-ORG",
-    #     "I-ORG",
-    #     "B-LOC",
-    #     "I-LOC",
-    #     "B-MISC",
-    #     "I-MISC",
-    # ]
 
     try:
         automl.fit(
@@ -119,4 +108,4 @@ def test_tokenclassification_tokenlabel():
 
 
 if __name__ == "__main__":
-    test_tokenclassification_idlabel()
+    test_tokenclassification_tokenlabel()

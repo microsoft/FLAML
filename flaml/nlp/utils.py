@@ -102,14 +102,13 @@ def tokenize_and_align_labels(
             if word_idx is None:
                 label_ids.append(-100)
             elif word_idx != previous_word_idx:
-                try:
-                    label_ids.append(label_to_id[examples[Y_sent_key][word_idx]])
-                except KeyError:
-                    raise Exception(label_to_id, examples[Y_sent_key])
+                label_ids.append(label_to_id[examples[Y_sent_key][word_idx]])
             # For the other tokens in a word, we set the label to either the current label or -100, depending on
             # the label_all_tokens flag.
             else:
+                # Use the label_all_tokens to control whether to copy the label to all subtokens or to pad the additional tokens as -100
                 if hf_args.label_all_tokens:
+                    # If the B- word is converted into multiple subtokens, map the additional subtokens to I-
                     label_ids.append(
                         b_to_i_label[label_to_id[examples[Y_sent_key][word_idx]]]
                     )
@@ -546,19 +545,3 @@ def postprocess_prediction(task, y_pred, tokenizer, hf_args, y_true=None, X=None
         return decoded_preds, decoded_y_true_labels
     elif task == MULTICHOICECLASSIFICATION:
         return np.argmax(y_pred, axis=1), y_true
-
-
-def tokenize_fit_label(task, y_train):
-    label_list = tokenlabel_to_id = None
-    if task == TOKENCLASSIFICATION:
-        # if the labels are tokens, convert them to ids
-        if any([isinstance(x, str) for x in y_train[0]]):
-            label_list = sorted(list(set().union(*y_train)))
-            tokenlabel_to_id = {label_list[x]: x for x in range(len(label_list))}
-            y_train = y_train.apply(lambda x: [tokenlabel_to_id[xx] for xx in x])
-        # if the labels are not tokens, they must be ids and label_list must exist
-        else:
-            assert all(
-                [isinstance(x, int) for x in y_train[0]]
-            ), "The labels must either be tokens or ids"
-    return y_train, label_list
