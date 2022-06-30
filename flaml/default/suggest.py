@@ -246,10 +246,7 @@ def preprocess_and_suggest_hyperparams(
 
         class AutoMLTransformer:
             def transform(self, X):
-                try:
-                    return model._preprocess(dt.transform(X))
-                except:
-                    raise Exception(X)
+                return model._preprocess(dt.transform(X))
 
         transformer = AutoMLTransformer()
         return hyperparams, estimator_class, X, y, transformer, dt.label_transformer

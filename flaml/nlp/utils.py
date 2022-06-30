@@ -85,20 +85,16 @@ def tokenize_and_align_labels(
     Y_sent_key=None,
     return_column_name=False,
 ):
-    try:
-        tokenized_inputs = tokenizer(
-            [list(examples[X_sent_key])],
-            padding="max_length"
-            if hf_args and hf_args.pad_to_max_length
-            else False,  # to be consistent with https://github.com/huggingface/transformers/blob/main/examples/pytorch/token-classification/run_ner.py#L394
-            truncation=True,
-            max_length=hf_args.max_seq_length if hf_args else None,
-            # We use this argument because the texts in our dataset are lists of words (with a label for each word).
-            is_split_into_words=True,  # True if "roberta" not in hf_args.model_path else False,
-        )
-    except AssertionError as e:
-        print(e)
-        raise Exception(examples[X_sent_key])
+    tokenized_inputs = tokenizer(
+        [list(examples[X_sent_key])],
+        padding="max_length"
+        if hf_args and hf_args.pad_to_max_length
+        else False,  # to be consistent with https://github.com/huggingface/transformers/blob/main/examples/pytorch/token-classification/run_ner.py#L394
+        truncation=True,
+        max_length=hf_args.max_seq_length if hf_args else None,
+        # We use this argument because the texts in our dataset are lists of words (with a label for each word).
+        is_split_into_words=True,
+    )
     if Y_sent_key is not None:
         previous_word_idx = None
         label_ids = []
