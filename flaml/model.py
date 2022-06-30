@@ -548,7 +548,8 @@ class TransformersEstimator(BaseEstimator):
                 self._training_args.model_path,
                 use_fast=True,
                 add_prefix_space=True
-                if "roberta" in self._training_args.model_path
+                if ("roberta" in self._training_args.model_path)
+                or (hasattr(self, "is_pred") and self.is_pred)
                 else False,  # If roberta model, must set add_prefix_space to True to avoid the assertion error at
                 # https://github.com/huggingface/transformers/blob/main/src/transformers/models/roberta/tokenization_roberta_fast.py#L249
             )
@@ -770,6 +771,7 @@ class TransformersEstimator(BaseEstimator):
     def _init_model_for_predict(self):
         from .nlp.huggingface.trainer import TrainerForAuto
 
+        self.is_pred = True
         """
             Need to reinit training_args because of a bug in deepspeed: if not reinit, the deepspeed config will be inconsistent
             with HF config https://github.com/huggingface/transformers/blob/main/src/transformers/training_args.py#L947
