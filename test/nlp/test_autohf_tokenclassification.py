@@ -8,7 +8,10 @@ from utils import (
 )
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
+@pytest.mark.skipif(
+    sys.platform == "darwin" or sys.version < "3.7",
+    reason="do not run on mac os or py<3.7",
+)
 def test_tokenclassification_idlabel():
     from flaml import AutoML
 
@@ -60,7 +63,10 @@ def test_tokenclassification_idlabel():
         raise FileNotFoundError("seqclass.log is not found")
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
+@pytest.mark.skipif(
+    sys.platform == "darwin" or sys.version < "3.7",
+    reason="do not run on mac os or py<3.7",
+)
 def test_tokenclassification_tokenlabel():
     from flaml import AutoML
 
