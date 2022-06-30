@@ -144,13 +144,20 @@ class TestWarmStart(unittest.TestCase):
         automl_settings["starting_points"] = automl1.best_config_per_estimator
         automl2 = AutoML()
         automl2.fit(X_train, y_train, **automl_settings)
+
         automl_settings["sample"] = False
         automl3 = AutoML()
-        automl3.fit(
-            X_train,
-            y_train,
-            **automl_settings,
-        )
+        try:
+            automl3.fit(
+                X_train,
+                y_train,
+                **automl_settings,
+            )
+            raise RuntimeError(
+                "Exp should fail when sample is set False and starting_point include FLAML_sample_size"
+            )
+        except AssertionError:
+            pass
 
 
 if __name__ == "__main__":

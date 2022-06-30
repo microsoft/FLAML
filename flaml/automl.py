@@ -2433,12 +2433,17 @@ class AutoML(BaseEstimator):
             )
         )
         if not self._sample and isinstance(starting_points, dict):
-            sample_size_exists = any(
-                [s.get("FLAML_sample_size") for s in starting_points.values() if s]
-            )
-            assert (
-                not sample_size_exists
-            ), "When subsampling is disabled, should not include FLAML_sample_size in the starting point"
+            _has_sample_size = []
+            for _point in starting_points.values():
+                if _point and isinstance(_point, dict):
+                    _has_sample_size.append("FLAML_sample_size" in _point)
+                elif _point and isinstance(_point, list):
+                    _has_sample_size.append(
+                        any(["FLAML_sample_size" in c for c in _point])
+                    )
+            assert not any(
+                _has_sample_size
+            ), "When subsampling is disabled, do not include FLAML_sample_size in the starting point."
         if "auto" == metric:
             if _is_nlp_task(self._state.task):
                 from .nlp.utils import load_default_huggingface_metric_for_task
