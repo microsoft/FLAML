@@ -123,6 +123,35 @@ class TestWarmStart(unittest.TestCase):
         automl.fit(X_train, y_train)
         print(automl.best_config_per_estimator)
 
+    def test_FLAML_sample_size_in_starting_points(self):
+        from flaml.data import load_openml_dataset
+
+        X_train, X_test, y_train, y_test = load_openml_dataset(
+            dataset_id=1169, data_dir="./"
+        )
+        from flaml import AutoML
+
+        automl_settings = {
+            "time_budget": 3,
+            "task": "classification",
+        }
+
+        automl1 = AutoML()
+        print(len(y_train))
+        automl1.fit(X_train, y_train, **automl_settings)
+        print("automl1.best_config_per_estimator", automl1.best_config_per_estimator)
+
+        automl_settings["starting_points"] = automl1.best_config_per_estimator
+        automl2 = AutoML()
+        automl2.fit(X_train, y_train, **automl_settings)
+        automl_settings["sample"] = False
+        automl3 = AutoML()
+        automl3.fit(
+            X_train,
+            y_train,
+            **automl_settings,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

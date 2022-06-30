@@ -108,6 +108,7 @@ class SearchState:
                     value, search_space[name].get("domain")
                 )
                 for name, value in starting_point.items()
+                if name != "FLAML_sample_size"
             ]
         )
 
@@ -2411,6 +2412,17 @@ class AutoML(BaseEstimator):
                 < self._state.data_size[0]
             )
         )
+        if not self._sample and isinstance(starting_points, dict):
+            sample_size_exists = any(
+                [s.get("FLAML_sample_size") for s in starting_points.values() if s]
+            )
+            print(
+                "sample_size_exists",
+                sample_size_exists,
+            )
+            assert (
+                not sample_size_exists
+            ), "When subsampling is disabled, should not include FLAML_sample_size in the starting point"
         if "auto" == metric:
             if _is_nlp_task(self._state.task):
                 from .nlp.utils import load_default_huggingface_metric_for_task
