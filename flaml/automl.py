@@ -2416,10 +2416,6 @@ class AutoML(BaseEstimator):
             sample_size_exists = any(
                 [s.get("FLAML_sample_size") for s in starting_points.values() if s]
             )
-            print(
-                "sample_size_exists",
-                sample_size_exists,
-            )
             assert (
                 not sample_size_exists
             ), "When subsampling is disabled, should not include FLAML_sample_size in the starting point"
