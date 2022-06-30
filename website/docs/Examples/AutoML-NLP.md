@@ -220,11 +220,39 @@ Model config T5Config {
 from flaml import AutoML
 from datasets import load_dataset
 
-train_dataset = load_dataset("conll2003", split="train").to_pandas()
-dev_dataset = load_dataset("glue", "mrpc", split="validation").to_pandas()
-test_dataset = load_dataset("glue", "mrpc", split="test").to_pandas()
-custom_sent_keys = ["sentence1", "sentence2"]
-label_key = "label"
+train_dataset = {
+        "id": ["0", "1"],
+        "ner_tags": [
+            ["B-ORG", "O", "B-MISC", "O", "O", "O", "B-MISC", "O", "O"],
+            ["B-PER", "I-PER"],
+        ],
+        "tokens": [
+            [
+                "EU", "rejects", "German", "call", "to", "boycott", "British", "lamb", ".",
+            ],
+            ["Peter", "Blackburn"],
+        ],
+    }
+dev_dataset = {
+        "id": ["0"],
+        "ner_tags": [
+            ["B-LOC", "O"],
+        ],
+        "tokens": [
+            ["BRUSSELS", "1996-08-22"]
+        ],
+    }
+test_dataset = {
+        "id": ["0"],
+        "ner_tags": [
+            ["B-LOC", "O"],
+        ],
+        "tokens": [
+            ["BRUSSELS", "1996-08-22"]
+        ],
+    }
+custom_sent_keys = ["tokens"]
+label_key = "ner_tags"
 X_train, y_train = train_dataset[custom_sent_keys], train_dataset[label_key]
 X_val, y_val = dev_dataset[custom_sent_keys], dev_dataset[label_key]
 X_test = test_dataset[custom_sent_keys]
@@ -232,7 +260,7 @@ X_test = test_dataset[custom_sent_keys]
 automl = AutoML()
 automl_settings = {
     "time_budget": 100,
-    "task": "seq-classification",
+    "task": "token-classification",
     "fit_kwargs_by_estimator": {
         "transformer":
        {
@@ -240,6 +268,7 @@ automl_settings = {
        }
     },  # setting the huggingface arguments: output directory
     "gpu_per_trial": 1,                         # set to 0 if no GPU is available
+    "metric": "seqeval:overall_f1"
 }
 automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings)
 automl.predict(X_test)

@@ -240,12 +240,12 @@ def preprocess_and_suggest_hyperparams(
         return hyperparams, model_class, X, y, None, None
     else:
         estimator_class = model.estimator_class
-        X, y = model._preprocess(X, y)
+        X = model._preprocess(X)
         hyperparams = hyperparams and model.params
 
         class AutoMLTransformer:
-            def transform(self, X, y):
-                return model._preprocess(dt.transform(X, y))
+            def transform(self, X):
+                return model._preprocess(dt.transform(X))
 
         transformer = AutoMLTransformer()
         return hyperparams, estimator_class, X, y, transformer, dt.label_transformer
