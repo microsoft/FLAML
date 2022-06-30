@@ -63,4 +63,4 @@ def test_custom_hp():
 
 
 if __name__ == "__main__":
-    test_custom_hp()
+    test_custom_hp_nlp()
