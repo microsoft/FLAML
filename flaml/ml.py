@@ -140,7 +140,6 @@ def metric_loss_score(
     sample_weight=None,
     groups=None,
 ):
-    raise Exception(label_list)
     # y_processed_predict and y_processed_true are both converted into labels if the original was the token labels
     if is_in_sklearn_metric_name_set(metric_name):
         return sklearn_metric_loss_score(
