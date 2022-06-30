@@ -863,7 +863,7 @@ class AutoML(BaseEstimator):
                 "No estimator is trained. Please run fit with enough budget."
             )
             return None
-        X, y = self._preprocess(X, y)
+        X = self._preprocess(X)
         if self._label_transformer:
             y = self._label_transformer.transform(y)
         return estimator.score(X, y, **kwargs)
@@ -906,7 +906,7 @@ class AutoML(BaseEstimator):
                 "No estimator is trained. Please run fit with enough budget."
             )
             return None
-        X, _ = self._preprocess(X)
+        X = self._preprocess(X)
         y_pred = estimator.predict(X, **pred_kwargs)
         if (
             isinstance(y_pred, np.ndarray)
@@ -940,11 +940,11 @@ class AutoML(BaseEstimator):
                 "No estimator is trained. Please run fit with enough budget."
             )
             return None
-        X, _ = self._preprocess(X)
+        X = self._preprocess(X)
         proba = self._trained_estimator.predict_proba(X, **pred_kwargs)
         return proba
 
-    def _preprocess(self, X, y=None):
+    def _preprocess(self, X):
         if isinstance(X, List):
             try:
                 if isinstance(X[0], List):
@@ -964,14 +964,14 @@ class AutoML(BaseEstimator):
                     "Test data contains more columns than training data, exiting"
                 )
         elif isinstance(X, int):
-            return X, y
+            return X
         elif issparse(X):
             X = X.tocsr()
         if self._state.task in TS_FORECAST:
             X = pd.DataFrame(X)
         if self._transformer:
-            X, y = self._transformer.transform(X, y)
-        return X, y
+            X = self._transformer.transform(X)
+        return X
 
     def _validate_ts_data(
         self,
@@ -1150,11 +1150,9 @@ class AutoML(BaseEstimator):
                 X_val.shape[0] == y_val.shape[0]
             ), "# rows in X_val must match length of y_val."
             if self._transformer:
-                self._state.X_val, self._state.y_val = self._transformer.transform(
-                    X_val, y_val
-                )
+                self._state.X_val = self._transformer.transform(X_val)
             else:
-                self._state.X_val, self._state.y_val = X_val, y_val
+                self._state.X_val = X_val
             # If it's NLG_TASKS, y_val is a pandas series containing the output sequence tokens,
             # so we cannot use label_transformer.transform to process it
             if self._label_transformer:

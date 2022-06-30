@@ -545,3 +545,25 @@ def postprocess_prediction(task, y_pred, tokenizer, hf_args, y_true=None, X=None
         return decoded_preds, decoded_y_true_labels
     elif task == MULTICHOICECLASSIFICATION:
         return np.argmax(y_pred, axis=1), y_true
+
+
+class LabelEncoderforTokenClassification:
+    def fit_transform(self, y):
+        # if the labels are tokens, convert them to ids
+        if any([isinstance(yy, str) for yy in y[0]]):
+            self._label_list = sorted(list(set().union(*y)))
+            self._tokenlabel_to_id = {
+                self._label_list[yy]: yy for yy in range(len(self._label_list))
+            }
+            y = y.apply(lambda yy: [self._tokenlabel_to_id[yyy] for yyy in yy])
+        # if the labels are not tokens, they must be ids
+        else:
+            assert all(
+                [isinstance(yy, int) for yy in y[0]]
+            ), "The labels must either be tokens or ids"
+        return y
+
+    def transform(self, y):
+        if hasattr(self, "_label_list"):
+            y = y.apply(lambda yy: [self._tokenlabel_to_id[yyy] for yyy in yy])
+        return y
