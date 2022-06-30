@@ -381,10 +381,23 @@ class DataTransformer:
             y = self.label_transformer.fit_transform(y)
         else:
             self.label_transformer = None
+            if task == TOKENCLASSIFICATION:
+                # if the labels are tokens, convert them to ids
+                if any([isinstance(x, str) for x in y[0]]):
+                    self._label_list = sorted(list(set().union(*y)))
+                    self._tokenlabel_to_id = {
+                        self._label_list[x]: x for x in range(len(self._label_list))
+                    }
+                    y = y.apply(lambda x: [self._tokenlabel_to_id[xx] for xx in x])
+                # if the labels are not tokens, they must be ids
+                else:
+                    assert all(
+                        [isinstance(x, int) for x in y[0]]
+                    ), "The labels must either be tokens or ids"
         self._task = task
         return X, y
 
-    def transform(self, X: Union[DataFrame, np.array]):
+    def transform(self, X: Union[DataFrame, np.array], y=None):
         """Process data using fit transformer.
 
         Args:
@@ -446,7 +459,11 @@ class DataTransformer:
                 if self._drop:
                     X_num.columns = range(X_num.shape[1])
                 X[num_columns] = self.transformer.transform(X_num)
-        return X
+        if self._task == TOKENCLASSIFICATION and (y is not None):
+            # if the labels are tokens, convert them to ids
+            if hasattr(self, "_label_list"):
+                y = y.apply(lambda x: [self._tokenlabel_to_id[xx] for xx in x])
+        return X, y
 
 
 def group_counts(groups):

@@ -863,7 +863,7 @@ class AutoML(BaseEstimator):
                 "No estimator is trained. Please run fit with enough budget."
             )
             return None
-        X = self._preprocess(X)
+        X, y = self._preprocess(X, y)
         if self._label_transformer:
             y = self._label_transformer.transform(y)
         return estimator.score(X, y, **kwargs)
@@ -906,7 +906,7 @@ class AutoML(BaseEstimator):
                 "No estimator is trained. Please run fit with enough budget."
             )
             return None
-        X = self._preprocess(X)
+        X, _ = self._preprocess(X)
         y_pred = estimator.predict(X, **pred_kwargs)
         if (
             isinstance(y_pred, np.ndarray)
@@ -940,11 +940,11 @@ class AutoML(BaseEstimator):
                 "No estimator is trained. Please run fit with enough budget."
             )
             return None
-        X = self._preprocess(X)
+        X, _ = self._preprocess(X)
         proba = self._trained_estimator.predict_proba(X, **pred_kwargs)
         return proba
 
-    def _preprocess(self, X):
+    def _preprocess(self, X, y=None):
         if isinstance(X, List):
             try:
                 if isinstance(X[0], List):
@@ -970,8 +970,8 @@ class AutoML(BaseEstimator):
         if self._state.task in TS_FORECAST:
             X = pd.DataFrame(X)
         if self._transformer:
-            X = self._transformer.transform(X)
-        return X
+            X, y = self._transformer.transform(X, y)
+        return X, y
 
     def _validate_ts_data(
         self,
@@ -1108,10 +1108,22 @@ class AutoML(BaseEstimator):
             from .data import DataTransformer
 
             self._transformer = DataTransformer()
+
             self._X_train_all, self._y_train_all = self._transformer.fit_transform(
                 X, y, self._state.task
             )
             self._label_transformer = self._transformer.label_transformer
+            if hasattr(self._transformer, "_label_list"):
+                for each_estimator in list(self._state.fit_kwargs_by_estimator.keys()):
+                    self._state.fit_kwargs_by_estimator[each_estimator].update(
+                        {"label_list": self._transformer._label_list}
+                    )
+            if self._state.task == TOKENCLASSIFICATION:
+                for each_estimator in list(self._state.fit_kwargs_by_estimator.keys()):
+                    assert (
+                        "label_list"
+                        in self._state.fit_kwargs_by_estimator[each_estimator]
+                    ), "For the token-classification task, you must either (1) pass token labels; (2) pass id labels and the label list. Please refer to the documentation for more details: [a-simple-token-classification-example](https://microsoft.github.io/FLAML/docs/Examples/AutoML-NLP#a-simple-token-classification-example)"
 
         self._sample_weight_full = self._state.fit_kwargs.get(
             "sample_weight"
@@ -1138,15 +1150,15 @@ class AutoML(BaseEstimator):
                 X_val.shape[0] == y_val.shape[0]
             ), "# rows in X_val must match length of y_val."
             if self._transformer:
-                self._state.X_val = self._transformer.transform(X_val)
+                self._state.X_val, self._state.y_val = self._transformer.transform(
+                    X_val, y_val
+                )
             else:
-                self._state.X_val = X_val
+                self._state.X_val, self._state.y_val = X_val, y_val
             # If it's NLG_TASKS, y_val is a pandas series containing the output sequence tokens,
             # so we cannot use label_transformer.transform to process it
             if self._label_transformer:
                 self._state.y_val = self._label_transformer.transform(y_val)
-            else:
-                self._state.y_val = y_val
         else:
             self._state.X_val = self._state.y_val = None
         if groups is not None and len(groups) != self._nrow:

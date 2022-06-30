@@ -527,7 +527,7 @@ class TransformersEstimator(BaseEstimator):
         elif self._task == SEQCLASSIFICATION:
             return len(set(self._y_train))
         elif self._task == TOKENCLASSIFICATION:
-            return len(set([a for b in self._y_train.tolist() for a in b]))
+            return len(self._training_args.label_list)
         else:
             return None
 
@@ -732,34 +732,29 @@ class TransformersEstimator(BaseEstimator):
         return best_ckpt
 
     def _compute_metrics_by_dataset_name(self, eval_pred):
+        # TODO: call self._metric(eval_pred, self)
         if isinstance(self._metric, str):
             from .ml import metric_loss_score
-            from .nlp.utils import (
-                postprocess_prediction,
-                postprocess_seq2seq_prediction_label,
-            )
+            from .nlp.utils import postprocess_prediction
 
-            predictions, labels = eval_pred
-            predictions = postprocess_prediction(
-                self._task, predictions, self.tokenizer
+            predictions, y_true = eval_pred
+            processed_predictions, processed_y_true = postprocess_prediction(
+                task=self._task,
+                y_pred=predictions,
+                tokenizer=self.tokenizer,
+                hf_args=self._training_args,
+                y_true=y_true,
             )
-            if self._task in NLG_TASKS:
-                labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
-                decoded_labels = self.tokenizer.batch_decode(
-                    labels, skip_special_tokens=True
-                )
-                predictions, labels = postprocess_seq2seq_prediction_label(
-                    predictions, decoded_labels
-                )
             metric_dict = {
                 "automl_metric": metric_loss_score(
                     metric_name=self._metric,
-                    y_predict=predictions,
-                    y_true=labels,
-                    labels=self._training_args.label_list,
+                    y_processed_predict=processed_predictions,
+                    y_processed_true=processed_y_true,
+                    label_list=self._training_args.label_list,
                 )
             }
         else:
+            # TODO: debug to see how custom metric can take both tokenized (here) and untokenized input (ml.py)
             loss, metric_dict = self._metric(
                 X_test=self._X_val,
                 y_test=self._y_val,
@@ -850,9 +845,14 @@ class TransformersEstimator(BaseEstimator):
                 test_dataset,
                 metric_key_prefix="predict",
             )
-        return postprocess_prediction(
-            self._task, predictions.predictions, self.tokenizer
+        post_y_pred, _ = postprocess_prediction(
+            task=self._task,
+            y_pred=predictions.predictions,
+            tokenizer=self.tokenizer,
+            hf_args=self._training_args,
+            X=X,
         )
+        return post_y_pred
 
     def config2params(self, config: dict) -> dict:
         params = super().config2params(config)

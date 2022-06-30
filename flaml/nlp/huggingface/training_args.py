@@ -49,6 +49,13 @@ class TrainingArgumentsForAuto(TrainingArguments):
 
     max_seq_length: int = field(default=128, metadata={"help": "max seq length"})
 
+    label_all_tokens: bool = field(
+        default=False,
+        metadata={
+            "help": "For NER task, whether to set the extra tokenized labels to the same label (instead of -100)"
+        },
+    )
+
     pad_to_max_length: bool = field(
         default=False,
         metadata={
