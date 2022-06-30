@@ -98,7 +98,7 @@ def test_suggest_classification():
     )
     model = estimator_class(**hyperparams)  # estimator_class is LGBMClassifier
     model.fit(X, y)
-    X_test = feature_transformer.transform(X_test)
+    X_test, _ = feature_transformer.transform(X_test)
     y_pred = label_transformer.inverse_transform(
         pd.Series(model.predict(X_test).astype(int))
     )
@@ -219,4 +219,4 @@ def test_xgboost():
 
 
 if __name__ == "__main__":
-    test_lgbm()
+    test_suggest_classification()
