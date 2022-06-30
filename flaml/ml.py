@@ -140,7 +140,8 @@ def metric_loss_score(
     sample_weight=None,
     groups=None,
 ):
-    # y_processed_predict and y_processed_true are both processed
+    raise Exception(label_list)
+    # y_processed_predict and y_processed_true are both converted into labels if the original was the token labels
     if is_in_sklearn_metric_name_set(metric_name):
         return sklearn_metric_loss_score(
             metric_name,
@@ -267,14 +268,13 @@ def sklearn_metric_loss_score(
             used to calculate the metric. E.g., 2d for log_loss and 1d
             for others.
         y_true: A 1d numpy array of the true labels.
-        label_list: A 1d numpy array of the unique labels.
+        label_list: A str list of the unique labels.
         sample_weight: A 1d numpy array of the sample weight.
         groups: A 1d numpy array of the group labels.
 
     Returns:
         score: A float number of the loss, the lower the better.
     """
-
     metric_name = metric_name.lower()
 
     if "r2" == metric_name:

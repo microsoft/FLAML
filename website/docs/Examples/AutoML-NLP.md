@@ -338,24 +338,14 @@ automl_settings = {
     "fit_kwargs_by_estimator": {
         "transformer":
             {
-                "output_dir": "data/output/"
+                "output_dir": "data/output/",
                 # if model_path is not set, the default model is facebook/muppet-roberta-base: https://huggingface.co/facebook/muppet-roberta-base
+                "label_list": [ "O","B-PER", "I-PER", "B-ORG", "I-ORG", "B-LOC", "I-LOC", "B-MISC", "I-MISC" ]
             }
     },  # setting the huggingface arguments: output directory
     "gpu_per_trial": 1,  # set to 0 if no GPU is available
     "metric": "seqeval:overall_f1"
 }
-automl_settings["fit_kwargs_by_estimator"]["transformer"]["label_list"] = [
-        "O",
-        "B-PER",
-        "I-PER",
-        "B-ORG",
-        "I-ORG",
-        "B-LOC",
-        "I-LOC",
-        "B-MISC",
-        "I-MISC",
-    ]
 
 automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings)
 automl.predict(X_test)

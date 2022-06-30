@@ -477,7 +477,10 @@ def load_model(checkpoint_path, task, num_labels=None):
         return this_model
 
 
-def postprocess_prediction(task, y_pred, tokenizer, hf_args, y_true=None, X=None):
+def postprocess_prediction_and_true(
+    task, y_pred, tokenizer, hf_args, y_true=None, X=None
+):
+    # postprocess the matrix prediction y_pred and ground truth y_true into user readable format, e.g., for summarization, decode into text
     if task == SEQCLASSIFICATION:
         return np.argmax(y_pred, axis=1), y_true
     elif task == SEQREGRESSION:

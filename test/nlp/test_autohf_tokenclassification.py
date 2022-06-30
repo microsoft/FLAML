@@ -49,18 +49,22 @@ def test_tokenclassification_idlabel():
     # perf test
     import json
 
-    try:
-        with open("seqclass.log", "r") as fin:
-            for line in fin:
-                each_log = json.loads(line.strip("\n"))
-                if "validation_loss" in each_log:
-                    val_loss = each_log["validation_loss"]
-                    for each_dict in each_log["logged_metric"]["intermediate_results"]:
-                        assert ("eval_automl_metric" not in each_dict) or (
-                            each_dict["eval_automl_metric"] == val_loss
-                        )
-    except FileNotFoundError:
-        raise FileNotFoundError("seqclass.log is not found")
+    with open("seqclass.log", "r") as fin:
+        for line in fin:
+            each_log = json.loads(line.strip("\n"))
+            if "validation_loss" in each_log:
+                val_loss = each_log["validation_loss"]
+                min_inter_result = min(
+                    [
+                        each_dict.get("eval_automl_metric", -sys.maxsize)
+                        for each_dict in each_log["logged_metric"][
+                            "intermediate_results"
+                        ]
+                    ]
+                )
+
+                if min_inter_result != -sys.maxsize:
+                    assert val_loss == min_inter_result
 
 
 @pytest.mark.skipif(
@@ -93,19 +97,23 @@ def test_tokenclassification_tokenlabel():
     # perf test
     import json
 
-    try:
-        with open("seqclass.log", "r") as fin:
-            for line in fin:
-                each_log = json.loads(line.strip("\n"))
-                if "validation_loss" in each_log:
-                    val_loss = each_log["validation_loss"]
-                    for each_dict in each_log["logged_metric"]["intermediate_results"]:
-                        assert ("eval_automl_metric" not in each_dict) or (
-                            each_dict["eval_automl_metric"] == val_loss
-                        )
-    except FileNotFoundError:
-        raise FileNotFoundError("seqclass.log is not found")
+    with open("seqclass.log", "r") as fin:
+        for line in fin:
+            each_log = json.loads(line.strip("\n"))
+            if "validation_loss" in each_log:
+                val_loss = each_log["validation_loss"]
+                min_inter_result = min(
+                    [
+                        each_dict.get("eval_automl_metric", -sys.maxsize)
+                        for each_dict in each_log["logged_metric"][
+                            "intermediate_results"
+                        ]
+                    ]
+                )
+
+                if min_inter_result != -sys.maxsize:
+                    assert val_loss == min_inter_result
 
 
 if __name__ == "__main__":
-    test_tokenclassification_tokenlabel()
+    test_tokenclassification_idlabel()

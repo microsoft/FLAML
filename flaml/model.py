@@ -548,9 +548,8 @@ class TransformersEstimator(BaseEstimator):
                 self._training_args.model_path,
                 use_fast=True,
                 add_prefix_space=True
-                if ("roberta" in self._training_args.model_path)
-                or (hasattr(self, "is_pred") and self.is_pred)
-                else False,  # If roberta model, must set add_prefix_space to True to avoid the assertion error at
+                if ("roberta" in self._training_args.model_path and self.fit)
+                else False,  # If roberta model and the call is from .fit instead of .predict (when the model_path is updated to the checkpoint name instead), must set add_prefix_space to True to avoid the assertion error at
                 # https://github.com/huggingface/transformers/blob/main/src/transformers/models/roberta/tokenization_roberta_fast.py#L249
             )
 
@@ -579,6 +578,8 @@ class TransformersEstimator(BaseEstimator):
         **kwargs,
     ):
         import transformers
+
+        self.fit = True
 
         transformers.logging.set_verbosity_error()
 
@@ -736,10 +737,11 @@ class TransformersEstimator(BaseEstimator):
         # TODO: call self._metric(eval_pred, self)
         if isinstance(self._metric, str):
             from .ml import metric_loss_score
-            from .nlp.utils import postprocess_prediction
+            from .nlp.utils import postprocess_prediction_and_true
 
             predictions, y_true = eval_pred
-            processed_predictions, processed_y_true = postprocess_prediction(
+            # postprocess the matrix prediction and ground truth into user readable format, e.g., for summarization, decode into text
+            processed_predictions, processed_y_true = postprocess_prediction_and_true(
                 task=self._task,
                 y_pred=predictions,
                 tokenizer=self.tokenizer,
@@ -771,11 +773,11 @@ class TransformersEstimator(BaseEstimator):
     def _init_model_for_predict(self):
         from .nlp.huggingface.trainer import TrainerForAuto
 
-        self.is_pred = True
         """
             Need to reinit training_args because of a bug in deepspeed: if not reinit, the deepspeed config will be inconsistent
             with HF config https://github.com/huggingface/transformers/blob/main/src/transformers/training_args.py#L947
         """
+        self.fit = False
         training_args = self._TrainingArguments(
             local_rank=-1, model_path=self._checkpoint_path, fp16=self.fp16
         )
@@ -827,7 +829,7 @@ class TransformersEstimator(BaseEstimator):
     def predict(self, X, **pred_kwargs):
         import transformers
         from datasets import Dataset
-        from .nlp.utils import postprocess_prediction
+        from .nlp.utils import postprocess_prediction_and_true
 
         transformers.logging.set_verbosity_error()
 
@@ -847,7 +849,7 @@ class TransformersEstimator(BaseEstimator):
                 test_dataset,
                 metric_key_prefix="predict",
             )
-        post_y_pred, _ = postprocess_prediction(
+        post_y_pred, _ = postprocess_prediction_and_true(
             task=self._task,
             y_pred=predictions.predictions,
             tokenizer=self.tokenizer,

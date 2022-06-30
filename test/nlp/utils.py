@@ -1506,8 +1506,8 @@ def get_automl_settings(estimator_name="transformer"):
 
     automl_settings = {
         "gpu_per_trial": 0,
-        "max_iter": 100,
-        "time_budget": 100,
+        "max_iter": 3,
+        "time_budget": 10,
         "task": "seq-classification",
         "metric": "accuracy",
         "log_file_name": "seqclass.log",

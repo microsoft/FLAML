@@ -219,4 +219,4 @@ def test_xgboost():
 
 
 if __name__ == "__main__":
-    test_suggest_classification()
+    test_build_portfolio("flaml/default")

@@ -1113,10 +1113,10 @@ class AutoML(BaseEstimator):
                 X, y, self._state.task
             )
             self._label_transformer = self._transformer.label_transformer
-            if hasattr(self._transformer, "_label_list"):
+            if hasattr(self._label_transformer, "_label_list"):
                 for each_estimator in list(self._state.fit_kwargs_by_estimator.keys()):
                     self._state.fit_kwargs_by_estimator[each_estimator].update(
-                        {"label_list": self._transformer._label_list}
+                        {"label_list": self._label_transformer._label_list}
                     )
             if self._state.task == TOKENCLASSIFICATION:
                 for each_estimator in list(self._state.fit_kwargs_by_estimator.keys()):
