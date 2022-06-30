@@ -393,7 +393,7 @@ class DataTransformer:
                 else:
                     assert all(
                         [isinstance(x, int) for x in y[0]]
-                    ), "The labels must either be tokens or ids"
+                    ), "The labels must either be tokens or ids for token classification tasks."
         self._task = task
         return X, y
 
