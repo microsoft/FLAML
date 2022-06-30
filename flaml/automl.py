@@ -964,7 +964,7 @@ class AutoML(BaseEstimator):
                     "Test data contains more columns than training data, exiting"
                 )
         elif isinstance(X, int):
-            return X
+            return X, y
         elif issparse(X):
             X = X.tocsr()
         if self._state.task in TS_FORECAST:

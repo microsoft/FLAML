@@ -26,7 +26,7 @@ automl = AutoML()
 automl_settings = {
     "time_budget": 100,
     "task": "seq-classification",
-    "fit_kwargs_by_estimator": {  
+    "fit_kwargs_by_estimator": {
         "transformer":
        {
            "output_dir": "data/output/"  # if model_path is not set, the default model is facebook/muppet-roberta-base: https://huggingface.co/facebook/muppet-roberta-base
@@ -87,7 +87,7 @@ automl_settings["fit_kwargs_by_estimator"] = {  # setting the huggingface argume
         "model_path": "google/electra-small-discriminator", # if model_path is not set, the default model is facebook/muppet-roberta-base: https://huggingface.co/facebook/muppet-roberta-base
         "output_dir": "data/output/",                       # setting the output directory
         "ckpt_per_epoch": 5,                                # setting the number of checkpoints per epoch
-        "fp16": False,  
+        "fp16": False,
     }   # setting whether to use FP16
 }
 automl.fit(
@@ -139,7 +139,7 @@ automl_settings["fit_kwargs_by_estimator"] = {      # setting the huggingface ar
         "model_path": "t5-small",             # if model_path is not set, the default model is t5-small: https://huggingface.co/t5-small
         "output_dir": "data/output/",         # setting the output directory
         "ckpt_per_epoch": 5,                  # setting the number of checkpoints per epoch
-        "fp16": False,  
+        "fp16": False,
     } # setting whether to use FP16
 }
 automl.fit(
@@ -212,6 +212,37 @@ Model config T5Config {
   "use_cache": true,
   "vocab_size": 32128
 }
+```
+
+### A simple token classification example
+
+```python
+from flaml import AutoML
+from datasets import load_dataset
+
+train_dataset = load_dataset("conll2003", split="train").to_pandas()
+dev_dataset = load_dataset("glue", "mrpc", split="validation").to_pandas()
+test_dataset = load_dataset("glue", "mrpc", split="test").to_pandas()
+custom_sent_keys = ["sentence1", "sentence2"]
+label_key = "label"
+X_train, y_train = train_dataset[custom_sent_keys], train_dataset[label_key]
+X_val, y_val = dev_dataset[custom_sent_keys], dev_dataset[label_key]
+X_test = test_dataset[custom_sent_keys]
+
+automl = AutoML()
+automl_settings = {
+    "time_budget": 100,
+    "task": "seq-classification",
+    "fit_kwargs_by_estimator": {
+        "transformer":
+       {
+           "output_dir": "data/output/"  # if model_path is not set, the default model is facebook/muppet-roberta-base: https://huggingface.co/facebook/muppet-roberta-base
+       }
+    },  # setting the huggingface arguments: output directory
+    "gpu_per_trial": 1,                         # set to 0 if no GPU is available
+}
+automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings)
+automl.predict(X_test)
 ```
 
 For tasks that are not currently supported, use `flaml.tune` for [customized tuning](Tune-HuggingFace).
