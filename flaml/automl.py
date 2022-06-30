@@ -1157,6 +1157,8 @@ class AutoML(BaseEstimator):
             # so we cannot use label_transformer.transform to process it
             if self._label_transformer:
                 self._state.y_val = self._label_transformer.transform(y_val)
+            else:
+                self._state.y_val = y_val
         else:
             self._state.X_val = self._state.y_val = None
         if groups is not None and len(groups) != self._nrow:
