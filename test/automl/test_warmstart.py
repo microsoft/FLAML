@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from sklearn.datasets import load_iris
-from flaml import AutoML
+from flaml import AutoML, automl
 from flaml.model import LGBMEstimator
 from flaml import tune
 
@@ -152,8 +152,28 @@ class TestWarmStart(unittest.TestCase):
         except ImportError:
             automl_settings["n_concurrent_trials"] = 1
         # setting different FLAML_sample_size
-        automl_settings["starting_points"]["rf"]["FLAML_sample_size"] = 10000
-        automl_settings["starting_points"]["xgboost"]["FLAML_sample_size"] = 20000
+        automl_settings["starting_points"] = {
+            "catboost": {
+                "early_stopping_rounds": 10,
+                "learning_rate": 0.09999999999999996,
+                "n_estimators": 1,
+                "FLAML_sample_size": 10000,
+            },
+            "xgboost": {
+                "n_estimators": 4,
+                "max_leaves": 4,
+                "min_child_weight": 0.26208115308159446,
+                "learning_rate": 0.25912534572860507,
+                "subsample": 0.9266743941610592,
+                "colsample_bylevel": 1.0,
+                "colsample_bytree": 1.0,
+                "reg_alpha": 0.0013933617380144255,
+                "reg_lambda": 0.18096917948292954,
+                "FLAML_sample_size": 20000,
+            },
+            "xgb_limitdepth": None,
+            "lrl1": None,
+        }
         automl3 = AutoML()
         automl3.fit(X_train, y_train, **automl_settings)
 
