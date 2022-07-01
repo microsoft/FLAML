@@ -548,7 +548,7 @@ class TransformersEstimator(BaseEstimator):
                 self._training_args.model_path,
                 use_fast=True,
                 add_prefix_space="roberta" in self._training_args.model_path
-                and self.fit_flag,
+                and not (hasattr(self, "pred_flag") and self.pred_flag),
                 # If roberta model and the call is from .fit instead of .predict (when the model_path is updated to the checkpoint name instead), must set add_prefix_space to True to avoid the assertion error at
                 # https://github.com/huggingface/transformers/blob/main/src/transformers/models/roberta/tokenization_roberta_fast.py#L249
             )
@@ -578,8 +578,6 @@ class TransformersEstimator(BaseEstimator):
         **kwargs,
     ):
         import transformers
-
-        self.fit_flag = True
 
         transformers.logging.set_verbosity_error()
 
@@ -777,7 +775,7 @@ class TransformersEstimator(BaseEstimator):
             Need to reinit training_args because of a bug in deepspeed: if not reinit, the deepspeed config will be inconsistent
             with HF config https://github.com/huggingface/transformers/blob/main/src/transformers/training_args.py#L947
         """
-        self.fit_flag = False
+        self.pred_flag = True
         training_args = self._TrainingArguments(
             local_rank=-1, model_path=self._checkpoint_path, fp16=self.fp16
         )
