@@ -2445,8 +2445,8 @@ class AutoML(BaseEstimator):
                         )
                     if len(_sample_size_set) > 1:
                         logger.warning(
-                            "Using the min FLAML_sample_size of all the provided starting points for estimator.".format(
-                                _estimator
+                            "Using the min FLAML_sample_size of all the provided starting points for estimator {}. (Provided FLAML_sample_size are: {})".format(
+                                _estimator, _sample_size_set
                             )
                         )
 

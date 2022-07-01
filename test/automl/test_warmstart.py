@@ -145,15 +145,29 @@ class TestWarmStart(unittest.TestCase):
         automl2 = AutoML()
         automl2.fit(X_train, y_train, **automl_settings)
 
-        automl_settings["sample"] = False
-        automl3 = AutoML()
         try:
-            automl3.fit(
+            import ray
+
+            automl_settings["n_concurrent_trials"] = 2
+        except ImportError:
+            automl_settings["n_concurrent_trials"] = 1
+        # setting different FLAML_sample_size
+        automl_settings["starting_points"]["rf"]["FLAML_sample_size"] = 10000
+        automl_settings["starting_points"]["xgboost"]["FLAML_sample_size"] = 20000
+        automl3 = AutoML()
+        automl3.fit(X_train, y_train, **automl_settings)
+
+        automl_settings["sample"] = False
+        automl4 = AutoML()
+        try:
+            automl4.fit(
                 X_train,
                 y_train,
                 **automl_settings,
             )
-            raise RuntimeError("When sample=False and starting_points contain FLAML_sample_size, AssertionError is expected but not raised.")
+            raise RuntimeError(
+                "When sample=False and starting_points contain FLAML_sample_size, AssertionError is expected but not raised."
+            )
         except AssertionError:
             pass
 
