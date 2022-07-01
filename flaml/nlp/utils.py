@@ -567,6 +567,6 @@ class LabelEncoderforTokenClassification:
         return y
 
     def transform(self, y):
-        if hasattr(self, "_label_list"):
+        if hasattr(self, "label_list"):
             y = y.apply(lambda yy: [self._tokenlabel_to_id[yyy] for yyy in yy])
         return y
