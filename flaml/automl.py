@@ -2432,26 +2432,29 @@ class AutoML(BaseEstimator):
                 if sample_size:
                     _sample_size_from_starting_points[_estimator] = sample_size
                 elif _point_per_estimator and isinstance(_point_per_estimator, list):
-                    _sample_size_list = [
-                        c["FLAML_sample_size"]
-                        for c in _point_per_estimator
-                        if "FLAML_sample_size" in c
-                    ]
-                    if _sample_size_list:
+                    _sample_size_set = set(
+                        [
+                            c["FLAML_sample_size"]
+                            for c in _point_per_estimator
+                            if "FLAML_sample_size" in c
+                        ]
+                    )
+                    if _sample_size_set:
                         _sample_size_from_starting_points[_estimator] = min(
-                            _sample_size_list
+                            _sample_size_set
+                        )
+                    if len(_sample_size_set) > 1:
+                        logger.warning(
+                            "Using the min FLAML_sample_size of all the provided starting points for estimator.".format(
+                                _estimator
+                            )
                         )
 
         if not sample and isinstance(starting_points, dict):
             assert (
                 not _sample_size_from_starting_points
             ), "When subsampling is disabled, do not include FLAML_sample_size in the starting point."
-
-        self._min_sample_size = (
-            _sample_size_from_starting_points
-            if _sample_size_from_starting_points
-            else min_sample_size
-        )
+        self._min_sample_size = _sample_size_from_starting_points or min_sample_size
         self._min_sample_size_input = min_sample_size
         self._prepare_data(eval_method, split_ratio, n_splits)
 
@@ -2791,7 +2794,12 @@ class AutoML(BaseEstimator):
             if self._hpo_method != "optuna":
                 min_resource = self.min_resource
                 if isinstance(min_resource, dict):
-                    min_resource_all_estimator = min(min_resource.values())
+                    _min_resource_set = set(min_resource.values())
+                    min_resource_all_estimator = min(_min_resource_set)
+                    if len(_min_resource_set) > 1:
+                        logger.warning(
+                            "Using the min FLAML_sample_size of all the provided starting points as the starting sample size in the case of parallel search."
+                        )
                 else:
                     min_resource_all_estimator = min_resource
                 search_alg = SearchAlgo(
