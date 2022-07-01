@@ -153,6 +153,7 @@ class TestWarmStart(unittest.TestCase):
                 y_train,
                 **automl_settings,
             )
+            raise RuntimeError("When sample=False and starting_points contain FLAML_sample_size, AssertionError is expected but not raised.")
         except AssertionError:
             pass
 
