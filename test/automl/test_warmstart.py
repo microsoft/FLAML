@@ -153,9 +153,6 @@ class TestWarmStart(unittest.TestCase):
                 y_train,
                 **automl_settings,
             )
-            raise RuntimeError(
-                "Exp should fail when sample is set False and starting_point include FLAML_sample_size"
-            )
         except AssertionError:
             pass
 
