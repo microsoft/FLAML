@@ -371,8 +371,10 @@ class DataTransformer:
             )
             self._drop = drop
         if (
-            task in CLASSIFICATION or not pd.api.types.is_numeric_dtype(y)
-        ) and task not in NLG_TASKS:
+            task in CLASSIFICATION
+            or not pd.api.types.is_numeric_dtype(y)
+            and task not in NLG_TASKS
+        ):
             if task != TOKENCLASSIFICATION:
                 from sklearn.preprocessing import LabelEncoder
 

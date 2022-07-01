@@ -30,9 +30,9 @@ class TrainingArgumentsForAuto(TrainingArguments):
         ckpt_per_epoch (int, optional, defaults to 1): An integer, the number of checkpoints per epoch.
         per_device_eval_batch_size (int, optional, defaults to 1): An integer, the per gpu evaluation batch size.
         label_list (List[str], optional, defaults to None): A list of string, the string list of the label names.
-            When the task is sequence labeling/token classification, there are two ways to pass the labels:
-            (1) Pass the token labels; (2) Pass the id. For (2), need to set the label_list which is the list of string labels (e.g., [B-PER, I-PER, B-LOC]).
-            See the example in [a simple token classification example](https://microsoft.github.io/FLAML/docs/Examples/AutoML-NLP#a-simple-token-classification-example).
+            When the task is sequence labeling/token classification, there are two formats of the labels:
+            (1) The token labels, i.e., [B-PER, I-PER, B-LOC] (2) Id labels. For (2), need to set the label_list later to convert ID to token labels. (e.g., [B-PER, I-PER, B-LOC]).
+            See the example in [a simple token classification example](../../../Examples/AutoML-NLP#a-simple-token-classification-example).
     """
 
     task: str = field(default="seq-classification")

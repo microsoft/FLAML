@@ -554,9 +554,9 @@ class LabelEncoderforTokenClassification:
     def fit_transform(self, y):
         # if the labels are tokens, convert them to ids
         if any([isinstance(yy, str) for yy in y[0]]):
-            self._label_list = sorted(list(set().union(*y)))
+            self.label_list = sorted(list(set().union(*y)))
             self._tokenlabel_to_id = {
-                self._label_list[yy]: yy for yy in range(len(self._label_list))
+                self.label_list[yy]: yy for yy in range(len(self.label_list))
             }
             y = y.apply(lambda yy: [self._tokenlabel_to_id[yyy] for yyy in yy])
         # if the labels are not tokens, they must be ids
