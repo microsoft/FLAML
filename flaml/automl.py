@@ -862,7 +862,7 @@ class AutoML(BaseEstimator):
     @property
     def feature_importances_(self):
         attr = getattr(self, "_trained_estimator", None)
-        attr = attr and attr.feature_importances_
+        attr = attr and getattr(attr, "feature_importances_", None)
         return attr
 
     @property
