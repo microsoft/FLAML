@@ -160,7 +160,7 @@ def metric_loss_score(
 
             y_true = (
                 y_processed_true.to_list()
-                if type(y_processed_true) == pd.Series
+                if isinstance(y_processed_true, pd.Series)
                 else list(y_processed_true)
             )
             score = spearmanr(list(y_processed_predict), y_true)[0]
