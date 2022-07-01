@@ -852,6 +852,20 @@ class AutoML(BaseEstimator):
         return self._trained_estimator.n_features_in_
 
     @property
+    def feature_names_in_(self):
+        attr = getattr(self, "_trained_estimator", None)
+        attr = attr and attr.feature_names_in_
+        if attr:
+            return attr
+        return getattr(self, "_feature_names_in_", None)
+
+    @property
+    def feature_importances_(self):
+        attr = getattr(self, "_trained_estimator", None)
+        attr = attr and attr.feature_importances_
+        return attr
+
+    @property
     def time_to_find_best_model(self) -> float:
         """Time taken to find best model in seconds."""
         return self.__dict__.get("_time_taken_best_iter")
@@ -1112,6 +1126,11 @@ class AutoML(BaseEstimator):
                 X, y, self._state.task
             )
             self._label_transformer = self._transformer.label_transformer
+            self._feature_names_in_ = (
+                self._X_train_all.columns.to_list()
+                if hasattr(self._X_train_all, "columns")
+                else None
+            )
 
         self._sample_weight_full = self._state.fit_kwargs.get(
             "sample_weight"
