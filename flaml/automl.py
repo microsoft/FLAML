@@ -102,7 +102,7 @@ class SearchState:
         return True
 
     def valid_starting_point(self, starting_point, search_space):
-        return any(
+        return all(
             [
                 self.valid_starting_point_one_dim(
                     value, search_space[name].get("domain")
