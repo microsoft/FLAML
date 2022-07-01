@@ -2424,14 +2424,13 @@ class AutoML(BaseEstimator):
         _sample_size_from_starting_points = {}
         if isinstance(starting_points, dict):
             for _estimator, _point_per_estimator in starting_points.items():
-                if (
+                sample_size = (
                     _point_per_estimator
                     and isinstance(_point_per_estimator, dict)
                     and _point_per_estimator.get("FLAML_sample_size")
-                ):
-                    _sample_size_from_starting_points[
-                        _estimator
-                    ] = _point_per_estimator["FLAML_sample_size"]
+                )
+                if sample_size:
+                    _sample_size_from_starting_points[_estimator] = sample_size
                 elif _point_per_estimator and isinstance(_point_per_estimator, list):
                     _sample_size_list = [
                         c["FLAML_sample_size"]
