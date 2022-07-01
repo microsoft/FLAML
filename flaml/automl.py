@@ -1125,7 +1125,7 @@ class AutoML(BaseEstimator):
                     self._state.fit_kwargs.update(
                         {"label_list": self._label_transformer.label_list}
                     )
-            if self._state.task == TOKENCLASSIFICATION:
+            elif self._state.task == TOKENCLASSIFICATION:
                 if "label_list" not in self._state.fit_kwargs:
                     for each_estimator in list(
                         self._state.fit_kwargs_by_estimator.keys()
