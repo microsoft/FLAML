@@ -2420,30 +2420,65 @@ class AutoML(BaseEstimator):
             eval_method == "holdout" and self._state.X_val is None
         )
         self._auto_augment = auto_augment
-        self._min_sample_size = min_sample_size
+
+        _sample_size_from_starting_points = {}
+        if isinstance(starting_points, dict):
+            for _estimator, _point_per_estimator in starting_points.items():
+                if (
+                    _point_per_estimator
+                    and isinstance(_point_per_estimator, dict)
+                    and _point_per_estimator.get("FLAML_sample_size")
+                ):
+                    _sample_size_from_starting_points[
+                        _estimator
+                    ] = _point_per_estimator["FLAML_sample_size"]
+                elif _point_per_estimator and isinstance(_point_per_estimator, list):
+                    _sample_size_list = [
+                        c["FLAML_sample_size"]
+                        for c in _point_per_estimator
+                        if "FLAML_sample_size" in c
+                    ]
+                    if _sample_size_list:
+                        _sample_size_from_starting_points[_estimator] = min(
+                            _sample_size_list
+                        )
+
+        if not sample and isinstance(starting_points, dict):
+            assert (
+                not _sample_size_from_starting_points
+            ), "When subsampling is disabled, do not include FLAML_sample_size in the starting point."
+
+        self._min_sample_size = (
+            _sample_size_from_starting_points
+            if _sample_size_from_starting_points
+            else min_sample_size
+        )
         self._prepare_data(eval_method, split_ratio, n_splits)
 
-        self._sample = (
-            sample
-            and task != "rank"
-            and eval_method != "cv"
-            and (
-                self._min_sample_size * SAMPLE_MULTIPLY_FACTOR
-                < self._state.data_size[0]
+        if isinstance(self._min_sample_size, dict):
+            self._sample = {
+                (
+                    k,
+                    sample
+                    and task != "rank"
+                    and eval_method != "cv"
+                    and (
+                        self._min_sample_size[k] * SAMPLE_MULTIPLY_FACTOR
+                        < self._state.data_size[0]
+                    ),
+                )
+                for k in self._min_sample_size.keys()
+            }
+        else:
+            self._sample = (
+                sample
+                and task != "rank"
+                and eval_method != "cv"
+                and (
+                    self._min_sample_size * SAMPLE_MULTIPLY_FACTOR
+                    < self._state.data_size[0]
+                )
             )
-        )
-        if not self._sample and isinstance(starting_points, dict):
-            _has_sample_size = []
-            for _point in starting_points.values():
-                if _point and isinstance(_point, dict):
-                    _has_sample_size.append("FLAML_sample_size" in _point)
-                elif _point and isinstance(_point, list):
-                    _has_sample_size.append(
-                        any(["FLAML_sample_size" in c for c in _point])
-                    )
-            assert not any(
-                _has_sample_size
-            ), "When subsampling is disabled, do not include FLAML_sample_size in the starting point."
         if "auto" == metric:
             if _is_nlp_task(self._state.task):
                 from .nlp.utils import load_default_huggingface_metric_for_task
@@ -2754,6 +2789,11 @@ class AutoML(BaseEstimator):
             self._state.time_from_start = time.time() - self._start_time_flag
             time_left = self._state.time_budget - self._state.time_from_start
             if self._hpo_method != "optuna":
+                min_resource = self.min_resource
+                if isinstance(min_resource, dict):
+                    min_resource_all_estimator = min(min_resource.values())
+                else:
+                    min_resource_all_estimator = min_resource
                 search_alg = SearchAlgo(
                     metric="val_loss",
                     space=space,
@@ -2761,7 +2801,7 @@ class AutoML(BaseEstimator):
                     points_to_evaluate=self.points_to_evaluate,
                     cat_hp_cost=self.cat_hp_cost,
                     resource_attr=self.resource_attr,
-                    min_resource=self.min_resource,
+                    min_resource=min_resource_all_estimator,
                     max_resource=self.max_resource,
                     config_constraints=[
                         (partial(size, self._state), "<=", self._mem_thres)
@@ -2949,7 +2989,11 @@ class AutoML(BaseEstimator):
                 search_space = search_state.search_space
                 if self._sample:
                     resource_attr = "FLAML_sample_size"
-                    min_resource = self._min_sample_size
+                    min_resource = (
+                        self._min_sample_size[estimator]
+                        if isinstance(self._min_sample_size, dict)
+                        else self._min_sample_size
+                    )
                     max_resource = self._state.data_size[0]
                 else:
                     resource_attr = min_resource = max_resource = None
