@@ -854,7 +854,7 @@ class AutoML(BaseEstimator):
     @property
     def feature_names_in_(self):
         attr = getattr(self, "_trained_estimator", None)
-        attr = attr and attr.feature_names_in_
+        attr = attr and getattr(attr, "feature_names_in_", None)
         if attr is not None:
             return attr
         return getattr(self, "_feature_names_in_", None)
