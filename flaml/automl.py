@@ -2453,6 +2453,7 @@ class AutoML(BaseEstimator):
             if _sample_size_from_starting_points
             else min_sample_size
         )
+        self._min_sample_size_input = min_sample_size
         self._prepare_data(eval_method, split_ratio, n_splits)
 
         if isinstance(self._min_sample_size, dict):
@@ -2992,7 +2993,8 @@ class AutoML(BaseEstimator):
                     min_resource = (
                         self._min_sample_size[estimator]
                         if isinstance(self._min_sample_size, dict)
-                        else self._min_sample_size
+                        and estimator in self._min_sample_size
+                        else self._min_sample_size_input
                     )
                     max_resource = self._state.data_size[0]
                 else:
