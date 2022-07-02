@@ -1127,12 +1127,9 @@ class AutoML(BaseEstimator):
                     )
             elif self._state.task == TOKENCLASSIFICATION:
                 if "label_list" not in self._state.fit_kwargs:
-                    for each_estimator in list(
-                        self._state.fit_kwargs_by_estimator.keys()
-                    ):
+                    for fit_kwargs in self._state.fit_kwargs_by_estimator.values():
                         assert (
-                            "label_list"
-                            in self._state.fit_kwargs_by_estimator[each_estimator]
+                            "label_list" in fit_kwargs
                         ), "For the token-classification task, you must either (1) pass token labels; or (2) pass id labels and the label list. Please refer to the documentation for more details: https://microsoft.github.io/FLAML/docs/Examples/AutoML-NLP#a-simple-token-classification-example"
 
         self._sample_weight_full = self._state.fit_kwargs.get(
