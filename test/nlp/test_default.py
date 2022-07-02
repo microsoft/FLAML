@@ -64,8 +64,9 @@ def test_starting_point_not_in_search_space():
 
     automl.fit(X_train, y_train, **automl_settings)
     assert (
-        len(automl._search_states[this_estimator_name].init_config) == 0
-    )  # check that init config is not updated, but search space is updated
+        len(automl._search_states[this_estimator_name].init_config)
+        == len(automl._search_states[this_estimator_name]._search_space_domain) - 2
+    ), "check that init config is not updated, but search space is updated"
     assert (
         automl._search_states[this_estimator_name].search_space["model_path"]
         == "albert-base-v2"
