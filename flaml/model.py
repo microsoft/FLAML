@@ -548,7 +548,7 @@ class TransformersEstimator(BaseEstimator):
                 self._training_args.model_path,
                 use_fast=True,
                 add_prefix_space="roberta" in self._training_args.model_path
-                and not (hasattr(self, "pred_flag") and self.pred_flag),
+                and not getattr(self, "pred_flag", False),
                 # If roberta model and the call is from .fit instead of .predict (when the model_path is updated to the checkpoint name instead), must set add_prefix_space to True to avoid the assertion error at
                 # https://github.com/huggingface/transformers/blob/main/src/transformers/models/roberta/tokenization_roberta_fast.py#L249
             )

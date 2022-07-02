@@ -140,7 +140,8 @@ def metric_loss_score(
     sample_weight=None,
     groups=None,
 ):
-    # y_processed_predict and y_processed_true are processed id labels if the original was the token labels
+    # y_processed_predict and y_processed_true are processed id labels if the original were the token labels
+
     if is_in_sklearn_metric_name_set(metric_name):
         return sklearn_metric_loss_score(
             metric_name,
@@ -159,7 +160,7 @@ def metric_loss_score(
 
             y_true = (
                 y_processed_true.to_list()
-                if type(y_processed_true) == pd.Series
+                if isinstance(y_processed_true, pd.Series)
                 else list(y_processed_true)
             )
             score = spearmanr(list(y_processed_predict), y_true)[0]
