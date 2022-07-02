@@ -136,7 +136,7 @@ def metric_loss_score(
     metric_name,
     y_processed_predict,
     y_processed_true,
-    label_list=None,
+    labels=None,
     sample_weight=None,
     groups=None,
 ):
@@ -147,7 +147,7 @@ def metric_loss_score(
             metric_name,
             y_processed_predict,
             y_processed_true,
-            label_list,
+            labels,
             sample_weight,
             groups,
         )
@@ -192,7 +192,7 @@ def metric_loss_score(
                 elif metric_name.startswith("seqeval"):
 
                     y_processed_true = [
-                        [label_list[tr] for tr in each_list]
+                        [labels[tr] for tr in each_list]
                         for each_list in y_processed_true
                     ]
                     metric_submetric_names = metric_name.split(":")
@@ -253,7 +253,7 @@ def sklearn_metric_loss_score(
     metric_name,
     y_predict,
     y_true,
-    label_list=None,
+    labels=None,
     sample_weight=None,
     groups=None,
 ):
@@ -268,7 +268,7 @@ def sklearn_metric_loss_score(
             used to calculate the metric. E.g., 2d for log_loss and 1d
             for others.
         y_true: A 1d numpy array of the true labels.
-        label_list: A list or an array of the unique labels.
+        labels: A list or an array or list of the unique labels.
         sample_weight: A 1d numpy array of the sample weight.
         groups: A 1d numpy array of the group labels.
 
@@ -300,9 +300,7 @@ def sklearn_metric_loss_score(
             y_true, y_predict, sample_weight=sample_weight, multi_class="ovo"
         )
     elif "log_loss" == metric_name:
-        score = log_loss(
-            y_true, y_predict, labels=label_list, sample_weight=sample_weight
-        )
+        score = log_loss(y_true, y_predict, labels=labels, sample_weight=sample_weight)
     elif "mape" == metric_name:
         try:
             score = mean_absolute_percentage_error(y_true, y_predict)
@@ -364,7 +362,7 @@ def _eval_estimator(
     groups_val,
     eval_metric,
     obj,
-    label_list=None,
+    labels=None,
     log_training_metric=False,
     fit_kwargs={},
 ):
@@ -377,7 +375,7 @@ def _eval_estimator(
             eval_metric,
             y_processed_predict=val_pred_y,
             y_processed_true=y_val,
-            label_list=label_list,
+            labels=labels,
             sample_weight=weight_val,
             groups=groups_val,
         )
@@ -388,7 +386,7 @@ def _eval_estimator(
                 eval_metric,
                 train_pred_y,
                 y_train,
-                label_list,
+                labels,
                 fit_kwargs.get("sample_weight"),
                 fit_kwargs.get("groups"),
             )
@@ -397,7 +395,7 @@ def _eval_estimator(
             X_val,
             y_val,
             estimator,
-            label_list,
+            labels,
             X_train,
             y_train,
             weight_val,
@@ -423,7 +421,7 @@ def get_val_loss(
     groups_val,
     eval_metric,
     obj,
-    label_list=None,
+    labels=None,
     budget=None,
     log_training_metric=False,
     fit_kwargs={},
@@ -446,7 +444,7 @@ def get_val_loss(
         groups_val,
         eval_metric,
         obj,
-        label_list,
+        labels,
         log_training_metric,
         fit_kwargs,
     )
@@ -478,9 +476,9 @@ def evaluate_model_CV(
     n = kf.get_n_splits()
     X_train_split, y_train_split = X_train_all, y_train_all
     if task in CLASSIFICATION:
-        label_list = np.unique(y_train_all)
+        labels = np.unique(y_train_all)
     else:
-        label_list = fit_kwargs.get(
+        labels = fit_kwargs.get(
             "label_list"
         )  # pass the label list on to compute the evaluation metric
     groups = None
@@ -534,7 +532,7 @@ def evaluate_model_CV(
             groups_val,
             eval_metric,
             task,
-            label_list,
+            labels,
             budget_per_train,
             log_training_metric=log_training_metric,
             fit_kwargs=fit_kwargs,
@@ -615,7 +613,7 @@ def compute_estimator(
             groups_val,
             eval_metric,
             task,
-            label_list=fit_kwargs.get(
+            labels=fit_kwargs.get(
                 "label_list"
             ),  # pass the label list on to compute the evaluation metric
             budget=budget,
