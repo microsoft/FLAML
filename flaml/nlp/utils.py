@@ -553,20 +553,20 @@ def postprocess_prediction_and_true(
 class LabelEncoderforTokenClassification:
     def fit_transform(self, y):
         # if the labels are tokens, convert them to ids
-        if any([isinstance(yy, str) for yy in y[0]]):
+        if any([isinstance(id, str) for id in y[0]]):
             self.label_list = sorted(list(set().union(*y)))
             self._tokenlabel_to_id = {
-                self.label_list[yy]: yy for yy in range(len(self.label_list))
+                self.label_list[id]: id for id in range(len(self.label_list))
             }
-            y = y.apply(lambda yy: [self._tokenlabel_to_id[yyy] for yyy in yy])
+            y = y.apply(lambda sent: [self._tokenlabel_to_id[token] for token in sent])
         # if the labels are not tokens, they must be ids
         else:
             assert all(
-                [isinstance(yy, int) for yy in y[0]]
+                [isinstance(id, int) for id in y[0]]
             ), "The labels must either be tokens or ids"
         return y
 
     def transform(self, y):
         if hasattr(self, "label_list"):
-            y = y.apply(lambda yy: [self._tokenlabel_to_id[yyy] for yyy in yy])
+            y = y.apply(lambda sent: [self._tokenlabel_to_id[token] for token in sent])
         return y
