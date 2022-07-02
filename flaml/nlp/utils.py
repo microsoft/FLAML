@@ -488,8 +488,8 @@ def postprocess_prediction_and_true(
     elif task == TOKENCLASSIFICATION:
         assert (y_true is not None) or (
             X is not None
-        ), "One of y_true and X must be non-empty"
-        ## If y_true is non-empty, we use y_true to remove the -100 in the prediction (postprocessing), and return the postprocessed y_true and prediction
+        ), "One of y_true and X must not be None"
+        ## If y_true is not None, we use y_true to remove the -100 in the prediction (postprocessing), and return the postprocessed y_true and prediction
         # If y_true is None, we use X to compute y_is_pad (i.e., whether y_true is -100 in that position), and use y_is_pad to remove the -100 in the prediction, and return the postprocessed prediction (not the y_true)
         y_predict = pd.Series(np.argmax(y_pred, axis=2).tolist())
         if y_true is None:
