@@ -57,6 +57,9 @@ def test_starting_point_not_in_search_space():
             "learning_rate": {
                 "domain": tune.choice([1e-4, 1e-5]),
             },
+            "per_device_train_batch_size": {
+                "domain": 2,
+            },
         }
     }
     automl_settings["starting_points"] = "data:test/nlp/default/"
@@ -65,7 +68,7 @@ def test_starting_point_not_in_search_space():
     automl.fit(X_train, y_train, **automl_settings)
     assert (
         len(automl._search_states[this_estimator_name].init_config)
-        == len(automl._search_states[this_estimator_name]._search_space_domain) - 2
+        == len(automl._search_states[this_estimator_name]._search_space_domain) - 3
     ), "check that init config is not updated, but search space is updated"
     assert (
         automl._search_states[this_estimator_name].search_space["model_path"]
