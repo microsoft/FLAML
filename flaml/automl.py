@@ -103,13 +103,9 @@ class SearchState:
 
     def valid_starting_point(self, starting_point, search_space):
         return all(
-            [
-                self.valid_starting_point_one_dim(
-                    value, search_space[name].get("domain")
-                )
-                for name, value in starting_point.items()
-                if name != "FLAML_sample_size"
-            ]
+            self.valid_starting_point_one_dim(value, search_space[name].get("domain"))
+            for name, value in starting_point.items()
+            if name != "FLAML_sample_size"
         )
 
     def __init__(
@@ -657,16 +653,17 @@ class AutoML(BaseEstimator):
                 the automl constructor, flaml will automatically (and under the hood)
                 add it as an additional element in the metric_constraints. Essentially 'pred_time_limit'
                 specifies a constraint about the prediction latency constraint in seconds.
-            custom_hp: dict, default=None | The custom search space specified by user
-                It is nested dict with keys being the estimator names, and values being dicts
-                of per estimator search space. In the per estimator search space dict,
+            custom_hp: dict, default=None | The custom search space specified by user.
+                It is a nested dict with keys being the estimator names, and values being dicts
+                per estimator search space. In the per estimator search space dict,
                 the keys are the hyperparameter names, and values are dicts of info ("domain",
                 "init_value", and "low_cost_init_value") about the search space associated with
                 the hyperparameter (i.e., per hyperparameter search space dict). When custom_hp
                 is provided, the built-in search space which is also a nested dict of per estimator
-                search space dict, will be updated with custom_hp. The update follows the vanilla
-                nested dict update rule. Note that the value for "domain" can either be a constant
-                or a sample.Domain object
+                search space dict, will be updated with custom_hp. Note that during this nested dict update,
+                the per hyperparameter search space dicts will be replaced (instead of updated) by the ones
+                provided in custom_hp. Note that the value for "domain" can either be a constant
+                or a sample.Domain object.
                 e.g.,
 
         ```python
@@ -2441,9 +2438,9 @@ class AutoML(BaseEstimator):
                 elif _point_per_estimator and isinstance(_point_per_estimator, list):
                     _sample_size_set = set(
                         [
-                            c["FLAML_sample_size"]
-                            for c in _point_per_estimator
-                            if "FLAML_sample_size" in c
+                            config["FLAML_sample_size"]
+                            for config in _point_per_estimator
+                            if "FLAML_sample_size" in config
                         ]
                     )
                     if _sample_size_set:

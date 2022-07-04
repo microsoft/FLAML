@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from sklearn.datasets import load_iris
-from flaml import AutoML, automl
+from flaml import AutoML
 from flaml.model import LGBMEstimator
 from flaml import tune
 
@@ -142,6 +142,34 @@ class TestWarmStart(unittest.TestCase):
         print("automl1.best_config_per_estimator", automl1.best_config_per_estimator)
 
         automl_settings["starting_points"] = automl1.best_config_per_estimator
+        automl2 = AutoML()
+        automl2.fit(X_train, y_train, **automl_settings)
+
+        automl_settings["starting_points"] = {
+            "xgboost": {
+                "n_estimators": 4,
+                "max_leaves": 4,
+                "min_child_weight": 0.26208115308159446,
+                "learning_rate": 0.25912534572860507,
+                "subsample": 0.9266743941610592,
+                "colsample_bylevel": 1.0,
+                "colsample_bytree": 1.0,
+                "reg_alpha": 0.0013933617380144255,
+                "reg_lambda": 0.18096917948292954,
+                "FLAML_sample_size": 20000,
+            },
+            "xgb_limitdepth": None,
+            "lrl1": None,
+        }
+        from flaml import tune
+
+        automl_settings["custom_hp"] = {
+            "xgboost": {
+                "n_estimators": {
+                    "domain": tune.choice([10, 20]),
+                },
+            }
+        }
         automl2 = AutoML()
         automl2.fit(X_train, y_train, **automl_settings)
 

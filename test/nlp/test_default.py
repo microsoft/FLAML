@@ -69,7 +69,11 @@ def test_starting_point_not_in_search_space():
     assert (
         len(automl._search_states[this_estimator_name].init_config)
         == len(automl._search_states[this_estimator_name]._search_space_domain) - 3
-    ), "check that init config is not updated, but search space is updated"
+    ), (
+        "The search space is updated with the custom_hp on 3 hyperparameters of "
+        "the specified estimator without an initial value. Thus a valid init config "
+        "should only contain the cardinality of the search space minus 3."
+    )
     assert (
         automl._search_states[this_estimator_name].search_space["model_path"]
         == "albert-base-v2"
