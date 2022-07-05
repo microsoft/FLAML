@@ -63,6 +63,7 @@ def test_starting_point_not_in_search_space():
     del automl_settings["fit_kwargs_by_estimator"][this_estimator_name]["model_path"]
 
     automl.fit(X_train, y_train, **automl_settings)
+    raise Exception(len(automl._search_states[this_estimator_name].init_config))
     assert (
         len(automl._search_states[this_estimator_name].init_config) == 0
     )  # check that init config is not updated, but search space is updated
@@ -153,3 +154,8 @@ def test_build_error_portfolio(path="./test/nlp/default", strategy="greedy"):
         )
     except ValueError:
         print("Feature not implemented")
+
+
+if __name__ == "__main__":
+    test_build_portfolio()
+    test_starting_point_not_in_search_space()
