@@ -56,7 +56,11 @@ def limit_resource(memory_limit, time_limit):
     if memory_limit > 0:
         soft, hard = resource.getrlimit(resource.RLIMIT_AS)
         if soft < 0 and (hard < 0 or memory_limit <= hard) or memory_limit < soft:
-            resource.setrlimit(resource.RLIMIT_AS, (memory_limit, hard))
+            try:
+                resource.setrlimit(resource.RLIMIT_AS, (int(memory_limit), hard))
+            except ValueError:
+                # According to https://bugs.python.org/issue40518, it's a mac-specific error.
+                pass
     main_thread = False
     if time_limit is not None:
         try:
@@ -151,7 +155,8 @@ class BaseEstimator:
         X_train = self._preprocess(X_train)
         model = self.estimator_class(**self.params)
         if logger.level == logging.DEBUG:
-            logger.debug(f"flaml.model - {model} fit started")
+            # xgboost 1.6 doesn't display all the params in the model str
+            logger.debug(f"flaml.model - {model} fit started with params {self.params}")
         model.fit(X_train, y_train, **kwargs)
         if logger.level == logging.DEBUG:
             logger.debug(f"flaml.model - {model} fit finished")
@@ -517,14 +522,12 @@ class TransformersEstimator(BaseEstimator):
 
     @property
     def num_labels(self):
-        from .data import SEQCLASSIFICATION, SEQREGRESSION, TOKENCLASSIFICATION
-
         if self._task == SEQREGRESSION:
             return 1
         elif self._task == SEQCLASSIFICATION:
             return len(set(self._y_train))
         elif self._task == TOKENCLASSIFICATION:
-            return len(set([a for b in self._y_train.tolist() for a in b]))
+            return len(self._training_args.label_list)
         else:
             return None
 
@@ -544,9 +547,9 @@ class TransformersEstimator(BaseEstimator):
             return AutoTokenizer.from_pretrained(
                 self._training_args.model_path,
                 use_fast=True,
-                add_prefix_space=True
-                if "roberta" in self._training_args.model_path
-                else False,  # If roberta model, must set add_prefix_space to True to avoid the assertion error at
+                add_prefix_space="roberta" in self._training_args.model_path
+                and not getattr(self, "_pred_flag", False),
+                # If roberta model and the call is from .fit instead of .predict (when the model_path is updated to the checkpoint name instead), must set add_prefix_space to True to avoid the assertion error at
                 # https://github.com/huggingface/transformers/blob/main/src/transformers/models/roberta/tokenization_roberta_fast.py#L249
             )
 
@@ -729,39 +732,30 @@ class TransformersEstimator(BaseEstimator):
         return best_ckpt
 
     def _compute_metrics_by_dataset_name(self, eval_pred):
+        # TODO: call self._metric(eval_pred, self)
         if isinstance(self._metric, str):
             from .ml import metric_loss_score
-            from .nlp.utils import postprocess_text
+            from .nlp.utils import postprocess_prediction_and_true
 
-            predictions, labels = eval_pred
-            if self._task in NLG_TASKS:
-                if isinstance(predictions, tuple):
-                    predictions = np.argmax(predictions[0], axis=2)
-                decoded_preds = self.tokenizer.batch_decode(
-                    predictions, skip_special_tokens=True
-                )
-                labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
-                decoded_labels = self.tokenizer.batch_decode(
-                    labels, skip_special_tokens=True
-                )
-                predictions, labels = postprocess_text(decoded_preds, decoded_labels)
-            else:
-                predictions = (
-                    np.squeeze(predictions)
-                    if self._task == SEQREGRESSION
-                    else np.argmax(predictions, axis=2)
-                    if self._task == TOKENCLASSIFICATION
-                    else np.argmax(predictions, axis=1)
-                )
+            predictions, y_true = eval_pred
+            # postprocess the matrix prediction and ground truth into user readable format, e.g., for summarization, decode into text
+            processed_predictions, processed_y_true = postprocess_prediction_and_true(
+                task=self._task,
+                y_pred=predictions,
+                tokenizer=self.tokenizer,
+                hf_args=self._training_args,
+                y_true=y_true,
+            )
             metric_dict = {
                 "automl_metric": metric_loss_score(
                     metric_name=self._metric,
-                    y_predict=predictions,
-                    y_true=labels,
+                    y_processed_predict=processed_predictions,
+                    y_processed_true=processed_y_true,
                     labels=self._training_args.label_list,
                 )
             }
         else:
+            # TODO: debug to see how custom metric can take both tokenized (here) and untokenized input (ml.py)
             loss, metric_dict = self._metric(
                 X_test=self._X_val,
                 y_test=self._y_val,
@@ -781,6 +775,7 @@ class TransformersEstimator(BaseEstimator):
             Need to reinit training_args because of a bug in deepspeed: if not reinit, the deepspeed config will be inconsistent
             with HF config https://github.com/huggingface/transformers/blob/main/src/transformers/training_args.py#L947
         """
+        self._pred_flag = True
         training_args = self._TrainingArguments(
             local_rank=-1, model_path=self._checkpoint_path, fp16=self.fp16
         )
@@ -832,6 +827,7 @@ class TransformersEstimator(BaseEstimator):
     def predict(self, X, **pred_kwargs):
         import transformers
         from datasets import Dataset
+        from .nlp.utils import postprocess_prediction_and_true
 
         transformers.logging.set_verbosity_error()
 
@@ -851,20 +847,14 @@ class TransformersEstimator(BaseEstimator):
                 test_dataset,
                 metric_key_prefix="predict",
             )
-
-        if self._task == SEQCLASSIFICATION:
-            return np.argmax(predictions.predictions, axis=1)
-        elif self._task == SEQREGRESSION:
-            return predictions.predictions.reshape((len(predictions.predictions),))
-        elif self._task == TOKENCLASSIFICATION:
-            return np.argmax(predictions.predictions, axis=2)
-        elif self._task == SUMMARIZATION:
-            decoded_preds = self.tokenizer.batch_decode(
-                predictions.predictions, skip_special_tokens=True
-            )
-            return decoded_preds
-        elif self._task == MULTICHOICECLASSIFICATION:
-            return np.argmax(predictions.predictions, axis=1)
+        post_y_pred, _ = postprocess_prediction_and_true(
+            task=self._task,
+            y_pred=predictions.predictions,
+            tokenizer=self.tokenizer,
+            hf_args=self._training_args,
+            X=X,
+        )
+        return post_y_pred
 
     def config2params(self, config: dict) -> dict:
         params = super().config2params(config)
@@ -1107,12 +1097,23 @@ class LGBMEstimator(BaseEstimator):
                 kwargs.pop("callbacks")
             else:
                 callbacks = self._callbacks(start_time, deadline)
+            if isinstance(self, XGBoostSklearnEstimator):
+                from xgboost import __version__
+
+                if __version__ >= "1.6.0":
+                    # since xgboost>=1.6.0, callbacks can't be passed in fit()
+                    self.params["callbacks"] = callbacks
+                    callbacks = None
             self._fit(
                 X_train,
                 y_train,
                 callbacks=callbacks,
                 **kwargs,
             )
+            if callbacks is None:
+                # for xgboost>=1.6.0, pop callbacks to enable pickle
+                callbacks = self.params.pop("callbacks")
+                self._model.set_params(callbacks=callbacks[:-1])
             best_iteration = (
                 self._model.get_booster().best_iteration
                 if isinstance(self, XGBoostSklearnEstimator)
@@ -1229,7 +1230,9 @@ class XGBoostEstimator(SKLearnEstimator):
         start_time = time.time()
         deadline = start_time + budget if budget else np.inf
         if issparse(X_train):
-            self.params["tree_method"] = "auto"
+            if xgb.__version__ < "1.6.0":
+                # "auto" fails for sparse input since xgboost 1.6.0
+                self.params["tree_method"] = "auto"
         else:
             X_train = self._preprocess(X_train)
         if "sample_weight" in kwargs:
@@ -1333,9 +1336,11 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
             self.estimator_class = xgb.XGBRanker
         elif task in CLASSIFICATION:
             self.estimator_class = xgb.XGBClassifier
+        self._xgb_version = xgb.__version__
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
-        if issparse(X_train):
+        if issparse(X_train) and self._xgb_version < "1.6.0":
+            # "auto" fails for sparse input since xgboost 1.6.0
             self.params["tree_method"] = "auto"
         if kwargs.get("gpu_per_trial"):
             self.params["tree_method"] = "gpu_hist"

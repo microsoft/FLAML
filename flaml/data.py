@@ -96,9 +96,14 @@ def load_openml_dataset(
         with open(filepath, "wb") as f:
             pickle.dump(dataset, f, pickle.HIGHEST_PROTOCOL)
     print("Dataset name:", dataset.name)
-    X, y, *__ = dataset.get_data(
-        target=dataset.default_target_attribute, dataset_format=dataset_format
-    )
+    try:
+        X, y, *__ = dataset.get_data(
+            target=dataset.default_target_attribute, dataset_format=dataset_format
+        )
+    except ValueError:
+        from sklearn.datasets import fetch_openml
+
+        X, y = fetch_openml(data_id=dataset_id, return_X_y=True)
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=random_state)
     print(
         "X_train.shape: {}, y_train.shape: {};\nX_test.shape: {}, y_test.shape: {}".format(
@@ -366,14 +371,20 @@ class DataTransformer:
             )
             self._drop = drop
         if (
-            (task in CLASSIFICATION or not pd.api.types.is_numeric_dtype(y))
+            task in CLASSIFICATION
+            or not pd.api.types.is_numeric_dtype(y)
             and task not in NLG_TASKS
-            and task != TOKENCLASSIFICATION
         ):
-            from sklearn.preprocessing import LabelEncoder
+            if task != TOKENCLASSIFICATION:
+                from sklearn.preprocessing import LabelEncoder
 
-            self.label_transformer = LabelEncoder()
+                self.label_transformer = LabelEncoder()
+            else:
+                from .nlp.utils import LabelEncoderforTokenClassification
+
+                self.label_transformer = LabelEncoderforTokenClassification()
             y = self.label_transformer.fit_transform(y)
+
         else:
             self.label_transformer = None
         self._task = task

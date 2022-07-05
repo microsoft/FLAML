@@ -235,7 +235,7 @@ class BlendSearch(Searcher):
         metric: Optional[str] = None,
         mode: Optional[str] = None,
         config: Optional[Dict] = None,
-        setting: Optional[Dict] = None,
+        **spec,
     ) -> bool:
         metric_changed = mode_changed = False
         if metric and self._metric != metric:
@@ -272,21 +272,21 @@ class BlendSearch(Searcher):
                     )
                     self._gs.space = self._ls.space
                 self._init_search()
-        if setting:
+        if spec:
             # CFO doesn't need these settings
-            if "time_budget_s" in setting:
-                self._time_budget_s = setting["time_budget_s"]  # budget from now
+            if "time_budget_s" in spec:
+                self._time_budget_s = spec["time_budget_s"]  # budget from now
                 now = time.time()
                 self._time_used += now - self._start_time
                 self._start_time = now
                 self._set_deadline()
                 if self._input_cost_attr == "auto":
-                    self.cost_attr = TIME_TOTAL_S
-            if "metric_target" in setting:
-                self._metric_target = setting.get("metric_target")
-            if "num_samples" in setting:
+                    self.cost_attr = self._ls.cost_attr = TIME_TOTAL_S
+            if "metric_target" in spec:
+                self._metric_target = spec.get("metric_target")
+            if "num_samples" in spec:
                 self._num_samples = (
-                    setting["num_samples"]
+                    spec["num_samples"]
                     + len(self._result)
                     + len(self._trial_proposed_by)
                 )
@@ -820,22 +820,29 @@ class BlendSearch(Searcher):
 
     def _select_thread(self) -> Tuple:
         """thread selector; use can_suggest to check LS availability"""
-        # update priority
-        now = time.time()
-        min_eci = self._deadline - now
-        if min_eci <= 0:
-            # return -1, -1
-            # keep proposing new configs assuming no budget left
-            min_eci = 0
+        # calculate min_eci according to the budget left
+        min_eci = np.inf
+        if self.cost_attr == TIME_TOTAL_S:
+            now = time.time()
+            min_eci = self._deadline - now
+            if min_eci <= 0:
+                # return -1, -1
+                # keep proposing new configs assuming no budget left
+                min_eci = 0
+            elif self._num_samples and self._num_samples > 0:
+                # estimate time left according to num_samples limitation
+                num_finished = len(self._result)
+                num_proposed = num_finished + len(self._trial_proposed_by)
+                num_left = max(self._num_samples - num_proposed, 0)
+                if num_proposed > 0:
+                    time_used = now - self._start_time + self._time_used
+                    min_eci = min(min_eci, time_used / num_finished * num_left)
+                # print(f"{min_eci}, {time_used / num_finished * num_left}, {num_finished}, {num_left}")
         elif self._num_samples and self._num_samples > 0:
-            # estimate time left according to num_samples limitation
             num_finished = len(self._result)
             num_proposed = num_finished + len(self._trial_proposed_by)
-            num_left = max(self._num_samples - num_proposed, 0)
-            if num_proposed > 0:
-                time_used = now - self._start_time + self._time_used
-                min_eci = min(min_eci, time_used / num_finished * num_left)
-            # print(f"{min_eci}, {time_used / num_finished * num_left}, {num_finished}, {num_left}")
+            min_eci = max(self._num_samples - num_proposed, 0)
+        # update priority
         max_speed = 0
         for thread in self._search_thread_pool.values():
             if thread.speed > max_speed:

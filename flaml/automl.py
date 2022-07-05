@@ -623,7 +623,7 @@ class AutoML(BaseEstimator):
             seed: int or None, default=None | The random seed for hpo.
             n_concurrent_trials: [Experimental] int, default=1 | The number of
                 concurrent trials. When n_concurrent_trials > 1, flaml performes
-                [parallel tuning](https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML#parallel-tuning)
+                [parallel tuning](../Use-Cases/Task-Oriented-AutoML#parallel-tuning)
                 and installation of ray is required: `pip install flaml[ray]`.
             keep_search_state: boolean, default=False | Whether to keep data needed
                 for model search after fit(). By default the state is deleted for
@@ -651,7 +651,7 @@ class AutoML(BaseEstimator):
                 the metrics_to_log dictionary returned by a customized metric function.
                 The customized metric function shall be provided via the `metric` key word
                 argument of the fit() function or the automl constructor.
-                Find an example in the 4th constraint type in this [doc](https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML#constraint).
+                Find an example in the 4th constraint type in this [doc](../Use-Cases/Task-Oriented-AutoML#constraint).
                 If `pred_time_limit` is provided as one of keyword arguments to fit() function or
                 the automl constructor, flaml will automatically (and under the hood)
                 add it as an additional element in the metric_constraints. Essentially 'pred_time_limit'
@@ -1108,10 +1108,21 @@ class AutoML(BaseEstimator):
             from .data import DataTransformer
 
             self._transformer = DataTransformer()
+
             self._X_train_all, self._y_train_all = self._transformer.fit_transform(
                 X, y, self._state.task
             )
             self._label_transformer = self._transformer.label_transformer
+            if hasattr(self._label_transformer, "label_list"):
+                self._state.fit_kwargs.update(
+                    {"label_list": self._label_transformer.label_list}
+                )
+            elif self._state.task == TOKENCLASSIFICATION:
+                if "label_list" not in self._state.fit_kwargs:
+                    for each_fit_kwargs in self._state.fit_kwargs_by_estimator.values():
+                        assert (
+                            "label_list" in each_fit_kwargs
+                        ), "For the token-classification task, you must either (1) pass token labels; or (2) pass id labels and the label list. Please refer to the documentation for more details: https://microsoft.github.io/FLAML/docs/Examples/AutoML-NLP#a-simple-token-classification-example"
 
         self._sample_weight_full = self._state.fit_kwargs.get(
             "sample_weight"
@@ -1404,7 +1415,6 @@ class AutoML(BaseEstimator):
                 len(np.unique(self._state.groups_all)) >= n_splits
             ), "the number of groups must be equal or larger than n_splits"
             self._state.kf = GroupKFold(n_splits)
-            self._state.kf.groups = self._state.groups_all
         elif self._split_type == "stratified":
             # logger.info("Using StratifiedKFold")
             assert y_train_all.size >= n_splits, (
@@ -1442,6 +1452,9 @@ class AutoML(BaseEstimator):
         else:
             # logger.info("Using splitter object")
             self._state.kf = self._split_type
+        if isinstance(self._state.kf, GroupKFold):
+            # self._split_type is either "group" or a GroupKFold object
+            self._state.kf.groups = self._state.groups_all
 
     def add_learner(self, learner_name, learner_class):
         """Add a customized learner.
@@ -1681,10 +1694,7 @@ class AutoML(BaseEstimator):
         # Partially copied from fit() function
         # Initilize some attributes required for retrain_from_log
         self._decide_split_type(split_type)
-        if record_id >= 0:
-            eval_method = "cv"
-        elif eval_method == "auto":
-            eval_method = self._decide_eval_method(time_budget)
+        eval_method = self._decide_eval_method(eval_method, time_budget)
         self.modelcount = 0
         self._auto_augment = auto_augment
         self._prepare_data(eval_method, split_ratio, n_splits)
@@ -1717,6 +1727,9 @@ class AutoML(BaseEstimator):
             assert hasattr(split_type, "split") and hasattr(
                 split_type, "get_n_splits"
             ), "split_type must be a string or a splitter object with split and get_n_splits methods."
+            assert (
+                not isinstance(split_type, GroupKFold) or self._state.groups is not None
+            ), "GroupKFold requires groups to be provided."
             self._split_type = split_type
         elif self._state.task in CLASSIFICATION:
             assert split_type in ["auto", "stratified", "uniform", "time", "group"]
@@ -1746,9 +1759,28 @@ class AutoML(BaseEstimator):
             assert split_type in ["auto", "uniform", "time", "group"]
             self._split_type = split_type if split_type != "auto" else "uniform"
 
-    def _decide_eval_method(self, time_budget):
+    def _decide_eval_method(self, eval_method, time_budget):
+        if not isinstance(self._split_type, str):
+            assert eval_method in [
+                "auto",
+                "cv",
+            ], "eval_method must be 'auto' or 'cv' for custom data splitter."
+            assert (
+                self._state.X_val is None
+            ), "custom splitter and custom validation data can't be used together."
+            return "cv"
         if self._state.X_val is not None:
+            assert eval_method in [
+                "auto",
+                "holdout",
+            ], "eval_method must be 'auto' or 'holdout' for custom validation data."
             return "holdout"
+        if eval_method != "auto":
+            assert eval_method in [
+                "holdout",
+                "cv",
+            ], "eval_method must be 'holdout', 'cv' or 'auto'."
+            return eval_method
         nrow, dim = self._nrow, self._ndim
         if (
             time_budget is None
@@ -2182,7 +2214,7 @@ class AutoML(BaseEstimator):
             seed: int or None, default=None | The random seed for hpo.
             n_concurrent_trials: [Experimental] int, default=1 | The number of
                 concurrent trials. When n_concurrent_trials > 1, flaml performes
-                [parallel tuning](https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML#parallel-tuning)
+                [parallel tuning](../Use-Cases/Task-Oriented-AutoML#parallel-tuning)
                 and installation of ray is required: `pip install flaml[ray]`.
             keep_search_state: boolean, default=False | Whether to keep data needed
                 for model search after fit(). By default the state is deleted for
@@ -2234,7 +2266,7 @@ class AutoML(BaseEstimator):
 
         fit_kwargs_by_estimator: dict, default=None | The user specified keywords arguments, grouped by estimator name.
                 For TransformersEstimator, available fit_kwargs can be found from
-                [flaml/nlp/training_args.py:TrainingArgumentsForAuto](https://microsoft.github.io/FLAML/docs/reference/nlp/huggingface/training_args).
+                [TrainingArgumentsForAuto](nlp/huggingface/training_args).
                 e.g.,
 
         ```python
@@ -2390,8 +2422,7 @@ class AutoML(BaseEstimator):
         logger.info(f"task = {task}")
         self._decide_split_type(split_type)
         logger.info(f"Data split method: {self._split_type}")
-        if eval_method == "auto" or self._state.X_val is not None:
-            eval_method = self._decide_eval_method(time_budget)
+        eval_method = self._decide_eval_method(eval_method, time_budget)
         self._state.eval_method = eval_method
         logger.info("Evaluation method: {}".format(eval_method))
 
@@ -2992,9 +3023,7 @@ class AutoML(BaseEstimator):
                     search_state.search_alg.searcher.set_search_properties(
                         metric=None,
                         mode=None,
-                        setting={
-                            "metric_target": self._state.best_loss,
-                        },
+                        metric_target=self._state.best_loss,
                     )
             start_run_time = time.time()
             analysis = tune.run(
@@ -3276,6 +3305,7 @@ class AutoML(BaseEstimator):
                 import joblib
 
                 try:
+                    logger.info("Building ensemble with tuned estimators")
                     stacker.fit(
                         self._X_train_all,
                         self._y_train_all,

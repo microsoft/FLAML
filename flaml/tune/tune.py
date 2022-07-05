@@ -286,7 +286,7 @@ def run(
         resources_per_trial: A dictionary of the hardware resources to allocate
             per trial, e.g., `{'cpu': 1}`. It is only valid when using ray backend
             (by setting 'use_ray = True'). It shall be used when you need to do
-            [parallel tuning](https://microsoft.github.io/FLAML/docs/Use-Cases/Tune-User-Defined-Function#parallel-tuning).
+            [parallel tuning](../../Use-Cases/Tune-User-Defined-Function#parallel-tuning).
         config_constraints: A list of config constraints to be satisfied.
             e.g., ```config_constraints = [(mem_size, '<=', 1024**3)]```
 
@@ -425,7 +425,7 @@ def run(
                 setting["time_budget_s"] = time_budget_s
             if num_samples > 0:
                 setting["num_samples"] = num_samples
-            searcher.set_search_properties(metric, mode, config, setting)
+            searcher.set_search_properties(metric, mode, config, **setting)
         else:
             searcher.set_search_properties(metric, mode, config)
     if scheduler in ("asha", "asynchyperband", "async_hyperband"):

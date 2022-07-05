@@ -1,6 +1,6 @@
 # Installation
 
-FLAML requires **Python version >= 3.6**. It can be installed from pip:
+FLAML requires **Python version >= 3.7**. It can be installed from pip:
 
 ```bash
 pip install flaml
@@ -35,6 +35,11 @@ pip install flaml[vw]
 * time series forecaster: prophet, statsmodels
 ```bash
 pip install flaml[forecast]
+```
+
+* natural language processing: transformers
+```bash
+pip install flaml[nlp]
 ```
 
 ### Distributed tuning
