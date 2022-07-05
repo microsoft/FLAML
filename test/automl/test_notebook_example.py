@@ -3,7 +3,7 @@ from openml.exceptions import OpenMLServerException
 from requests.exceptions import ChunkedEncodingError, SSLError
 
 
-def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
+def test_automl(budget=600, dataset_format="dataframe", hpo_method=None):
     from flaml.data import load_openml_dataset
     import urllib3
 
