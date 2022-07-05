@@ -268,7 +268,7 @@ def sklearn_metric_loss_score(
             used to calculate the metric. E.g., 2d for log_loss and 1d
             for others.
         y_true: A 1d numpy array of the true labels.
-        labels: A list or an array or list of the unique labels.
+        labels: A list or an array of the unique labels.
         sample_weight: A 1d numpy array of the sample weight.
         groups: A 1d numpy array of the group labels.
 
