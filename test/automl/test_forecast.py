@@ -60,7 +60,9 @@ def test_forecast_automl(budget=5):
     """ compute different metric values on testing dataset"""
     from flaml.ml import sklearn_metric_loss_score
 
-    print("mape", "=", sklearn_metric_loss_score("mape", y_pred, y_test))
+    mape = sklearn_metric_loss_score("mape", y_pred, y_test)
+    print("mape", "=", mape)
+    assert mape <= 0.0006, "the mape of flaml should be less than 0.0006"
     from flaml.data import get_output_from_log
 
     (
@@ -503,6 +505,32 @@ def test_forecast_hierarchical(budget=5):
         "log_file_name": "test/stallion_forecast.log",  # flaml log file
         "eval_method": "holdout",
     }
+    fit_kwargs_by_estimator = {
+        "tft": {
+            "max_encoder_length": 24,
+            "static_categoricals": ["agency", "sku"],
+            "static_reals": ["avg_population_2017", "avg_yearly_household_income_2017"],
+            "time_varying_known_categoricals": ["special_days", "month"],
+            "variable_groups": {
+                "special_days": special_days
+            },  # group of categorical variables can be treated as one variable
+            "time_varying_known_reals": [
+                "time_idx",
+                "price_regular",
+                "discount_in_percent",
+            ],
+            "time_varying_unknown_categoricals": [],
+            "time_varying_unknown_reals": [
+                "y",  # always need a 'y' column for the target column
+                "log_volume",
+                "industry_volume",
+                "soda_volume",
+                "avg_max_temp",
+                "avg_volume_by_agency",
+                "avg_volume_by_sku",
+            ],
+        }
+    }
     """The main flaml automl API"""
     automl.fit(
         X_train=X_train,
@@ -510,24 +538,7 @@ def test_forecast_hierarchical(budget=5):
         **settings,
         period=time_horizon,
         group_ids=["agency", "sku"],
-        max_encoder_length=24,
-        static_categoricals=["agency", "sku"],
-        static_reals=["avg_population_2017", "avg_yearly_household_income_2017"],
-        time_varying_known_categoricals=["special_days", "month"],
-        variable_groups={
-            "special_days": special_days
-        },  # group of categorical variables can be treated as one variable
-        time_varying_known_reals=["time_idx", "price_regular", "discount_in_percent"],
-        time_varying_unknown_categoricals=[],
-        time_varying_unknown_reals=[
-            "y",  # 'y' column is the target column
-            "log_volume",
-            "industry_volume",
-            "soda_volume",
-            "avg_max_temp",
-            "avg_volume_by_agency",
-            "avg_volume_by_sku",
-        ],
+        fit_kwargs_by_estimator=fit_kwargs_by_estimator,
     )
     """ retrieve best config and best learner"""
     print("Best ML leaner:", automl.best_estimator)
