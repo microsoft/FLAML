@@ -42,6 +42,7 @@ from .data import (
     concat,
     CLASSIFICATION,
     TOKENCLASSIFICATION,
+    add_time_idx_col,
     TS_FORECAST,
     TS_FORECASTREGRESSION,
     TS_FORECASTPANEL,
@@ -1223,11 +1224,6 @@ class AutoML(BaseEstimator):
                         "period"
                     ]  # NOTE: _prepare_data is before
                     if self._state.task == TS_FORECASTPANEL:
-                        # add time index as a feature - incremented by one for each time step
-                        X_train_all["time_idx"] = (
-                            X_train_all[TS_TIMESTAMP_COL].dt.year * 12
-                            + X_train_all[TS_TIMESTAMP_COL].dt.month
-                        )
                         X_train_all["time_idx"] -= X_train_all["time_idx"].min()
                         ids = self._state.fit_kwargs["group_ids"].copy()
                         ids.append(TS_TIMESTAMP_COL)
@@ -1245,7 +1241,6 @@ class AutoML(BaseEstimator):
                         y_val = y_train_all[
                             lambda x: x.time_idx > training_cutoff
                         ].drop(columns=ids)
-                        print(y_val)
                     else:
                         num_samples = X_train_all.shape[0]
                         assert (
@@ -1441,6 +1436,13 @@ class AutoML(BaseEstimator):
                     )
                     logger.info(f"Using nsplits={n_splits} due to data size limit.")
                 self._state.kf = TimeSeriesSplit(n_splits=n_splits, test_size=period)
+            elif self._state.task is TS_FORECASTPANEL:
+                n_groups = X_train.groupby(
+                    self._state.fit_kwargs.get("group_ids")
+                ).ngroups
+                self._state.kf = TimeSeriesSplit(
+                    n_splits=n_splits, test_size=period * n_groups
+                )
             else:
                 self._state.kf = TimeSeriesSplit(n_splits=n_splits)
         elif isinstance(self._split_type, str):
@@ -2240,6 +2242,18 @@ class AutoML(BaseEstimator):
                 "output_dir": "test/data/output/",
                 "ckpt_per_epoch": 1,
                 "fp16": False,
+            },
+            "tft": {
+                "max_encoder_length": 1,
+                "min_encoder_length": 1,
+                "static_categoricals": [],
+                "static_reals": [],
+                "time_varying_known_categoricals": [],
+                "time_varying_known_reals": [],
+                "time_varying_unknown_categoricals": [],
+                "time_varying_unknown_reals": [],
+                "variable_groups": {},
+                "lags": {},
             }
         }
         ```
@@ -2252,14 +2266,6 @@ class AutoML(BaseEstimator):
                     group_ids: list of strings of column names identifying a time series, only
                     used for panel time series forecasting
                     TemporalFusionTransformer: [TimeSeriesDataSet pytorchforecasting](https://pytorch-forecasting.readthedocs.io/en/stable/api/pytorch_forecasting.data.timeseries.TimeSeriesDataSet.html)
-                        static_categoricals
-                        static_reals
-                        time_varying_known_categoricals
-                        time_varying_known_reals
-                        time_varying_unknown_categoricals
-                        time_varying_unknown_reals
-                        variable_groups
-                        lags
         """
 
         self._state._start_time_flag = self._start_time_flag = time.time()
@@ -2479,6 +2485,8 @@ class AutoML(BaseEstimator):
                 estimator_list = ["lgbm", "xgboost", "xgb_limitdepth"]
             elif _is_nlp_task(self._state.task):
                 estimator_list = ["transformer"]
+            elif self._state.task == TS_FORECASTPANEL:
+                estimator_list = ["tft"]
             else:
                 try:
                     import catboost
@@ -2510,8 +2518,6 @@ class AutoML(BaseEstimator):
                             estimator_list += ["prophet", "arima", "sarimax"]
                         except ImportError:
                             estimator_list += ["arima", "sarimax"]
-                    if self._state.task == TS_FORECASTPANEL:
-                        estimator_list = ["tft"]
                 elif "regression" != self._state.task:
                     estimator_list += ["lrl1"]
 

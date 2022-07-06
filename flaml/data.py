@@ -245,6 +245,25 @@ def concat(X1, X2):
         return np.concatenate([X1, X2])
 
 
+def add_time_idx_col(X):
+    unique_dates = X[TS_TIMESTAMP_COL].drop_duplicates().sort_values(ascending=True)
+    # assume no missing timestamps
+    freq = pd.infer_freq(unique_dates)
+    if freq == "MS":
+        X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year * 12 + X[TS_TIMESTAMP_COL].dt.month
+    elif freq == "Y":
+        X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year
+    else:
+        # using time frequency to generate all time stamps and then indexing for time_idx
+        # full_range = pd.date_range(X[TS_TIMESTAMP_COL].min(), X[TS_TIMESTAMP_COL].max(), freq=freq).to_list()
+        # X["time_idx"] = [full_range.index(time) for time in X[TS_TIMESTAMP_COL]]
+        # taking minimum difference in timestamp
+        timestamps = unique_dates.view("int64")
+        freq = int(timestamps.diff().mode())
+        X["time_idx"] = timestamps - timestamps.min() / freq
+    return X
+
+
 class DataTransformer:
     """Transform input training data."""
 
@@ -279,6 +298,8 @@ class DataTransformer:
             if task in TS_FORECAST:
                 X = X.rename(columns={X.columns[0]: TS_TIMESTAMP_COL})
                 ds_col = X.pop(TS_TIMESTAMP_COL)
+                if task is TS_FORECASTPANEL:
+                    X = add_time_idx_col(X)
                 if isinstance(y, Series):
                     y = y.rename(TS_VALUE_COL)
             for column in X.columns:

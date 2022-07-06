@@ -23,6 +23,7 @@ from . import tune
 from .data import (
     group_counts,
     CLASSIFICATION,
+    add_time_idx_col,
     TS_FORECASTREGRESSION,
     TS_TIMESTAMP_COL,
     TS_VALUE_COL,
@@ -2163,14 +2164,14 @@ class TemporalFusionTransformer(SKLearnEstimator):
         from pytorch_forecasting.data import GroupNormalizer
 
         self.group_ids = kwargs["group_ids"].copy()
-        print(X_train)
         training = TimeSeriesDataSet(
             self.data[lambda x: x.time_idx <= training_cutoff],
             time_idx="time_idx",
             target=TS_VALUE_COL,
             group_ids=self.group_ids,
-            min_encoder_length=self.max_encoder_length
-            // 2,  # keep encoder length long (as it is in the validation set)
+            min_encoder_length=kwargs.get(
+                "min_encoder_length", self.max_encoder_length // 2
+            ),  # keep encoder length long (as it is in the validation set)
             max_encoder_length=self.max_encoder_length,
             min_prediction_length=1,
             max_prediction_length=max_prediction_length,
@@ -2225,11 +2226,8 @@ class TemporalFusionTransformer(SKLearnEstimator):
         import torch
         from pytorch_forecasting import TemporalFusionTransformer
         from pytorch_forecasting.metrics import QuantileLoss
-        import tensorflow as tf
         import tensorboard as tb
 
-        warnings.filterwarnings("ignore")
-        tf.io.gfile = tb.compat.tensorflow_stub.io.gfile
         current_time = time.time()
         training, train_dataloader, val_dataloader = self.transform_ds(
             X_train, y_train, **kwargs
@@ -2257,7 +2255,7 @@ class TemporalFusionTransformer(SKLearnEstimator):
         tft = TemporalFusionTransformer.from_dataset(
             training,
             **params,
-            lstm_layers=2,
+            lstm_layers=2,  # 2 is mostly optimal according to documentation
             output_size=7,  # 7 quantiles by default
             loss=QuantileLoss(),
             log_interval=10,  # uncomment for learning rate finder and otherwise, e.g. to 10 for logging every 10 batches
@@ -2286,10 +2284,7 @@ class TemporalFusionTransformer(SKLearnEstimator):
         # TODO: follow pytorchforecasting example, make all target values equal to the last data
         # last_data = self.data[lambda x: x.time_idx == x.time_idx.max()]
         decoder_data = X
-        decoder_data["time_idx"] = (
-            decoder_data[TS_TIMESTAMP_COL].dt.year * 12
-            + decoder_data[TS_TIMESTAMP_COL].dt.month
-        )
+        decoder_data = add_time_idx_col(decoder_data)
         decoder_data["time_idx"] += (
             encoder_data["time_idx"].max() + 1 - decoder_data["time_idx"].min()
         )
