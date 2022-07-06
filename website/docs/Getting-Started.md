@@ -7,7 +7,7 @@ learning models automatically, efficiently and economically. It frees users from
 
 ### Main Features
 
-1. For common machine learning tasks like classification and regression, it quickly finds quality models for user-provided data with low computational resources. It supports both classifcal machine learning models and deep neural networks.
+1. For common machine learning tasks like classification and regression, it quickly finds quality models for user-provided data with low computational resources. It supports both classical machine learning models and deep neural networks.
 
 2. It is easy to customize or extend. Users can find their desired customizability from a smooth range: minimal customization (computational resource budget), medium customization (e.g., scikit-style learner, search space and metric), or full customization (arbitrary training and evaluation code). Users can customize only when and what they need to, and leave the rest to the library.
 
@@ -28,14 +28,14 @@ For example, with three lines of code, you can start using this economical and f
 ```python
 from flaml import AutoML
 automl = AutoML()
-automl.fit(X_train, y_train, task="classification")
+automl.fit(X_train, y_train, task="classification", time_budget=60)
 ```
 
-It automatically tunes the hyperparameters and selects the best model from default learners such as LightGBM, XGBoost, random forest etc. [Customizing](Use-Cases/task-oriented-automl#customize-automlfit) the optimization metrics, learners and search spaces etc. is very easy. For example,
+It automatically tunes the hyperparameters and selects the best model from default learners such as LightGBM, XGBoost, random forest etc. for the specified time budget 60 seconds. [Customizing](Use-Cases/task-oriented-automl#customize-automlfit) the optimization metrics, learners and search spaces etc. is very easy. For example,
 
 ```python
 automl.add_learner("mylgbm", MyLGBMEstimator)
-automl.fit(X_train, y_train, task="classification", metric=custom_metric, estimator_list=["mylgbm"])
+automl.fit(X_train, y_train, task="classification", metric=custom_metric, estimator_list=["mylgbm"], time_budget=60)
 ```
 
 #### [Tune user-defined function](Use-Cases/Tune-User-Defined-Function)
@@ -88,7 +88,7 @@ Then, you can use it just like you use the original `LGMBClassifier`. Your other
 
 ### Where to Go Next?
 
-* Understand the use cases for [Task-oriented AutoML](Use-Cases/task-oriented-automl) and [Tune user-defined function](Use-Cases/Tune-User-Defined-Function).
+* Understand the use cases for [Task-oriented AutoML](Use-Cases/task-oriented-automl), [Tune user-defined function](Use-Cases/Tune-User-Defined-Function) and [Zero-shot AutoML](Use-Cases/Zero-Shot-AutoML).
 * Find code examples under "Examples": from [AutoML - Classification](Examples/AutoML-Classification) to [Tune - PyTorch](Examples/Tune-PyTorch).
 * Watch [video tutorials](https://www.youtube.com/channel/UCfU0zfFXHXdAd5x-WvFBk5A).
 * Learn about [research](Research) around FLAML.

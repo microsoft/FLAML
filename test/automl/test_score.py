@@ -46,9 +46,11 @@ class TestScore:
             automl.score(X_test, y_test)
             automl.pickle("automl.pkl")
             with open("automl.pkl", "rb") as f:
-                pickle.load(f)
-        except ImportError:
-            print("not using prophet due to ImportError")
+                pickle.load(f)  # v1.1 of prophet raises RecursionError
+        except (ImportError, RecursionError):
+            print(
+                "not using prophet due to ImportError or RecursionError (when unpickling in v1.1)"
+            )
             automl.fit(
                 dataframe=df,
                 **settings,
@@ -211,6 +213,64 @@ class TestScore:
                 automl.pickle("automl.pkl")
             except NotImplementedError:
                 pass
+
+    def test_class(self):
+        # to test classification task with labels need encoding
+        X = pd.DataFrame(
+            {
+                "f1": [1, -2, 3, -4, 5, -6, -7, 8, -9, -10, -11, -12, -13, -14],
+                "f2": [
+                    3.0,
+                    16.0,
+                    10.0,
+                    12.0,
+                    3.0,
+                    14.0,
+                    11.0,
+                    12.0,
+                    5.0,
+                    14.0,
+                    20.0,
+                    16.0,
+                    15.0,
+                    11.0,
+                ],
+            }
+        )
+        y = pd.Series(
+            [
+                "a",
+                "b",
+                "c",
+                "d",
+                "a",
+                "b",
+                "c",
+                "d",
+                "a",
+                "b",
+                "c",
+                "d",
+                "a",
+                "b",
+            ]
+        )
+
+        automl = AutoML()
+
+        automl_settings = {
+            "time_budget": 6,
+            "task": "classification",
+            "n_jobs": 1,
+            "estimator_list": ["xgboost"],
+            "metric": "accuracy",
+            "log_training_metric": True,
+        }
+
+        automl.fit(X, y, **automl_settings)
+        assert automl._label_transformer is not None
+        assert automl.score(X, y) > 0
+        automl.pickle("automl.pkl")
 
 
 if __name__ == "__main__":

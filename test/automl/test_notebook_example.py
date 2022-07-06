@@ -1,6 +1,6 @@
 import sys
 from openml.exceptions import OpenMLServerException
-from requests.exceptions import ChunkedEncodingError
+from requests.exceptions import ChunkedEncodingError, SSLError
 
 
 def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
@@ -23,6 +23,7 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
         OpenMLServerException,
         ChunkedEncodingError,
         urllib3.exceptions.ReadTimeoutError,
+        SSLError,
     ) as e:
         print(e)
         return
@@ -48,6 +49,7 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
         "Training duration of best run: {0:.4g} s".format(automl.best_config_train_time)
     )
     print(automl.model.estimator)
+    print(automl.best_config_per_estimator)
     print("time taken to find best model:", automl.time_to_find_best_model)
     """ pickle and save the automl object """
     import pickle
@@ -92,6 +94,11 @@ def test_automl_array():
     test_automl(5, "array", "bs")
 
 
+def _test_nobudget():
+    # needs large RAM to run this test
+    test_automl(-1)
+
+
 def test_mlflow():
     import subprocess
     import sys
@@ -104,7 +111,7 @@ def test_mlflow():
         X_train, X_test, y_train, y_test = load_openml_task(
             task_id=7592, data_dir="test/"
         )
-    except (OpenMLServerException, ChunkedEncodingError) as e:
+    except (OpenMLServerException, ChunkedEncodingError, SSLError) as e:
         print(e)
         return
     """ import AutoML class from flaml package """

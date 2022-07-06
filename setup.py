@@ -14,9 +14,9 @@ with open(os.path.join(here, "flaml/version.py")) as fp:
 __version__ = version["__version__"]
 
 install_requires = [
-    "NumPy>=1.16.2",
+    "NumPy>=1.17.0rc1",
     "lightgbm>=2.3.1",
-    "xgboost>=0.90,<=1.3.3",
+    "xgboost>=0.90",
     "scipy>=1.4.1",
     "pandas>=1.1.4",
     "scikit-learn>=0.24",
@@ -33,6 +33,10 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/microsoft/FLAML",
     packages=setuptools.find_packages(include=["flaml*"]),
+    package_data={
+        "flaml.default": ["*/*.json"],
+    },
+    include_package_data=True,
     install_requires=install_requires,
     extras_require={
         "notebook": [
@@ -55,9 +59,8 @@ setuptools.setup(
             "statsmodels>=0.12.2",
             "psutil==5.8.0",
             "dataclasses",
-            "transformers>=4.14",
+            "transformers[torch]>=4.14",
             "datasets",
-            "torch",
             "nltk",
             "rouge_score",
             "hcrystalball==0.1.10",
@@ -69,7 +72,7 @@ setuptools.setup(
         "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],
         "ray": [
-            "ray[tune]~=1.10",
+            "ray[tune]~=1.13",
         ],
         "azureml": [
             "azureml-mlflow",
@@ -81,28 +84,24 @@ setuptools.setup(
             "vowpalwabbit",
         ],
         "nlp": [
-            "transformers>=4.14",
+            "transformers[torch]>=4.14",
             "datasets",
-            "torch",
-            "seqeval",
             "nltk",
             "rouge_score",
+            "seqeval",
         ],
         "ts_forecast": [
+            "holidays<0.14",  # to prevent installation error for prophet
             "prophet>=1.0.1",
             "statsmodels>=0.12.2",
             "hcrystalball==0.1.10",
-            "pytorch-forecasting>=0.9.0",
-            "pytorch-lightning==1.5.10",
-            "tensorflow>=2.5.1",
         ],
         "forecast": [
+            "holidays<0.14",  # to prevent installation error for prophet
             "prophet>=1.0.1",
             "statsmodels>=0.12.2",
             "hcrystalball==0.1.10",
             "pytorch-forecasting>=0.9.0",
-            "pytorch-lightning==1.5.10",
-            "tensorflow>=2.5.1",
         ],
         "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3"],
     },
