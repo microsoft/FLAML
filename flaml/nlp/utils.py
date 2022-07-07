@@ -91,7 +91,7 @@ def tokenize_and_align_labels(
         if hf_args and hf_args.pad_to_max_length
         else False,  # to be consistent with https://github.com/huggingface/transformers/blob/main/examples/pytorch/token-classification/run_ner.py#L394
         truncation=True,
-        max_length=hf_args.max_seq_length if hf_args else None,
+        max_length=None,  # hf_args.max_seq_length if hf_args else None,
         # We use this argument because the texts in our dataset are lists of words (with a label for each word).
         is_split_into_words=True,
     )
