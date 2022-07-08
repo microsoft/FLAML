@@ -88,6 +88,7 @@ def tokenize_and_align_labels(
     Y_sent_key=None,
     return_column_name=False,
 ):
+    # tokenize_and_align_labels is only called by the token-classification task
     logger.warning(
         "For token classification task, FLAML currently does not support customizing the max_seq_length, so max_seq_length will always be None."
     )
@@ -148,6 +149,7 @@ def tokenize_text_tokclassification(X, Y, tokenizer, hf_args=None):
         X_and_Y = pd.concat([X, Y.to_frame()], axis=1)
         X_key = list(X.keys())[0]
         Y_key = list(Y.to_frame().keys())[0]
+        # tokenize_and_align_labels is only called by the token-classification task
         _, tokenized_column_names = tokenize_and_align_labels(
             X_and_Y.iloc[0],
             tokenizer=tokenizer,
