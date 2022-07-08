@@ -88,12 +88,9 @@ def tokenize_and_align_labels(
     Y_sent_key=None,
     return_column_name=False,
 ):
-    if hf_args.max_seq_length is not None:
-        logger.warning(
-            "For token classification task, FLAML currently does not support customizing the max_seq_length, so setting max_seq_length={} will remain ineffective.".format(
-                hf_args.max_seq_length
-            )
-        )
+    logger.warning(
+        "For token classification task, FLAML currently does not support customizing the max_seq_length, so max_seq_length will always be None."
+    )
     tokenized_inputs = tokenizer(
         [list(examples[X_sent_key])],
         padding="max_length"

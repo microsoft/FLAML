@@ -50,7 +50,7 @@ class TrainingArgumentsForAuto(TrainingArguments):
 
     fp16: bool = field(default=True, metadata={"help": "whether to use the FP16 mode"})
 
-    max_seq_length: int = field(default=None, metadata={"help": "max seq length"})
+    max_seq_length: int = field(default=128, metadata={"help": "max seq length"})
 
     label_all_tokens: bool = field(
         default=False,
