@@ -23,7 +23,7 @@ class TrainingArgumentsForAuto(TrainingArguments):
             the path of the language model file, either a path from huggingface
             model card huggingface.co/models, or a local path for the model.
         fp16 (bool, optional, defaults to "False"): A bool, whether to use FP16.
-        max_seq_length (int, optional, defaults to 128): An integer, the max length of the sequence.
+        max_seq_length (int, optional, defaults to 128): An integer, the max length of the sequence. For token classification task, this argument will be ineffective.
         pad_to_max_length (bool, optional, defaults to "False"):
             whether to pad all samples to model maximum sentence length.
             If False, will pad the samples dynamically when batching to the maximum length in the batch.
@@ -49,7 +49,7 @@ class TrainingArgumentsForAuto(TrainingArguments):
 
     fp16: bool = field(default=True, metadata={"help": "whether to use the FP16 mode"})
 
-    max_seq_length: int = field(default=128, metadata={"help": "max seq length"})
+    max_seq_length: int = field(default=None, metadata={"help": "max seq length"})
 
     label_all_tokens: bool = field(
         default=False,

@@ -12,6 +12,10 @@ from ..data import (
 )
 
 import pandas as pd
+import logging
+
+logger = logging.getLogger("flaml.automl")
+FREE_MEM_RATIO = 0.2
 
 
 def load_default_huggingface_metric_for_task(task):
@@ -85,6 +89,12 @@ def tokenize_and_align_labels(
     Y_sent_key=None,
     return_column_name=False,
 ):
+    if hf_args.max_seq_length is not None:
+        logger.warning(
+            "For token classification task, FLAML currently does not support customizing the max_seq_length, so setting max_seq_length={} will remain ineffective.".format(
+                hf_args.max_seq_length
+            )
+        )
     tokenized_inputs = tokenizer(
         [list(examples[X_sent_key])],
         padding="max_length"

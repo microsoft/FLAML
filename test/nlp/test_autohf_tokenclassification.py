@@ -34,6 +34,7 @@ def test_tokenclassification_idlabel():
         "B-MISC",
         "I-MISC",
     ]
+    automl_settings["fit_kwargs_by_estimator"]["transformer"]["max_seq_length"] = 100
 
     try:
         automl.fit(
