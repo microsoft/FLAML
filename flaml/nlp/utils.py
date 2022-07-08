@@ -15,7 +15,6 @@ import pandas as pd
 import logging
 
 logger = logging.getLogger("flaml.automl")
-FREE_MEM_RATIO = 0.2
 
 
 def load_default_huggingface_metric_for_task(task):
@@ -223,7 +222,6 @@ def tokenize_onedataframe(
     hf_args=None,
     prefix_str=None,
 ):
-
     with tokenizer.as_target_tokenizer():
         _, tokenized_column_names = tokenize_row(
             dict(X.iloc[0]),
