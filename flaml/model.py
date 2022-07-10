@@ -484,7 +484,7 @@ class TransformersEstimator(BaseEstimator):
             and self._training_args.max_seq_length is not None
         ):
             logger.warning(
-                "For token classification task, FLAML currently does not support customizing the max_seq_length,  max_seq_length will be reset to None."
+                "For token classification task, FLAML currently does not support customizing the max_seq_length, max_seq_length will be reset to None."
             )
             setattr(self._training_args, "max_seq_length", None)
 
