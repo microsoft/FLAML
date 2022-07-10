@@ -10,7 +10,7 @@ First half of the tutorial:
 - Overview of AutoML and FLAML
 - Task-oriented AutoML with FLAML
     - [Notebook: A classification task with AutoML](https://github.com/microsoft/FLAML/blob/tutorial/notebook/automl_classification.ipynb)
-    - [Notebook: A regression task with AuotML using LightGBM as the learner](https://github.com/microsoft/FLAML/blob/tutorial/notebook/automl_classification.ipynb)
+    - [Notebook: A regression task with AuotML using LightGBM as the learner](https://github.com/microsoft/FLAML/blob/tutorial/notebook/automl_lightgbm.ipynb)
 - ML.Net demo
 - Tune user defined functions with FLAML
     - [Notebook: Basic tuning procedures and advanced tuning options](https://github.com/microsoft/FLAML/blob/tutorial/notebook/tune_demo.ipynb)
