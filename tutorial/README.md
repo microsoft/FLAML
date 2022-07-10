@@ -1,4 +1,4 @@
-# Tutorial about FLAML
+# KDD 2022 Hands-on Tutorial about FLAML
 
 ## Agenda
 
@@ -15,7 +15,7 @@ First half of the tutorial:
 - Tune user defined functions with FLAML
     - [Notebook: Basic tuning procedures and advanced tuning options](https://github.com/microsoft/FLAML/blob/tutorial/notebook/tune_demo.ipynb)
     - [Notebook: Tune pytorch](https://github.com/microsoft/FLAML/blob/tutorial/notebook/tune_pytorch.ipynb)
-- Q & A 
+- Q & A
 
 Second half of the tutorial:
 - Zero-shot AutoML
