@@ -98,7 +98,7 @@ def test_points_to_evaluate():
     automl.fit(X_train, y_train, **automl_settings)
 
 
-# TODO: implement _test_zero_shot_model
+# TODO: implement  _test_zero_shot_model
 def test_zero_shot_nomodel():
     from flaml.default import preprocess_and_suggest_hyperparams
 
