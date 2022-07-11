@@ -442,7 +442,8 @@ class TransformersEstimator(BaseEstimator):
                 "domain": tune.choice([1e-8, 1e-7, 1e-6]),
                 "init_value": 1e-6,
             },
-            "seed": {"domain": tune.choice(list(range(40, 45))), "init_value": 42},
+            "seed": {"domain": tune.randint(40, 45), "init_value": 42},
+
             "global_max_steps": {
                 "domain": sys.maxsize,
                 "init_value": sys.maxsize,
