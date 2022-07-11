@@ -191,7 +191,7 @@ class SearchState:
             ):  # If starting point is list, no need to check the validity of self.init_config w.r.t search space
                 self.init_config[name] = space[
                     "init_value"
-                ]  # If starting_point is list, no need to assign value to self.init_config here
+                ]  # If starting_point is list: no need to assign value to self.init_config here
 
         if isinstance(starting_point, list):
             self.init_config = starting_point
