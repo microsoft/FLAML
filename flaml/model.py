@@ -418,7 +418,7 @@ class TransformersEstimator(BaseEstimator):
         search_space_dict = {
             "learning_rate": {
                 "domain": tune.choice(
-                    [1e-6, 2e-6, 4e-6, 8e-6, 16e-6, 32e-6, 64e-6, 128e-6]
+                    [1e-6, 2e-6, 4e-6, 8e-6, 1e-5, 16e-6, 32e-6, 64e-6, 128e-6]
                 ),
                 "init_value": 1e-5,
             },
@@ -443,7 +443,6 @@ class TransformersEstimator(BaseEstimator):
                 "init_value": 1e-6,
             },
             "seed": {"domain": tune.randint(40, 45), "init_value": 42},
-
             "global_max_steps": {
                 "domain": sys.maxsize,
                 "init_value": sys.maxsize,
