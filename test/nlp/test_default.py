@@ -163,8 +163,3 @@ def test_build_error_portfolio(path="./test/nlp/default", strategy="greedy"):
         )
     except ValueError:
         print("Feature not implemented")
-
-
-if __name__ == "__main__":
-    test_build_portfolio()
-    test_starting_point_not_in_search_space()
