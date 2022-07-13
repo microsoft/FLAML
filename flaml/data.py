@@ -266,6 +266,7 @@ def add_time_idx_col(X):
         timestamps = unique_dates.view("int64")
         freq = int(timestamps.diff().mode())
         X["time_idx"] = timestamps - timestamps.min() / freq
+        X["time_idx"] = X["time_idx"].astype("int")
     return X
 
 
