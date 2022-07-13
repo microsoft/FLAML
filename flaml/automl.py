@@ -1257,6 +1257,7 @@ class AutoML(BaseEstimator):
                     ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
                     if self._state.task == TS_FORECASTPANEL:
                         X_train_all["time_idx"] -= X_train_all["time_idx"].min()
+                        X_train_all["time_idx"] = X_train_all["time_idx"].astype("int")
                         ids = self._state.fit_kwargs["group_ids"].copy()
                         ids.append(TS_TIMESTAMP_COL)
                         ids.append("time_idx")
