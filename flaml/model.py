@@ -254,7 +254,7 @@ class BaseEstimator:
         """
         if self._model is not None:
             X = self._preprocess(X)
-            return self._model.predict(X)
+            return self._model.predict(X, **kwargs)
         else:
             logger.warning(
                 "Estimator is not fit yet. Please run fit() before predict()."
@@ -277,7 +277,7 @@ class BaseEstimator:
         assert self._task in CLASSIFICATION, "predict_proba() only for classification."
 
         X = self._preprocess(X)
-        return self._model.predict_proba(X)
+        return self._model.predict_proba(X, **kwargs)
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         """Report the evaluation score of a trained estimator.
@@ -1321,7 +1321,7 @@ class XGBoostEstimator(SKLearnEstimator):
         if not issparse(X):
             X = self._preprocess(X)
         dtest = xgb.DMatrix(X)
-        return super().predict(dtest)
+        return super().predict(dtest, **kwargs)
 
     @classmethod
     def _callbacks(cls, start_time, deadline):
@@ -2131,7 +2131,7 @@ class TS_SKLearn(SKLearnEstimator):
                     X_pred,
                     _,
                 ) = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X)
-                forecast = self._model.predict(X_pred)
+                forecast = self._model.predict(X_pred, **kwargs)
             return forecast
         else:
             logger.warning(
