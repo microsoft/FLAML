@@ -26,7 +26,7 @@ You can use FLAML in .NET in the following ways:
 
 **Code-first**
 
-- [*Microsoft.ML.AutoML*](https://www.nuget.org/packages/Microsoft.ML.AutoML/0.20.0-preview.22313.1) - NuGet package that provides direct access to the FLAML AutoML APIs that power low-code solutions like Model Builder and the ML.NET CLI. For more information on installing NuGet packages, see the install and use a NuGet package in [Visual Studio](https://docs.microsoft.com/nuget/quickstart/install-and-use-a-package-in-visual-studio) or [dotnet CLI](https://docs.microsoft.com/nuget/quickstart/install-and-use-a-package-using-the-dotnet-cli) guides.
+- [*Microsoft.ML.AutoML*](https://www.nuget.org/packages/Microsoft.ML.AutoML/0.20.0-preview.22313.1) - NuGet package that provides direct access to the FLAML AutoML APIs that power low-code solutions like Model Builder and the ML.NET CLI. For more information on installing NuGet packages, see the *install and use a NuGet package* in [Visual Studio](https://docs.microsoft.com/nuget/quickstart/install-and-use-a-package-in-visual-studio) or [dotnet CLI](https://docs.microsoft.com/nuget/quickstart/install-and-use-a-package-using-the-dotnet-cli) guides.
 
 ## Optional Python Dependencies
 
