@@ -417,11 +417,13 @@ class TransformersEstimator(BaseEstimator):
     def search_space(cls, data_size, task, **params):
         search_space_dict = {
             "learning_rate": {
-                "domain": tune.loguniform(lower=1e-6, upper=1e-3),
-                "init_value": 1e-5,
+                "domain": tune.choice(
+                    [1e-6, 2e-6, 4e-6, 8e-6, 16e-6, 32e-6, 64e-6, 128e-6]
+                ),
+                "init_value": 8e-6,
             },
             "num_train_epochs": {
-                "domain": tune.loguniform(lower=0.1, upper=10.0),
+                "domain": tune.choice([1, 3, 5, 7, 9]),
                 "init_value": 3.0,  # to be consistent with roberta
             },
             "per_device_train_batch_size": {
@@ -429,18 +431,18 @@ class TransformersEstimator(BaseEstimator):
                 "init_value": 32,
             },
             "warmup_ratio": {
-                "domain": tune.uniform(lower=0.0, upper=0.3),
+                "domain": tune.choice([0, 0.1, 0.2, 0.3]),
                 "init_value": 0.0,
             },
             "weight_decay": {
-                "domain": tune.uniform(lower=0.0, upper=0.3),
+                "domain": tune.choice([0, 0.1, 0.2, 0.3]),
                 "init_value": 0.0,
             },
             "adam_epsilon": {
-                "domain": tune.loguniform(lower=1e-8, upper=1e-6),
+                "domain": tune.choice([1e-8, 1e-7, 1e-6]),
                 "init_value": 1e-6,
             },
-            "seed": {"domain": tune.choice(list(range(40, 45))), "init_value": 42},
+            "seed": {"domain": tune.randint(40, 45), "init_value": 42},
             "global_max_steps": {
                 "domain": sys.maxsize,
                 "init_value": sys.maxsize,
@@ -594,10 +596,7 @@ class TransformersEstimator(BaseEstimator):
             return AutoTokenizer.from_pretrained(
                 self._training_args.model_path,
                 use_fast=True,
-                add_prefix_space="roberta" in self._training_args.model_path
-                and not getattr(self, "_pred_flag", False),
-                # If roberta model and the call is from .fit instead of .predict (when the model_path is updated to the checkpoint name instead), must set add_prefix_space to True to avoid the assertion error at
-                # https://github.com/huggingface/transformers/blob/main/src/transformers/models/roberta/tokenization_roberta_fast.py#L249
+                add_prefix_space=self._add_prefix_space,
             )
 
     @property
@@ -644,6 +643,10 @@ class TransformersEstimator(BaseEstimator):
 
         self._X_train, self._y_train = X_train, y_train
         self._set_training_args(**kwargs)
+        self._add_prefix_space = (
+            "roberta" in self._training_args.model_path
+        )  # If using roberta model, must set add_prefix_space to True to avoid the assertion error at
+        # https://github.com/huggingface/transformers/blob/main/src/transformers/models/roberta/tokenization_roberta_fast.py#L249
 
         train_dataset, self._X_train, self._y_train = self.preprocess_data(
             X_train, y_train
@@ -822,7 +825,6 @@ class TransformersEstimator(BaseEstimator):
             Need to reinit training_args because of a bug in deepspeed: if not reinit, the deepspeed config will be inconsistent
             with HF config https://github.com/huggingface/transformers/blob/main/src/transformers/training_args.py#L947
         """
-        self._pred_flag = True
         training_args = self._TrainingArguments(
             local_rank=-1, model_path=self._checkpoint_path, fp16=self.fp16
         )
