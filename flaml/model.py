@@ -418,7 +418,7 @@ class TransformersEstimator(BaseEstimator):
         search_space_dict = {
             "learning_rate": {
                 "domain": tune.loguniform(1e-6, 1e-4),
-                "init_value": 8e-6,
+                "init_value": 1e-5,
             },
             "num_train_epochs": {
                 "domain": tune.choice([1, 2, 3, 4, 5]),
@@ -500,7 +500,7 @@ class TransformersEstimator(BaseEstimator):
 
         self._training_args.eval_steps = (
             self._training_args.logging_steps
-        ) = self._training_args.saving_steps = self.checkpoint_freq
+        ) = self._training_args.saving_steps = 500 #self.checkpoint_freq
         self._training_args.fp16 = self.fp16
         self._training_args.no_cuda = self.no_cuda
 
