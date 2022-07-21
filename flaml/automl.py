@@ -42,7 +42,6 @@ from .data import (
     concat,
     CLASSIFICATION,
     TOKENCLASSIFICATION,
-    add_time_idx_col,
     TS_FORECAST,
     TS_FORECASTREGRESSION,
     TS_FORECASTPANEL,
@@ -2336,6 +2335,9 @@ class AutoML(BaseEstimator):
                     group_ids: list of strings of column names identifying a time series, only
                     used for panel time series forecasting
                     TemporalFusionTransformer: [TimeSeriesDataSet pytorchforecasting](https://pytorch-forecasting.readthedocs.io/en/stable/api/pytorch_forecasting.data.timeseries.TimeSeriesDataSet.html)
+                    log_dir: str , default = "lightning_logs" | Folder into which to log results for tensorboard.
+                    max_epochs: int, default = 20 | Maximum number of epochs to run training.
+                    batch_size: int, default = 64 | Batch size for training model
         """
 
         self._state._start_time_flag = self._start_time_flag = time.time()

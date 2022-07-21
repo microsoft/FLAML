@@ -2155,7 +2155,7 @@ class TemporalFusionTransformer(SKLearnEstimator):
             },
             "learning_rate": {
                 "domain": tune.loguniform(lower=0.00001, upper=1.0),
-                "init_value": 0.0001,
+                "init_value": 0.001,
             },
         }
         return space
@@ -2212,7 +2212,7 @@ class TemporalFusionTransformer(SKLearnEstimator):
         )
 
         # create dataloaders for model
-        batch_size = 128  # set this between 32 to 128
+        batch_size = kwargs.get("batch_size", 64)
         train_dataloader = training.to_dataloader(
             train=True, batch_size=batch_size, num_workers=0
         )
@@ -2236,6 +2236,7 @@ class TemporalFusionTransformer(SKLearnEstimator):
         from pytorch_forecasting.metrics import QuantileLoss
         import tensorboard as tb
 
+        warnings.filterwarnings("ignore")
         current_time = time.time()
         training, train_dataloader, val_dataloader = self.transform_ds(
             X_train, y_train, **kwargs
@@ -2243,12 +2244,14 @@ class TemporalFusionTransformer(SKLearnEstimator):
         params = self.params.copy()
         gradient_clip_val = params.pop("gradient_clip_val")
         params.pop("n_jobs")
-        max_epochs = 1
+        max_epochs = kwargs.get("max_epochs", 20)
         early_stop_callback = EarlyStopping(
             monitor="val_loss", min_delta=1e-4, patience=10, verbose=False, mode="min"
         )
         lr_logger = LearningRateMonitor()  # log the learning rate
-        logger = TensorBoardLogger("lightning_logs")  # logging results to a tensorboard
+        logger = TensorBoardLogger(
+            kwargs.get("log_dir", "lightning_logs")
+        )  # logging results to a tensorboard
         default_trainer_kwargs = dict(
             gpus=[0] if torch.cuda.is_available() else None,
             max_epochs=max_epochs,
@@ -2292,13 +2295,15 @@ class TemporalFusionTransformer(SKLearnEstimator):
         # TODO: follow pytorchforecasting example, make all target values equal to the last data
         # last_data = self.data[lambda x: x.time_idx == x.time_idx.max()]
         decoder_data = X
-        decoder_data = add_time_idx_col(decoder_data)
+        if "time_idx" not in decoder_data:
+            decoder_data = add_time_idx_col(decoder_data)
         decoder_data["time_idx"] += (
             encoder_data["time_idx"].max() + 1 - decoder_data["time_idx"].min()
         )
         decoder_data[TS_VALUE_COL] = 0
         decoder_data = decoder_data.sort_values(ids)
         new_prediction_data = pd.concat([encoder_data, decoder_data], ignore_index=True)
+        new_prediction_data["time_idx"] = new_prediction_data["time_idx"].astype("int")
         new_raw_predictions = self._model.predict(new_prediction_data)
         index = [decoder_data[idx].to_numpy() for idx in ids]
         predictions = pd.Series(list(new_raw_predictions.numpy().ravel()), index=index)

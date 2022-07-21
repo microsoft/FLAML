@@ -446,7 +446,7 @@ def get_stalliion_data():
     from pytorch_forecasting.data.examples import get_stallion_data
 
     data = get_stallion_data()
-    # add time index
+    # add time index - For datasets with no missing values, FLAML will automate this process
     data["time_idx"] = data["date"].dt.year * 12 + data["date"].dt.month
     data["time_idx"] -= data["time_idx"].min()
     # add additional features
@@ -481,13 +481,11 @@ def get_stalliion_data():
     return data, special_days
 
 
-def test_forecast_hierarchical(budget=5):
+def test_forecast_panel(budget=5):
     data, special_days = get_stalliion_data()
     time_horizon = 6  # predict six months
-    # make time steps first column
-    data["time_idx"] = data["date"].dt.year * 12 + data["date"].dt.month
-    data["time_idx"] -= data["time_idx"].min()
     training_cutoff = data["time_idx"].max() - time_horizon
+    data["time_idx"] = data["time_idx"].astype("int")
     ts_col = data.pop("date")
     data.insert(0, "date", ts_col)
     # FLAML assumes input is not sorted, but we sort here for comparison purposes with y_test
@@ -528,6 +526,7 @@ def test_forecast_hierarchical(budget=5):
                 "avg_volume_by_agency",
                 "avg_volume_by_sku",
             ],
+            "batch_size": 128,
         }
     }
     """The main flaml automl API"""
@@ -584,4 +583,4 @@ if __name__ == "__main__":
     test_multivariate_forecast_cat(60)
     test_numpy()
     test_forecast_classification(60)
-    test_forecast_hierarchical(60)
+    test_forecast_panel(60)

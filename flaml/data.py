@@ -304,7 +304,8 @@ class DataTransformer:
             if task in TS_FORECAST:
                 X = X.rename(columns={X.columns[0]: TS_TIMESTAMP_COL})
                 if task is TS_FORECASTPANEL:
-                    X = add_time_idx_col(X)
+                    if "time_idx" not in X:
+                        X = add_time_idx_col(X)
                 ds_col = X.pop(TS_TIMESTAMP_COL)
                 if isinstance(y, Series):
                     y = y.rename(TS_VALUE_COL)
