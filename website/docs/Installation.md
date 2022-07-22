@@ -72,7 +72,7 @@ pip install flaml[benchmark]
 
 ## .NET
 
-FLAML has a .NET implementation in ML.NET, an open-source, cross-platform machine learning framework for .NET.
+FLAML has a .NET implementation in [ML.NET](http://dot.net/ml), an open-source, cross-platform machine learning framework for .NET.
 
 You can use FLAML in .NET in the following ways:
 
