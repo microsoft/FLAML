@@ -312,7 +312,7 @@ class BaseEstimator:
                 )
             else:
                 X_val = self._preprocess(X_val)
-                metric = kwargs.get("metric", None)
+                metric = kwargs.pop("metric", None)
                 if metric:
                     y_pred = self.predict(X_val, **kwargs)
                     if is_min_metric(metric):
@@ -858,7 +858,7 @@ class TransformersEstimator(BaseEstimator):
         test_dataset = Dataset.from_pandas(X_test)
 
         new_trainer = self._init_model_for_predict()
-        predictions = new_trainer.predict(test_dataset)
+        predictions = new_trainer.predict(test_dataset, **pred_kwargs)
         return predictions.predictions
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
@@ -890,10 +890,10 @@ class TransformersEstimator(BaseEstimator):
         new_trainer = self._init_model_for_predict()
 
         if self._task not in NLG_TASKS:
-            predictions = new_trainer.predict(test_dataset)
+            predictions = new_trainer.predict(test_dataset, **pred_kwargs)
         else:
             predictions = new_trainer.predict(
-                test_dataset,
+                test_dataset, **pred_kwargs,
                 metric_key_prefix="predict",
             )
         post_y_pred, _ = postprocess_prediction_and_true(
@@ -1823,7 +1823,7 @@ class Prophet(SKLearnEstimator):
             )
         if self._model is not None:
             X = self._preprocess(X)
-            forecast = self._model.predict(X)
+            forecast = self._model.predict(X, **kwargs)
             return forecast["yhat"]
         else:
             logger.warning(
@@ -1835,7 +1835,7 @@ class Prophet(SKLearnEstimator):
         from sklearn.metrics import r2_score
         from .ml import metric_loss_score
 
-        y_pred = self.predict(X_val)
+        y_pred = self.predict(X_val, **kwargs)
         self._metric = kwargs.get("metric", None)
         if self._metric:
             return metric_loss_score(self._metric, y_pred, y_val)
@@ -1916,10 +1916,10 @@ class ARIMA(Prophet):
                     X = self._preprocess(X.drop(columns=TS_TIMESTAMP_COL))
                     regressors = list(X)
                     forecast = self._model.predict(
-                        start=start, end=end, exog=X[regressors]
+                        start=start, end=end, exog=X[regressors], **kwargs
                     )
                 else:
-                    forecast = self._model.predict(start=start, end=end)
+                    forecast = self._model.predict(start=start, end=end, **kwargs)
             else:
                 raise ValueError(
                     "X needs to be either a pandas Dataframe with dates as the first column"
@@ -2120,7 +2120,7 @@ class TS_SKLearn(SKLearnEstimator):
                     ) = self.hcrystaball_model._transform_data_to_tsmodel_input_format(
                         X.iloc[:i, :]
                     )
-                    preds.append(self._model[i - 1].predict(X_pred)[-1])
+                    preds.append(self._model[i - 1].predict(X_pred, **kwargs)[-1])
                 forecast = DataFrame(
                     data=np.asarray(preds).reshape(-1, 1),
                     columns=[self.hcrystaball_model.name],
