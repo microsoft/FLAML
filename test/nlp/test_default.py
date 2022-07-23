@@ -114,11 +114,6 @@ def test_zero_shot_nomodel():
     automl_settings = get_automl_settings(estimator_name)
 
     del automl_settings["fit_kwargs_by_estimator"][estimator_name]["model_path"]
-    automl_settings["custom_hp"] = {
-        "transformer_ms": {
-            "model_path": {"domain": "google/electra-small-discriminator"}
-        }
-    }
 
     (
         hyperparams,
