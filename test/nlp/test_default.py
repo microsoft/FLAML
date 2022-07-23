@@ -92,8 +92,12 @@ def test_points_to_evaluate():
 
     automl_settings["estimator_list"] = ["transformer_ms"]
     automl_settings["starting_points"] = "data:test/nlp/default/"
-
     del automl_settings["fit_kwargs_by_estimator"]["transformer_ms"]["model_path"]
+    automl_settings["custom_hp"] = {
+        "transformer_ms": {
+            "model_path": {"domain": "google/electra-small-discriminator"}
+        }
+    }
 
     automl.fit(X_train, y_train, **automl_settings)
 
@@ -110,6 +114,11 @@ def test_zero_shot_nomodel():
     automl_settings = get_automl_settings(estimator_name)
 
     del automl_settings["fit_kwargs_by_estimator"][estimator_name]["model_path"]
+    automl_settings["custom_hp"] = {
+        "transformer_ms": {
+            "model_path": {"domain": "google/electra-small-discriminator"}
+        }
+    }
 
     (
         hyperparams,
