@@ -9,7 +9,7 @@ from utils import get_toy_data_summarization, get_automl_settings
     reason="do not run on mac os or py < 3.7",
 )
 def test_summarization():
-    # TODO: manual test for how effectively postprocess_seq2seq_prediction_label is
+    # TODO: manual test for how effective postprocess_seq2seq_prediction_label is
     from flaml import AutoML
 
     X_train, y_train, X_val, y_val, X_test = get_toy_data_summarization()
