@@ -91,7 +91,7 @@ def test_points_to_evaluate():
     automl_settings = get_automl_settings(estimator_name="transformer_ms")
 
     automl_settings["estimator_list"] = ["transformer_ms"]
-    automl_settings["starting_points"] = "data"
+    automl_settings["starting_points"] = "data:test/nlp/default/"
 
     del automl_settings["fit_kwargs_by_estimator"]["transformer_ms"]["model_path"]
 
