@@ -94,6 +94,11 @@ def test_points_to_evaluate():
     automl_settings["starting_points"] = "data:test/nlp/default/"
 
     del automl_settings["fit_kwargs_by_estimator"]["transformer_ms"]["model_path"]
+    automl_settings["custom_hp"] = {
+        "transformer_ms": {
+            "model_path": {"domain": "google/electra-small-discriminator"}
+        }
+    }
 
     automl.fit(X_train, y_train, **automl_settings)
 
@@ -163,8 +168,3 @@ def test_build_error_portfolio(path="./test/nlp/default", strategy="greedy"):
         )
     except ValueError:
         print("Feature not implemented")
-
-
-if __name__ == "__main__":
-    test_build_portfolio()
-    test_points_to_evaluate()
