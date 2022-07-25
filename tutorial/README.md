@@ -11,7 +11,7 @@ First half of the tutorial:
 - Task-oriented AutoML with FLAML
     - [Notebook: A classification task with AutoML](https://github.com/microsoft/FLAML/blob/tutorial/notebook/automl_classification.ipynb)
     - [Notebook: A regression task with AuotML using LightGBM as the learner](https://github.com/microsoft/FLAML/blob/tutorial/notebook/automl_lightgbm.ipynb)
-- ML.Net demo
+- [ML.NET demo](https://docs.microsoft.com/dotnet/machine-learning/tutorials/predict-prices-with-model-builder)
 - Tune user defined functions with FLAML
     - [Notebook: Basic tuning procedures and advanced tuning options](https://github.com/microsoft/FLAML/blob/tutorial/notebook/tune_demo.ipynb)
     - [Notebook: Tune pytorch](https://github.com/microsoft/FLAML/blob/tutorial/notebook/tune_pytorch.ipynb)
