@@ -86,7 +86,6 @@ automl_settings["fit_kwargs_by_estimator"] = {  # setting the huggingface argume
     "transformer": {
         "model_path": "google/electra-small-discriminator", # if model_path is not set, the default model is facebook/muppet-roberta-base: https://huggingface.co/facebook/muppet-roberta-base
         "output_dir": "data/output/",                       # setting the output directory
-        "ckpt_per_epoch": 5,                                # setting the number of checkpoints per epoch
         "fp16": False,
     }   # setting whether to use FP16
 }
@@ -138,7 +137,6 @@ automl_settings["fit_kwargs_by_estimator"] = {      # setting the huggingface ar
     "transformer": {
         "model_path": "t5-small",             # if model_path is not set, the default model is t5-small: https://huggingface.co/t5-small
         "output_dir": "data/output/",         # setting the output directory
-        "ckpt_per_epoch": 5,                  # setting the number of checkpoints per epoch
         "fp16": False,
     } # setting whether to use FP16
 }

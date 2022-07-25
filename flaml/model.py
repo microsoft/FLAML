@@ -438,18 +438,6 @@ class TransformersEstimator(BaseEstimator):
         return search_space_dict
 
     @property
-    def checkpoint_freq(self):
-        return (
-            int(
-                min(self._training_args.num_train_epochs, 1)
-                * len(self._X_train)
-                / self._training_args.per_device_train_batch_size
-                / self._training_args.ckpt_per_epoch
-            )
-            + 1
-        )
-
-    @property
     def fp16(self):
         return self._kwargs.get("gpu_per_trial") and self._training_args.fp16
 
@@ -498,9 +486,6 @@ class TransformersEstimator(BaseEstimator):
                 local_dir, self.params, self.trial_id
             )
 
-        self._training_args.eval_steps = (
-            self._training_args.logging_steps
-        ) = self._training_args.saving_steps = 500  # self.checkpoint_freq
         self._training_args.fp16 = self.fp16
         self._training_args.no_cuda = self.no_cuda
 

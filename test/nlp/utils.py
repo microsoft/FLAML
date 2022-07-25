@@ -1518,7 +1518,6 @@ def get_automl_settings(estimator_name="transformer"):
         estimator_name: {
             "model_path": "google/electra-small-discriminator",
             "output_dir": "test/data/output/",
-            "ckpt_per_epoch": 1,
             "fp16": False,
         }
     }
