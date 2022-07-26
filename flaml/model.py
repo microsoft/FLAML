@@ -858,7 +858,7 @@ class TransformersEstimator(BaseEstimator):
         test_dataset = Dataset.from_pandas(X_test)
 
         new_trainer = self._init_model_for_predict()
-        predictions = new_trainer.predict(test_dataset, **pred_kwargs)
+        predictions = new_trainer.predict(test_dataset)
         return predictions.predictions
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
@@ -890,10 +890,10 @@ class TransformersEstimator(BaseEstimator):
         new_trainer = self._init_model_for_predict()
 
         if self._task not in NLG_TASKS:
-            predictions = new_trainer.predict(test_dataset, **pred_kwargs)
+            predictions = new_trainer.predict(test_dataset)
         else:
             predictions = new_trainer.predict(
-                test_dataset, **pred_kwargs,
+                test_dataset,
                 metric_key_prefix="predict",
             )
         post_y_pred, _ = postprocess_prediction_and_true(
