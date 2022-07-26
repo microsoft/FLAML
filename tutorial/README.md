@@ -9,6 +9,15 @@ Duration: 3 hours
 
 For the most up-to-date information, see the [SIGKDD'22 Program Agenda](https://kdd.org/kdd2022/programAgenda.html)
 
+## What Will You Learn?
+
+- What FLAML is and how to use it to find accurate ML models with low computational resources for common machine learning tasks
+- How to leverage the flexible and rich customization choices to:
+  - Finish the last mile for deployment
+  - Create new applications
+- Code examples, demos, and use cases
+- Research & development opportunities
+
 ## Session Agenda
 
 ### Part 1
