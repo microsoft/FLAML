@@ -1,12 +1,18 @@
-# KDD 2022 Hands-on Tutorial about FLAML
+# KDD 2022 Hands-on Tutorial - Automated Machine Learning & Tuning with FLAML
 
-## Agenda
+## Session Information
 
-Time: 08.16, Tuesday, AM, ET
-
+Date: August 16, 2022
+Time: 9:30 AM ET
+Location: 101
 Duration: 3 hours
 
-First half of the tutorial:
+For more information, consult the [SIGKDD'22 Program Agenda](https://kdd.org/kdd2022/programAgenda.html)
+
+## Session Agenda
+
+### Part 1
+
 - Overview of AutoML and FLAML
 - Task-oriented AutoML with FLAML
     - [Notebook: A classification task with AutoML](https://github.com/microsoft/FLAML/blob/tutorial/notebook/automl_classification.ipynb)
@@ -17,7 +23,8 @@ First half of the tutorial:
     - [Notebook: Tune pytorch](https://github.com/microsoft/FLAML/blob/tutorial/notebook/tune_pytorch.ipynb)
 - Q & A
 
-Second half of the tutorial:
+### Part 2
+
 - Zero-shot AutoML
     - [Notebook: Zeroshot AutoML](https://github.com/microsoft/FLAML/blob/tutorial/notebook/zeroshot_lightgbm.ipynb)
 - Time series forecasting
