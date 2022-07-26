@@ -7,7 +7,7 @@ Time: 9:30 AM ET
 Location: 101
 Duration: 3 hours
 
-For more information, consult the [SIGKDD'22 Program Agenda](https://kdd.org/kdd2022/programAgenda.html)
+For the most up-to-date information, see the [SIGKDD'22 Program Agenda](https://kdd.org/kdd2022/programAgenda.html)
 
 ## Session Agenda
 
