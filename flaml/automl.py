@@ -2887,7 +2887,7 @@ class AutoML(BaseEstimator):
             verbose=max(self.verbose - 2, 0),
             raise_on_failed_trial=False,
             keep_checkpoints_num=1,
-            # checkpoint_score_attr="",
+            checkpoint_score_attr="min-val_loss",
             **self._use_ray if isinstance(self._use_ray, dict) else {},
         )
         # logger.info([trial.last_result for trial in analysis.trials])
