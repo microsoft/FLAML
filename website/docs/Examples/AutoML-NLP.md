@@ -9,6 +9,12 @@ pip install "flaml[nlp]"
 
 ### A simple sequence classification example
 
+Below is a simple sequence classification example using Ray Tune, which you should add the [ray,blendsearch] options:
+
+```python
+pip install "flaml[nlp,ray,blendsearch]"
+```
+
 ```python
 from flaml import AutoML
 from datasets import load_dataset
@@ -29,7 +35,7 @@ if not ray.is_initialized():
     ray.init()
 
 automl_settings = {
-    "time_budget": 1200,                  # setting the time budget
+    "time_budget": 1200,                # setting the time budget, the tuning will run approximately 20 mins
     "task": "seq-classification",       # setting the task as seq-classification
     "fit_kwargs_by_estimator": {
         "transformer": {
@@ -40,7 +46,7 @@ automl_settings = {
     "gpu_per_trial": 1,                 # set to 0 if no GPU is available
     "log_file_name": "seqclass.log",    # set the file to save the log for HPO
     "log_type": "all",                  # the log type for trials: "all" if logging all the trials, "better" if only keeping the better trials
-    "use_ray": {"local_dir": "data/output/"},                    # set whether to use Ray
+    "use_ray": {"local_dir": "data/output/"},   # use_ray is a dict, to specify the ray location
     "n_concurrent_trials": 4,
     "keep_search_state": True,          # keeping the search state
 }
@@ -59,6 +65,62 @@ Resources requested: 0/96 CPUs, 0/4 GPUs, 0.0/252.58 GiB heap, 0.0/112.24 GiB ob
 Current best trial: a478b276 with val_loss=0.12009803921568629 and parameters={'learning_rate': 2.1872511767624938e-05, 'num_train_epochs': 3, 'per_device_train_batch_size': 4, 'seed': 7, 'global_max_steps': 9223372036854775807, 'learner': 'transformer'}
 Result logdir: /data/xliu127/projects/hyperopt/FLAML/notebook/data/output/train_2022-07-21_13-07-38
 Number of trials: 33/1000000 (33 TERMINATED)
+```
+
+We can also tune the same example using FLAML's Tune:
+
+```python
+from datasets import load_dataset
+
+train_dataset = load_dataset("glue", "mrpc", split="train").to_pandas()
+dev_dataset = load_dataset("glue", "mrpc", split="validation").to_pandas()
+test_dataset = load_dataset("glue", "mrpc", split="test").to_pandas()
+
+custom_sent_keys = ["sentence1", "sentence2"]          # specify the column names of the input sentences
+label_key = "label"                                    # specify the column name of the label
+
+X_train, y_train = train_dataset[custom_sent_keys], train_dataset[label_key]
+X_val, y_val = dev_dataset[custom_sent_keys], dev_dataset[label_key]
+X_test = test_dataset[custom_sent_keys]
+
+from flaml import AutoML
+automl = AutoML()
+
+automl_settings = {
+    "time_budget": 1200,         # setting the time budget, the tuning will run approximately 20 mins
+    "task": "seq-classification",       # setting the task as seq-classification
+    "fit_kwargs_by_estimator": {
+        "transformer": {
+            "output_dir": "data/output/",   # setting the output directory
+            "model_path": "bert-base-uncased",  # if model_path is not set, the default model is facebook/muppet-roberta-base: https://huggingface.co/facebook/muppet-roberta-base
+        }
+    },
+    "gpu_per_trial": 1,                 # set to 0 if no GPU is available
+    "log_file_name": "seqclass.log",    # set the file to save the log for HPO
+    "log_type": "all",                  # the log type for trials: "all" if logging all the trials, "better" if only keeping the better trials
+    "use_ray": False,                   # do not use ray
+    "n_concurrent_trials": 4,
+    "keep_search_state": True,          # keeping the search state
+}
+
+automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings)
+```
+
+```
+Reusing dataset glue (/home/xliu127/.cache/huggingface/datasets/glue/mrpc/1.0.0/dacbe3125aa31d7f70367a07a8a9e72a5a0bfeb5fc42e75c9db75b96da6053ad)
+Reusing dataset glue (/home/xliu127/.cache/huggingface/datasets/glue/mrpc/1.0.0/dacbe3125aa31d7f70367a07a8a9e72a5a0bfeb5fc42e75c9db75b96da6053ad)
+Reusing dataset glue (/home/xliu127/.cache/huggingface/datasets/glue/mrpc/1.0.0/dacbe3125aa31d7f70367a07a8a9e72a5a0bfeb5fc42e75c9db75b96da6053ad)
+/data/xliu127/projects/hyperopt/FLAML/flaml/data.py:275: SettingWithCopyWarning:
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  X[str_columns] = X[str_columns].astype("string")
+[flaml.automl: 07-28 12:22:33] {2444} INFO - task = seq-classification
+[flaml.automl: 07-28 12:22:33] {2446} INFO - Data split method: stratified
+[flaml.automl: 07-28 12:22:33] {2449} INFO - Evaluation method: holdout
+[flaml.automl: 07-28 12:22:33] {2568} INFO - Minimizing error metric: 1-accuracy
+[flaml.automl: 07-28 12:22:33] {2708} INFO - List of ML learners in AutoML Run: ['transformer']
 ```
 
 ### A simple sequence regression example
@@ -111,6 +173,8 @@ automl.fit(
 ```
 
 ### A simple summarization example
+
+Below is a simple text summarization example using Ray Tune.
 
 ```python
 from flaml import AutoML
@@ -169,6 +233,71 @@ Resources requested: 0/96 CPUs, 0/4 GPUs, 0.0/250.17 GiB heap, 0.0/111.21 GiB ob
 Current best trial: 08b6571c with val_loss=0.8569452656271894 and parameters={'learning_rate': 1.0000000000000003e-05, 'num_train_epochs': 1.0, 'per_device_train_batch_size': 32, 'warmup_ratio': 0.0, 'weight_decay': 0.0, 'adam_epsilon': 1e-06, 'seed': 42, 'global_max_steps': 9223372036854775807, 'learner': 'transformer', 'FLAML_sample_size': 10000}
 Result logdir: /data/xliu127/projects/hyperopt/FLAML/notebook/data/output/train_2022-03-19_14-46-29
 Number of trials: 8/1000000 (8 TERMINATED)
+```
+
+An example using FLAML's Tune:
+
+```python
+from datasets import load_dataset
+
+train_dataset = load_dataset("xsum", split="train").to_pandas()
+dev_dataset = load_dataset("xsum", split="validation").to_pandas()
+test_dataset = load_dataset("xsum", split="test").to_pandas()
+
+custom_sent_keys = ["document"]       # specify the column names of the input sentences
+label_key = "summary"                 # specify the column name of the label
+
+X_train, y_train = train_dataset[custom_sent_keys], train_dataset[label_key]
+X_val, y_val = dev_dataset[custom_sent_keys], dev_dataset[label_key]
+X_test = test_dataset[custom_sent_keys]
+
+from flaml import AutoML
+automl = AutoML()
+
+automl_settings = {
+    "time_budget": 500,         # setting the time budget
+    "task": "summarization",    # setting the task as summarization
+    "fit_kwargs_by_estimator": {  # if model_path is not set, the default model is t5-small: https://huggingface.co/t5-small
+        "transformer": {
+            "output_dir": "data/output/",  # setting the output directory
+            "model_path": "t5-small",
+            "per_device_eval_batch_size": 16,  # the batch size for validation (inference)
+        }
+    },
+    "gpu_per_trial": 1,  # set to 0 if no GPU is available
+    "log_file_name": "seqclass.log",  # set the file to save the log for HPO
+    "log_type": "all",   # the log type for trials: "all" if logging all the trials, "better" if only keeping the better trials
+    "use_ray": False,  # set whether to use Ray
+    "metric": "rouge1",
+    "n_concurrent_trials": 4,  # sample: False # if the time is sufficient (e.g., longer than one trial's running time), you can set
+}
+
+'''The main flaml automl API'''
+automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings)
+
+```
+
+#### Sample output:
+
+```
+Using custom data configuration default
+Reusing dataset xsum (/home/xliu127/.cache/huggingface/datasets/xsum/default/1.2.0/32c23220eadddb1149b16ed2e9430a05293768cfffbdfd151058697d4c11f934)
+Using custom data configuration default
+Reusing dataset xsum (/home/xliu127/.cache/huggingface/datasets/xsum/default/1.2.0/32c23220eadddb1149b16ed2e9430a05293768cfffbdfd151058697d4c11f934)
+204045
+Using custom data configuration default
+Reusing dataset xsum (/home/xliu127/.cache/huggingface/datasets/xsum/default/1.2.0/32c23220eadddb1149b16ed2e9430a05293768cfffbdfd151058697d4c11f934)
+/data/xliu127/projects/hyperopt/FLAML/flaml/data.py:275: SettingWithCopyWarning:
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  X[str_columns] = X[str_columns].astype("string")
+[flaml.automl: 07-28 12:33:31] {2444} INFO - task = summarization
+[flaml.automl: 07-28 12:33:31] {2446} INFO - Data split method: uniform
+[flaml.automl: 07-28 12:33:31] {2449} INFO - Evaluation method: holdout
+[flaml.automl: 07-28 12:33:31] {2568} INFO - Minimizing error metric: rouge1
+[flaml.automl: 07-28 12:33:31] {2708} INFO - List of ML learners in AutoML Run: ['transformer']
 ```
 
 ### A simple token classification example
