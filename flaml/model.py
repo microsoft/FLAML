@@ -2187,7 +2187,7 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
                 "init_value": 0.01,
             },
             "hidden_size": {
-                "domain": tune.randint(lower=8, upper=512),
+                "domain": tune.lograndint(lower=8, upper=512),
                 "init_value": 16,
             },
             "hidden_continuous_size": {
