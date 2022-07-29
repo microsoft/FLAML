@@ -526,7 +526,9 @@ def test_forecast_panel(budget=5):
                 "avg_volume_by_agency",
                 "avg_volume_by_sku",
             ],
-            "batch_size": 128,
+            "batch_size": 256,
+            "max_epochs": 1,
+            "gpu_per_trial": -1,
         }
     }
     """The main flaml automl API"""
@@ -557,6 +559,18 @@ def test_forecast_panel(budget=5):
     print(y_test)
     print(y_pred)
     print("mape", "=", sklearn_metric_loss_score("mape", y_pred, y_test))
+
+    def smape(y_pred, y_test):
+        import numpy as np
+
+        y_test, y_pred = np.array(y_test), np.array(y_pred)
+        return round(
+            np.mean(np.abs(y_pred - y_test) / ((np.abs(y_pred) + np.abs(y_test)) / 2))
+            * 100,
+            2,
+        )
+
+    print("smape", "=", smape(y_pred, y_test))
     # TODO: compute prediction for a specific time series
     # """compute prediction for a specific time series"""
     # a01_sku01_preds = automl.predict(X_test[(X_test["agency"] == "Agency_01") & (X_test["sku"] == "SKU_01")])
@@ -579,8 +593,8 @@ def test_forecast_panel(budget=5):
 
 if __name__ == "__main__":
     test_forecast_automl(60)
-    test_multivariate_forecast_num(60)
-    test_multivariate_forecast_cat(60)
+    test_multivariate_forecast_num(5)
+    test_multivariate_forecast_cat(5)
     test_numpy()
-    test_forecast_classification(60)
-    test_forecast_panel(60)
+    test_forecast_classification(5)
+    test_forecast_panel(5)
