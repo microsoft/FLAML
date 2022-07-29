@@ -587,7 +587,7 @@ class AutoML(BaseEstimator):
                     ["auto", 'stratified', 'uniform', 'time', 'group']. "auto" -> stratified.
                 For regression tasks, valid choices are ["auto", 'uniform', 'time'].
                     "auto" -> uniform.
-                For ts_forecast tasks, must be "auto" or 'time'.
+                For time series forecast tasks, must be "auto" or 'time'.
                 For ranking task, must be "auto" or 'group'.
             hpo_method: str, default="auto" | The hyperparameter
                 optimization method. By default, CFO is used for sequential
@@ -879,7 +879,7 @@ class AutoML(BaseEstimator):
 
         Args:
             X: A numpy array of featurized instances, shape n * m,
-                or for ts_forecast tasks:
+                or for time series forcast tasks:
                     a pandas dataframe with the first column containing
                     timestamp values (datetime type) or an integer n for
                     the predict steps (only valid when the estimator is
@@ -1560,13 +1560,13 @@ class AutoML(BaseEstimator):
         Args:
             log_file_name: A string of the log file name.
             X_train: A numpy array or dataframe of training data in shape n*m.
-                For ts_forecast tasks, the first column of X_train
+                For time series forecast tasks, the first column of X_train
                 must be the timestamp column (datetime type). Other
                 columns in the dataframe are assumed to be exogenous
                 variables (categorical or numeric).
             y_train: A numpy array or series of labels in shape n*1.
             dataframe: A dataframe of training data including label column.
-                For ts_forecast tasks, dataframe must be specified and should
+                For time series forecast tasks, dataframe must be specified and should
                 have at least two columns: timestamp and label, where the first
                 column is the timestamp column (datetime type). Other columns
                 in the dataframe are assumed to be exogenous variables
@@ -1593,7 +1593,7 @@ class AutoML(BaseEstimator):
                     ["auto", 'stratified', 'uniform', 'time', 'group']. "auto" -> stratified.
                 For regression tasks, valid choices are ["auto", 'uniform', 'time'].
                     "auto" -> uniform.
-                For ts_forecast tasks, must be "auto" or 'time'.
+                For time series forecast tasks, must be "auto" or 'time'.
                 For ranking task, must be "auto" or 'group'.
             groups: None or array-like | Group labels (with matching length to
                 y_train) or groups counts (with sum equal to length of y_train)
@@ -1640,10 +1640,24 @@ class AutoML(BaseEstimator):
         ```
 
             **fit_kwargs: Other key word arguments to pass to fit() function of
-                the searched learners, such as sample_weight. Include:
-                    period: int | forecast horizon for ts_forecast tasks.
+                the searched learners, such as sample_weight. For TemporalFusionTransformerEstimator,
+                refer to [TimeSeriesDataSet pytorchforecasting](https://pytorch-forecasting.readthedocs.io/en/stable/api/pytorch_forecasting.data.timeseries.TimeSeriesDataSet.html)
+                for parameters to specify your variables (static_categoricals, static_reals,
+                time_varying_known_categoricals, time_varying_known_reals, time_varying_unknown_categoricals,
+                time_varying_unknown_reals, variable_groups) and provide more information on your data
+                (max_encoder_length, min_encoder_length, lags) Include:
+                    period: int | forecast horizon for all time series forecast tasks.
                     gpu_per_trial: float, default = 0 | A float of the number of gpus per trial,
-                    only used by TransformersEstimator and XGBoostSklearnEstimator.
+                    only used by TransformersEstimator, XGBoostSklearnEstimator, and
+                    TemporalFusionTransformerEstimator.
+                    group_ids: list of strings of column names identifying a time series, only
+                    used by TemporalFusionTransformerEstimator.
+                    log_dir: str, default = "lightning_logs" | Folder into which to log results
+                    for tensorboard, only used by TemporalFusionTransformerEstimator.
+                    max_epochs: int, default = 20 | Maximum number of epochs to run training,
+                    only used by TemporalFusionTransformerEstimator.
+                    batch_size: int, default = 64 | Batch size for training model, only
+                    used by TemporalFusionTransformerEstimator.
         """
         task = task or self._settings.get("task")
         eval_method = eval_method or self._settings.get("eval_method")
@@ -2090,13 +2104,13 @@ class AutoML(BaseEstimator):
 
         Args:
             X_train: A numpy array or a pandas dataframe of training data in
-                shape (n, m). For ts_forecast tasks, the first column of X_train
+                shape (n, m). For time series forecsat tasks, the first column of X_train
                 must be the timestamp column (datetime type). Other columns in
                 the dataframe are assumed to be exogenous variables (categorical or numeric).
                 When using ray, X_train can be a ray.ObjectRef.
             y_train: A numpy array or a pandas series of labels in shape (n, ).
             dataframe: A dataframe of training data including label column.
-                For ts_forecast tasks, dataframe must be specified and must have
+                For time series forecast tasks, dataframe must be specified and must have
                 at least two columns, timestamp and label, where the first
                 column is the timestamp column (datetime type). Other columns in
                 the dataframe are assumed to be exogenous variables (categorical or numeric).
@@ -2147,7 +2161,7 @@ class AutoML(BaseEstimator):
         ```
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast_regression',
-                'ts_forecast_classification', 'rank', 'seq-classification',
+                'ts_forecast_classification', 'ts_forecast_panel', 'rank', 'seq-classification',
                 'seq-regression', 'summarization'.
             n_jobs: An integer of the number of threads for training | default=-1.
                 Use all available resources when n_jobs == -1.
@@ -2212,7 +2226,7 @@ class AutoML(BaseEstimator):
                     ["auto", 'stratified', 'uniform', 'time', 'group']. "auto" -> stratified.
                 For regression tasks, valid choices are ["auto", 'uniform', 'time'].
                     "auto" -> uniform.
-                For ts_forecast tasks, must be "auto" or 'time'.
+                For time series forecast tasks, must be "auto" or 'time'.
                 For ranking task, must be "auto" or 'group'.
             hpo_method: str, default="auto" | The hyperparameter
                 optimization method. By default, CFO is used for sequential
@@ -2328,16 +2342,24 @@ class AutoML(BaseEstimator):
         ```
 
             **fit_kwargs: Other key word arguments to pass to fit() function of
-                the searched learners, such as sample_weight. Include:
-                    period: int | forecast horizon for ts_forecast tasks.
+                the searched learners, such as sample_weight. For TemporalFusionTransformerEstimator,
+                refer to [TimeSeriesDataSet pytorchforecasting](https://pytorch-forecasting.readthedocs.io/en/stable/api/pytorch_forecasting.data.timeseries.TimeSeriesDataSet.html)
+                for parameters to specify your variables (static_categoricals, static_reals,
+                time_varying_known_categoricals, time_varying_known_reals, time_varying_unknown_categoricals,
+                time_varying_unknown_reals, variable_groups) and provide more information on your data
+                (max_encoder_length, min_encoder_length, lags) Include:
+                    period: int | forecast horizon for all time series forecast tasks.
                     gpu_per_trial: float, default = 0 | A float of the number of gpus per trial,
-                    only used by TransformersEstimator and XGBoostSklearnEstimator.
+                    only used by TransformersEstimator, XGBoostSklearnEstimator, and
+                    TemporalFusionTransformerEstimator.
                     group_ids: list of strings of column names identifying a time series, only
-                    used for panel time series forecasting
-                    TemporalFusionTransformer: [TimeSeriesDataSet pytorchforecasting](https://pytorch-forecasting.readthedocs.io/en/stable/api/pytorch_forecasting.data.timeseries.TimeSeriesDataSet.html)
-                    log_dir: str , default = "lightning_logs" | Folder into which to log results for tensorboard.
-                    max_epochs: int, default = 20 | Maximum number of epochs to run training.
-                    batch_size: int, default = 64 | Batch size for training model
+                    used by TemporalFusionTransformerEstimator.
+                    log_dir: str, default = "lightning_logs" | Folder into which to log results
+                    for tensorboard, only used by TemporalFusionTransformerEstimator.
+                    max_epochs: int, default = 20 | Maximum number of epochs to run training,
+                    only used by TemporalFusionTransformerEstimator.
+                    batch_size: int, default = 64 | Batch size for training model, only
+                    used by TemporalFusionTransformerEstimator.
         """
 
         self._state._start_time_flag = self._start_time_flag = time.time()
