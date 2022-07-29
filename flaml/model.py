@@ -2127,7 +2127,7 @@ class XGBoostLimitDepth_TS(TS_SKLearn):
     base_class = XGBoostLimitDepthEstimator
 
 
-class TemporalFusionTransformer(SKLearnEstimator):
+class TemporalFusionTransformerEstimator(SKLearnEstimator):
     """The class for tuning Temporal Fusion Transformer"""
 
     @classmethod
@@ -2253,7 +2253,9 @@ class TemporalFusionTransformer(SKLearnEstimator):
             kwargs.get("log_dir", "lightning_logs")
         )  # logging results to a tensorboard
         default_trainer_kwargs = dict(
-            gpus=[0] if torch.cuda.is_available() else None,
+            gpus=self._kwargs.get("gpu_per_trial", [0])
+            if torch.cuda.is_available()
+            else None,
             max_epochs=max_epochs,
             gradient_clip_val=gradient_clip_val,
             callbacks=[lr_logger, early_stop_callback],

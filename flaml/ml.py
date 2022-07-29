@@ -37,7 +37,7 @@ from .model import (
     ARIMA,
     SARIMAX,
     TransformersEstimator,
-    TemporalFusionTransformer,
+    TemporalFusionTransformerEstimator,
     TransformersEstimatorModelSelection,
 )
 from .data import CLASSIFICATION, group_counts, TS_FORECAST
@@ -124,7 +124,7 @@ def get_estimator_class(task, estimator_name):
     elif estimator_name == "transformer":
         estimator_class = TransformersEstimator
     elif estimator_name == "tft":
-        estimator_class = TemporalFusionTransformer
+        estimator_class = TemporalFusionTransformerEstimator
     elif estimator_name == "transformer_ms":
         estimator_class = TransformersEstimatorModelSelection
     else:
