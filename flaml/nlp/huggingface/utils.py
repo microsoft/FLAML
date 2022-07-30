@@ -238,7 +238,7 @@ def tokenize_row(
     # tokenizer.pad_token = tokenizer.eos_token
     tokenized_example = tokenizer(
         *tuple(this_row),
-        padding="max_length",
+        padding="max_length" if hf_args and hf_args.pad_to_max_length else False,
         max_length=hf_args.max_seq_length if hf_args else None,
         truncation=True,
     )

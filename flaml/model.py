@@ -695,6 +695,24 @@ class TransformersEstimator(BaseEstimator):
 
         start_time = time.time()
         self._trainer.train()
+        with open(
+            "/data/xliu127/projects/hyperopt/FLAML/notebook/debug.log", "a"
+        ) as fout:
+            fout.write(
+                "fff"
+                + str(time.time() - start_time)
+                + ","
+                + str(self._trainer.state.global_step)
+                + ","
+                + str(self._trainer.state.num_train_epochs)
+                + ","
+                + str(self._trainer.state.max_steps)
+                + ","
+                + str(len(train_dataset))
+                + ","
+                + str(self._trainer.args.per_device_train_batch_size)
+                + "\n"
+            )
 
         if gpu_per_trial is not None:
             os.environ["CUDA_VISIBLE_DEVICES"] = tmp_cuda_visible_devices
