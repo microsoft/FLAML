@@ -419,16 +419,23 @@ class TransformersEstimator(BaseEstimator):
             "learning_rate": {
                 "domain": tune.loguniform(1e-6, 1e-4),
                 "init_value": 1e-5,
+                "low_cost_init_value": 1e-5,
             },
             "num_train_epochs": {
                 "domain": tune.choice([1, 2, 3, 4, 5]),
                 "init_value": 3.0,  # to be consistent with roberta
+                "low_cost_init_value": 1.0,
             },
             "per_device_train_batch_size": {
                 "domain": tune.choice([4, 8, 16, 32, 64]),
                 "init_value": 32,
+                "low_cost_init_value": 64,
             },
-            "seed": {"domain": tune.randint(1, 40), "init_value": 20},
+            "seed": {
+                "domain": tune.randint(1, 40),
+                "init_value": 20,
+                "low_cost_init_value": 20,
+            },
             "global_max_steps": {
                 "domain": sys.maxsize,
                 "init_value": sys.maxsize,
@@ -695,24 +702,6 @@ class TransformersEstimator(BaseEstimator):
 
         start_time = time.time()
         self._trainer.train()
-        with open(
-            "/data/xliu127/projects/hyperopt/FLAML/notebook/debug.log", "a"
-        ) as fout:
-            fout.write(
-                "fff"
-                + str(time.time() - start_time)
-                + ","
-                + str(self._trainer.state.global_step)
-                + ","
-                + str(self._trainer.state.num_train_epochs)
-                + ","
-                + str(self._trainer.state.max_steps)
-                + ","
-                + str(len(train_dataset))
-                + ","
-                + str(self._trainer.args.per_device_train_batch_size)
-                + "\n"
-            )
 
         if gpu_per_trial is not None:
             os.environ["CUDA_VISIBLE_DEVICES"] = tmp_cuda_visible_devices
