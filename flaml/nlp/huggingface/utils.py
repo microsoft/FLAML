@@ -49,7 +49,7 @@ def tokenize_seq2seq(X, Y, tokenizer, task=None, hf_args=None):
             hf_args=hf_args,
             prefix_str="",
         )
-        model_outputs["label"] = [
+        model_outputs["labels"] = [
             [(each_l if each_l != tokenizer.pad_token_id else -100) for each_l in label]
             for label in model_outputs["input_ids"]
         ]
@@ -189,6 +189,9 @@ def tokenize_text_tokclassification(X, Y, tokenizer, hf_args=None):
         y_tokenized = None
     X_tokenized = pd.DataFrame(columns=other_column_names)
     X_tokenized[other_column_names] = d
+    if y_tokenized is not None:
+        y_tokenized = pd.DataFrame(y_tokenized, index=X_tokenized.index)
+        y_tokenized.columns = ["labels"]
     return X_tokenized, y_tokenized
 
 
@@ -292,7 +295,7 @@ def tokenize_swag(this_row, tokenizer, hf_args=None, return_column_name=False):
         *tuple([first_sentences, second_sentences]),
         truncation=True,
         max_length=hf_args.max_seq_length if hf_args else None,
-        padding=False,
+        padding="max_length" if hf_args and hf_args.pad_to_max_length else False,
     )
     tmp_column_names = sorted(tokenized_example.keys())
 
@@ -318,13 +321,14 @@ def postprocess_prediction_and_true(
         # If y_true is None, we use X to compute y_is_pad (i.e., whether y_true is -100 in that position), and use y_is_pad to remove the -100 in the prediction, and return the postprocessed prediction (not the y_true)
         y_predict = pd.Series(np.argmax(y_pred, axis=2).tolist())
         if y_true is None:
-            _, y_is_pad = tokenize_text(
+            _, y_is_pad_df = tokenize_text(
                 X,
                 y_predict,
                 task=task,
                 hf_args=hf_args,
                 tokenizer=tokenizer,
             )
+            y_is_pad = y_is_pad_df.iloc[:, 0]
         else:
             y_is_pad = y_true
         label_len = len(hf_args.label_list)

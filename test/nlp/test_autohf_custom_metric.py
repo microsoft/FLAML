@@ -25,8 +25,8 @@ def custom_metric(
     else:
         trainer = estimator._trainer
     if y_test is not None:
-        X_test = estimator._preprocess(X_test)
-        eval_dataset = Dataset.from_pandas(TransformersEstimator._join(X_test, y_test))
+        X_test, _ = estimator._preprocess(X_test)
+        eval_dataset = Dataset.from_pandas(X_test.join(y_test))
     else:
         X_test = estimator._preprocess(X_test)
         eval_dataset = Dataset.from_pandas(X_test)

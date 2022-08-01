@@ -406,25 +406,17 @@ class TransformersEstimator(BaseEstimator):
             )
         self._TrainingArguments = TrainingArguments
 
-    @staticmethod
-    def _join(X_train, y_train, task):
-        y_train = DataFrame(y_train, index=X_train.index)
-        y_train.columns = ["label"] if task != TOKENCLASSIFICATION else ["labels"]
-        train_df = X_train.join(y_train)
-        return train_df
-
     @classmethod
     def search_space(cls, data_size, task, **params):
         search_space_dict = {
             "learning_rate": {
                 "domain": tune.loguniform(1e-6, 1e-4),
                 "init_value": 1e-5,
-                "low_cost_init_value": 1e-5,
             },
             "num_train_epochs": {
                 "domain": tune.choice([1, 2, 3, 4, 5]),
-                "init_value": 3.0,  # to be consistent with roberta
-                "low_cost_init_value": 1.0,
+                "init_value": 3,  # to be consistent with roberta
+                "low_cost_init_value": 1,
             },
             "per_device_train_batch_size": {
                 "domain": tune.choice([4, 8, 16, 32, 64]),
@@ -432,9 +424,8 @@ class TransformersEstimator(BaseEstimator):
                 "low_cost_init_value": 64,
             },
             "seed": {
-                "domain": tune.randint(1, 40),
+                "domain": tune.choice(range(1, 40)),
                 "init_value": 20,
-                "low_cost_init_value": 20,
             },
             "global_max_steps": {
                 "domain": sys.maxsize,
@@ -535,16 +526,17 @@ class TransformersEstimator(BaseEstimator):
 
     def preprocess_data(self, X, y):
         from datasets import Dataset
+        import pandas as pd
 
         if (self._task not in NLG_TASKS) and (self._task != TOKENCLASSIFICATION):
             processed_X, _ = self._preprocess(X=X, **self._kwargs)
             processed_y = y
+            processed_y_df = pd.DataFrame(y)
         else:
-            processed_X, processed_y = self._preprocess(X=X, y=y, **self._kwargs)
+            processed_X, processed_y_df = self._preprocess(X=X, y=y, **self._kwargs)
+            processed_y = processed_y_df.iloc[:, 0]
 
-        processed_dataset = Dataset.from_pandas(
-            TransformersEstimator._join(processed_X, processed_y, self._task)
-        )
+        processed_dataset = Dataset.from_pandas(processed_X.join(processed_y_df))
         return processed_dataset, processed_X, processed_y
 
     @property
@@ -581,14 +573,24 @@ class TransformersEstimator(BaseEstimator):
     def data_collator(self):
         from .nlp.huggingface.data_collator import task_to_datacollator_class
 
-        return (
-            task_to_datacollator_class[self._task](
-                tokenizer=self.tokenizer,
-                pad_to_multiple_of=8,  # if self._training_args.fp16 else None,
-            )
-            if self._task in (MULTICHOICECLASSIFICATION, TOKENCLASSIFICATION)
-            else None
-        )
+        data_collator_class = task_to_datacollator_class.get(self._task)
+
+        if data_collator_class:
+            if "model" in data_collator_class.__dict__:
+                return data_collator_class(
+                    model=self._model_init(),  # need to set model, or there's ValueError: Expected input batch_size (..) to match target batch_size (..)
+                    tokenizer=self.tokenizer,
+                    pad_to_multiple_of=8,  # if self._training_args.fp16 else None,
+                    label_pad_token_id=-100,
+                )
+            else:
+                return data_collator_class(
+                    tokenizer=self.tokenizer,
+                    pad_to_multiple_of=8,  # if self._training_args.fp16 else None,
+                    label_pad_token_id=-100,
+                )
+        else:
+            return None
 
     def fit(
         self,
