@@ -151,30 +151,6 @@ def metric_loss_score(
             groups,
         )
     else:
-        """
-        hf's datasets.load_metric("pearsonr") returns nan (hf's bug), overwriting it here
-        """
-        # if metric_name == "spearmanr":
-        #     from scipy.stats import spearmanr
-        #
-        #     y_true = (
-        #         y_processed_true.to_list()
-        #         if isinstance(y_processed_true, pd.Series)
-        #         else list(y_processed_true)
-        #     )
-        #     score = spearmanr(list(y_processed_predict), y_true)[0]
-        #     metric_mode = "max"
-        # elif metric_name == "pearsonr":
-        #     from scipy.stats import pearsonr
-        #
-        #     y_true = (
-        #         y_processed_true.to_list()
-        #         if type(y_processed_true) == pd.Series
-        #         else list(y_processed_true)
-        #     )
-        #     score = pearsonr(list(y_processed_predict), y_true)[0]
-        #     metric_mode = "max"
-        # else:
         try:
             import datasets
 
