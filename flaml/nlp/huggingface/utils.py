@@ -12,6 +12,13 @@ from ...data import (
 )
 
 
+def todf(X, Y, column_name):
+    if Y is not None:
+        Y = pd.DataFrame(Y, index=X.index)
+        Y.columns = column_name
+    return Y
+
+
 def tokenize_text(X, Y=None, task=None, hf_args=None, tokenizer=None):
     if task in (SEQCLASSIFICATION, SEQREGRESSION):
         X_tokenized = tokenize_onedataframe(
@@ -21,7 +28,8 @@ def tokenize_text(X, Y=None, task=None, hf_args=None, tokenizer=None):
             hf_args=hf_args,
             prefix_str="",
         )
-        return X_tokenized, None
+        Y = todf(X_tokenized, Y, ["label"])
+        return X_tokenized, Y
     elif task == TOKENCLASSIFICATION:
         return tokenize_text_tokclassification(
             X, Y, tokenizer=tokenizer, hf_args=hf_args
@@ -29,7 +37,11 @@ def tokenize_text(X, Y=None, task=None, hf_args=None, tokenizer=None):
     elif task in NLG_TASKS:
         return tokenize_seq2seq(X, Y, tokenizer=tokenizer, task=task, hf_args=hf_args)
     elif task == MULTICHOICECLASSIFICATION:
-        return tokenize_text_multiplechoice(X, tokenizer=tokenizer, hf_args=hf_args)
+        X_tokenized = tokenize_text_multiplechoice(
+            X, tokenizer=tokenizer, hf_args=hf_args
+        )
+        Y = todf(X_tokenized, Y, ["label"])
+        return X_tokenized, Y
 
 
 def tokenize_seq2seq(X, Y, tokenizer, task=None, hf_args=None):
@@ -189,9 +201,7 @@ def tokenize_text_tokclassification(X, Y, tokenizer, hf_args=None):
         y_tokenized = None
     X_tokenized = pd.DataFrame(columns=other_column_names)
     X_tokenized[other_column_names] = d
-    if y_tokenized is not None:
-        y_tokenized = pd.DataFrame(y_tokenized, index=X_tokenized.index)
-        y_tokenized.columns = ["labels"]
+    y_tokenized = todf(X_tokenized, y_tokenized, ["labels"])
     return X_tokenized, y_tokenized
 
 
@@ -273,7 +283,7 @@ def tokenize_text_multiplechoice(X, tokenizer, hf_args=None):
     X_tokenized = pd.DataFrame(columns=tokenized_column_names)
     X_tokenized[tokenized_column_names] = d
     output = X_tokenized.join(X)
-    return output, None
+    return output
 
 
 def tokenize_swag(this_row, tokenizer, hf_args=None, return_column_name=False):

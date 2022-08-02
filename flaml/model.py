@@ -526,17 +526,12 @@ class TransformersEstimator(BaseEstimator):
 
     def preprocess_data(self, X, y):
         from datasets import Dataset
-        import pandas as pd
 
-        if (self._task not in NLG_TASKS) and (self._task != TOKENCLASSIFICATION):
-            processed_X, _ = self._preprocess(X=X, **self._kwargs)
-            processed_y = y
-            processed_y_df = pd.DataFrame(y)
-        else:
-            processed_X, processed_y_df = self._preprocess(X=X, y=y, **self._kwargs)
-            processed_y = processed_y_df.iloc[:, 0]
+        processed_X, processed_y_df = self._preprocess(X=X, y=y, **self._kwargs)
+        processed_y = processed_y_df.iloc[:, 0]
 
         processed_dataset = Dataset.from_pandas(processed_X.join(processed_y_df))
+
         return processed_dataset, processed_X, processed_y
 
     @property
@@ -576,19 +571,20 @@ class TransformersEstimator(BaseEstimator):
         data_collator_class = task_to_datacollator_class.get(self._task)
 
         if data_collator_class:
-            if "model" in data_collator_class.__dict__:
-                return data_collator_class(
-                    model=self._model_init(),  # need to set model, or there's ValueError: Expected input batch_size (..) to match target batch_size (..)
-                    tokenizer=self.tokenizer,
-                    pad_to_multiple_of=8,  # if self._training_args.fp16 else None,
-                    label_pad_token_id=-100,
-                )
-            else:
-                return data_collator_class(
-                    tokenizer=self.tokenizer,
-                    pad_to_multiple_of=8,  # if self._training_args.fp16 else None,
-                    label_pad_token_id=-100,
-                )
+            kwargs = {
+                "model": self._model_init(),
+                "label_pad_token_id": -100,
+                "pad_to_multiple_of": 8,
+                "tokenizer": self.tokenizer,
+            }
+
+            for key in list(kwargs.keys()):
+                if (
+                    key not in data_collator_class.__dict__.keys()
+                    and key != "tokenizer"
+                ):
+                    del kwargs[key]
+            return data_collator_class(**kwargs)
         else:
             return None
 
