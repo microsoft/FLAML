@@ -15,8 +15,6 @@ from ...data import (
 def todf(X, Y, column_name):
     """
     todf converts Y from any format (list, pandas.Series, numpy array) to a DataFrame before being returned
-    todf is used by all all tasks except for SUMMARIZATION,
-    because the outputs of tokenize_seq2seq are already two DataFrame so no conversion needed.
     """
     if Y is not None:
         Y = pd.DataFrame(Y, index=X.index)
@@ -25,6 +23,10 @@ def todf(X, Y, column_name):
 
 
 def tokenize_text(X, Y=None, task=None, hf_args=None, tokenizer=None):
+    label_col_name = None
+    # label_col_name is the name of the label column Y, label_col_name = ['labels'] for TOKENCLASSIFICATION and SUMMARIZATION,
+    # label_col_name = ['label'] for other tasks. todf is used by all tasks except for SUMMARIZATION,
+    # because the outputs of tokenize_seq2seq are already two DataFrames so no conversion needed.
     if task in (SEQCLASSIFICATION, SEQREGRESSION):
         X_tokenized = tokenize_onedataframe(
             X,
@@ -33,20 +35,23 @@ def tokenize_text(X, Y=None, task=None, hf_args=None, tokenizer=None):
             hf_args=hf_args,
             prefix_str="",
         )
-        Y = todf(X_tokenized, Y, ["label"])
-        return X_tokenized, Y
+        Y_tokenized = Y
+        label_col_name = ["label"]
     elif task == TOKENCLASSIFICATION:
-        return tokenize_text_tokclassification(
+        X_tokenized, y_tokenized = tokenize_text_tokclassification(
             X, Y, tokenizer=tokenizer, hf_args=hf_args
         )
+        label_col_name = ["labels"]
     elif task in NLG_TASKS:
         return tokenize_seq2seq(X, Y, tokenizer=tokenizer, task=task, hf_args=hf_args)
     elif task == MULTICHOICECLASSIFICATION:
         X_tokenized = tokenize_text_multiplechoice(
             X, tokenizer=tokenizer, hf_args=hf_args
         )
-        Y = todf(X_tokenized, Y, ["label"])
-        return X_tokenized, Y
+        label_col_name = ["label"]
+        Y_tokenized = Y
+    Y_tokenized = todf(X_tokenized, Y_tokenized, label_col_name)
+    return X_tokenized, Y_tokenized
 
 
 def tokenize_seq2seq(X, Y, tokenizer, task=None, hf_args=None):
@@ -206,7 +211,6 @@ def tokenize_text_tokclassification(X, Y, tokenizer, hf_args=None):
         y_tokenized = None
     X_tokenized = pd.DataFrame(columns=other_column_names)
     X_tokenized[other_column_names] = d
-    y_tokenized = todf(X_tokenized, y_tokenized, ["labels"])
     return X_tokenized, y_tokenized
 
 

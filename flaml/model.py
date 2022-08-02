@@ -496,7 +496,7 @@ class TransformersEstimator(BaseEstimator):
             )
             setattr(self._training_args, "max_seq_length", None)
 
-    def _preprocess(self, X, y=None, **kwargs):
+    def _tokenize_text(self, X, y=None, **kwargs):
         from .nlp.huggingface.utils import tokenize_text
         from .nlp.utils import is_a_list_of_str
 
@@ -524,11 +524,13 @@ class TransformersEstimator(BaseEstimator):
         )
         return this_model
 
-    def preprocess_data(self, X, y):
+    def _preprocess_data(self, X, y):
         from datasets import Dataset
 
-        processed_X, processed_y_df = self._preprocess(X=X, y=y, **self._kwargs)
-        processed_y = processed_y_df.iloc[:, 0]
+        processed_X, processed_y_df = self._tokenize_text(X=X, y=y, **self._kwargs)
+        processed_y = processed_y_df.iloc[
+            :, 0
+        ]  # convert y from pd.DataFrame back to pd.Series
 
         processed_dataset = Dataset.from_pandas(processed_X.join(processed_y_df))
 
@@ -572,7 +574,7 @@ class TransformersEstimator(BaseEstimator):
 
         if data_collator_class:
             kwargs = {
-                "model": self._model_init(),
+                "model": self._model_init(),  # need to set model, or there's ValueError: Expected input batch_size (..) to match target batch_size (..)
                 "label_pad_token_id": -100,
                 "pad_to_multiple_of": 8,
                 "tokenizer": self.tokenizer,
@@ -624,11 +626,11 @@ class TransformersEstimator(BaseEstimator):
         )  # If using roberta model, must set add_prefix_space to True to avoid the assertion error at
         # https://github.com/huggingface/transformers/blob/main/src/transformers/models/roberta/tokenization_roberta_fast.py#L249
 
-        train_dataset, self._X_train, self._y_train = self.preprocess_data(
+        train_dataset, self._X_train, self._y_train = self._preprocess_data(
             X_train, y_train
         )
         if X_val is not None:
-            eval_dataset, self._X_val, self._y_val = self.preprocess_data(X_val, y_val)
+            eval_dataset, self._X_val, self._y_val = self._preprocess_data(X_val, y_val)
         else:
             eval_dataset, self._X_val, self._y_val = None, None, None
 
@@ -830,7 +832,7 @@ class TransformersEstimator(BaseEstimator):
             self._task in CLASSIFICATION
         ), "predict_proba() only for classification tasks."
 
-        X_test, _ = self._preprocess(X, **self._kwargs)
+        X_test, _ = self._tokenize_text(X, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
 
         new_trainer = self._init_model_for_predict()
@@ -844,7 +846,7 @@ class TransformersEstimator(BaseEstimator):
 
         self._metric = kwargs["metric"]
 
-        eval_dataset, X_val, y_val = self.preprocess_data(X_val, y_val)
+        eval_dataset, X_val, y_val = self._preprocess_data(X_val, y_val)
 
         new_trainer = self._init_model_for_predict()
         return new_trainer.evaluate(eval_dataset)
@@ -860,7 +862,7 @@ class TransformersEstimator(BaseEstimator):
             for key, val in pred_kwargs.items():
                 setattr(self._training_args, key, val)
 
-        X_test, _ = self._preprocess(X, **self._kwargs)
+        X_test, _ = self._tokenize_text(X, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
 
         new_trainer = self._init_model_for_predict()
