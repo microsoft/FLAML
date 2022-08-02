@@ -13,6 +13,11 @@ from ...data import (
 
 
 def todf(X, Y, column_name):
+    """
+    todf converts Y from any format (list, pandas.Series, numpy array) to a DataFrame before being returned
+    todf is used by all all tasks except for SUMMARIZATION,
+    because the outputs of tokenize_seq2seq are already two DataFrame so no conversion needed.
+    """
     if Y is not None:
         Y = pd.DataFrame(Y, index=X.index)
         Y.columns = column_name
