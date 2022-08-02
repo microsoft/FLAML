@@ -38,7 +38,7 @@ def tokenize_text(X, Y=None, task=None, hf_args=None, tokenizer=None):
         Y_tokenized = Y
         label_col_name = ["label"]
     elif task == TOKENCLASSIFICATION:
-        X_tokenized, y_tokenized = tokenize_text_tokclassification(
+        X_tokenized, Y_tokenized = tokenize_text_tokclassification(
             X, Y, tokenizer=tokenizer, hf_args=hf_args
         )
         label_col_name = ["labels"]
