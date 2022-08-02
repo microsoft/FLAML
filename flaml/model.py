@@ -512,7 +512,7 @@ class TransformersEstimator(BaseEstimator):
                 tokenizer=self.tokenizer,
             )
         else:
-            return X, None
+            return X, y
 
     def _model_init(self):
         from .nlp.huggingface.utils import load_model
