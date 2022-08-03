@@ -167,7 +167,7 @@ def metric_loss_score(
             elif metric in ("pearsonr", "spearmanr"):
                 y_processed_true = (
                     y_processed_true.to_list()
-                    if type(y_processed_true) == pd.Series
+                    if isinstance(y_processed_true, pd.Series)
                     else list(y_processed_true)
                 )
             score_dict = metric.compute(
