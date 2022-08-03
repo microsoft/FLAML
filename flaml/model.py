@@ -575,8 +575,8 @@ class TransformersEstimator(BaseEstimator):
         if data_collator_class:
             kwargs = {
                 "model": self._model_init(),  # need to set model, or there's ValueError: Expected input batch_size (..) to match target batch_size (..)
-                "label_pad_token_id": -100,
-                "pad_to_multiple_of": 8,
+                "label_pad_token_id": -100,  # pad with token id -100
+                "pad_to_multiple_of": 8,  # pad to multiple of 8 because quote Transformers: "This is especially useful to enable the use of Tensor Cores on NVIDIA hardware with compute capability >= 7.5 (Volta)"
                 "tokenizer": self.tokenizer,
             }
 
