@@ -528,9 +528,8 @@ class TransformersEstimator(BaseEstimator):
         from datasets import Dataset
 
         processed_X, processed_y_df = self._tokenize_text(X=X, y=y, **self._kwargs)
-        processed_y = processed_y_df.iloc[
-            :, 0
-        ]  # convert y from pd.DataFrame back to pd.Series
+        # convert y from pd.DataFrame back to pd.Series
+        processed_y = processed_y_df.iloc[:, 0]
 
         processed_dataset = Dataset.from_pandas(processed_X.join(processed_y_df))
 
