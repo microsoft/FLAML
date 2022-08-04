@@ -158,6 +158,23 @@ class TestClassification(unittest.TestCase):
         automl.fit(X, y, **automl_settings)
         del automl
 
+        automl = AutoML()
+        automl_settings = {
+            "time_budget": 3,
+            "task": "classification",
+            "n_jobs": 1,
+            "estimator_list": ["kneighbor"],
+            "eval_method": "cv",
+            "n_splits": 3,
+            "metric": "accuracy",
+            "log_training_metric": True,
+            # "verbose": 4,
+            "ensemble": True,
+            "skip_transform": True,
+        }
+        automl.fit(X, y, **automl_settings)
+        del automl
+
     def test_binary(self):
         automl_experiment = AutoML()
         automl_settings = {
