@@ -682,7 +682,7 @@ print("True label", discrete_y_test)
 
 ### Forecasting with Panel Datasets
 
-Panel time series datasets involves multiple individual at multiple time intervals. Its main difference with time series is that time series focuses on one individual throughout time.
+Panel time series datasets involves multiple individual time series. For example, see Stallion demand dataset from PyTorch Forecasting, orginally from Kaggle.
 
 ```python
 def get_stalliion_data():

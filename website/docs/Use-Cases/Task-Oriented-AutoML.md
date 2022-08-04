@@ -12,7 +12,7 @@
     - 'regression': regression.
     - 'ts_forecast': time series forecasting.
     - 'ts_forecast_classification': time series forecasting for classification.
-    - 'ts_forecast_panel': time series forecasting for panel datasets.
+    - 'ts_forecast_panel': time series forecasting for panel datasets (multiple time series).
     - 'rank': learning to rank.
     - 'seq-classification': sequence classification.
     - 'seq-regression': sequence regression.
