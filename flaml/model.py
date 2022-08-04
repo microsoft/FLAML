@@ -2280,7 +2280,6 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
             gradient_clip_val=gradient_clip_val,
             callbacks=[lr_logger, early_stop_callback],
             logger=logger,
-            weights_summary="top",
         )
         trainer = pl.Trainer(
             **default_trainer_kwargs,
