@@ -665,6 +665,7 @@ class AutoML(BaseEstimator):
                 provided in custom_hp. Note that the value for "domain" can either be a constant
                 or a sample.Domain object.
                 e.g.,
+            skip_transform: boolean, default=False | Whether to pre-process data prior to modeling
 
         ```python
         custom_hp = {
@@ -732,6 +733,7 @@ class AutoML(BaseEstimator):
             "fit_kwargs_by_estimator", {}
         )
         settings["custom_hp"] = settings.get("custom_hp", {})
+        settings["skip_transform"] = settings.get("skip_transform", False)
 
         self._estimator_type = (
             "classifier" if settings["task"] in CLASSIFICATION else "regressor"
@@ -1119,7 +1121,7 @@ class AutoML(BaseEstimator):
                 "or all columns of X are integer ids (tokenized)"
             )
 
-        if issparse(X_train_all):
+        if issparse(X_train_all) or self._skip_transform:
             self._transformer = self._label_transformer = False
             self._X_train_all, self._y_train_all = X, y
         else:
@@ -2070,6 +2072,7 @@ class AutoML(BaseEstimator):
         use_ray=None,
         metric_constraints=None,
         custom_hp=None,
+        skip_transform=None,
         fit_kwargs_by_estimator=None,
         **fit_kwargs,
     ):
@@ -2273,6 +2276,9 @@ class AutoML(BaseEstimator):
             custom_hp: dict, default=None | The custom search space specified by user
                 Each key is the estimator name, each value is a dict of the custom search space for that estimator. Notice the
                 domain of the custom search space can either be a value of a sample.Domain object.
+            skip_transform: boolean, default=False | Whether to pre-process data prior to modeling
+
+
 
         ```python
         custom_hp = {
@@ -2418,6 +2424,7 @@ class AutoML(BaseEstimator):
 
         self._state.fit_kwargs = fit_kwargs
         custom_hp = custom_hp or self._settings.get("custom_hp")
+        self._skip_transform = skip_transform or self._settings.get("skip_transform")
         fit_kwargs_by_estimator = fit_kwargs_by_estimator or self._settings.get(
             "fit_kwargs_by_estimator"
         )
