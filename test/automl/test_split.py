@@ -178,7 +178,7 @@ def test_object():
     kf.shuffle = True
     automl_settings["split_type"] = kf
     automl.fit(X, y, **automl_settings)
-    
+
 
 if __name__ == "__main__":
     test_groups()
