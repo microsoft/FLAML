@@ -406,43 +406,27 @@ class TransformersEstimator(BaseEstimator):
             )
         self._TrainingArguments = TrainingArguments
 
-    @staticmethod
-    def _join(X_train, y_train, task):
-        y_train = DataFrame(y_train, index=X_train.index)
-        y_train.columns = ["label"] if task != TOKENCLASSIFICATION else ["labels"]
-        train_df = X_train.join(y_train)
-        return train_df
-
     @classmethod
     def search_space(cls, data_size, task, **params):
         search_space_dict = {
             "learning_rate": {
-                "domain": tune.choice(
-                    [1e-6, 2e-6, 4e-6, 8e-6, 16e-6, 32e-6, 64e-6, 128e-6]
-                ),
-                "init_value": 8e-6,
+                "domain": tune.loguniform(1e-6, 1e-4),
+                "init_value": 1e-5,
             },
             "num_train_epochs": {
-                "domain": tune.choice([1, 3, 5, 7, 9]),
-                "init_value": 3.0,  # to be consistent with roberta
+                "domain": tune.choice([1, 2, 3, 4, 5]),
+                "init_value": 3,  # to be consistent with roberta
+                "low_cost_init_value": 1,
             },
             "per_device_train_batch_size": {
-                "domain": tune.choice([4, 8, 16, 32]),
+                "domain": tune.choice([4, 8, 16, 32, 64]),
                 "init_value": 32,
+                "low_cost_init_value": 64,
             },
-            "warmup_ratio": {
-                "domain": tune.choice([0, 0.1, 0.2, 0.3]),
-                "init_value": 0.0,
+            "seed": {
+                "domain": tune.choice(range(1, 40)),
+                "init_value": 20,
             },
-            "weight_decay": {
-                "domain": tune.choice([0, 0.1, 0.2, 0.3]),
-                "init_value": 0.0,
-            },
-            "adam_epsilon": {
-                "domain": tune.choice([1e-8, 1e-7, 1e-6]),
-                "init_value": 1e-6,
-            },
-            "seed": {"domain": tune.randint(40, 45), "init_value": 42},
             "global_max_steps": {
                 "domain": sys.maxsize,
                 "init_value": sys.maxsize,
@@ -450,18 +434,6 @@ class TransformersEstimator(BaseEstimator):
         }
 
         return search_space_dict
-
-    @property
-    def checkpoint_freq(self):
-        return (
-            int(
-                min(self._training_args.num_train_epochs, 1)
-                * len(self._X_train)
-                / self._training_args.per_device_train_batch_size
-                / self._training_args.ckpt_per_epoch
-            )
-            + 1
-        )
 
     @property
     def fp16(self):
@@ -512,9 +484,6 @@ class TransformersEstimator(BaseEstimator):
                 local_dir, self.params, self.trial_id
             )
 
-        self._training_args.eval_steps = (
-            self._training_args.logging_steps
-        ) = self._training_args.saving_steps = self.checkpoint_freq
         self._training_args.fp16 = self.fp16
         self._training_args.no_cuda = self.no_cuda
 
@@ -527,7 +496,7 @@ class TransformersEstimator(BaseEstimator):
             )
             setattr(self._training_args, "max_seq_length", None)
 
-    def _preprocess(self, X, y=None, **kwargs):
+    def _tokenize_text(self, X, y=None, **kwargs):
         from .nlp.huggingface.utils import tokenize_text
         from .nlp.utils import is_a_list_of_str
 
@@ -543,7 +512,7 @@ class TransformersEstimator(BaseEstimator):
                 tokenizer=self.tokenizer,
             )
         else:
-            return X, None
+            return X, y
 
     def _model_init(self):
         from .nlp.huggingface.utils import load_model
@@ -555,18 +524,15 @@ class TransformersEstimator(BaseEstimator):
         )
         return this_model
 
-    def preprocess_data(self, X, y):
+    def _preprocess_data(self, X, y):
         from datasets import Dataset
 
-        if (self._task not in NLG_TASKS) and (self._task != TOKENCLASSIFICATION):
-            processed_X, _ = self._preprocess(X=X, **self._kwargs)
-            processed_y = y
-        else:
-            processed_X, processed_y = self._preprocess(X=X, y=y, **self._kwargs)
+        processed_X, processed_y_df = self._tokenize_text(X=X, y=y, **self._kwargs)
+        # convert y from pd.DataFrame back to pd.Series
+        processed_y = processed_y_df.iloc[:, 0]
 
-        processed_dataset = Dataset.from_pandas(
-            TransformersEstimator._join(processed_X, processed_y, self._task)
-        )
+        processed_dataset = Dataset.from_pandas(processed_X.join(processed_y_df))
+
         return processed_dataset, processed_X, processed_y
 
     @property
@@ -603,14 +569,25 @@ class TransformersEstimator(BaseEstimator):
     def data_collator(self):
         from .nlp.huggingface.data_collator import task_to_datacollator_class
 
-        return (
-            task_to_datacollator_class[self._task](
-                tokenizer=self.tokenizer,
-                pad_to_multiple_of=8,  # if self._training_args.fp16 else None,
-            )
-            if self._task in (MULTICHOICECLASSIFICATION, TOKENCLASSIFICATION)
-            else None
-        )
+        data_collator_class = task_to_datacollator_class.get(self._task)
+
+        if data_collator_class:
+            kwargs = {
+                "model": self._model_init(),  # need to set model, or there's ValueError: Expected input batch_size (..) to match target batch_size (..)
+                "label_pad_token_id": -100,  # pad with token id -100
+                "pad_to_multiple_of": 8,  # pad to multiple of 8 because quote Transformers: "This is especially useful to enable the use of Tensor Cores on NVIDIA hardware with compute capability >= 7.5 (Volta)"
+                "tokenizer": self.tokenizer,
+            }
+
+            for key in list(kwargs.keys()):
+                if (
+                    key not in data_collator_class.__dict__.keys()
+                    and key != "tokenizer"
+                ):
+                    del kwargs[key]
+            return data_collator_class(**kwargs)
+        else:
+            return None
 
     def fit(
         self,
@@ -648,11 +625,11 @@ class TransformersEstimator(BaseEstimator):
         )  # If using roberta model, must set add_prefix_space to True to avoid the assertion error at
         # https://github.com/huggingface/transformers/blob/main/src/transformers/models/roberta/tokenization_roberta_fast.py#L249
 
-        train_dataset, self._X_train, self._y_train = self.preprocess_data(
+        train_dataset, self._X_train, self._y_train = self._preprocess_data(
             X_train, y_train
         )
         if X_val is not None:
-            eval_dataset, self._X_val, self._y_val = self.preprocess_data(X_val, y_val)
+            eval_dataset, self._X_val, self._y_val = self._preprocess_data(X_val, y_val)
         else:
             eval_dataset, self._X_val, self._y_val = None, None, None
 
@@ -762,7 +739,7 @@ class TransformersEstimator(BaseEstimator):
 
         if trainer.ckpt_to_metric:
             best_ckpt, _ = min(
-                trainer.ckpt_to_metric.items(), key=lambda x: x[1]["eval_loss"]
+                trainer.ckpt_to_metric.items(), key=lambda x: x[1]["eval_automl_metric"]
             )
             best_ckpt_global_step = trainer.ckpt_to_global_step[best_ckpt]
             for each_ckpt in list(trainer.ckpt_to_metric):
@@ -854,7 +831,7 @@ class TransformersEstimator(BaseEstimator):
             self._task in CLASSIFICATION
         ), "predict_proba() only for classification tasks."
 
-        X_test, _ = self._preprocess(X, **self._kwargs)
+        X_test, _ = self._tokenize_text(X, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
 
         new_trainer = self._init_model_for_predict()
@@ -868,7 +845,7 @@ class TransformersEstimator(BaseEstimator):
 
         self._metric = kwargs["metric"]
 
-        eval_dataset, X_val, y_val = self.preprocess_data(X_val, y_val)
+        eval_dataset, X_val, y_val = self._preprocess_data(X_val, y_val)
 
         new_trainer = self._init_model_for_predict()
         return new_trainer.evaluate(eval_dataset)
@@ -884,7 +861,7 @@ class TransformersEstimator(BaseEstimator):
             for key, val in pred_kwargs.items():
                 setattr(self._training_args, key, val)
 
-        X_test, _ = self._preprocess(X, **self._kwargs)
+        X_test, _ = self._tokenize_text(X, **self._kwargs)
         test_dataset = Dataset.from_pandas(X_test)
 
         new_trainer = self._init_model_for_predict()
