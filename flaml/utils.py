@@ -1,7 +1,6 @@
 from sklearn import model_selection
 from sklearn.model_selection import (
     BaseCrossValidator,
-    BaseShuffleSplit,
     GridSearchCV,
     TimeSeriesSplit,
     KFold,
@@ -19,7 +18,6 @@ from sklearn.model_selection import (
     RandomizedSearchCV,
     ShuffleSplit,
     StratifiedKFold,
-    StratifiedGroupKFold,
     StratifiedShuffleSplit,
     check_cv,
     cross_val_predict,
@@ -28,7 +26,6 @@ from sklearn.model_selection import (
     learning_curve,
     permutation_test_score,
     train_test_split,
-    validation_curve,
 )
 from sklearn import preprocessing
 from sklearn.preprocessing import (
@@ -47,7 +44,6 @@ from sklearn.preprocessing import (
     OrdinalEncoder,
     PowerTransformer,
     RobustScaler,
-    SplineTransformer,
     StandardScaler,
     add_dummy_feature,
     PolynomialFeatures,
@@ -79,14 +75,10 @@ from sklearn.metrics import (
     confusion_matrix,
     consensus_score,
     coverage_error,
-    d2_tweedie_score,
-    d2_absolute_error_score,
-    d2_pinball_score,
     dcg_score,
     davies_bouldin_score,
     DetCurveDisplay,
     det_curve,
-    DistanceMetric,
     euclidean_distances,
     explained_variance_score,
     f1_score,
@@ -108,7 +100,6 @@ from sklearn.metrics import (
     mean_absolute_error,
     mean_squared_error,
     mean_squared_log_error,
-    mean_pinball_loss,
     mean_poisson_deviance,
     mean_gamma_deviance,
     mean_tweedie_deviance,
@@ -139,7 +130,6 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve,
     SCORERS,
-    get_scorer_names,
     silhouette_samples,
     silhouette_score,
     top_k_accuracy_score,
