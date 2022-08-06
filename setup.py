@@ -19,7 +19,7 @@ install_requires = [
     "xgboost>=0.90",
     "scipy>=1.4.1",
     "pandas>=1.1.4",
-    "scikit-learn>=0.24",
+    "scikit-learn>=1.0",
 ]
 
 
