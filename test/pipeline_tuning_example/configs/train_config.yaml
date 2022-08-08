@@ -1,0 +1,16 @@
+hydra:
+  searchpath:
+    - file://.
+
+aml_config:
+  workspace_name: aml1p-ml-wus2
+  resource_group: aml1p-rg
+  subscription_id: 48bbc269-ce89-4f6f-9a12-c6f91fcb772d
+  cpu_target: cpucluster
+
+train_config:
+  exp_name: credit_card_default_classification
+  # data_path: sklearn_breast_cancer.csv # sklearn breastcancer
+  test_train_ratio: 0.4
+  learning_rate: 0.05
+  n_estimators: 50
