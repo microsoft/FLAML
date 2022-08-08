@@ -62,16 +62,7 @@ Related arguments:
 - `low_cost_partial_config` (optional): A dictionary from a subset of controlled dimensions to the initial low-cost values.
 - `cat_hp_cost` (optional): A dictionary from a subset of categorical dimensions to the relative cost of each choice.
 
-The second step is to specify a search space of the hyperparameters through the argument `config`. In the search space, you need to specify valid values for your hyperparameters and can specify how these values are sampled (e.g., from a uniform distribution or a log-uniform distribution).
-
-### Search space
-
-Related arguments:
-- `config`: A dictionary to specify the search space.
-- `low_cost_partial_config` (optional): A dictionary from a subset of controlled dimensions to the initial low-cost values.
-- `cat_hp_cost` (optional): A dictionary from a subset of categorical dimensions to the relative cost of each choice.
-
-The second step is to specify a search space of the hyperparameters through the argument `config`. In the search space, you need to specify valid values for your hyperparameters and can specify how these values are sampled (e.g., from a uniform distribution or a log-uniform distribution).
+The second step is to specify a search space of the hyperparameters through the argument `config`. In the search space, you need to specify valid values for your hyperparameters and can specify how these values are sampled (e.g., from a uniform distribution or a log-uniform distribution). 
 
 #### **Guidance on how to set the hyperparameter search space**
 
