@@ -64,6 +64,41 @@ Related arguments:
 
 The second step is to specify a search space of the hyperparameters through the argument `config`. In the search space, you need to specify valid values for your hyperparameters and can specify how these values are sampled (e.g., from a uniform distribution or a log-uniform distribution).
 
+### Search space
+
+Related arguments:
+- `config`: A dictionary to specify the search space.
+- `low_cost_partial_config` (optional): A dictionary from a subset of controlled dimensions to the initial low-cost values.
+- `cat_hp_cost` (optional): A dictionary from a subset of categorical dimensions to the relative cost of each choice.
+
+The second step is to specify a search space of the hyperparameters through the argument `config`. In the search space, you need to specify valid values for your hyperparameters and can specify how these values are sampled (e.g., from a uniform distribution or a log-uniform distribution).
+
+#### **Guidance on how to set the hyperparameter search space**
+
+First, you need to know what is the domain type of a particular hyperparameter.
+Typically, the domain type for a univariate hyperparameter is either (a) categorical or (b) numerical.
+- If it is a categorical hyperparameter, then you should use `tune.choice(possible_choices)` in which `possible_choices` is the list of possible categorical values of the hyperparameter. For example, if you are tuning the optimizer used in model training, and the candidate optimizers are "sgd" and "adam", you should specify the search space in the following way:
+```python
+{
+    "optimizer": tune.choice(["sgd", "adam"]),
+}
+```
+- If it is a numerical hyperparameter, you need to know does it take integer values or float values. In addition, you need to know:
+    - The range of valid values, i.e., what are the lower limit and upper limit of the hyperparameter value?
+    - Do you want to sample in linear scale or log scale? It is a common practice to sample in the log scale if the valid value range is large and the evaluation function changes more regularly with respect to the log domain. For example, learning rate. Otherwise, use the linear scale.
+    - Do you have quantization granularity requirements? 
+ 
+    You can find the corresponding search space choice in the table below once you have answers to the aforementioned three questions.
+
+
+|      | Integer | Float |
+| ----------- | ----------- |-----------
+| linear scale      | tune.randint(lower: int, upper: int)| tune.uniform(lower: float, upper: float)|
+| log scale      | tune.lograndint(lower: int, upper: int, base: float = 10 | tune.loguniform(lower: float, upper: float, base: float = 10)|
+| linear scale with quantization| tune.qrandint(lower: int, upper: int, q: int = 1)| tune.quniform(lower: float, upper: float, q: float = 1)|
+log scale with quantization  | tune.qlograndint(lower: int, upper, q: int = 1, base: float = 10)| tune.qloguniform(lower: float, upper, q: float = 1, base: float = 10)
+|
+
 In the following code example, we include a search space for the two hyperparameters `x` and `y` as introduced above. The valid values for both are integers in the range of [1, 100000]. The values for `x` are sampled uniformly in the specified range (using `tune.randint(lower=1, upper=100000)`), and the values for `y` are sampled uniformly in logarithmic space of the specified range (using `tune.lograndit(lower=1, upper=100000)`).
 
 
