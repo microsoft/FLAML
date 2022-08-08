@@ -4,9 +4,10 @@ import os
 import pandas as pd
 from azureml.core import Run
 
+
 class LightGBMCallbackHandler():
     def __init__(self):
-       pass
+        pass
 
     def callback(self, env: lgb.callback.CallbackEnv) -> None:
         """Callback method to collect metrics produced by LightGBM.
@@ -19,6 +20,7 @@ class LightGBMCallbackHandler():
             run = Run.get_context()
             run.log(f"{data_name}_{eval_name}", result)
 
+
 def main(args):
     """Main function of the script."""
 
@@ -27,10 +29,11 @@ def main(args):
 
     test_path = os.path.join(args.test_data, 'data.csv')
 
-    train_set = lgb.Dataset(train_path) 
+    train_set = lgb.Dataset(train_path)
     test_set = lgb.Dataset(test_path)
     callbacks_handler = LightGBMCallbackHandler()
-    config = {"header": True, "objective": "binary", "label_column": 30, "metric": "binary_error", "n_estimators": args.n_estimators, "learning_rate": args.learning_rate}
+    config = {"header": True, "objective": "binary", "label_column": 30, "metric": "binary_error",
+              "n_estimators": args.n_estimators, "learning_rate": args.learning_rate}
     gbm = lgb.train(
         config,
         train_set,
@@ -44,7 +47,7 @@ def main(args):
     print('Saving model...')
     # save model to file
     gbm.save_model(os.path.join(args.model, 'model.txt'))
-    
+
 
 if __name__ == "__main__":
     # input and output arguments

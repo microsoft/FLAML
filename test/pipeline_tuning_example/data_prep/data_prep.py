@@ -6,6 +6,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def main():
     """Main function of the script."""
 
@@ -31,6 +32,7 @@ def main():
     train_df.to_csv(os.path.join(args.train_data, "data.csv"), index=False)
 
     test_df.to_csv(os.path.join(args.test_data, "data.csv"), index=False)
+
 
 if __name__ == "__main__":
     main()

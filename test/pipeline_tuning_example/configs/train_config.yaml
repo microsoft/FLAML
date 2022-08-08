@@ -9,8 +9,7 @@ aml_config:
   cpu_target: cpucluster
 
 train_config:
-  exp_name: credit_card_default_classification
-  # data_path: sklearn_breast_cancer.csv # sklearn breastcancer
+  exp_name: sklearn_breast_cancer_classification
   test_train_ratio: 0.4
   learning_rate: 0.05
   n_estimators: 50
