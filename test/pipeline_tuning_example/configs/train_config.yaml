@@ -3,9 +3,9 @@ hydra:
     - file://.
 
 aml_config:
-  workspace_name: aml1p-ml-wus2
-  resource_group: aml1p-rg
-  subscription_id: 48bbc269-ce89-4f6f-9a12-c6f91fcb772d
+  workspace_name: your_workspace_name
+  resource_group: your_resource_group
+  subscription_id: your_subscription_id
   cpu_target: cpucluster
 
 train_config:
