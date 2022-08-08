@@ -117,7 +117,7 @@ def build_and_submit_aml_pipeline(config):
     }
 
     # submit the pipeline
-    run = pipeline.submit(tags=tags, regenerate_outputs=True)
+    run = pipeline.submit(tags=tags, regenerate_outputs=False)
 
     return run
 

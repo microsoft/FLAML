@@ -37,7 +37,7 @@ def remote_run():
 
     pipeline = sample_pipeline()
 
-    run = pipeline.submit(regenerate_outputs=True)
+    run = pipeline.submit(regenerate_outputs=False)
     return run
 
 
