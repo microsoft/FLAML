@@ -52,10 +52,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_mutually_exclusive_group(required=False)
     parser.add_argument(
-        "--subscription_id", type=str, help="your_subscription_id",
+        "--subscription_id", type=str, help="your_subscription_id", required=False,
     )
-    parser.add_argument("--resource_group", type=str, help="your_resource_group")
-    parser.add_argument("--workspace", type=str, help="your_workspace")
+    parser.add_argument(
+        "--resource_group", type=str, help="your_resource_group", required=False)
+    parser.add_argument(
+        "--workspace", type=str, help="your_workspace", required=False)
 
     parser.add_argument('--remote', dest='remote', action='store_true')
     parser.add_argument('--local', dest='remote', action='store_false')
