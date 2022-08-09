@@ -7,20 +7,6 @@ from ray import tune
 logger = logging.getLogger(__name__)
 
 
-def wait_for_completion(run):
-    """Wait for the run to complete
-    """
-    status = 'Preparing'
-    while status not in ['Failed', 'Completed']:
-        status = run.status
-        print(f'status: {status}')
-        time.sleep(1)
-
-    print("The run is terminated.")
-    print(status)
-    return status
-
-
 def run_with_config(config: dict):
     """Run the pipeline with a given config dict
     """
@@ -32,9 +18,12 @@ def run_with_config(config: dict):
 
     print(run.get_portal_url())
 
-    status = 'Preparing'
-    while status not in ['Failed', 'Completed']:
+    stop = False
+    while not stop:
+        # get status
+        status = run._core_run.get_status()
         print(f'status: {status}')
+
         # get metrics
         metrics = run._core_run.get_metrics(recursive=True)
         if metrics == {}:
@@ -48,13 +37,13 @@ def run_with_config(config: dict):
                 new_metric = new_metric[-1]
 
             print(f'eval_binary_error: {new_metric}')
-            if 'old_metric' not in locals() or new_metric != old_metric:
-                old_metric = new_metric
-                tune.report(eval_binary_error=old_metric)
-            else:
-                pass
-        time.sleep(2)
-        status = run._core_run.get_status()
+
+            tune.report(eval_binary_error=new_metric)
+
+        time.sleep(5)
+
+        if status == 'FAILED' or status == 'Completed':
+            stop = True
 
     print("The run is terminated.")
     print(status)
