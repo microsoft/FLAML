@@ -1542,6 +1542,7 @@ class AutoML(BaseEstimator):
         record_id=-1,
         auto_augment=None,
         custom_hp=None,
+        skip_transform=None,
         fit_kwargs_by_estimator=None,
         **fit_kwargs,
     ):
@@ -1651,6 +1652,7 @@ class AutoML(BaseEstimator):
 
         self._state.fit_kwargs = fit_kwargs
         self._state.custom_hp = custom_hp or self._settings.get("custom_hp")
+        self._skip_transform = self._settings.get("skip_transform") if skip_transform is None else skip_transform
         self._state.fit_kwargs_by_estimator = (
             fit_kwargs_by_estimator or self._settings.get("fit_kwargs_by_estimator")
         )
