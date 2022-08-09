@@ -11,6 +11,7 @@ from flaml.onlineml import OnlineTrialRunner
 from flaml.scheduler import ChaChaScheduler
 from flaml.searcher import ChampionFrontierSearcher
 from flaml.onlineml.trial import get_ns_feature_dim_from_vw_example
+from ordered_set import OrderedSet
 
 logger = logging.getLogger(__name__)
 
@@ -117,14 +118,14 @@ class AutoVW:
                     vw_example
                 ).keys()
                 search_space[k] = polynomial_expansion_set(
-                    init_monomials=set(raw_namespaces)
+                    init_monomials=OrderedSet(raw_namespaces)
                 )
         # setup the init config based on the input _init_config and search space
         init_config = self._init_config.copy()
         for k, v in search_space.items():
             if k not in init_config.keys():
                 if isinstance(v, PolynomialExpansionSet):
-                    init_config[k] = set()
+                    init_config[k] = OrderedSet()
                 elif not isinstance(v, Categorical) and not isinstance(v, Float):
                     init_config[k] = v
         searcher_args = {

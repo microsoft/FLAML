@@ -33,6 +33,7 @@ from ..tune.sample import (
     Uniform,
 )
 from ..tune.trial import flatten_dict, unflatten_dict
+from ordered_set import OrderedSet
 
 logger = logging.getLogger(__name__)
 
@@ -191,7 +192,7 @@ class ConcurrencyLimiter(Searcher):
         self.searcher = searcher
         self.max_concurrent = max_concurrent
         self.batch = batch
-        self.live_trials = set()
+        self.live_trials = OrderedSet()
         self.cached_results = {}
         super(ConcurrencyLimiter, self).__init__(
             metric=self.searcher.metric, mode=self.searcher.mode

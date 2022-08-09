@@ -6,6 +6,7 @@ from flaml.tune import Categorical, Float, PolynomialExpansionSet
 from flaml.tune import Trial
 from flaml.onlineml import VowpalWabbitTrial
 from flaml.searcher import CFO
+from ordered_set import OrderedSet
 
 logger = logging.getLogger(__name__)
 
@@ -349,10 +350,10 @@ class ChampionFrontierSearcher(BaseSearcher):
             )
         )
         self._random_state.shuffle(space)
-        candidate_configs = [set(seed_interactions) | set(item) for item in space]
+        candidate_configs = [OrderedSet(seed_interactions) | OrderedSet(item) for item in space]
         final_candidate_configs = []
         for c in candidate_configs:
-            new_c = set([e for e in c if len(e) > 1])
+            new_c = OrderedSet([e for e in c if len(e) > 1])
             final_candidate_configs.append(new_c)
         return final_candidate_configs
 
@@ -392,7 +393,7 @@ class ChampionFrontierSearcher(BaseSearcher):
 
         def strip_self_inter(s):
             """Remove duplicates in an interaction string"""
-            if len(s) == len(set(s)):
+            if len(s) == len(OrderedSet(s)):
                 return s
             else:
                 # return ''.join(sorted(set(s)))

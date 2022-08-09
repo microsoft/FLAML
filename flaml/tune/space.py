@@ -10,6 +10,7 @@ except (ImportError, AssertionError):
 from typing import Dict, Optional, Any, Tuple, Generator
 import numpy as np
 import logging
+from ordered_set import OrderedSet
 
 logger = logging.getLogger(__name__)
 
@@ -453,7 +454,7 @@ def indexof(domain: Dict, config: Dict) -> int:
         # if len(cat) != len(config):
         #     continue
         # print(cat.keys())
-        if not set(config.keys()).issubset(set(cat.keys())):
+        if not OrderedSet(config.keys()).issubset(OrderedSet(cat.keys())):
             continue
         if equal(config, domain.const[i]):
             # assumption: the concatenation of constants is a unique identifier

@@ -7,6 +7,7 @@ import collections
 from typing import Optional, Union
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from flaml.tune import Trial
+from ordered_set import OrderedSet
 
 logger = logging.getLogger(__name__)
 
@@ -316,7 +317,7 @@ class VowpalWabbitTrial(BaseOnlineTrial):
         for key in sorted_k_list:
             v = config[key]
             config_id = "|"
-            if isinstance(v, set):
+            if isinstance(v, OrderedSet):
                 value_list = sorted(v)
                 config_id += "_".join([str(k) for k in value_list])
             else:

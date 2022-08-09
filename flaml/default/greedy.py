@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import RobustScaler
 from sklearn.metrics import pairwise_distances
+from ordered_set import OrderedSet
 
 
 def _augment(row):
@@ -26,7 +27,7 @@ def construct_portfolio(regret_matrix, meta_features, regret_bound):
         A list of configuration names.
     """
     configs = []
-    all_configs = set(regret_matrix.index.tolist())
+    all_configs = OrderedSet(regret_matrix.index.tolist())
     tasks = regret_matrix.columns
     # pre-processing
     if meta_features is not None:

@@ -51,6 +51,7 @@ from .data import (
 from . import tune
 from .training_log import training_log_reader, training_log_writer
 from flaml.default.suggest import suggest_learner
+from ordered_set import OrderedSet
 
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
@@ -2464,7 +2465,7 @@ class AutoML(BaseEstimator):
                 if sample_size:
                     _sample_size_from_starting_points[_estimator] = sample_size
                 elif _point_per_estimator and isinstance(_point_per_estimator, list):
-                    _sample_size_set = set(
+                    _sample_size_set = OrderedSet(
                         [
                             config["FLAML_sample_size"]
                             for config in _point_per_estimator
@@ -2826,7 +2827,7 @@ class AutoML(BaseEstimator):
             if self._hpo_method != "optuna":
                 min_resource = self.min_resource
                 if isinstance(min_resource, dict):
-                    _min_resource_set = set(min_resource.values())
+                    _min_resource_set = OrderedSet(min_resource.values())
                     min_resource_all_estimator = min(_min_resource_set)
                     if len(_min_resource_set) > 1:
                         logger.warning(
@@ -2855,7 +2856,7 @@ class AutoML(BaseEstimator):
                 # need to remove the extra keys from the search space to be consistent with the initial config
                 converted_space = SearchAlgo.convert_search_space(space)
 
-                removed_keys = set(space.keys()).difference(converted_space.keys())
+                removed_keys = OrderedSet(space.keys()).difference(converted_space.keys())
                 new_points_to_evaluate = []
                 for idx in range(len(self.points_to_evaluate)):
                     r = self.points_to_evaluate[idx].copy()
@@ -3083,7 +3084,7 @@ class AutoML(BaseEstimator):
                     # if self._hpo_method is bo, sometimes the search space and the initial config dimension do not match
                     # need to remove the extra keys from the search space to be consistent with the initial config
                     converted_space = SearchAlgo.convert_search_space(search_space)
-                    removed_keys = set(search_space.keys()).difference(
+                    removed_keys = OrderedSet(search_space.keys()).difference(
                         converted_space.keys()
                     )
                     new_points_to_evaluate = []

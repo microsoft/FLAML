@@ -1,6 +1,6 @@
 from typing import Dict, Any
 import numpy as np
-
+from ordered_set import OrderedSet
 from ..data import (
     SUMMARIZATION,
     SEQREGRESSION,
@@ -100,7 +100,7 @@ class LabelEncoderforTokenClassification:
     def fit_transform(self, y):
         # if the labels are tokens, convert them to ids
         if any(isinstance(id, str) for id in y[0]):
-            self.label_list = sorted(list(set().union(*y)))
+            self.label_list = sorted(list(OrderedSet().union(*y)))
             self._tokenlabel_to_id = {
                 self.label_list[id]: id for id in range(len(self.label_list))
             }

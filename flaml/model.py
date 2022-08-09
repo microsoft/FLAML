@@ -33,7 +33,7 @@ from .data import (
     NLG_TASKS,
     MULTICHOICECLASSIFICATION,
 )
-
+from ordered_set import OrderedSet
 try:
     import psutil
 except ImportError:
@@ -540,7 +540,7 @@ class TransformersEstimator(BaseEstimator):
         if self._task == SEQREGRESSION:
             return 1
         elif self._task == SEQCLASSIFICATION:
-            return len(set(self._y_train))
+            return len(OrderedSet(self._y_train))
         elif self._task == TOKENCLASSIFICATION:
             return len(self._training_args.label_list)
         else:

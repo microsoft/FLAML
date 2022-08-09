@@ -2,6 +2,7 @@ import numpy as np
 import math
 from flaml.tune import Trial
 from flaml.scheduler import TrialScheduler
+from ordered_set import OrderedSet
 
 import logging
 
@@ -87,7 +88,7 @@ class OnlineTrialRunner:
         self._best_challenger_trial = None
         self._first_challenger_pool_size = None
         self._random_state = np.random.RandomState(self.RANDOM_SEED)
-        self._running_trials = set()
+        self._running_trials = OrderedSet()
 
         # initially schedule up to max_live_model_num of live models and
         # set the first trial as the champion (which is done inside self.step())

@@ -22,6 +22,7 @@ from .search_thread import SearchThread
 from .flow2 import FLOW2
 from ..tune.space import add_cost_to_space, indexof, normalize, define_by_run_func
 from ..tune.result import TIME_TOTAL_S
+from ordered_set import OrderedSet 
 
 import logging
 
@@ -551,7 +552,7 @@ class BlendSearch(Searcher):
         merge local threads if they are close
         """
         assert thread_id
-        todelete = set()
+        todelete = OrderedSet()
         for id in self._search_thread_pool:
             if id and id != thread_id:
                 if self._inferior(id, thread_id):
