@@ -100,7 +100,7 @@ def build_and_submit_aml_pipeline(config):
             test_train_ratio=config.train_config.test_train_ratio,
         )
 
-        train_job = train_component(
+        train_component(
             train_data=data_prep_job.outputs.train_data,
             test_data=data_prep_job.outputs.test_data,
             learning_rate=config.train_config.learning_rate,

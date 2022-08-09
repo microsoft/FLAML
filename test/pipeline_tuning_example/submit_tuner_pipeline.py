@@ -33,7 +33,7 @@ def remote_run():
         default_compute_target="cpucluster",
     )
     def sample_pipeline():
-        tuner = pipeline_tuning_func()
+        pipeline_tuning_func()
 
     pipeline = sample_pipeline()
 
