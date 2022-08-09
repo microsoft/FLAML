@@ -26,9 +26,7 @@ def run_with_config(config: dict):
 
         # get metrics
         metrics = run._core_run.get_metrics(recursive=True)
-        if metrics == {}:
-            pass
-        else:
+        if metrics:
             run_metrics = list(metrics.values())
 
             new_metric = run_metrics[0]['eval_binary_error']
