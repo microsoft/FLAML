@@ -157,7 +157,7 @@ def run_with_config(config: dict):
     """Run the pipeline with a given config dict
     """
 
-    # pass the hyperparameters to AML jobs by overwriting the config file.
+    # pass the hyperparameters to AzureML jobs by overwriting the config file.
     overrides = [f"{key}={value}" for key, value in config.items()]
 
     print(overrides)
@@ -200,7 +200,7 @@ def run_with_config(config: dict):
 Overall, to tune the hyperparameters of the AzureML pipeline, run:
 
 ```bash
-# the training job will run remotely as an AML job in both choices
+# the training job will run remotely as an AzureML job in both choices
 # run the tuning job locally 
 python submit_tune.py --local
 # run the tuning job remotely
@@ -208,4 +208,5 @@ python submit_tune.py --remote --subscription_id <your subscription_id> --resour
 ```
 
 The local option runs the `tuner/tuner_func.py` in your local machine.
-The remote option wraps up the `tuner/tuner_func.py` as an AML component and starts another AML job to tune the AML pipeline.
+The remote option wraps up the `tuner/tuner_func.py` as an AzureML component and
+starts another AzureML job to tune the AzureML pipeline.
