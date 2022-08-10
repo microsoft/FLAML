@@ -32,7 +32,7 @@ Before we are ready for tuning, we must first have an Azure ML pipeline.
 In this example, we use the following toy pipeline for illustration.
 The pipeline consists of two steps: (1) data preparation and (2) model training.
 
-![png](images/AzureML_pipeline.png).
+![png](images/AzureML_train_pipeline.png).
 
 The code example discussed in the page is included in
 `test/pipeline_tuning_example/`.
