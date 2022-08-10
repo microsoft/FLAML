@@ -1,7 +1,7 @@
 # Tune - AzureML pipeline
 
 This example uses flaml to tune an Azure ML pipeline that fits a lightgbm classifier on the [sklearn breast cancer dataset](https://archive.ics.uci.edu/ml/datasets/Breast+Cancer+Wisconsin+(Diagnostic)).
-If you already have an n Azure ML pipeline, you can use the approach to tune your pipeline with flaml.
+If you already have an Azure ML pipeline, you can use the approach to tune your pipeline with flaml.
 
 ## Prepare for tuning
 
