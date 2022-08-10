@@ -17,7 +17,7 @@ conda activate pipeline_tune
 # install azureml packages for runnig AzureML pipelines
 pip install azureml-core==1.39.0
 pip install azure-ml-component[notebooks]==0.9.10.post1
-azureml-dataset-runtime==1.39.0
+pip install azureml-dataset-runtime==1.39.0
 
 # install hydra-core for passing AzureML pipeline parameters
 hydra-core==1.1.1
