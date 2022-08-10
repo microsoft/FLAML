@@ -1,13 +1,13 @@
 # Tune - AzureML pipeline
 
 This example uses flaml to tune an Azure ML pipeline that fits a lightgbm classifier on the [sklearn breast cancer dataset](https://archive.ics.uci.edu/ml/datasets/Breast+Cancer+Wisconsin+(Diagnostic)).
-If you already have an n Azure ML pipeline, you can use the approach to tune your pipeline with flaml.
+If you already have an Azure ML pipeline, you can use the approach to tune your pipeline with flaml.
 
 ## Prepare for tuning
 
 ### Requirements
 
-We recommend using conda to install the dependencies.
+We recommend using conda or venv to create a virtual env to install the dependencies.
 
 ```bash
 # set up new conda environment
@@ -17,7 +17,7 @@ conda activate pipeline_tune
 # install azureml packages for runnig AzureML pipelines
 pip install azureml-core==1.39.0
 pip install azure-ml-component[notebooks]==0.9.10.post1
-azureml-dataset-runtime==1.39.0
+pip install azureml-dataset-runtime==1.39.0
 
 # install hydra-core for passing AzureML pipeline parameters
 hydra-core==1.1.1
@@ -150,7 +150,7 @@ def tune_pipeline(concurrent_run=1):
 
 ### Interact with AzureML pipeline jobs
 
-The interaction between FLAML and AzureML pipeline jobs lie in `tuner_func.run_with_config`.
+The interaction between FLAML and AzureML pipeline jobs is in `tuner_func.run_with_config`.
 
 ```python
 def run_with_config(config: dict):
