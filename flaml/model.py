@@ -424,7 +424,7 @@ class TransformersEstimator(BaseEstimator):
                 "low_cost_init_value": 64,
             },
             "seed": {
-                "domain": tune.choice(range(1, 40)),
+                "domain": tune.choice(range(1, 40), ordered=False),
                 "init_value": 20,
             },
             "global_max_steps": {
