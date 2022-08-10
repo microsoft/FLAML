@@ -36,20 +36,20 @@ from .trial import Trial
 from typing import Sequence
 
 
-def choice(categories: Sequence, ordered=None):
+def choice(categories: Sequence, order=None):
     """Sample a categorical value.
     Sampling from ``tune.choice([1, 2])`` is equivalent to sampling from
     ``np.random.choice([1, 2])``
 
     Args:
         categories (Sequence): Sequence of categories to sample from.
-        ordered (bool): Whether the categories have an order. If None, will be decided autoamtically:
-            Numerical categories are ordered, while string categories are not.
+        order (bool): Whether the categories have an order. If None, will be decided autoamtically:
+            Numerical categories have an order, while string categories do not.
     """
     domain = sample.Categorical(categories).uniform()
     domain.ordered = (
-        ordered
-        if ordered is not None
+        order
+        if order is not None
         else all(isinstance(x, int) or isinstance(x, float) for x in categories)
     )
     return domain
