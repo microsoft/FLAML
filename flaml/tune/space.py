@@ -230,8 +230,7 @@ def add_cost_to_space(space: Dict, low_cost_point: Dict, choice_cost: Dict):
                 if ordered is None:
                     # automatically decide whether to order the choices based on the value type
                     domain.ordered = ordered = all(
-                        isinstance(x, int) or isinstance(x, float)
-                        for x in domain.categories
+                        isinstance(x, (int, float)) for x in domain.categories
                     )
                 if ordered:
                     # sort the choices by value
