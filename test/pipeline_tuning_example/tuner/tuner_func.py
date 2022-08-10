@@ -11,6 +11,7 @@ def run_with_config(config: dict):
     """Run the pipeline with a given config dict
     """
 
+    # pass the hyperparameters to AzureML jobs by overwriting the config file.
     overrides = [f"{key}={value}" for key, value in config.items()]
 
     print(overrides)
@@ -18,6 +19,7 @@ def run_with_config(config: dict):
 
     print(run.get_portal_url())
 
+    # retrieving the metrics to optimize before the job completes.
     stop = False
     while not stop:
         # get status
@@ -51,7 +53,8 @@ def run_with_config(config: dict):
 
 def tune_pipeline(concurrent_run=1):
     start_time = time.time()
-    # hyperparameter search space
+
+    # config the HPO job
     search_space = {
         "train_config.n_estimators": flaml.tune.randint(50, 200),
         "train_config.learning_rate": flaml.tune.uniform(0.01, 0.5),
@@ -59,6 +62,9 @@ def tune_pipeline(concurrent_run=1):
 
     hp_metric = "eval_binary_error"
     mode = "max"
+    num_samples = 2
+
+
     if concurrent_run > 1:
         import ray  # For parallel tuning
 
@@ -67,14 +73,17 @@ def tune_pipeline(concurrent_run=1):
     else:
         use_ray = False
 
+    # launch the HPO job
     analysis = flaml.tune.run(
         run_with_config,
         config=search_space,
         metric=hp_metric,
         mode=mode,
-        num_samples=2,  # number of trials
+        num_samples=num_samples,  # number of trials
         use_ray=use_ray,
     )
+
+    # get the best config
     best_trial = analysis.get_best_trial(hp_metric, mode, "all")
     metric = best_trial.metric_analysis[hp_metric][mode]
     print(f"n_trials={len(analysis.trials)}")

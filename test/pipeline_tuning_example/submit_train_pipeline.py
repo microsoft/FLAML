@@ -34,6 +34,7 @@ class PipelineConfig:
 
 
 LOCAL_DIR = Path(__file__).parent.absolute()
+TARGET_DATA_DIR = "classification_data"
 
 cs = ConfigStore.instance()
 cs.store(name="config", node=PipelineConfig)
@@ -73,11 +74,11 @@ def build_and_submit_aml_pipeline(config):
     datastore = ws.get_default_datastore()
     Dataset.File.upload_directory(
         src_dir=to_absolute_path(LOCAL_DIR / "data"),
-        target=(datastore, "classification_data"),
+        target=(datastore, TARGET_DATA_DIR),
         overwrite=True,
     )
 
-    dataset = Dataset.File.from_files(path=(datastore, 'classification_data'))
+    dataset = Dataset.File.from_files(path=(datastore, TARGET_DATA_DIR))
 
     ################################################
     # load component functions
