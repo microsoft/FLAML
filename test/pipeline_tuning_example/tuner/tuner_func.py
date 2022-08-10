@@ -64,7 +64,6 @@ def tune_pipeline(concurrent_run=1):
     mode = "max"
     num_samples = 2
 
-
     if concurrent_run > 1:
         import ray  # For parallel tuning
 
