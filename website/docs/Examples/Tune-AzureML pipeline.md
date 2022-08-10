@@ -7,7 +7,7 @@ If you already have an Azure ML pipeline, you can use the approach to tune your 
 
 ### Requirements
 
-We recommend using conda to install the dependencies.
+We recommend using conda or venv to create a virtual env to install the dependencies.
 
 ```bash
 # set up new conda environment
