@@ -150,7 +150,7 @@ def tune_pipeline(concurrent_run=1):
 
 ### Interact with AzureML pipeline jobs
 
-The interaction between FLAML and AzureML pipeline jobs lie in `tuner_func.run_with_config`.
+The interaction between FLAML and AzureML pipeline jobs is in `tuner_func.run_with_config`.
 
 ```python
 def run_with_config(config: dict):
