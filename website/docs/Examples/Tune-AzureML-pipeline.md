@@ -20,10 +20,10 @@ pip install azure-ml-component[notebooks]==0.9.10.post1
 pip install azureml-dataset-runtime==1.39.0
 
 # install hydra-core for passing AzureML pipeline parameters
-hydra-core==1.1.1
+pip install hydra-core==1.1.1
 
 # install flaml
-flaml[blendsearch,ray]==1.0.9
+pip install flaml[blendsearch,ray]==1.0.9
 ```
 
 ### Azure ML training pipeline
