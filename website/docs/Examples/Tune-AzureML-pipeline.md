@@ -108,7 +108,7 @@ These two steps are done in `tuner/tuner_func.py`.
 
 ### Set up the tune job
 
-`tuner_func.tune_pipeline` sets up the search space, metric to optimize, mode, et al.
+`tuner_func.tune_pipeline` sets up the search space, metric to optimize, mode, etc.
 
 ```python
 def tune_pipeline(concurrent_run=1):
