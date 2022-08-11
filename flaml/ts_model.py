@@ -442,10 +442,10 @@ class TS_SKLearn(SKLearnEstimator):
     def transform_X(self, X: pd.DataFrame, time_col: Optional[str] = None):
         cols = list(X)
         if time_col is None:
-            time_col_col = cols[0]
+            time_col = cols[0]
 
         if len(cols) == 1:
-            X = DataFrame(index=X[time_col_col])
+            X = DataFrame(index=X[time_col])
         elif len(cols) > 1:
             exog_cols = [c for c in cols if c != time_col]
             X = X[exog_cols].set_index(X[time_col])
