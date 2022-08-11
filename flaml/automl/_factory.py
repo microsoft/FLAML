@@ -1,3 +1,4 @@
+from . import tasks
 from .automl import AutoML as AutoMLGeneric
 from .time_series import AutoMLTS
 from ..data import TS_FORECASTREGRESSION
@@ -10,21 +11,21 @@ from ..data import TS_FORECASTREGRESSION
 class AutoML(AutoMLGeneric):
     def __init__(self, **settings):
         super().__init__(**settings)
-        self._select_automl_class()
+        if self._settings["task"] in TS_FORECASTREGRESSION:
+            AutoMLTS.__init__(self, **settings)
 
     def fit(self, *args, **kwargs):
-        task = kwargs.get("task")
+        # Is it in kwargs?
+        task_name = kwargs.get("task")
+        # Is it in args?
         if len(args) >= 6:
-            task = args[5]
-        task = task or self._settings["task"]
-        self._select_automl_class()
-        AutoMLGeneric.fit(self, *args, **kwargs)
+            task_name = args[5]
+        # Is it in self._settings?
+        task_name = task_name or self._settings["task"]
+        task = tasks.task_factory(task_name)
 
-    def _select_automl_class(self):
-        if self._settings["task"] in TS_FORECASTREGRESSION:
-            automl_ts = AutoMLTS(**self._settings)
-            self.__dict__ = automl_ts.__dict__
-            self.__class__ = automl_ts.__class__
+        self.__class__ = task.AUTOML_CLASS
+        self.fit(*args, **kwargs)
 
 
 # Set the docstring for sphinx autodocs
