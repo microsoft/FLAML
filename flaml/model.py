@@ -2330,7 +2330,7 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
         new_prediction_data["time_idx"] = new_prediction_data["time_idx"].astype("int")
         new_raw_predictions = self._model.predict(new_prediction_data)
         index = [decoder_data[idx].to_numpy() for idx in ids]
-        predictions = pd.Series(list(new_raw_predictions.numpy().ravel()), index=index)
+        predictions = pd.Series(new_raw_predictions.numpy().ravel(), index=index)
         return predictions
 
 
