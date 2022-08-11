@@ -12,6 +12,8 @@
     <br>
 </p>
 
+<span style="color: red"> A tutorial on FLAML: [KDD 2022 Hands-on Tutorial on FLAML](https://github.com/microsoft/FLAML/tree/tutorial/tutorial) </span>
+
 FLAML is a lightweight Python library that finds accurate machine
 learning models automatically, efficiently and economically. It frees users from selecting
 learners and hyperparameters for each learner.
