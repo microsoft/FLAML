@@ -28,8 +28,6 @@ and learner selection method invented by Microsoft Research.
 FLAML has a .NET implementation in [ML.NET](http://dot.net/ml), an open-source, cross-platform machine learning framework for .NET. In ML.NET, you can use FLAML via low-code solutions like [Model Builder](https://dotnet.microsoft.com/apps/machinelearning-ai/ml-dotnet/model-builder) Visual Studio extension and the cross-platform [ML.NET CLI](https://docs.microsoft.com/dotnet/machine-learning/automate-training-with-cli). Alternatively, you can use the [ML.NET AutoML API](https://www.nuget.org/packages/Microsoft.ML.AutoML/#versions-body-tab) for a code-first experience.
 
 
-<!-- :fire: **Update (2022/08): We will give a [hands-on tutorial on FLAML at KDD 2022](https://github.com/microsoft/FLAML/tree/tutorial/tutorial) on 08/16/2022.** -->
-
 ## Installation
 
 ### Python
