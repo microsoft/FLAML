@@ -22,13 +22,13 @@ from sklearn.base import BaseEstimator
 import pandas as pd
 import logging
 import json
-from .ml import (
+from ..ml import (
     compute_estimator,
     train_estimator,
     get_estimator_class,
     get_classification_objective,
 )
-from .config import (
+from ..config import (
     MIN_SAMPLE_TRAIN,
     MEM_THRES,
     RANDOM_SEED,
@@ -38,7 +38,7 @@ from .config import (
     N_SPLITS,
     SAMPLE_MULTIPLY_FACTOR,
 )
-from .data import (
+from ..data import (
     concat,
     CLASSIFICATION,
     TOKENCLASSIFICATION,
@@ -48,9 +48,9 @@ from .data import (
     _is_nlp_task,
     NLG_TASKS,
 )
-from . import tune
-from .training_log import training_log_reader, training_log_writer
-from flaml.default.suggest import suggest_learner
+from .. import tune
+from ..training_log import training_log_reader, training_log_writer
+from ..default.suggest import suggest_learner
 
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
@@ -76,7 +76,7 @@ class SearchState:
         )
 
     def valid_starting_point_one_dim(self, value_one_dim, domain_one_dim):
-        from .tune.space import sample
+        from ..tune.space import sample
 
         """
             For each hp in the starting point, check the following 3 conditions:
@@ -480,7 +480,7 @@ class AutoML(BaseEstimator):
 
     """
 
-    from .version import __version__
+    from ..version import __version__
 
     def __init__(self, **settings):
         """Constructor.
@@ -1085,7 +1085,7 @@ class AutoML(BaseEstimator):
 
         # check the validity of input dimensions for NLP tasks, so need to check _is_nlp_task not estimator
         if _is_nlp_task(self._state.task):
-            from .nlp.utils import is_a_list_of_str
+            from ..nlp.utils import is_a_list_of_str
 
             is_all_str = True
             is_all_list = True
@@ -1123,7 +1123,7 @@ class AutoML(BaseEstimator):
             self._transformer = self._label_transformer = False
             self._X_train_all, self._y_train_all = X, y
         else:
-            from .data import DataTransformer
+            from ..data import DataTransformer
 
             self._transformer = DataTransformer()
 
@@ -1689,7 +1689,7 @@ class AutoML(BaseEstimator):
                     logger.warning(
                         f"No estimator found within time_budget={time_budget}"
                     )
-                    from .model import BaseEstimator as Estimator
+                    from ..model import BaseEstimator as Estimator
 
                     self._trained_estimator = Estimator()
                     return training_duration
@@ -2516,7 +2516,7 @@ class AutoML(BaseEstimator):
             )
         if "auto" == metric:
             if _is_nlp_task(self._state.task):
-                from .nlp.utils import load_default_huggingface_metric_for_task
+                from ..nlp.utils import load_default_huggingface_metric_for_task
 
                 metric = load_default_huggingface_metric_for_task(self._state.task)
             elif "binary" in self._state.task:
@@ -2548,7 +2548,7 @@ class AutoML(BaseEstimator):
             ]:
                 return True, f"1-{metric}"
             if _is_nlp_task(task):
-                from .ml import huggingface_metric_to_mode
+                from ..ml import huggingface_metric_to_mode
 
                 if (
                     metric in huggingface_metric_to_mode
@@ -2795,7 +2795,7 @@ class AutoML(BaseEstimator):
                 assert ray_version >= "1.10.0"
                 from ray.tune.suggest.optuna import OptunaSearch as SearchAlgo
             except (ImportError, AssertionError):
-                from .searcher.suggestion import OptunaSearch as SearchAlgo
+                from ..searcher.suggestion import OptunaSearch as SearchAlgo
         else:
             raise NotImplementedError(
                 f"hpo_method={self._hpo_method} is not recognized. "
@@ -2974,7 +2974,7 @@ class AutoML(BaseEstimator):
             assert ray_version >= "1.10.0"
             from ray.tune.suggest import ConcurrencyLimiter
         except (ImportError, AssertionError):
-            from .searcher.suggestion import ConcurrencyLimiter
+            from ..searcher.suggestion import ConcurrencyLimiter
         if self._hpo_method in ("cfo", "grid"):
             from flaml import CFO as SearchAlgo
         elif "optuna" == self._hpo_method:
@@ -2984,7 +2984,7 @@ class AutoML(BaseEstimator):
                 assert ray_version >= "1.10.0"
                 from ray.tune.suggest.optuna import OptunaSearch as SearchAlgo
             except (ImportError, AssertionError):
-                from .searcher.suggestion import OptunaSearch as SearchAlgo
+                from ..searcher.suggestion import OptunaSearch as SearchAlgo
         elif "bs" == self._hpo_method:
             from flaml import BlendSearch as SearchAlgo
         elif "random" == self._hpo_method:
