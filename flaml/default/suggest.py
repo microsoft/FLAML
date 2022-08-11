@@ -3,7 +3,6 @@ from sklearn.neighbors import NearestNeighbors
 import logging
 import pathlib
 import json
-from setuptools import version
 from flaml.data import CLASSIFICATION, DataTransformer
 from flaml.ml import get_estimator_class, get_classification_objective
 from flaml.version import __version__
@@ -11,6 +10,10 @@ from flaml.version import __version__
 LOCATION = pathlib.Path(__file__).parent.resolve()
 logger = logging.getLogger(__name__)
 CONFIG_PREDICTORS = {}
+
+
+def version_parse(version):
+    return tuple(map(int, (version.split("."))))
 
 
 def meta_feature(task, X_train, y_train, meta_feature_names):
@@ -78,9 +81,9 @@ def suggest_config(task, X, y, estimator_or_predictor, location=None, k=None):
     older_version = "1.0.2"
     # TODO: update older_version when the newer code can no longer handle the older version json file
     assert (
-        version.parse(__version__)
-        >= version.parse(predictor["version"])
-        >= version.parse(older_version)
+        version_parse(__version__)
+        >= version_parse(predictor["version"])
+        >= version_parse(older_version)
     )
     prep = predictor["preprocessing"]
     feature = meta_feature(
