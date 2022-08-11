@@ -393,14 +393,14 @@ You can use the following way to roughly estimate the wall-clock time in paralle
 
 In sequential tuning, $k=1$, and in parallel tuning $k>1$. This may suggest that parallel tuning has a shorter wall-clock time. But it is not always the case considering the other two factors $SingleTrialTime$, and $Overhead$:
 
-- The $Overhead$ in sequential tuning is typically neglectable and in parallel tuning is typically large.
+- The $Overhead$ in sequential tuning is typically neglectable and in parallel tuning is relatively large.
 
 - You can also try to reduce the $SingleTrialTime$ to reduce the wall-clock time in sequential tuning: For example, by increasing the resource consumed by a single trial (distributed or multi-thread training), you can reduce $SingleTrialTime$. One concrete example is to use the `n_jobs` parameter that sets the number of threads the fitting process can use in many scikit-learn style algorithms.
 
 **(2) Considerations on randomness.**
 
 Potential reasons that cause randomness:
-1. Parallel tuning: In the case of parallel tuning, the order of trials' finishing time is no longer deterministic. This non-deterministic order, combined with sequential HPO algorithms, leads to a different hyperparameter tuning trajectory.
+1. Parallel tuning: In the case of parallel tuning, the order of trials' finishing time is no longer deterministic. This non-deterministic order, combined with sequential HPO algorithms, leads to a non-deterministic hyperparameter tuning trajectory.
 
 2. Distributed or multi-thread training: Distributed/multi-thread training may introduce randomness in model training, i.e., the trained model with the same hyperparameter may be different because of such randomness. This model-level randomness may be undesirable in some cases.
 
