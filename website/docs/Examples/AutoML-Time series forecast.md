@@ -503,46 +503,319 @@ print(automl.predict(multi_X_test))
 #### Sample Output
 
 ```python
-[flaml.automl: 02-28 21:32:26] {2458} INFO - iteration 15, current learner xgboost
-[flaml.automl: 02-28 21:32:26] {2620} INFO -  at 6.2s,	estimator xgboost's best error=0.0959,	best estimator prophet's best error=0.0592
-[flaml.automl: 02-28 21:32:26] {2458} INFO - iteration 16, current learner extra_tree
-[flaml.automl: 02-28 21:32:26] {2620} INFO -  at 6.2s,	estimator extra_tree's best error=0.0961,	best estimator prophet's best error=0.0592
-[flaml.automl: 02-28 21:32:26] {2458} INFO - iteration 17, current learner extra_tree
-[flaml.automl: 02-28 21:32:26] {2620} INFO -  at 6.2s,	estimator extra_tree's best error=0.0961,	best estimator prophet's best error=0.0592
-[flaml.automl: 02-28 21:32:26] {2458} INFO - iteration 18, current learner xgboost
-[flaml.automl: 02-28 21:32:26] {2620} INFO -  at 6.2s,	estimator xgboost's best error=0.0959,	best estimator prophet's best error=0.0592
-[flaml.automl: 02-28 21:32:26] {2458} INFO - iteration 19, current learner xgb_limitdepth
-[flaml.automl: 02-28 21:32:26] {2620} INFO -  at 6.3s,	estimator xgb_limitdepth's best error=0.0820,	best estimator prophet's best error=0.0592
-[flaml.automl: 02-28 21:32:26] {2458} INFO - iteration 20, current learner xgboost
-[flaml.automl: 02-28 21:32:26] {2620} INFO -  at 6.3s,	estimator xgboost's best error=0.0834,	best estimator prophet's best error=0.0592
-[flaml.automl: 02-28 21:32:26] {2458} INFO - iteration 21, current learner xgb_limitdepth
-[flaml.automl: 02-28 21:32:26] {2620} INFO -  at 6.4s,	estimator xgb_limitdepth's best error=0.0820,	best estimator prophet's best error=0.0592
-[flaml.automl: 02-28 21:32:26] {2458} INFO - iteration 22, current learner lgbm
-[flaml.automl: 02-28 21:32:26] {2620} INFO -  at 6.4s,	estimator lgbm's best error=0.0925,	best estimator prophet's best error=0.0592
-[flaml.automl: 02-28 21:32:26] {2458} INFO - iteration 23, current learner xgb_limitdepth
-[flaml.automl: 02-28 21:32:26] {2620} INFO -  at 6.4s,	estimator xgb_limitdepth's best error=0.0820,	best estimator prophet's best error=0.0592
-[flaml.automl: 02-28 21:32:26] {2458} INFO - iteration 24, current learner extra_tree
-[flaml.automl: 02-28 21:32:26] {2620} INFO -  at 6.5s,	estimator extra_tree's best error=0.0922,	best estimator prophet's best error=0.0592
-[flaml.automl: 02-28 21:32:26] {2458} INFO - iteration 25, current learner xgb_limitdepth
-[flaml.automl: 02-28 21:32:26] {2620} INFO -  at 6.5s,	estimator xgb_limitdepth's best error=0.0820,	best estimator prophet's best error=0.0592
-[flaml.automl: 02-28 21:32:26] {2458} INFO - iteration 26, current learner rf
-[flaml.automl: 02-28 21:32:26] {2620} INFO -  at 6.5s,	estimator rf's best error=0.0862,	best estimator prophet's best error=0.0592
-[flaml.automl: 02-28 21:32:26] {2458} INFO - iteration 27, current learner rf
-[flaml.automl: 02-28 21:32:26] {2620} INFO -  at 6.6s,	estimator rf's best error=0.0856,	best estimator prophet's best error=0.0592
-[flaml.automl: 02-28 21:32:26] {2458} INFO - iteration 28, current learner xgb_limitdepth
-[flaml.automl: 02-28 21:32:26] {2620} INFO -  at 6.6s,	estimator xgb_limitdepth's best error=0.0820,	best estimator prophet's best error=0.0592
-[flaml.automl: 02-28 21:32:27] {2458} INFO - iteration 29, current learner sarimax
-[flaml.automl: 02-28 21:32:28] {2620} INFO -  at 7.9s,	estimator sarimax's best error=0.5313,	best estimator prophet's best error=0.0592
-[flaml.automl: 02-28 21:32:28] {2458} INFO - iteration 30, current learner xgboost
-[flaml.automl: 02-28 21:32:28] {2620} INFO -  at 8.0s,	estimator xgboost's best error=0.0834,	best estimator prophet's best error=0.0592
-[flaml.automl: 02-28 21:32:28] {2458} INFO - iteration 31, current learner xgb_limitdepth
-[flaml.automl: 02-28 21:32:28] {2620} INFO -  at 8.0s,	estimator xgb_limitdepth's best error=0.0791,	best estimator prophet's best error=0.0592
-[flaml.automl: 02-28 21:32:28] {2458} INFO - iteration 32, current learner arima
-[flaml.automl: 02-28 21:32:30] {2620} INFO -  at 10.3s,	estimator arima's best error=0.5998,	best estimator prophet's best error=0.0592
-[flaml.automl: 02-28 21:32:32] {2850} INFO - retrain prophet for 2.2s
-[flaml.automl: 02-28 21:32:32] {2857} INFO - retrained model: <prophet.forecaster.Prophet object at 0x000001B1D3EE2B80>
-[flaml.automl: 02-28 21:32:32] {2234} INFO - fit succeeded
-[flaml.automl: 02-28 21:32:32] {2235} INFO - Time taken to find the best model: 4.351356506347656
+import flaml.ts_model
+
+[flaml.automl: 02 - 28
+21: 32:26] {2458}
+INFO - iteration
+15, current
+learner
+xgboost
+[flaml.automl: 02 - 28
+21: 32:26] {2620}
+INFO - at
+6.2
+s, estimator
+xgboost
+'s best error=0.0959,	best estimator prophet'
+s
+best
+error = 0.0592
+[flaml.automl: 02 - 28
+21: 32:26] {2458}
+INFO - iteration
+16, current
+learner
+extra_tree
+[flaml.automl: 02 - 28
+21: 32:26] {2620}
+INFO - at
+6.2
+s, estimator
+extra_tree
+'s best error=0.0961,	best estimator prophet'
+s
+best
+error = 0.0592
+[flaml.automl: 02 - 28
+21: 32:26] {2458}
+INFO - iteration
+17, current
+learner
+extra_tree
+[flaml.automl: 02 - 28
+21: 32:26] {2620}
+INFO - at
+6.2
+s, estimator
+extra_tree
+'s best error=0.0961,	best estimator prophet'
+s
+best
+error = 0.0592
+[flaml.automl: 02 - 28
+21: 32:26] {2458}
+INFO - iteration
+18, current
+learner
+xgboost
+[flaml.automl: 02 - 28
+21: 32:26] {2620}
+INFO - at
+6.2
+s, estimator
+xgboost
+'s best error=0.0959,	best estimator prophet'
+s
+best
+error = 0.0592
+[flaml.automl: 02 - 28
+21: 32:26] {2458}
+INFO - iteration
+19, current
+learner
+xgb_limitdepth
+[flaml.automl: 02 - 28
+21: 32:26] {2620}
+INFO - at
+6.3
+s, estimator
+xgb_limitdepth
+'s best error=0.0820,	best estimator prophet'
+s
+best
+error = 0.0592
+[flaml.automl: 02 - 28
+21: 32:26] {2458}
+INFO - iteration
+20, current
+learner
+xgboost
+[flaml.automl: 02 - 28
+21: 32:26] {2620}
+INFO - at
+6.3
+s, estimator
+xgboost
+'s best error=0.0834,	best estimator prophet'
+s
+best
+error = 0.0592
+[flaml.automl: 02 - 28
+21: 32:26] {2458}
+INFO - iteration
+21, current
+learner
+xgb_limitdepth
+[flaml.automl: 02 - 28
+21: 32:26] {2620}
+INFO - at
+6.4
+s, estimator
+xgb_limitdepth
+'s best error=0.0820,	best estimator prophet'
+s
+best
+error = 0.0592
+[flaml.automl: 02 - 28
+21: 32:26] {2458}
+INFO - iteration
+22, current
+learner
+lgbm
+[flaml.automl: 02 - 28
+21: 32:26] {2620}
+INFO - at
+6.4
+s, estimator
+lgbm
+'s best error=0.0925,	best estimator prophet'
+s
+best
+error = 0.0592
+[flaml.automl: 02 - 28
+21: 32:26] {2458}
+INFO - iteration
+23, current
+learner
+xgb_limitdepth
+[flaml.automl: 02 - 28
+21: 32:26] {2620}
+INFO - at
+6.4
+s, estimator
+xgb_limitdepth
+'s best error=0.0820,	best estimator prophet'
+s
+best
+error = 0.0592
+[flaml.automl: 02 - 28
+21: 32:26] {2458}
+INFO - iteration
+24, current
+learner
+extra_tree
+[flaml.automl: 02 - 28
+21: 32:26] {2620}
+INFO - at
+6.5
+s, estimator
+extra_tree
+'s best error=0.0922,	best estimator prophet'
+s
+best
+error = 0.0592
+[flaml.automl: 02 - 28
+21: 32:26] {2458}
+INFO - iteration
+25, current
+learner
+xgb_limitdepth
+[flaml.automl: 02 - 28
+21: 32:26] {2620}
+INFO - at
+6.5
+s, estimator
+xgb_limitdepth
+'s best error=0.0820,	best estimator prophet'
+s
+best
+error = 0.0592
+[flaml.automl: 02 - 28
+21: 32:26] {2458}
+INFO - iteration
+26, current
+learner
+rf
+[flaml.automl: 02 - 28
+21: 32:26] {2620}
+INFO - at
+6.5
+s, estimator
+rf's best error=0.0862,	best estimator prophet'
+s
+best
+error = 0.0592
+[flaml.automl: 02 - 28
+21: 32:26] {2458}
+INFO - iteration
+27, current
+learner
+rf
+[flaml.automl: 02 - 28
+21: 32:26] {2620}
+INFO - at
+6.6
+s, estimator
+rf's best error=0.0856,	best estimator prophet'
+s
+best
+error = 0.0592
+[flaml.automl: 02 - 28
+21: 32:26] {2458}
+INFO - iteration
+28, current
+learner
+xgb_limitdepth
+[flaml.automl: 02 - 28
+21: 32:26] {2620}
+INFO - at
+6.6
+s, estimator
+xgb_limitdepth
+'s best error=0.0820,	best estimator prophet'
+s
+best
+error = 0.0592
+[flaml.automl: 02 - 28
+21: 32:27] {2458}
+INFO - iteration
+29, current
+learner
+sarimax
+[flaml.automl: 02 - 28
+21: 32:28] {2620}
+INFO - at
+7.9
+s, estimator
+sarimax
+'s best error=0.5313,	best estimator prophet'
+s
+best
+error = 0.0592
+[flaml.automl: 02 - 28
+21: 32:28] {2458}
+INFO - iteration
+30, current
+learner
+xgboost
+[flaml.automl: 02 - 28
+21: 32:28] {2620}
+INFO - at
+8.0
+s, estimator
+xgboost
+'s best error=0.0834,	best estimator prophet'
+s
+best
+error = 0.0592
+[flaml.automl: 02 - 28
+21: 32:28] {2458}
+INFO - iteration
+31, current
+learner
+xgb_limitdepth
+[flaml.automl: 02 - 28
+21: 32:28] {2620}
+INFO - at
+8.0
+s, estimator
+xgb_limitdepth
+'s best error=0.0791,	best estimator prophet'
+s
+best
+error = 0.0592
+[flaml.automl: 02 - 28
+21: 32:28] {2458}
+INFO - iteration
+32, current
+learner
+arima
+[flaml.automl: 02 - 28
+21: 32:30] {2620}
+INFO - at
+10.3
+s, estimator
+arima
+'s best error=0.5998,	best estimator prophet'
+s
+best
+error = 0.0592
+[flaml.automl: 02 - 28
+21: 32:32] {2850}
+INFO - retrain
+prophet
+for 2.2s
+    [flaml.automl: 02 - 28
+21: 32:32] {2857}
+INFO - retrained
+model: < flaml.ts_model.Prophet
+object
+at
+0x000001B1D3EE2B80 >
+[flaml.automl: 02 - 28
+21: 32:32] {2234}
+INFO - fit
+succeeded
+[flaml.automl: 02 - 28
+21: 32:32] {2235}
+INFO - Time
+taken
+to
+find
+the
+best
+model: 4.351356506347656
 ```
 
 ### Forecasting Discrete Variables

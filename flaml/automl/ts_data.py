@@ -6,9 +6,6 @@ from typing import List, Optional, Callable, Dict
 import pandas as pd
 import numpy as np
 
-from ml_utils.data.query import caching_query, load_date_range
-from time_series.data.metadata import metadata
-
 
 @dataclass
 class BasicDataset:
@@ -17,7 +14,7 @@ class BasicDataset:
 
 
 @dataclass
-class TrainingData:
+class TimeSeriesDataset:
     train_data: pd.DataFrame
     time_idx: str
     time_col: str
@@ -28,6 +25,10 @@ class TrainingData:
     time_varying_unknown_categoricals: List[str] = field(default_factory=lambda: [])
     time_varying_unknown_reals: List[str] = field(default_factory=lambda: [])
     test_data: Optional[pd.DataFrame] = None
+
+    @property
+    def regressors(self):
+        return self.time_varying_known_categoricals + self.time_varying_known_reals
 
     def days_to_periods_mult(self):
         freq = self.frequency
@@ -73,7 +74,7 @@ class TrainingData:
     def combine_dims(self, df):
         return df.apply(lambda row: tuple([row[d] for d in self.dimensions]), axis=1)
 
-    def to_univariate(self) -> Dict[str, "TrainingData"]:
+    def to_univariate(self) -> Dict[str, "TimeSeriesDataset"]:
         """
         Convert a multivariate TrainingData  to a dict of univariate ones
         @param df:
@@ -90,7 +91,7 @@ class TrainingData:
             out[d].test_data = self.test_data[test_dims == d]
         return out
 
-    def split_validation(self, days: int) -> "TrainingData":
+    def split_validation(self, days: int) -> "TimeSeriesDataset":
         out = copy.copy(self)
         last_periods = days * self.days_to_periods_mult()
         split_idx = self.train_data[self.time_idx].max() - last_periods + 1
@@ -102,7 +103,7 @@ class TrainingData:
         out.test_data = all_data[(~new_train) & keep]
         return out
 
-    def filter(self, filter_fun: Callable) -> "TrainingData":
+    def filter(self, filter_fun: Callable) -> "TimeSeriesDataset":
         if filter_fun is None:
             return self
         out = copy.copy(self)
@@ -154,7 +155,7 @@ def enrich_data(
     time_col: str = "TIME_BUCKET",
     known_feature_function: Optional[Callable] = None,
     unknown_feature_function: Optional[Callable] = None,
-) -> TrainingData:
+) -> TimeSeriesDataset:
 
     dimension_values = data.data.apply(
         lambda row: tuple([row[d] for d in data.metadata["dimensions"]]), axis=1
@@ -231,7 +232,7 @@ def enrich_data(
             pre_train_df
         )
 
-    out = TrainingData(
+    out = TimeSeriesDataset(
         train_data=train_df,
         test_data=test_df,
         time_idx="time_idx",

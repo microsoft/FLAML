@@ -20,24 +20,26 @@ from sklearn.metrics import (
 from sklearn.model_selection import RepeatedStratifiedKFold, GroupKFold, TimeSeriesSplit
 from .model import (
     XGBoostSklearnEstimator,
-    XGBoost_TS,
     XGBoostLimitDepthEstimator,
-    XGBoostLimitDepth_TS,
     RandomForestEstimator,
-    RF_TS,
     LGBMEstimator,
-    LGBM_TS,
     LRL1Classifier,
     LRL2Classifier,
     CatBoostEstimator,
     ExtraTreesEstimator,
-    ExtraTrees_TS,
     KNeighborsEstimator,
+    TransformersEstimator,
+    TransformersEstimatorModelSelection,
+)
+from .ts_model import (
     Prophet,
     ARIMA,
     SARIMAX,
-    TransformersEstimator,
-    TransformersEstimatorModelSelection,
+    LGBM_TS,
+    XGBoost_TS,
+    RF_TS,
+    ExtraTrees_TS,
+    XGBoostLimitDepth_TS,
 )
 from .data import CLASSIFICATION, group_counts, TS_FORECAST
 import logging

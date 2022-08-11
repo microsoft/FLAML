@@ -10,10 +10,8 @@ from flaml.model import (
     CatBoostEstimator,
     XGBoostEstimator,
     RandomForestEstimator,
-    Prophet,
-    ARIMA,
-    LGBM_TS,
 )
+from flaml.ts_model import Prophet, ARIMA, LGBM_TS
 
 
 def test_lrl2():
