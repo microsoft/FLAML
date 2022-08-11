@@ -1,12 +1,14 @@
 import time
 import logging
 import os
+from typing import Optional
 
-# This may be needed to get PyStan to run
+
 from pandas import DataFrame, Series, to_datetime
 
 from . import tune
 
+# This may be needed to get PyStan to run
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 
 import numpy as np
@@ -147,14 +149,26 @@ class Prophet(TimeSeriesEstimator):
         from prophet import Prophet
 
         current_time = time.time()
-        train_df = self._join(X_train, y_train)
+
+        if isinstance(X_train, TimeSeriesDataset):
+            data = X_train
+            target_col = data.target_names[0]
+            time_col = data.time_col
+            regressors = data.regressors
+            # this class only supports univariate regression
+            train_df = data.train_data[regressors + [target_col, time_col]]
+            train_df = train_df.rename(columns={target_col: "y", time_col: "ds"})
+        else:
+            train_df = self._join(X_train, y_train)
+
+            regressors = list(train_df.columns)
+            regressors.remove(TS_TIMESTAMP_COL)
+            regressors.remove(TS_VALUE_COL)
+
         train_df = self._preprocess(train_df)
-        cols = list(train_df)
-        cols.remove(TS_TIMESTAMP_COL)
-        cols.remove(TS_VALUE_COL)
         logging.getLogger("prophet").setLevel(logging.WARNING)
         model = Prophet(**self.params)
-        for regressor in cols:
+        for regressor in regressors:
             model.add_regressor(regressor)
         with suppress_stdout_stderr():
             model.fit(train_df)
@@ -169,6 +183,13 @@ class Prophet(TimeSeriesEstimator):
                 " For Prophet, pass a dataframe with the first column containing"
                 " the timestamp values."
             )
+
+        if isinstance(X, TimeSeriesDataset):
+            data = X
+            X = data.test_data[data.regressors + [data.time_col]].rename(
+                columns={data.time_col: "ds"}
+            )
+
         if self._model is not None:
             X = self._preprocess(X)
             forecast = self._model.predict(X, **kwargs)
@@ -217,13 +238,24 @@ class ARIMA(TimeSeriesEstimator):
         from statsmodels.tsa.arima.model import ARIMA as ARIMA_estimator
 
         current_time = time.time()
-        train_df = self._join(X_train, y_train)
+
+        if isinstance(X_train, TimeSeriesDataset):
+            data = X_train
+            target_col = data.target_names[0]
+            regressors = data.regressors
+            # this class only supports univariate regression
+            train_df = data.train_data[regressors + [target_col]]
+        else:
+            target_col = TS_VALUE_COL
+            train_df = self._join(X_train, y_train)
+            regressors = list(train_df)
+            regressors.remove(TS_VALUE_COL)
+
         train_df = self._preprocess(train_df)
-        regressors = list(train_df)
-        regressors.remove(TS_VALUE_COL)
+
         if regressors:
             model = ARIMA_estimator(
-                train_df[[TS_VALUE_COL]],
+                train_df[[target_col]],
                 exog=train_df[regressors],
                 order=(self.params["p"], self.params["d"], self.params["q"]),
                 enforce_stationarity=False,
@@ -243,28 +275,36 @@ class ARIMA(TimeSeriesEstimator):
         return train_time
 
     def predict(self, X, **kwargs):
-        if self._model is not None:
-            if isinstance(X, int):
-                forecast = self._model.forecast(steps=X)
-            elif isinstance(X, DataFrame):
-                start = X[TS_TIMESTAMP_COL].iloc[0]
-                end = X[TS_TIMESTAMP_COL].iloc[-1]
-                if len(X.columns) > 1:
-                    X = self._preprocess(X.drop(columns=TS_TIMESTAMP_COL))
-                    regressors = list(X)
-                    forecast = self._model.predict(
-                        start=start, end=end, exog=X[regressors], **kwargs
-                    )
-                else:
-                    forecast = self._model.predict(start=start, end=end, **kwargs)
-            else:
-                raise ValueError(
-                    "X needs to be either a pandas Dataframe with dates as the first column"
-                    " or an int number of periods for predict()."
-                )
-            return forecast
-        else:
+        if self._model is None:
             return np.ones(X if isinstance(X, int) else X.shape[0])
+
+        if isinstance(X, int):
+            return self._model.forecast(steps=X)
+
+        if isinstance(X, TimeSeriesDataset):
+            data = X
+            X = data.test_data[data.regressors + [data.time_col]]
+            time_col = data.time_col
+        else:
+            time_col = TS_TIMESTAMP_COL
+
+        if isinstance(X, DataFrame):
+            start = X[time_col].iloc[0]
+            end = X[time_col].iloc[-1]
+            if len(X.columns) > 1:
+                X = self._preprocess(X.drop(columns=time_col))
+                regressors = list(X)
+                forecast = self._model.predict(
+                    start=start, end=end, exog=X[regressors], **kwargs
+                )
+            else:
+                forecast = self._model.predict(start=start, end=end, **kwargs)
+        else:
+            raise ValueError(
+                "X needs to be either a pandas Dataframe with dates as the first column"
+                " or an int number of periods for predict()."
+            )
+        return forecast
 
 
 class SARIMAX(ARIMA):
@@ -317,13 +357,25 @@ class SARIMAX(ARIMA):
         from statsmodels.tsa.statespace.sarimax import SARIMAX as SARIMAX_estimator
 
         current_time = time.time()
-        train_df = self._join(X_train, y_train)
+
+        if isinstance(X_train, TimeSeriesDataset):
+            data = X_train
+            target_col = data.target_names[0]
+            regressors = data.regressors
+            # this class only supports univariate regression
+            train_df = data.train_data[regressors + [target_col]]
+        else:
+            target_col = TS_VALUE_COL
+            train_df = self._join(X_train, y_train)
+            regressors = list(train_df)
+            regressors.remove(TS_VALUE_COL)
+
         train_df = self._preprocess(train_df)
         regressors = list(train_df)
-        regressors.remove(TS_VALUE_COL)
+        regressors.remove(target_col)
         if regressors:
             model = SARIMAX_estimator(
-                train_df[[TS_VALUE_COL]],
+                train_df[[target_col]],
                 exog=train_df[regressors],
                 order=(self.params["p"], self.params["d"], self.params["q"]),
                 seasonality_order=(
@@ -387,21 +439,22 @@ class TS_SKLearn(SKLearnEstimator):
             "regression" if task in TS_FORECASTREGRESSION else "classification"
         )
 
-    def transform_X(self, X):
+    def transform_X(self, X: pd.DataFrame, time_col: Optional[str] = None):
         cols = list(X)
+        if time_col is None:
+            time_col_col = cols[0]
+
         if len(cols) == 1:
-            ds_col = cols[0]
-            X = DataFrame(index=X[ds_col])
+            X = DataFrame(index=X[time_col_col])
         elif len(cols) > 1:
-            ds_col = cols[0]
-            exog_cols = cols[1:]
-            X = X[exog_cols].set_index(X[ds_col])
+            exog_cols = [c for c in cols if c != time_col]
+            X = X[exog_cols].set_index(X[time_col])
         return X
 
-    def _fit(self, X_train, y_train, budget=None, **kwargs):
+    def _fit(self, X_train, y_train, budget=None, time_col=None, **kwargs):
         from hcrystalball.wrappers import get_sklearn_wrapper
 
-        X_train = self.transform_X(X_train)
+        X_train = self.transform_X(X_train, time_col)
         X_train = self._preprocess(X_train)
         params = self.params.copy()
         lags = params.pop("lags")
@@ -437,13 +490,28 @@ class TS_SKLearn(SKLearnEstimator):
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
         current_time = time.time()
-        self._fit(X_train, y_train, budget=budget, **kwargs)
+        if isinstance(X_train, TimeSeriesDataset):
+            data = X_train
+            X_train = data.train_data[data.regressors + [data.time_col]]
+            # this class only supports univariate regression
+            y_train = data.train_data[data.target_names[0]]
+            time_col = data.time_col
+        else:
+            time_col = None
+        self._fit(X_train, y_train, budget=budget, time_col=time_col, **kwargs)
         train_time = time.time() - current_time
         return train_time
 
     def predict(self, X, **kwargs):
+        if isinstance(X, TimeSeriesDataset):
+            data = X
+            X = data.test_data[data.regressors]
+            time_col = data.time_col
+        else:
+            time_col = None
+
         if self._model is not None:
-            X = self.transform_X(X)
+            X = self.transform_X(X, time_col)
             X = self._preprocess(X)
             if isinstance(self._model, list):
                 assert len(self._model) == len(
