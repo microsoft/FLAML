@@ -55,6 +55,47 @@ def _is_nlp_task(task):
         return False
 
 
+def default_estimator_list(task: str) -> List[str]:
+    if task == "rank":
+        estimator_list = ["lgbm", "xgboost", "xgb_limitdepth"]
+    elif _is_nlp_task(task):
+        estimator_list = ["transformer"]
+    else:
+        try:
+            import catboost
+
+            estimator_list = [
+                "lgbm",
+                "rf",
+                "catboost",
+                "xgboost",
+                "extra_tree",
+                "xgb_limitdepth",
+            ]
+        except ImportError:
+            estimator_list = [
+                "lgbm",
+                "rf",
+                "xgboost",
+                "extra_tree",
+                "xgb_limitdepth",
+            ]
+        if task in TS_FORECAST:
+            # catboost is removed because it has a `name` parameter, making it incompatible with hcrystalball
+            if "catboost" in estimator_list:
+                estimator_list.remove("catboost")
+            if task in TS_FORECASTREGRESSION:
+                try:
+                    import prophet
+
+                    estimator_list += ["prophet", "arima", "sarimax"]
+                except ImportError:
+                    estimator_list += ["arima", "sarimax"]
+        elif "regression" != task:
+            estimator_list += ["lrl1"]
+    return estimator_list
+
+
 def load_openml_dataset(
     dataset_id, data_dir=None, random_state=0, dataset_format="dataframe"
 ):
