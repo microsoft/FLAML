@@ -94,12 +94,30 @@ The domain specifies a *type* and *valid range* to sample parameters from. Suppo
 ```
 - **Numerical hyperparameter**
 
-If it is a numerical hyperparameter, you need to know does it take integer values or float values. In addition, you need to know:
+If it is a numerical hyperparameter, you need to know whether it takes integer values or float values. In addition, you need to know:
 - The range of valid values, i.e., what are the lower limit and upper limit of the hyperparameter value?
-- Do you want to sample in linear scale or log scale? It is a common practice to sample in the log scale if the valid value range is large and the evaluation function changes more regularly with respect to the log domain. For example, learning rate. Otherwise, use the linear scale.
+- Do you want to sample in linear scale or log scale? It is a common practice to sample in the log scale if the valid value range is large and the evaluation function changes more regularly with respect to the log domain. For example, learning rate. Otherwise, use the linear scale. As a more concrete example, in FLAML's built-in search space for the LightGBM estimator, we set the search space domain for learning rate in the following way,
+
+```python
+{
+"learning_rate": tune.loguniform(lower=1 / 1024, upper=1.0),
+}
+```
+In this code example, we set the lower limit and the upper limit of the learning rate to be 1/1024 and 1.0, respectively. We sample in the log space because the loss of a LightGBM estimator changes more regularly with respect to the log domain.
+
+
 - Do you have quantization granularity requirements?
 
+When you have a desired quantization granularity for the hyperparameter change, you can use `tune.qlograndint` or `tune.qloguniform` to realize the quantization requirement.
+The following code example helps you realize the suggested practice for learning rate tuning from *Goodfellow, I., Bengio, Y., & Courville, A. (2016). Deep learning. MIT Press* (Page 434): "picking values approximately on a logarithmic scale, e.g., a learning rate taken within the set {.1, .01, 10−3, 10−4 , 10−5}"
+```python
+{
+"learning_rate": tune.qloguniform(lower=1e-5, upper=0.1, q=0.1),
+}
+```
+
     You can find the corresponding search space choice in the table below once you have answers to the aforementioned three questions.
+
 
 
 |      | Integer | Float |
