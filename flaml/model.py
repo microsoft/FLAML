@@ -2308,20 +2308,23 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
     def predict(self, X):
         import pandas as pd
 
-        ids = self.group_ids
+        ids = self.group_ids.copy()
         ids.append(TS_TIMESTAMP_COL)
         encoder_data = self.data[
             lambda x: x.time_idx > x.time_idx.max() - self.max_encoder_length
         ]
-        # TODO: follow pytorchforecasting example, make all target values equal to the last data
-        # last_data = self.data[lambda x: x.time_idx == x.time_idx.max()]
+        # following pytorchforecasting example, make all target values equal to the last data
+        last_data_cols = self.group_ids.copy()
+        last_data_cols.append(TS_VALUE_COL)
+        last_data = self.data[lambda x: x.time_idx == x.time_idx.max()][last_data_cols]
         decoder_data = X
         if "time_idx" not in decoder_data:
             decoder_data = add_time_idx_col(decoder_data)
         decoder_data["time_idx"] += (
             encoder_data["time_idx"].max() + 1 - decoder_data["time_idx"].min()
         )
-        decoder_data[TS_VALUE_COL] = 0
+        # decoder_data[TS_VALUE_COL] = 0
+        decoder_data = decoder_data.merge(last_data, how="inner", on=self.group_ids)
         decoder_data = decoder_data.sort_values(ids)
         new_prediction_data = pd.concat([encoder_data, decoder_data], ignore_index=True)
         new_prediction_data["time_idx"] = new_prediction_data["time_idx"].astype("int")
