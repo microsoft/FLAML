@@ -1,4 +1,5 @@
 import logging
+from typing import List, Union
 
 import numpy as np
 import pandas as pd
@@ -7,9 +8,10 @@ from sklearn.model_selection import TimeSeriesSplit
 from sklearn.utils import shuffle
 
 from .automl import AutoML
+from .ts_data import TrainingData
 from ..config import RANDOM_SEED
 
-from ..data import TS_FORECAST, DataTransformer
+from ..data import TS_FORECAST, DataTransformerTS
 
 
 logger = logging.getLogger(__name__)
@@ -21,11 +23,12 @@ class AutoMLTS(AutoML):
     def _validate_ts_data(
         self,
         dataframe,
+        time_col,
         y_train_all=None,
     ):
         assert (
-            dataframe[dataframe.columns[0]].dtype.name == "datetime64[ns]"
-        ), f"For '{TS_FORECAST}' task, the first column must contain timestamp values."
+            dataframe.dtypes[time_col].name == "datetime64[ns]"
+        ), f"For '{TS_FORECAST}' task, time_col must contain timestamp values."
         if y_train_all is not None:
             y_df = (
                 pd.DataFrame(y_train_all)
@@ -44,12 +47,6 @@ class AutoMLTS(AutoML):
             assert (
                 dataframe[[dataframe.columns[0]]].duplicated() is None
             ), "Duplicate timestamp values with different values for other columns."
-        ts_series = pd.to_datetime(dataframe[dataframe.columns[0]])
-        inferred_freq = pd.infer_freq(ts_series)
-        if inferred_freq is None:
-            logger.warning(
-                "Missing timestamps detected. To avoid error with estimators, set estimator list to ['prophet']. "
-            )
         if y_train_all is not None:
             return dataframe.iloc[:, :-1], dataframe.iloc[:, -1]
         return dataframe
@@ -60,6 +57,7 @@ class AutoMLTS(AutoML):
         y_train_all,
         dataframe,
         label,
+        time_col=None,
         X_val=None,
         y_val=None,
         groups_val=None,
@@ -74,32 +72,35 @@ class AutoMLTS(AutoML):
                 "X_train_all must be a numpy array, a pandas dataframe, "
                 "or Scipy sparse matrix."
             )
-            assert isinstance(y_train_all, np.ndarray) or isinstance(
-                y_train_all, pd.Series
-            ), "y_train_all must be a numpy array or a pandas series."
+            assert (
+                isinstance(y_train_all, np.ndarray)
+                or isinstance(y_train_all, pd.Series)
+                or isinstance(y_train_all, pd.DataFrame)
+            ), "y_train_all must be a numpy array or a pandas series or DataFrame."
             assert (
                 X_train_all.size != 0 and y_train_all.size != 0
             ), "Input data must not be empty."
             if isinstance(X_train_all, np.ndarray) and len(X_train_all.shape) == 1:
                 X_train_all = np.reshape(X_train_all, (X_train_all.size, 1))
-            if isinstance(y_train_all, np.ndarray):
-                y_train_all = y_train_all.flatten()
             assert (
                 X_train_all.shape[0] == y_train_all.shape[0]
             ), "# rows in X_train must match length of y_train."
             self._df = isinstance(X_train_all, pd.DataFrame)
             self._nrow, self._ndim = X_train_all.shape
             X_train_all = pd.DataFrame(X_train_all)
-            X_train_all, y_train_all = self._validate_ts_data(X_train_all, y_train_all)
+            X_train_all, y_train_all = self._validate_ts_data(
+                X_train_all, time_col, y_train_all
+            )
             X, y = X_train_all, y_train_all
 
-        elif dataframe is not None and label is not None:
+        elif dataframe is not None:
+            assert label is not None, "A label or list of labels must be provided."
             assert isinstance(
                 dataframe, pd.DataFrame
             ), "dataframe must be a pandas DataFrame"
             assert label in dataframe.columns, "label must a column name in dataframe"
             self._df = True
-            dataframe = self._validate_ts_data(dataframe)
+            dataframe = self._validate_ts_data(dataframe, time_col)
             X = dataframe.drop(columns=label)
             self._nrow, self._ndim = X.shape
             y = dataframe[label]
@@ -108,10 +109,10 @@ class AutoMLTS(AutoML):
             self._transformer = self._label_transformer = False
             self._X_train_all, self._y_train_all = X, y
         else:
-            self._transformer = DataTransformer()
+            self._transformer = DataTransformerTS()
 
             self._X_train_all, self._y_train_all = self._transformer.fit_transform(
-                X, y, self._state.task
+                X, y, time_col, label
             )
             self._label_transformer = self._transformer.label_transformer
             self._feature_names_in_ = (
@@ -132,47 +133,33 @@ class AutoMLTS(AutoML):
                 "X_val must be None, a numpy array, a pandas dataframe, "
                 "or Scipy sparse matrix."
             )
-            assert isinstance(y_val, np.ndarray) or isinstance(
-                y_val, pd.Series
+            assert (
+                isinstance(y_val, np.ndarray)
+                or isinstance(y_val, pd.Series)
+                or isinstance(y_val, pd.DataFrame)
             ), "y_val must be None, a numpy array or a pandas series."
             assert X_val.size != 0 and y_val.size != 0, (
                 "Validation data are expected to be nonempty. "
                 "Use None for X_val and y_val if no validation data."
             )
-            if isinstance(y_val, np.ndarray):
-                y_val = y_val.flatten()
             assert (
                 X_val.shape[0] == y_val.shape[0]
             ), "# rows in X_val must match length of y_val."
             if self._transformer:
-                self._state.X_val = self._transformer.transform(X_val)
+                self._state.X_val = self._transformer.transform(X_val, time_col)
             else:
                 self._state.X_val = X_val
-            # If it's NLG_TASKS, y_val is a pandas series containing the output sequence tokens,
-            # so we cannot use label_transformer.transform to process it
-            if self._label_transformer:
-                self._state.y_val = self._label_transformer.transform(y_val)
-            else:
-                self._state.y_val = y_val
+            self._state.y_val = self._label_transformer.transform(y_val)
         else:
             self._state.X_val = self._state.y_val = None
 
-        if groups is not None and len(groups) != self._nrow:
-            # groups is given as group counts
-            self._state.groups = np.concatenate([[i] * c for i, c in enumerate(groups)])
-            assert (
-                len(self._state.groups) == self._nrow
-            ), "the sum of group counts must match the number of examples"
-            self._state.groups_val = (
-                np.concatenate([[i] * c for i, c in enumerate(groups_val)])
-                if groups_val is not None
-                else None
-            )
-        else:
-            self._state.groups_val = groups_val
-            self._state.groups = groups
-
-    def _prepare_data(self, eval_method, split_ratio, n_splits):
+    def _prepare_data(
+        self,
+        eval_method,
+        split_ratio,
+        n_splits,
+        time_col=None,
+    ):
         X_val, y_val = self._state.X_val, self._state.y_val
         if issparse(X_val):
             X_val = X_val.tocsr()
@@ -204,7 +191,9 @@ class AutoMLTS(AutoML):
                     y_train_all.reset_index(drop=True, inplace=True)
 
         X_train, y_train = X_train_all, y_train_all
-        self._state.groups_all = self._state.groups
+        self._state.groups = None
+        self._state.groups_all = None
+        self._state.groups_val = None
         if X_val is None and eval_method == "holdout":
             # if eval_method = holdout, make holdout data
             num_samples = X_train_all.shape[0]
@@ -234,6 +223,31 @@ class AutoMLTS(AutoML):
             )
             logger.info(f"Using nsplits={n_splits} due to data size limit.")
         self._state.kf = TimeSeriesSplit(n_splits=n_splits, test_size=period)
+
+        dataframe = X_train.merge(y_train, left_index=True, right_index=True)
+        dataframe_val = X_val.merge(y_val, left_index=True, right_index=True)
+        frequency = pd.infer_freq(dataframe[time_col])
+        target_names = pd.DataFrame(y_train).columns
+        assert (
+            frequency is not None
+        ), "Only time series of regular frequency are currently supported."
+        time_varying_known_reals = X_train.select_dtypes(include=["floating"]).columns
+        time_varying_known_categoricals = list(
+            set(X_train.columns)
+            - set(time_varying_known_reals)
+            - set(pd.DataFrame(y_train).columns)
+            - {time_col}
+        )
+        self._state.data = TrainingData(
+            train_data=dataframe,
+            time_idx="index",
+            time_col=time_col,
+            target_names=target_names,
+            frequency=frequency,
+            test_data=dataframe_val,
+            time_varying_known_categoricals=time_varying_known_categoricals,
+            time_varying_known_reals=time_varying_known_reals,
+        )
 
     def _decide_split_type(self, split_type):
         assert split_type in ["auto", "time"]

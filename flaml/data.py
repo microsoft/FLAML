@@ -455,6 +455,182 @@ class DataTransformer:
         return X
 
 
+class DataTransformerTS:
+    """Transform input time series training data."""
+
+    def fit_transform(self, X: Union[DataFrame, np.array], y, time_col, label):
+        """Fit transformer and process the input training data according to the task type.
+
+        Args:
+            X: A numpy array or a pandas dataframe of training data.
+            y: A numpy array or a pandas series of labels.
+            task: A string of the task type, e.g.,
+                'classification', 'regression', 'ts_forecast', 'rank'.
+
+        Returns:
+            X: Processed numpy array or pandas dataframe of training data.
+            y: Processed numpy array or pandas series of labels.
+        """
+        if isinstance(X, DataFrame):
+            X = X.copy()
+            n = X.shape[0]
+            cat_columns, num_columns, datetime_columns = [], [], []
+            drop = False
+            ds_col = X.pop(time_col)
+            if isinstance(y, Series):
+                y = y.rename(label)
+            for column in X.columns:
+                # sklearn/utils/validation.py needs int/float values
+                if X[column].dtype.name in ("object", "category"):
+                    if (
+                        X[column].nunique() == 1
+                        or X[column].nunique(dropna=True)
+                        == n - X[column].isnull().sum()
+                    ):
+                        X.drop(columns=column, inplace=True)
+                        drop = True
+                    elif X[column].dtype.name == "category":
+                        current_categories = X[column].cat.categories
+                        if "__NAN__" not in current_categories:
+                            X[column] = (
+                                X[column]
+                                .cat.add_categories("__NAN__")
+                                .fillna("__NAN__")
+                            )
+                        cat_columns.append(column)
+                    else:
+                        X[column] = X[column].fillna("__NAN__")
+                        cat_columns.append(column)
+                elif X[column].nunique(dropna=True) < 2:
+                    X.drop(columns=column, inplace=True)
+                    drop = True
+                else:  # datetime or numeric
+                    if X[column].dtype.name == "datetime64[ns]":
+                        tmp_dt = X[column].dt
+                        new_columns_dict = {
+                            f"year_{column}": tmp_dt.year,
+                            f"month_{column}": tmp_dt.month,
+                            f"day_{column}": tmp_dt.day,
+                            f"hour_{column}": tmp_dt.hour,
+                            f"minute_{column}": tmp_dt.minute,
+                            f"second_{column}": tmp_dt.second,
+                            f"dayofweek_{column}": tmp_dt.dayofweek,
+                            f"dayofyear_{column}": tmp_dt.dayofyear,
+                            f"quarter_{column}": tmp_dt.quarter,
+                        }
+                        for key, value in new_columns_dict.items():
+                            if (
+                                key not in X.columns
+                                and value.nunique(dropna=False) >= 2
+                            ):
+                                X[key] = value
+                                num_columns.append(key)
+                        X[column] = X[column].map(datetime.toordinal)
+                        datetime_columns.append(column)
+                        del tmp_dt
+                    X[column] = X[column].fillna(np.nan)
+                    num_columns.append(column)
+            X = X[cat_columns + num_columns]
+            X.insert(0, time_col, ds_col)
+            if cat_columns:
+                X[cat_columns] = X[cat_columns].astype("category")
+            if num_columns:
+                X_num = X[num_columns]
+                if np.issubdtype(X_num.columns.dtype, np.integer) and (
+                    drop
+                    or min(X_num.columns) != 0
+                    or max(X_num.columns) != X_num.shape[1] - 1
+                ):
+                    X_num.columns = range(X_num.shape[1])
+                    drop = True
+                else:
+                    drop = False
+                from sklearn.impute import SimpleImputer
+                from sklearn.compose import ColumnTransformer
+
+                self.transformer = ColumnTransformer(
+                    [
+                        (
+                            "continuous",
+                            SimpleImputer(missing_values=np.nan, strategy="median"),
+                            X_num.columns,
+                        )
+                    ]
+                )
+                X[num_columns] = self.transformer.fit_transform(X_num)
+            self._cat_columns, self._num_columns, self._datetime_columns = (
+                cat_columns,
+                num_columns,
+                datetime_columns,
+            )
+            self._drop = drop
+        if not pd.api.types.is_numeric_dtype(y):
+            from sklearn.preprocessing import LabelEncoder
+
+            self.label_transformer = LabelEncoder()
+            y = self.label_transformer.fit_transform(y)
+
+        else:
+            self.label_transformer = None
+        return X, y
+
+    def transform(self, X: Union[DataFrame, np.array], time_col):
+        """Process data using fit transformer.
+
+        Args:
+            X: A numpy array or a pandas dataframe of training data.
+
+        Returns:
+            X: Processed numpy array or pandas dataframe of training data.
+        """
+        X = X.copy()
+
+        if isinstance(X, DataFrame):
+            cat_columns, num_columns, datetime_columns = (
+                self._cat_columns,
+                self._num_columns,
+                self._datetime_columns,
+            )
+            ds_col = X.pop(TS_TIMESTAMP_COL)
+            for column in datetime_columns:
+                tmp_dt = X[column].dt
+                new_columns_dict = {
+                    f"year_{column}": tmp_dt.year,
+                    f"month_{column}": tmp_dt.month,
+                    f"day_{column}": tmp_dt.day,
+                    f"hour_{column}": tmp_dt.hour,
+                    f"minute_{column}": tmp_dt.minute,
+                    f"second_{column}": tmp_dt.second,
+                    f"dayofweek_{column}": tmp_dt.dayofweek,
+                    f"dayofyear_{column}": tmp_dt.dayofyear,
+                    f"quarter_{column}": tmp_dt.quarter,
+                }
+                for new_col_name, new_col_value in new_columns_dict.items():
+                    if new_col_name not in X.columns and new_col_name in num_columns:
+                        X[new_col_name] = new_col_value
+                X[column] = X[column].map(datetime.toordinal)
+                del tmp_dt
+            X = X[cat_columns + num_columns].copy()
+            X.insert(0, time_col, ds_col)
+            for column in cat_columns:
+                if X[column].dtype.name == "object":
+                    X[column] = X[column].fillna("__NAN__")
+                elif X[column].dtype.name == "category":
+                    current_categories = X[column].cat.categories
+                    if "__NAN__" not in current_categories:
+                        X[column] = (
+                            X[column].cat.add_categories("__NAN__").fillna("__NAN__")
+                        )
+            if cat_columns:
+                X[cat_columns] = X[cat_columns].astype("category")
+            if num_columns:
+                X_num = X[num_columns].fillna(np.nan)
+                if self._drop:
+                    X_num.columns = range(X_num.shape[1])
+                X[num_columns] = self.transformer.transform(X_num)
+        return X
+
+
 def group_counts(groups):
     _, i, c = np.unique(groups, return_counts=True, return_index=True)
     return c[np.argsort(i)]
