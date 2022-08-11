@@ -3,19 +3,30 @@ from .time_series import AutoMLTS
 from ..data import TS_FORECASTREGRESSION
 
 
+# Hackity hack hack
+# The below is ultra-grim, but allows us to break the TS_FORECASTREGRESSION
+# logic into its own class which maintaining backwards compatibility of
+# the public interface to AutoML
 class AutoML(AutoMLGeneric):
     def __init__(self, **settings):
         super().__init__(**settings)
+        self._select_automl_class()
 
-        # Hackity hack hack
-        # The below is ultra-grim, but allows us to break the TS_FORECASTREGRESSION
-        # logic into its own class which maintaining backwards compatibility of
-        # the public interface to AutoML
+    def fit(self, *args, **kwargs):
+        task = kwargs.get("task")
+        if len(args) >= 6:
+            task = args[5]
+        task = task or self._settings["task"]
+        self._select_automl_class()
+        AutoMLGeneric.fit(self, *args, **kwargs)
+
+    def _select_automl_class(self):
         if self._settings["task"] in TS_FORECASTREGRESSION:
-            automl_ts = AutoMLTS(**settings)
+            automl_ts = AutoMLTS(**self._settings)
             self.__dict__ = automl_ts.__dict__
             self.__class__ = automl_ts.__class__
 
 
 # Set the docstring for sphinx autodocs
 AutoML.__init__.__doc__ = AutoMLGeneric.__init__.__doc__
+AutoML.fit.__doc__ = AutoMLGeneric.fit.__doc__
