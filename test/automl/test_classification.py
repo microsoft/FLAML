@@ -155,7 +155,9 @@ class TestClassification(unittest.TestCase):
             # "verbose": 4,
             "ensemble": True,
         }
+        automl_settings["keep_search_state"] = True
         automl.fit(X, y, **automl_settings)
+        X, y = automl._X_train_all, automl._y_train_all
         del automl
 
         automl = AutoML()
