@@ -1734,7 +1734,33 @@ class KNeighborsEstimator(BaseEstimator):
         return X
 
 
-class Prophet(SKLearnEstimator):
+class TimeSeriesEstimator(SKLearnEstimator):
+    def __init__(self, task="ts_forecast", n_jobs=1, **params):
+        super().__init__(task, **params)
+
+    def _join(self, X_train, y_train):
+        assert TS_TIMESTAMP_COL in X_train, (
+            "Dataframe for training ts_forecast model must have column"
+            f' "{TS_TIMESTAMP_COL}" with the dates in X_train.'
+        )
+        y_train = DataFrame(y_train, columns=[TS_VALUE_COL])
+        train_df = X_train.join(y_train)
+        return train_df
+
+    def score(self, X_val: DataFrame, y_val: Series, **kwargs):
+        # TODO: why not just inherit BaseEstimator.score?
+        from sklearn.metrics import r2_score
+        from .ml import metric_loss_score
+
+        y_pred = self.predict(X_val, **kwargs)
+        self._metric = kwargs.get("metric", None)
+        if self._metric:
+            return metric_loss_score(self._metric, y_pred, y_val)
+        else:
+            return r2_score(y_pred, y_val)
+
+
+class Prophet(TimeSeriesEstimator):
     """The class for tuning Prophet."""
 
     @classmethod
@@ -1759,18 +1785,6 @@ class Prophet(SKLearnEstimator):
             },
         }
         return space
-
-    def __init__(self, task="ts_forecast", n_jobs=1, **params):
-        super().__init__(task, **params)
-
-    def _join(self, X_train, y_train):
-        assert TS_TIMESTAMP_COL in X_train, (
-            "Dataframe for training ts_forecast model must have column"
-            f' "{TS_TIMESTAMP_COL}" with the dates in X_train.'
-        )
-        y_train = DataFrame(y_train, columns=[TS_VALUE_COL])
-        train_df = X_train.join(y_train)
-        return train_df
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
         from prophet import Prophet
@@ -1808,19 +1822,8 @@ class Prophet(SKLearnEstimator):
             )
             return np.ones(X.shape[0])
 
-    def score(self, X_val: DataFrame, y_val: Series, **kwargs):
-        from sklearn.metrics import r2_score
-        from .ml import metric_loss_score
 
-        y_pred = self.predict(X_val, **kwargs)
-        self._metric = kwargs.get("metric", None)
-        if self._metric:
-            return metric_loss_score(self._metric, y_pred, y_val)
-        else:
-            return r2_score(y_pred, y_val)
-
-
-class ARIMA(Prophet):
+class ARIMA(TimeSeriesEstimator):
     """The class for tuning ARIMA."""
 
     @classmethod
