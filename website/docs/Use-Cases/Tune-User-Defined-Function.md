@@ -96,23 +96,29 @@ The domain specifies a *type* and *valid range* to sample parameters from. Suppo
 
 If it is a numerical hyperparameter, you need to know whether it takes integer values or float values. In addition, you need to know:
 - The range of valid values, i.e., what are the lower limit and upper limit of the hyperparameter value?
-- Do you want to sample in linear scale or log scale? It is a common practice to sample in the log scale if the valid value range is large and the evaluation function changes more regularly with respect to the log domain. For example, learning rate. Otherwise, use the linear scale. As a more concrete example, in FLAML's built-in search space for the LightGBM estimator, we set the search space domain for learning rate in the following way,
+- Do you want to sample in linear scale or log scale? It is a common practice to sample in the log scale if the valid value range is large and the evaluation function changes more regularly with respect to the log domain, as shown in the following example for learning rate tuning. In this code example, we set the lower limit and the upper limit of the learning rate to be 1/1024 and 1.0, respectively. We sample in the log space because the loss of a LightGBM estimator changes more regularly in the log scale within such a large search range.
 
 ```python
 {
 "learning_rate": tune.loguniform(lower=1 / 1024, upper=1.0),
 }
 ```
-In this code example, we set the lower limit and the upper limit of the learning rate to be 1/1024 and 1.0, respectively. We sample in the log space because the loss of a LightGBM estimator changes more regularly with respect to the log domain.
+When the search range is small, it is more common to sample in linear scale as shown in the following example
+
+```python
+{
+"learning_rate": tune.uniform(lower=0.1, upper=0.2),
+}
+```
 
 
 - Do you have quantization granularity requirements?
 
 When you have a desired quantization granularity for the hyperparameter change, you can use `tune.qlograndint` or `tune.qloguniform` to realize the quantization requirement.
-The following code example helps you realize the suggested practice for learning rate tuning from *Goodfellow, I., Bengio, Y., & Courville, A. (2016). Deep learning. MIT Press* (Page 434): "picking values approximately on a logarithmic scale, e.g., a learning rate taken within the set {.1, .01, 10−3, 10−4 , 10−5}"
+The following code example helps you realize  the need for sampling uniformly in the range of 0.1 and 0.2 with increments  of 0.02, i.e., the sampled learning rate can only take values in {0.1, 0.12, 0.14, 0.16, ..., 0.2},
 ```python
 {
-"learning_rate": tune.qloguniform(lower=1e-5, upper=0.1, q=0.1),
+"learning_rate": tune.uniform(lower=0.1, upper=0.2, q=0.02),
 }
 ```
 
