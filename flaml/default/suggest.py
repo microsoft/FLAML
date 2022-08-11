@@ -6,7 +6,7 @@ import json
 from setuptools import version
 from flaml.data import CLASSIFICATION, DataTransformer
 from flaml.ml import get_estimator_class, get_classification_objective
-from flaml import __version__
+from flaml.version import __version__
 
 LOCATION = pathlib.Path(__file__).parent.resolve()
 logger = logging.getLogger(__name__)
