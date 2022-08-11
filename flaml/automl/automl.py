@@ -1034,6 +1034,7 @@ class AutoML(BaseEstimator):
         y_train_all,
         dataframe,
         label,
+        time_col=None,
         X_val=None,
         y_val=None,
         groups_val=None,
@@ -1200,8 +1201,8 @@ class AutoML(BaseEstimator):
             self._state.groups_val = groups_val
             self._state.groups = groups
 
-    def _prepare_data(self, eval_method, split_ratio, n_splits):
-
+    def _prepare_data(self, eval_method, split_ratio, n_splits, time_col=None):
+        assert time_col is None, "Time col is only relevant for time series tasks"
         X_val, y_val = self._state.X_val, self._state.y_val
         if issparse(X_val):
             X_val = X_val.tocsr()
@@ -2071,6 +2072,7 @@ class AutoML(BaseEstimator):
         use_ray=None,
         metric_constraints=None,
         custom_hp=None,
+        time_col=None,
         fit_kwargs_by_estimator=None,
         **fit_kwargs,
     ):
@@ -2428,7 +2430,15 @@ class AutoML(BaseEstimator):
         self._state.weight_val = sample_weight_val
 
         self._validate_data(
-            X_train, y_train, dataframe, label, X_val, y_val, groups_val, groups
+            X_train,
+            y_train,
+            dataframe,
+            label,
+            time_col,
+            X_val,
+            y_val,
+            groups_val,
+            groups,
         )
         self._search_states = {}  # key: estimator name; value: SearchState
         self._random = np.random.RandomState(RANDOM_SEED)
@@ -2489,7 +2499,12 @@ class AutoML(BaseEstimator):
             ), "When subsampling is disabled, do not include FLAML_sample_size in the starting point."
         self._min_sample_size = _sample_size_from_starting_points or min_sample_size
         self._min_sample_size_input = min_sample_size
-        self._prepare_data(eval_method, split_ratio, n_splits)
+        self._prepare_data(
+            eval_method,
+            split_ratio,
+            n_splits,
+            time_col,
+        )
 
         if isinstance(self._min_sample_size, dict):
             self._sample = {

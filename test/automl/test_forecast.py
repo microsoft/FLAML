@@ -28,6 +28,7 @@ def test_forecast_automl(budget=5):
         "log_file_name": "test/CO2_forecast.log",  # flaml log file
         "eval_method": "holdout",
         "label": "y",
+        "time_col": "ds",
     }
     """The main flaml automl API"""
     try:
@@ -180,6 +181,7 @@ def test_multivariate_forecast_num(budget=5):
         "eval_method": "holdout",
         "log_type": "all",
         "label": "demand",
+        "time_col": "timeStamp",
     }
     """The main flaml automl API"""
     try:
@@ -307,6 +309,7 @@ def test_multivariate_forecast_cat(budget=5):
         "eval_method": "holdout",
         "log_type": "all",
         "label": "demand",
+        "time_col": "timeStamp",
     }
     """The main flaml automl API"""
     try:
