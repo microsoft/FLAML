@@ -96,14 +96,14 @@ The domain specifies a *type* and *valid range* to sample parameters from. Suppo
 
 If it is a numerical hyperparameter, you need to know whether it takes integer values or float values. In addition, you need to know:
 - The range of valid values, i.e., what are the lower limit and upper limit of the hyperparameter value?
-- Do you want to sample in linear scale or log scale? It is a common practice to sample in the log scale if the valid value range is large and the evaluation function changes more regularly with respect to the log domain, as shown in the following example for learning rate tuning. In this code example, we set the lower limit and the upper limit of the learning rate to be 1/1024 and 1.0, respectively. We sample in the log space because the loss of a LightGBM estimator changes more regularly in the log scale within such a large search range.
+- Do you want to sample in linear scale or log scale? It is a common practice to sample in the log scale if the valid value range is large and the evaluation function changes more regularly with respect to the log domain, as shown in the following example for learning rate tuning. In this code example, we set the lower limit and the upper limit of the learning rate to be 1/1024 and 1.0, respectively. We sample in the log space because model performance changes more regularly in the log scale with respect to the learning rate within such a large search range.
 
 ```python
 {
 "learning_rate": tune.loguniform(lower=1 / 1024, upper=1.0),
 }
 ```
-When the search range is small, it is more common to sample in linear scale as shown in the following example
+When the search range of learning rate is small, it is more common to sample in the linear scale as shown in the following example,
 
 ```python
 {
@@ -114,16 +114,14 @@ When the search range is small, it is more common to sample in linear scale as s
 
 - Do you have quantization granularity requirements?
 
-When you have a desired quantization granularity for the hyperparameter change, you can use `tune.qlograndint` or `tune.qloguniform` to realize the quantization requirement.
-The following code example helps you realize  the need for sampling uniformly in the range of 0.1 and 0.2 with increments  of 0.02, i.e., the sampled learning rate can only take values in {0.1, 0.12, 0.14, 0.16, ..., 0.2},
+When you have a desired quantization granularity for the hyperparameter change, you can use `tune.qlograndint` or `tune.qloguniform` to realize the quantization requirement. The following code example helps you realize the need for sampling uniformly in the range of 0.1 and 0.2 with increments of 0.02, i.e., the sampled learning rate can only take values in {0.1, 0.12, 0.14, 0.16, ..., 0.2},
 ```python
 {
 "learning_rate": tune.uniform(lower=0.1, upper=0.2, q=0.02),
 }
 ```
 
-    You can find the corresponding search space choice in the table below once you have answers to the aforementioned three questions.
-
+You can find the corresponding search space choice in the table below once you have answers to the aforementioned three questions.
 
 
 |      | Integer | Float |
