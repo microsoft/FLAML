@@ -1495,6 +1495,7 @@ class AutoML(BaseEstimator):
                 n_groups = X_train.groupby(
                     self._state.fit_kwargs.get("group_ids")
                 ).ngroups
+                period = self._state.fit_kwargs.get("period")
                 self._state.kf = TimeSeriesSplit(
                     n_splits=n_splits, test_size=period * n_groups
                 )
