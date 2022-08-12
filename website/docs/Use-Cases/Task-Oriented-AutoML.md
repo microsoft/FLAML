@@ -387,7 +387,7 @@ flaml will perform 4 trials in parallel, each consuming 4 CPU cores. The paralle
 
 **(1) Considerations on wall-clock time.**
 
-One common motivation for parallel tuning is to save wall-clock time. When sequential tuning and parallel tuning can achieve a similar wall-clock time, sequential tuning should be preferred. This is a rule of thumb when the HPO algorithm is sequential in nature (e.g., the HPO algorithms CFO and BS in FLAML, and most BO algorithms). Sequential tuning allows the HPO algorithms to take advantage of historical trial results. Then the question is **How to estimate the wall-clock-time needed by parallel tuning and sequential tuning**?
+One common motivation for parallel tuning is to save wall-clock time. When sequential tuning and parallel tuning achieve a similar wall-clock time, sequential tuning should be preferred. This is a rule of thumb when the HPO algorithm is sequential by nature (e.g., Bayesian Optimization and FLAML's HPO algorithms CFO and BS). Sequential tuning allows the HPO algorithms to take advantage of the historical trial results. Then the question is **How to estimate the wall-clock-time needed by parallel tuning and sequential tuning**?
 
 You can use the following way to roughly estimate the wall-clock time in parallel tuning and sequential tuning: To finish $N$ trials of hyperparameter tuning, i.e., run $N$ hyperparameter configurations, the total wall-clock time needed is $N/k*(SingleTrialTime + Overhead)$, in which $SingleTrialTime$ is the trial time to evaluate a particular hyperparameter configuration, $k$ is the scale of parallelism, e.g., the number of parallel CPU/GPU cores, and $Overhead$ is the computation overhead.
 
