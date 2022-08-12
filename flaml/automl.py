@@ -1663,24 +1663,29 @@ class AutoML(BaseEstimator):
         ```
 
             **fit_kwargs: Other key word arguments to pass to fit() function of
-                the searched learners, such as sample_weight. For TemporalFusionTransformerEstimator,
-                refer to [TimeSeriesDataSet pytorchforecasting](https://pytorch-forecasting.readthedocs.io/en/stable/api/pytorch_forecasting.data.timeseries.TimeSeriesDataSet.html)
-                for parameters to specify your variables (static_categoricals, static_reals,
-                time_varying_known_categoricals, time_varying_known_reals, time_varying_unknown_categoricals,
-                time_varying_unknown_reals, variable_groups) and provide more information on your data
-                (max_encoder_length, min_encoder_length, lags) Include:
+                the searched learners, such as sample_weight. Below are a few examples of
+                estimator-specific parameters:
                     period: int | forecast horizon for all time series forecast tasks.
                     gpu_per_trial: float, default = 0 | A float of the number of gpus per trial,
-                    only used by TransformersEstimator, XGBoostSklearnEstimator, and
-                    TemporalFusionTransformerEstimator.
+                        only used by TransformersEstimator, XGBoostSklearnEstimator, and
+                        TemporalFusionTransformerEstimator.
                     group_ids: list of strings of column names identifying a time series, only
-                    used by TemporalFusionTransformerEstimator.
+                        used by TemporalFusionTransformerEstimator, required for
+                        'ts_forecast_panel' task. `group_ids` is a parameter for TimeSeriesDataSet object
+                        from PyTorchForecasting.
+                        For other parameters to describe your dataset, refer to
+                        [TimeSeriesDataSet PyTorchForecasting](https://pytorch-forecasting.readthedocs.io/en/stable/api/pytorch_forecasting.data.timeseries.TimeSeriesDataSet.html).
+                        To specify your variables, use `static_categoricals`, `static_reals`,
+                        `time_varying_known_categoricals`, `time_varying_known_reals`,
+                        `time_varying_unknown_categoricals`, `time_varying_unknown_reals`,
+                        `variable_groups`. To provide more information on your data, use
+                        `max_encoder_length`, `min_encoder_length`, `lags`.
                     log_dir: str, default = "lightning_logs" | Folder into which to log results
-                    for tensorboard, only used by TemporalFusionTransformerEstimator.
+                        for tensorboard, only used by TemporalFusionTransformerEstimator.
                     max_epochs: int, default = 20 | Maximum number of epochs to run training,
-                    only used by TemporalFusionTransformerEstimator.
+                        only used by TemporalFusionTransformerEstimator.
                     batch_size: int, default = 64 | Batch size for training model, only
-                    used by TemporalFusionTransformerEstimator.
+                        used by TemporalFusionTransformerEstimator.
         """
         task = task or self._settings.get("task")
         eval_method = eval_method or self._settings.get("eval_method")
@@ -2364,24 +2369,29 @@ class AutoML(BaseEstimator):
         ```
 
             **fit_kwargs: Other key word arguments to pass to fit() function of
-                the searched learners, such as sample_weight. For TemporalFusionTransformerEstimator,
-                refer to [TimeSeriesDataSet pytorchforecasting](https://pytorch-forecasting.readthedocs.io/en/stable/api/pytorch_forecasting.data.timeseries.TimeSeriesDataSet.html)
-                for parameters to specify your variables (static_categoricals, static_reals,
-                time_varying_known_categoricals, time_varying_known_reals, time_varying_unknown_categoricals,
-                time_varying_unknown_reals, variable_groups) and provide more information on your data
-                (max_encoder_length, min_encoder_length, lags) Include:
+                the searched learners, such as sample_weight. Below are a few examples of
+                estimator-specific parameters:
                     period: int | forecast horizon for all time series forecast tasks.
                     gpu_per_trial: float, default = 0 | A float of the number of gpus per trial,
-                    only used by TransformersEstimator, XGBoostSklearnEstimator, and
-                    TemporalFusionTransformerEstimator.
+                        only used by TransformersEstimator, XGBoostSklearnEstimator, and
+                        TemporalFusionTransformerEstimator.
                     group_ids: list of strings of column names identifying a time series, only
-                    used by TemporalFusionTransformerEstimator.
+                        used by TemporalFusionTransformerEstimator, required for
+                        'ts_forecast_panel' task. `group_ids` is a parameter for TimeSeriesDataSet object
+                        from PyTorchForecasting.
+                        For other parameters to describe your dataset, refer to
+                        [TimeSeriesDataSet PyTorchForecasting](https://pytorch-forecasting.readthedocs.io/en/stable/api/pytorch_forecasting.data.timeseries.TimeSeriesDataSet.html).
+                        To specify your variables, use `static_categoricals`, `static_reals`,
+                        `time_varying_known_categoricals`, `time_varying_known_reals`,
+                        `time_varying_unknown_categoricals`, `time_varying_unknown_reals`,
+                        `variable_groups`. To provide more information on your data, use
+                        `max_encoder_length`, `min_encoder_length`, `lags`.
                     log_dir: str, default = "lightning_logs" | Folder into which to log results
-                    for tensorboard, only used by TemporalFusionTransformerEstimator.
+                        for tensorboard, only used by TemporalFusionTransformerEstimator.
                     max_epochs: int, default = 20 | Maximum number of epochs to run training,
-                    only used by TemporalFusionTransformerEstimator.
+                        only used by TemporalFusionTransformerEstimator.
                     batch_size: int, default = 64 | Batch size for training model, only
-                    used by TemporalFusionTransformerEstimator.
+                        used by TemporalFusionTransformerEstimator.
         """
 
         self._state._start_time_flag = self._start_time_flag = time.time()
