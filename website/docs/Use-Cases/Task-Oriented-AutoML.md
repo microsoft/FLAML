@@ -393,7 +393,7 @@ You can use the following way to roughly estimate the wall-clock time in paralle
 
 In sequential tuning, $k=1$, and in parallel tuning $k>1$. This may suggest that parallel tuning has a shorter wall-clock time. But it is not always the case considering the other two factors $SingleTrialTime$, and $Overhead$:
 
-- The $Overhead$ in sequential tuning is typically neglectable and in parallel tuning is relatively large.
+- The $Overhead$ in sequential tuning is typically negligible; while in parallel tuning, it is relatively large.
 
 - You can also try to reduce the $SingleTrialTime$ to reduce the wall-clock time in sequential tuning: For example, by increasing the resource consumed by a single trial (distributed or multi-thread training), you can reduce $SingleTrialTime$. One concrete example is to use the `n_jobs` parameter that sets the number of threads the fitting process can use in many scikit-learn style algorithms.
 
