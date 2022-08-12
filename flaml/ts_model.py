@@ -1,7 +1,7 @@
 import time
 import logging
 import os
-from typing import Optional
+from typing import List, Optional, Union
 
 
 from pandas import DataFrame, Series, to_datetime
@@ -32,6 +32,8 @@ from .automl.ts_data import TimeSeriesDataset
 class TimeSeriesEstimator(SKLearnEstimator):
     def __init__(self, task="ts_forecast", n_jobs=1, **params):
         super().__init__(task, **params)
+        self.time_col: Optional[str] = None
+        self.target_names: Optional[Union[str, List[str]]] = None
 
     def _join(self, X_train, y_train):
         assert TS_TIMESTAMP_COL in X_train, (
@@ -42,12 +44,17 @@ class TimeSeriesEstimator(SKLearnEstimator):
         train_df = X_train.join(y_train)
         return train_df
 
+    def fit(self, X_train: TimeSeriesDataset, y_train, budget=None, **kwargs):
+        self.time_col = X_train.time_col
+        self.target_names = X_train.target_names
+
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
-        # TODO: why not just inherit BaseEstimator.score?
         from sklearn.metrics import r2_score
         from .ml import metric_loss_score
 
         y_pred = self.predict(X_val, **kwargs)
+        if isinstance(X_val, TimeSeriesDataset):
+            y_val = X_val.test_data[X_val.target_names[0]]
         self._metric = kwargs.get("metric", None)
         if self._metric:
             return metric_loss_score(self._metric, y_pred, y_val)
@@ -58,6 +65,7 @@ class TimeSeriesEstimator(SKLearnEstimator):
 class Orbit(TimeSeriesEstimator):
     def fit(self, X_train: TimeSeriesDataset, y_train, budget=None, **kwargs):
         # y_train is ignored, just need it for signature compatibility with other classes
+        super().fit(X_train, y_train, budget=budget, **kwargs)
         current_time = time.time()
         self.logger = logging.getLogger("orbit").setLevel(logging.WARNING)
 
@@ -91,7 +99,7 @@ class Orbit(TimeSeriesEstimator):
                 pd.DataFrame(
                     forecast[
                         [
-                            X.metadata["time_col"],
+                            self.time_col,
                             "prediction",
                             "prediction_5",
                             "prediction_95",
@@ -101,7 +109,7 @@ class Orbit(TimeSeriesEstimator):
                 .reset_index(drop=True)
                 .rename(
                     columns={
-                        "prediction": self.target_name,
+                        "prediction": self.target_names,
                     }
                 )
             )
@@ -147,6 +155,8 @@ class Prophet(TimeSeriesEstimator):
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
         from prophet import Prophet
+
+        super().fit(X_train, y_train, budget=budget, **kwargs)
 
         current_time = time.time()
 
@@ -234,6 +244,8 @@ class ARIMA(TimeSeriesEstimator):
     def fit(self, X_train, y_train, budget=None, **kwargs):
         import warnings
 
+        super().fit(X_train, y_train, budget=budget, **kwargs)
+
         warnings.filterwarnings("ignore")
         from statsmodels.tsa.arima.model import ARIMA as ARIMA_estimator
 
@@ -241,10 +253,17 @@ class ARIMA(TimeSeriesEstimator):
 
         if isinstance(X_train, TimeSeriesDataset):
             data = X_train
-            target_col = data.target_names[0]
-            regressors = data.regressors
             # this class only supports univariate regression
+            target_col = (
+                data.target_names[0]
+                if isinstance(data.target_names, list)
+                else data.target_names
+            )
+            regressors = data.regressors
             train_df = data.train_data[regressors + [target_col]]
+            train_df.index = to_datetime(data.train_data[data.time_col])
+            self.time_col = data.time_col
+            self.target_names = target_col
         else:
             target_col = TS_VALUE_COL
             train_df = self._join(X_train, y_train)
@@ -253,7 +272,7 @@ class ARIMA(TimeSeriesEstimator):
 
         train_df = self._preprocess(train_df)
 
-        if regressors:
+        if len(regressors):
             model = ARIMA_estimator(
                 train_df[[target_col]],
                 exog=train_df[regressors],
@@ -284,19 +303,14 @@ class ARIMA(TimeSeriesEstimator):
         if isinstance(X, TimeSeriesDataset):
             data = X
             X = data.test_data[data.regressors + [data.time_col]]
-            time_col = data.time_col
-        else:
-            time_col = TS_TIMESTAMP_COL
 
         if isinstance(X, DataFrame):
-            start = X[time_col].iloc[0]
-            end = X[time_col].iloc[-1]
+            start = X[self.time_col].iloc[0]
+            end = X[self.time_col].iloc[-1]
             if len(X.columns) > 1:
-                X = self._preprocess(X.drop(columns=time_col))
+                X = self._preprocess(X.drop(columns=self.time_col))
                 regressors = list(X)
-                forecast = self._model.predict(
-                    start=start, end=end, exog=X[regressors], **kwargs
-                )
+                forecast = self._model.predict(start=start, end=end, exog=X, **kwargs)
             else:
                 forecast = self._model.predict(start=start, end=end, **kwargs)
         else:
@@ -353,6 +367,8 @@ class SARIMAX(ARIMA):
     def fit(self, X_train, y_train, budget=None, **kwargs):
         import warnings
 
+        super().fit(X_train, y_train, budget=budget, **kwargs)
+
         warnings.filterwarnings("ignore")
         from statsmodels.tsa.statespace.sarimax import SARIMAX as SARIMAX_estimator
 
@@ -364,6 +380,7 @@ class SARIMAX(ARIMA):
             regressors = data.regressors
             # this class only supports univariate regression
             train_df = data.train_data[regressors + [target_col]]
+            train_df.index = to_datetime(data.train_data[data.time_col])
         else:
             target_col = TS_VALUE_COL
             train_df = self._join(X_train, y_train)
@@ -439,22 +456,20 @@ class TS_SKLearn(SKLearnEstimator):
             "regression" if task in TS_FORECASTREGRESSION else "classification"
         )
 
-    def transform_X(self, X: pd.DataFrame, time_col: Optional[str] = None):
+    def transform_X(self, X: pd.DataFrame):
         cols = list(X)
-        if time_col is None:
-            time_col = cols[0]
 
         if len(cols) == 1:
-            X = DataFrame(index=X[time_col])
+            X = DataFrame(index=X[self.time_col])
         elif len(cols) > 1:
-            exog_cols = [c for c in cols if c != time_col]
-            X = X[exog_cols].set_index(X[time_col])
+            exog_cols = [c for c in cols if c != self.time_col]
+            X = X.set_index(self.time_col)[exog_cols]
         return X
 
     def _fit(self, X_train, y_train, budget=None, time_col=None, **kwargs):
         from hcrystalball.wrappers import get_sklearn_wrapper
 
-        X_train = self.transform_X(X_train, time_col)
+        X_train = self.transform_X(X_train)
         X_train = self._preprocess(X_train)
         params = self.params.copy()
         lags = params.pop("lags")
@@ -495,23 +510,21 @@ class TS_SKLearn(SKLearnEstimator):
             X_train = data.train_data[data.regressors + [data.time_col]]
             # this class only supports univariate regression
             y_train = data.train_data[data.target_names[0]]
-            time_col = data.time_col
+            self.time_col = data.time_col
+            self.target_names = data.target_names
         else:
-            time_col = None
-        self._fit(X_train, y_train, budget=budget, time_col=time_col, **kwargs)
+            self.time_col = None
+        self._fit(X_train, y_train, budget=budget, time_col=self.time_col, **kwargs)
         train_time = time.time() - current_time
         return train_time
 
     def predict(self, X, **kwargs):
         if isinstance(X, TimeSeriesDataset):
             data = X
-            X = data.test_data[data.regressors]
-            time_col = data.time_col
-        else:
-            time_col = None
+            X = data.test_data[data.regressors + [data.time_col]]
 
         if self._model is not None:
-            X = self.transform_X(X, time_col)
+            X = self.transform_X(X)
             X = self._preprocess(X)
             if isinstance(self._model, list):
                 assert len(self._model) == len(

@@ -8,7 +8,7 @@ from sklearn.model_selection import TimeSeriesSplit
 from sklearn.utils import shuffle
 
 from .automl import AutoML
-from .ts_data import TrainingData
+from .ts_data import TimeSeriesDataset
 from ..config import RANDOM_SEED
 
 from ..data import TS_FORECAST, DataTransformerTS
@@ -85,9 +85,21 @@ class AutoMLTS(AutoML):
             assert (
                 X_train_all.shape[0] == y_train_all.shape[0]
             ), "# rows in X_train must match length of y_train."
+
+            if isinstance(X_train_all, np.ndarray):
+                X_train_all = pd.DataFrame(
+                    X_train_all,
+                    columns=["ds"] + [f"x{i}" for i in range(X_train_all.shape[1] - 1)],
+                )
+                time_col = "ds"
+
+            if isinstance(y_train_all, np.ndarray):
+                # TODO: will need to revisit this when doing multivariate y
+                y_train_all = pd.Series(y_train_all.reshape(-1), name="y")
+                label = "y"
+
             self._df = isinstance(X_train_all, pd.DataFrame)
             self._nrow, self._ndim = X_train_all.shape
-            X_train_all = pd.DataFrame(X_train_all)
             X_train_all, y_train_all = self._validate_ts_data(
                 X_train_all, time_col, y_train_all
             )
@@ -109,11 +121,9 @@ class AutoMLTS(AutoML):
             self._transformer = self._label_transformer = False
             self._X_train_all, self._y_train_all = X, y
         else:
-            self._transformer = DataTransformerTS()
+            self._transformer = DataTransformerTS(time_col, label)
 
-            self._X_train_all, self._y_train_all = self._transformer.fit_transform(
-                X, y, time_col, label
-            )
+            self._X_train_all, self._y_train_all = self._transformer.fit_transform(X, y)
             self._label_transformer = self._transformer.label_transformer
             self._feature_names_in_ = (
                 self._X_train_all.columns.to_list()
@@ -146,7 +156,7 @@ class AutoMLTS(AutoML):
                 X_val.shape[0] == y_val.shape[0]
             ), "# rows in X_val must match length of y_val."
             if self._transformer:
-                self._state.X_val = self._transformer.transform(X_val, time_col)
+                self._state.X_val = self._transformer.transform(X_val)
             else:
                 self._state.X_val = X_val
             self._state.y_val = self._label_transformer.transform(y_val)
@@ -160,6 +170,8 @@ class AutoMLTS(AutoML):
         n_splits,
         time_col=None,
     ):
+        if time_col is None:
+            time_col = "ds"
         X_val, y_val = self._state.X_val, self._state.y_val
         if issparse(X_val):
             X_val = X_val.tocsr()
@@ -227,18 +239,20 @@ class AutoMLTS(AutoML):
         dataframe = X_train.merge(y_train, left_index=True, right_index=True)
         dataframe_val = X_val.merge(y_val, left_index=True, right_index=True)
         frequency = pd.infer_freq(dataframe[time_col])
-        target_names = pd.DataFrame(y_train).columns
+        target_names = list(pd.DataFrame(y_train).columns)
         assert (
             frequency is not None
         ), "Only time series of regular frequency are currently supported."
-        time_varying_known_reals = X_train.select_dtypes(include=["floating"]).columns
+        time_varying_known_reals = list(
+            X_train.select_dtypes(include=["floating"]).columns
+        )
         time_varying_known_categoricals = list(
             set(X_train.columns)
             - set(time_varying_known_reals)
             - set(pd.DataFrame(y_train).columns)
             - {time_col}
         )
-        self._state.data = TrainingData(
+        data = TimeSeriesDataset(
             train_data=dataframe,
             time_idx="index",
             time_col=time_col,
@@ -248,6 +262,13 @@ class AutoMLTS(AutoML):
             time_varying_known_categoricals=time_varying_known_categoricals,
             time_varying_known_reals=time_varying_known_reals,
         )
+
+        self._state.X_val = data
+        self._state.X_train = data
+        self._state.y_train = None
+        self._state.y_val = None
+        self._state.X_train_all = data.move_validation_boundary(len(data.test_data))
+        self._state.y_train_all = None
 
     def _decide_split_type(self, split_type):
         assert split_type in ["auto", "time"]

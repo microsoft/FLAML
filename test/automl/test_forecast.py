@@ -197,7 +197,7 @@ def test_multivariate_forecast_num(budget=5):
             period=time_horizon,
         )
     """ retrieve best config and best learner"""
-    print("Best ML leaner:", automl.best_estimator)
+    print("Best ML learner:", automl.best_estimator)
     print("Best hyperparmeter config:", automl.best_config)
     print(f"Best mape on validation data: {automl.best_loss}")
     print(f"Training duration of best run: {automl.best_config_train_time}s")
@@ -397,11 +397,12 @@ def test_forecast_classification(budget=5):
         "task": "ts_forecast_classification",  # task type
         "log_file_name": "test/sales_classification_forecast.log",  # flaml log file
         "eval_method": "holdout",
+        "time_col": "Date",
     }
     """The main flaml automl API"""
     automl.fit(X_train=X_train, y_train=y_train, **settings, period=time_horizon)
     """ retrieve best config and best learner"""
-    print("Best ML leaner:", automl.best_estimator)
+    print("Best ML learner:", automl.best_estimator)
     print("Best hyperparmeter config:", automl.best_config)
     print(f"Best mape on validation data: {automl.best_loss}")
     print(f"Training duration of best run: {automl.best_config_train_time}s")

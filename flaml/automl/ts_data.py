@@ -91,6 +91,17 @@ class TimeSeriesDataset:
             out[d].test_data = self.test_data[test_dims == d]
         return out
 
+    def move_validation_boundary(self, steps: int) -> "TimeSeriesDataset":
+        out = copy.copy(self)
+        if steps > 0:
+            out.train_data = pd.concat([self.train_data, self.test_data[:steps]])
+            out.test_data = self.test_data[steps:]
+        elif steps < 0:
+            out.train_data = self.train_data[:steps]
+            out.test_data = pd.concat([self.train_data[steps:], self.test_data])
+
+        return out
+
     def split_validation(self, days: int) -> "TimeSeriesDataset":
         out = copy.copy(self)
         last_periods = days * self.days_to_periods_mult()

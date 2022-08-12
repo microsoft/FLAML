@@ -499,7 +499,11 @@ class DataTransformer:
 class DataTransformerTS:
     """Transform input time series training data."""
 
-    def fit_transform(self, X: Union[DataFrame, np.array], y, time_col, label):
+    def __init__(self, time_col: str, label: Union[str, List[str]]):
+        self.time_col = time_col
+        self.label = label
+
+    def fit_transform(self, X: Union[DataFrame, np.array], y):
         """Fit transformer and process the input training data according to the task type.
 
         Args:
@@ -517,9 +521,9 @@ class DataTransformerTS:
             n = X.shape[0]
             cat_columns, num_columns, datetime_columns = [], [], []
             drop = False
-            ds_col = X.pop(time_col)
+            ds_col = X.pop(self.time_col)
             if isinstance(y, Series):
-                y = y.rename(label)
+                y = y.rename(self.label)
             for column in X.columns:
                 # sklearn/utils/validation.py needs int/float values
                 if X[column].dtype.name in ("object", "category"):
@@ -572,7 +576,7 @@ class DataTransformerTS:
                     X[column] = X[column].fillna(np.nan)
                     num_columns.append(column)
             X = X[cat_columns + num_columns]
-            X.insert(0, time_col, ds_col)
+            X.insert(0, self.time_col, ds_col)
             if cat_columns:
                 X[cat_columns] = X[cat_columns].astype("category")
             if num_columns:
@@ -615,7 +619,7 @@ class DataTransformerTS:
             self.label_transformer = None
         return X, y
 
-    def transform(self, X: Union[DataFrame, np.array], time_col):
+    def transform(self, X: Union[DataFrame, np.array]):
         """Process data using fit transformer.
 
         Args:
@@ -632,7 +636,7 @@ class DataTransformerTS:
                 self._num_columns,
                 self._datetime_columns,
             )
-            ds_col = X.pop(TS_TIMESTAMP_COL)
+            ds_col = X.pop(self.time_col)
             for column in datetime_columns:
                 tmp_dt = X[column].dt
                 new_columns_dict = {
@@ -652,7 +656,7 @@ class DataTransformerTS:
                 X[column] = X[column].map(datetime.toordinal)
                 del tmp_dt
             X = X[cat_columns + num_columns].copy()
-            X.insert(0, time_col, ds_col)
+            X.insert(0, self.time_col, ds_col)
             for column in cat_columns:
                 if X[column].dtype.name == "object":
                     X[column] = X[column].fillna("__NAN__")

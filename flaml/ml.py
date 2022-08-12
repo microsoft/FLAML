@@ -42,6 +42,7 @@ from .ts_model import (
     XGBoostLimitDepth_TS,
 )
 from .data import CLASSIFICATION, group_counts, TS_FORECAST
+from .automl.ts_data import TimeSeriesDataset
 import logging
 
 logger = logging.getLogger(__name__)
@@ -345,7 +346,14 @@ def _eval_estimator(
     if isinstance(eval_metric, str):
         pred_start = time.time()
         val_pred_y = get_y_pred(estimator, X_val, eval_metric, obj)
-        pred_time = (time.time() - pred_start) / X_val.shape[0]
+        if isinstance(X_val, pd.DataFrame):
+            num_val_rows = len(X_val)
+        elif isinstance(X_val, TimeSeriesDataset):
+            num_val_rows = len(X_val.test_data)
+            y_val = X_val.test_data[X_val.target_names]
+            y_train = X_val.train_data[X_val.target_names]
+
+        pred_time = (time.time() - pred_start) / num_val_rows
 
         val_loss = metric_loss_score(
             eval_metric,
