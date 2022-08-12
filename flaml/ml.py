@@ -33,6 +33,7 @@ from .model import (
 )
 from .ts_model import (
     Prophet,
+    Orbit,
     ARIMA,
     SARIMAX,
     LGBM_TS,
@@ -119,6 +120,8 @@ def get_estimator_class(task, estimator_name):
         estimator_class = KNeighborsEstimator
     elif "prophet" in estimator_name:
         estimator_class = Prophet
+    elif "orbit" in estimator_name:
+        estimator_class = Orbit
     elif estimator_name == "arima":
         estimator_class = ARIMA
     elif estimator_name == "sarimax":
@@ -325,6 +328,9 @@ def get_y_pred(estimator, X, eval_metric, obj):
         y_pred = estimator.predict_proba(X)
     else:
         y_pred = estimator.predict(X)
+
+    if isinstance(X, TimeSeriesDataset) and isinstance(y_pred, pd.DataFrame):
+        y_pred = y_pred[X.target_names]
     return y_pred
 
 

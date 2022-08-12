@@ -84,13 +84,17 @@ class Orbit(TimeSeriesEstimator):
         train_time = time.time() - current_time
         return train_time
 
-    def predict(self, X: TimeSeriesDataset, **kwargs):
+    def predict(self, X: Union[TimeSeriesDataset, pd.DataFrame], **kwargs):
         if isinstance(X, int):
+            # TODO: do prediction like that too, with TimeSeriesDataset
             raise ValueError(
                 "predict() with steps is only supported for arima/sarimax."
                 " For Prophet, pass a dataframe with the first column containing"
                 " the timestamp values."
             )
+        elif isinstance(X, TimeSeriesDataset):
+            data = X
+            X = data.test_data[[self.time_col] + X.regressors]
 
         if self._model is not None:
 
@@ -109,7 +113,7 @@ class Orbit(TimeSeriesEstimator):
                 .reset_index(drop=True)
                 .rename(
                     columns={
-                        "prediction": self.target_names,
+                        "prediction": self.target_names[0],
                     }
                 )
             )

@@ -218,6 +218,10 @@ class AutoMLTS(AutoML):
             y_train = y_train_all[:split_idx]
             X_val = X_train_all[split_idx:]
             y_val = y_train_all[split_idx:]
+            dataframe_val = X_val.merge(y_val, left_index=True, right_index=True)
+        else:
+            dataframe_val = None
+
         self._state.data_size = X_train.shape
         self.data_size_full = len(y_train_all)
         self._state.X_train, self._state.y_train = X_train, y_train
@@ -237,7 +241,7 @@ class AutoMLTS(AutoML):
         self._state.kf = TimeSeriesSplit(n_splits=n_splits, test_size=period)
 
         dataframe = X_train.merge(y_train, left_index=True, right_index=True)
-        dataframe_val = X_val.merge(y_val, left_index=True, right_index=True)
+
         frequency = pd.infer_freq(dataframe[time_col])
         target_names = list(pd.DataFrame(y_train).columns)
         assert (
@@ -267,7 +271,10 @@ class AutoMLTS(AutoML):
         self._state.X_train = data
         self._state.y_train = None
         self._state.y_val = None
-        self._state.X_train_all = data.move_validation_boundary(len(data.test_data))
+        if data.test_data is not None:
+            self._state.X_train_all = data.move_validation_boundary(len(data.test_data))
+        else:
+            self._state.X_train_all = data
         self._state.y_train_all = None
 
     def _decide_split_type(self, split_type):

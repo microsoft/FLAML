@@ -85,12 +85,21 @@ def default_estimator_list(task: str) -> List[str]:
             if "catboost" in estimator_list:
                 estimator_list.remove("catboost")
             if task in TS_FORECASTREGRESSION:
+                estimator_list += ["arima", "sarimax"]
                 try:
                     import prophet
 
-                    estimator_list += ["prophet", "arima", "sarimax"]
+                    estimator_list += ["prophet"]
                 except ImportError:
-                    estimator_list += ["arima", "sarimax"]
+                    pass
+
+                try:
+                    import orbit
+
+                    estimator_list += ["orbit"]
+                except ImportError:
+                    pass
+
         elif "regression" != task:
             estimator_list += ["lrl1"]
     return estimator_list
