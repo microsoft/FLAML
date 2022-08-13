@@ -426,7 +426,7 @@ plt.legend()
 
 ![png](images/CO2.png)
 
-### Multivariate Time Series (Forecasting with Exogeneous Variables)
+### Multivariate Time Series (Forecasting with Exogenous Variables)
 ```python
 import pandas as pd
 
