@@ -6,6 +6,7 @@ from typing import Optional, Union, List, Callable, Tuple
 import numpy as np
 import datetime
 import time
+import os
 
 try:
     from ray import __version__ as ray_version
@@ -316,14 +317,9 @@ def run(
     old_running_trial = _running_trial
     old_training_iteration = _training_iteration
     if local_dir and not log_file_name and verbose > 0:
-        import os
-
         os.makedirs(local_dir, exist_ok=True)
-        log_file_name = (
-            local_dir
-            + "/tune_"
-            + str(datetime.datetime.now()).replace(":", "-")
-            + ".log"
+        log_file_name = os.path.join(
+            local_dir, "tune_" + str(datetime.datetime.now()).replace(":", "-") + ".log"
         )
     if not use_ray:
         _verbose = verbose
