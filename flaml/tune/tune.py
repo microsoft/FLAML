@@ -330,6 +330,9 @@ def run(
         old_handlers = logger.handlers
         old_level = logger.getEffectiveLevel()
         logger.handlers = []
+        global _runner
+        old_runner = _runner
+        assert not ray_args, "ray_args is only valid when use_ray=True"
         if (
             old_handlers
             and isinstance(old_handlers[0], logging.StreamHandler)
@@ -490,8 +493,6 @@ def run(
         scheduler.set_search_properties(metric=metric, mode=mode)
     from .trial_runner import SequentialTrialRunner
 
-    global _runner
-    old_runner = _runner
     try:
         _runner = SequentialTrialRunner(
             search_alg=search_alg,
@@ -540,7 +541,7 @@ def run(
         _verbose = old_verbose
         _running_trial = old_running_trial
         _training_iteration = old_training_iteration
-        _runner = old_runner
         if not use_ray:
+            _runner = old_runner
             logger.handlers = old_handlers
             logger.setLevel(old_level)
