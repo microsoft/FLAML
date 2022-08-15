@@ -10,7 +10,7 @@ from pandas import DataFrame, Series
 from .training_log import training_log_reader
 
 from datetime import datetime
-from typing import Dict, Union, List
+from typing import Union, List
 
 # TODO: if your task is not specified in here, define your task as an all-capitalized word
 SEQCLASSIFICATION = "seq-classification"
@@ -46,6 +46,7 @@ NLU_TASKS = (
     MULTICHOICECLASSIFICATION,
     TOKENCLASSIFICATION,
 )
+NLP_TASKS = (*NLG_TASKS, *NLU_TASKS)
 
 
 def _is_nlp_task(task):
@@ -86,12 +87,12 @@ def default_estimator_list(task: str) -> List[str]:
                 estimator_list.remove("catboost")
             if task in TS_FORECASTREGRESSION:
                 estimator_list += ["arima", "sarimax"]
-                try:
-                    import prophet
-
-                    estimator_list += ["prophet"]
-                except ImportError:
-                    pass
+                # try:
+                #     import prophet
+                #
+                #     estimator_list += ["prophet"]
+                # except ImportError:
+                #     pass
 
                 try:
                     import orbit
@@ -100,7 +101,7 @@ def default_estimator_list(task: str) -> List[str]:
                 except ImportError:
                     pass
 
-        elif "regression" != task:
+        elif task != "regression":
             estimator_list += ["lrl1"]
     return estimator_list
 

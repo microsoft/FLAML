@@ -578,7 +578,7 @@ def compute_estimator(
     log_training_metric=False,
     fit_kwargs={},
 ):
-    estimator_class = estimator_class or get_estimator_class(task, estimator_name)
+    estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
         task=task,
@@ -644,7 +644,7 @@ def train_estimator(
     eval_metric=None,
 ):
     start_time = time.time()
-    estimator_class = estimator_class or get_estimator_class(task, estimator_name)
+    estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
         task=task,

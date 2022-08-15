@@ -25,7 +25,6 @@ import json
 from .state import SearchState, AutoMLState
 from ..ml import (
     train_estimator,
-    get_estimator_class,
     get_classification_objective,
 )
 from ..config import (
@@ -2204,7 +2203,7 @@ class AutoML(BaseEstimator):
 
         if "auto" == estimator_list:
             # TODO: factor out to the Task class
-            estimator_list = default_estimator_list(task)
+            estimator_list = default_estimator_list(self.task)
 
         # When no search budget is specified
         if no_budget:

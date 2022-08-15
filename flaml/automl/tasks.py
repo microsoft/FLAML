@@ -1,6 +1,6 @@
 from .automl import AutoML as AutoMLGeneric
 from .time_series import AutoMLTS
-from ..data import TS_FORECAST
+from ..data import TS_FORECAST, CLASSIFICATION, NLP_TASKS
 from ..model import (
     XGBoostSklearnEstimator,
     XGBoostLimitDepthEstimator,
@@ -46,6 +46,19 @@ class Task:
 
     def __init__(self, task_name):
         self.name = task_name
+
+    def is_ts_forecast(self):
+        return self.name in TS_FORECAST
+
+    def is_nlp(self):
+        return self.name in NLP_TASKS
+
+    def is_classification(self):
+        return self.name in CLASSIFICATION
+
+    # For backward compatibility with all the string-valued "task" variables
+    def __eq__(self, other):
+        return self.name == other
 
     @classmethod
     def estimator_class_from_str(cls, estimator_name: str):
