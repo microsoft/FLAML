@@ -230,6 +230,10 @@ class SearchState:
 
 
 class AutoMLState:
+    def __init__(self, task: "Task"):
+        self.task = task
+        self.learner_classes = {}
+
     def _prepare_sample_train_data(self, sample_size):
         # we take the tail, rather than the head, for compatibility with time series
         sampled_weight = groups = None

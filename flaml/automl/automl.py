@@ -302,8 +302,6 @@ class AutoML(BaseEstimator):
 
         """
         self._track_iter = 0
-        self._state = AutoMLState()
-        self._state.learner_classes = {}
         self._settings = settings
         # no budget by default
         settings["time_budget"] = settings.get("time_budget", -1)
@@ -595,7 +593,7 @@ class AutoML(BaseEstimator):
             return X
         elif issparse(X):
             X = X.tocsr()
-        if self._state.task in TS_FORECAST:
+        if self._state.task.name in TS_FORECAST:
             X = pd.DataFrame(X)
         if self._transformer:
             X = self._transformer.transform(X)
@@ -1929,8 +1927,11 @@ class AutoML(BaseEstimator):
             if isinstance(y_train, pd.Series):
                 label = y_train.name
 
+        self._state = AutoMLState(self.task)
+        # TODO: remove duplicate task at self and self._state
+        # self.__dict__.pop("task")  # cleanup
         self._state._start_time_flag = self._start_time_flag = time.time()
-        task = task or self._settings.get("task")
+        task = self._state.task.name  # task or self._settings.get("task")
         self._estimator_type = "classifier" if task in CLASSIFICATION else "regressor"
         time_budget = time_budget or self._settings.get("time_budget")
         n_jobs = n_jobs or self._settings.get("n_jobs")
@@ -2034,7 +2035,6 @@ class AutoML(BaseEstimator):
             elif isinstance(dataframe, ray.ObjectRef):
                 dataframe = ray.get(dataframe)
 
-        self._state.task = task
         self._state.log_training_metric = log_training_metric
 
         self._state.fit_kwargs = fit_kwargs
@@ -2149,17 +2149,18 @@ class AutoML(BaseEstimator):
                 )
             )
         if "auto" == metric:
-            if _is_nlp_task(self._state.task):
+            # TODO: factor this out to the task class
+            if _is_nlp_task(task):
                 from ..nlp.utils import load_default_huggingface_metric_for_task
 
-                metric = load_default_huggingface_metric_for_task(self._state.task)
-            elif "binary" in self._state.task:
+                metric = load_default_huggingface_metric_for_task(task)
+            elif "binary" in task:
                 metric = "roc_auc"
-            elif "multiclass" in self._state.task:
+            elif "multiclass" in task:
                 metric = "log_loss"
-            elif self._state.task in TS_FORECAST:
+            elif task in TS_FORECAST:
                 metric = "mape"
-            elif self._state.task == "rank":
+            elif task == "rank":
                 metric = "ndcg"
             else:
                 metric = "r2"
@@ -2202,7 +2203,8 @@ class AutoML(BaseEstimator):
         logger.info(f"Minimizing error metric: {error_metric}")
 
         if "auto" == estimator_list:
-            estimator_list = default_estimator_list(self.task.name)
+            # TODO: factor out to the Task class
+            estimator_list = default_estimator_list(task)
 
         # When no search budget is specified
         if no_budget:
@@ -2234,7 +2236,7 @@ class AutoML(BaseEstimator):
             if estimator_name not in self._state.learner_classes:
                 self.add_learner(
                     estimator_name,
-                    get_estimator_class(self._state.task, estimator_name),
+                    self._state.task.estimator_class_from_str(estimator_name),
                 )
         # set up learner search space
         if isinstance(starting_points, str) and starting_points.startswith("data"):
@@ -2245,7 +2247,7 @@ class AutoML(BaseEstimator):
             for estimator_name in estimator_list:
                 try:
                     configs = suggest_config(
-                        self._state.task,
+                        self._state.task.name,
                         self._X_train_all,
                         self._y_train_all,
                         estimator_name,
@@ -2296,7 +2298,7 @@ class AutoML(BaseEstimator):
             self._search_states[estimator_name] = SearchState(
                 learner_class=estimator_class,
                 data_size=self._state.data_size,
-                task=self._state.task,
+                task=self._state.task.name,
                 starting_point=starting_points.get(estimator_name),
                 period=self._state.fit_kwargs.get(
                     "period"

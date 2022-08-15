@@ -30,8 +30,9 @@ from .automl.ts_data import TimeSeriesDataset
 
 
 class TimeSeriesEstimator(SKLearnEstimator):
-    def __init__(self, task="ts_forecast", n_jobs=1, **params):
-        super().__init__(task, **params)
+    def __init__(self, task, n_jobs=1, **params):
+        # TODO: pass Task objects throughout
+        super().__init__(task.name, **params)
         self.time_col: Optional[str] = None
         self.target_names: Optional[Union[str, List[str]]] = None
 
@@ -453,11 +454,15 @@ class TS_SKLearn(SKLearnEstimator):
         )
         return space
 
-    def __init__(self, task="ts_forecast", **params):
-        super().__init__(task, **params)
+    def __init__(self, task, **params):
+        # TODO: pass task objects throughout
+        super().__init__(task.name, **params)
         self.hcrystaball_model = None
         self.ts_task = (
-            "regression" if task in TS_FORECASTREGRESSION else "classification"
+            # TODO: wire this into task class
+            "regression"
+            if task.name in TS_FORECASTREGRESSION
+            else "classification"
         )
 
     def transform_X(self, X: pd.DataFrame):

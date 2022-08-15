@@ -3,7 +3,6 @@ from .automl import AutoML as AutoMLGeneric
 from .time_series import AutoMLTS
 from ..data import TS_FORECAST
 
-
 # Hackity hack hack
 # The below is ultra-grim, but allows us to break the TS_FORECAST
 # logic into its own class which maintaining backwards compatibility of
