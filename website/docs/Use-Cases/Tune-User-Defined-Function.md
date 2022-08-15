@@ -283,7 +283,7 @@ analysis = tune.run(...,
 ```
 
 #### **`config_constraints` vs `metric_constraints`:**
-The key difference between these two types of constraints is that the calculation of constraints in `config_constraints` **does not rely on the evaluation procedure in the metric function**. For example, when a constraint only depends on the config itself, as shown in the code example. Due to this independency, constraints in `config_constraints` will be checked before evaluation. So configurations that do not satisfy `config_constraints` will not be evaluated.
+The key difference between these two types of constraints is that the calculation of constraints in `config_constraints` does not rely on the computation procedure in the evaluation function, i.e., in `evaluation_function`. For example, when a constraint only depends on the config itself, as shown in the code example. Due to this independency, constraints in `config_constraints` will be checked before evaluation. So configurations that do not satisfy `config_constraints` will not be evaluated.
 
 
 ### Parallel tuning
