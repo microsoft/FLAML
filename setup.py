@@ -78,7 +78,7 @@ setuptools.setup(
             "nni",
         ],
         "vw": [
-            "vowpalwabbit",
+            "vowpalwabbit==8.11.0",
         ],
         "nlp": [
             "transformers[torch]==4.18",
