@@ -54,7 +54,7 @@ setuptools.setup(
             "catboost>=0.26",
             "rgf-python",
             "optuna==2.8.0",
-            "vowpalwabbit",
+            "vowpalwabbit==8.11.0",
             "openml",
             "statsmodels>=0.12.2",
             "psutil==5.8.0",
