@@ -12,7 +12,8 @@ from .generic import Task
 from ..ts_data import TimeSeriesDataset
 from ...config import RANDOM_SEED
 
-from ...data import TS_FORECAST, DataTransformerTS
+from ...data import DataTransformerTS
+from ..tasks import TS_FORECAST
 from ...ts_model import (
     XGBoost_TS,
     XGBoostLimitDepth_TS,

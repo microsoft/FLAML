@@ -20,15 +20,7 @@ from pandas import DataFrame, Series
 import sys
 import math
 from . import tune
-from .data import (
-    group_counts,
-    CLASSIFICATION,
-    SEQCLASSIFICATION,
-    SEQREGRESSION,
-    TOKENCLASSIFICATION,
-    SUMMARIZATION,
-    NLG_TASKS,
-)
+from .data import group_counts
 
 try:
     import psutil
@@ -102,7 +94,7 @@ class BaseEstimator:
             self._estimator_type = self.params.pop("_estimator_type")
         else:
             self._estimator_type = (
-                "classifier" if task in CLASSIFICATION else "regressor"
+                "classifier" if task.is_classification() else "regressor"
             )
 
     def get_params(self, deep=False):
@@ -226,7 +218,7 @@ class BaseEstimator:
                     train_time = self._fit(X_train, y_train, **kwargs)
             except (MemoryError, TimeoutError) as e:
                 logger.warning(f"{e.__class__} {e}")
-                if self._task in CLASSIFICATION:
+                if self._task.is_classification():
                     model = DummyClassifier()
                 else:
                     model = DummyRegressor()
@@ -270,7 +262,9 @@ class BaseEstimator:
             Each element at (i,j) is the probability for instance i to be in
                 class j.
         """
-        assert self._task in CLASSIFICATION, "predict_proba() only for classification."
+        assert (
+            self._task.is_classification()
+        ), "predict_proba() only for classification."
 
         X = self._preprocess(X)
         return self._model.predict_proba(X, **kwargs)
@@ -392,7 +386,7 @@ class TransformersEstimator(BaseEstimator):
         import uuid
 
         self.trial_id = str(uuid.uuid1().hex)[:8]
-        if task not in NLG_TASKS:  # TODO: not in NLG_TASKS
+        if not task.is_nlg():  # TODO: not in NLG_TASKS
             from .nlp.huggingface.training_args import (
                 TrainingArgumentsForAuto as TrainingArguments,
             )
@@ -484,7 +478,7 @@ class TransformersEstimator(BaseEstimator):
         self._training_args.no_cuda = self.no_cuda
 
         if (
-            self._task == TOKENCLASSIFICATION
+            self._task.is_token_classification()
             and self._training_args.max_seq_length is not None
         ):
             logger.warning(
@@ -533,11 +527,11 @@ class TransformersEstimator(BaseEstimator):
 
     @property
     def num_labels(self):
-        if self._task == SEQREGRESSION:
+        if self._task.is_seq_regression():
             return 1
-        elif self._task == SEQCLASSIFICATION:
+        elif self._task.is_seq_classification():
             return len(set(self._y_train))
-        elif self._task == TOKENCLASSIFICATION:
+        elif self._task.is_token_classification():
             return len(self._training_args.label_list)
         else:
             return None
@@ -546,7 +540,7 @@ class TransformersEstimator(BaseEstimator):
     def tokenizer(self):
         from transformers import AutoTokenizer
 
-        if self._task == SUMMARIZATION:
+        if self._task.is_summarization():
             return AutoTokenizer.from_pretrained(
                 pretrained_model_name_or_path=self._training_args.model_path,
                 cache_dir=None,
@@ -674,7 +668,7 @@ class TransformersEstimator(BaseEstimator):
             callbacks=[EarlyStoppingCallbackForAuto],
         )
 
-        if self._task in NLG_TASKS:
+        if self._task.is_nlg():
             setattr(self._trainer, "_is_seq2seq", True)
 
         """
@@ -812,7 +806,7 @@ class TransformersEstimator(BaseEstimator):
             data_collator=self.data_collator,
             compute_metrics=self._compute_metrics_by_dataset_name,
         )
-        if self._task in NLG_TASKS:
+        if self._task.is_nlg():
             setattr(new_trainer, "_is_seq2seq", True)
         return new_trainer
 
@@ -824,7 +818,7 @@ class TransformersEstimator(BaseEstimator):
                 setattr(self._training_args, key, val)
 
         assert (
-            self._task in CLASSIFICATION
+            self._task.is_classification()
         ), "predict_proba() only for classification tasks."
 
         X_test, _ = self._tokenize_text(X, **self._kwargs)
@@ -862,7 +856,7 @@ class TransformersEstimator(BaseEstimator):
 
         new_trainer = self._init_model_for_predict()
 
-        if self._task not in NLG_TASKS:
+        if not self._task.is_nlg():
             predictions = new_trainer.predict(test_dataset)
         else:
             predictions = new_trainer.predict(
@@ -1007,18 +1001,19 @@ class LGBMEstimator(BaseEstimator):
         super().__init__(task, **config)
         if "verbose" not in self.params:
             self.params["verbose"] = -1
-        if "regression" == task:
-            from lightgbm import LGBMRegressor
+        if task.is_classification():
+            from lightgbm import LGBMClassifier
 
-            self.estimator_class = LGBMRegressor
-        elif "rank" == task:
+            self.estimator_class = LGBMClassifier
+
+        elif task == "rank":
             from lightgbm import LGBMRanker
 
             self.estimator_class = LGBMRanker
         else:
-            from lightgbm import LGBMClassifier
+            from lightgbm import LGBMRegressor
 
-            self.estimator_class = LGBMClassifier
+            self.estimator_class = LGBMRegressor
         self._time_per_iter = None
         self._train_size = 0
         self._mem_per_iter = -1
@@ -1356,7 +1351,7 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         self.estimator_class = xgb.XGBRegressor
         if "rank" == task:
             self.estimator_class = xgb.XGBRanker
-        elif task in CLASSIFICATION:
+        elif task.is_classification():
             self.estimator_class = xgb.XGBClassifier
         self._xgb_version = xgb.__version__
 
@@ -1405,7 +1400,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
     def search_space(cls, data_size, task, **params):
         RandomForestEstimator.nrows = int(data_size[0])
         upper = min(2048, RandomForestEstimator.nrows)
-        init = 1 / np.sqrt(data_size[1]) if task in CLASSIFICATION else 1
+        init = 1 / np.sqrt(data_size[1]) if task.is_classification() else 1
         lower = min(0.1, init)
         space = {
             "n_estimators": {
@@ -1426,7 +1421,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
                 "low_cost_init_value": 4,
             },
         }
-        if task in CLASSIFICATION:
+        if task.is_classification():
             space["criterion"] = {
                 "domain": tune.choice(["gini", "entropy"]),
                 # "init_value": "gini",
@@ -1443,7 +1438,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
             params["max_leaf_nodes"] = params.get(
                 "max_leaf_nodes", params.pop("max_leaves")
             )
-        if self._task not in CLASSIFICATION and "criterion" in config:
+        if not self._task.is_classification() and "criterion" in config:
             params.pop("criterion")
         return params
 
@@ -1455,7 +1450,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         super().__init__(task, **params)
         self.params["verbose"] = 0
         self.estimator_class = RandomForestRegressor
-        if task in CLASSIFICATION:
+        if task.is_classification():
             self.estimator_class = RandomForestClassifier
 
 
@@ -1468,10 +1463,10 @@ class ExtraTreesEstimator(RandomForestEstimator):
 
     def __init__(self, task="binary", **params):
         super().__init__(task, **params)
-        if "regression" in task:
-            self.estimator_class = ExtraTreesRegressor
-        else:
+        if task.is_classification():
             self.estimator_class = ExtraTreesClassifier
+        else:
+            self.estimator_class = ExtraTreesRegressor
 
 
 class LRL1Classifier(SKLearnEstimator):
@@ -1499,7 +1494,9 @@ class LRL1Classifier(SKLearnEstimator):
 
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
-        assert task in CLASSIFICATION, "LogisticRegression for classification task only"
+        assert (
+            task.is_classification()
+        ), "LogisticRegression for classification task only"
         self.estimator_class = LogisticRegression
 
 
@@ -1525,7 +1522,9 @@ class LRL2Classifier(SKLearnEstimator):
 
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
-        assert task in CLASSIFICATION, "LogisticRegression for classification task only"
+        assert (
+            task.is_classification()
+        ), "LogisticRegression for classification task only"
         self.estimator_class = LogisticRegression
 
 
@@ -1608,7 +1607,7 @@ class CatBoostEstimator(BaseEstimator):
         from catboost import CatBoostRegressor
 
         self.estimator_class = CatBoostRegressor
-        if task in CLASSIFICATION:
+        if task.is_classification():
             from catboost import CatBoostClassifier
 
             self.estimator_class = CatBoostClassifier
@@ -1703,7 +1702,7 @@ class KNeighborsEstimator(BaseEstimator):
 
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
-        if task in CLASSIFICATION:
+        if task.is_classification():
             from sklearn.neighbors import KNeighborsClassifier
 
             self.estimator_class = KNeighborsClassifier

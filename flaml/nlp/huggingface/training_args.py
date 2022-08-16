@@ -1,9 +1,7 @@
 import argparse
 from dataclasses import dataclass, field
 
-from ...data import (
-    NLG_TASKS,
-)
+from ...automl.tasks import NLG_TASKS
 from typing import Optional, List
 
 try:

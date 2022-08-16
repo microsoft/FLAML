@@ -25,14 +25,14 @@ from .model import (
     ExtraTreesEstimator,
     XGBoostLimitDepthEstimator,
 )
-from .data import TS_TIMESTAMP_COL, TS_VALUE_COL, TS_FORECASTREGRESSION
+from .data import TS_TIMESTAMP_COL, TS_VALUE_COL
 from .automl.ts_data import TimeSeriesDataset
 
 
 class TimeSeriesEstimator(SKLearnEstimator):
     def __init__(self, task, n_jobs=1, **params):
         # TODO: pass Task objects throughout
-        super().__init__(task.name, **params)
+        super().__init__(task, **params)
         self.time_col: Optional[str] = None
         self.target_names: Optional[Union[str, List[str]]] = None
 
@@ -456,14 +456,15 @@ class TS_SKLearn(SKLearnEstimator):
 
     def __init__(self, task, **params):
         # TODO: pass task objects throughout
-        super().__init__(task.name, **params)
+        super().__init__(task, **params)
         self.hcrystaball_model = None
-        self.ts_task = (
-            # TODO: wire this into task class
-            "regression"
-            if task.name in TS_FORECASTREGRESSION
-            else "classification"
-        )
+        self.ts_task = task
+        # (
+        #     # TODO: wire this into task class
+        #     "regression"
+        #     if task.name in TS_FORECASTREGRESSION
+        #     else "classification"
+        # )
 
     def transform_X(self, X: pd.DataFrame):
         cols = list(X)

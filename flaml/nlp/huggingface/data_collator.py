@@ -6,7 +6,11 @@ from transformers.data.data_collator import (
 )
 from collections import OrderedDict
 
-from flaml.data import TOKENCLASSIFICATION, MULTICHOICECLASSIFICATION, SUMMARIZATION
+from flaml.automl.tasks import (
+    MULTICHOICECLASSIFICATION,
+    TOKENCLASSIFICATION,
+    SUMMARIZATION,
+)
 
 
 @dataclass

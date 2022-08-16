@@ -25,7 +25,6 @@ import json
 from .state import SearchState, AutoMLState
 from ..ml import (
     train_estimator,
-    get_classification_objective,
 )
 from ..config import (
     MIN_SAMPLE_TRAIN,
@@ -39,13 +38,16 @@ from ..config import (
 )
 from ..data import (
     concat,
-    CLASSIFICATION,
-    TOKENCLASSIFICATION,
-    TS_FORECAST,
-    REGRESSION,
     _is_nlp_task,
-    NLG_TASKS,
     default_estimator_list,
+)
+from .tasks import (
+    TOKENCLASSIFICATION,
+    CLASSIFICATION,
+    REGRESSION,
+    TS_FORECAST,
+    NLG_TASKS,
+    get_classification_objective,
 )
 from .. import tune
 from ..training_log import training_log_reader, training_log_writer
@@ -1773,7 +1775,7 @@ class AutoML(BaseEstimator):
             self._search_states[estimator_name] = SearchState(
                 learner_class=estimator_class,
                 data_size=self._state.data_size,
-                task=self._state.task.name,
+                task=self.task,
                 starting_point=starting_points.get(estimator_name),
                 period=self._state.fit_kwargs.get(
                     "period"

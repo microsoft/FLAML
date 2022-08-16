@@ -42,7 +42,8 @@ from .ts_model import (
     ExtraTrees_TS,
     XGBoostLimitDepth_TS,
 )
-from .data import CLASSIFICATION, group_counts, TS_FORECAST
+from .data import group_counts
+from .automl.tasks import CLASSIFICATION, TS_FORECAST
 from .automl.ts_data import TimeSeriesDataset
 import logging
 
@@ -352,13 +353,13 @@ def _eval_estimator(
     if isinstance(eval_metric, str):
         pred_start = time.time()
         val_pred_y = get_y_pred(estimator, X_val, eval_metric, obj)
-        if isinstance(X_val, pd.DataFrame):
-            num_val_rows = len(X_val)
-        elif isinstance(X_val, TimeSeriesDataset):
+
+        if isinstance(X_val, TimeSeriesDataset):
             num_val_rows = len(X_val.test_data)
             y_val = X_val.test_data[X_val.target_names]
             y_train = X_val.train_data[X_val.target_names]
-
+        else:
+            num_val_rows = X_val.shape[0]
         pred_time = (time.time() - pred_start) / num_val_rows
 
         val_loss = metric_loss_score(
@@ -659,14 +660,6 @@ def train_estimator(
         estimator = estimator.estimator_class(**estimator.params)
     train_time = time.time() - start_time
     return estimator, train_time
-
-
-def get_classification_objective(num_labels: int) -> str:
-    if num_labels == 2:
-        objective_name = "binary"
-    else:
-        objective_name = "multiclass"
-    return objective_name
 
 
 def norm_confusion_matrix(y_true, y_pred):

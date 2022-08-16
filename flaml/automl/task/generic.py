@@ -13,8 +13,6 @@ from sklearn.model_selection import (
     GroupShuffleSplit,
 )
 
-from ...ml import get_classification_objective
-from flaml.data import TS_FORECAST, NLP_TASKS, CLASSIFICATION, REGRESSION, NLG_TASKS
 from flaml.model import (
     XGBoostSklearnEstimator,
     XGBoostLimitDepthEstimator,
@@ -28,14 +26,22 @@ from flaml.model import (
     TransformersEstimator,
     TransformersEstimatorModelSelection,
 )
-from ...config import RANDOM_SEED
-from ...data import concat, TOKENCLASSIFICATION
+from ..tasks import (
+    TOKENCLASSIFICATION,
+    CLASSIFICATION,
+    REGRESSION,
+    TS_FORECAST,
+    get_classification_objective,
+    TaskParent,
+)
 
+from ...config import RANDOM_SEED
+from ...data import concat
 
 logger = logging.getLogger(__name__)
 
 
-class Task:
+class Task(TaskParent):
     estimators = {
         "xgboost": XGBoostSklearnEstimator,
         "xgb_limitdepth": XGBoostLimitDepthEstimator,
@@ -49,41 +55,6 @@ class Task:
         "transformer": TransformersEstimator,
         "transformer_ms": TransformersEstimatorModelSelection,
     }
-
-    def __init__(self, task_name):
-        self.name = task_name
-
-    def is_ts_forecast(self):
-        return self.name in TS_FORECAST
-
-    def is_nlp(self):
-        return self.name in NLP_TASKS
-
-    def is_nlg(self):
-        return self.name in NLG_TASKS
-
-    def is_classification(self):
-        return self.name in CLASSIFICATION
-
-    def is_binary(self):
-        return self.name == "binary"
-
-    # For backward compatibility with all the string-valued "task" variables
-    def __eq__(self, other):
-        return self.name == other
-
-    @classmethod
-    def estimator_class_from_str(cls, estimator_name: str):
-        if estimator_name in cls.estimators:
-            return cls.estimators[estimator_name]
-        else:
-            raise ValueError(
-                f"{estimator_name} is not a built-in learner for this task type, "
-                f"only {list(cls.estimators.keys())} are supported."
-                "Please use AutoML.add_learner() to add a customized learner."
-            )
-        return estimator_class
-
     # Redundant?
     # @staticmethod
     # def _validate_ts_data(
@@ -586,9 +557,14 @@ class Task:
     @staticmethod
     def _decide_split_type(automl, split_type):
         if automl._state.task == "classification":
-            automl._state.task = get_classification_objective(
+            # TODO: another usecase for deciding task based on y
+            # Should instead be done at task creation time
+            from .factory import task_factory
+
+            task_name = get_classification_objective(
                 len(np.unique(automl._y_train_all))
             )
+            automl._state.task = task_factory(task_name)
         if not isinstance(split_type, str):
             assert hasattr(split_type, "split") and hasattr(
                 split_type, "get_n_splits"

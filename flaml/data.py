@@ -7,46 +7,21 @@ from scipy.sparse import vstack, issparse
 import pandas as pd
 from pandas import DataFrame, Series
 
+from .automl.tasks import (
+    TOKENCLASSIFICATION,
+    CLASSIFICATION,
+    TS_FORECASTREGRESSION,
+    TS_FORECAST,
+    NLG_TASKS,
+    NLU_TASKS,
+)
 from .training_log import training_log_reader
 
 from datetime import datetime
 from typing import Union, List
 
-# TODO: if your task is not specified in here, define your task as an all-capitalized word
-SEQCLASSIFICATION = "seq-classification"
-MULTICHOICECLASSIFICATION = "multichoice-classification"
-TOKENCLASSIFICATION = "token-classification"
-CLASSIFICATION = (
-    "binary",
-    "multiclass",
-    "classification",
-    SEQCLASSIFICATION,
-    MULTICHOICECLASSIFICATION,
-    TOKENCLASSIFICATION,
-)
-SEQREGRESSION = "seq-regression"
-REGRESSION = ("regression", SEQREGRESSION)
-TS_FORECASTREGRESSION = (
-    "forecast",
-    "ts_forecast",
-    "ts_forecast_regression",
-)
-TS_FORECASTCLASSIFICATION = "ts_forecast_classification"
-TS_FORECAST = (
-    *TS_FORECASTREGRESSION,
-    TS_FORECASTCLASSIFICATION,
-)
 TS_TIMESTAMP_COL = "ds"
 TS_VALUE_COL = "y"
-SUMMARIZATION = "summarization"
-NLG_TASKS = (SUMMARIZATION,)
-NLU_TASKS = (
-    SEQREGRESSION,
-    SEQCLASSIFICATION,
-    MULTICHOICECLASSIFICATION,
-    TOKENCLASSIFICATION,
-)
-NLP_TASKS = (*NLG_TASKS, *NLU_TASKS)
 
 
 def _is_nlp_task(task):
@@ -315,7 +290,7 @@ class DataTransformer:
             X: Processed numpy array or pandas dataframe of training data.
             y: Processed numpy array or pandas series of labels.
         """
-        if _is_nlp_task(task):
+        if task.is_nlp():
             # if the mode is NLP, check the type of input, each column must be either string or
             # ids (input ids, token type id, attention mask, etc.)
             str_columns = []

@@ -1,3 +1,4 @@
+import flaml.automl.task.factory
 from . import tasks
 from .automl import AutoML as AutoMLGeneric
 
@@ -17,7 +18,7 @@ class AutoML(AutoMLGeneric):
             task_name = args[5]
         # Is it in self._settings?
         task_name = task_name or self._settings["task"]
-        self.task = tasks.task_factory(task_name)
+        self.task = flaml.automl.task.factory.task_factory(task_name)
 
         super().fit(*args, **kwargs)
 

@@ -2,12 +2,12 @@ import pandas as pd
 from itertools import chain
 import numpy as np
 
-from ...data import (
-    SUMMARIZATION,
-    SEQREGRESSION,
+from ...automl.tasks import (
     SEQCLASSIFICATION,
     MULTICHOICECLASSIFICATION,
     TOKENCLASSIFICATION,
+    SEQREGRESSION,
+    SUMMARIZATION,
     NLG_TASKS,
 )
 
