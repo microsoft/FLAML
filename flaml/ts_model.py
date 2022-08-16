@@ -8,12 +8,12 @@ from pandas import DataFrame, Series, to_datetime
 
 from . import tune
 
-# This may be needed to get PyStan to run
+# This may be needed to get PyStan to run, needed for Orbit
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 
 import numpy as np
 import pandas as pd
-from orbit.models import DLT, LGT, ETS
+
 
 from .model import (
     suppress_stdout_stderr,
@@ -30,8 +30,7 @@ from .automl.ts_data import TimeSeriesDataset
 
 
 class TimeSeriesEstimator(SKLearnEstimator):
-    def __init__(self, task, n_jobs=1, **params):
-        # TODO: pass Task objects throughout
+    def __init__(self, task="ts_forecast", n_jobs=1, **params):
         super().__init__(task, **params)
         self.time_col: Optional[str] = None
         self.target_names: Optional[Union[str, List[str]]] = None
@@ -65,6 +64,8 @@ class TimeSeriesEstimator(SKLearnEstimator):
 
 class Orbit(TimeSeriesEstimator):
     def fit(self, X_train: TimeSeriesDataset, y_train, budget=None, **kwargs):
+        from orbit.models import DLT, LGT, ETS
+
         # y_train is ignored, just need it for signature compatibility with other classes
         super().fit(X_train, y_train, budget=budget, **kwargs)
         current_time = time.time()
@@ -454,7 +455,7 @@ class TS_SKLearn(SKLearnEstimator):
         )
         return space
 
-    def __init__(self, task, **params):
+    def __init__(self, task="ts_forecast", **params):
         # TODO: pass task objects throughout
         super().__init__(task, **params)
         self.hcrystaball_model = None
@@ -522,8 +523,9 @@ class TS_SKLearn(SKLearnEstimator):
             y_train = data.train_data[data.target_names[0]]
             self.time_col = data.time_col
             self.target_names = data.target_names
-        else:
-            self.time_col = None
+        elif isinstance(X_train, pd.DataFrame):
+            self.time_col = X_train.columns.tolist()[0]
+
         self._fit(X_train, y_train, budget=budget, time_col=self.time_col, **kwargs)
         train_time = time.time() - current_time
         return train_time

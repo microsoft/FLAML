@@ -62,12 +62,12 @@ def default_estimator_list(task: str) -> List[str]:
                 estimator_list.remove("catboost")
             if task in TS_FORECASTREGRESSION:
                 estimator_list += ["arima", "sarimax"]
-                # try:
-                #     import prophet
-                #
-                #     estimator_list += ["prophet"]
-                # except ImportError:
-                #     pass
+                try:
+                    import prophet
+
+                    estimator_list += ["prophet"]
+                except ImportError:
+                    pass
 
                 try:
                     import orbit
@@ -290,6 +290,10 @@ class DataTransformer:
             X: Processed numpy array or pandas dataframe of training data.
             y: Processed numpy array or pandas series of labels.
         """
+        if isinstance(task, str):
+            from .automl.task.factory import task_factory
+
+            task = task_factory(task)
         if task.is_nlp():
             # if the mode is NLP, check the type of input, each column must be either string or
             # ids (input ids, token type id, attention mask, etc.)

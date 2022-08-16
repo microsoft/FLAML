@@ -345,6 +345,7 @@ class AutoML(BaseEstimator):
         self._estimator_type = (
             "classifier" if settings["task"] in CLASSIFICATION else "regressor"
         )
+        self._state = AutoMLState()
 
     def get_params(self, deep=False):
         return self._settings.copy()
@@ -756,7 +757,12 @@ class AutoML(BaseEstimator):
                     gpu_per_trial: float, default = 0 | A float of the number of gpus per trial,
                     only used by TransformersEstimator and XGBoostSklearnEstimator.
         """
+
         task = task or self._settings.get("task")
+        if not hasattr(self, "task"):
+            from .task.factory import task_factory
+
+            self.task = task_factory(task)
         eval_method = eval_method or self._settings.get("eval_method")
         split_ratio = split_ratio or self._settings.get("split_ratio")
         n_splits = n_splits or self._settings.get("n_splits")
@@ -764,8 +770,10 @@ class AutoML(BaseEstimator):
         auto_augment = (
             self._settings.get("auto_augment") if auto_augment is None else auto_augment
         )
-        self._state.task = task
-        self._estimator_type = "classifier" if task in CLASSIFICATION else "regressor"
+        self._state.task = self.task
+        self._estimator_type = (
+            "classifier" if self.task.is_classification() else "regressor"
+        )
 
         self._state.fit_kwargs = fit_kwargs
         self._state.custom_hp = custom_hp or self._settings.get("custom_hp")
@@ -1402,7 +1410,7 @@ class AutoML(BaseEstimator):
                 label = y_train.name
 
         task = self.task
-        self._state = AutoMLState(self.task)
+        self._state.task = self.task
         # TODO: remove duplicate task at self and self._state
         # self.__dict__.pop("task")  # cleanup
         self._state._start_time_flag = self._start_time_flag = time.time()
@@ -1709,6 +1717,9 @@ class AutoML(BaseEstimator):
             or max_iter == 1
         )
         # add custom learner
+        from .tasks import TaskParent
+
+        assert isinstance(self.task, TaskParent)
         for estimator_name in estimator_list:
             if estimator_name not in self._state.learner_classes:
                 self.add_learner(

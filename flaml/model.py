@@ -87,6 +87,10 @@ class BaseEstimator:
             config: A dictionary containing the hyperparameter names, 'n_jobs' as keys.
                 n_jobs is the number of parallel threads.
         """
+        if isinstance(task, str):
+            from .automl.task.factory import task_factory
+
+            task = task_factory(task)
         self._task = task
         self.params = self.config2params(config)
         self.estimator_class = self._model = None
@@ -94,7 +98,7 @@ class BaseEstimator:
             self._estimator_type = self.params.pop("_estimator_type")
         else:
             self._estimator_type = (
-                "classifier" if task.is_classification() else "regressor"
+                "classifier" if self._task.is_classification() else "regressor"
             )
 
     def get_params(self, deep=False):
@@ -386,7 +390,7 @@ class TransformersEstimator(BaseEstimator):
         import uuid
 
         self.trial_id = str(uuid.uuid1().hex)[:8]
-        if not task.is_nlg():  # TODO: not in NLG_TASKS
+        if not self._task.is_nlg():  # TODO: not in NLG_TASKS
             from .nlp.huggingface.training_args import (
                 TrainingArgumentsForAuto as TrainingArguments,
             )
@@ -1001,7 +1005,7 @@ class LGBMEstimator(BaseEstimator):
         super().__init__(task, **config)
         if "verbose" not in self.params:
             self.params["verbose"] = -1
-        if task.is_classification():
+        if self._task.is_classification():
             from lightgbm import LGBMClassifier
 
             self.estimator_class = LGBMClassifier
@@ -1351,7 +1355,7 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         self.estimator_class = xgb.XGBRegressor
         if "rank" == task:
             self.estimator_class = xgb.XGBRanker
-        elif task.is_classification():
+        elif self._task.is_classification():
             self.estimator_class = xgb.XGBClassifier
         self._xgb_version = xgb.__version__
 
@@ -1450,7 +1454,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         super().__init__(task, **params)
         self.params["verbose"] = 0
         self.estimator_class = RandomForestRegressor
-        if task.is_classification():
+        if self._task.is_classification():
             self.estimator_class = RandomForestClassifier
 
 
@@ -1463,7 +1467,7 @@ class ExtraTreesEstimator(RandomForestEstimator):
 
     def __init__(self, task="binary", **params):
         super().__init__(task, **params)
-        if task.is_classification():
+        if self._task.is_classification():
             self.estimator_class = ExtraTreesClassifier
         else:
             self.estimator_class = ExtraTreesRegressor
@@ -1495,7 +1499,7 @@ class LRL1Classifier(SKLearnEstimator):
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
         assert (
-            task.is_classification()
+            self._task.is_classification()
         ), "LogisticRegression for classification task only"
         self.estimator_class = LogisticRegression
 
@@ -1523,7 +1527,7 @@ class LRL2Classifier(SKLearnEstimator):
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
         assert (
-            task.is_classification()
+            self._task.is_classification()
         ), "LogisticRegression for classification task only"
         self.estimator_class = LogisticRegression
 
@@ -1607,7 +1611,7 @@ class CatBoostEstimator(BaseEstimator):
         from catboost import CatBoostRegressor
 
         self.estimator_class = CatBoostRegressor
-        if task.is_classification():
+        if self._task.is_classification():
             from catboost import CatBoostClassifier
 
             self.estimator_class = CatBoostClassifier
@@ -1702,7 +1706,7 @@ class KNeighborsEstimator(BaseEstimator):
 
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
-        if task.is_classification():
+        if self._task.is_classification():
             from sklearn.neighbors import KNeighborsClassifier
 
             self.estimator_class = KNeighborsClassifier

@@ -230,8 +230,7 @@ class SearchState:
 
 
 class AutoMLState:
-    def __init__(self, task: "Task"):
-        self.task = task
+    def __init__(self):
         self.learner_classes = {}
 
     def _prepare_sample_train_data(self, sample_size):
