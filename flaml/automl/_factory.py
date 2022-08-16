@@ -1,7 +1,5 @@
 from . import tasks
 from .automl import AutoML as AutoMLGeneric
-from .time_series import AutoMLTS
-from ..data import TS_FORECAST
 
 # Hackity hack hack
 # The below is ultra-grim, but allows us to break the TS_FORECAST
@@ -10,8 +8,6 @@ from ..data import TS_FORECAST
 class AutoML(AutoMLGeneric):
     def __init__(self, **settings):
         super().__init__(**settings)
-        if self._settings["task"] in TS_FORECAST:
-            AutoMLTS.__init__(self, **settings)
 
     def fit(self, *args, **kwargs):
         # Is it in kwargs?
@@ -23,8 +19,7 @@ class AutoML(AutoMLGeneric):
         task_name = task_name or self._settings["task"]
         self.task = tasks.task_factory(task_name)
 
-        self.__class__ = self.task.AUTOML_CLASS
-        self.fit(*args, **kwargs)
+        super().fit(*args, **kwargs)
 
 
 # Set the docstring for sphinx autodocs

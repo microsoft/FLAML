@@ -7,21 +7,45 @@ from scipy.sparse import issparse
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.utils import shuffle
 
-from .automl import AutoML
-from .ts_data import TimeSeriesDataset
-from ..config import RANDOM_SEED
+# from .automl import AutoML
+from .generic import Task
+from ..ts_data import TimeSeriesDataset
+from ...config import RANDOM_SEED
 
-from ..data import TS_FORECAST, DataTransformerTS
-
+from ...data import TS_FORECAST, DataTransformerTS
+from ...ts_model import (
+    XGBoost_TS,
+    XGBoostLimitDepth_TS,
+    RF_TS,
+    LGBM_TS,
+    ExtraTrees_TS,
+    Prophet,
+    Orbit,
+    ARIMA,
+    SARIMAX,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class AutoMLTS(AutoML):
-    """AutoML for Time Series"""
+# class AutoMLTS(AutoML):
+#     """AutoML for Time Series"""
+class TaskTS(Task):
+    estimators = {
+        "xgboost": XGBoost_TS,
+        "xgb_limitdepth": XGBoostLimitDepth_TS,
+        "rf": RF_TS,
+        "lgbm": LGBM_TS,
+        "extra_tree": ExtraTrees_TS,
+        "prophet": Prophet,
+        "orbit": Orbit,
+        "arima": ARIMA,
+        "sarimax": SARIMAX,
+    }
 
+    @staticmethod
     def _validate_ts_data(
-        self,
+        _,
         dataframe,
         time_col,
         y_train_all=None,
@@ -51,8 +75,9 @@ class AutoMLTS(AutoML):
             return dataframe.iloc[:, :-1], dataframe.iloc[:, -1]
         return dataframe
 
+    @staticmethod
     def _validate_data(
-        self,
+        automl,
         X_train_all,
         y_train_all,
         dataframe,
@@ -98,10 +123,10 @@ class AutoMLTS(AutoML):
                 y_train_all = pd.Series(y_train_all.reshape(-1), name="y")
                 label = "y"
 
-            self._df = isinstance(X_train_all, pd.DataFrame)
-            self._nrow, self._ndim = X_train_all.shape
-            X_train_all, y_train_all = self._validate_ts_data(
-                X_train_all, time_col, y_train_all
+            automl._df = isinstance(X_train_all, pd.DataFrame)
+            automl._nrow, automl._ndim = X_train_all.shape
+            X_train_all, y_train_all = automl.task._validate_ts_data(
+                automl, X_train_all, time_col, y_train_all
             )
             X, y = X_train_all, y_train_all
 
@@ -111,27 +136,30 @@ class AutoMLTS(AutoML):
                 dataframe, pd.DataFrame
             ), "dataframe must be a pandas DataFrame"
             assert label in dataframe.columns, "label must a column name in dataframe"
-            self._df = True
-            dataframe = self._validate_ts_data(dataframe, time_col)
+            automl._df = True
+            dataframe = automl.task._validate_ts_data(automl, dataframe, time_col)
             X = dataframe.drop(columns=label)
-            self._nrow, self._ndim = X.shape
+            automl._nrow, automl._ndim = X.shape
             y = dataframe[label]
 
         if issparse(X_train_all):
-            self._transformer = self._label_transformer = False
-            self._X_train_all, self._y_train_all = X, y
+            automl._transformer = automl._label_transformer = False
+            automl._X_train_all, automl._y_train_all = X, y
         else:
-            self._transformer = DataTransformerTS(time_col, label)
+            automl._transformer = DataTransformerTS(time_col, label)
 
-            self._X_train_all, self._y_train_all = self._transformer.fit_transform(X, y)
-            self._label_transformer = self._transformer.label_transformer
-            self._feature_names_in_ = (
-                self._X_train_all.columns.to_list()
-                if hasattr(self._X_train_all, "columns")
+            (
+                automl._X_train_all,
+                automl._y_train_all,
+            ) = automl._transformer.fit_transform(X, y)
+            automl._label_transformer = automl._transformer.label_transformer
+            automl._feature_names_in_ = (
+                automl._X_train_all.columns.to_list()
+                if hasattr(automl._X_train_all, "columns")
                 else None
             )
 
-        self._sample_weight_full = self._state.fit_kwargs.get(
+        automl._sample_weight_full = automl._state.fit_kwargs.get(
             "sample_weight"
         )  # NOTE: _validate_data is before kwargs is updated to fit_kwargs_by_estimator
         if X_val is not None and y_val is not None:
@@ -155,16 +183,17 @@ class AutoMLTS(AutoML):
             assert (
                 X_val.shape[0] == y_val.shape[0]
             ), "# rows in X_val must match length of y_val."
-            if self._transformer:
-                self._state.X_val = self._transformer.transform(X_val)
+            if automl._transformer:
+                automl._state.X_val = automl._transformer.transform(X_val)
             else:
-                self._state.X_val = X_val
-            self._state.y_val = self._label_transformer.transform(y_val)
+                automl._state.X_val = X_val
+            automl._state.y_val = automl._label_transformer.transform(y_val)
         else:
-            self._state.X_val = self._state.y_val = None
+            automl._state.X_val = automl._state.y_val = None
 
+    @staticmethod
     def _prepare_data(
-        self,
+        automl,
         eval_method,
         split_ratio,
         n_splits,
@@ -172,44 +201,44 @@ class AutoMLTS(AutoML):
     ):
         if time_col is None:
             time_col = "ds"
-        X_val, y_val = self._state.X_val, self._state.y_val
+        X_val, y_val = automl._state.X_val, automl._state.y_val
         if issparse(X_val):
             X_val = X_val.tocsr()
-        X_train_all, y_train_all = self._X_train_all, self._y_train_all
+        X_train_all, y_train_all = automl._X_train_all, automl._y_train_all
         if issparse(X_train_all):
             X_train_all = X_train_all.tocsr()
 
         SHUFFLE_SPLIT_TYPES = ["uniform", "stratified"]
-        if self._split_type in SHUFFLE_SPLIT_TYPES:
-            if self._sample_weight_full is not None:
-                X_train_all, y_train_all, self._state.sample_weight_all = shuffle(
+        if automl._split_type in SHUFFLE_SPLIT_TYPES:
+            if automl._sample_weight_full is not None:
+                X_train_all, y_train_all, automl._state.sample_weight_all = shuffle(
                     X_train_all,
                     y_train_all,
-                    self._sample_weight_full,
+                    automl._sample_weight_full,
                     random_state=RANDOM_SEED,
                 )
-                self._state.fit_kwargs[
+                automl._state.fit_kwargs[
                     "sample_weight"
                 ] = (
-                    self._state.sample_weight_all
+                    automl._state.sample_weight_all
                 )  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
             else:
                 X_train_all, y_train_all = shuffle(
                     X_train_all, y_train_all, random_state=RANDOM_SEED
                 )
-            if self._df:
+            if automl._df:
                 X_train_all.reset_index(drop=True, inplace=True)
                 if isinstance(y_train_all, pd.Series):
                     y_train_all.reset_index(drop=True, inplace=True)
 
         X_train, y_train = X_train_all, y_train_all
-        self._state.groups = None
-        self._state.groups_all = None
-        self._state.groups_val = None
+        automl._state.groups = None
+        automl._state.groups_all = None
+        automl._state.groups_val = None
         if X_val is None and eval_method == "holdout":
             # if eval_method = holdout, make holdout data
             num_samples = X_train_all.shape[0]
-            period = self._state.fit_kwargs[
+            period = automl._state.fit_kwargs[
                 "period"
             ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
             assert period < num_samples, f"period={period}>#examples={num_samples}"
@@ -222,13 +251,13 @@ class AutoMLTS(AutoML):
         else:
             dataframe_val = None
 
-        self._state.data_size = X_train.shape
-        self.data_size_full = len(y_train_all)
-        self._state.X_train, self._state.y_train = X_train, y_train
-        self._state.X_val, self._state.y_val = X_val, y_val
-        self._state.X_train_all = X_train_all
-        self._state.y_train_all = y_train_all
-        period = self._state.fit_kwargs[
+        automl._state.data_size = X_train.shape
+        automl.data_size_full = len(y_train_all)
+        automl._state.X_train, automl._state.y_train = X_train, y_train
+        automl._state.X_val, automl._state.y_val = X_val, y_val
+        automl._state.X_train_all = X_train_all
+        automl._state.y_train_all = y_train_all
+        period = automl._state.fit_kwargs[
             "period"
         ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
         if period * (n_splits + 1) > y_train_all.size:
@@ -238,7 +267,7 @@ class AutoMLTS(AutoML):
                 f" requires input data with at least {3 * period} examples."
             )
             logger.info(f"Using nsplits={n_splits} due to data size limit.")
-        self._state.kf = TimeSeriesSplit(n_splits=n_splits, test_size=period)
+        automl._state.kf = TimeSeriesSplit(n_splits=n_splits, test_size=period)
 
         dataframe = X_train.merge(y_train, left_index=True, right_index=True)
 
@@ -267,20 +296,23 @@ class AutoMLTS(AutoML):
             time_varying_known_reals=time_varying_known_reals,
         )
 
-        self._state.X_val = data
-        self._state.X_train = data
-        self._state.y_train = None
-        self._state.y_val = None
+        automl._state.X_val = data
+        automl._state.X_train = data
+        automl._state.y_train = None
+        automl._state.y_val = None
         if data.test_data is not None:
-            self._state.X_train_all = data.move_validation_boundary(len(data.test_data))
+            automl._state.X_train_all = data.move_validation_boundary(
+                len(data.test_data)
+            )
         else:
-            self._state.X_train_all = data
-        self._state.y_train_all = None
+            automl._state.X_train_all = data
+        automl._state.y_train_all = None
 
-    def _decide_split_type(self, split_type):
+    @staticmethod
+    def _decide_split_type(automl, split_type):
         assert split_type in ["auto", "time"]
-        self._split_type = "time"
+        automl._split_type = "time"
         assert isinstance(
-            self._state.fit_kwargs.get("period"),
+            automl._state.fit_kwargs.get("period"),
             int,  # NOTE: _decide_split_type is before kwargs is updated to fit_kwargs_by_estimator
         ), f"missing a required integer 'period' for '{TS_FORECAST}' task."

@@ -320,8 +320,8 @@ def sklearn_metric_loss_score(
     return score
 
 
-def get_y_pred(estimator, X, eval_metric, obj):
-    if eval_metric in ["roc_auc", "ap"] and "binary" in obj:
+def get_y_pred(estimator, X, eval_metric, task):
+    if eval_metric in ["roc_auc", "ap"] and task.is_binary():
         y_pred_classes = estimator.predict_proba(X)
         y_pred = y_pred_classes[:, 1] if y_pred_classes.ndim > 1 else y_pred_classes
     elif eval_metric in ["log_loss", "roc_auc", "roc_auc_ovr", "roc_auc_ovo"]:
