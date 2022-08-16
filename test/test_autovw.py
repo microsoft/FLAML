@@ -372,7 +372,7 @@ def get_vw_tuning_problem(tuning_hp="NamesapceInteraction"):
     sys.version == "3.10",
     reason="do not run on py 3.10",
 )
-class TestAutoVW(unittest.TestCase):
+class TestAutoVW:
     def test_vw_oml_problem_and_vanilla_vw(self):
         from vowpalwabbit import pyvw
 
