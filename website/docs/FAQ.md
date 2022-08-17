@@ -1,15 +1,11 @@
-# Frequently Asked Questions & Guidelines
+# Frequently Asked Questions
 
-## Guideline collection
+### [Guidelines on how to set a hyperparameter search space](Use-Cases/Tune-User-Defined-Function#details-and-guidelines-on-hyperparameter-search-space)
 
-- [Guidelines on how to set a hyperparameter search space](Use-Cases/Tune-User-Defined-Function#details-and-guidelines-on-hyperparameter-search-space)
+### [Guidelines on parallel vs seqential tuning](Use-Cases/Task-Oriented-AutoML#guidelines-on-parallel-vs-sequential-tuning)
 
-- [Guidelines on parallel vs seqential tuning](Use-Cases/Task-Oriented-AutoML#guidelines-on-parallel-vs-sequential-tuning)
+### [Guidelines on creating and tuning a custom estimator](Use-Cases/Task-Oriented-AutoML#guidelines-on-tuning-a-custom-estimator)
 
-- [Guidelines on creating and tuning a custom estimator](Use-Cases/Task-Oriented-AutoML#guidelines-on-tuning-a-custom-estimator)
-
-
-## Frequently Asked Questions
 
 ### About `low_cost_partial_config` in `tune`.
 
