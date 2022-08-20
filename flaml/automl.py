@@ -1579,6 +1579,7 @@ class AutoML(BaseEstimator):
         auto_augment=None,
         custom_hp=None,
         skip_transform=None,
+        preserve_checkpoint=True,
         fit_kwargs_by_estimator=None,
         **fit_kwargs,
     ):
@@ -1715,6 +1716,7 @@ class AutoML(BaseEstimator):
         self._state.fit_kwargs_by_estimator = (
             fit_kwargs_by_estimator or self._settings.get("fit_kwargs_by_estimator")
         )
+        self.preserve_checkpoint = preserve_checkpoint
         self._validate_data(X_train, y_train, dataframe, label, groups=groups)
 
         logger.info("log file name {}".format(log_file_name))
