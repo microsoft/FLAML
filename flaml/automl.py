@@ -627,6 +627,8 @@ class AutoML(BaseEstimator):
             keep_search_state: boolean, default=False | Whether to keep data needed
                 for model search after fit(). By default the state is deleted for
                 space saving.
+            preserve_checkpoint: boolean, default=True | Whether to preserve the saved checkpoint
+                on disk when deleting automl. By default the checkpoint is preserved.
             early_stop: boolean, default=False | Whether to stop early if the
                 search is considered to converge.
             append_log: boolean, default=False | Whetehr to directly append the log
@@ -726,6 +728,7 @@ class AutoML(BaseEstimator):
         settings["starting_points"] = settings.get("starting_points", "static")
         settings["n_concurrent_trials"] = settings.get("n_concurrent_trials", 1)
         settings["keep_search_state"] = settings.get("keep_search_state", False)
+        settings["preserve_checkpoint"] = settings.get("preserve_checkpoint", True)
         settings["early_stop"] = settings.get("early_stop", False)
         settings["append_log"] = settings.get("append_log", False)
         settings["min_sample_size"] = settings.get("min_sample_size", MIN_SAMPLE_TRAIN)
@@ -2308,6 +2311,8 @@ class AutoML(BaseEstimator):
             keep_search_state: boolean, default=False | Whether to keep data needed
                 for model search after fit(). By default the state is deleted for
                 space saving.
+            preserve_checkpoint: boolean, default=True | Whether to preserve the saved checkpoint
+                on disk when deleting automl. By default the checkpoint is preserved.
             early_stop: boolean, default=False | Whether to stop early if the
                 search is considered to converge.
             append_log: boolean, default=False | Whetehr to directly append the log
