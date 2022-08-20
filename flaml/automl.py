@@ -1716,7 +1716,11 @@ class AutoML(BaseEstimator):
         self._state.fit_kwargs_by_estimator = (
             fit_kwargs_by_estimator or self._settings.get("fit_kwargs_by_estimator")
         )
-        self.preserve_checkpoint = preserve_checkpoint
+        self.preserve_checkpoint = (
+            self._settings.get("preserve_checkpoint")
+            if preserve_checkpoint is None
+            else preserve_checkpoint
+        )
         self._validate_data(X_train, y_train, dataframe, label, groups=groups)
 
         logger.info("log file name {}".format(log_file_name))
@@ -2476,7 +2480,11 @@ class AutoML(BaseEstimator):
             if keep_search_state is None
             else keep_search_state
         )
-        self.preserve_checkpoint = preserve_checkpoint
+        self.preserve_checkpoint = (
+            self._settings.get("preserve_checkpoint")
+            if preserve_checkpoint is None
+            else preserve_checkpoint
+        )
         early_stop = (
             self._settings.get("early_stop") if early_stop is None else early_stop
         )
