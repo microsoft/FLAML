@@ -1704,7 +1704,11 @@ class AutoML(BaseEstimator):
 
         self._state.fit_kwargs = fit_kwargs
         self._state.custom_hp = custom_hp or self._settings.get("custom_hp")
-        self._skip_transform = self._settings.get("skip_transform") if skip_transform is None else skip_transform
+        self._skip_transform = (
+            self._settings.get("skip_transform")
+            if skip_transform is None
+            else skip_transform
+        )
         self._state.fit_kwargs_by_estimator = (
             fit_kwargs_by_estimator or self._settings.get("fit_kwargs_by_estimator")
         )
@@ -2123,6 +2127,7 @@ class AutoML(BaseEstimator):
         seed=None,
         n_concurrent_trials=None,
         keep_search_state=None,
+        preserve_checkpoint=True,
         early_stop=None,
         append_log=None,
         auto_augment=None,
@@ -2464,6 +2469,7 @@ class AutoML(BaseEstimator):
             if keep_search_state is None
             else keep_search_state
         )
+        self.preserve_checkpoint = preserve_checkpoint
         early_stop = (
             self._settings.get("early_stop") if early_stop is None else early_stop
         )
@@ -2513,7 +2519,11 @@ class AutoML(BaseEstimator):
 
         self._state.fit_kwargs = fit_kwargs
         custom_hp = custom_hp or self._settings.get("custom_hp")
-        self._skip_transform = self._settings.get("skip_transform") if skip_transform is None else skip_transform
+        self._skip_transform = (
+            self._settings.get("skip_transform")
+            if skip_transform is None
+            else skip_transform
+        )
         fit_kwargs_by_estimator = fit_kwargs_by_estimator or self._settings.get(
             "fit_kwargs_by_estimator"
         )
@@ -3566,7 +3576,8 @@ class AutoML(BaseEstimator):
             and self._trained_estimator
             and hasattr(self._trained_estimator, "cleanup")
         ):
-            self._trained_estimator.cleanup()
+            if self.preserve_checkpoint is False:
+                self._trained_estimator.cleanup()
             del self._trained_estimator
 
     def _select_estimator(self, estimator_list):
