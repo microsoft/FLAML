@@ -3069,7 +3069,9 @@ class AutoML(BaseEstimator):
         if mlflow is not None and mlflow.active_run():
             with mlflow.start_run(nested=True):
                 mlflow.log_metric("iter_counter", self._track_iter)
-                if "intermediate_results" in search_state.metric_for_logging:
+                if (search_state.metric_for_logging is not None) and (
+                    "intermediate_results" in search_state.metric_for_logging
+                ):
                     for each_entry in search_state.metric_for_logging[
                         "intermediate_results"
                     ]:
