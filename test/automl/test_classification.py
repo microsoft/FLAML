@@ -392,6 +392,7 @@ class TestClassification(unittest.TestCase):
         print(automl_experiment.best_estimator)
 
     def test_metric_for_logging_None(self):
+        # test case when search_state.metric_for_logging is None
         import mlflow
         from sklearn.datasets import load_iris
 
