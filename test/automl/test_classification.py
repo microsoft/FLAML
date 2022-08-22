@@ -391,22 +391,6 @@ class TestClassification(unittest.TestCase):
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
 
-    def test_metric_for_logging_None(self):
-        # a test case when search_state.metric_for_logging is None
-        import mlflow
-        from sklearn.datasets import load_iris
-
-        with mlflow.start_run():
-            automl = AutoML()
-            automl_settings = {
-                "time_budget": 1,  # in seconds
-                "metric": "accuracy",
-                "task": "classification",
-                "log_file_name": "iris.log",
-            }
-            X_train, y_train = load_iris(return_X_y=True)
-            automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
-
 
 if __name__ == "__main__":
     test = TestClassification()
