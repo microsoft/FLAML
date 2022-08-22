@@ -159,7 +159,7 @@ def test_mlflow():
     with mlflow.start_run():
         automl = AutoML()
         automl_settings = {
-            "time_budget": 1,  # in seconds
+            "time_budget": 2,  # in seconds
             "metric": "accuracy",
             "task": "classification",
             "log_file_name": "iris.log",
