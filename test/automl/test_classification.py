@@ -391,7 +391,7 @@ class TestClassification(unittest.TestCase):
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
 
-    def test_metric_for_logging(self):
+    def test_metric_for_logging_None(self):
         import mlflow
         from sklearn.datasets import load_iris
 
