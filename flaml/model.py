@@ -445,6 +445,7 @@ class TransformersEstimator(BaseEstimator):
 
     def _set_training_args(self, **kwargs):
         from .nlp.utils import date_str, Counter
+        from transformers.trainer_utils import IntervalStrategy
 
         for (key, val) in kwargs.items():
             assert key not in self.params, (
@@ -486,6 +487,14 @@ class TransformersEstimator(BaseEstimator):
 
         self._training_args.fp16 = self.fp16
         self._training_args.no_cuda = self.no_cuda
+        if self._training_args.ckpt_last is False:
+            self._training_args.evaluation_strategy = (
+                self._training_args.save_strategy
+            ) = IntervalStrategy("steps")
+        else:
+            self._training_args.evaluation_strategy = (
+                self._training_args.save_strategy
+            ) = IntervalStrategy("no")
 
         if (
             self._task == TOKENCLASSIFICATION
@@ -722,11 +731,10 @@ class TransformersEstimator(BaseEstimator):
         return time.time() - start_time
 
     def _delete_one_ckpt(self, ckpt_location):
-        if self._use_ray is False:
-            try:
-                shutil.rmtree(ckpt_location)
-            except FileNotFoundError:
-                logger.warning("checkpoint {} not found".format(ckpt_location))
+        try:
+            shutil.rmtree(ckpt_location)
+        except FileNotFoundError:
+            logger.warning("checkpoint {} not found".format(ckpt_location))
 
     def cleanup(self):
         super().cleanup()
@@ -738,6 +746,11 @@ class TransformersEstimator(BaseEstimator):
         from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
 
         if trainer.ckpt_to_metric:
+            trainer.ckpt_to_metric = {
+                key: val
+                for (key, val) in trainer.ckpt_to_metric.items()
+                if val is not None
+            }
             best_ckpt, _ = min(
                 trainer.ckpt_to_metric.items(), key=lambda x: x[1]["eval_automl_metric"]
             )
@@ -756,6 +769,7 @@ class TransformersEstimator(BaseEstimator):
         self.params[self.ITER_HP] = best_ckpt_global_step
         logger.debug(trainer.state.global_step)
         logger.debug(trainer.ckpt_to_global_step)
+
         return best_ckpt
 
     def _compute_metrics_by_dataset_name(self, eval_pred):

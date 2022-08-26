@@ -8,6 +8,7 @@ from typing import Optional, List
 
 try:
     from transformers import TrainingArguments
+    from transformers.trainer_utils import EvaluationStrategy, IntervalStrategy
 except ImportError:
     TrainingArguments = object
 
@@ -34,6 +35,8 @@ class TrainingArgumentsForAuto(TrainingArguments):
             (1) The token labels, i.e., [B-PER, I-PER, B-LOC]; (2) Id labels. For (2), need to pass the label_list (e.g., [B-PER, I-PER, B-LOC])
             to convert the Id to token labels when computing the metric with metric_loss_score.
             See the example in [a simple token classification example](../../../Examples/AutoML-NLP#a-simple-token-classification-example).
+        eval_steps (int, optional, defaults to 500): An integer, checkpoint at every eval_steps steps.
+        ckpt_last (bool, optional, defaults to True): A bool, whether to use last checkpoint (True) or the best checkpoint (False) to select the trial, default set to True
     """
 
     task: str = field(default="seq-classification")
@@ -79,12 +82,11 @@ class TrainingArgumentsForAuto(TrainingArguments):
         default=500, metadata={"help": "Run an evaluation every X steps."}
     )
 
-    save_steps: int = field(
-        default=500, metadata={"help": "Save checkpoint every X updates steps."}
-    )
-
-    logging_steps: int = field(
-        default=500, metadata={"help": "Log every X updates steps."}
+    ckpt_last: str = field(
+        default=True,
+        metadata={
+            "help": "Whether to use last checkpoint (True) or the best checkpoint (False) to select the trial, default set to True"
+        },
     )
 
     @staticmethod

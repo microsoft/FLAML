@@ -89,8 +89,7 @@ class TrainerForAuto(Seq2SeqTrainer):
             )
         if hasattr(self, "ckpt_to_global_step"):
             self.ckpt_to_global_step[ckpt_dir] = self.state.global_step
-            if metrics:
-                self.ckpt_to_metric[ckpt_dir] = metrics
+            self.ckpt_to_metric[ckpt_dir] = metrics
         else:
             self.ckpt_to_global_step = {ckpt_dir: self.state.global_step}
             self.ckpt_to_metric = {ckpt_dir: metrics} if metrics else {}
