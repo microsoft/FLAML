@@ -7,7 +7,7 @@ import pandas as pd
 from pandas.api.types import is_float_dtype
 
 from flaml.multiscale.smooth import expsmooth, moving_window_smooth
-from flaml.ts_model import TimeSeriesEstimator, TimeSeriesDataset
+from flaml.ts_model import TimeSeriesEstimator, TimeSeriesDataset, ARIMA
 
 
 def scale_transform(points: int, step: int, smooth_fun: Callable, offset: int = -1):
@@ -55,15 +55,22 @@ class ScaleTransform:
         self.mat = None
         self.sample_indices = None
 
-    def fit_transform(self, X: Union[np.ndarray, pd.DataFrame], offset: int = -1):
-        self.fit(X, offset)
+    def fit_transform(self, X: Union[np.ndarray, pd.DataFrame]):
+        self.fit(X)
         return self.transform(X)
 
-    def fit(self, X: Union[np.ndarray, pd.DataFrame], offset: int = -1):
+    def fit(self, X: Union[np.ndarray, pd.DataFrame, TimeSeriesDataset]):
+        if isinstance(X, TimeSeriesDataset):
+            num_rows = len(X.train_data) + len(X.test_data)
+            # want to sample the last timestamp in the _train_ set
+            offset = -len(X.test_data) - 1
+        else:
+            num_rows = len(X)
+            offset = -1
+
         _, self.mat, _, self.sample_indices = scale_transform(
-            len(X), self.step, self.smooth_fun, offset
+            num_rows, self.step, self.smooth_fun, offset
         )
-        self.sample_indices = self.sample_indices
 
     def transform(self, X: Union[np.ndarray, pd.DataFrame]):
         if isinstance(X, np.ndarray):
@@ -89,7 +96,25 @@ class ScaleTransform:
             )
             return lo, hi
         elif isinstance(X, TimeSeriesDataset):
-            raise NotImplementedError
+            lo_, hi_ = self.transform(pd.concat([X.train_data, X.test_data], axis=0))
+            hi = TimeSeriesDataset(
+                train_data=hi_[: len(X.train_data)],
+                test_data=hi_[len(X.train_data) :],
+                time_col=X.time_col,
+                target_names=X.target_names,
+                time_idx=X.time_idx,
+            )
+            lo_train = lo_[lo_[X.time_col] <= hi.train_data[hi.time_col].max()]
+            lo_test = lo_[lo_[X.time_col] > hi.train_data[hi.time_col].max()]
+
+            lo = TimeSeriesDataset(
+                train_data=lo_train,
+                test_data=lo_test,
+                time_col=X.time_col,
+                target_names=X.target_names,
+                time_idx=X.time_idx,
+            )
+            return lo, hi
         else:
             raise ValueError(
                 "Only np.ndarray, pd.DataFrame, and TimeSeriesDataset are supported"
@@ -110,6 +135,16 @@ class ScaleTransform:
                     pd.DataFrame(data=vals, columns=float_cols, index=hi.index),
                 ],
                 axis=1,
+            )
+            return out
+        elif isinstance(lo, TimeSeriesDataset) and isinstance(hi, TimeSeriesDataset):
+            merged = self.inverse_transform(lo.all_data, hi.all_data)
+            out = TimeSeriesDataset(
+                train_data=merged[: len(hi.train_data)],
+                test_data=merged[len(hi.train_data) :],
+                time_col=hi.time_col,
+                target_names=hi.target_names,
+                time_idx=hi.time_idx,
             )
             return out
         else:
@@ -148,11 +183,11 @@ class MultiscaleModel(TimeSeriesEstimator):
         y_pred_lo = self.model_lo.predict(X_lo.test_data)
         y_lo = X_lo.merge_prediction_with_target(y_pred_lo)
 
-        y_pred_hi = self.model_lo.predict(X_hi.test_data)
+        y_pred_hi = self.model_hi.predict(X_hi.test_data)
         y_hi = X_hi.merge_prediction_with_target(y_pred_hi)
 
         out = self.scale_transform.inverse_transform(y_lo, y_hi)
-        return out
+        return out[len(X_hi.train_data) :]
 
 
 if __name__ == "__main__":
@@ -160,8 +195,23 @@ if __name__ == "__main__":
     y = pd.Series(name="date", data=pd.date_range(start="1/1/2018", periods=300))
     df = pd.DataFrame(y)
     df["data"] = pd.Series(data=np.random.normal(size=len(df)), index=df.index)
-    lo, hi = st.fit_transform(df)
-    out = st.inverse_transform(lo, hi)
-    error = df["data"] - out["data"]
-    error.abs().max()
+
+    ts_data = TimeSeriesDataset(
+        train_data=df[:-50], time_col="date", target_names="data", test_data=df[-50:]
+    )
+
+    lo, hi = st.fit_transform(ts_data)
+    re_data = st.inverse_transform(lo, hi)
+
+    test_df = ts_data.all_data.merge(re_data.all_data, on=ts_data.time_col)
+
+    assert len(test_df) == len(ts_data.all_data)
+    assert (test_df["data_x"] - test_df["data_y"]).abs().max() < 1e-10
+
+    model_lo = ARIMA(p=2, d=2, q=1)
+    model_hi = ARIMA(p=2, d=2, q=1)
+    model = MultiscaleModel(model_lo, model_hi)
+    model.fit(ts_data)
+    out = model.predict(ts_data)
+
     print("yahoo!")

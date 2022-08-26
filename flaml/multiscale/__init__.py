@@ -1,3 +1,3 @@
-from .multiscale import ScaleTransform
+from .multiscale import ScaleTransform, MultiscaleModel
 
-__all__ = ["ScaleTransform"]
+__all__ = ["ScaleTransform", "MultiscaleModel"]

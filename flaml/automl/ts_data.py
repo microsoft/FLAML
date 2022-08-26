@@ -46,15 +46,22 @@ class TimeSeriesDataset:
         ), "Only time series of regular frequency are currently supported."
 
         float_cols = list(train_data.select_dtypes(include=["floating"]).columns)
-        self.time_varying_known_reals = list(set(float_cols) - set(target_names))
+        self.time_varying_known_reals = list(set(float_cols) - set(self.target_names))
 
         self.time_varying_known_categoricals = list(
             set(train_data.columns)
             - set(self.time_varying_known_reals)
-            - set(target_names)
+            - set(self.target_names)
             - {time_col}
         )
-        self.test_data = test_data
+        if test_data is not None:
+            self.test_data = test_data
+        else:
+            self.test_data = pd.DataFrame(columns=self.train_data.columns)
+
+    @property
+    def all_data(self):
+        return pd.concat([self.train_data, self.test_data], axis=0)
 
     @property
     def regressors(self):
@@ -157,7 +164,7 @@ class TimeSeriesDataset:
         return out
 
     def prettify_prediction(self, y_pred: Union[pd.DataFrame, pd.Series, np.ndarray]):
-        if self.test_data is not None:
+        if self.test_data is not None and len(self.test_data):
             assert len(y_pred) == len(self.test_data)
 
             if isinstance(y_pred, np.ndarray):
@@ -189,6 +196,7 @@ class TimeSeriesDataset:
         assert isinstance(y_pred, pd.DataFrame)
         assert self.time_col in y_pred.columns
         assert all([t in y_pred.columns for t in self.target_names])
+        return y_pred
 
     def merge_prediction_with_target(
         self, y_pred: Union[pd.DataFrame, pd.Series, np.ndarray]

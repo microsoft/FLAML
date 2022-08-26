@@ -64,7 +64,7 @@ class TimeSeriesEstimator(SKLearnEstimator):
 
 
 class Orbit(TimeSeriesEstimator):
-    def fit(self, X_train: TimeSeriesDataset, y_train, budget=None, **kwargs):
+    def fit(self, X_train: TimeSeriesDataset, y_train=None, budget=None, **kwargs):
         from orbit.models import DLT, LGT, ETS
 
         # y_train is ignored, just need it for signature compatibility with other classes
@@ -160,7 +160,7 @@ class Prophet(TimeSeriesEstimator):
         }
         return space
 
-    def fit(self, X_train, y_train, budget=None, **kwargs):
+    def fit(self, X_train, y_train=None, budget=None, **kwargs):
         from prophet import Prophet
 
         super().fit(X_train, y_train, budget=budget, **kwargs)
@@ -248,7 +248,7 @@ class ARIMA(TimeSeriesEstimator):
         train_df = train_df.drop(TS_TIMESTAMP_COL, axis=1)
         return train_df
 
-    def fit(self, X_train, y_train, budget=None, **kwargs):
+    def fit(self, X_train, y_train=None, budget=None, **kwargs):
         import warnings
 
         super().fit(X_train, y_train, budget=budget, **kwargs)
@@ -371,7 +371,7 @@ class SARIMAX(ARIMA):
         }
         return space
 
-    def fit(self, X_train, y_train, budget=None, **kwargs):
+    def fit(self, X_train, y_train=None, budget=None, **kwargs):
         import warnings
 
         super().fit(X_train, y_train, budget=budget, **kwargs)
@@ -515,7 +515,7 @@ class TS_SKLearn(SKLearnEstimator):
             model = self.hcrystaball_model.model.fit(X_fit, y_fit)
             self._model = model
 
-    def fit(self, X_train, y_train, budget=None, **kwargs):
+    def fit(self, X_train, y_train=None, budget=None, **kwargs):
         current_time = time.time()
         if isinstance(X_train, TimeSeriesDataset):
             data = X_train
