@@ -3,7 +3,7 @@ import pandas as pd
 from flaml.multiscale import ScaleTransform
 
 
-def test_multiscale():
+def test_multiscale_transform():
     st = ScaleTransform(step=7)
     y = pd.Series(name="date", data=pd.date_range(start="1/1/2018", periods=30))
     df = pd.DataFrame(y)
@@ -15,4 +15,4 @@ def test_multiscale():
 
 
 if __name__ == "__main__":
-    test_multiscale()
+    test_multiscale_transform()

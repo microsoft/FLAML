@@ -288,13 +288,13 @@ class TaskTS(Task):
         )
         data = TimeSeriesDataset(
             train_data=dataframe,
-            time_idx="index",
+            # time_idx="index",
             time_col=time_col,
             target_names=target_names,
-            frequency=frequency,
+            # frequency=frequency,
             test_data=dataframe_val,
-            time_varying_known_categoricals=time_varying_known_categoricals,
-            time_varying_known_reals=time_varying_known_reals,
+            # time_varying_known_categoricals=time_varying_known_categoricals,
+            # time_varying_known_reals=time_varying_known_reals,
         )
 
         automl._state.X_val = data

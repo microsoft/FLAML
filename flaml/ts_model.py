@@ -44,7 +44,8 @@ class TimeSeriesEstimator(SKLearnEstimator):
         train_df = X_train.join(y_train)
         return train_df
 
-    def fit(self, X_train: TimeSeriesDataset, y_train, budget=None, **kwargs):
+    def fit(self, X_train: TimeSeriesDataset, y_train=None, budget=None, **kwargs):
+        # TODO purge y_train
         self.time_col = X_train.time_col
         self.target_names = X_train.target_names
 

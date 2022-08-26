@@ -1,12 +1,13 @@
 import copy
 import math
-from typing import Union, Callable
+from typing import Union, Callable, Optional
 
 import numpy as np
 import pandas as pd
 from pandas.api.types import is_float_dtype
 
 from flaml.multiscale.smooth import expsmooth, moving_window_smooth
+from flaml.ts_model import TimeSeriesEstimator, TimeSeriesDataset
 
 
 def scale_transform(points: int, step: int, smooth_fun: Callable, offset: int = -1):
@@ -87,8 +88,12 @@ class ScaleTransform:
                 axis=1,
             )
             return lo, hi
+        elif isinstance(X, TimeSeriesDataset):
+            raise NotImplementedError
         else:
-            raise ValueError("Only np.ndarray and pd.DataFrame are supported")
+            raise ValueError(
+                "Only np.ndarray, pd.DataFrame, and TimeSeriesDataset are supported"
+            )
 
     def inverse_transform(
         self, lo: Union[np.ndarray, pd.DataFrame], hi: Union[np.ndarray, pd.DataFrame]
@@ -108,12 +113,51 @@ class ScaleTransform:
             )
             return out
         else:
-            raise ValueError("hi and lo must either both be np.ndarray or pd.DataFrame")
+            raise ValueError(
+                "hi and lo must either both be np.ndarray,pd.DataFrame, or TimeSeriesDataset"
+            )
+
+
+class MultiscaleModel(TimeSeriesEstimator):
+    def __init__(
+        self,
+        model_lo: TimeSeriesEstimator,
+        model_hi: TimeSeriesEstimator,
+        scale=None,
+        task="ts_forecast",
+    ):
+        super().__init__(task=task)
+        self.model_lo = model_lo
+        self.model_hi = model_hi
+        self.scale = scale
+        self.scale_transform: ScaleTransform = None
+
+    def fit(self, X_train: TimeSeriesDataset, y_train=None, **kwargs):
+        super().fit(X_train)
+        if self.scale is None:
+            self.scale = X_train.next_scale()
+        self.scale_transform = ScaleTransform(self.scale)
+        self.X_train = X_train
+        X_lo, X_hi = self.scale_transform.fit_transform(X_train)
+        self.model_lo.fit(X_lo)
+        self.model_hi.fit(X_hi)
+
+    def predict(self, X: TimeSeriesDataset):
+        # X has all the known past in train_data, genuine future in test_data
+        X_lo, X_hi = self.scale_transform.fit_transform(X)
+        y_pred_lo = self.model_lo.predict(X_lo.test_data)
+        y_lo = X_lo.merge_prediction_with_target(y_pred_lo)
+
+        y_pred_hi = self.model_lo.predict(X_hi.test_data)
+        y_hi = X_hi.merge_prediction_with_target(y_pred_hi)
+
+        out = self.scale_transform.inverse_transform(y_lo, y_hi)
+        return out
 
 
 if __name__ == "__main__":
     st = ScaleTransform(step=7)
-    y = pd.Series(name="date", data=pd.date_range(start="1/1/2018", periods=30))
+    y = pd.Series(name="date", data=pd.date_range(start="1/1/2018", periods=300))
     df = pd.DataFrame(y)
     df["data"] = pd.Series(data=np.random.normal(size=len(df)), index=df.index)
     lo, hi = st.fit_transform(df)

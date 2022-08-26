@@ -1,7 +1,7 @@
 import copy
 import datetime
 from dataclasses import dataclass, field
-from typing import List, Optional, Callable, Dict
+from typing import List, Optional, Callable, Dict, Union
 
 import pandas as pd
 import numpy as np
@@ -19,16 +19,50 @@ class TimeSeriesDataset:
     time_idx: str
     time_col: str
     target_names: List[str]
-    frequency: str
+    frequency: str  # TODO: should be derived from dataset
     time_varying_known_categoricals: List[str] = field(default_factory=lambda: [])
     time_varying_known_reals: List[str] = field(default_factory=lambda: [])
     time_varying_unknown_categoricals: List[str] = field(default_factory=lambda: [])
     time_varying_unknown_reals: List[str] = field(default_factory=lambda: [])
     test_data: Optional[pd.DataFrame] = None
 
+    def __init__(
+        self,
+        train_data: pd.DataFrame,
+        time_col: str,
+        target_names: Union[str, list[str]],
+        time_idx: str = "index",
+        test_data: Optional[pd.DataFrame] = None,
+    ):
+        self.train_data = train_data
+        self.time_col = time_col
+        self.time_idx = time_idx
+        self.target_names = (
+            [target_names] if isinstance(target_names, str) else target_names
+        )
+        self.frequency = pd.infer_freq(train_data[time_col])
+        assert (
+            self.frequency is not None
+        ), "Only time series of regular frequency are currently supported."
+
+        float_cols = list(train_data.select_dtypes(include=["floating"]).columns)
+        self.time_varying_known_reals = list(set(float_cols) - set(target_names))
+
+        self.time_varying_known_categoricals = list(
+            set(train_data.columns)
+            - set(self.time_varying_known_reals)
+            - set(target_names)
+            - {time_col}
+        )
+        self.test_data = test_data
+
     @property
     def regressors(self):
         return self.time_varying_known_categoricals + self.time_varying_known_reals
+
+    def next_scale(self) -> int:
+        # TODO get from self.frequency()
+        return 7
 
     def days_to_periods_mult(self):
         freq = self.frequency
@@ -121,6 +155,48 @@ class TimeSeriesDataset:
         out.train_data = self.train_data[filter_fun]
         out.test_data = self.test_data[filter_fun]
         return out
+
+    def prettify_prediction(self, y_pred: Union[pd.DataFrame, pd.Series, np.ndarray]):
+        if self.test_data is not None:
+            assert len(y_pred) == len(self.test_data)
+
+            if isinstance(y_pred, np.ndarray):
+                y_pred = pd.DataFrame(
+                    data=y_pred, columns=self.target_names, index=self.test_data.index
+                )
+            elif isinstance(y_pred, pd.Series):
+                assert len(self.target_names) == 1, "Not enough columns in y_pred"
+                y_pred = pd.DataFrame(
+                    {self.target_names[0]: y_pred}, index=self.test_data.index
+                )
+            elif isinstance(y_pred, pd.DataFrame):
+                y_pred.index = self.test_data.index
+
+            if self.time_col not in y_pred.columns:
+                y_pred[self.time_col] = self.test_data[self.time_col]
+
+        else:
+            if isinstance(y_pred, np.ndarray):
+                raise ValueError("Can't enrich np.ndarray as self.test_data is None")
+            elif isinstance(y_pred, pd.Series):
+                assert len(self.target_names) == 1, "Not enough columns in y_pred"
+                y_pred = pd.DataFrame({self.target_names[0]: y_pred})
+            # TODO auto-create the timestamps for the time column instead of throwing
+            raise NotImplementedError(
+                "Need a non-None test_data for this to work, for now"
+            )
+
+        assert isinstance(y_pred, pd.DataFrame)
+        assert self.time_col in y_pred.columns
+        assert all([t in y_pred.columns for t in self.target_names])
+
+    def merge_prediction_with_target(
+        self, y_pred: Union[pd.DataFrame, pd.Series, np.ndarray]
+    ):
+        y_pred = self.prettify_prediction(y_pred)
+        return pd.concat(
+            [self.train_data[[self.time_col] + self.target_names], y_pred], axis=0
+        )
 
 
 def add_time_idx_new(data: BasicDataset, time_col: str) -> pd.DataFrame:

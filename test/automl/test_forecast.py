@@ -2,7 +2,7 @@ import numpy as np
 from flaml import AutoML
 
 
-def test_forecast_automl(budget=5):
+def test_forecast_automl(budget=50):
     # using dataframe
     import statsmodels.api as sm
 
