@@ -36,7 +36,6 @@ def test_multiscale_transform_dataset():
 
 
 def test_multiscale_arima():
-    st = ScaleTransform(step=7)
     y = pd.Series(name="date", data=pd.date_range(start="1/1/2018", periods=300))
     df = pd.DataFrame(y)
     df["data"] = pd.Series(data=np.random.normal(size=len(df)), index=df.index)
@@ -48,7 +47,7 @@ def test_multiscale_arima():
     model_hi = ARIMA(p=2, d=2, q=1)
     model = MultiscaleModel(model_lo, model_hi)
     model.fit(ts_data)
-    out = model.predict(ts_data)
+    model.predict(ts_data)
 
 
 if __name__ == "__main__":

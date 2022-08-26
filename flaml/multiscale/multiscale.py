@@ -194,7 +194,14 @@ if __name__ == "__main__":
     st = ScaleTransform(step=7)
     y = pd.Series(name="date", data=pd.date_range(start="1/1/2018", periods=300))
     df = pd.DataFrame(y)
-    df["data"] = pd.Series(data=np.random.normal(size=len(df)), index=df.index)
+
+    t = np.array(range(len(y)))
+    data = (
+        np.sin(2.0 * math.pi * t / 7.0)
+        + t**0.5
+        + 0.1 * np.random.normal(size=len(df))
+    )
+    df["data"] = pd.Series(data=data, index=df.index)
 
     ts_data = TimeSeriesDataset(
         train_data=df[:-50], time_col="date", target_names="data", test_data=df[-50:]
@@ -213,5 +220,9 @@ if __name__ == "__main__":
     model = MultiscaleModel(model_lo, model_hi)
     model.fit(ts_data)
     out = model.predict(ts_data)
+    import matplotlib.pyplot as plt
 
+    plt.plot(ts_data.all_data.date, ts_data.all_data.data)
+    plt.plot(out.date, out.data)
+    plt.show()
     print("yahoo!")
