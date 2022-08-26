@@ -8,7 +8,6 @@ from typing import Optional, List
 
 try:
     from transformers import TrainingArguments
-    from transformers.trainer_utils import EvaluationStrategy, IntervalStrategy
 except ImportError:
     TrainingArguments = object
 
