@@ -709,6 +709,7 @@ class TransformersEstimator(BaseEstimator):
         import time
 
         start_time = time.time()
+
         self._trainer.train()
 
         if gpu_per_trial is not None:

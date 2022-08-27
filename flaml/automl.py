@@ -398,7 +398,7 @@ class AutoMLState:
         self,
         estimator,
         config_w_resource,
-        sample_size=None,
+        sample_size=None
     ):
         if not sample_size:
             sample_size = config_w_resource.get(
@@ -443,7 +443,7 @@ class AutoMLState:
             estimator_class=self.learner_classes.get(estimator),
             budget=budget,
             fit_kwargs=this_estimator_kwargs,  # NOTE: _train_with_config is after kwargs is updated to fit_kwargs_by_estimator
-            eval_metric=self.metric if hasattr(self, "metric") else "train_time",
+            eval_metric=self.metric if hasattr(self, "metric") else "train_time"
         )
 
         if sampled_weight is not None:
@@ -3611,7 +3611,7 @@ class AutoML(BaseEstimator):
                     ) = self._state._train_with_config(
                         self._best_estimator,
                         state.best_config,
-                        self.data_size_full,
+                        self.data_size_full
                     )
                     logger.info(
                         "retrain {} for {:.1f}s".format(
