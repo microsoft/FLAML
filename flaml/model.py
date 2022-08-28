@@ -410,7 +410,7 @@ class TransformersEstimator(BaseEstimator):
     def search_space(cls, data_size, task, **params):
         search_space_dict = {
             "learning_rate": {
-                "domain": tune.loguniform(1e-6, 1e-4),
+                "domain": tune.qloguniform(1e-6, 1e-4, 1e-6),
                 "init_value": 1e-5,
             },
             "num_train_epochs": {
