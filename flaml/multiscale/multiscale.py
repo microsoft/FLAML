@@ -203,8 +203,13 @@ if __name__ == "__main__":
     )
     df["data"] = pd.Series(data=data, index=df.index)
 
+    test_rows = 100
+
     ts_data = TimeSeriesDataset(
-        train_data=df[:-50], time_col="date", target_names="data", test_data=df[-50:]
+        train_data=df[:-test_rows],
+        time_col="date",
+        target_names="data",
+        test_data=df[-test_rows:],
     )
 
     lo, hi = st.fit_transform(ts_data)
@@ -215,8 +220,8 @@ if __name__ == "__main__":
     assert len(test_df) == len(ts_data.all_data)
     assert (test_df["data_x"] - test_df["data_y"]).abs().max() < 1e-10
 
-    model_lo = ARIMA(p=2, d=2, q=1)
-    model_hi = ARIMA(p=2, d=2, q=1)
+    model_lo = ARIMA(p=4, d=1, q=2)
+    model_hi = ARIMA(p=7, d=2, q=3)
     model = MultiscaleModel(model_lo, model_hi)
     model.fit(ts_data)
     out = model.predict(ts_data)
