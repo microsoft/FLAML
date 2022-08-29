@@ -4,7 +4,7 @@ import logging
 import pathlib
 import json
 from flaml.data import DataTransformer
-from flaml.automl.tasks import CLASSIFICATION, get_classification_objective
+from flaml.automl.task.tasks import CLASSIFICATION, get_classification_objective
 from flaml.ml import get_estimator_class
 
 LOCATION = pathlib.Path(__file__).parent.resolve()

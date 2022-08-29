@@ -1,5 +1,4 @@
 import flaml.automl.task.factory
-from . import tasks
 from .automl import AutoML as AutoMLGeneric
 
 # Hackity hack hack

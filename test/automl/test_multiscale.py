@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
-from flaml.multiscale import ScaleTransform, MultiscaleModel
-from flaml.automl.ts_data import TimeSeriesDataset
-from flaml.ts_model import ARIMA
+from flaml.time_series.multiscale import ScaleTransform, MultiscaleModel
+from flaml.time_series.ts_data import TimeSeriesDataset
+from flaml.time_series.ts_model import ARIMA, SARIMAX
 
 
 def test_multiscale_transform():
@@ -44,7 +44,7 @@ def test_multiscale_arima():
         train_data=df[:-50], time_col="date", target_names="data", test_data=df[-50:]
     )
     model_lo = ARIMA(p=2, d=2, q=1)
-    model_hi = ARIMA(p=2, d=2, q=1)
+    model_hi = SARIMAX(p=1, d=0, q=1, P=3, D=0, Q=3, s=7)
     model = MultiscaleModel(model_lo, model_hi)
     model.fit(ts_data)
     model.predict(ts_data)

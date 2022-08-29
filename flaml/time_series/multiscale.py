@@ -1,13 +1,12 @@
-import copy
 import math
-from typing import Union, Callable, Optional
+from typing import Union, Callable
 
 import numpy as np
 import pandas as pd
 from pandas.api.types import is_float_dtype
 
-from flaml.multiscale.smooth import expsmooth, moving_window_smooth
-from flaml.ts_model import TimeSeriesEstimator, TimeSeriesDataset, ARIMA
+from flaml.time_series.smooth import expsmooth, moving_window_smooth
+from flaml.time_series import TimeSeriesEstimator, TimeSeriesDataset, ARIMA, SARIMAX
 
 
 def scale_transform(points: int, step: int, smooth_fun: Callable, offset: int = -1):
@@ -191,7 +190,6 @@ class MultiscaleModel(TimeSeriesEstimator):
 
 
 if __name__ == "__main__":
-    st = ScaleTransform(step=7)
     y = pd.Series(name="date", data=pd.date_range(start="1/1/2018", periods=300))
     df = pd.DataFrame(y)
 
@@ -212,16 +210,8 @@ if __name__ == "__main__":
         test_data=df[-test_rows:],
     )
 
-    lo, hi = st.fit_transform(ts_data)
-    re_data = st.inverse_transform(lo, hi)
-
-    test_df = ts_data.all_data.merge(re_data.all_data, on=ts_data.time_col)
-
-    assert len(test_df) == len(ts_data.all_data)
-    assert (test_df["data_x"] - test_df["data_y"]).abs().max() < 1e-10
-
-    model_lo = ARIMA(p=4, d=1, q=2)
-    model_hi = ARIMA(p=7, d=2, q=3)
+    model_lo = ARIMA(p=3, d=1, q=1)
+    model_hi = SARIMAX(p=1, d=0, q=1, P=3, D=0, Q=3, s=7)
     model = MultiscaleModel(model_lo, model_hi)
     model.fit(ts_data)
     out = model.predict(ts_data)

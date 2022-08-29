@@ -503,7 +503,7 @@ print(automl.predict(multi_X_test))
 #### Sample Output
 
 ```python
-import flaml.ts_model
+import flaml.time_series.ts_model
 
 [flaml.automl: 02 - 28
 21: 32:26] {2458}
@@ -797,9 +797,9 @@ INFO - retrain
 prophet
 for 2.2s
     [flaml.automl: 02 - 28
-21: 32:32] {2857}
+    21: 32:32] {2857}
 INFO - retrained
-model: < flaml.ts_model.Prophet
+model: < flaml.automl.time_series.ts_model.Prophet
 object
 at
 0x000001B1D3EE2B80 >

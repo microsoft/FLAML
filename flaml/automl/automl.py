@@ -8,14 +8,6 @@ from typing import Callable, Optional, List, Union
 from functools import partial
 import numpy as np
 from scipy.sparse import issparse
-from sklearn.model_selection import (
-    train_test_split,
-    RepeatedStratifiedKFold,
-    RepeatedKFold,
-    GroupKFold,
-    TimeSeriesSplit,
-    GroupShuffleSplit,
-)
 
 from sklearn.base import BaseEstimator
 import pandas as pd
@@ -37,17 +29,12 @@ from ..config import (
     SAMPLE_MULTIPLY_FACTOR,
 )
 from ..data import (
-    concat,
     _is_nlp_task,
     default_estimator_list,
 )
-from .tasks import (
-    TOKENCLASSIFICATION,
+from flaml.automl.task.tasks import (
     CLASSIFICATION,
-    REGRESSION,
     TS_FORECAST,
-    NLG_TASKS,
-    get_classification_objective,
 )
 from .. import tune
 from ..training_log import training_log_reader, training_log_writer
@@ -1717,7 +1704,7 @@ class AutoML(BaseEstimator):
             or max_iter == 1
         )
         # add custom learner
-        from .tasks import TaskParent
+        from flaml.automl.task.tasks import TaskParent
 
         assert isinstance(self.task, TaskParent)
         for estimator_name in estimator_list:

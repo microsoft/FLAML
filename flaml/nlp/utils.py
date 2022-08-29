@@ -1,13 +1,12 @@
 from typing import Dict, Any
 import numpy as np
 
-from ..automl.tasks import (
+from flaml.automl.task.tasks import (
     SEQCLASSIFICATION,
     MULTICHOICECLASSIFICATION,
     TOKENCLASSIFICATION,
     SEQREGRESSION,
     SUMMARIZATION,
-    NLG_TASKS,
 )
 
 

@@ -6,7 +6,7 @@ from typing import List, Optional, Union
 
 from pandas import DataFrame, Series, to_datetime
 
-from . import tune
+from flaml import tune
 
 # This may be needed to get PyStan to run, needed for Orbit
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 
 
-from .model import (
+from flaml.model import (
     suppress_stdout_stderr,
     SKLearnEstimator,
     logger,
@@ -25,8 +25,8 @@ from .model import (
     ExtraTreesEstimator,
     XGBoostLimitDepthEstimator,
 )
-from .data import TS_TIMESTAMP_COL, TS_VALUE_COL
-from .automl.ts_data import TimeSeriesDataset
+from flaml.data import TS_TIMESTAMP_COL, TS_VALUE_COL
+from flaml.time_series.ts_data import TimeSeriesDataset
 
 
 class TimeSeriesEstimator(SKLearnEstimator):
@@ -51,7 +51,7 @@ class TimeSeriesEstimator(SKLearnEstimator):
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         from sklearn.metrics import r2_score
-        from .ml import metric_loss_score
+        from ..ml import metric_loss_score
 
         y_pred = self.predict(X_val, **kwargs)
         if isinstance(X_val, TimeSeriesDataset):
@@ -65,7 +65,7 @@ class TimeSeriesEstimator(SKLearnEstimator):
 
 class Orbit(TimeSeriesEstimator):
     def fit(self, X_train: TimeSeriesDataset, y_train=None, budget=None, **kwargs):
-        from orbit.models import DLT, LGT, ETS
+        from orbit.models import DLT
 
         # y_train is ignored, just need it for signature compatibility with other classes
         super().fit(X_train, y_train, budget=budget, **kwargs)
@@ -266,23 +266,23 @@ class ARIMA(TimeSeriesEstimator):
                 if isinstance(data.target_names, list)
                 else data.target_names
             )
-            regressors = data.regressors
-            train_df = data.train_data[regressors + [target_col]]
+            self.regressors = data.regressors
+            train_df = data.train_data[self.regressors + [target_col]]
             train_df.index = to_datetime(data.train_data[data.time_col])
             self.time_col = data.time_col
             self.target_names = target_col
         else:
             target_col = TS_VALUE_COL
             train_df = self._join(X_train, y_train)
-            regressors = list(train_df)
-            regressors.remove(TS_VALUE_COL)
+            self.regressors = list(train_df)
+            self.regressors.remove(TS_VALUE_COL)
 
         train_df = self._preprocess(train_df)
 
-        if len(regressors):
+        if len(self.regressors):
             model = ARIMA_estimator(
                 train_df[[target_col]],
-                exog=train_df[regressors],
+                exog=train_df[self.regressors],
                 order=(self.params["p"], self.params["d"], self.params["q"]),
                 enforce_stationarity=False,
                 enforce_invertibility=False,
@@ -314,9 +314,8 @@ class ARIMA(TimeSeriesEstimator):
         if isinstance(X, DataFrame):
             start = X[self.time_col].iloc[0]
             end = X[self.time_col].iloc[-1]
-            if len(X.columns) > 1:
-                X = self._preprocess(X.drop(columns=self.time_col))
-                regressors = list(X)
+            if len(self.regressors):
+                X = self._preprocess(X[self.regressors])
                 forecast = self._model.predict(start=start, end=end, exog=X, **kwargs)
             else:
                 forecast = self._model.predict(start=start, end=end, **kwargs)
@@ -384,25 +383,25 @@ class SARIMAX(ARIMA):
         if isinstance(X_train, TimeSeriesDataset):
             data = X_train
             target_col = data.target_names[0]
-            regressors = data.regressors
+            self.regressors = data.regressors
             # this class only supports univariate regression
-            train_df = data.train_data[regressors + [target_col]]
+            train_df = data.train_data[self.regressors + [target_col]]
             train_df.index = to_datetime(data.train_data[data.time_col])
         else:
             target_col = TS_VALUE_COL
             train_df = self._join(X_train, y_train)
-            regressors = list(train_df)
-            regressors.remove(TS_VALUE_COL)
+            self.regressors = list(train_df)
+            self.regressors.remove(TS_VALUE_COL)
 
         train_df = self._preprocess(train_df)
-        regressors = list(train_df)
-        regressors.remove(target_col)
-        if regressors:
+        # regressors = list(train_df)
+        # regressors.remove(target_col)
+        if self.regressors:
             model = SARIMAX_estimator(
                 train_df[[target_col]],
-                exog=train_df[regressors],
+                exog=train_df[self.regressors],
                 order=(self.params["p"], self.params["d"], self.params["q"]),
-                seasonality_order=(
+                seasonal_order=(
                     self.params["P"],
                     self.params["D"],
                     self.params["Q"],
@@ -415,7 +414,7 @@ class SARIMAX(ARIMA):
             model = SARIMAX_estimator(
                 train_df,
                 order=(self.params["p"], self.params["d"], self.params["q"]),
-                seasonality_order=(
+                seasonal_order=(
                     self.params["P"],
                     self.params["D"],
                     self.params["Q"],

@@ -26,7 +26,7 @@ from flaml.model import (
     TransformersEstimator,
     TransformersEstimatorModelSelection,
 )
-from ..tasks import (
+from flaml.automl.task.tasks import (
     TOKENCLASSIFICATION,
     CLASSIFICATION,
     REGRESSION,

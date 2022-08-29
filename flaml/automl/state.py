@@ -8,9 +8,9 @@ import numpy as np
 import pandas as pd
 
 from flaml import tune
-from .tasks import TS_FORECAST
+from flaml.automl.task.tasks import TS_FORECAST
 from flaml.ml import compute_estimator, train_estimator
-from .ts_data import TimeSeriesDataset
+from flaml.time_series.ts_data import TimeSeriesDataset
 
 logger = logging.getLogger(__name__)
 

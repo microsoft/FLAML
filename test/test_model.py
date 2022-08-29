@@ -11,7 +11,7 @@ from flaml.model import (
     XGBoostEstimator,
     RandomForestEstimator,
 )
-from flaml.ts_model import Prophet, ARIMA, LGBM_TS
+from flaml.time_series import Prophet, ARIMA, LGBM_TS
 
 
 def test_lrl2():

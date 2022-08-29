@@ -1,5 +1,4 @@
 import logging
-from typing import List, Union
 
 import numpy as np
 import pandas as pd
@@ -9,12 +8,12 @@ from sklearn.utils import shuffle
 
 # from .automl import AutoML
 from .generic import Task
-from ..ts_data import TimeSeriesDataset
+from flaml.time_series.ts_data import TimeSeriesDataset
 from ...config import RANDOM_SEED
 
 from ...data import DataTransformerTS
-from ..tasks import TS_FORECAST
-from ...ts_model import (
+from flaml.automl.task.tasks import TS_FORECAST
+from flaml.time_series import (
     XGBoost_TS,
     XGBoostLimitDepth_TS,
     RF_TS,

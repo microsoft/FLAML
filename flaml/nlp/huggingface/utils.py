@@ -2,7 +2,7 @@ import pandas as pd
 from itertools import chain
 import numpy as np
 
-from ...automl.tasks import (
+from flaml.automl.task.tasks import (
     SEQCLASSIFICATION,
     MULTICHOICECLASSIFICATION,
     TOKENCLASSIFICATION,

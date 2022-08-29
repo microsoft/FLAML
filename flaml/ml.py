@@ -31,7 +31,7 @@ from .model import (
     TransformersEstimator,
     TransformersEstimatorModelSelection,
 )
-from .ts_model import (
+from flaml.time_series import (
     Prophet,
     Orbit,
     ARIMA,
@@ -43,8 +43,8 @@ from .ts_model import (
     XGBoostLimitDepth_TS,
 )
 from .data import group_counts
-from .automl.tasks import CLASSIFICATION, TS_FORECAST
-from .automl.ts_data import TimeSeriesDataset
+from flaml.automl.task.tasks import CLASSIFICATION, TS_FORECAST
+from flaml.time_series.ts_data import TimeSeriesDataset
 import logging
 
 logger = logging.getLogger(__name__)
