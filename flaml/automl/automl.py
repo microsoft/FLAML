@@ -36,6 +36,9 @@ from flaml.automl.task.tasks import (
     CLASSIFICATION,
     TS_FORECAST,
 )
+
+from flaml.automl.task.factory import task_factory
+
 from .. import tune
 from ..training_log import training_log_reader, training_log_writer
 from ..default.suggest import suggest_learner
@@ -1396,8 +1399,11 @@ class AutoML(BaseEstimator):
             if isinstance(y_train, pd.Series):
                 label = y_train.name
 
+        task_name = task or self._settings["task"]
+        self.task = task_factory(task_name)
         task = self.task
         self._state.task = self.task
+
         # TODO: remove duplicate task at self and self._state
         # self.__dict__.pop("task")  # cleanup
         self._state._start_time_flag = self._start_time_flag = time.time()
