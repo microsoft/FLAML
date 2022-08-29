@@ -9,5 +9,7 @@ from .ts_model import (
     ExtraTrees_TS,
     XGBoostLimitDepth_TS,
     TimeSeriesEstimator,
-    TimeSeriesDataset,
 )
+
+from .ts_data import TimeSeriesDataset
+from .feature import add_naive_date_features

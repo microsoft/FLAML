@@ -55,43 +55,6 @@ class Task(TaskParent):
         "transformer": TransformersEstimator,
         "transformer_ms": TransformersEstimatorModelSelection,
     }
-    # Redundant?
-    # @staticmethod
-    # def _validate_ts_data(
-    #     automl,
-    #     dataframe,
-    #     y_train_all=None,
-    # ):
-    #     assert (
-    #         dataframe[dataframe.columns[0]].dtype.name == "datetime64[ns]"
-    #     ), f"For '{TS_FORECAST}' task, the first column must contain timestamp values."
-    #     if y_train_all is not None:
-    #         y_df = (
-    #             pd.DataFrame(y_train_all)
-    #             if isinstance(y_train_all, pd.Series)
-    #             else pd.DataFrame(y_train_all, columns=["labels"])
-    #         )
-    #         dataframe = dataframe.join(y_df)
-    #     duplicates = dataframe.duplicated()
-    #     if any(duplicates):
-    #         logger.warning(
-    #             "Duplicate timestamp values found in timestamp column. "
-    #             f"\n{dataframe.loc[duplicates, dataframe][dataframe.columns[0]]}"
-    #         )
-    #         dataframe = dataframe.drop_duplicates()
-    #         logger.warning("Removed duplicate rows based on all columns")
-    #         assert (
-    #             dataframe[[dataframe.columns[0]]].duplicated() is None
-    #         ), "Duplicate timestamp values with different values for other columns."
-    #     ts_series = pd.to_datetime(dataframe[dataframe.columns[0]])
-    #     inferred_freq = pd.infer_freq(ts_series)
-    #     if inferred_freq is None:
-    #         logger.warning(
-    #             "Missing timestamps detected. To avoid error with estimators, set estimator list to ['prophet']. "
-    #         )
-    #     if y_train_all is not None:
-    #         return dataframe.iloc[:, :-1], dataframe.iloc[:, -1]
-    #     return dataframe
 
     @staticmethod
     def _validate_data(
@@ -131,11 +94,12 @@ class Task(TaskParent):
             ), "# rows in X_train must match length of y_train."
             automl._df = isinstance(X_train_all, pd.DataFrame)
             automl._nrow, automl._ndim = X_train_all.shape
-            if automl._state.task in TS_FORECAST:
-                X_train_all = pd.DataFrame(X_train_all)
-                X_train_all, y_train_all = automl._validate_ts_data(
-                    X_train_all, y_train_all
-                )
+            # if automl._state.task in TS_FORECAST:
+            #     raise ValueError("Task mismatch!")
+            #     # X_train_all = pd.DataFrame(X_train_all)
+            #     # X_train_all, y_train_all = automl._validate_ts_data(
+            #     #     X_train_all, y_train_all
+            #     # )
             X, y = X_train_all, y_train_all
         elif dataframe is not None and label is not None:
             assert isinstance(
@@ -143,8 +107,8 @@ class Task(TaskParent):
             ), "dataframe must be a pandas DataFrame"
             assert label in dataframe.columns, "label must a column name in dataframe"
             automl._df = True
-            if automl._state.task in TS_FORECAST:
-                dataframe = automl._validate_ts_data(dataframe)
+            # if automl._state.task in TS_FORECAST:
+            #     dataframe = automl._validate_ts_data(dataframe)
             X = dataframe.drop(columns=label)
             automl._nrow, automl._ndim = X.shape
             y = dataframe[label]

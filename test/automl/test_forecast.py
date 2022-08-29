@@ -1,5 +1,7 @@
 import numpy as np
+import pandas as pd
 from flaml import AutoML
+from flaml.time_series import add_naive_date_features
 
 
 def test_forecast_automl(budget=5):
@@ -442,6 +444,13 @@ def test_forecast_classification(budget=5):
     # plt.scatter(time_history, 1 - np.array(valid_loss_history))
     # plt.step(time_history, 1 - np.array(best_valid_loss_history), where="post")
     # plt.show()
+
+
+def test_features():
+    y = pd.Series(
+        name="date", data=pd.date_range(start="1/1/2018", periods=300, freq="H")
+    )
+    f = add_naive_date_features(y, 3)
 
 
 if __name__ == "__main__":

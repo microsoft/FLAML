@@ -8,10 +8,9 @@ from sklearn.utils import shuffle
 
 # from .automl import AutoML
 from .generic import Task
-from flaml.time_series.ts_data import TimeSeriesDataset
+from flaml.time_series.ts_data import TimeSeriesDataset, DataTransformerTS
 from ...config import RANDOM_SEED
 
-from ...data import DataTransformerTS
 from flaml.automl.task.tasks import TS_FORECAST
 from flaml.time_series import (
     XGBoost_TS,
@@ -44,38 +43,6 @@ class TaskTS(Task):
     }
 
     @staticmethod
-    def _validate_ts_data(
-        _,
-        dataframe,
-        time_col,
-        y_train_all=None,
-    ):
-        assert (
-            dataframe.dtypes[time_col].name == "datetime64[ns]"
-        ), f"For '{TS_FORECAST}' task, time_col must contain timestamp values."
-        if y_train_all is not None:
-            y_df = (
-                pd.DataFrame(y_train_all)
-                if isinstance(y_train_all, pd.Series)
-                else pd.DataFrame(y_train_all, columns=["labels"])
-            )
-            dataframe = dataframe.join(y_df)
-        duplicates = dataframe.duplicated()
-        if any(duplicates):
-            logger.warning(
-                "Duplicate timestamp values found in timestamp column. "
-                f"\n{dataframe.loc[duplicates, dataframe][dataframe.columns[0]]}"
-            )
-            dataframe = dataframe.drop_duplicates()
-            logger.warning("Removed duplicate rows based on all columns")
-            assert (
-                dataframe[[dataframe.columns[0]]].duplicated() is None
-            ), "Duplicate timestamp values with different values for other columns."
-        if y_train_all is not None:
-            return dataframe.iloc[:, :-1], dataframe.iloc[:, -1]
-        return dataframe
-
-    @staticmethod
     def _validate_data(
         automl,
         X_train_all,
@@ -88,47 +55,22 @@ class TaskTS(Task):
         groups_val=None,
         groups=None,
     ):
+        if label is None:
+            label = "y"  # Prophet convention
+
+        if isinstance(label, str):
+            target_names = [label]
+        else:
+            target_names = label
+
+        # we will cast any X to a dataframe,
+        automl._df = True
+
         if X_train_all is not None and y_train_all is not None:
-            assert (
-                isinstance(X_train_all, np.ndarray)
-                or issparse(X_train_all)
-                or isinstance(X_train_all, pd.DataFrame)
-            ), (
-                "X_train_all must be a numpy array, a pandas dataframe, "
-                "or Scipy sparse matrix."
+            validate_data_basic(X_train_all, y_train_all)
+            dataframe = normalize_ts_data(
+                X_train_all, y_train_all, target_names, time_col
             )
-            assert (
-                isinstance(y_train_all, np.ndarray)
-                or isinstance(y_train_all, pd.Series)
-                or isinstance(y_train_all, pd.DataFrame)
-            ), "y_train_all must be a numpy array or a pandas series or DataFrame."
-            assert (
-                X_train_all.size != 0 and y_train_all.size != 0
-            ), "Input data must not be empty."
-            if isinstance(X_train_all, np.ndarray) and len(X_train_all.shape) == 1:
-                X_train_all = np.reshape(X_train_all, (X_train_all.size, 1))
-            assert (
-                X_train_all.shape[0] == y_train_all.shape[0]
-            ), "# rows in X_train must match length of y_train."
-
-            if isinstance(X_train_all, np.ndarray):
-                X_train_all = pd.DataFrame(
-                    X_train_all,
-                    columns=["ds"] + [f"x{i}" for i in range(X_train_all.shape[1] - 1)],
-                )
-                time_col = "ds"
-
-            if isinstance(y_train_all, np.ndarray):
-                # TODO: will need to revisit this when doing multivariate y
-                y_train_all = pd.Series(y_train_all.reshape(-1), name="y")
-                label = "y"
-
-            automl._df = isinstance(X_train_all, pd.DataFrame)
-            automl._nrow, automl._ndim = X_train_all.shape
-            X_train_all, y_train_all = automl.task._validate_ts_data(
-                automl, X_train_all, time_col, y_train_all
-            )
-            X, y = X_train_all, y_train_all
 
         elif dataframe is not None:
             assert label is not None, "A label or list of labels must be provided."
@@ -136,164 +78,56 @@ class TaskTS(Task):
                 dataframe, pd.DataFrame
             ), "dataframe must be a pandas DataFrame"
             assert label in dataframe.columns, "label must a column name in dataframe"
-            automl._df = True
-            dataframe = automl.task._validate_ts_data(automl, dataframe, time_col)
-            X = dataframe.drop(columns=label)
-            automl._nrow, automl._ndim = X.shape
-            y = dataframe[label]
-
-        if issparse(X_train_all):
-            automl._transformer = automl._label_transformer = False
-            automl._X_train_all, automl._y_train_all = X, y
         else:
-            automl._transformer = DataTransformerTS(time_col, label)
-
-            (
-                automl._X_train_all,
-                automl._y_train_all,
-            ) = automl._transformer.fit_transform(X, y)
-            automl._label_transformer = automl._transformer.label_transformer
-            automl._feature_names_in_ = (
-                automl._X_train_all.columns.to_list()
-                if hasattr(automl._X_train_all, "columns")
-                else None
+            raise ValueError(
+                "Must supply either X_train_all and y_train_all, or dataframe and label"
             )
 
-        automl._sample_weight_full = automl._state.fit_kwargs.get(
-            "sample_weight"
-        )  # NOTE: _validate_data is before kwargs is updated to fit_kwargs_by_estimator
-        if X_val is not None and y_val is not None:
-            assert (
-                isinstance(X_val, np.ndarray)
-                or issparse(X_val)
-                or isinstance(X_val, pd.DataFrame)
-            ), (
-                "X_val must be None, a numpy array, a pandas dataframe, "
-                "or Scipy sparse matrix."
-            )
-            assert (
-                isinstance(y_val, np.ndarray)
-                or isinstance(y_val, pd.Series)
-                or isinstance(y_val, pd.DataFrame)
-            ), "y_val must be None, a numpy array or a pandas series."
-            assert X_val.size != 0 and y_val.size != 0, (
-                "Validation data are expected to be nonempty. "
-                "Use None for X_val and y_val if no validation data."
-            )
-            assert (
-                X_val.shape[0] == y_val.shape[0]
-            ), "# rows in X_val must match length of y_val."
-            if automl._transformer:
-                automl._state.X_val = automl._transformer.transform(X_val)
-            else:
-                automl._state.X_val = X_val
-            automl._state.y_val = automl._label_transformer.transform(y_val)
-        else:
-            automl._state.X_val = automl._state.y_val = None
-
-    @staticmethod
-    def _prepare_data(
-        automl,
-        eval_method,
-        split_ratio,
-        n_splits,
-        time_col=None,
-    ):
-        if time_col is None:
-            time_col = "ds"
-        X_val, y_val = automl._state.X_val, automl._state.y_val
-        if issparse(X_val):
-            X_val = X_val.tocsr()
-        X_train_all, y_train_all = automl._X_train_all, automl._y_train_all
-        if issparse(X_train_all):
-            X_train_all = X_train_all.tocsr()
-
-        SHUFFLE_SPLIT_TYPES = ["uniform", "stratified"]
-        if automl._split_type in SHUFFLE_SPLIT_TYPES:
-            if automl._sample_weight_full is not None:
-                X_train_all, y_train_all, automl._state.sample_weight_all = shuffle(
-                    X_train_all,
-                    y_train_all,
-                    automl._sample_weight_full,
-                    random_state=RANDOM_SEED,
-                )
-                automl._state.fit_kwargs[
-                    "sample_weight"
-                ] = (
-                    automl._state.sample_weight_all
-                )  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-            else:
-                X_train_all, y_train_all = shuffle(
-                    X_train_all, y_train_all, random_state=RANDOM_SEED
-                )
-            if automl._df:
-                X_train_all.reset_index(drop=True, inplace=True)
-                if isinstance(y_train_all, pd.Series):
-                    y_train_all.reset_index(drop=True, inplace=True)
-
-        X_train, y_train = X_train_all, y_train_all
-        automl._state.groups = None
-        automl._state.groups_all = None
-        automl._state.groups_val = None
-        if X_val is None and eval_method == "holdout":
-            # if eval_method = holdout, make holdout data
-            num_samples = X_train_all.shape[0]
-            period = automl._state.fit_kwargs[
-                "period"
-            ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-            assert period < num_samples, f"period={period}>#examples={num_samples}"
-            split_idx = num_samples - period
-            X_train = X_train_all[:split_idx]
-            y_train = y_train_all[:split_idx]
-            X_val = X_train_all[split_idx:]
-            y_val = y_train_all[split_idx:]
-            dataframe_val = X_val.merge(y_val, left_index=True, right_index=True)
-        else:
-            dataframe_val = None
-
-        automl._state.data_size = X_train.shape
-        automl.data_size_full = len(y_train_all)
-        automl._state.X_train, automl._state.y_train = X_train, y_train
-        automl._state.X_val, automl._state.y_val = X_val, y_val
-        automl._state.X_train_all = X_train_all
-        automl._state.y_train_all = y_train_all
-        period = automl._state.fit_kwargs[
-            "period"
-        ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-        if period * (n_splits + 1) > y_train_all.size:
-            n_splits = int(y_train_all.size / period - 1)
-            assert n_splits >= 2, (
-                f"cross validation for forecasting period={period}"
-                f" requires input data with at least {3 * period} examples."
-            )
-            logger.info(f"Using nsplits={n_splits} due to data size limit.")
-        automl._state.kf = TimeSeriesSplit(n_splits=n_splits, test_size=period)
-
-        dataframe = X_train.merge(y_train, left_index=True, right_index=True)
-
-        frequency = pd.infer_freq(dataframe[time_col])
-        target_names = list(pd.DataFrame(y_train).columns)
         assert (
-            frequency is not None
-        ), "Only time series of regular frequency are currently supported."
-        time_varying_known_reals = list(
-            X_train.select_dtypes(include=["floating"]).columns
+            dataframe.dtypes[time_col].name == "datetime64[ns]"
+        ), f"For '{TS_FORECAST}' task, time_col must contain timestamp values."
+
+        dataframe = remove_ts_duplicates(dataframe, time_col)
+        X = dataframe.drop(columns=target_names)
+        automl._nrow, automl._ndim = X.shape
+
+        # transform them all together to guarantee consistency
+        if X_val is not None and y_val is not None:
+            validate_data_basic(X_val, y_val)
+            val_df = normalize_ts_data(X_val, y_val, target_names, time_col)
+            all_df = pd.concat([dataframe, val_df], axis=0)
+            val_len = len(val_df)
+        else:
+            all_df = dataframe
+            val_len = 0
+
+        automl._transformer = DataTransformerTS(time_col, label)
+        Xt, yt = automl._transformer.fit_transform(
+            all_df.drop(columns=target_names), all_df[target_names]
         )
-        time_varying_known_categoricals = list(
-            set(X_train.columns)
-            - set(time_varying_known_reals)
-            - set(pd.DataFrame(y_train).columns)
-            - {time_col}
+        df_t = pd.concat([Xt, yt], axis=1)
+
+        if val_len == 0:
+            df_train, df_val = df_t, None
+        else:
+            df_train, df_val = df_t[:-val_len], df_t[-val_len:]
+
+        automl._X_train_all, automl._y_train_all = Xt, yt
+
+        automl._label_transformer = automl._transformer.label_transformer
+
+        automl._feature_names_in_ = (
+            automl._X_train_all.columns.to_list()
+            if hasattr(automl._X_train_all, "columns")
+            else None
         )
+        # NOTE: _validate_data is before kwargs is updated to fit_kwargs_by_estimator
+
         data = TimeSeriesDataset(
-            train_data=dataframe,
-            # time_idx="index",
+            train_data=df_train,
             time_col=time_col,
             target_names=target_names,
-            # frequency=frequency,
-            test_data=dataframe_val,
-            # time_varying_known_categoricals=time_varying_known_categoricals,
-            # time_varying_known_reals=time_varying_known_reals,
+            test_data=df_val,
         )
 
         automl._state.X_val = data
@@ -308,6 +142,59 @@ class TaskTS(Task):
             automl._state.X_train_all = data
         automl._state.y_train_all = None
 
+        automl._state.data_size = data.train_data.shape
+        automl.data_size_full = len(data.all_data)
+
+    @staticmethod
+    def _prepare_data(
+        automl,
+        eval_method,
+        split_ratio,
+        n_splits,
+        time_col=None,
+    ):
+
+        automl._state.kf = None
+        automl._sample_weight_full = None
+        if eval_method != "holdout":
+            raise NotImplementedError("Cross-validation implementation pending")
+
+        SHUFFLE_SPLIT_TYPES = ["uniform", "stratified"]
+        if automl._split_type in SHUFFLE_SPLIT_TYPES:
+            raise ValueError(
+                f"Split type {automl._split_type} is not valid for time series"
+            )
+
+        automl._state.groups = None
+        automl._state.groups_all = None
+        automl._state.groups_val = None
+
+        ts_data = automl._state.X_val
+        no_test_data = ts_data.test_data is None or len(ts_data.test_data) == 0
+        if no_test_data and eval_method == "holdout":
+            # if eval_method = holdout, make holdout data
+            num_samples = ts_data.train_data.shape[0]
+            period = automl._state.fit_kwargs[
+                "period"
+            ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+            assert period < num_samples, f"period={period}>#examples={num_samples}"
+            automl._state.X_val = ts_data.move_validation_boundary(-period)
+            automl._state.X_train = automl._state.X_val
+
+        if eval_method != "holdout":
+            period = automl._state.fit_kwargs[
+                "period"
+            ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+
+            if period * (n_splits + 1) > y_train_all.size:
+                n_splits = int(y_train_all.size / period - 1)
+                assert n_splits >= 2, (
+                    f"cross validation for forecasting period={period}"
+                    f" requires input data with at least {3 * period} examples."
+                )
+                logger.info(f"Using nsplits={n_splits} due to data size limit.")
+            automl._state.kf = TimeSeriesSplit(n_splits=n_splits, test_size=period)
+
     @staticmethod
     def _decide_split_type(automl, split_type):
         assert split_type in ["auto", "time"]
@@ -316,3 +203,83 @@ class TaskTS(Task):
             automl._state.fit_kwargs.get("period"),
             int,  # NOTE: _decide_split_type is before kwargs is updated to fit_kwargs_by_estimator
         ), f"missing a required integer 'period' for '{TS_FORECAST}' task."
+
+
+def validate_data_basic(X_train_all, y_train_all):
+
+    assert (
+        isinstance(X_train_all, np.ndarray)
+        or issparse(X_train_all)
+        or isinstance(X_train_all, pd.DataFrame)
+    ), (
+        "X_train_all must be a numpy array, a pandas dataframe, "
+        "or Scipy sparse matrix."
+    )
+
+    assert (
+        isinstance(y_train_all, np.ndarray)
+        or isinstance(y_train_all, pd.Series)
+        or isinstance(y_train_all, pd.DataFrame)
+    ), "y_train_all must be a numpy array or a pandas series or DataFrame."
+
+    assert (
+        X_train_all.size != 0 and y_train_all.size != 0
+    ), "Input data must not be empty, use None if no data"
+
+    assert (
+        X_train_all.shape[0] == y_train_all.shape[0]
+    ), "# rows in X_train must match length of y_train."
+
+
+def normalize_ts_data(X_train_all, y_train_all, target_names, time_col):
+    if issparse(X_train_all):
+        X_train_all = X_train_all.tocsr()
+
+    if isinstance(X_train_all, np.ndarray) and len(X_train_all.shape) == 1:
+        X_train_all = np.reshape(X_train_all, (X_train_all.size, 1))
+
+    if isinstance(X_train_all, np.ndarray):
+        X_train_all = pd.DataFrame(
+            X_train_all,
+            columns=[time_col] + [f"x{i}" for i in range(X_train_all.shape[1] - 1)],
+        )
+
+    if isinstance(y_train_all, np.ndarray):
+        # TODO: will need to revisit this when doing multivariate y
+        y_train_all = pd.DataFrame(
+            y_train_all.reshape(len(X_train_all), -1),
+            columns=target_names,
+            index=X_train_all.index,
+        )
+
+    dataframe = pd.concat([X_train_all, y_train_all], axis=1)
+
+    return dataframe
+
+
+def remove_ts_duplicates(
+    X,
+    time_col,
+):
+    """
+    Assumes the targets are included
+    @param X:
+    @param time_col:
+    @param y:
+    @return:
+    """
+
+    duplicates = X.duplicated()
+
+    if any(duplicates):
+        logger.warning(
+            "Duplicate timestamp values found in timestamp column. "
+            f"\n{X.loc[duplicates, X][time_col]}"
+        )
+        X = X.drop_duplicates()
+        logger.warning("Removed duplicate rows based on all columns")
+        assert (
+            X[[X.columns[0]]].duplicated() is None
+        ), "Duplicate timestamp values with different values for other columns."
+
+    return X

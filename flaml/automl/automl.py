@@ -1529,7 +1529,7 @@ class AutoML(BaseEstimator):
             y_train,
             dataframe,
             label,
-            time_col,
+            time_col if time_col is not None else "ds",
             X_val,
             y_val,
             groups_val,
