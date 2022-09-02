@@ -258,6 +258,11 @@ def sklearn_metric_loss_score(
     """
     metric_name = metric_name.lower()
 
+    # Align the types, just in case
+    if isinstance(np.array(y_true)[0], str):
+        y_true = np.array(y_true).astype(str)
+        y_predict = np.array(y_predict).astype(str)
+
     if "r2" == metric_name:
         score = 1.0 - r2_score(y_true, y_predict, sample_weight=sample_weight)
     elif metric_name == "rmse":

@@ -183,6 +183,7 @@ class Prophet(TimeSeriesEstimator):
     def fit(self, X_train, y_train=None, budget=None, **kwargs):
         from prophet import Prophet
 
+        X_train = enrich(X_train, self.params["monthly_fourier_degree"], self.time_col)
         super().fit(X_train, y_train, budget=budget, **kwargs)
 
         current_time = time.time()
@@ -214,6 +215,7 @@ class Prophet(TimeSeriesEstimator):
         return train_time
 
     def predict(self, X, **kwargs):
+        X = enrich(X, self.params["monthly_fourier_degree"], self.time_col)
         if isinstance(X, int):
             raise ValueError(
                 "predict() with steps is only supported for arima/sarimax."
@@ -405,6 +407,7 @@ class SARIMAX(ARIMA):
     def fit(self, X_train, y_train=None, budget=None, **kwargs):
         import warnings
 
+        X_train = enrich(X_train, self.params["monthly_fourier_degree"], self.time_col)
         super().fit(X_train, y_train, budget=budget, **kwargs)
 
         warnings.filterwarnings("ignore")
@@ -496,12 +499,6 @@ class TS_SKLearn(TimeSeriesEstimator):
         super().__init__(task, **params)
         self.hcrystaball_model = None
         self.ts_task = task
-        # (
-        #     # TODO: wire this into task class
-        #     "regression"
-        #     if task.name in TS_FORECASTREGRESSION
-        #     else "classification"
-        # )
 
     def transform_X(self, X: pd.DataFrame):
         cols = list(X)
@@ -554,12 +551,13 @@ class TS_SKLearn(TimeSeriesEstimator):
             self._model = model
 
     def fit(self, X_train, y_train=None, budget=None, **kwargs):
+        X_train = enrich(X_train, self.params["monthly_fourier_degree"], self.time_col)
         current_time = time.time()
         if isinstance(X_train, TimeSeriesDataset):
             data = X_train
             X_train = data.train_data[data.regressors + [data.time_col]]
             # this class only supports univariate regression
-            y_train = data.train_data[data.target_names[0]]
+            y_train = data.y_train
             self.time_col = data.time_col
             self.target_names = data.target_names
         elif isinstance(X_train, pd.DataFrame):
@@ -570,6 +568,7 @@ class TS_SKLearn(TimeSeriesEstimator):
         return train_time
 
     def predict(self, X, **kwargs):
+        X = enrich(X, self.params["monthly_fourier_degree"], self.time_col)
         if isinstance(X, TimeSeriesDataset):
             data = X
             X = data.test_data[data.regressors + [data.time_col]]

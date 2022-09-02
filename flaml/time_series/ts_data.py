@@ -42,8 +42,11 @@ class TimeSeriesDataset:
         self.time_col = time_col
         self.time_idx = time_idx
         self.target_names = (
-            [target_names] if isinstance(target_names, str) else target_names
+            [target_names] if isinstance(target_names, str) else list(target_names)
         )
+        assert isinstance(target_names, list)
+        assert len(target_names)
+
         self.frequency = pd.infer_freq(train_data[time_col])
         assert (
             self.frequency is not None
@@ -70,6 +73,23 @@ class TimeSeriesDataset:
     @property
     def regressors(self):
         return self.time_varying_known_categoricals + self.time_varying_known_reals
+
+    def _y(self, df: pd.DataFrame):
+        if len(self.target_names) > 1:
+            return df[self.target_names]
+        else:
+            out = df[self.target_names[0]]
+            if out.dtype == object:
+                out = out.astype(str)
+            return out
+
+    @property
+    def y_train(self):
+        return self._y(self.train_data)
+
+    @property
+    def y_val(self):
+        return self._y(self.test_data)
 
     def next_scale(self) -> int:
         # TODO get from self.frequency()
