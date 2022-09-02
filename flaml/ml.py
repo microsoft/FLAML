@@ -400,6 +400,8 @@ def _eval_estimator(
         pred_time = metric_for_logging.get("pred_time", 0)
         val_pred_y = None
         # eval_metric may return val_pred_y but not necessarily. Setting None for now.
+
+    val_loss = np.float64(val_loss)
     return val_loss, metric_for_logging, pred_time, val_pred_y
 
 

@@ -20,6 +20,7 @@ class SearchState:
         self,
         learner_class,
         data_size,
+        data,
         task,
         starting_point=None,
         period=None,
@@ -34,9 +35,9 @@ class SearchState:
         self.data_size = data_size
         self.ls_ever_converged = False
         self.learner_class = learner_class
-        if task in TS_FORECAST:
+        if task.is_ts_forecast():
             search_space = learner_class.search_space(
-                data_size=data_size, task=task, pred_horizon=period
+                data=data, task=task, pred_horizon=period
             )
         else:
             search_space = learner_class.search_space(data_size=data_size, task=task)

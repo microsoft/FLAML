@@ -1779,6 +1779,7 @@ class AutoML(BaseEstimator):
             self._search_states[estimator_name] = SearchState(
                 learner_class=estimator_class,
                 data_size=self._state.data_size,
+                data=self._state.X_val,
                 task=self.task,
                 starting_point=starting_points.get(estimator_name),
                 period=self._state.fit_kwargs.get(

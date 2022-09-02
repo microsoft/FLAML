@@ -27,6 +27,7 @@ from flaml.model import (
 )
 from flaml.data import TS_TIMESTAMP_COL, TS_VALUE_COL
 from flaml.time_series.ts_data import TimeSeriesDataset
+from flaml.automl.task import Task
 
 
 class TimeSeriesEstimator(SKLearnEstimator):
@@ -34,6 +35,10 @@ class TimeSeriesEstimator(SKLearnEstimator):
         super().__init__(task, **params)
         self.time_col: Optional[str] = None
         self.target_names: Optional[Union[str, List[str]]] = None
+
+    @classmethod
+    def search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int):
+        return cls._search_space(data=data, task=task, pred_horizon=pred_horizon)
 
     def _join(self, X_train, y_train):
         assert TS_TIMESTAMP_COL in X_train, (
@@ -129,7 +134,8 @@ class Orbit(TimeSeriesEstimator):
             return None
 
     @classmethod
-    def search_space(cls, **params):
+    def _search_space(cls, **params):
+        # TODO: fill in a proper search space
         space = {}
         return space
 
@@ -138,7 +144,7 @@ class Prophet(TimeSeriesEstimator):
     """The class for tuning Prophet."""
 
     @classmethod
-    def search_space(cls, **params):
+    def _search_space(cls, **params):
         space = {
             "changepoint_prior_scale": {
                 "domain": tune.loguniform(lower=0.001, upper=0.05),
@@ -222,7 +228,7 @@ class ARIMA(TimeSeriesEstimator):
     """The class for tuning ARIMA."""
 
     @classmethod
-    def search_space(cls, **params):
+    def _search_space(cls, **params):
         space = {
             "p": {
                 "domain": tune.qrandint(lower=0, upper=10, q=1),
@@ -331,7 +337,7 @@ class SARIMAX(ARIMA):
     """The class for tuning SARIMA."""
 
     @classmethod
-    def search_space(cls, **params):
+    def _search_space(cls, **params):
         space = {
             "p": {
                 "domain": tune.qrandint(lower=0, upper=10, q=1),
@@ -436,8 +442,11 @@ class TS_SKLearn(TimeSeriesEstimator):
     base_class = SKLearnEstimator
 
     @classmethod
-    def search_space(cls, data_size, pred_horizon, **params):
-        space = cls.base_class.search_space(data_size, **params)
+    def _search_space(
+        cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params
+    ):
+        data_size = data.train_data.shape
+        space = cls.base_class.search_space(data_size=data_size, task=task, **params)
         space.update(
             {
                 "optimize_for_horizon": {
