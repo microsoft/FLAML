@@ -12,4 +12,4 @@ from .ts_model import (
 )
 
 from .ts_data import TimeSeriesDataset
-from .feature import add_naive_date_features
+from .feature import naive_date_features

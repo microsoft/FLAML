@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from flaml import AutoML
-from flaml.time_series import add_naive_date_features
+from flaml.time_series import naive_date_features
 
 
 def test_forecast_automl(budget=5):
@@ -450,7 +450,7 @@ def test_features():
     y = pd.Series(
         name="date", data=pd.date_range(start="1/1/2018", periods=300, freq="H")
     )
-    f = add_naive_date_features(y, 3)
+    f = naive_date_features(y, 3)
 
 
 if __name__ == "__main__":

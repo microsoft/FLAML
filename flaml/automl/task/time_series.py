@@ -1,4 +1,5 @@
 import logging
+import copy
 
 import numpy as np
 import pandas as pd
@@ -134,7 +135,7 @@ class TaskTS(Task):
         automl._state.X_train = data
         automl._state.y_train = None
         automl._state.y_val = None
-        if data.test_data is not None:
+        if data.test_data is not None and len(data.test_data) > 0:
             automl._state.X_train_all = data.move_validation_boundary(
                 len(data.test_data)
             )
@@ -203,6 +204,15 @@ class TaskTS(Task):
             automl._state.fit_kwargs.get("period"),
             int,  # NOTE: _decide_split_type is before kwargs is updated to fit_kwargs_by_estimator
         ), f"missing a required integer 'period' for '{TS_FORECAST}' task."
+
+    @staticmethod
+    def _prepare_sample_train_data(automlstate, sample_size):
+        # we take the tail, rather than the head, for compatibility with time series
+
+        shift = sample_size - len(automlstate.X_train.train_data)
+        sampled_X_train = automlstate.X_train.move_validation_boundary(shift)
+
+        return sampled_X_train, None, None, None
 
 
 def validate_data_basic(X_train_all, y_train_all):

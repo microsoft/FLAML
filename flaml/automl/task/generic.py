@@ -565,3 +565,7 @@ class Task(TaskParent):
         elif automl.task.is_nlg():
             assert split_type in ["auto", "uniform", "time", "group"]
             automl._split_type = split_type if split_type != "auto" else "uniform"
+
+    @staticmethod
+    def _prepare_sample_train_data(automlstate, sample_size):
+        return automlstate._prepare_sample_train_data(sample_size)

@@ -9,10 +9,12 @@ import numpy as np
 from pandas import DataFrame, Series
 
 
-@dataclass
-class BasicDataset:
-    data: pd.DataFrame
-    metadata: dict
+from .feature import naive_date_features
+
+# @dataclass
+# class BasicDataset:
+#     data: pd.DataFrame
+#     metadata: dict
 
 
 @dataclass
@@ -210,44 +212,79 @@ class TimeSeriesDataset:
         )
 
 
-def add_time_idx_new(data: BasicDataset, time_col: str) -> pd.DataFrame:
-    pivoted = data.data.pivot(
-        index=time_col,
-        columns=data.metadata["dimensions"],
-        values=data.metadata["metrics"],
-    ).fillna(0.0)
+# def add_time_idx_new(data: BasicDataset, time_col: str) -> pd.DataFrame:
+#     pivoted = data.data.pivot(
+#         index=time_col,
+#         columns=data.metadata["dimensions"],
+#         values=data.metadata["metrics"],
+#     ).fillna(0.0)
+#
+#     dt_index = pd.date_range(
+#         start=pivoted.index.min(),
+#         end=pivoted.index.max(),
+#         freq=data.metadata["frequency"],
+#     )
+#     indexes = pd.DataFrame(dt_index).reset_index()
+#     indexes.columns = ["time_idx", time_col]
+#
+#     # this join is just to make sure that we get all the row timestamps in
+#     out = pd.merge(
+#         indexes, pivoted, left_on=time_col, right_index=True, how="left"
+#     ).fillna(0.0)
+#
+#     # now flatten back
+#
+#     melted = pd.melt(out, id_vars=[time_col, "time_idx"])
+#
+#     for i, d in enumerate(["metric"] + data.metadata["dimensions"]):
+#         melted[d] = melted["variable"].apply(lambda x: x[i])
+#
+#     # and finally, move metrics to separate columns
+#     re_pivoted = melted.pivot(
+#         index=["time_idx", time_col] + data.metadata["dimensions"],
+#         columns="metric",
+#         values="value",
+#     ).reset_index()
+#
+#     return re_pivoted
 
-    dt_index = pd.date_range(
-        start=pivoted.index.min(),
-        end=pivoted.index.max(),
-        freq=data.metadata["frequency"],
+
+def enrich(
+    X: Union[TimeSeriesDataset, pd.DataFrame], fourier_degree: int, time_col: str
+):
+    if isinstance(X, TimeSeriesDataset):
+        return enrich_dataset(X, fourier_degree)
+    else:
+        return enrich_dataframe(X, time_col, fourier_degree)
+
+
+def enrich_dataframe(
+    df: pd.DataFrame, time_col: str, fourier_degree: int
+) -> pd.DataFrame:
+    extras = naive_date_features(df[time_col], fourier_degree)
+    extras.columns = [f"{time_col}_{c}" for c in extras.columns]
+    extras.index = df.index
+
+    return pd.concat([df, extras], axis=1)
+
+
+def enrich_dataset(X: TimeSeriesDataset, fourier_degree: int = 0) -> TimeSeriesDataset:
+    new_train = enrich_dataframe(X.train_data, X.time_col, fourier_degree)
+    new_test = (
+        None
+        if X.test_data is None
+        else enrich_dataframe(X.test_data, X.time_col, fourier_degree)
     )
-    indexes = pd.DataFrame(dt_index).reset_index()
-    indexes.columns = ["time_idx", time_col]
-
-    # this join is just to make sure that we get all the row timestamps in
-    out = pd.merge(
-        indexes, pivoted, left_on=time_col, right_index=True, how="left"
-    ).fillna(0.0)
-
-    # now flatten back
-
-    melted = pd.melt(out, id_vars=[time_col, "time_idx"])
-
-    for i, d in enumerate(["metric"] + data.metadata["dimensions"]):
-        melted[d] = melted["variable"].apply(lambda x: x[i])
-
-    # and finally, move metrics to separate columns
-    re_pivoted = melted.pivot(
-        index=["time_idx", time_col] + data.metadata["dimensions"],
-        columns="metric",
-        values="value",
-    ).reset_index()
-
-    return re_pivoted
+    return TimeSeriesDataset(
+        train_data=new_train,
+        time_col=X.time_col,
+        target_names=X.target_names,
+        time_idx=X.time_idx,
+        test_data=new_test,
+    )
 
 
-def enrich_data(
+def enrich_data_old(
     data,
     periods_to_forecast: int,
     time_col: str = "TIME_BUCKET",
@@ -345,26 +382,27 @@ def enrich_data(
     return out
 
 
-def enrich_unrelated_values(
-    main_df: pd.DataFrame, extra_data: BasicDataset, columns_name: str, values_name: str
-):
-    time_col = extra_data.metadata["time_col"]
-    df = (
-        extra_data.data.pivot(
-            index=time_col,
-            columns=columns_name,
-            values=values_name,
-        )
-        .fillna(0.0)
-        .reset_index()
-    )
-
-    unknown_reals = list(df.columns)[1:]
-    df1 = pd.merge(main_df, df, how="left", on=[time_col])
-    for c in unknown_reals:
-        df1[c] = df1[c].fillna(0.0)
-
-    return df1, [], unknown_reals
+#
+# def enrich_unrelated_values(
+#     main_df: pd.DataFrame, extra_data: BasicDataset, columns_name: str, values_name: str
+# ):
+#     time_col = extra_data.metadata["time_col"]
+#     df = (
+#         extra_data.data.pivot(
+#             index=time_col,
+#             columns=columns_name,
+#             values=values_name,
+#         )
+#         .fillna(0.0)
+#         .reset_index()
+#     )
+#
+#     unknown_reals = list(df.columns)[1:]
+#     df1 = pd.merge(main_df, df, how="left", on=[time_col])
+#     for c in unknown_reals:
+#         df1[c] = df1[c].fillna(0.0)
+#
+#     return df1, [], unknown_reals
 
 
 class DataTransformerTS:

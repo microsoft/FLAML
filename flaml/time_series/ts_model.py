@@ -26,7 +26,7 @@ from flaml.model import (
     XGBoostLimitDepthEstimator,
 )
 from flaml.data import TS_TIMESTAMP_COL, TS_VALUE_COL
-from flaml.time_series.ts_data import TimeSeriesDataset
+from flaml.time_series.ts_data import TimeSeriesDataset, enrich
 from flaml.automl.task import Task
 
 
@@ -38,7 +38,21 @@ class TimeSeriesEstimator(SKLearnEstimator):
 
     @classmethod
     def search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int):
-        return cls._search_space(data=data, task=task, pred_horizon=pred_horizon)
+        space = cls._search_space(data=data, task=task, pred_horizon=pred_horizon)
+        space.update(
+            {
+                "monthly_fourier_degree": {
+                    "domain": tune.randint(lower=0, upper=8),
+                    "init_value": 2,
+                    "low_cost_init_value": 1,
+                }
+            }
+        )
+        return space
+
+    @classmethod
+    def top_level_params(cls):
+        return ["monthly_fourier_degree"]
 
     def _join(self, X_train, y_train):
         assert TS_TIMESTAMP_COL in X_train, (
@@ -258,6 +272,7 @@ class ARIMA(TimeSeriesEstimator):
     def fit(self, X_train, y_train=None, budget=None, **kwargs):
         import warnings
 
+        X_train = enrich(X_train, self.params["monthly_fourier_degree"], self.time_col)
         super().fit(X_train, y_train, budget=budget, **kwargs)
 
         warnings.filterwarnings("ignore")
@@ -308,6 +323,7 @@ class ARIMA(TimeSeriesEstimator):
         return train_time
 
     def predict(self, X, **kwargs):
+        X = enrich(X, self.params["monthly_fourier_degree"], self.time_col)
         if self._model is None:
             return np.ones(X if isinstance(X, int) else X.shape[0])
 
@@ -322,8 +338,10 @@ class ARIMA(TimeSeriesEstimator):
             start = X[self.time_col].iloc[0]
             end = X[self.time_col].iloc[-1]
             if len(self.regressors):
-                X = self._preprocess(X[self.regressors])
-                forecast = self._model.predict(start=start, end=end, exog=X, **kwargs)
+                exog = self._preprocess(X[self.regressors])
+                forecast = self._model.predict(
+                    start=start, end=end, exog=exog.values, **kwargs
+                )
             else:
                 forecast = self._model.predict(start=start, end=end, **kwargs)
         else:
@@ -503,7 +521,10 @@ class TS_SKLearn(TimeSeriesEstimator):
         params = self.params.copy()
         lags = params.pop("lags")
         optimize_for_horizon = params.pop("optimize_for_horizon")
-        estimator = self.base_class(task=self.ts_task, **params)
+        est_params = {
+            k: v for k, v in params.items() if k not in self.top_level_params()
+        }
+        estimator = self.base_class(task=self.ts_task, **est_params)
         self.hcrystaball_model = get_sklearn_wrapper(estimator.estimator_class)
         self.hcrystaball_model.lags = int(lags)
         self.hcrystaball_model.fit(X_train, y_train)

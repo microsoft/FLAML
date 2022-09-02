@@ -368,12 +368,14 @@ class AutoMLState:
         this_estimator_kwargs = self.fit_kwargs_by_estimator.get(
             estimator
         ).copy()  # NOTE: _train_with_config is after kwargs is updated to fit_kwargs_by_estimator
+
         (
             sampled_X_train,
             sampled_y_train,
             sampled_weight,
             groups,
-        ) = self._prepare_sample_train_data(sample_size)
+        ) = self.task._prepare_sample_train_data(self, sample_size)
+
         if sampled_weight is not None:
             weight = this_estimator_kwargs[
                 "sample_weight"

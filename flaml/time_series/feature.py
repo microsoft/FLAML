@@ -6,37 +6,45 @@ import holidays
 import pandas as pd
 
 
+def _naive_date_features(timestamps: pd.Series, month_fourier_degree: int = 2):
+    if len(timestamps):
+        data = pd.DataFrame({"time": timestamps})
+        data["month"] = (
+            timestamps.apply(lambda x: x.month).astype(str).astype("category")
+        )
+        # data["day"] = timestamps.apply(lambda x: x.day).astype(str).astype("category")
+        data["dayofweek"] = (
+            timestamps.apply(lambda x: x.dayofweek).astype(str).astype("category")
+        )
+        data["hourofday"] = (
+            timestamps.apply(lambda x: x.hour).astype(str).astype("category")
+        )
+
+        month_pos = timestamps.apply(
+            lambda x: position_in_month(datetime.date(x.year, x.month, x.day))
+        )
+        for d in range(month_fourier_degree):
+            data[f"cos{d+1}"] = (2 * (d + 1) * math.pi * month_pos).apply(math.cos)
+            data[f"sin{d + 1}"] = (2 * (d + 1) * math.pi * month_pos).apply(math.sin)
+
+        drop_cols = ["time"]
+        # for col in data.select_dtypes(include=["floating"]).columns:
+        #     if data[col].std() < 1e-10:
+        #         drop_cols.append(col)
+
+        data = data.drop(columns=drop_cols)
+        return data
+    else:
+        columns = ["month", "dayofweek", "hourofday"]
+        for d in range(month_fourier_degree):
+            columns += [f"cos{d+1}", f"sin{d + 1}"]
+
+        return pd.DataFrame(columns=columns)
+
+
 def naive_date_features(timestamps: pd.Series, month_fourier_degree: int = 2):
-    data = pd.DataFrame({"time": timestamps})
-    data["month"] = timestamps.apply(lambda x: x.month).astype(str).astype("category")
-    data["day"] = timestamps.apply(lambda x: x.day).astype(str).astype("category")
-    data["dayofweek"] = (
-        timestamps.apply(lambda x: x.dayofweek).astype(str).astype("category")
-    )
-    data["hourofday"] = (
-        timestamps.apply(lambda x: x.hour).astype(str).astype("category")
-    )
 
-    month_pos = timestamps.apply(
-        lambda x: position_in_month(datetime.date(x.year, x.month, x.day))
-    )
-    for d in range(month_fourier_degree):
-        data[f"cos{d+1}"] = (2 * (d + 1) * math.pi * month_pos).apply(math.cos)
-        data[f"sin{d + 1}"] = (2 * (d + 1) * math.pi * month_pos).apply(math.sin)
-
-    drop_cols = ["time"]
-    for col in data.select_dtypes(include=["floating"]).columns:
-        if data[col].std() < 1e-10:
-            drop_cols.append(col)
-
-    data = data.drop(columns=drop_cols)
-
-    return data
-
-
-def add_naive_date_features(timestamps: pd.Series, month_fourier_degree: int = 2):
-
-    df_with_date_features = naive_date_features(
+    df_with_date_features = _naive_date_features(
         pd.to_datetime(timestamps), month_fourier_degree
     )
 
@@ -97,5 +105,5 @@ if __name__ == "__main__":
     y = pd.Series(
         name="date", data=pd.date_range(start="1/1/2018", periods=300, freq="H")
     )
-    f = add_naive_date_features(y, 3)
+    f = naive_date_features(y, 3)
     print("yahoo!")
