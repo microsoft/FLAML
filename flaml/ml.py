@@ -356,8 +356,10 @@ def _eval_estimator(
 
         if isinstance(X_val, TimeSeriesDataset):
             num_val_rows = len(X_val.test_data)
-            y_val = X_val.test_data[X_val.target_names]
-            y_train = X_val.train_data[X_val.target_names]
+            y_val = X_val.test_data[X_val.target_names].values.astype(val_pred_y.dtype)
+            y_train = X_val.train_data[X_val.target_names].values.astype(
+                val_pred_y.dtype
+            )
         else:
             num_val_rows = X_val.shape[0]
         pred_time = (time.time() - pred_start) / num_val_rows

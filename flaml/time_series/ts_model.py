@@ -430,7 +430,7 @@ class SARIMAX(ARIMA):
         return train_time
 
 
-class TS_SKLearn(SKLearnEstimator):
+class TS_SKLearn(TimeSeriesEstimator):
     """The class for tuning SKLearn Regressors for time-series forecasting, using hcrystalball"""
 
     base_class = SKLearnEstimator
