@@ -228,21 +228,22 @@ class ARIMA(TimeSeriesEstimator):
     """The class for tuning ARIMA."""
 
     @classmethod
-    def _search_space(cls, **params):
+    def _search_space(cls, data: TimeSeriesDataset, **params):
+        scale = data.next_scale()
         space = {
             "p": {
-                "domain": tune.qrandint(lower=0, upper=10, q=1),
-                "init_value": 2,
+                "domain": tune.qrandint(lower=0, upper=2 * scale, q=1),
+                "init_value": scale,
                 "low_cost_init_value": 0,
             },
             "d": {
-                "domain": tune.qrandint(lower=0, upper=10, q=1),
-                "init_value": 2,
+                "domain": tune.qrandint(lower=0, upper=4, q=1),
+                "init_value": 1,
                 "low_cost_init_value": 0,
             },
             "q": {
-                "domain": tune.qrandint(lower=0, upper=10, q=1),
-                "init_value": 1,
+                "domain": tune.qrandint(lower=0, upper=2 * scale, q=1),
+                "init_value": scale,
                 "low_cost_init_value": 0,
             },
         }
@@ -337,41 +338,48 @@ class SARIMAX(ARIMA):
     """The class for tuning SARIMA."""
 
     @classmethod
-    def _search_space(cls, **params):
+    def _search_space(cls, data: TimeSeriesDataset, **params):
+        scale = data.next_scale()
+        max_steps = int(len(data.train_data) / scale - 0.5)  # rounding down
+
+        if max_steps < 4:  # soft fallback if TS too short
+            scale = 1
+            max_steps = int(len(data.train_data) - 0.5)
+        # TODO: instead, downscale the dataset and take next_scale from that for P and Q
         space = {
             "p": {
-                "domain": tune.qrandint(lower=0, upper=10, q=1),
-                "init_value": 2,
+                "domain": tune.qrandint(lower=0, upper=scale - 1, q=1),
+                "init_value": scale - 1,
                 "low_cost_init_value": 0,
             },
             "d": {
-                "domain": tune.qrandint(lower=0, upper=10, q=1),
-                "init_value": 2,
+                "domain": tune.qrandint(lower=0, upper=3, q=1),
+                "init_value": 1,
                 "low_cost_init_value": 0,
             },
             "q": {
-                "domain": tune.qrandint(lower=0, upper=10, q=1),
-                "init_value": 1,
+                "domain": tune.qrandint(lower=0, upper=scale - 1, q=1),
+                "init_value": scale - 1,
                 "low_cost_init_value": 0,
             },
             "P": {
-                "domain": tune.qrandint(lower=0, upper=10, q=1),
-                "init_value": 1,
+                "domain": tune.qrandint(lower=0, upper=min(10, max_steps), q=1),
+                "init_value": 3,
                 "low_cost_init_value": 0,
             },
             "D": {
-                "domain": tune.qrandint(lower=0, upper=10, q=1),
+                "domain": tune.qrandint(lower=0, upper=3, q=1),
                 "init_value": 1,
                 "low_cost_init_value": 0,
             },
             "Q": {
-                "domain": tune.qrandint(lower=0, upper=10, q=1),
-                "init_value": 1,
+                "domain": tune.qrandint(lower=0, upper=min(10, max_steps), q=1),
+                "init_value": 3,
                 "low_cost_init_value": 0,
             },
             "s": {
-                "domain": tune.choice([1, 4, 6, 12]),
-                "init_value": 12,
+                "domain": tune.choice([scale, 2 * scale, 3 * scale, 4 * scale]),
+                "init_value": scale,
             },
         }
         return space
@@ -447,6 +455,9 @@ class TS_SKLearn(TimeSeriesEstimator):
     ):
         data_size = data.train_data.shape
         space = cls.base_class.search_space(data_size=data_size, task=task, **params)
+        scale = data.next_scale()
+        max_lags = max(scale, int(np.sqrt(data_size[0])))
+
         space.update(
             {
                 "optimize_for_horizon": {
@@ -455,10 +466,8 @@ class TS_SKLearn(TimeSeriesEstimator):
                     "low_cost_init_value": False,
                 },
                 "lags": {
-                    "domain": tune.randint(
-                        lower=1, upper=max(2, int(np.sqrt(data_size[0])))
-                    ),
-                    "init_value": 3,
+                    "domain": tune.randint(lower=1, upper=max_lags),
+                    "init_value": scale,
                 },
             }
         )
