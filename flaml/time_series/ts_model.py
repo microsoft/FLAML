@@ -407,7 +407,6 @@ class SARIMAX(ARIMA):
     def fit(self, X_train, y_train=None, budget=None, **kwargs):
         import warnings
 
-        X_train = enrich(X_train, self.params["monthly_fourier_degree"], self.time_col)
         super().fit(X_train, y_train, budget=budget, **kwargs)
 
         warnings.filterwarnings("ignore")

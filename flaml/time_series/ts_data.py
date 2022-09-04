@@ -11,11 +11,6 @@ from pandas import DataFrame, Series
 
 from .feature import naive_date_features
 
-# @dataclass
-# class BasicDataset:
-#     data: pd.DataFrame
-#     metadata: dict
-
 
 @dataclass
 class TimeSeriesDataset:
@@ -34,7 +29,7 @@ class TimeSeriesDataset:
         self,
         train_data: pd.DataFrame,
         time_col: str,
-        target_names: Union[str, list[str]],
+        target_names: Union[str, List[str]],
         time_idx: str = "index",
         test_data: Optional[pd.DataFrame] = None,
     ):
@@ -285,7 +280,7 @@ def enrich_dataframe(
     extras.columns = [f"{time_col}_{c}" for c in extras.columns]
     extras.index = df.index
 
-    return pd.concat([df, extras], axis=1)
+    return pd.concat([df, extras], axis=1, verify_integrity=True)
 
 
 def enrich_dataset(X: TimeSeriesDataset, fourier_degree: int = 0) -> TimeSeriesDataset:
