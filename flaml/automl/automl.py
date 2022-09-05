@@ -32,12 +32,12 @@ from ..data import (
     _is_nlp_task,
     default_estimator_list,
 )
-from flaml.automl.tasks.task import (
+from flaml.automl.task import (
     CLASSIFICATION,
     TS_FORECAST,
 )
 
-from flaml.automl.tasks.factory import task_factory
+from flaml.automl.factory import task_factory
 
 from .. import tune
 from ..training_log import training_log_reader, training_log_writer
@@ -1710,7 +1710,7 @@ class AutoML(BaseEstimator):
             or max_iter == 1
         )
         # add custom learner
-        from flaml.automl.tasks.task import Task
+        from flaml.automl.task import Task
 
         assert isinstance(self.task, Task)
         for estimator_name in estimator_list:

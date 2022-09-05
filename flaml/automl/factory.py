@@ -1,6 +1,6 @@
-from flaml.automl.tasks.generic import GenericTask
+from flaml.automl.generic_task import GenericTask
 from flaml.time_series.time_series_task import TaskTS
-from flaml.automl.tasks.task import Task, TS_FORECAST
+from flaml.automl.task import Task, TS_FORECAST
 
 
 def task_factory(task_name: str) -> Task:

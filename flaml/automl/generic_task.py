@@ -26,7 +26,7 @@ from flaml.model import (
     TransformersEstimator,
     TransformersEstimatorModelSelection,
 )
-from flaml.automl.tasks.task import (
+from flaml.automl.task import (
     TOKENCLASSIFICATION,
     CLASSIFICATION,
     REGRESSION,
@@ -35,8 +35,8 @@ from flaml.automl.tasks.task import (
     Task,
 )
 
-from ...config import RANDOM_SEED
-from ...data import concat
+from flaml.config import RANDOM_SEED
+from flaml.data import concat
 
 logger = logging.getLogger(__name__)
 
