@@ -43,7 +43,7 @@ from flaml.time_series import (
     XGBoostLimitDepth_TS,
 )
 from .data import group_counts
-from flaml.automl.task.tasks import CLASSIFICATION, TS_FORECAST
+from flaml.automl.tasks.task import CLASSIFICATION, TS_FORECAST
 from flaml.time_series.ts_data import TimeSeriesDataset
 import logging
 

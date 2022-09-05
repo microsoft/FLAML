@@ -1,12 +1,16 @@
 import math
 from typing import Union, Callable
 
+
 import numpy as np
 import pandas as pd
 from pandas.api.types import is_float_dtype
 
+from flaml import tune
+
 from flaml.time_series.smooth import expsmooth, moving_window_smooth
 from flaml.time_series import TimeSeriesEstimator, TimeSeriesDataset, ARIMA, SARIMAX
+from flaml.time_series.time_series import TaskTS
 
 
 def scale_transform(points: int, step: int, smooth_fun: Callable, offset: int = -1):
@@ -165,6 +169,27 @@ class MultiscaleModel(TimeSeriesEstimator):
         self.model_hi = model_hi
         self.scale = scale
         self.scale_transform: ScaleTransform = None
+
+    def _search_space(
+        self, data: TimeSeriesDataset, task: TaskTS, pred_horizon: int, **params
+    ):
+        estimators = {
+            "model_lo": ["arima", "sarimax"],
+            "model_hi": ["arima", "sarimax"],
+        }
+        out = {}
+        for mdl, ests in estimators.items():
+            est_cfgs = []
+            for est in ests:
+                est_class = task.estimator_class_from_str(est)
+                est_cfgs.append(
+                    {
+                        "estimator": est,
+                        "params": est_class.search_space(data, task, pred_horizon),
+                    }
+                )
+            out[mdl] = tune.choice(est_cfgs)
+        return out
 
     def fit(self, X_train: TimeSeriesDataset, y_train=None, **kwargs):
         super().fit(X_train)

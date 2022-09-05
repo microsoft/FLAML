@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 
 from flaml import tune
-from flaml.automl.task.tasks import TS_FORECAST
 from flaml.ml import compute_estimator, train_estimator
 from flaml.time_series.ts_data import TimeSeriesDataset
 

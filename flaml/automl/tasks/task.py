@@ -44,7 +44,7 @@ def get_classification_objective(num_labels: int) -> str:
     return objective_name
 
 
-class TaskParent:
+class Task:
     def __init__(self, task_name):
         self.name = task_name
 

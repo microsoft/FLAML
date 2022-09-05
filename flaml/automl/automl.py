@@ -32,12 +32,12 @@ from ..data import (
     _is_nlp_task,
     default_estimator_list,
 )
-from flaml.automl.task.tasks import (
+from flaml.automl.tasks.task import (
     CLASSIFICATION,
     TS_FORECAST,
 )
 
-from flaml.automl.task.factory import task_factory
+from flaml.automl.tasks.factory import task_factory
 
 from .. import tune
 from ..training_log import training_log_reader, training_log_writer
@@ -221,7 +221,7 @@ class AutoML(BaseEstimator):
             seed: int or None, default=None | The random seed for hpo.
             n_concurrent_trials: [Experimental] int, default=1 | The number of
                 concurrent trials. When n_concurrent_trials > 1, flaml performes
-                [parallel tuning](../Use-Cases/Task-Oriented-AutoML#parallel-tuning)
+                [parallel tuning](../Use-Cases/GenericTask-Oriented-AutoML#parallel-tuning)
                 and installation of ray is required: `pip install flaml[ray]`.
             keep_search_state: boolean, default=False | Whether to keep data needed
                 for model search after fit(). By default the state is deleted for
@@ -249,7 +249,7 @@ class AutoML(BaseEstimator):
                 the metrics_to_log dictionary returned by a customized metric function.
                 The customized metric function shall be provided via the `metric` key word
                 argument of the fit() function or the automl constructor.
-                Find an example in the 4th constraint type in this [doc](../Use-Cases/Task-Oriented-AutoML#constraint).
+                Find an example in the 4th constraint type in this [doc](../Use-Cases/GenericTask-Oriented-AutoML#constraint).
                 If `pred_time_limit` is provided as one of keyword arguments to fit() function or
                 the automl constructor, flaml will automatically (and under the hood)
                 add it as an additional element in the metric_constraints. Essentially 'pred_time_limit'
@@ -1317,7 +1317,7 @@ class AutoML(BaseEstimator):
             seed: int or None, default=None | The random seed for hpo.
             n_concurrent_trials: [Experimental] int, default=1 | The number of
                 concurrent trials. When n_concurrent_trials > 1, flaml performes
-                [parallel tuning](../Use-Cases/Task-Oriented-AutoML#parallel-tuning)
+                [parallel tuning](../Use-Cases/GenericTask-Oriented-AutoML#parallel-tuning)
                 and installation of ray is required: `pip install flaml[ray]`.
             keep_search_state: boolean, default=False | Whether to keep data needed
                 for model search after fit(). By default the state is deleted for
@@ -1681,7 +1681,7 @@ class AutoML(BaseEstimator):
         logger.info(f"Minimizing error metric: {error_metric}")
 
         if "auto" == estimator_list:
-            # TODO: factor out to the Task class
+            # TODO: factor out to the GenericTask class
             estimator_list = default_estimator_list(self.task)
 
         # When no search budget is specified
@@ -1710,9 +1710,9 @@ class AutoML(BaseEstimator):
             or max_iter == 1
         )
         # add custom learner
-        from flaml.automl.task.tasks import TaskParent
+        from flaml.automl.tasks.task import Task
 
-        assert isinstance(self.task, TaskParent)
+        assert isinstance(self.task, Task)
         for estimator_name in estimator_list:
             if estimator_name not in self._state.learner_classes:
                 self.add_learner(

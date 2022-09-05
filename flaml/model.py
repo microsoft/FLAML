@@ -88,7 +88,7 @@ class BaseEstimator:
                 n_jobs is the number of parallel threads.
         """
         if isinstance(task, str):
-            from .automl.task.factory import task_factory
+            from .automl.tasks.factory import task_factory
 
             task = task_factory(task)
         self._task = task

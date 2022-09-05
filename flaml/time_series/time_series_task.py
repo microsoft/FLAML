@@ -8,11 +8,11 @@ from sklearn.model_selection import TimeSeriesSplit
 from sklearn.utils import shuffle
 
 # from .automl import AutoML
-from .generic import Task
+from flaml.automl.tasks.task import Task
 from flaml.time_series.ts_data import TimeSeriesDataset, DataTransformerTS
-from ...config import RANDOM_SEED
+from flaml.config import RANDOM_SEED
 
-from flaml.automl.task.tasks import TS_FORECAST
+from flaml.automl.tasks.task import TS_FORECAST
 from flaml.time_series import (
     XGBoost_TS,
     XGBoostLimitDepth_TS,

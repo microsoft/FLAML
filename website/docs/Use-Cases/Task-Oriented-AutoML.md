@@ -1,4 +1,4 @@
-# Task Oriented AutoML
+# GenericTask Oriented AutoML
 
 ## Overview
 

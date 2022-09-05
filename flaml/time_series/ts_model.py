@@ -27,7 +27,7 @@ from flaml.model import (
 )
 from flaml.data import TS_TIMESTAMP_COL, TS_VALUE_COL
 from flaml.time_series.ts_data import TimeSeriesDataset, enrich
-from flaml.automl.task import Task
+from flaml.automl.tasks import Task
 
 
 class TimeSeriesEstimator(SKLearnEstimator):

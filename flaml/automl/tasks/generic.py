@@ -26,13 +26,13 @@ from flaml.model import (
     TransformersEstimator,
     TransformersEstimatorModelSelection,
 )
-from flaml.automl.task.tasks import (
+from flaml.automl.tasks.task import (
     TOKENCLASSIFICATION,
     CLASSIFICATION,
     REGRESSION,
     TS_FORECAST,
     get_classification_objective,
-    TaskParent,
+    Task,
 )
 
 from ...config import RANDOM_SEED
@@ -41,7 +41,7 @@ from ...data import concat
 logger = logging.getLogger(__name__)
 
 
-class Task(TaskParent):
+class GenericTask(Task):
     estimators = {
         "xgboost": XGBoostSklearnEstimator,
         "xgb_limitdepth": XGBoostLimitDepthEstimator,
@@ -95,7 +95,7 @@ class Task(TaskParent):
             automl._df = isinstance(X_train_all, pd.DataFrame)
             automl._nrow, automl._ndim = X_train_all.shape
             # if automl._state.task in TS_FORECAST:
-            #     raise ValueError("Task mismatch!")
+            #     raise ValueError("GenericTask mismatch!")
             #     # X_train_all = pd.DataFrame(X_train_all)
             #     # X_train_all, y_train_all = automl._validate_ts_data(
             #     #     X_train_all, y_train_all
