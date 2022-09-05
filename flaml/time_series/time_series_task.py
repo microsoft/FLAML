@@ -6,7 +6,7 @@ from scipy.sparse import issparse
 from sklearn.model_selection import TimeSeriesSplit
 
 # from .automl import AutoML
-from flaml.automl.task import Task
+from flaml.automl.task import Task, TS_FORECASTREGRESSION
 from flaml.time_series.ts_data import TimeSeriesDataset, DataTransformerTS
 
 from flaml.automl.task import TS_FORECAST
@@ -21,6 +21,7 @@ from flaml.time_series import (
     ARIMA,
     SARIMAX,
 )
+from flaml.time_series.multiscale import MultiscaleModel
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ class TaskTS(Task):
         "orbit": Orbit,
         "arima": ARIMA,
         "sarimax": SARIMAX,
+        "multiscale": MultiscaleModel,
     }
 
     @staticmethod
@@ -210,6 +212,29 @@ class TaskTS(Task):
         sampled_X_train = automlstate.X_train.move_validation_boundary(shift)
 
         return sampled_X_train, None, None, None
+
+    def default_estimator_list(self):
+        estimator_list = super().default_estimator_list()
+
+        # catboost is removed because it has a `name` parameter, making it incompatible with hcrystalball
+        if "catboost" in estimator_list:
+            estimator_list.remove("catboost")
+        if self.name in TS_FORECASTREGRESSION:
+            estimator_list += ["arima", "sarimax"]
+            try:
+                import prophet
+
+                estimator_list += ["prophet"]
+            except ImportError:
+                pass
+
+            try:
+                import orbit
+
+                estimator_list += ["orbit"]
+            except ImportError:
+                pass
+        return estimator_list
 
 
 def validate_data_basic(X_train_all, y_train_all):

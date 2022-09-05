@@ -75,7 +75,31 @@ class Task:
     def is_summarization(self):
         return self.name in SUMMARIZATION
 
-        # For backward compatibility with all the string-valued "task" variables
+    def default_estimator_list(self):
+        if self.name == "rank":
+            estimator_list = ["lgbm", "xgboost", "xgb_limitdepth"]
+        elif self.is_nlp():
+            estimator_list = ["transformer"]
+        else:
+            estimator_list = [
+                "lgbm",
+                "rf",
+                "xgboost",
+                "extra_tree",
+                "xgb_limitdepth",
+            ]
+
+            try:
+                import catboost
+
+                estimator_list += ["catboost"]
+
+            except ImportError:
+                pass
+
+        return estimator_list
+
+        # For backward compatibility with all the string comparisons to task
 
     def __eq__(self, other):
         return self.name == other

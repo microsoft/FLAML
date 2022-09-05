@@ -28,10 +28,8 @@ from ..config import (
     N_SPLITS,
     SAMPLE_MULTIPLY_FACTOR,
 )
-from ..data import (
-    _is_nlp_task,
-    default_estimator_list,
-)
+from ..data import _is_nlp_task
+
 from flaml.automl.task import (
     CLASSIFICATION,
     TS_FORECAST,
@@ -1681,8 +1679,7 @@ class AutoML(BaseEstimator):
         logger.info(f"Minimizing error metric: {error_metric}")
 
         if "auto" == estimator_list:
-            # TODO: factor out to the GenericTask class
-            estimator_list = default_estimator_list(self.task)
+            estimator_list = self.task.default_estimator_list()
 
         # When no search budget is specified
         if no_budget:

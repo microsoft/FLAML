@@ -10,7 +10,7 @@ from flaml import tune
 
 from flaml.time_series.smooth import expsmooth, moving_window_smooth
 from flaml.time_series import TimeSeriesEstimator, TimeSeriesDataset, ARIMA, SARIMAX
-from flaml.time_series.time_series import TaskTS
+from flaml.automl.task import Task
 
 
 def scale_transform(points: int, step: int, smooth_fun: Callable, offset: int = -1):
@@ -159,19 +159,33 @@ class ScaleTransform:
 class MultiscaleModel(TimeSeriesEstimator):
     def __init__(
         self,
-        model_lo: TimeSeriesEstimator,
-        model_hi: TimeSeriesEstimator,
-        scale=None,
-        task="ts_forecast",
+        model_lo: Union[dict, TimeSeriesEstimator],
+        model_hi: Union[dict, TimeSeriesEstimator],
+        scale: int = None,
+        task: Union[Task, str] = "ts_forecast",
     ):
         super().__init__(task=task)
-        self.model_lo = model_lo
-        self.model_hi = model_hi
+
+        self.model_lo = (
+            model_lo
+            if isinstance(model_lo, TimeSeriesEstimator)
+            else self._init_submodel(model_lo)
+        )
+        self.model_hi = (
+            model_hi
+            if isinstance(model_hi, TimeSeriesEstimator)
+            else self._init_submodel(model_hi)
+        )
         self.scale = scale
         self.scale_transform: ScaleTransform = None
 
+    def _init_submodel(self, config: dict):
+        est_name = config.pop("estimator")
+        est_class = self._task.estimator_class_from_str(est_name)
+        return est_class(task=self._task, **config)
+
     def _search_space(
-        self, data: TimeSeriesDataset, task: TaskTS, pred_horizon: int, **params
+        self, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params
     ):
         estimators = {
             "model_lo": ["arima", "sarimax"],
@@ -185,7 +199,7 @@ class MultiscaleModel(TimeSeriesEstimator):
                 est_cfgs.append(
                     {
                         "estimator": est,
-                        "params": est_class.search_space(data, task, pred_horizon),
+                        **(est_class.search_space(data, task, pred_horizon)),
                     }
                 )
             out[mdl] = tune.choice(est_cfgs)
