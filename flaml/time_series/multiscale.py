@@ -184,8 +184,9 @@ class MultiscaleModel(TimeSeriesEstimator):
         est_class = self._task.estimator_class_from_str(est_name)
         return est_class(task=self._task, **config)
 
+    @classmethod
     def _search_space(
-        self, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params
+        cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params
     ):
         estimators = {
             "model_lo": ["arima", "sarimax"],
