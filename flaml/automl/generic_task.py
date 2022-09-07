@@ -155,7 +155,7 @@ class GenericTask(Task):
             automl._transformer = automl._label_transformer = False
             automl._X_train_all, automl._y_train_all = X, y
         else:
-            from ...data import DataTransformer
+            from ..data import DataTransformer
 
             automl._transformer = DataTransformer()
 
