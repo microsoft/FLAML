@@ -17,11 +17,11 @@ WORKDIR /home/flaml-dev/FLAML
 RUN sudo pip install -e .[test,notebook]
 
 # Install precommit hooks
-RUN pre-commit install
+RUN sudo pre-commit install
 
 # For docs
-RUN npm install --global yarn
-RUN pip install pydoc-markdown
+RUN sudo npm install --global yarn
+RUN sudo pip install pydoc-markdown
 RUN cd website
 RUN yarn install --frozen-lockfile --ignore-engines
 
