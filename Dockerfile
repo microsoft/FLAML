@@ -17,7 +17,7 @@ WORKDIR /home/flaml-dev/FLAML
 RUN sudo pip install -e .[test,notebook]
 
 # Install precommit hooks
-RUN sudo pre-commit install
+RUN pre-commit install
 
 # For docs
 RUN sudo npm install --global yarn
