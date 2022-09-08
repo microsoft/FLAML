@@ -13,6 +13,41 @@ from flaml.time_series.ts_data import TimeSeriesDataset
 
 logger = logging.getLogger(__name__)
 
+# parse the strange special spec that built-in estimators use into a flaml.tune spec
+def get_tune_domain(space):
+    if isinstance(space, dict):
+        out = {}
+        for k, v in space.items():
+            if isinstance(v, dict):
+                if isinstance(v["domain"], list):
+                    out[k] = tune.choice([get_tune_domain(vv) for vv in v["domain"]])
+                else:
+                    out[k] = get_tune_domain(v["domain"])
+            elif isinstance(v, str):
+                out[k] = v
+        return out
+    else:
+        return space
+
+
+def get_initial_value(space):
+    out = {}
+    if isinstance(space, dict):
+        for k, v in space.items():
+            if isinstance(v, dict):
+                if "init_value" in v:
+                    # if a nested config branch has no init_value, ignore it
+                    if isinstance(v["init_value"], dict):
+                        tmp = get_initial_value(v["init_value"])
+                        out.update(tmp)
+                    else:
+                        out[k] = v["init_value"]
+            else:
+                out[k] = v
+    else:
+        raise ValueError
+    return out
+
 
 class SearchState:
     def __init__(
@@ -118,6 +153,25 @@ class SearchState:
         self.trained_estimator = None
         self.sample_size = None
         self.trial_time = 0
+
+        new_space = get_tune_domain(search_space)
+        new_init = get_initial_value(search_space)
+        new_init.update(self.init_config)
+
+        def compare_dicts(d1, d2):
+            for key in sorted(list(set([*d1.keys(), *d2.keys()]))):
+                if d1.get(key) != d2.get(key):
+                    print("***", key, d1.get(key), d2.get(key))
+                    # raise ValueError
+
+        compare_dicts(self.init_config, new_init)
+        compare_dicts(self.search_space, new_space)
+
+        print("yay!")
+
+    def compare_dicts(d1, d2):
+        for key in sorted(list(set(*d1.keys(), *d2.keys()))):
+            print(key, d1.get(key), d2.get(key))
 
     def update(self, result, time_used):
         if result:
