@@ -160,7 +160,7 @@ class SearchState:
             if starting_point_len > len(starting_point):
                 logger.warning(
                     "Starting points outside of the search space are removed. "
-                    f"Remaining starting points: {starting_point}"
+                    f"Remaining starting points for {learner_class}: {starting_point}"
                 )
             starting_point = starting_point or None
 
