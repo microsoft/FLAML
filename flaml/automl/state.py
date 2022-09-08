@@ -105,6 +105,7 @@ class SearchState:
                 )
             starting_point = starting_point or None
 
+        use_new_init = True
         for name, space in search_space.items():
             # assert (
             #     "domain" in space
@@ -128,6 +129,7 @@ class SearchState:
             elif (
                 not isinstance(starting_point, list)
                 and "init_value" in space
+                and not use_new_init
                 # and self.valid_starting_point_one_dim( # shouldn't tune be doing these checks?
                 #     space["init_value"], space["domain"]
                 # )
@@ -156,21 +158,22 @@ class SearchState:
 
         new_space = get_tune_domain(search_space)
         new_init = get_initial_value(search_space)
+        # integrate any starting_point values
         new_init.update(self.init_config)
 
-        def compare_dicts(d1, d2):
-            for key in sorted(list(set([*d1.keys(), *d2.keys()]))):
-                if d1.get(key) != d2.get(key):
-                    print("***", key, d1.get(key), d2.get(key))
-                    # raise ValueError
-
-        compare_dicts(self.init_config, new_init)
-        compare_dicts(self.search_space, new_space)
+        # def compare_dicts(d1, d2):
+        #     for key in sorted(list(set([*d1.keys(), *d2.keys()]))):
+        #         if d1.get(key) != d2.get(key):
+        #             print("***", key, d1.get(key), d2.get(key))
+        #             # raise ValueError
+        #
+        # compare_dicts(self.init_config, new_init)
+        # compare_dicts(self.search_space, new_space)
 
         self.init_config = new_init
         self._search_space_domain = new_space
 
-        # print("yay!")
+        print("yay!")
 
     def compare_dicts(d1, d2):
         for key in sorted(list(set(*d1.keys(), *d2.keys()))):
