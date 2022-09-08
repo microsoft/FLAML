@@ -106,13 +106,13 @@ class SearchState:
             starting_point = starting_point or None
 
         for name, space in search_space.items():
-            assert (
-                "domain" in space
-            ), f"{name}'s domain is missing in the search space spec {space}"
-            if space["domain"] is None:
-                # don't search this hp
-                continue
-            self._search_space_domain[name] = space["domain"]
+            # assert (
+            #     "domain" in space
+            # ), f"{name}'s domain is missing in the search space spec {space}"
+            # if space["domain"] is None:
+            #     # don't search this hp
+            #     continue
+            # self._search_space_domain[name] = space["domain"]
 
             if "low_cost_init_value" in space:
                 self.low_cost_partial_config[name] = space["low_cost_init_value"]
@@ -128,9 +128,9 @@ class SearchState:
             elif (
                 not isinstance(starting_point, list)
                 and "init_value" in space
-                and self.valid_starting_point_one_dim(
-                    space["init_value"], space["domain"]
-                )
+                # and self.valid_starting_point_one_dim( # shouldn't tune be doing these checks?
+                #     space["init_value"], space["domain"]
+                # )
             ):  # If starting point is list, no need to check the validity of self.init_config w.r.t search space
                 self.init_config[name] = space[
                     "init_value"
@@ -167,7 +167,10 @@ class SearchState:
         compare_dicts(self.init_config, new_init)
         compare_dicts(self.search_space, new_space)
 
-        print("yay!")
+        self.init_config = new_init
+        self._search_space_domain = new_space
+
+        # print("yay!")
 
     def compare_dicts(d1, d2):
         for key in sorted(list(set(*d1.keys(), *d2.keys()))):
