@@ -220,7 +220,7 @@ class TaskTS(Task):
         if "catboost" in estimator_list:
             estimator_list.remove("catboost")
         if self.name in TS_FORECASTREGRESSION:
-            estimator_list += ["arima", "sarimax"]
+            estimator_list += ["arima", "sarimax"]  # =["multiscale"]  #
             try:
                 import prophet
 

@@ -3,7 +3,6 @@ import logging
 import os
 from typing import List, Optional, Union
 
-
 from pandas import DataFrame, Series, to_datetime
 
 from flaml import tune

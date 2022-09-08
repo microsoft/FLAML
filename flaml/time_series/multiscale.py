@@ -197,13 +197,17 @@ class MultiscaleModel(TimeSeriesEstimator):
             est_cfgs = []
             for est in ests:
                 est_class = task.estimator_class_from_str(est)
-                est_cfgs.append(
-                    {
-                        "estimator": est,
-                        **(est_class.search_space(data, task, pred_horizon)),
-                    }
+                this_sp_ = est_class._search_space(
+                    data=data, task=task, pred_horizon=pred_horizon
                 )
-            out[mdl] = tune.choice(est_cfgs)
+                # rename these parameters so there is no name clash between
+                # model_hi and model_lo
+
+                this_sp = {f"{mdl}:{key}": value for key, value in this_sp_.items()}
+                this_sp[f"{mdl}:estimator"] = est
+                est_cfgs.append(this_sp)
+            # Use list as proxy for tune.choice in this strange API
+            out[mdl] = {"domain": est_cfgs, "init_value": est_cfgs[0]}
         return out
 
     def fit(self, X_train: TimeSeriesDataset, y_train=None, **kwargs):

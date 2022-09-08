@@ -117,7 +117,7 @@ class GenericTask(Task):
 
         # check the validity of input dimensions for NLP tasks, so need to check _is_nlp_task not estimator
         if automl._state.task.is_nlp():
-            from ...nlp.utils import is_a_list_of_str
+            from ..nlp.utils import is_a_list_of_str
 
             is_all_str = True
             is_all_list = True
