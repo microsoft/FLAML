@@ -1,4 +1,5 @@
 import math
+import copy
 from typing import Union, Callable
 
 
@@ -27,6 +28,8 @@ def scale_transform(points: int, step: int, smooth_fun: Callable, offset: int = 
             S[i, j] = 1.0
             sample_indices.append(j)
             i += 1
+    # trim the bottom if necessary
+    S = S[: len(sample_indices)]
     lo = S.dot(T)
     hi = I - T
     mat = np.concatenate([hi, lo], axis=0)
@@ -38,7 +41,6 @@ def split_cols(X: pd.DataFrame):
     float_cols, other_cols = [], []
     for c in X.columns:
         (float_cols if is_float_dtype(X[c]) else other_cols).append(c)
-    assert len(float_cols), "Need float columns to transform"
     return float_cols, other_cols
 
 
@@ -47,14 +49,12 @@ class ScaleTransform:
         self, step: int, smooth_type: str = "moving_window", scale_tweak: float = 0.5
     ):
         self.step = step
-        if smooth_type == "moving_window":
-            self.smooth_fun = lambda x: moving_window_smooth(x, step, True)
-        elif smooth_type == "exponential":
-            self.smooth_fun = lambda x: expsmooth(x, 1 / (step * scale_tweak))
-        else:
+        self.scale_tweak = scale_tweak
+        if smooth_type not in ["moving_window", "exponential"]:
             raise ValueError(
                 "Only smooth types 'moving_window' and 'exponential' are supported"
             )
+        self.smooth_type = smooth_type
         self.mat = None
         self.sample_indices = None
 
@@ -71,8 +71,18 @@ class ScaleTransform:
             num_rows = len(X)
             offset = -1
 
+        if self.smooth_type == "moving_window":
+
+            def smooth_fun(x):
+                return moving_window_smooth(x, self.step, True)
+
+        else:
+
+            def smooth_fun(x):
+                return expsmooth(x, 1 / (self.step * self.scale_tweak))
+
         _, self.mat, _, self.sample_indices = scale_transform(
-            num_rows, self.step, self.smooth_fun, offset
+            num_rows, self.step, smooth_fun, offset
         )
 
     def transform(self, X: Union[np.ndarray, pd.DataFrame]):
@@ -81,23 +91,28 @@ class ScaleTransform:
             return out[len(X) :], out[: len(X)]
         elif isinstance(X, pd.DataFrame):
             float_cols, other_cols = split_cols(X)
-            lo_, hi_ = self.transform(X[float_cols].values)
-            hi = pd.concat(
-                [
-                    X[other_cols],
-                    pd.DataFrame(data=hi_, columns=float_cols, index=X.index),
-                ],
-                axis=1,
-            )
-            Xlo = X.iloc[self.sample_indices][other_cols]
-            lo = pd.concat(
-                [
-                    Xlo,
-                    pd.DataFrame(data=lo_, columns=float_cols, index=Xlo.index),
-                ],
-                axis=1,
-            )
-            return lo, hi
+            if len(float_cols):
+                lo_, hi_ = self.transform(X[float_cols].values)
+                hi = pd.concat(
+                    [
+                        X[other_cols],
+                        pd.DataFrame(data=hi_, columns=float_cols, index=X.index),
+                    ],
+                    axis=1,
+                )
+                Xlo = X.iloc[self.sample_indices][other_cols]
+                lo = pd.concat(
+                    [
+                        Xlo,
+                        pd.DataFrame(data=lo_, columns=float_cols, index=Xlo.index),
+                    ],
+                    axis=1,
+                )
+                return lo, hi
+            else:
+                hi = X
+                lo = X.iloc[self.sample_indices]
+                return lo, hi
         elif isinstance(X, TimeSeriesDataset):
             lo_, hi_ = self.transform(pd.concat([X.train_data, X.test_data], axis=0))
             hi = TimeSeriesDataset(
@@ -126,6 +141,10 @@ class ScaleTransform:
     def inverse_transform(
         self, lo: Union[np.ndarray, pd.DataFrame], hi: Union[np.ndarray, pd.DataFrame]
     ):
+        if isinstance(lo, pd.Series):
+            lo = pd.DataFrame(lo)
+        if isinstance(hi, pd.Series):
+            hi = pd.DataFrame(hi)
         if isinstance(lo, np.ndarray) and isinstance(hi, np.ndarray):
             X = np.concatenate([hi, lo], axis=0)
             return np.linalg.pinv(self.mat).dot(X)
@@ -152,7 +171,7 @@ class ScaleTransform:
             return out
         else:
             raise ValueError(
-                "hi and lo must either both be np.ndarray,pd.DataFrame, or TimeSeriesDataset"
+                "hi and lo must either both be np.ndarray, pd.DataFrame/Series, or TimeSeriesDataset"
             )
 
 
@@ -163,18 +182,19 @@ class MultiscaleModel(TimeSeriesEstimator):
         model_hi: Union[dict, TimeSeriesEstimator],
         scale: int = None,
         task: Union[Task, str] = "ts_forecast",
+        **params
     ):
-        super().__init__(task=task)
+        super().__init__(task=task, **params)
 
         self.model_lo = (
             model_lo
             if isinstance(model_lo, TimeSeriesEstimator)
-            else self._init_submodel(model_lo)
+            else self._init_submodel(copy.copy(model_lo))
         )
         self.model_hi = (
             model_hi
             if isinstance(model_hi, TimeSeriesEstimator)
-            else self._init_submodel(model_hi)
+            else self._init_submodel(copy.copy(model_hi))
         )
         self.scale = scale
         self.scale_transform: ScaleTransform = None
@@ -182,7 +202,7 @@ class MultiscaleModel(TimeSeriesEstimator):
     def _init_submodel(self, config: dict):
         est_name = config.pop("estimator")
         est_class = self._task.estimator_class_from_str(est_name)
-        return est_class(task=self._task, **config)
+        return est_class(task=self._task, **config, **self.params)
 
     @classmethod
     def _search_space(
@@ -203,34 +223,43 @@ class MultiscaleModel(TimeSeriesEstimator):
                 # rename these parameters so there is no name clash between
                 # model_hi and model_lo
 
-                this_sp = {f"{mdl}:{key}": value for key, value in this_sp_.items()}
-                this_sp[f"{mdl}:estimator"] = est
+                this_sp = this_sp_  # {f"{mdl}:{key}": value for key, value in this_sp_.items()}
+                this_sp["estimator"] = est
                 est_cfgs.append(this_sp)
             # Use list as proxy for tune.choice in this strange API
             out[mdl] = {"domain": est_cfgs, "init_value": est_cfgs[0]}
         return out
 
-    def fit(self, X_train: TimeSeriesDataset, y_train=None, **kwargs):
+    def fit(self, X_train: TimeSeriesDataset, y_train=None, budget=None, **kwargs):
         super().fit(X_train)
         if self.scale is None:
             self.scale = X_train.next_scale()
         self.scale_transform = ScaleTransform(self.scale)
-        self.X_train = X_train
         X_lo, X_hi = self.scale_transform.fit_transform(X_train)
         self.model_lo.fit(X_lo)
         self.model_hi.fit(X_hi)
 
-    def predict(self, X: TimeSeriesDataset):
+    def predict(self, X: Union[TimeSeriesDataset, pd.DataFrame]):
         # X has all the known past in train_data, genuine future in test_data
+        assert X.__class__ in [
+            TimeSeriesDataset,
+            pd.DataFrame,
+        ], "Unsupported input type"
+
         X_lo, X_hi = self.scale_transform.fit_transform(X)
-        y_pred_lo = self.model_lo.predict(X_lo.test_data)
+        y_pred_lo = self.model_lo.predict(
+            X_lo if isinstance(X_lo, pd.DataFrame) else X_lo.test_data
+        )
+        # need the whole time series including the past to inverse_transform
         y_lo = X_lo.merge_prediction_with_target(y_pred_lo)
 
-        y_pred_hi = self.model_hi.predict(X_hi.test_data)
+        y_pred_hi = self.model_hi.predict(
+            X_hi if isinstance(X_hi, pd.DataFrame) else X_hi.test_data
+        )
         y_hi = X_hi.merge_prediction_with_target(y_pred_hi)
 
         out = self.scale_transform.inverse_transform(y_lo, y_hi)
-        return out[len(X_hi.train_data) :]
+        return out
 
 
 if __name__ == "__main__":

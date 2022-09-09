@@ -66,6 +66,7 @@ class TimeSeriesEstimator(SKLearnEstimator):
         # TODO purge y_train
         self.time_col = X_train.time_col
         self.target_names = X_train.target_names
+        self.X_train = X_train
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         from sklearn.metrics import r2_score
@@ -231,7 +232,10 @@ class Prophet(TimeSeriesEstimator):
         if self._model is not None:
             X = self._preprocess(X)
             forecast = self._model.predict(X, **kwargs)
-            return forecast["yhat"]
+            out = forecast["yhat"]
+            out.name = self.target_names[0]
+            return out
+
         else:
             logger.warning(
                 "Estimator is not fit yet. Please run fit() before predict()."
@@ -323,7 +327,7 @@ class ARIMA(TimeSeriesEstimator):
         self._model = model
         return train_time
 
-    def predict(self, X, **kwargs):
+    def predict(self, X, **kwargs) -> pd.Series:
         X = enrich(X, self.params["monthly_fourier_degree"], self.time_col)
         if self._model is None:
             return np.ones(X if isinstance(X, int) else X.shape[0])
@@ -350,6 +354,7 @@ class ARIMA(TimeSeriesEstimator):
                 "X needs to be either a pandas Dataframe with dates as the first column"
                 " or an int number of periods for predict()."
             )
+        forecast.name = self.target_names[0]
         return forecast
 
 
@@ -598,6 +603,8 @@ class TS_SKLearn(TimeSeriesEstimator):
                     _,
                 ) = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X)
                 forecast = self._model.predict(X_pred, **kwargs)
+            if isinstance(forecast, pd.Series):
+                forecast.name = self.target_names[0]
             return forecast
         else:
             logger.warning(

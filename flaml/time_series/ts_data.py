@@ -192,9 +192,8 @@ class TimeSeriesDataset:
                 )
             elif isinstance(y_pred, pd.Series):
                 assert len(self.target_names) == 1, "Not enough columns in y_pred"
-                y_pred = pd.DataFrame(y_pred).rename(
-                    columns={y_pred.name: self.target_names[0]}
-                )
+                y_pred.name = self.target_names[0]
+                y_pred = pd.DataFrame(y_pred)
                 y_pred.index = self.test_data.index
             elif isinstance(y_pred, pd.DataFrame):
                 y_pred.index = self.test_data.index

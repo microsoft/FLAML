@@ -337,6 +337,9 @@ def get_y_pred(estimator, X, eval_metric, task):
 
     if isinstance(X, TimeSeriesDataset) and isinstance(y_pred, pd.DataFrame):
         y_pred = y_pred[X.target_names]
+
+    if isinstance(y_pred, pd.DataFrame) and len(y_pred.columns) == 1:
+        y_pred = y_pred[y_pred.columns[0]]
     return y_pred
 
 
@@ -432,7 +435,7 @@ def get_val_loss(
     #     fit_kwargs['groups_val'] = groups_val
     #     fit_kwargs['X_val'] = X_val
     #     fit_kwargs['y_val'] = y_val
-    estimator.fit(X_train, y_train, budget, **fit_kwargs)
+    estimator.fit(X_train, y_train, budget=budget, **fit_kwargs)
     val_loss, metric_for_logging, pred_time, _ = _eval_estimator(
         config,
         estimator,

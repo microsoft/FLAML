@@ -39,7 +39,7 @@ def get_initial_value(space):
                     # if a nested config branch has no init_value, ignore it
                     if isinstance(v["init_value"], dict):
                         tmp = get_initial_value(v["init_value"])
-                        out.update(tmp)
+                        out[k] = tmp
                     else:
                         out[k] = v["init_value"]
             else:
@@ -115,8 +115,8 @@ class SearchState:
             #     continue
             # self._search_space_domain[name] = space["domain"]
 
-            if "low_cost_init_value" in space:
-                self.low_cost_partial_config[name] = space["low_cost_init_value"]
+            # if "low_cost_init_value" in space:
+            #     self.low_cost_partial_config[name] = space["low_cost_init_value"]
             if "cat_hp_cost" in space:
                 self.cat_hp_cost[name] = space["cat_hp_cost"]
             # if a starting point is provided, set the init config to be
@@ -172,8 +172,6 @@ class SearchState:
 
         self.init_config = new_init
         self._search_space_domain = new_space
-
-        print("yay!")
 
     def compare_dicts(d1, d2):
         for key in sorted(list(set(*d1.keys(), *d2.keys()))):
