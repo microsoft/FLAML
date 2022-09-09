@@ -221,9 +221,10 @@ class TaskTS(Task):
             estimator_list.remove("catboost")
         if self.name in TS_FORECASTREGRESSION:
             estimator_list += ["arima", "sarimax"]
-            if self.train_data_size <= 365 * 10:  # at most 10 years
-                # matrix inversion of the multiscale transform gets too expensive otherwise
-                estimator_list += ["multiscale"]
+            # Multiscale struggled with multivariate categorical forecast test
+            # if self.train_data_size <= 365 * 10:  # at most 10 years
+            #     # matrix inversion of the multiscale transform gets too expensive otherwise
+            #     estimator_list = ["multiscale"]
             try:
                 import prophet
 

@@ -30,18 +30,18 @@ def get_tune_domain(space):
         return space
 
 
-def get_initial_value(space):
+def get_initial_value(space, field_name):
     out = {}
     if isinstance(space, dict):
         for k, v in space.items():
             if isinstance(v, dict):
-                if "init_value" in v:
+                if field_name in v:
                     # if a nested config branch has no init_value, ignore it
-                    if isinstance(v["init_value"], dict):
-                        tmp = get_initial_value(v["init_value"])
+                    if isinstance(v[field_name], dict):
+                        tmp = get_initial_value(v[field_name], field_name)
                         out[k] = tmp
                     else:
-                        out[k] = v["init_value"]
+                        out[k] = v[field_name]
             else:
                 out[k] = v
     else:
@@ -157,7 +157,7 @@ class SearchState:
         self.trial_time = 0
 
         new_space = get_tune_domain(search_space)
-        new_init = get_initial_value(search_space)
+        new_init = get_initial_value(search_space, "init_value")
         # integrate any starting_point values
         new_init.update(self.init_config)
 
@@ -172,6 +172,10 @@ class SearchState:
 
         self.init_config = new_init
         self._search_space_domain = new_space
+        # TODO:
+        # self.low_cost_partial_config = get_initial_value(
+        #     search_space, "low_cost_init_value"
+        # )
 
     def compare_dicts(d1, d2):
         for key in sorted(list(set(*d1.keys(), *d2.keys()))):

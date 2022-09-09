@@ -227,7 +227,11 @@ class MultiscaleModel(TimeSeriesEstimator):
                 this_sp["estimator"] = est
                 est_cfgs.append(this_sp)
             # Use list as proxy for tune.choice in this strange API
-            out[mdl] = {"domain": est_cfgs, "init_value": est_cfgs[0]}
+            out[mdl] = {
+                "domain": est_cfgs,
+                "init_value": est_cfgs[0],
+                "low_cost_init_value": est_cfgs[0],
+            }
         return out
 
     def fit(self, X_train: TimeSeriesDataset, y_train=None, budget=None, **kwargs):
