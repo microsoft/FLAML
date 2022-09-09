@@ -1,4 +1,5 @@
 import logging
+import time
 
 import numpy as np
 import pandas as pd
@@ -6,10 +7,11 @@ from scipy.sparse import issparse
 from sklearn.model_selection import TimeSeriesSplit
 
 # from .automl import AutoML
-from flaml.automl.task import Task, TS_FORECASTREGRESSION
+from flaml.automl.task import CLASSIFICATION, Task, TS_FORECASTREGRESSION
 from flaml.time_series.ts_data import TimeSeriesDataset, DataTransformerTS
 
 from flaml.automl.task import TS_FORECAST
+from flaml.ml import get_val_loss
 from flaml.time_series import (
     XGBoost_TS,
     XGBoostLimitDepth_TS,
@@ -26,8 +28,6 @@ from flaml.time_series.multiscale import MultiscaleModel
 logger = logging.getLogger(__name__)
 
 
-# class AutoMLTS(AutoML):
-#     """AutoML for Time Series"""
 class TaskTS(Task):
     estimators = {
         "xgboost": XGBoost_TS,
@@ -49,6 +49,7 @@ class TaskTS(Task):
         y_train_all,
         dataframe,
         label,
+        eval_method,
         time_col=None,
         X_val=None,
         y_val=None,
@@ -67,6 +68,7 @@ class TaskTS(Task):
         automl._df = True
 
         if X_train_all is not None and y_train_all is not None:
+            time_col = time_col or "ds"
             validate_data_basic(X_train_all, y_train_all)
             dataframe = normalize_ts_data(
                 X_train_all, y_train_all, target_names, time_col
@@ -156,8 +158,6 @@ class TaskTS(Task):
 
         automl._state.kf = None
         automl._sample_weight_full = None
-        if eval_method != "holdout":
-            raise NotImplementedError("Cross-validation implementation pending")
 
         SHUFFLE_SPLIT_TYPES = ["uniform", "stratified"]
         if automl._split_type in SHUFFLE_SPLIT_TYPES:
@@ -170,7 +170,9 @@ class TaskTS(Task):
         automl._state.groups_val = None
 
         ts_data = automl._state.X_val
-        no_test_data = ts_data.test_data is None or len(ts_data.test_data) == 0
+        no_test_data = (
+            ts_data is None or ts_data.test_data is None or len(ts_data.test_data) == 0
+        )
         if no_test_data and eval_method == "holdout":
             # if eval_method = holdout, make holdout data
             num_samples = ts_data.train_data.shape[0]
@@ -186,8 +188,9 @@ class TaskTS(Task):
                 "period"
             ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
 
-            if period * (n_splits + 1) > y_train_all.size:
-                n_splits = int(y_train_all.size / period - 1)
+            ts_data = automl._state.X_train
+            if period * (n_splits + 1) > ts_data.y_train.size:
+                n_splits = int(automl._state.y_train.size / period - 1)
                 assert n_splits >= 2, (
                     f"cross validation for forecasting period={period}"
                     f" requires input data with at least {3 * period} examples."
@@ -239,6 +242,82 @@ class TaskTS(Task):
             # except ImportError:
             #     pass
         return estimator_list
+
+    def evaluate_model_CV(
+        self,
+        config,
+        estimator,
+        X_train_all,
+        y_train_all,
+        budget,
+        kf,
+        eval_metric,
+        best_val_loss,
+        log_training_metric=False,
+        fit_kwargs={},
+    ):
+        start_time = time.time()
+        total_val_loss = 0
+        total_metric = None
+        metric = None
+        train_time = pred_time = 0
+        valid_fold_num = total_fold_num = 0
+        n = kf.get_n_splits()
+        if self.name in CLASSIFICATION:
+            labels = np.unique(y_train_all)
+        else:
+            labels = fit_kwargs.get(
+                "label_list"
+            )  # pass the label list on to compute the evaluation metric
+        ts_data = X_train_all
+        val_loss_list = []
+        budget_per_train = budget / n
+        ts_data = X_train_all
+        for data in ts_data.cv_train_val_sets(kf.n_splits, kf.test_size):
+            estimator.cleanup()
+            val_loss_i, metric_i, train_time_i, pred_time_i = get_val_loss(
+                config,
+                estimator,
+                X_train=data,
+                y_train=None,
+                X_val=data,
+                y_val=None,
+                eval_metric=eval_metric,
+                labels=labels,
+                budget=budget_per_train,
+                log_training_metric=log_training_metric,
+                fit_kwargs=fit_kwargs,
+                task=self,
+                weight_val=None,
+                groups_val=None,
+            )
+            valid_fold_num += 1
+            total_fold_num += 1
+            total_val_loss += val_loss_i
+            if log_training_metric or not isinstance(eval_metric, str):
+                if isinstance(total_metric, dict):
+                    total_metric = {k: total_metric[k] + v for k, v in metric_i.items()}
+                elif total_metric is not None:
+                    total_metric += metric_i
+                else:
+                    total_metric = metric_i
+            train_time += train_time_i
+            pred_time += pred_time_i
+            if valid_fold_num == n:
+                val_loss_list.append(total_val_loss / valid_fold_num)
+                total_val_loss = valid_fold_num = 0
+            elif time.time() - start_time >= budget:
+                val_loss_list.append(total_val_loss / valid_fold_num)
+                break
+        val_loss = np.max(val_loss_list)
+        n = total_fold_num
+        if log_training_metric or not isinstance(eval_metric, str):
+            if isinstance(total_metric, dict):
+                metric = {k: v / n for k, v in total_metric.items()}
+            else:
+                metric = total_metric / n
+        pred_time /= n
+        return val_loss, metric, train_time, pred_time
 
 
 def validate_data_basic(X_train_all, y_train_all):

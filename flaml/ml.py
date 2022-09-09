@@ -353,14 +353,14 @@ def _eval_estimator(
     weight_val,
     groups_val,
     eval_metric,
-    obj,
+    task,
     labels=None,
     log_training_metric=False,
     fit_kwargs={},
 ):
     if isinstance(eval_metric, str):
         pred_start = time.time()
-        val_pred_y = get_y_pred(estimator, X_val, eval_metric, obj)
+        val_pred_y = get_y_pred(estimator, X_val, eval_metric, task)
 
         if isinstance(X_val, TimeSeriesDataset):
             num_val_rows = len(X_val.test_data)
@@ -382,7 +382,7 @@ def _eval_estimator(
         )
         metric_for_logging = {"pred_time": pred_time}
         if log_training_metric:
-            train_pred_y = get_y_pred(estimator, X_train, eval_metric, obj)
+            train_pred_y = get_y_pred(estimator, X_train, eval_metric, task)
             metric_for_logging["train_loss"] = metric_loss_score(
                 eval_metric,
                 train_pred_y,
@@ -423,7 +423,7 @@ def get_val_loss(
     weight_val,
     groups_val,
     eval_metric,
-    obj,
+    task,
     labels=None,
     budget=None,
     log_training_metric=False,
@@ -446,7 +446,7 @@ def get_val_loss(
         weight_val,
         groups_val,
         eval_metric,
-        obj,
+        task,
         labels,
         log_training_metric,
         fit_kwargs,
@@ -624,14 +624,13 @@ def compute_estimator(
             fit_kwargs=fit_kwargs,
         )
     else:
-        val_loss, metric_for_logging, train_time, pred_time = evaluate_model_CV(
+        val_loss, metric_for_logging, train_time, pred_time = task.evaluate_model_CV(
             config_dic,
             estimator,
             X_train,
             y_train,
             budget,
             kf,
-            task,
             eval_metric,
             best_val_loss,
             log_training_metric=log_training_metric,

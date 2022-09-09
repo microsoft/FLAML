@@ -1,4 +1,5 @@
 import logging
+import time
 
 import pandas as pd
 import numpy as np
@@ -37,6 +38,7 @@ from flaml.automl.task import (
 
 from flaml.config import RANDOM_SEED
 from flaml.data import concat
+from flaml.ml import get_val_loss
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +65,7 @@ class GenericTask(Task):
         y_train_all,
         dataframe,
         label,
+        eval_method,
         time_col=None,
         X_val=None,
         y_val=None,
@@ -575,3 +578,118 @@ class GenericTask(Task):
         if self.name != "regression":
             estimator_list += ["lrl1"]
         return estimator_list
+
+    def evaluate_model_CV(
+        self,
+        config,
+        estimator,
+        X_train_all,
+        y_train_all,
+        budget,
+        kf,
+        eval_metric,
+        best_val_loss,
+        log_training_metric=False,
+        fit_kwargs={},
+    ):
+        start_time = time.time()
+        total_val_loss = 0
+        total_metric = None
+        metric = None
+        train_time = pred_time = 0
+        valid_fold_num = total_fold_num = 0
+        n = kf.get_n_splits()
+        X_train_split, y_train_split = X_train_all, y_train_all
+        if self.name in CLASSIFICATION:
+            labels = np.unique(y_train_all)
+        else:
+            labels = fit_kwargs.get(
+                "label_list"
+            )  # pass the label list on to compute the evaluation metric
+        groups = None
+        shuffle = True
+        if isinstance(kf, RepeatedStratifiedKFold):
+            kf = kf.split(X_train_split, y_train_split)
+        elif isinstance(kf, GroupKFold):
+            groups = kf.groups
+            kf = kf.split(X_train_split, y_train_split, groups)
+            shuffle = False
+        else:
+            kf = kf.split(X_train_split)
+        rng = np.random.RandomState(2020)
+        val_loss_list = []
+        budget_per_train = budget / n
+        if "sample_weight" in fit_kwargs:
+            weight = fit_kwargs["sample_weight"]
+            weight_val = None
+        else:
+            weight = weight_val = None
+        for train_index, val_index in kf:
+            if shuffle:
+                train_index = rng.permutation(train_index)
+            if isinstance(X_train_all, pd.DataFrame):
+                X_train = X_train_split.iloc[train_index]
+                X_val = X_train_split.iloc[val_index]
+            else:
+                X_train, X_val = X_train_split[train_index], X_train_split[val_index]
+
+            y_train, y_val = y_train_split[train_index], y_train_split[val_index]
+
+            estimator.cleanup()
+            if weight is not None:
+                fit_kwargs["sample_weight"], weight_val = (
+                    weight[train_index],
+                    weight[val_index],
+                )
+
+            if groups is not None:
+                fit_kwargs["groups"] = groups[train_index]
+                groups_val = groups[val_index]
+            else:
+                groups_val = None
+
+            val_loss_i, metric_i, train_time_i, pred_time_i = get_val_loss(
+                config,
+                estimator,
+                X_train,
+                y_train,
+                X_val,
+                y_val,
+                weight_val,
+                groups_val,
+                eval_metric,
+                self,
+                labels,
+                budget_per_train,
+                log_training_metric=log_training_metric,
+                fit_kwargs=fit_kwargs,
+            )
+            if weight is not None:
+                fit_kwargs["sample_weight"] = weight
+            valid_fold_num += 1
+            total_fold_num += 1
+            total_val_loss += val_loss_i
+            if log_training_metric or not isinstance(eval_metric, str):
+                if isinstance(total_metric, dict):
+                    total_metric = {k: total_metric[k] + v for k, v in metric_i.items()}
+                elif total_metric is not None:
+                    total_metric += metric_i
+                else:
+                    total_metric = metric_i
+            train_time += train_time_i
+            pred_time += pred_time_i
+            if valid_fold_num == n:
+                val_loss_list.append(total_val_loss / valid_fold_num)
+                total_val_loss = valid_fold_num = 0
+            elif time.time() - start_time >= budget:
+                val_loss_list.append(total_val_loss / valid_fold_num)
+                break
+        val_loss = np.max(val_loss_list)
+        n = total_fold_num
+        if log_training_metric or not isinstance(eval_metric, str):
+            if isinstance(total_metric, dict):
+                metric = {k: v / n for k, v in total_metric.items()}
+            else:
+                metric = total_metric / n
+        pred_time /= n
+        return val_loss, metric, train_time, pred_time

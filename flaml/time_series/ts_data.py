@@ -1,8 +1,7 @@
 import copy
 import datetime
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import List, Optional, Callable, Dict, Union
+from typing import List, Optional, Callable, Dict, Generator, Union
 
 import pandas as pd
 import numpy as np
@@ -78,6 +77,10 @@ class TimeSeriesDataset:
     def regressors(self):
         return self.time_varying_known_categoricals + self.time_varying_known_reals
 
+    def _X(self, df: pd.DataFrame):
+        features = [col for col in df.columns if col not in self.target_names]
+        return df[features]
+
     def _y(self, df: pd.DataFrame):
         if len(self.target_names) > 1:
             return df[self.target_names]
@@ -86,6 +89,14 @@ class TimeSeriesDataset:
             if out.dtype == object:
                 out = out.astype(str)
             return out
+
+    @property
+    def X_train(self):
+        return self._X(self.train_data)
+
+    @property
+    def X_val(self):
+        return self._X(self.test_data)
 
     @property
     def y_train(self):
@@ -98,17 +109,6 @@ class TimeSeriesDataset:
     def next_scale(self) -> int:
         scale_map = {"D": 7, "MS": 12}
         return scale_map.get(self.frequency, 8)
-
-    def days_to_periods_mult(self):
-        freq = self.frequency
-        if freq == "H":
-            return 24
-        elif freq == "D":
-            return 1
-        elif freq == "30min":
-            return 48
-        else:
-            raise ValueError(f"Frequency '{freq}' is not supported")
 
     def known_features_to_floats(
         self, train: bool, drop_first: bool = True
@@ -171,17 +171,16 @@ class TimeSeriesDataset:
 
         return out
 
-    def split_validation(self, days: int) -> "TimeSeriesDataset":
-        out = copy.copy(self)
-        last_periods = days * self.days_to_periods_mult()
-        split_idx = self.train_data[self.time_idx].max() - last_periods + 1
-        max_idx = self.test_data[self.time_idx].max() - last_periods + 1
-        all_data = pd.concat([self.train_data, self.test_data], ignore_index=True)
-        new_train = all_data[self.time_idx] < split_idx
-        keep = all_data[self.time_idx] < max_idx
-        out.train_data = all_data[new_train]
-        out.test_data = all_data[(~new_train) & keep]
-        return out
+    def cv_train_val_sets(
+        self, n_splits: int, val_length: int
+    ) -> Generator["TimeSeriesDataset", None, None]:
+        max_index = len(self.train_data) - 1
+        for i in range(n_splits):
+            out = copy.copy(self)
+            val_start = max_index - (n_splits - i) * val_length
+            out.train_data = self.train_data[:val_start]
+            out.test_data = self.train_data[val_start : val_start + val_length]
+            yield out
 
     def filter(self, filter_fun: Callable) -> "TimeSeriesDataset":
         if filter_fun is None:
@@ -273,17 +272,22 @@ class TimeSeriesDataset:
 
 
 def enrich(
-    X: Union[TimeSeriesDataset, pd.DataFrame], fourier_degree: int, time_col: str
+    X: Union[int, TimeSeriesDataset, pd.DataFrame], fourier_degree: int, time_col: str
 ):
+    if isinstance(X, int):
+        return X
+
     if isinstance(X, TimeSeriesDataset):
         return enrich_dataset(X, fourier_degree)
-    else:
-        return enrich_dataframe(X, time_col, fourier_degree)
+
+    return enrich_dataframe(X, time_col, fourier_degree)
 
 
 def enrich_dataframe(
-    df: pd.DataFrame, time_col: str, fourier_degree: int
+    df: Union[pd.DataFrame, pd.Series], time_col: str, fourier_degree: int
 ) -> pd.DataFrame:
+    if isinstance(df, pd.Series):
+        df = pd.DataFrame(df)
     extras = naive_date_features(df[time_col], fourier_degree)
     extras.columns = [f"{time_col}_{c}" for c in extras.columns]
     extras.index = df.index
@@ -320,7 +324,7 @@ def enrich_data_old(
     ).unique()
 
     # 2. fill in missing time periods and values, add integer time index
-    df_with_idx = add_time_idx_new(data, time_col)
+    df_with_idx = add_time_idx_new(data, time_col)  # noqa
 
     # 3. Generate timestamps and time index for forecasting
     freq = data.metadata["frequency"]
@@ -564,6 +568,12 @@ class DataTransformerTS:
             X: Processed numpy array or pandas dataframe of training data.
         """
         X = X.copy()
+        if isinstance(X, np.ndarray):
+            array_order = len(X.shape)
+            feature_labels = []
+            if array_order > 1:
+                feature_labels = [f"x{i}" for i in range(X.shape[1] - 1)]
+            X = pd.DataFrame(X, columns=[self.time_col] + feature_labels)
 
         if isinstance(X, DataFrame):
             cat_columns, num_columns, datetime_columns = (

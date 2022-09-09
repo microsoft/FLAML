@@ -40,6 +40,8 @@ from flaml.automl.factory import task_factory
 from .. import tune
 from ..training_log import training_log_reader, training_log_writer
 from ..default.suggest import suggest_learner
+from ..time_series.ts_data import TimeSeriesDataset
+
 
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
@@ -486,7 +488,7 @@ class AutoML(BaseEstimator):
 
     def predict(
         self,
-        X: Union[np.array, pd.DataFrame, List[str], List[List[str]]],
+        X: Union[int, np.array, pd.DataFrame, List[str], List[List[str]]],
         **pred_kwargs,
     ):
         """Predict label from features.
@@ -583,8 +585,6 @@ class AutoML(BaseEstimator):
             return X
         elif issparse(X):
             X = X.tocsr()
-        if self._state.task.name in TS_FORECAST:
-            X = pd.DataFrame(X)
         if self._transformer:
             X = self._transformer.transform(X)
         return X
@@ -835,7 +835,7 @@ class AutoML(BaseEstimator):
         # Partially copied from fit() function
         # Initilize some attributes required for retrain_from_log
         self.task._decide_split_type(self, split_type)
-        eval_method = self._decide_eval_method(eval_method, time_budget)
+        eval_method = self._decide_eval_method(eval_method, time_budget, n_splits)
         self.modelcount = 0
         self._auto_augment = auto_augment
         self.task._prepare_data(self, eval_method, split_ratio, n_splits)
@@ -859,7 +859,7 @@ class AutoML(BaseEstimator):
         logger.info("retrain from log succeeded")
         return training_duration
 
-    def _decide_eval_method(self, eval_method, time_budget):
+    def _decide_eval_method(self, eval_method, time_budget, n_splits):
         if not isinstance(self._split_type, str):
             assert eval_method in [
                 "auto",
@@ -869,7 +869,9 @@ class AutoML(BaseEstimator):
                 self._state.X_val is None
             ), "custom splitter and custom validation data can't be used together."
             return "cv"
-        if self._state.X_val is not None:
+        if self._state.X_val is not None and not isinstance(
+            self._state.X_val, TimeSeriesDataset
+        ):
             assert eval_method in [
                 "auto",
                 "holdout",
@@ -1531,6 +1533,7 @@ class AutoML(BaseEstimator):
             y_train,
             dataframe,
             label,
+            eval_method,
             time_col if time_col is not None else "ds",
             X_val,
             y_val,
@@ -1552,7 +1555,7 @@ class AutoML(BaseEstimator):
         logger.info(f"task = {task.name}")
         self.task._decide_split_type(self, split_type)
         logger.info(f"Data split method: {self._split_type}")
-        eval_method = self._decide_eval_method(eval_method, time_budget)
+        eval_method = self._decide_eval_method(eval_method, time_budget, n_splits)
         self._state.eval_method = eval_method
         logger.info("Evaluation method: {}".format(eval_method))
 

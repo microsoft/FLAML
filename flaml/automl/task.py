@@ -1,3 +1,6 @@
+from abc import ABC, abstractmethod
+from typing import Tuple
+
 # TODO: if your task is not specified in here, define your task as an all-capitalized word
 from typing import Union
 
@@ -61,6 +64,22 @@ class Task:
             self.train_data_size = len(X_train)
         else:
             self.train_data_size = None
+
+    @abstractmethod
+    def evaluate_model_CV(
+        self,
+        config,
+        estimator,
+        X_train_all,
+        y_train_all,
+        budget,
+        kf,
+        eval_metric,
+        best_val_loss,
+        log_training_metric=False,
+        fit_kwargs={},
+    ) -> Tuple[float, float, float, float]:
+        pass
 
     def is_ts_forecast(self):
         return self.name in TS_FORECAST
@@ -128,4 +147,3 @@ class Task:
                 f"only {list(cls.estimators.keys())} are supported."
                 "Please use AutoML.add_learner() to add a customized learner."
             )
-        return estimator_class

@@ -110,6 +110,7 @@ def test_numpy():
         time_budget=3,  # time budget in seconds
         log_file_name="test/ts_forecast.log",
         n_splits=3,  # number of splits
+        eval_method="cv",
     )
     print(automl.predict(X_train[72:]))
 
@@ -453,7 +454,7 @@ def test_features():
     y = pd.Series(
         name="date", data=pd.date_range(start="1/1/2018", periods=300, freq="H")
     )
-    f = naive_date_features(y, 3)
+    _ = naive_date_features(y, 3)
 
 
 # def test_finance_df():

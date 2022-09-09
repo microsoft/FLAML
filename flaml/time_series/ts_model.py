@@ -280,8 +280,8 @@ class ARIMA(TimeSeriesEstimator):
     def fit(self, X_train, y_train=None, budget=None, **kwargs):
         import warnings
 
-        X_train = enrich(X_train, self.params["monthly_fourier_degree"], self.time_col)
         super().fit(X_train, y_train, budget=budget, **kwargs)
+        X_train = enrich(X_train, self.params["monthly_fourier_degree"], self.time_col)
 
         warnings.filterwarnings("ignore")
         from statsmodels.tsa.arima.model import ARIMA as ARIMA_estimator
@@ -557,6 +557,7 @@ class TS_SKLearn(TimeSeriesEstimator):
             self._model = model
 
     def fit(self, X_train, y_train=None, budget=None, **kwargs):
+        self.time_col = kwargs.pop("time_col", "ds")  # Doesn't work for some reason
         X_train = enrich(X_train, self.params["monthly_fourier_degree"], self.time_col)
         current_time = time.time()
         if isinstance(X_train, TimeSeriesDataset):
