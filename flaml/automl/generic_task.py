@@ -528,7 +528,7 @@ class GenericTask(Task):
             task_name = get_classification_objective(
                 len(np.unique(automl._y_train_all))
             )
-            automl._state.task = task_factory(task_name)
+            automl._state.task.name = task_name
         if not isinstance(split_type, str):
             assert hasattr(split_type, "split") and hasattr(
                 split_type, "get_n_splits"

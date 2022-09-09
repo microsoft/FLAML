@@ -246,20 +246,23 @@ class MultiscaleModel(TimeSeriesEstimator):
             pd.DataFrame,
         ], "Unsupported input type"
 
+        if isinstance(X, pd.DataFrame):
+            # scale transform is causal so this won't taint the past
+            X[self.target_names] = 0
+            X = self.X_train.add_test_data(X)
+
         X_lo, X_hi = self.scale_transform.fit_transform(X)
-        y_pred_lo = self.model_lo.predict(
-            X_lo if isinstance(X_lo, pd.DataFrame) else X_lo.test_data
-        )
+
+        y_pred_lo = self.model_lo.predict(X_lo.test_data)
         # need the whole time series including the past to inverse_transform
         y_lo = X_lo.merge_prediction_with_target(y_pred_lo)
 
-        y_pred_hi = self.model_hi.predict(
-            X_hi if isinstance(X_hi, pd.DataFrame) else X_hi.test_data
-        )
+        y_pred_hi = self.model_hi.predict(X_hi.test_data)
         y_hi = X_hi.merge_prediction_with_target(y_pred_hi)
 
         out = self.scale_transform.inverse_transform(y_lo, y_hi)
-        return out
+
+        return out[-len(y_pred_hi) :][self.target_names]
 
 
 if __name__ == "__main__":

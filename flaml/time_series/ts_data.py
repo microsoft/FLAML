@@ -61,6 +61,15 @@ class TimeSeriesDataset:
         else:
             self.test_data = pd.DataFrame(columns=self.train_data.columns)
 
+    def add_test_data(self, X: pd.DataFrame) -> "TimeSeriesDataset":
+        assert self.time_col in X.columns
+        train_data = self.all_data[
+            self.all_data[self.time_col] < X[self.time_col].min()
+        ]
+        return TimeSeriesDataset(
+            train_data, self.time_col, self.target_names, self.time_idx, X
+        )
+
     @property
     def all_data(self):
         return pd.concat([self.train_data, self.test_data], axis=0)

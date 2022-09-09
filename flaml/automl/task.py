@@ -1,4 +1,9 @@
 # TODO: if your task is not specified in here, define your task as an all-capitalized word
+from typing import Union
+
+import pandas as pd
+import numpy as np
+
 SEQCLASSIFICATION = "seq-classification"
 MULTICHOICECLASSIFICATION = "multichoice-classification"
 TOKENCLASSIFICATION = "token-classification"
@@ -45,8 +50,17 @@ def get_classification_objective(num_labels: int) -> str:
 
 
 class Task:
-    def __init__(self, task_name):
+    def __init__(
+        self,
+        task_name: str,
+        X_train: Union[np.ndarray, pd.DataFrame],
+        y_train: Union[np.ndarray, pd.DataFrame, pd.Series],
+    ):
         self.name = task_name
+        if X_train is not None:
+            self.train_data_size = len(X_train)
+        else:
+            self.train_data_size = None
 
     def is_ts_forecast(self):
         return self.name in TS_FORECAST

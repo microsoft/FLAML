@@ -1398,7 +1398,11 @@ class AutoML(BaseEstimator):
                 label = y_train.name
 
         task_name = task or self._settings["task"]
-        self.task = task_factory(task_name)
+        self.task = task_factory(
+            task_name,
+            X_train if X_train is not None else dataframe.drop(columns=[label]),
+            y_train if y_train is not None else dataframe[label],
+        )
         task = self.task
         self._state.task = self.task
 

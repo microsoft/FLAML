@@ -93,6 +93,7 @@ def test_forecast_automl(budget=5):
             estimator_list=["arima", "sarimax"],
             period=time_horizon,
         )
+    print("done")
 
 
 def test_numpy():
