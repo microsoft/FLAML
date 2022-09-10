@@ -1,10 +1,12 @@
 import numpy as np
 import pandas as pd
+import datetime
+
 from flaml import AutoML
 from flaml.time_series import naive_date_features
 
 
-def test_forecast_automl(budget=5):
+def test_forecast_automl(budget=30):
     # using dataframe
     import statsmodels.api as sm
 
@@ -452,6 +454,38 @@ def test_features():
         name="date", data=pd.date_range(start="1/1/2018", periods=300, freq="H")
     )
     f = naive_date_features(y, 3)
+
+
+# def test_finance_df():
+#     df = pd.read_csv("fincrime_finance_series.csv").fillna(0.0)
+#     df["PERIOD"] = pd.to_datetime(df["PERIOD"])
+#
+#     def split_by_date(df: pd.DataFrame, year, month, day):
+#         dt = datetime.datetime(year, month, day)
+#         return df[df.PERIOD <= dt], df[df.PERIOD > dt]
+#
+#     train_df, pred_df = split_by_date(df, 2022, 8, 31)
+#     from flaml import AutoML
+#
+#     tgt = "SERIES_FRAUD"
+#     assert tgt in train_df.columns
+#
+#     automl = AutoML(
+#         time_budget=120, metric="mape", task="ts_forecast", eval_method="holdout"
+#     )
+#
+#     train_df, val_df = split_by_date(train_df, 2022, 7, 31)
+#
+#     automl.fit(
+#         dataframe=train_df,
+#         label=tgt,
+#         period=30,
+#         time_col="PERIOD",
+#         estimator_list=["sarimax"],
+#         verbose=4,
+#     )
+#
+#     pred = automl.predict(val_df)
 
 
 if __name__ == "__main__":

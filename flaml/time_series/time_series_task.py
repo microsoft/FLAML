@@ -232,12 +232,12 @@ class TaskTS(Task):
             except ImportError:
                 pass
 
-            try:
-                import orbit
-
-                estimator_list += ["orbit"]
-            except ImportError:
-                pass
+            # try:
+            #     import orbit
+            #
+            #     estimator_list += ["orbit"]
+            # except ImportError:
+            #     pass
         return estimator_list
 
 

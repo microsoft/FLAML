@@ -205,7 +205,10 @@ class Prophet(TimeSeriesEstimator):
 
         train_df = self._preprocess(train_df)
         logging.getLogger("prophet").setLevel(logging.WARNING)
-        model = Prophet(**self.params)
+        nice_params = {
+            k: v for k, v in self.params.items() if k in self._search_space()
+        }
+        model = Prophet(**nice_params)
         for regressor in regressors:
             model.add_regressor(regressor)
         with suppress_stdout_stderr():
@@ -377,8 +380,8 @@ class SARIMAX(ARIMA):
                 "low_cost_init_value": 0,
             },
             "d": {
-                "domain": tune.qrandint(lower=0, upper=3, q=1),
-                "init_value": 1,
+                "domain": tune.qrandint(lower=0, upper=2, q=1),
+                "init_value": 0,
                 "low_cost_init_value": 0,
             },
             "q": {
@@ -392,8 +395,8 @@ class SARIMAX(ARIMA):
                 "low_cost_init_value": 0,
             },
             "D": {
-                "domain": tune.qrandint(lower=0, upper=3, q=1),
-                "init_value": 1,
+                "domain": tune.qrandint(lower=0, upper=2, q=1),
+                "init_value": 0,
                 "low_cost_init_value": 0,
             },
             "Q": {
@@ -594,7 +597,7 @@ class TS_SKLearn(TimeSeriesEstimator):
                     preds.append(self._model[i - 1].predict(X_pred, **kwargs)[-1])
                 forecast = DataFrame(
                     data=np.asarray(preds).reshape(-1, 1),
-                    columns=[self.hcrystaball_model.name],
+                    columns=self.target_names,  # [self.hcrystaball_model.name],
                     index=X.index,
                 )
             else:
@@ -605,6 +608,7 @@ class TS_SKLearn(TimeSeriesEstimator):
                 forecast = self._model.predict(X_pred, **kwargs)
             if isinstance(forecast, pd.Series):
                 forecast.name = self.target_names[0]
+
             return forecast
         else:
             logger.warning(

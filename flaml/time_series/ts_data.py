@@ -96,8 +96,8 @@ class TimeSeriesDataset:
         return self._y(self.test_data)
 
     def next_scale(self) -> int:
-        # TODO get from self.frequency()
-        return 7
+        scale_map = {"D": 7, "MS": 12}
+        return scale_map.get(self.frequency, 8)
 
     def days_to_periods_mult(self):
         freq = self.frequency
