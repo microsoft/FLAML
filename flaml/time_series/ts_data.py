@@ -77,6 +77,12 @@ class TimeSeriesDataset:
     def regressors(self):
         return self.time_varying_known_categoricals + self.time_varying_known_reals
 
+    @property
+    def end_date(self):
+        test_len = 0 if self.test_data is None else len(self.test_data)
+        data = self.test_data if test_len else self.train_data
+        return data.iloc[-1][self.time_col]
+
     def _X(self, df: pd.DataFrame):
         features = [col for col in df.columns if col not in self.target_names]
         return df[features]
@@ -272,10 +278,14 @@ class TimeSeriesDataset:
 
 
 def enrich(
-    X: Union[int, TimeSeriesDataset, pd.DataFrame], fourier_degree: int, time_col: str
+    X: Union[int, TimeSeriesDataset, pd.DataFrame],
+    fourier_degree: int,
+    time_col: str,
+    frequency: Optional[str] = None,
+    test_end_date: Optional[datetime.datetime] = None,
 ):
     if isinstance(X, int):
-        return X
+        X = create_forward_frame(frequency, X, test_end_date, time_col)
 
     if isinstance(X, TimeSeriesDataset):
         return enrich_dataset(X, fourier_degree)
@@ -619,3 +629,18 @@ class DataTransformerTS:
                     X_num.columns = range(X_num.shape[1])
                 X[num_columns] = self.transformer.transform(X_num)
         return X
+
+
+def create_forward_frame(
+    frequency: str,
+    steps: int,
+    test_end_date: datetime.datetime,
+    time_col: str,
+):
+    start_date = test_end_date + pd.Timedelta(1, frequency)
+    times = pd.date_range(
+        start=start_date,
+        periods=steps,
+        freq=frequency,
+    )
+    return pd.DataFrame({time_col: times})

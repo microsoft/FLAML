@@ -1,8 +1,10 @@
 import time
 import logging
 import os
+from datetime import datetime
 from typing import List, Optional, Union
 
+import pandas as pd
 from pandas import DataFrame, Series, to_datetime
 
 from flaml import tune
@@ -25,7 +27,7 @@ from flaml.model import (
     XGBoostLimitDepthEstimator,
 )
 from flaml.data import TS_TIMESTAMP_COL, TS_VALUE_COL
-from flaml.time_series.ts_data import TimeSeriesDataset, enrich
+from flaml.time_series.ts_data import TimeSeriesDataset, enrich, create_forward_frame
 from flaml.automl.task import Task
 
 
@@ -34,6 +36,8 @@ class TimeSeriesEstimator(SKLearnEstimator):
         super().__init__(task, **params)
         self.time_col: Optional[str] = None
         self.target_names: Optional[Union[str, List[str]]] = None
+        self.frequency: Optional[str] = None
+        self.end_date: Optional[datetime] = None
 
     @classmethod
     def search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int):
@@ -67,6 +71,8 @@ class TimeSeriesEstimator(SKLearnEstimator):
         self.time_col = X_train.time_col
         self.target_names = X_train.target_names
         self.X_train = X_train
+        self.frequency = self.X_train.frequency
+        self.end_date = self.X_train.end_date
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         from sklearn.metrics import r2_score
@@ -108,12 +114,13 @@ class Orbit(TimeSeriesEstimator):
 
     def predict(self, X: Union[TimeSeriesDataset, pd.DataFrame], **kwargs):
         if isinstance(X, int):
-            # TODO: do prediction like that too, with TimeSeriesDataset
-            raise ValueError(
-                "predict() with steps is only supported for arima/sarimax."
-                " For Prophet, pass a dataframe with the first column containing"
-                " the timestamp values."
+            X = create_forward_frame(
+                self.frequency,
+                X,
+                self.end_date,
+                self.time_col,
             )
+
         elif isinstance(X, TimeSeriesDataset):
             data = X
             X = data.test_data[[self.time_col] + X.regressors]
@@ -218,7 +225,13 @@ class Prophet(TimeSeriesEstimator):
         return train_time
 
     def predict(self, X, **kwargs):
-        X = enrich(X, self.params["monthly_fourier_degree"], self.time_col)
+        X = enrich(
+            X,
+            self.params["monthly_fourier_degree"],
+            self.time_col,
+            frequency=self.frequency,
+            test_end_date=self.end_date,
+        )
         if isinstance(X, int):
             raise ValueError(
                 "predict() with steps is only supported for arima/sarimax."
@@ -331,7 +344,13 @@ class ARIMA(TimeSeriesEstimator):
         return train_time
 
     def predict(self, X, **kwargs) -> pd.Series:
-        X = enrich(X, self.params["monthly_fourier_degree"], self.time_col)
+        X = enrich(
+            X,
+            self.params["monthly_fourier_degree"],
+            self.time_col,
+            frequency=self.frequency,
+            test_end_date=self.end_date,
+        )
         if self._model is None:
             return np.ones(X if isinstance(X, int) else X.shape[0])
 
@@ -575,7 +594,13 @@ class TS_SKLearn(TimeSeriesEstimator):
         return train_time
 
     def predict(self, X, **kwargs):
-        X = enrich(X, self.params["monthly_fourier_degree"], self.time_col)
+        X = enrich(
+            X,
+            self.params["monthly_fourier_degree"],
+            self.time_col,
+            frequency=self.frequency,
+            test_end_date=self.end_date,
+        )
         if isinstance(X, TimeSeriesDataset):
             data = X
             X = data.test_data[data.regressors + [data.time_col]]
