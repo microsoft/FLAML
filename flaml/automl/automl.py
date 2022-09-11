@@ -617,6 +617,9 @@ class AutoML(BaseEstimator):
             estimator = record.learner
             config = record.config
 
+        if isinstance(task, str):
+            task = task_factory(task)
+
         estimator, _ = train_estimator(
             X_train=None,
             y_train=None,
@@ -748,9 +751,9 @@ class AutoML(BaseEstimator):
 
         task = task or self._settings.get("task")
         if not hasattr(self, "task"):
-            from .task.factory import task_factory
-
+            from .factory import task_factory
             self.task = task_factory(task)
+
         eval_method = eval_method or self._settings.get("eval_method")
         split_ratio = split_ratio or self._settings.get("split_ratio")
         n_splits = n_splits or self._settings.get("n_splits")
@@ -769,7 +772,13 @@ class AutoML(BaseEstimator):
             fit_kwargs_by_estimator or self._settings.get("fit_kwargs_by_estimator")
         )
         self.task._validate_data(
-            self, X_train, y_train, dataframe, label, groups=groups
+            self,
+            X_train,
+            y_train,
+            dataframe,
+            label,
+            eval_method,
+            groups=groups,
         )
 
         logger.info("log file name {}".format(log_file_name))

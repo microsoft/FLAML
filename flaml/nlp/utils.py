@@ -1,7 +1,7 @@
 from typing import Dict, Any
 import numpy as np
 
-from flaml.automl.task.tasks import (
+from flaml.automl.task import (
     SEQCLASSIFICATION,
     MULTICHOICECLASSIFICATION,
     TOKENCLASSIFICATION,

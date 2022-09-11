@@ -563,7 +563,7 @@ class TransformersEstimator(BaseEstimator):
     def data_collator(self):
         from .nlp.huggingface.data_collator import task_to_datacollator_class
 
-        data_collator_class = task_to_datacollator_class.get(self._task)
+        data_collator_class = task_to_datacollator_class.get(self._task.name)
 
         if data_collator_class:
             kwargs = {

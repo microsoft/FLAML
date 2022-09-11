@@ -288,7 +288,7 @@ class DataTransformer:
             y: Processed numpy array or pandas series of labels.
         """
         if isinstance(task, str):
-            from .automl.task.factory import task_factory
+            from .automl.factory import task_factory
 
             task = task_factory(task)
         if task.is_nlp():

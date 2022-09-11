@@ -61,7 +61,7 @@ class Task:
     ):
         self.name = task_name
         if X_train is not None:
-            self.train_data_size = len(X_train)
+            self.train_data_size = X_train.shape[0]
         else:
             self.train_data_size = None
 
