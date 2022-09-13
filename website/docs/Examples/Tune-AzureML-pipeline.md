@@ -34,7 +34,8 @@ The pipeline consists of two steps: (1) data preparation and (2) model training.
 
 ![png](images/AzureML_train_pipeline.png).
 
-The [code example](https://github.com/microsoft/FLAML/tree/main/test/pipeline_tuning_example) discussed in the page is included in
+The 
+ discussed in the page is included in
 `test/pipeline_tuning_example/`.
 We will use the relative path in the rest of the page.
 
