@@ -2930,6 +2930,15 @@ class AutoML(BaseEstimator):
             del self._state.groups, self._state.groups_all, self._state.groups_val
         logger.setLevel(old_level)
 
+    def viz(self, wordage, value):
+        print(wordage)
+        if value == 0:
+            print("This shows that the new API for visualizations works correctly")
+        else:
+            print("Just a basic if else statement")
+
+
+
     def _search_parallel(self):
         try:
             from ray import __version__ as ray_version
