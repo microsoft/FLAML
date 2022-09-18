@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractstaticmethod
 from typing import Tuple
 
 # TODO: if your task is not specified in here, define your task as an all-capitalized word
@@ -20,9 +20,11 @@ TS_FORECASTREGRESSION = (
 )
 REGRESSION = ("regression", SEQREGRESSION, *TS_FORECASTREGRESSION)
 TS_FORECASTCLASSIFICATION = "ts_forecast_classification"
+TS_FORECASTPANEL = "ts_forecast_panel"
 TS_FORECAST = (
     *TS_FORECASTREGRESSION,
     TS_FORECASTCLASSIFICATION,
+    TS_FORECASTPANEL,
 )
 CLASSIFICATION = (
     "binary",
@@ -52,7 +54,7 @@ def get_classification_objective(num_labels: int) -> str:
     return objective_name
 
 
-class Task:
+class Task(ABC):
     def __init__(
         self,
         task_name: str,
@@ -79,6 +81,33 @@ class Task:
         log_training_metric=False,
         fit_kwargs={},
     ) -> Tuple[float, float, float, float]:
+        pass
+
+    @abstractstaticmethod
+    def _validate_data(
+        automl,
+        X_train_all,
+        y_train_all,
+        dataframe,
+        label,
+        eval_method,
+        time_col=None,
+        X_val=None,
+        y_val=None,
+        groups_val=None,
+        groups=None,
+    ):
+        pass
+
+    @abstractmethod
+    def _prepare_data(
+        self,
+        automl,
+        eval_method,
+        split_ratio,
+        n_splits,
+        time_col=None,
+    ):
         pass
 
     def is_ts_forecast(self):
