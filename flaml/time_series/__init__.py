@@ -9,6 +9,7 @@ from .ts_model import (
     ExtraTrees_TS,
     XGBoostLimitDepth_TS,
     TimeSeriesEstimator,
+    TemporalFusionTransformerEstimator,
 )
 
 from .ts_data import TimeSeriesDataset

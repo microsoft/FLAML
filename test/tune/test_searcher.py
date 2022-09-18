@@ -5,7 +5,10 @@ try:
     from ray import __version__ as ray_version
 
     assert ray_version >= "1.10.0"
-    from ray.tune import sample
+    if ray_version.startswith("1."):
+        from ray.tune import sample
+    else:
+        from ray.tune.search import sample
 
     use_ray = True
 except (ImportError, AssertionError):
@@ -295,7 +298,7 @@ def test_searcher():
     print(searcher.suggest("t1"))
     from flaml import tune
 
-    tune.run(lambda x: 1, config={}, use_ray=use_ray)
+    tune.run(lambda x: 1, config={}, use_ray=use_ray, log_file_name="logs/searcher.log")
 
 
 def test_no_optuna():

@@ -20,12 +20,12 @@ class TimeSeriesDataset:
     time_idx: str
     time_col: str
     target_names: List[str]
-    frequency: str  # TODO: should be derived from dataset
+    frequency: str
+    test_data: pd.DataFrame
     time_varying_known_categoricals: List[str] = field(default_factory=lambda: [])
     time_varying_known_reals: List[str] = field(default_factory=lambda: [])
     time_varying_unknown_categoricals: List[str] = field(default_factory=lambda: [])
     time_varying_unknown_reals: List[str] = field(default_factory=lambda: [])
-    test_data: Optional[pd.DataFrame] = None
 
     def __init__(
         self,
@@ -44,7 +44,7 @@ class TimeSeriesDataset:
         assert isinstance(target_names, list)
         assert len(target_names)
 
-        self.frequency = pd.infer_freq(train_data[time_col])
+        self.frequency = pd.infer_freq(train_data[time_col].unique())
         assert (
             self.frequency is not None
         ), "Only time series of regular frequency are currently supported."
@@ -100,19 +100,19 @@ class TimeSeriesDataset:
             return out
 
     @property
-    def X_train(self):
+    def X_train(self) -> pd.DataFrame:
         return self._X(self.train_data)
 
     @property
-    def X_val(self):
+    def X_val(self) -> pd.DataFrame:
         return self._X(self.test_data)
 
     @property
-    def y_train(self):
+    def y_train(self) -> pd.DataFrame:
         return self._y(self.train_data)
 
     @property
-    def y_val(self):
+    def y_val(self) -> pd.DataFrame:
         return self._y(self.test_data)
 
     def next_scale(self) -> int:

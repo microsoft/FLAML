@@ -1,5 +1,7 @@
+from enum import auto
 import logging
 import time
+from typing import List
 
 import numpy as np
 import pandas as pd
@@ -7,11 +9,16 @@ from scipy.sparse import issparse
 from sklearn.model_selection import TimeSeriesSplit
 
 # from .automl import AutoML
-from flaml.automl.task import CLASSIFICATION, Task, TS_FORECASTREGRESSION
+from flaml.automl.task import (
+    CLASSIFICATION,
+    Task,
+    TS_FORECASTREGRESSION,
+    TS_FORECASTPANEL,
+)
 from flaml.time_series.ts_data import TimeSeriesDataset, DataTransformerTS
 
 from flaml.automl.task import TS_FORECAST
-from flaml.ml import get_val_loss
+from flaml.ml import default_cv_score_agg_func, get_val_loss
 from flaml.time_series import (
     XGBoost_TS,
     XGBoostLimitDepth_TS,
@@ -22,6 +29,7 @@ from flaml.time_series import (
     Orbit,
     ARIMA,
     SARIMAX,
+    TemporalFusionTransformerEstimator,
 )
 from flaml.time_series.multiscale import MultiscaleModel
 
@@ -40,6 +48,7 @@ class TaskTS(Task):
         "arima": ARIMA,
         "sarimax": SARIMAX,
         "multiscale": MultiscaleModel,
+        "tft": TemporalFusionTransformerEstimator,
     }
 
     @staticmethod
@@ -150,8 +159,8 @@ class TaskTS(Task):
         automl._state.data_size = data.train_data.shape
         automl.data_size_full = len(data.all_data)
 
-    @staticmethod
     def _prepare_data(
+        self,
         automl,
         eval_method,
         split_ratio,
@@ -177,29 +186,85 @@ class TaskTS(Task):
             ts_data is None or ts_data.test_data is None or len(ts_data.test_data) == 0
         )
         if no_test_data and eval_method == "holdout":
-            # if eval_method = holdout, make holdout data
-            num_samples = ts_data.train_data.shape[0]
-            period = automl._state.fit_kwargs[
-                "period"
-            ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-            assert period < num_samples, f"period={period}>#examples={num_samples}"
-            automl._state.X_val = ts_data.move_validation_boundary(-period)
-            automl._state.X_train = automl._state.X_val
+            # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+            period = automl._state.fit_kwargs["period"]
+
+            if self.name == TS_FORECASTPANEL:
+                X_train_all = ts_data.X_train
+                y_train_all = ts_data.y_train
+
+                X_train_all["time_idx"] -= X_train_all["time_idx"].min()
+                X_train_all["time_idx"] = X_train_all["time_idx"].astype("int")
+                ids = automl._state.fit_kwargs["group_ids"].copy()
+                ids.append(ts_data.time_col)
+                ids.append("time_idx")
+                y_train_all = pd.DataFrame(y_train_all)
+                y_train_all[ids] = X_train_all[ids]
+                X_train_all = X_train_all.sort_values(ids)
+                y_train_all = y_train_all.sort_values(ids)
+                training_cutoff = X_train_all["time_idx"].max() - period
+                X_train = X_train_all[lambda x: x.time_idx <= training_cutoff]
+                y_train = y_train_all[lambda x: x.time_idx <= training_cutoff].drop(
+                    columns=ids
+                )
+                X_val = X_train_all[lambda x: x.time_idx > training_cutoff]
+                y_val = y_train_all[lambda x: x.time_idx > training_cutoff].drop(
+                    columns=ids
+                )
+
+                train_data = normalize_ts_data(
+                    X_train,
+                    y_train,
+                    ts_data.target_names,
+                    ts_data.time_col,
+                )
+                test_data = normalize_ts_data(
+                    X_val,
+                    y_val,
+                    ts_data.target_names,
+                    ts_data.time_col,
+                )
+                ts_data = TimeSeriesDataset(
+                    train_data,
+                    ts_data.time_col,
+                    ts_data.target_names,
+                    ts_data.frequency,
+                    test_data,
+                )
+                automl._state.X_val = ts_data
+                automl._state.X_train = ts_data
+
+            else:
+                # if eval_method = holdout, make holdout data
+                num_samples = ts_data.train_data.shape[0]
+                assert period < num_samples, f"period={period}>#examples={num_samples}"
+                automl._state.X_val = ts_data.move_validation_boundary(-period)
+                automl._state.X_train = automl._state.X_val
 
         if eval_method != "holdout":
-            period = automl._state.fit_kwargs[
-                "period"
-            ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+            if self.name != TS_FORECASTPANEL:
+                period = automl._state.fit_kwargs[
+                    "period"
+                ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
 
-            ts_data = automl._state.X_train
-            if period * (n_splits + 1) > ts_data.y_train.size:
-                n_splits = int(automl._state.y_train.size / period - 1)
-                assert n_splits >= 2, (
-                    f"cross validation for forecasting period={period}"
-                    f" requires input data with at least {3 * period} examples."
+                ts_data = automl._state.X_train
+                if period * (n_splits + 1) > ts_data.y_train.size:
+                    n_splits = int(automl._state.y_train.size / period - 1)
+                    assert n_splits >= 2, (
+                        f"cross validation for forecasting period={period}"
+                        f" requires input data with at least {3 * period} examples."
+                    )
+                    logger.info(f"Using nsplits={n_splits} due to data size limit.")
+                automl._state.kf = TimeSeriesSplit(n_splits=n_splits, test_size=period)
+
+            else:
+                n_groups = ts_data.X_train.groupby(
+                    automl._state.fit_kwargs.get("group_ids")
+                ).ngroups
+                period = automl._state.fit_kwargs["period"]
+                automl._state.kf = TimeSeriesSplit(
+                    n_splits=n_splits, test_size=period * n_groups
                 )
-                logger.info(f"Using nsplits={n_splits} due to data size limit.")
-            automl._state.kf = TimeSeriesSplit(n_splits=n_splits, test_size=period)
 
     @staticmethod
     def _decide_split_type(automl, split_type):
@@ -224,7 +289,10 @@ class TaskTS(Task):
         X = normalize_ts_data(X, automl.task.target_names, automl.task.time_col)
         return automl._preprocess(X)
 
-    def default_estimator_list(self):
+    def default_estimator_list(self) -> List[str]:
+        if self.name == TS_FORECASTPANEL:
+            return ["tft"]
+
         estimator_list = super().default_estimator_list()
 
         # catboost is removed because it has a `name` parameter, making it incompatible with hcrystalball
@@ -261,15 +329,18 @@ class TaskTS(Task):
         kf,
         eval_metric,
         best_val_loss,
+        cv_score_agg_func=None,
         log_training_metric=False,
         fit_kwargs={},
     ):
+        if cv_score_agg_func is None:
+            cv_score_agg_func = default_cv_score_agg_func
         start_time = time.time()
-        total_val_loss = 0
-        total_metric = None
+        val_loss_folds = []
+        log_metric_folds = []
         metric = None
         train_time = pred_time = 0
-        valid_fold_num = total_fold_num = 0
+        total_fold_num = 0
         n = kf.get_n_splits()
         if self.name in CLASSIFICATION:
             labels = np.unique(y_train_all)
@@ -278,7 +349,6 @@ class TaskTS(Task):
                 "label_list"
             )  # pass the label list on to compute the evaluation metric
         ts_data = X_train_all
-        val_loss_list = []
         budget_per_train = budget / n
         ts_data = X_train_all
         for data in ts_data.cv_train_val_sets(kf.n_splits, kf.test_size):
@@ -299,31 +369,17 @@ class TaskTS(Task):
                 weight_val=None,
                 groups_val=None,
             )
-            valid_fold_num += 1
+            if isinstance(metric_i, dict) and "intermediate_results" in metric_i:
+                del metric_i["intermediate_results"]
             total_fold_num += 1
-            total_val_loss += val_loss_i
-            if log_training_metric or not isinstance(eval_metric, str):
-                if isinstance(total_metric, dict):
-                    total_metric = {k: total_metric[k] + v for k, v in metric_i.items()}
-                elif total_metric is not None:
-                    total_metric += metric_i
-                else:
-                    total_metric = metric_i
+            val_loss_folds.append(val_loss_i)
+            log_metric_folds.append(metric_i)
             train_time += train_time_i
             pred_time += pred_time_i
-            if valid_fold_num == n:
-                val_loss_list.append(total_val_loss / valid_fold_num)
-                total_val_loss = valid_fold_num = 0
-            elif time.time() - start_time >= budget:
-                val_loss_list.append(total_val_loss / valid_fold_num)
+            if time.time() - start_time >= budget:
                 break
-        val_loss = np.max(val_loss_list)
+        val_loss, metric = cv_score_agg_func(val_loss_folds, log_metric_folds)
         n = total_fold_num
-        if log_training_metric or not isinstance(eval_metric, str):
-            if isinstance(total_metric, dict):
-                metric = {k: v / n for k, v in total_metric.items()}
-            else:
-                metric = total_metric / n
         pred_time /= n
         return val_loss, metric, train_time, pred_time
 
