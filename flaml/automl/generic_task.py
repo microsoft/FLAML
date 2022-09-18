@@ -530,7 +530,7 @@ class GenericTask(Task):
 
     @staticmethod
     def _preprocess(automl, X):
-        return automl.preprocess(X)
+        return automl._preprocess(X)
 
     def default_estimator_list(self):
         estimator_list = super().default_estimator_list()

@@ -214,15 +214,15 @@ class TaskTS(Task):
 
                 train_data = normalize_ts_data(
                     X_train,
-                    y_train,
                     ts_data.target_names,
                     ts_data.time_col,
+                    y_train,
                 )
                 test_data = normalize_ts_data(
                     X_val,
-                    y_val,
                     ts_data.target_names,
                     ts_data.time_col,
+                    y_val,
                 )
                 ts_data = TimeSeriesDataset(
                     train_data,
