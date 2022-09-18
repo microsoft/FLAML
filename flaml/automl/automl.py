@@ -183,7 +183,7 @@ class AutoML(BaseEstimator):
                     ["auto", 'stratified', 'uniform', 'time', 'group']. "auto" -> stratified.
                 For regression tasks, valid choices are ["auto", 'uniform', 'time'].
                     "auto" -> uniform.
-                For ts_forecast tasks, must be "auto" or 'time'.
+                For time series forecast tasks, must be "auto" or 'time'.
                 For ranking task, must be "auto" or 'group'.
             hpo_method: str, default="auto" | The hyperparameter
                 optimization method. By default, CFO is used for sequential
@@ -226,6 +226,8 @@ class AutoML(BaseEstimator):
             keep_search_state: boolean, default=False | Whether to keep data needed
                 for model search after fit(). By default the state is deleted for
                 space saving.
+            preserve_checkpoint: boolean, default=True | Whether to preserve the saved checkpoint
+                on disk when deleting automl. By default the checkpoint is preserved.
             early_stop: boolean, default=False | Whether to stop early if the
                 search is considered to converge.
             append_log: boolean, default=False | Whetehr to directly append the log
@@ -279,6 +281,7 @@ class AutoML(BaseEstimator):
              }
          }
         ```
+            skip_transform: boolean, default=False | Whether to pre-process data prior to modeling.
             fit_kwargs_by_estimator: dict, default=None | The user specified keywords arguments, grouped by estimator name.
                 e.g.,
 
@@ -322,15 +325,18 @@ class AutoML(BaseEstimator):
         settings["starting_points"] = settings.get("starting_points", "static")
         settings["n_concurrent_trials"] = settings.get("n_concurrent_trials", 1)
         settings["keep_search_state"] = settings.get("keep_search_state", False)
+        settings["preserve_checkpoint"] = settings.get("preserve_checkpoint", True)
         settings["early_stop"] = settings.get("early_stop", False)
         settings["append_log"] = settings.get("append_log", False)
         settings["min_sample_size"] = settings.get("min_sample_size", MIN_SAMPLE_TRAIN)
         settings["use_ray"] = settings.get("use_ray", False)
         settings["metric_constraints"] = settings.get("metric_constraints", [])
+        settings["cv_score_agg_func"] = settings.get("cv_score_agg_func", None)
         settings["fit_kwargs_by_estimator"] = settings.get(
             "fit_kwargs_by_estimator", {}
         )
         settings["custom_hp"] = settings.get("custom_hp", {})
+        settings["skip_transform"] = settings.get("skip_transform", False)
 
         self._estimator_type = (
             "classifier" if settings["task"] in CLASSIFICATION else "regressor"
@@ -495,7 +501,7 @@ class AutoML(BaseEstimator):
 
         Args:
             X: A numpy array of featurized instances, shape n * m,
-                or for ts_forecast tasks:
+                or for time series forcast tasks:
                     a pandas dataframe with the first column containing
                     timestamp values (datetime type) or an integer n for
                     the predict steps (only valid when the estimator is
@@ -652,6 +658,8 @@ class AutoML(BaseEstimator):
         record_id=-1,
         auto_augment=None,
         custom_hp=None,
+        skip_transform=None,
+        preserve_checkpoint=True,
         fit_kwargs_by_estimator=None,
         **fit_kwargs,
     ):
@@ -664,13 +672,13 @@ class AutoML(BaseEstimator):
         Args:
             log_file_name: A string of the log file name.
             X_train: A numpy array or dataframe of training data in shape n*m.
-                For ts_forecast tasks, the first column of X_train
+                For time series forecast tasks, the first column of X_train
                 must be the timestamp column (datetime type). Other
                 columns in the dataframe are assumed to be exogenous
                 variables (categorical or numeric).
             y_train: A numpy array or series of labels in shape n*1.
             dataframe: A dataframe of training data including label column.
-                For ts_forecast tasks, dataframe must be specified and should
+                For time series forecast tasks, dataframe must be specified and should
                 have at least two columns: timestamp and label, where the first
                 column is the timestamp column (datetime type). Other columns
                 in the dataframe are assumed to be exogenous variables
@@ -697,7 +705,7 @@ class AutoML(BaseEstimator):
                     ["auto", 'stratified', 'uniform', 'time', 'group']. "auto" -> stratified.
                 For regression tasks, valid choices are ["auto", 'uniform', 'time'].
                     "auto" -> uniform.
-                For ts_forecast tasks, must be "auto" or 'time'.
+                For time series forecast tasks, must be "auto" or 'time'.
                 For ranking task, must be "auto" or 'group'.
             groups: None or array-like | Group labels (with matching length to
                 y_train) or groups counts (with sum equal to length of y_train)
@@ -743,15 +751,35 @@ class AutoML(BaseEstimator):
         ```
 
             **fit_kwargs: Other key word arguments to pass to fit() function of
-                the searched learners, such as sample_weight. Include:
-                    period: int | forecast horizon for ts_forecast tasks.
+                the searched learners, such as sample_weight. Below are a few examples of
+                estimator-specific parameters:
+                    period: int | forecast horizon for all time series forecast tasks.
                     gpu_per_trial: float, default = 0 | A float of the number of gpus per trial,
-                    only used by TransformersEstimator and XGBoostSklearnEstimator.
+                        only used by TransformersEstimator, XGBoostSklearnEstimator, and
+                        TemporalFusionTransformerEstimator.
+                    group_ids: list of strings of column names identifying a time series, only
+                        used by TemporalFusionTransformerEstimator, required for
+                        'ts_forecast_panel' task. `group_ids` is a parameter for TimeSeriesDataSet object
+                        from PyTorchForecasting.
+                        For other parameters to describe your dataset, refer to
+                        [TimeSeriesDataSet PyTorchForecasting](https://pytorch-forecasting.readthedocs.io/en/stable/api/pytorch_forecasting.data.timeseries.TimeSeriesDataSet.html).
+                        To specify your variables, use `static_categoricals`, `static_reals`,
+                        `time_varying_known_categoricals`, `time_varying_known_reals`,
+                        `time_varying_unknown_categoricals`, `time_varying_unknown_reals`,
+                        `variable_groups`. To provide more information on your data, use
+                        `max_encoder_length`, `min_encoder_length`, `lags`.
+                    log_dir: str, default = "lightning_logs" | Folder into which to log results
+                        for tensorboard, only used by TemporalFusionTransformerEstimator.
+                    max_epochs: int, default = 20 | Maximum number of epochs to run training,
+                        only used by TemporalFusionTransformerEstimator.
+                    batch_size: int, default = 64 | Batch size for training model, only
+                        used by TemporalFusionTransformerEstimator.
         """
 
         task = task or self._settings.get("task")
         if not hasattr(self, "task"):
             from .factory import task_factory
+
             self.task = task_factory(task)
 
         eval_method = eval_method or self._settings.get("eval_method")
@@ -768,8 +796,18 @@ class AutoML(BaseEstimator):
 
         self._state.fit_kwargs = fit_kwargs
         self._state.custom_hp = custom_hp or self._settings.get("custom_hp")
+        self._skip_transform = (
+            self._settings.get("skip_transform")
+            if skip_transform is None
+            else skip_transform
+        )
         self._state.fit_kwargs_by_estimator = (
             fit_kwargs_by_estimator or self._settings.get("fit_kwargs_by_estimator")
+        )
+        self.preserve_checkpoint = (
+            self._settings.get("preserve_checkpoint")
+            if preserve_checkpoint is None
+            else preserve_checkpoint
         )
         self.task._validate_data(
             self,
@@ -844,7 +882,7 @@ class AutoML(BaseEstimator):
         # Partially copied from fit() function
         # Initilize some attributes required for retrain_from_log
         self.task._decide_split_type(self, split_type)
-        eval_method = self._decide_eval_method(eval_method, time_budget, n_splits)
+        eval_method = self._decide_eval_method(eval_method, time_budget)
         self.modelcount = 0
         self._auto_augment = auto_augment
         self.task._prepare_data(self, eval_method, split_ratio, n_splits)
@@ -868,7 +906,7 @@ class AutoML(BaseEstimator):
         logger.info("retrain from log succeeded")
         return training_duration
 
-    def _decide_eval_method(self, eval_method, time_budget, n_splits):
+    def _decide_eval_method(self, eval_method, time_budget):
         if not isinstance(self._split_type, str):
             assert eval_method in [
                 "auto",
@@ -1151,6 +1189,7 @@ class AutoML(BaseEstimator):
         seed=None,
         n_concurrent_trials=None,
         keep_search_state=None,
+        preserve_checkpoint=True,
         early_stop=None,
         append_log=None,
         auto_augment=None,
@@ -1159,6 +1198,8 @@ class AutoML(BaseEstimator):
         metric_constraints=None,
         custom_hp=None,
         time_col=None,
+        cv_score_agg_func=None,
+        skip_transform=None,
         fit_kwargs_by_estimator=None,
         **fit_kwargs,
     ):
@@ -1166,13 +1207,13 @@ class AutoML(BaseEstimator):
 
         Args:
             X_train: A numpy array or a pandas dataframe of training data in
-                shape (n, m). For ts_forecast tasks, the first column of X_train
+                shape (n, m). For time series forecast tasks, the first column of X_train
                 must be the timestamp column (datetime type). Other columns in
                 the dataframe are assumed to be exogenous variables (categorical or numeric).
                 When using ray, X_train can be a ray.ObjectRef.
             y_train: A numpy array or a pandas series of labels in shape (n, ).
             dataframe: A dataframe of training data including label column.
-                For ts_forecast tasks, dataframe must be specified and must have
+                For time series forecast tasks, dataframe must be specified and must have
                 at least two columns, timestamp and label, where the first
                 column is the timestamp column (datetime type). Other columns in
                 the dataframe are assumed to be exogenous variables (categorical or numeric).
@@ -1223,7 +1264,7 @@ class AutoML(BaseEstimator):
         ```
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast_regression',
-                'ts_forecast_classification', 'rank', 'seq-classification',
+                'ts_forecast_classification', 'ts_forecast_panel', 'rank', 'seq-classification',
                 'seq-regression', 'summarization'.
             n_jobs: An integer of the number of threads for training | default=-1.
                 Use all available resources when n_jobs == -1.
@@ -1288,7 +1329,7 @@ class AutoML(BaseEstimator):
                     ["auto", 'stratified', 'uniform', 'time', 'group']. "auto" -> stratified.
                 For regression tasks, valid choices are ["auto", 'uniform', 'time'].
                     "auto" -> uniform.
-                For ts_forecast tasks, must be "auto" or 'time'.
+                For time series forecast tasks, must be "auto" or 'time'.
                 For ranking task, must be "auto" or 'group'.
             hpo_method: str, default="auto" | The hyperparameter
                 optimization method. By default, CFO is used for sequential
@@ -1331,6 +1372,8 @@ class AutoML(BaseEstimator):
             keep_search_state: boolean, default=False | Whether to keep data needed
                 for model search after fit(). By default the state is deleted for
                 space saving.
+            preserve_checkpoint: boolean, default=True | Whether to preserve the saved checkpoint
+                on disk when deleting automl. By default the checkpoint is preserved.
             early_stop: boolean, default=False | Whether to stop early if the
                 search is considered to converge.
             append_log: boolean, default=False | Whetehr to directly append the log
@@ -1363,6 +1406,8 @@ class AutoML(BaseEstimator):
                 Each key is the estimator name, each value is a dict of the custom search space for that estimator. Notice the
                 domain of the custom search space can either be a value of a sample.Domain object.
 
+
+
         ```python
         custom_hp = {
             "transformer_ms": {
@@ -1376,6 +1421,39 @@ class AutoML(BaseEstimator):
         }
         ```
 
+            cv_score_agg_func: customized cross-validation scores aggregate function. Default to average metrics across folds. If specificed, this function needs to
+                have the following signature:
+
+        ```python
+        def cv_score_agg_func(val_loss_folds, log_metrics_folds):
+            return metric_to_minimize, metrics_to_log
+        ```
+                “val_loss_folds” - list of floats, the loss scores of each fold; “log_metrics_folds” - list of dicts/floats, the metrics of each fold to log.
+                This function should return the final aggregate result of all folds. A float number of the minimization objective, and a dictionary as the metrics to log or None.
+                E.g.,
+
+        ```python
+        def cv_score_agg_func(val_loss_folds, log_metrics_folds):
+            metric_to_minimize = sum(val_loss_folds)/len(val_loss_folds)
+            metrics_to_log = None
+            for single_fold in log_metrics_folds:
+                if metrics_to_log is None:
+                    metrics_to_log = single_fold
+                elif isinstance(metrics_to_log, dict):
+                    metrics_to_log = {k: metrics_to_log[k] + v for k, v in single_fold.items()}
+                else:
+                    metrics_to_log += single_fold
+            if metrics_to_log:
+                n = len(val_loss_folds)
+                metrics_to_log = {k: v / n for k, v in metrics_to_log.items()} if isinstance(metrics_to_log, dict) else metrics_to_log / n
+            return metric_to_minimize, metrics_to_log
+        ```
+
+            fit_kwargs_by_estimator: dict, default=None | The user specified keywords arguments, grouped by estimator name.
+                    For TransformersEstimator, available fit_kwargs can be found from
+                    [TrainingArgumentsForAuto](nlp/huggingface/training_args).
+                    e.g.,
+        skip_transform: boolean, default=False | Whether to pre-process data prior to modeling.
         fit_kwargs_by_estimator: dict, default=None | The user specified keywords arguments, grouped by estimator name.
                 For TransformersEstimator, available fit_kwargs can be found from
                 [TrainingArgumentsForAuto](nlp/huggingface/training_args).
@@ -1386,15 +1464,46 @@ class AutoML(BaseEstimator):
             "transformer": {
                 "output_dir": "test/data/output/",
                 "fp16": False,
+            },
+            "tft": {
+                "max_encoder_length": 1,
+                "min_encoder_length": 1,
+                "static_categoricals": [],
+                "static_reals": [],
+                "time_varying_known_categoricals": [],
+                "time_varying_known_reals": [],
+                "time_varying_unknown_categoricals": [],
+                "time_varying_unknown_reals": [],
+                "variable_groups": {},
+                "lags": {},
             }
         }
         ```
 
             **fit_kwargs: Other key word arguments to pass to fit() function of
-                the searched learners, such as sample_weight. Include:
-                    period: int | forecast horizon for ts_forecast tasks.
+                the searched learners, such as sample_weight. Below are a few examples of
+                estimator-specific parameters:
+                    period: int | forecast horizon for all time series forecast tasks.
                     gpu_per_trial: float, default = 0 | A float of the number of gpus per trial,
-                    only used by TransformersEstimator and XGBoostSklearnEstimator.
+                        only used by TransformersEstimator, XGBoostSklearnEstimator, and
+                        TemporalFusionTransformerEstimator.
+                    group_ids: list of strings of column names identifying a time series, only
+                        used by TemporalFusionTransformerEstimator, required for
+                        'ts_forecast_panel' task. `group_ids` is a parameter for TimeSeriesDataSet object
+                        from PyTorchForecasting.
+                        For other parameters to describe your dataset, refer to
+                        [TimeSeriesDataSet PyTorchForecasting](https://pytorch-forecasting.readthedocs.io/en/stable/api/pytorch_forecasting.data.timeseries.TimeSeriesDataSet.html).
+                        To specify your variables, use `static_categoricals`, `static_reals`,
+                        `time_varying_known_categoricals`, `time_varying_known_reals`,
+                        `time_varying_unknown_categoricals`, `time_varying_unknown_reals`,
+                        `variable_groups`. To provide more information on your data, use
+                        `max_encoder_length`, `min_encoder_length`, `lags`.
+                    log_dir: str, default = "lightning_logs" | Folder into which to log results
+                        for tensorboard, only used by TemporalFusionTransformerEstimator.
+                    max_epochs: int, default = 20 | Maximum number of epochs to run training,
+                        only used by TemporalFusionTransformerEstimator.
+                    batch_size: int, default = 64 | Batch size for training model, only
+                        used by TemporalFusionTransformerEstimator.
         """
         # Is it in kwargs?
 
@@ -1480,6 +1589,11 @@ class AutoML(BaseEstimator):
             if keep_search_state is None
             else keep_search_state
         )
+        self.preserve_checkpoint = (
+            self._settings.get("preserve_checkpoint")
+            if preserve_checkpoint is None
+            else preserve_checkpoint
+        )
         early_stop = (
             self._settings.get("early_stop") if early_stop is None else early_stop
         )
@@ -1528,6 +1642,11 @@ class AutoML(BaseEstimator):
 
         self._state.fit_kwargs = fit_kwargs
         custom_hp = custom_hp or self._settings.get("custom_hp")
+        self._skip_transform = (
+            self._settings.get("skip_transform")
+            if skip_transform is None
+            else skip_transform
+        )
         fit_kwargs_by_estimator = fit_kwargs_by_estimator or self._settings.get(
             "fit_kwargs_by_estimator"
         )
@@ -1564,9 +1683,12 @@ class AutoML(BaseEstimator):
         logger.info(f"task = {task.name}")
         self.task._decide_split_type(self, split_type)
         logger.info(f"Data split method: {self._split_type}")
-        eval_method = self._decide_eval_method(eval_method, time_budget, n_splits)
+        eval_method = self._decide_eval_method(eval_method, time_budget)
         self._state.eval_method = eval_method
         logger.info("Evaluation method: {}".format(eval_method))
+        self._state.cv_score_agg_func = cv_score_agg_func or self._settings.get(
+            "cv_score_agg_func"
+        )
 
         self._retrain_in_budget = retrain_full == "budget" and (
             eval_method == "holdout" and self._state.X_val is None
@@ -1696,7 +1818,6 @@ class AutoML(BaseEstimator):
 
         if "auto" == estimator_list:
             estimator_list = self.task.default_estimator_list()
-
         # When no search budget is specified
         if no_budget:
             max_iter = len(estimator_list)
@@ -1870,8 +1991,11 @@ class AutoML(BaseEstimator):
             from ray import __version__ as ray_version
 
             assert ray_version >= "1.10.0"
+            if ray_version.startswith("1."):
+                from ray.tune.suggest import ConcurrencyLimiter
+            else:
+                from ray.tune.search import ConcurrencyLimiter
             import ray
-            from ray.tune.suggest import ConcurrencyLimiter
         except (ImportError, AssertionError):
             raise ImportError(
                 "n_concurrent_trial>1 or use_ray=True requires installation of ray. "
@@ -1882,14 +2006,16 @@ class AutoML(BaseEstimator):
         elif "bs" == self._hpo_method:
             from flaml import BlendSearch as SearchAlgo
         elif "random" == self._hpo_method:
-            from ray.tune.suggest import BasicVariantGenerator as SearchAlgo
-            from ray.tune.sample import Domain
+            from flaml import RandomSearch as SearchAlgo
         elif "optuna" == self._hpo_method:
             try:
                 from ray import __version__ as ray_version
 
                 assert ray_version >= "1.10.0"
-                from ray.tune.suggest.optuna import OptunaSearch as SearchAlgo
+                if ray_version.startswith("1."):
+                    from ray.tune.suggest.optuna import OptunaSearch as SearchAlgo
+                else:
+                    from ray.tune.search.optuna import OptunaSearch as SearchAlgo
             except (ImportError, AssertionError):
                 from ..searcher.suggestion import OptunaSearch as SearchAlgo
         else:
@@ -1898,77 +2024,56 @@ class AutoML(BaseEstimator):
                 "'auto', 'cfo' and 'bs' are supported."
             )
         space = self.search_space
-        if self._hpo_method == "random":
-            # Any point in points_to_evaluate must consist of hyperparamters
-            # that are tunable, which can be identified by checking whether
-            # the corresponding value in the search space is an instance of
-            # the 'Domain' class from flaml or ray.tune
-            points_to_evaluate = self.points_to_evaluate.copy()
-            to_del = []
-            for k, v in space.items():
-                if not isinstance(v, Domain):
-                    to_del.append(k)
-            for k in to_del:
-                for p in points_to_evaluate:
-                    if k in p:
-                        del p[k]
+        self._state.time_from_start = time.time() - self._start_time_flag
+        time_left = self._state.time_budget - self._state.time_from_start
+        if self._hpo_method != "optuna":
+            min_resource = self.min_resource
+            if isinstance(min_resource, dict):
+                _min_resource_set = set(min_resource.values())
+                min_resource_all_estimator = min(_min_resource_set)
+                if len(_min_resource_set) > 1:
+                    logger.warning(
+                        "Using the min FLAML_sample_size of all the provided starting points as the starting sample size in the case of parallel search."
+                    )
+            else:
+                min_resource_all_estimator = min_resource
             search_alg = SearchAlgo(
-                max_concurrent=self._n_concurrent_trials,
-                points_to_evaluate=points_to_evaluate,
+                metric="val_loss",
+                space=space,
+                low_cost_partial_config=self.low_cost_partial_config,
+                points_to_evaluate=self.points_to_evaluate,
+                cat_hp_cost=self.cat_hp_cost,
+                resource_attr=self.resource_attr,
+                min_resource=min_resource_all_estimator,
+                max_resource=self.max_resource,
+                config_constraints=[
+                    (partial(size, self._state), "<=", self._mem_thres)
+                ],
+                metric_constraints=self.metric_constraints,
+                seed=self._seed,
+                time_budget_s=time_left,
             )
         else:
-            self._state.time_from_start = time.time() - self._start_time_flag
-            time_left = self._state.time_budget - self._state.time_from_start
-            if self._hpo_method != "optuna":
-                min_resource = self.min_resource
-                if isinstance(min_resource, dict):
-                    _min_resource_set = set(min_resource.values())
-                    min_resource_all_estimator = min(_min_resource_set)
-                    if len(_min_resource_set) > 1:
-                        logger.warning(
-                            "Using the min FLAML_sample_size of all the provided starting points as the starting sample size in the case of parallel search."
-                        )
-                else:
-                    min_resource_all_estimator = min_resource
-                search_alg = SearchAlgo(
-                    metric="val_loss",
-                    space=space,
-                    low_cost_partial_config=self.low_cost_partial_config,
-                    points_to_evaluate=self.points_to_evaluate,
-                    cat_hp_cost=self.cat_hp_cost,
-                    resource_attr=self.resource_attr,
-                    min_resource=min_resource_all_estimator,
-                    max_resource=self.max_resource,
-                    config_constraints=[
-                        (partial(size, self._state), "<=", self._mem_thres)
-                    ],
-                    metric_constraints=self.metric_constraints,
-                    seed=self._seed,
-                    time_budget_s=time_left,
-                )
-            else:
-                # if self._hpo_method is bo, sometimes the search space and the initial config dimension do not match
-                # need to remove the extra keys from the search space to be consistent with the initial config
-                converted_space = SearchAlgo.convert_search_space(space)
+            # if self._hpo_method is bo, sometimes the search space and the initial config dimension do not match
+            # need to remove the extra keys from the search space to be consistent with the initial config
+            converted_space = SearchAlgo.convert_search_space(space)
 
-                removed_keys = set(space.keys()).difference(converted_space.keys())
-                new_points_to_evaluate = []
-                for idx in range(len(self.points_to_evaluate)):
-                    r = self.points_to_evaluate[idx].copy()
-                    for each_key in removed_keys:
-                        r.pop(each_key)
-                    new_points_to_evaluate.append(r)
+            removed_keys = set(space.keys()).difference(converted_space.keys())
+            new_points_to_evaluate = []
+            for idx in range(len(self.points_to_evaluate)):
+                r = self.points_to_evaluate[idx].copy()
+                for each_key in removed_keys:
+                    r.pop(each_key)
+                new_points_to_evaluate.append(r)
 
-                search_alg = SearchAlgo(
-                    metric="val_loss",
-                    mode="min",
-                    points_to_evaluate=[
-                        p
-                        for p in new_points_to_evaluate
-                        if len(p) == len(converted_space)
-                    ],
-                )
-            search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
+            search_alg = SearchAlgo(
+                metric="val_loss",
+                mode="min",
+                points_to_evaluate=[
+                    p for p in new_points_to_evaluate if len(p) == len(converted_space)
+                ],
+            )
+        search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
         resources_per_trial = self._state.resources_per_trial
 
         analysis = ray.tune.run(
@@ -2042,7 +2147,9 @@ class AutoML(BaseEstimator):
         if mlflow is not None and mlflow.active_run():
             with mlflow.start_run(nested=True):
                 mlflow.log_metric("iter_counter", self._track_iter)
-                if "intermediate_results" in search_state.metric_for_logging:
+                if (search_state.metric_for_logging is not None) and (
+                    "intermediate_results" in search_state.metric_for_logging
+                ):
                     for each_entry in search_state.metric_for_logging[
                         "intermediate_results"
                     ]:
@@ -2052,7 +2159,8 @@ class AutoML(BaseEstimator):
                                 "iter_counter", self._iter_per_learner[estimator]
                             )
                     del search_state.metric_for_logging["intermediate_results"]
-                mlflow.log_metrics(search_state.metric_for_logging)
+                if search_state.metric_for_logging:
+                    mlflow.log_metrics(search_state.metric_for_logging)
                 mlflow.log_metric("trial_time", search_state.trial_time)
                 mlflow.log_metric("wall_clock_time", self._state.time_from_start)
                 mlflow.log_metric("validation_loss", search_state.val_loss)
@@ -2068,7 +2176,10 @@ class AutoML(BaseEstimator):
             from ray import __version__ as ray_version
 
             assert ray_version >= "1.10.0"
-            from ray.tune.suggest import ConcurrencyLimiter
+            if ray_version.startswith("1."):
+                from ray.tune.suggest import ConcurrencyLimiter
+            else:
+                from ray.tune.search import ConcurrencyLimiter
         except (ImportError, AssertionError):
             from ..searcher.suggestion import ConcurrencyLimiter
         if self._hpo_method in ("cfo", "grid"):
@@ -2078,7 +2189,10 @@ class AutoML(BaseEstimator):
                 from ray import __version__ as ray_version
 
                 assert ray_version >= "1.10.0"
-                from ray.tune.suggest.optuna import OptunaSearch as SearchAlgo
+                if ray_version.startswith("1."):
+                    from ray.tune.suggest.optuna import OptunaSearch as SearchAlgo
+                else:
+                    from ray.tune.search.optuna import OptunaSearch as SearchAlgo
             except (ImportError, AssertionError):
                 from ..searcher.suggestion import OptunaSearch as SearchAlgo
         elif "bs" == self._hpo_method:
@@ -2564,7 +2678,8 @@ class AutoML(BaseEstimator):
             and self._trained_estimator
             and hasattr(self._trained_estimator, "cleanup")
         ):
-            self._trained_estimator.cleanup()
+            if self.preserve_checkpoint is False:
+                self._trained_estimator.cleanup()
             del self._trained_estimator
 
     def _select_estimator(self, estimator_list):

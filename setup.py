@@ -54,7 +54,6 @@ setuptools.setup(
             "catboost>=0.26",
             "rgf-python",
             "optuna==2.8.0",
-            "vowpalwabbit",
             "openml",
             "statsmodels>=0.12.2",
             "psutil==5.8.0",
@@ -65,6 +64,7 @@ setuptools.setup(
             "rouge_score",
             "hcrystalball==0.1.10",
             "seqeval",
+            "pytorch-forecasting>=0.9.0",
         ],
         "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],
@@ -78,7 +78,7 @@ setuptools.setup(
             "nni",
         ],
         "vw": [
-            "vowpalwabbit",
+            "vowpalwabbit>=8.10.0, <9.0.0",
         ],
         "nlp": [
             "transformers[torch]==4.18",
@@ -98,6 +98,7 @@ setuptools.setup(
             "prophet>=1.0.1",
             "statsmodels>=0.12.2",
             "hcrystalball==0.1.10",
+            "pytorch-forecasting>=0.9.0",
         ],
         "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3"],
     },

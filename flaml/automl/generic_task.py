@@ -31,14 +31,13 @@ from flaml.automl.task import (
     TOKENCLASSIFICATION,
     CLASSIFICATION,
     REGRESSION,
-    TS_FORECAST,
     get_classification_objective,
     Task,
 )
 
 from flaml.config import RANDOM_SEED
 from flaml.data import concat
-from flaml.ml import get_val_loss
+from flaml.ml import default_cv_score_agg_func, get_val_loss
 
 logger = logging.getLogger(__name__)
 
@@ -97,12 +96,6 @@ class GenericTask(Task):
             ), "# rows in X_train must match length of y_train."
             automl._df = isinstance(X_train_all, pd.DataFrame)
             automl._nrow, automl._ndim = X_train_all.shape
-            # if automl._state.task in TS_FORECAST:
-            #     raise ValueError("GenericTask mismatch!")
-            #     # X_train_all = pd.DataFrame(X_train_all)
-            #     # X_train_all, y_train_all = automl._validate_ts_data(
-            #     #     X_train_all, y_train_all
-            #     # )
             X, y = X_train_all, y_train_all
         elif dataframe is not None and label is not None:
             assert isinstance(
@@ -110,8 +103,6 @@ class GenericTask(Task):
             ), "dataframe must be a pandas DataFrame"
             assert label in dataframe.columns, "label must a column name in dataframe"
             automl._df = True
-            # if automl._state.task in TS_FORECAST:
-            #     dataframe = automl._validate_ts_data(dataframe)
             X = dataframe.drop(columns=label)
             automl._nrow, automl._ndim = X.shape
             y = dataframe[label]
@@ -313,48 +304,34 @@ class GenericTask(Task):
         if X_val is None and eval_method == "holdout":
             # if eval_method = holdout, make holdout data
             if automl._split_type == "time":
-                if automl._state.task in TS_FORECAST:
-                    num_samples = X_train_all.shape[0]
-                    period = automl._state.fit_kwargs[
-                        "period"
-                    ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                    assert (
-                        period < num_samples
-                    ), f"period={period}>#examples={num_samples}"
-                    split_idx = num_samples - period
-                    X_train = X_train_all[:split_idx]
-                    y_train = y_train_all[:split_idx]
-                    X_val = X_train_all[split_idx:]
-                    y_val = y_train_all[split_idx:]
+                if (
+                    "sample_weight" in automl._state.fit_kwargs
+                ):  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+                    (
+                        X_train,
+                        X_val,
+                        y_train,
+                        y_val,
+                        automl._state.fit_kwargs[
+                            "sample_weight"
+                        ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+                        automl._state.weight_val,
+                    ) = train_test_split(
+                        X_train_all,
+                        y_train_all,
+                        automl._state.fit_kwargs[
+                            "sample_weight"
+                        ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+                        test_size=split_ratio,
+                        shuffle=False,
+                    )
                 else:
-                    if (
-                        "sample_weight" in automl._state.fit_kwargs
-                    ):  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                        (
-                            X_train,
-                            X_val,
-                            y_train,
-                            y_val,
-                            automl._state.fit_kwargs[
-                                "sample_weight"
-                            ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                            automl._state.weight_val,
-                        ) = train_test_split(
-                            X_train_all,
-                            y_train_all,
-                            automl._state.fit_kwargs[
-                                "sample_weight"
-                            ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                            test_size=split_ratio,
-                            shuffle=False,
-                        )
-                    else:
-                        X_train, X_val, y_train, y_val = train_test_split(
-                            X_train_all,
-                            y_train_all,
-                            test_size=split_ratio,
-                            shuffle=False,
-                        )
+                    X_train, X_val, y_train, y_val = train_test_split(
+                        X_train_all,
+                        y_train_all,
+                        test_size=split_ratio,
+                        shuffle=False,
+                    )
             elif automl._split_type == "group":
                 gss = GroupShuffleSplit(
                     n_splits=1, test_size=split_ratio, random_state=RANDOM_SEED
@@ -494,21 +471,7 @@ class GenericTask(Task):
                 n_splits=n_splits, n_repeats=1, random_state=RANDOM_SEED
             )
         elif automl._split_type == "time":
-            # logger.info("Using TimeSeriesSplit")
-            if automl._state.task in TS_FORECAST:
-                period = automl._state.fit_kwargs[
-                    "period"
-                ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                if period * (n_splits + 1) > y_train_all.size:
-                    n_splits = int(y_train_all.size / period - 1)
-                    assert n_splits >= 2, (
-                        f"cross validation for forecasting period={period}"
-                        f" requires input data with at least {3 * period} examples."
-                    )
-                    logger.info(f"Using nsplits={n_splits} due to data size limit.")
-                automl._state.kf = TimeSeriesSplit(n_splits=n_splits, test_size=period)
-            else:
-                automl._state.kf = TimeSeriesSplit(n_splits=n_splits)
+            automl._state.kf = TimeSeriesSplit(n_splits=n_splits)
         elif isinstance(automl._split_type, str):
             # logger.info("Using RepeatedKFold")
             automl._state.kf = RepeatedKFold(
@@ -551,14 +514,6 @@ class GenericTask(Task):
         elif automl._state.task in REGRESSION:
             assert split_type in ["auto", "uniform", "time", "group"]
             automl._split_type = split_type if split_type != "auto" else "uniform"
-        elif automl._state.task in TS_FORECAST:
-            assert split_type in ["auto", "time"]
-            automl._split_type = "time"
-
-            assert isinstance(
-                automl._state.fit_kwargs.get("period"),
-                int,  # NOTE: _decide_split_type is before kwargs is updated to fit_kwargs_by_estimator
-            ), f"missing a required integer 'period' for '{TS_FORECAST}' task."
         elif automl._state.task == "rank":
             assert (
                 automl._state.groups is not None
@@ -589,15 +544,18 @@ class GenericTask(Task):
         kf,
         eval_metric,
         best_val_loss,
+        cv_score_agg_func=None,
         log_training_metric=False,
         fit_kwargs={},
     ):
+        if cv_score_agg_func is None:
+            cv_score_agg_func = default_cv_score_agg_func
         start_time = time.time()
-        total_val_loss = 0
-        total_metric = None
+        val_loss_folds = []
+        log_metric_folds = []
         metric = None
         train_time = pred_time = 0
-        valid_fold_num = total_fold_num = 0
+        total_fold_num = 0
         n = kf.get_n_splits()
         X_train_split, y_train_split = X_train_all, y_train_all
         if self.name in CLASSIFICATION:
@@ -607,7 +565,7 @@ class GenericTask(Task):
                 "label_list"
             )  # pass the label list on to compute the evaluation metric
         groups = None
-        shuffle = True
+        shuffle = getattr(kf, "shuffle", False)
         if isinstance(kf, RepeatedStratifiedKFold):
             kf = kf.split(X_train_split, y_train_split)
         elif isinstance(kf, GroupKFold):
@@ -617,7 +575,6 @@ class GenericTask(Task):
         else:
             kf = kf.split(X_train_split)
         rng = np.random.RandomState(2020)
-        val_loss_list = []
         budget_per_train = budget / n
         if "sample_weight" in fit_kwargs:
             weight = fit_kwargs["sample_weight"]
@@ -632,22 +589,18 @@ class GenericTask(Task):
                 X_val = X_train_split.iloc[val_index]
             else:
                 X_train, X_val = X_train_split[train_index], X_train_split[val_index]
-
             y_train, y_val = y_train_split[train_index], y_train_split[val_index]
-
             estimator.cleanup()
             if weight is not None:
                 fit_kwargs["sample_weight"], weight_val = (
                     weight[train_index],
                     weight[val_index],
                 )
-
             if groups is not None:
                 fit_kwargs["groups"] = groups[train_index]
                 groups_val = groups[val_index]
             else:
                 groups_val = None
-
             val_loss_i, metric_i, train_time_i, pred_time_i = get_val_loss(
                 config,
                 estimator,
@@ -664,32 +617,18 @@ class GenericTask(Task):
                 log_training_metric=log_training_metric,
                 fit_kwargs=fit_kwargs,
             )
+            if isinstance(metric_i, dict) and "intermediate_results" in metric_i:
+                del metric_i["intermediate_results"]
             if weight is not None:
                 fit_kwargs["sample_weight"] = weight
-            valid_fold_num += 1
             total_fold_num += 1
-            total_val_loss += val_loss_i
-            if log_training_metric or not isinstance(eval_metric, str):
-                if isinstance(total_metric, dict):
-                    total_metric = {k: total_metric[k] + v for k, v in metric_i.items()}
-                elif total_metric is not None:
-                    total_metric += metric_i
-                else:
-                    total_metric = metric_i
+            val_loss_folds.append(val_loss_i)
+            log_metric_folds.append(metric_i)
             train_time += train_time_i
             pred_time += pred_time_i
-            if valid_fold_num == n:
-                val_loss_list.append(total_val_loss / valid_fold_num)
-                total_val_loss = valid_fold_num = 0
-            elif time.time() - start_time >= budget:
-                val_loss_list.append(total_val_loss / valid_fold_num)
+            if time.time() - start_time >= budget:
                 break
-        val_loss = np.max(val_loss_list)
+        val_loss, metric = cv_score_agg_func(val_loss_folds, log_metric_folds)
         n = total_fold_num
-        if log_training_metric or not isinstance(eval_metric, str):
-            if isinstance(total_metric, dict):
-                metric = {k: v / n for k, v in total_metric.items()}
-            else:
-                metric = total_metric / n
         pred_time /= n
         return val_loss, metric, train_time, pred_time
