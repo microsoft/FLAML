@@ -181,12 +181,12 @@ class TimeSeriesDataset:
         return out
 
     def cv_train_val_sets(
-        self, n_splits: int, val_length: int
+        self, n_splits: int, val_length: int, step_size: int
     ) -> Generator["TimeSeriesDataset", None, None]:
         max_index = len(self.train_data) - 1
         for i in range(n_splits):
             out = copy.copy(self)
-            val_start = max_index - (n_splits - i) * val_length
+            val_start = max_index - (n_splits - i - 1) * step_size - val_length
             out.train_data = self.train_data[:val_start]
             out.test_data = self.train_data[val_start : val_start + val_length]
             yield out

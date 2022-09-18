@@ -459,7 +459,6 @@ def test_features():
     _ = naive_date_features(y, 3)
 
 
-#
 # def test_finance_df():
 #     df = (
 #         pd.read_csv("fincrime_finance_series.csv")
@@ -491,7 +490,7 @@ def test_features():
 #     ]:
 #
 #         automl = AutoML(
-#             time_budget=60, metric="mape", task="ts_forecast", eval_method="holdout"
+#             time_budget=60, metric="mape", task="ts_forecast", eval_method="cv"
 #         )
 #
 #         automl.fit(
