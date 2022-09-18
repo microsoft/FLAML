@@ -430,7 +430,7 @@ class DataTransformer:
         self._task = task
         return X, y
 
-    def transform(self, X: Union[DataFrame, np.array]):
+    def transform(self, X: Union[DataFrame, np.ndarray]):
         """Process data using fit transformer.
 
         Args:
@@ -492,7 +492,7 @@ class DataTransformer:
                 if self._drop:
                     X_num.columns = range(X_num.shape[1])
                 X[num_columns] = self.transformer.transform(X_num)
-        return X
+        return X, None
 
 
 def group_counts(groups):
