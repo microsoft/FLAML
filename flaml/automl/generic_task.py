@@ -573,6 +573,10 @@ class GenericTask(Task):
     def _prepare_sample_train_data(automlstate, sample_size):
         return automlstate._prepare_sample_train_data(sample_size)
 
+    @staticmethod
+    def _preprocess(automl, X):
+        return automl.preprocess(X)
+
     def default_estimator_list(self):
         estimator_list = super().default_estimator_list()
         if self.name != "regression":

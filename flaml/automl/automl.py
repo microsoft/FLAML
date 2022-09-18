@@ -481,7 +481,7 @@ class AutoML(BaseEstimator):
                 "No estimator is trained. Please run fit with enough budget."
             )
             return None
-        X = self._preprocess(X)
+        X = self.task._preprocess(self, X)
         if self._label_transformer:
             y = self._label_transformer.transform(y)
         return estimator.score(X, y, **kwargs)
@@ -524,7 +524,7 @@ class AutoML(BaseEstimator):
                 "No estimator is trained. Please run fit with enough budget."
             )
             return None
-        X = self._preprocess(X)
+        X = self.task._preprocess(self, X)
         y_pred = estimator.predict(X, **pred_kwargs)
         if (
             isinstance(y_pred, np.ndarray)
@@ -558,11 +558,13 @@ class AutoML(BaseEstimator):
                 "No estimator is trained. Please run fit with enough budget."
             )
             return None
-        X = self._preprocess(X)
+        X = self.task._preprocess(self, X)
         proba = self._trained_estimator.predict_proba(X, **pred_kwargs)
         return proba
 
     def _preprocess(self, X):
+        # TODO: cleanup division of labor between this,
+        # _prepare_data,  _validate_data, and the _preprocess method of models
         if isinstance(X, List):
             try:
                 if isinstance(X[0], List):
@@ -585,8 +587,10 @@ class AutoML(BaseEstimator):
             return X
         elif issparse(X):
             X = X.tocsr()
+
         if self._transformer:
-            X = self._transformer.transform(X)
+            X, _ = self._transformer.transform(X)
+
         return X
 
     def add_learner(self, learner_name, learner_class):
@@ -752,6 +756,7 @@ class AutoML(BaseEstimator):
         task = task or self._settings.get("task")
         if not hasattr(self, "task"):
             from .factory import task_factory
+
             self.task = task_factory(task)
 
         eval_method = eval_method or self._settings.get("eval_method")

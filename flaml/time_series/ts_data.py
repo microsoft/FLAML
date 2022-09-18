@@ -7,6 +7,9 @@ import pandas as pd
 import numpy as np
 from pandas import DataFrame, Series
 
+from sklearn.preprocessing import LabelEncoder
+from sklearn.impute import SimpleImputer
+from sklearn.compose import ColumnTransformer
 
 from .feature import naive_date_features
 
@@ -240,43 +243,6 @@ class TimeSeriesDataset:
         )
 
 
-# def add_time_idx_new(data: BasicDataset, time_col: str) -> pd.DataFrame:
-#     pivoted = data.data.pivot(
-#         index=time_col,
-#         columns=data.metadata["dimensions"],
-#         values=data.metadata["metrics"],
-#     ).fillna(0.0)
-#
-#     dt_index = pd.date_range(
-#         start=pivoted.index.min(),
-#         end=pivoted.index.max(),
-#         freq=data.metadata["frequency"],
-#     )
-#     indexes = pd.DataFrame(dt_index).reset_index()
-#     indexes.columns = ["time_idx", time_col]
-#
-#     # this join is just to make sure that we get all the row timestamps in
-#     out = pd.merge(
-#         indexes, pivoted, left_on=time_col, right_index=True, how="left"
-#     ).fillna(0.0)
-#
-#     # now flatten back
-#
-#     melted = pd.melt(out, id_vars=[time_col, "time_idx"])
-#
-#     for i, d in enumerate(["metric"] + data.metadata["dimensions"]):
-#         melted[d] = melted["variable"].apply(lambda x: x[i])
-#
-#     # and finally, move metrics to separate columns
-#     re_pivoted = melted.pivot(
-#         index=["time_idx", time_col] + data.metadata["dimensions"],
-#         columns="metric",
-#         values="value",
-#     ).reset_index()
-#
-#     return re_pivoted
-
-
 def enrich(
     X: Union[int, TimeSeriesDataset, pd.DataFrame],
     fourier_degree: int,
@@ -419,27 +385,22 @@ def enrich_data_old(
     return out
 
 
-#
-# def enrich_unrelated_values(
-#     main_df: pd.DataFrame, extra_data: BasicDataset, columns_name: str, values_name: str
-# ):
-#     time_col = extra_data.metadata["time_col"]
-#     df = (
-#         extra_data.data.pivot(
-#             index=time_col,
-#             columns=columns_name,
-#             values=values_name,
-#         )
-#         .fillna(0.0)
-#         .reset_index()
-#     )
-#
-#     unknown_reals = list(df.columns)[1:]
-#     df1 = pd.merge(main_df, df, how="left", on=[time_col])
-#     for c in unknown_reals:
-#         df1[c] = df1[c].fillna(0.0)
-#
-#     return df1, [], unknown_reals
+def date_feature_dict(timestamps: pd.Series) -> dict:
+    tmp_dt = timestamps.dt
+    column = timestamps.name
+    new_columns_dict = {
+        f"year_{column}": tmp_dt.year,
+        f"month_{column}": tmp_dt.month,
+        f"day_{column}": tmp_dt.day,
+        f"hour_{column}": tmp_dt.hour,
+        f"minute_{column}": tmp_dt.minute,
+        f"second_{column}": tmp_dt.second,
+        f"dayofweek_{column}": tmp_dt.dayofweek,
+        f"dayofyear_{column}": tmp_dt.dayofyear,
+        f"quarter_{column}": tmp_dt.quarter,
+    }
+
+    return new_columns_dict
 
 
 class DataTransformerTS:
@@ -448,187 +409,199 @@ class DataTransformerTS:
     def __init__(self, time_col: str, label: Union[str, List[str]]):
         self.time_col = time_col
         self.label = label
+        self.cat_columns = []
+        self.num_columns = []
+        self.datetime_columns = []
+        self.drop_columns = []
 
-    def fit_transform(self, X: Union[DataFrame, np.array], y):
-        """Fit transformer and process the input training data according to the task type.
+    @property
+    def _drop(self):
+        return len(self.drop_columns)
+
+    def fit(self, X: Union[DataFrame, np.array], y):
+        """Fit transformer.
 
         Args:
             X: A numpy array or a pandas dataframe of training data.
             y: A numpy array or a pandas series of labels.
-            task: A string of the task type, e.g.,
-                'classification', 'regression', 'ts_forecast', 'rank'.
 
         Returns:
             X: Processed numpy array or pandas dataframe of training data.
             y: Processed numpy array or pandas series of labels.
         """
-        if isinstance(X, DataFrame):
-            X = X.copy()
-            n = X.shape[0]
-            cat_columns, num_columns, datetime_columns = [], [], []
-            drop = False
-            ds_col = X.pop(self.time_col)
-            if isinstance(y, Series):
-                y = y.rename(self.label)
-            for column in X.columns:
-                # sklearn/utils/validation.py needs int/float values
-                if X[column].dtype.name in ("object", "category"):
-                    if (
-                        X[column].nunique() == 1
-                        or X[column].nunique(dropna=True)
-                        == n - X[column].isnull().sum()
-                    ):
-                        X.drop(columns=column, inplace=True)
-                        drop = True
-                    elif X[column].dtype.name == "category":
-                        current_categories = X[column].cat.categories
-                        if "__NAN__" not in current_categories:
-                            X[column] = (
-                                X[column]
-                                .cat.add_categories("__NAN__")
-                                .fillna("__NAN__")
-                            )
-                        cat_columns.append(column)
-                    else:
-                        X[column] = X[column].fillna("__NAN__")
-                        cat_columns.append(column)
-                elif X[column].nunique(dropna=True) < 2:
-                    X.drop(columns=column, inplace=True)
-                    drop = True
-                else:  # datetime or numeric
-                    if X[column].dtype.name == "datetime64[ns]":
-                        tmp_dt = X[column].dt
-                        new_columns_dict = {
-                            f"year_{column}": tmp_dt.year,
-                            f"month_{column}": tmp_dt.month,
-                            f"day_{column}": tmp_dt.day,
-                            f"hour_{column}": tmp_dt.hour,
-                            f"minute_{column}": tmp_dt.minute,
-                            f"second_{column}": tmp_dt.second,
-                            f"dayofweek_{column}": tmp_dt.dayofweek,
-                            f"dayofyear_{column}": tmp_dt.dayofyear,
-                            f"quarter_{column}": tmp_dt.quarter,
-                        }
-                        for key, value in new_columns_dict.items():
-                            if (
-                                key not in X.columns
-                                and value.nunique(dropna=False) >= 2
-                            ):
-                                X[key] = value
-                                num_columns.append(key)
-                        X[column] = X[column].map(datetime.toordinal)
-                        datetime_columns.append(column)
-                        del tmp_dt
-                    X[column] = X[column].fillna(np.nan)
-                    num_columns.append(column)
-            X = X[cat_columns + num_columns]
-            X.insert(0, self.time_col, ds_col)
-            if cat_columns:
-                X[cat_columns] = X[cat_columns].astype("category")
-            if num_columns:
-                X_num = X[num_columns]
-                if np.issubdtype(X_num.columns.dtype, np.integer) and (
-                    drop
-                    or min(X_num.columns) != 0
-                    or max(X_num.columns) != X_num.shape[1] - 1
-                ):
-                    X_num.columns = range(X_num.shape[1])
-                    drop = True
-                else:
-                    drop = False
-                from sklearn.impute import SimpleImputer
-                from sklearn.compose import ColumnTransformer
+        assert isinstance(X, DataFrame)
+        X = X.copy()
+        n = X.shape[0]
+        # drop = False
 
-                self.transformer = ColumnTransformer(
-                    [
-                        (
-                            "continuous",
-                            SimpleImputer(missing_values=np.nan, strategy="median"),
-                            X_num.columns,
-                        )
-                    ]
-                )
-                X[num_columns] = self.transformer.fit_transform(X_num)
-            self._cat_columns, self._num_columns, self._datetime_columns = (
-                cat_columns,
-                num_columns,
-                datetime_columns,
+        ds_col = X.pop(self.time_col)
+
+        if isinstance(y, Series):
+            y = y.rename(self.label)
+
+        for column in X.columns:
+            # sklearn/utils/validation.py needs int/float values
+            if X[column].dtype.name in ("object", "category"):
+                if (
+                    # drop columns where all values are the same
+                    X[column].nunique() == 1
+                    # this drops UID-type cols
+                    or X[column].nunique(dropna=True) == n - X[column].isnull().sum()
+                ):
+                    self.drop_columns.append(column)
+                else:
+                    self.cat_columns.append(column)
+            elif X[column].nunique(dropna=True) < 2:
+                self.drop_columns.append(column)
+                # drop = True
+            else:  # datetime or numeric
+                if X[column].dtype.name == "datetime64[ns]":
+                    self.datetime_columns.append(column)
+                    new_columns_dict = date_feature_dict(X[column])
+                    for key, value in new_columns_dict.items():
+                        if key not in X.columns and value.nunique(dropna=False) >= 2:
+                            self.num_columns.append(key)
+                    X[column] = X[column].map(datetime.toordinal)
+
+                self.num_columns.append(column)
+
+        if self.num_columns:
+            # TODO: what does this do???
+            # X_num = X[num_columns]
+            # if np.issubdtype(X_num.columns.dtype, np.integer) and (
+            #     drop
+            #     or min(X_num.columns) != 0
+            #     or max(X_num.columns) != X_num.shape[1] - 1
+            # ):
+            #     X_num.columns = range(X_num.shape[1])
+            #     drop = True
+            # else:
+            #     drop = False
+
+            self.transformer = ColumnTransformer(
+                [
+                    (
+                        "continuous",
+                        SimpleImputer(missing_values=np.nan, strategy="median"),
+                        self.num_columns,
+                    )
+                ]
             )
-            self._drop = drop
+
+            self.transformer.fit(X[self.num_columns])
+        else:
+            self.transformer = None
+
+        # TODO: want to generate datetime features for time_col, too!
+        X.insert(0, self.time_col, ds_col)
 
         # TODO: revisit for multivariate series, and recast for a single df input anyway
         ycol = y[y.columns[0]]
         if not pd.api.types.is_numeric_dtype(ycol):
-            from sklearn.preprocessing import LabelEncoder
-
             self.label_transformer = LabelEncoder()
-            y_tr = self.label_transformer.fit_transform(ycol)
-            y.iloc[:] = y_tr.reshape(y.shape)
+            self.label_transformer.fit(ycol)
         else:
             self.label_transformer = None
+
+    def transform(self, X: Union[DataFrame, np.array], y=None):
+        # TODO: revisit for multivariate series, and recast for a single df input anyway
+        if self.label_transformer is not None and y is not None:
+            ycol = y[y.columns[0]]
+            y_tr = self.label_transformer.transform(ycol)
+            y.iloc[:] = y_tr.reshape(y.shape)
+
+        X.drop(columns=self.drop_columns, inplace=True)
+
+        for col in self.cat_columns:
+            if X[col].dtype.name == "category":
+                if "__NAN__" not in X[col].cat.categories:
+                    X[col] = X[col].cat.add_categories("__NAN__").fillna("__NAN__")
+            else:
+                X[col] = X[col].fillna("__NAN__")
+                X[col] = X[col].astype("category")
+
+        for column in self.datetime_columns:
+            # as of now, don't do it to time_col? Why?
+            new_columns_dict = date_feature_dict(X[column])
+            for key, value in new_columns_dict.items():
+                if key in self.num_columns:
+                    X[key] = value
+            X[column] = X[column].map(datetime.toordinal)
+
+        # datetime columns have been cast to ordinals too by now
+        for column in self.num_columns:
+            X[column] = X[column].fillna(np.nan)
+
+        if self.transformer is not None:
+            X[self.num_columns] = self.transformer.transform(X[self.num_columns])
+
         return X, y
 
-    def transform(self, X: Union[DataFrame, np.array]):
-        """Process data using fit transformer.
+    def fit_transform(self, X: Union[DataFrame, np.array], y):
+        self.fit(X, y)
+        return self.transform(X, y)
 
-        Args:
-            X: A numpy array or a pandas dataframe of training data.
-
-        Returns:
-            X: Processed numpy array or pandas dataframe of training data.
-        """
-        X = X.copy()
-        if isinstance(X, np.ndarray):
-            array_order = len(X.shape)
-            feature_labels = []
-            if array_order > 1:
-                feature_labels = [f"x{i}" for i in range(X.shape[1] - 1)]
-            X = pd.DataFrame(X, columns=[self.time_col] + feature_labels)
-
-        if isinstance(X, DataFrame):
-            cat_columns, num_columns, datetime_columns = (
-                self._cat_columns,
-                self._num_columns,
-                self._datetime_columns,
-            )
-            ds_col = X.pop(self.time_col)
-            for column in datetime_columns:
-                tmp_dt = X[column].dt
-                new_columns_dict = {
-                    f"year_{column}": tmp_dt.year,
-                    f"month_{column}": tmp_dt.month,
-                    f"day_{column}": tmp_dt.day,
-                    f"hour_{column}": tmp_dt.hour,
-                    f"minute_{column}": tmp_dt.minute,
-                    f"second_{column}": tmp_dt.second,
-                    f"dayofweek_{column}": tmp_dt.dayofweek,
-                    f"dayofyear_{column}": tmp_dt.dayofyear,
-                    f"quarter_{column}": tmp_dt.quarter,
-                }
-                for new_col_name, new_col_value in new_columns_dict.items():
-                    if new_col_name not in X.columns and new_col_name in num_columns:
-                        X[new_col_name] = new_col_value
-                X[column] = X[column].map(datetime.toordinal)
-                del tmp_dt
-            X = X[cat_columns + num_columns].copy()
-            X.insert(0, self.time_col, ds_col)
-            for column in cat_columns:
-                if X[column].dtype.name == "object":
-                    X[column] = X[column].fillna("__NAN__")
-                elif X[column].dtype.name == "category":
-                    current_categories = X[column].cat.categories
-                    if "__NAN__" not in current_categories:
-                        X[column] = (
-                            X[column].cat.add_categories("__NAN__").fillna("__NAN__")
-                        )
-            if cat_columns:
-                X[cat_columns] = X[cat_columns].astype("category")
-            if num_columns:
-                X_num = X[num_columns].fillna(np.nan)
-                if self._drop:
-                    X_num.columns = range(X_num.shape[1])
-                X[num_columns] = self.transformer.transform(X_num)
-        return X
+    # def _transform(self, X: Union[DataFrame, np.array]):
+    #     """Process data using fit transformer.
+    #
+    #     Args:
+    #         X: A numpy array or a pandas dataframe of training data.
+    #
+    #     Returns:
+    #         X: Processed numpy array or pandas dataframe of training data.
+    #     """
+    #     X = X.copy()
+    #     if isinstance(X, np.ndarray):
+    #         array_order = len(X.shape)
+    #         feature_labels = []
+    #         if array_order > 1:
+    #             feature_labels = [f"x{i}" for i in range(X.shape[1] - 1)]
+    #         X = pd.DataFrame(X, columns=[self.time_col] + feature_labels)
+    #
+    #     if isinstance(X, DataFrame):
+    #         cat_columns, num_columns, datetime_columns = (
+    #             self._cat_columns,
+    #             self._num_columns,
+    #             self._datetime_columns,
+    #         )
+    #         ds_col = X.pop(self.time_col)
+    #         for column in datetime_columns:
+    #             tmp_dt = X[column].dt
+    #             new_columns_dict = {
+    #                 f"year_{column}": tmp_dt.year,
+    #                 f"month_{column}": tmp_dt.month,
+    #                 f"day_{column}": tmp_dt.day,
+    #                 f"hour_{column}": tmp_dt.hour,
+    #                 f"minute_{column}": tmp_dt.minute,
+    #                 f"second_{column}": tmp_dt.second,
+    #                 f"dayofweek_{column}": tmp_dt.dayofweek,
+    #                 f"dayofyear_{column}": tmp_dt.dayofyear,
+    #                 f"quarter_{column}": tmp_dt.quarter,
+    #             }
+    #             for new_col_name, new_col_value in new_columns_dict.items():
+    #                 if new_col_name not in X.columns and new_col_name in num_columns:
+    #                     X[new_col_name] = new_col_value
+    #             X[column] = X[column].map(datetime.toordinal)
+    #             del tmp_dt
+    #         X = X[cat_columns + num_columns].copy()
+    #         X.insert(0, self.time_col, ds_col)
+    #         for column in cat_columns:
+    #             if X[column].dtype.name == "object":
+    #                 X[column] = X[column].fillna("__NAN__")
+    #             elif X[column].dtype.name == "category":
+    #                 current_categories = X[column].cat.categories
+    #                 if "__NAN__" not in current_categories:
+    #                     X[column] = (
+    #                         X[column].cat.add_categories("__NAN__").fillna("__NAN__")
+    #                     )
+    #         if cat_columns:
+    #             X[cat_columns] = X[cat_columns].astype("category")
+    #         if num_columns:
+    #             X_num = X[num_columns].fillna(np.nan)
+    #             if self._drop:
+    #                 X_num.columns = range(X_num.shape[1])
+    #             X[num_columns] = self.transformer.transform(X_num)
+    #     return X
 
 
 def create_forward_frame(

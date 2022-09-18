@@ -64,6 +64,9 @@ class TaskTS(Task):
         else:
             target_names = label
 
+        automl.task.time_col = time_col
+        automl.task.target_names = target_names
+
         # we will cast any X to a dataframe,
         automl._df = True
 
@@ -71,7 +74,7 @@ class TaskTS(Task):
             time_col = time_col or "ds"
             validate_data_basic(X_train_all, y_train_all)
             dataframe = normalize_ts_data(
-                X_train_all, y_train_all, target_names, time_col
+                X_train_all, target_names, time_col, y_train_all
             )
 
         elif dataframe is not None:
@@ -216,6 +219,11 @@ class TaskTS(Task):
 
         return sampled_X_train, None, None, None
 
+    @staticmethod
+    def _preprocess(automl, X):
+        X = normalize_ts_data(X, automl.task.target_names, automl.task.time_col)
+        return automl._preprocess(X)
+
     def default_estimator_list(self):
         estimator_list = super().default_estimator_list()
 
@@ -346,7 +354,7 @@ def validate_data_basic(X_train_all, y_train_all):
     ), "# rows in X_train must match length of y_train."
 
 
-def normalize_ts_data(X_train_all, y_train_all, target_names, time_col):
+def normalize_ts_data(X_train_all, target_names, time_col, y_train_all=None):
     if issparse(X_train_all):
         X_train_all = X_train_all.tocsr()
 
@@ -359,17 +367,23 @@ def normalize_ts_data(X_train_all, y_train_all, target_names, time_col):
             columns=[time_col] + [f"x{i}" for i in range(X_train_all.shape[1] - 1)],
         )
 
-    if isinstance(y_train_all, np.ndarray):
-        # TODO: will need to revisit this when doing multivariate y
-        y_train_all = pd.DataFrame(
-            y_train_all.reshape(len(X_train_all), -1),
-            columns=target_names,
-            index=X_train_all.index,
-        )
+    if y_train_all is None:
+        return X_train_all
+    else:
+        if isinstance(y_train_all, np.ndarray):
+            # TODO: will need to revisit this when doing multivariate y
+            y_train_all = pd.DataFrame(
+                y_train_all.reshape(len(X_train_all), -1),
+                columns=target_names,
+                index=X_train_all.index,
+            )
+        elif isinstance(y_train_all, pd.Series):
+            y_train_all = pd.DataFrame(y_train_all)
+            y_train_all.index = X_train_all.index
 
-    dataframe = pd.concat([X_train_all, y_train_all], axis=1)
+        dataframe = pd.concat([X_train_all, y_train_all], axis=1)
 
-    return dataframe
+        return dataframe
 
 
 def remove_ts_duplicates(
