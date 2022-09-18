@@ -434,6 +434,7 @@ class SARIMAX(ARIMA):
         import warnings
 
         super().fit(X_train, y_train, budget=budget, **kwargs)
+        X_train = enrich(X_train, self.params["monthly_fourier_degree"], self.time_col)
 
         warnings.filterwarnings("ignore")
         from statsmodels.tsa.statespace.sarimax import SARIMAX as SARIMAX_estimator
@@ -539,7 +540,9 @@ class TS_SKLearn(TimeSeriesEstimator):
         from hcrystalball.wrappers import get_sklearn_wrapper
 
         X_train = self.transform_X(X_train)
+        self.regressors = list(X_train.columns)
         X_train = self._preprocess(X_train)
+
         params = self.params.copy()
         lags = params.pop("lags")
         optimize_for_horizon = params.pop("optimize_for_horizon")
@@ -576,8 +579,10 @@ class TS_SKLearn(TimeSeriesEstimator):
             self._model = model
 
     def fit(self, X_train, y_train=None, budget=None, **kwargs):
-        self.time_col = kwargs.pop("time_col", "ds")  # Doesn't work for some reason
+        # self.time_col = kwargs.pop("time_col", "ds")  # Doesn't work for some reason
+        super().fit(X_train, y_train, budget=budget, **kwargs)
         X_train = enrich(X_train, self.params["monthly_fourier_degree"], self.time_col)
+
         current_time = time.time()
         if isinstance(X_train, TimeSeriesDataset):
             data = X_train
@@ -603,7 +608,9 @@ class TS_SKLearn(TimeSeriesEstimator):
         )
         if isinstance(X, TimeSeriesDataset):
             data = X
-            X = data.test_data[data.regressors + [data.time_col]]
+            X = data.test_data
+
+        X = X[self.regressors + [self.time_col]]
 
         if self._model is not None:
             X = self.transform_X(X)

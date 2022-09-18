@@ -558,6 +558,7 @@ class AutoML(BaseEstimator):
                 "No estimator is trained. Please run fit with enough budget."
             )
             return None
+        X = X.copy()
         X = self.task._preprocess(self, X)
         proba = self._trained_estimator.predict_proba(X, **pred_kwargs)
         return proba

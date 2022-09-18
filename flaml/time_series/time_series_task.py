@@ -221,8 +221,18 @@ class TaskTS(Task):
 
     @staticmethod
     def _preprocess(automl, X):
-        X = normalize_ts_data(X, automl.task.target_names, automl.task.time_col)
-        return automl._preprocess(X)
+        if (
+            isinstance(X, pd.DataFrame)
+            or isinstance(X, np.ndarray)
+            or isinstance(X, pd.Series)
+        ):
+            X = X.copy()
+            X = normalize_ts_data(X, automl.task.target_names, automl.task.time_col)
+            return automl._preprocess(X)
+        elif isinstance(X, int):
+            return X
+        else:
+            raise ValueError(f"unknown type of X, {X.__class__}")
 
     def default_estimator_list(self):
         estimator_list = super().default_estimator_list()
