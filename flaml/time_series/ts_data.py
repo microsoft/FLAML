@@ -41,8 +41,8 @@ class TimeSeriesDataset:
         self.target_names = (
             [target_names] if isinstance(target_names, str) else list(target_names)
         )
-        assert isinstance(target_names, list)
-        assert len(target_names)
+        assert isinstance(self.target_names, list)
+        assert len(self.target_names)
 
         self.frequency = pd.infer_freq(train_data[time_col].unique())
         assert (
@@ -245,13 +245,16 @@ class TimeSeriesDataset:
 
 def enrich(
     X: Union[int, TimeSeriesDataset, pd.DataFrame],
-    fourier_degree: int,
+    fourier_degree: Optional[int],
     time_col: str,
     frequency: Optional[str] = None,
     test_end_date: Optional[datetime.datetime] = None,
 ):
     if isinstance(X, int):
         X = create_forward_frame(frequency, X, test_end_date, time_col)
+
+    if fourier_degree is None:
+        fourier_degree = 4
 
     if isinstance(X, TimeSeriesDataset):
         return enrich_dataset(X, fourier_degree)
