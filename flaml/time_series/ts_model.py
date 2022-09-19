@@ -294,7 +294,10 @@ class ARIMA(TimeSeriesEstimator):
 
         super().fit(X_train, y_train, budget=budget, **kwargs)
         X_train = enrich(
-            X_train, self.params.get("monthly_fourier_degree", None), self.time_col
+            X_train,
+            self.params.get("monthly_fourier_degree", None),
+            self.time_col,
+            remove_constants=True,
         )
 
         warnings.filterwarnings("ignore")
@@ -436,7 +439,10 @@ class SARIMAX(ARIMA):
 
         super().fit(X_train, y_train, budget=budget, **kwargs)
         X_train = enrich(
-            X_train, self.params.get("monthly_fourier_degree", None), self.time_col
+            X_train,
+            self.params.get("monthly_fourier_degree", None),
+            self.time_col,
+            remove_constants=True,
         )
 
         warnings.filterwarnings("ignore")

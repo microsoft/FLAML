@@ -11,7 +11,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.impute import SimpleImputer
 from sklearn.compose import ColumnTransformer
 
-from .feature import naive_date_features
+from .feature import monthly_fourier_features
 
 
 @dataclass
@@ -249,6 +249,7 @@ def enrich(
     time_col: str,
     frequency: Optional[str] = None,
     test_end_date: Optional[datetime.datetime] = None,
+    remove_constants: bool = False,
 ):
     if isinstance(X, int):
         X = create_forward_frame(frequency, X, test_end_date, time_col)
@@ -257,29 +258,49 @@ def enrich(
         fourier_degree = 4
 
     if isinstance(X, TimeSeriesDataset):
-        return enrich_dataset(X, fourier_degree)
+        return enrich_dataset(X, fourier_degree, remove_constants)
 
-    return enrich_dataframe(X, time_col, fourier_degree)
+    return enrich_dataframe(X, fourier_degree, remove_constants)
 
 
 def enrich_dataframe(
-    df: Union[pd.DataFrame, pd.Series], time_col: str, fourier_degree: int
+    df: Union[pd.DataFrame, pd.Series],
+    fourier_degree: int,
+    remove_constants: bool = False,
 ) -> pd.DataFrame:
+
     if isinstance(df, pd.Series):
         df = pd.DataFrame(df)
-    extras = naive_date_features(df[time_col], fourier_degree)
-    extras.columns = [f"{time_col}_{c}" for c in extras.columns]
-    extras.index = df.index
 
-    return pd.concat([df, extras], axis=1, verify_integrity=True)
+    new_cols = []
+    for col in df.columns:
+        if df[col].dtype.name == "datetime64[ns]":
+            extras = monthly_fourier_features(df[col], fourier_degree)
+            extras.columns = [f"{col}_{c}" for c in extras.columns]
+            extras.index = df.index
+            new_cols.append(extras)
+            date_feat = date_feature_dict(df[col])
+            if remove_constants:
+                re_date_feat = {
+                    k: v for k, v in date_feat.items() if v.nunique(dropna=False) >= 2
+                }
+            else:
+                re_date_feat = date_feat
+
+            date_feat = pd.DataFrame(re_date_feat, index=df.index)
+            new_cols.append(date_feat)
+
+    return pd.concat([df] + new_cols, axis=1, verify_integrity=True)
 
 
-def enrich_dataset(X: TimeSeriesDataset, fourier_degree: int = 0) -> TimeSeriesDataset:
-    new_train = enrich_dataframe(X.train_data, X.time_col, fourier_degree)
+def enrich_dataset(
+    X: TimeSeriesDataset, fourier_degree: int = 0, remove_constants: bool = False
+) -> TimeSeriesDataset:
+    new_train = enrich_dataframe(X.train_data, fourier_degree, remove_constants)
     new_test = (
         None
         if X.test_data is None
-        else enrich_dataframe(X.test_data, X.time_col, fourier_degree)
+        else enrich_dataframe(X.test_data, fourier_degree, remove_constants)
     )
     return TimeSeriesDataset(
         train_data=new_train,
@@ -290,117 +311,19 @@ def enrich_dataset(X: TimeSeriesDataset, fourier_degree: int = 0) -> TimeSeriesD
     )
 
 
-def enrich_data_old(
-    data,
-    periods_to_forecast: int,
-    time_col: str = "TIME_BUCKET",
-    known_feature_function: Optional[Callable] = None,
-    unknown_feature_function: Optional[Callable] = None,
-) -> TimeSeriesDataset:
-
-    dimension_values = data.data.apply(
-        lambda row: tuple([row[d] for d in data.metadata["dimensions"]]), axis=1
-    ).unique()
-
-    # 2. fill in missing time periods and values, add integer time index
-    df_with_idx = add_time_idx_new(data, time_col)  # noqa
-
-    # 3. Generate timestamps and time index for forecasting
-    freq = data.metadata["frequency"]
-    if freq == "H":
-        forecasting_end = df_with_idx[time_col].max() + datetime.timedelta(
-            hours=periods_to_forecast * 24
-        )
-    elif freq == "D":
-        forecasting_end = df_with_idx[time_col].max() + datetime.timedelta(
-            days=periods_to_forecast
-        )
-    elif freq == "30min":
-        forecasting_end = df_with_idx[time_col].max() + datetime.timedelta(
-            minutes=30 * 24 * periods_to_forecast
-        )
-    else:
-        raise ValueError(f"Unknown frequency {freq}")
-
-    dt_index = pd.date_range(
-        start=df_with_idx[time_col].min(),
-        end=forecasting_end,
-        freq=data.metadata["frequency"],
-    )
-    indexes = pd.DataFrame(dt_index).reset_index()
-    indexes.columns = ["time_idx", time_col]
-    # now multiplex that for every dimension combination
-    dfs = []
-    for dims in dimension_values:
-        this_df = indexes.copy()
-        for d_name, d_value in zip(data.metadata["dimensions"], dims):
-            this_df[d_name] = d_value
-        dfs.append(this_df)
-
-    dfs_all = pd.concat(dfs)
-
-    # 4.5 split that df into train and test dataframes
-    if known_feature_function is None:
-        known_df = dfs_all
-        known_categoricals = []
-        known_reals = ["time_idx"]
-    else:
-
-        (
-            known_df,
-            known_categoricals,
-            known_reals,
-        ) = known_feature_function(dfs_all, time_col=time_col)
-        known_reals = list(set(known_reals + ["time_idx"]))
-
-    pre_train_df_ = known_df[known_df[time_col] <= df_with_idx[time_col].max()]
-    # merge the metric values back in
-    pre_train_df = pd.merge(
-        df_with_idx,
-        pre_train_df_,
-        on=[time_col, "time_idx"] + data.metadata["dimensions"],
-    )
-
-    test_df = known_df[known_df[time_col] > df_with_idx[time_col].max()]
-
-    # 5. Enrich train dataset with unknown features (eg currency volumes for call volumes)
-    if unknown_feature_function is None:
-        train_df = pre_train_df
-        unknown_categoricals = []
-        unknown_reals = []
-    else:
-        train_df, unknown_categoricals, unknown_reals = unknown_feature_function(
-            pre_train_df
-        )
-
-    out = TimeSeriesDataset(
-        train_data=train_df,
-        test_data=test_df,
-        time_idx="time_idx",
-        time_col=time_col,
-        metadata=data.metadata,
-        time_varying_known_categoricals=known_categoricals,
-        time_varying_unknown_categoricals=unknown_categoricals,
-        time_varying_known_reals=known_reals,
-        time_varying_unknown_reals=unknown_reals,
-    )
-
-    return out
-
-
 def date_feature_dict(timestamps: pd.Series) -> dict:
     tmp_dt = timestamps.dt
     column = timestamps.name
     new_columns_dict = {
-        f"year_{column}": tmp_dt.year,
-        f"month_{column}": tmp_dt.month,
-        f"day_{column}": tmp_dt.day,
-        f"hour_{column}": tmp_dt.hour,
-        f"minute_{column}": tmp_dt.minute,
-        f"second_{column}": tmp_dt.second,
-        f"dayofweek_{column}": tmp_dt.dayofweek,
-        f"dayofyear_{column}": tmp_dt.dayofyear,
-        f"quarter_{column}": tmp_dt.quarter,
+        f"{column}_year": tmp_dt.year,
+        f"{column}_month": tmp_dt.month,
+        f"{column}_day": tmp_dt.day,
+        f"{column}_hour": tmp_dt.hour,
+        f"{column}_minute": tmp_dt.minute,
+        f"{column}_second": tmp_dt.second,
+        f"{column}_dayofweek": tmp_dt.dayofweek,
+        f"{column}_dayofyear": tmp_dt.dayofyear,
+        f"{column}_quarter": tmp_dt.quarter,
     }
 
     return new_columns_dict
@@ -437,7 +360,7 @@ class DataTransformerTS:
         n = X.shape[0]
         # drop = False
 
-        ds_col = X.pop(self.time_col)
+        # ds_col = X[self.time_col]
 
         if isinstance(y, Series):
             y = y.rename(self.label)
@@ -457,15 +380,23 @@ class DataTransformerTS:
             elif X[column].nunique(dropna=True) < 2:
                 self.drop_columns.append(column)
                 # drop = True
-            else:  # datetime or numeric
-                if X[column].dtype.name == "datetime64[ns]":
-                    self.datetime_columns.append(column)
-                    new_columns_dict = date_feature_dict(X[column])
-                    for key, value in new_columns_dict.items():
-                        if key not in X.columns and value.nunique(dropna=False) >= 2:
-                            self.num_columns.append(key)
-                    X[column] = X[column].map(datetime.toordinal)
+            elif X[column].dtype.name == "datetime64[ns]":
+                pass  # these will be processed at model level,
+                # so they can also be done in the predict method
 
+                # self.datetime_columns.append(column)
+                # new_columns_dict = date_feature_dict(X[column])
+                # for key, value in new_columns_dict.items():
+                #     if key not in X.columns and value.nunique(dropna=False) >= 2:
+                #         self.num_columns.append(key)
+                #         X[key] = value
+                # if column != self.time_col:
+                #     X[column] = X[column].map(lambda x: x.toordinal())
+                #     self.num_columns.append(column)
+                # else:
+                #     X[column + "_ord"] = X[column].map(lambda x: x.toordinal())
+                #     self.num_columns.append(column + "_ord")
+            else:
                 self.num_columns.append(column)
 
         if self.num_columns:
@@ -496,7 +427,7 @@ class DataTransformerTS:
             self.transformer = None
 
         # TODO: want to generate datetime features for time_col, too!
-        X.insert(0, self.time_col, ds_col)
+        # X.insert(0, self.time_col, ds_col)
 
         # TODO: revisit for multivariate series, and recast for a single df input anyway
         ycol = y[y.columns[0]]
@@ -523,15 +454,17 @@ class DataTransformerTS:
                 X[col] = X[col].fillna("__NAN__")
                 X[col] = X[col].astype("category")
 
-        for column in self.datetime_columns:
-            # as of now, don't do it to time_col? Why?
-            new_columns_dict = date_feature_dict(X[column])
-            for key, value in new_columns_dict.items():
-                if key in self.num_columns:
-                    X[key] = value
-            X[column] = X[column].map(datetime.toordinal)
+        # for column in self.datetime_columns:
+        #     # as of now, don't do it to time_col? Why?
+        #     new_columns_dict = date_feature_dict(X[column])
+        #     for key, value in new_columns_dict.items():
+        #         if key in self.num_columns:
+        #             X[key] = value
+        #     if column != self.time_col:
+        #         X[column] = X[column].map(lambda x: x.toordinal())
+        #     else:
+        #         X[column + "_ord"] = X[column].map(lambda x: x.toordinal())
 
-        # datetime columns have been cast to ordinals too by now
         for column in self.num_columns:
             X[column] = X[column].fillna(np.nan)
 

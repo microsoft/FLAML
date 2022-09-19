@@ -3,7 +3,7 @@ import pandas as pd
 import datetime
 
 from flaml import AutoML
-from flaml.time_series import naive_date_features
+from flaml.time_series import naive_date_features_with_holidays
 
 
 def test_forecast_automl(budget=30):
@@ -456,7 +456,7 @@ def test_features():
     y = pd.Series(
         name="date", data=pd.date_range(start="1/1/2018", periods=300, freq="H")
     )
-    _ = naive_date_features(y, 3)
+    _ = naive_date_features_with_holidays(y, 3)
 
 
 # def test_finance_df():
@@ -485,8 +485,9 @@ def test_features():
 #     features = [c for c in train_df.columns if "SERIES" not in c and c != time_col]
 #
 #     for estimator_list in [
-#         ["arima", "sarimax"],
-#         ["xgboost", "xgb_limitdepth", "rf", "lgbm", "extra_tree"],
+#         # ["arima", "sarimax"],
+#         # ["xgboost", "xgb_limitdepth", "rf", "lgbm", "extra_tree"],
+#         ["multiscale"]
 #     ]:
 #
 #         automl = AutoML(
@@ -503,6 +504,10 @@ def test_features():
 #         )
 #
 #         pred = automl.predict(val_df)
+#
+#         if isinstance(pred, pd.DataFrame):
+#             pred = pred[tgt]
+#         assert not np.isnan(pred.sum())
 #
 #         import matplotlib.pyplot as plt
 #
