@@ -28,12 +28,10 @@ from flaml.time_series import (
     LGBM_TS,
     ExtraTrees_TS,
     Prophet,
-    Orbit,
     ARIMA,
     SARIMAX,
     TemporalFusionTransformerEstimator,
 )
-from flaml.time_series.multiscale import MultiscaleModel
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +44,8 @@ class TSTask(Task):
         "lgbm": LGBM_TS,
         "extra_tree": ExtraTrees_TS,
         "prophet": Prophet,
-        "orbit": Orbit,
         "arima": ARIMA,
         "sarimax": SARIMAX,
-        "multiscale": MultiscaleModel,
         "tft": TemporalFusionTransformerEstimator,
     }
 

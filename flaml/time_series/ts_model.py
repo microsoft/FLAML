@@ -9,9 +9,6 @@ from pandas import DataFrame, Series, to_datetime
 
 from flaml import tune
 
-# This may be needed to get PyStan to run, needed for Orbit
-os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
-
 import numpy as np
 
 
@@ -26,7 +23,7 @@ from flaml.model import (
     XGBoostLimitDepthEstimator,
 )
 from flaml.data import TS_TIMESTAMP_COL, TS_VALUE_COL, add_time_idx_col
-from flaml.time_series.ts_data import TimeSeriesDataset, enrich, create_forward_frame
+from flaml.time_series.ts_data import TimeSeriesDataset, enrich
 from flaml.automl.task import Task
 
 
@@ -85,79 +82,6 @@ class TimeSeriesEstimator(SKLearnEstimator):
             return metric_loss_score(self._metric, y_pred, y_val)
         else:
             return r2_score(y_pred, y_val)
-
-
-class Orbit(TimeSeriesEstimator):
-    def fit(self, X_train: TimeSeriesDataset, y_train=None, budget=None, **kwargs):
-        from orbit.models import DLT
-
-        # y_train is ignored, just need it for signature compatibility with other classes
-        super().fit(X_train, y_train, budget=budget, **kwargs)
-        current_time = time.time()
-        self.logger = logging.getLogger("orbit").setLevel(logging.WARNING)
-
-        model_class = self.params.get("model_class", DLT)
-        self._model = model_class(
-            response_col=X_train.target_names[0],
-            date_col=X_train.time_col,
-            regressor_col=X_train.regressors,
-            # TODO: infer seasonality from frequency
-            **self.params,
-        )
-
-        with suppress_stdout_stderr():
-            self._model.fit(df=X_train.train_data.copy())
-
-        train_time = time.time() - current_time
-        return train_time
-
-    def predict(self, X: Union[TimeSeriesDataset, pd.DataFrame], **kwargs):
-        if isinstance(X, int):
-            X = create_forward_frame(
-                self.frequency,
-                X,
-                self.end_date,
-                self.time_col,
-            )
-
-        elif isinstance(X, TimeSeriesDataset):
-            data = X
-            X = data.test_data[[self.time_col] + X.regressors]
-
-        if self._model is not None:
-
-            forecast = self._model.predict(X, **kwargs)
-            out = (
-                pd.DataFrame(
-                    forecast[
-                        [
-                            self.time_col,
-                            "prediction",
-                            "prediction_5",
-                            "prediction_95",
-                        ]
-                    ]
-                )
-                .reset_index(drop=True)
-                .rename(
-                    columns={
-                        "prediction": self.target_names[0],
-                    }
-                )
-            )
-
-            return out
-        else:
-            self.logger.warning(
-                "Estimator is not fit yet. Please run fit() before predict()."
-            )
-            return None
-
-    @classmethod
-    def _search_space(cls, **params):
-        # TODO: fill in a proper search space
-        space = {}
-        return space
 
 
 class Prophet(TimeSeriesEstimator):

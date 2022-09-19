@@ -33,7 +33,6 @@ from .model import (
 )
 from flaml.time_series import (
     Prophet,
-    Orbit,
     ARIMA,
     SARIMAX,
     LGBM_TS,
@@ -122,8 +121,6 @@ def get_estimator_class(task, estimator_name):
         estimator_class = KNeighborsEstimator
     elif "prophet" in estimator_name:
         estimator_class = Prophet
-    elif "orbit" in estimator_name:
-        estimator_class = Orbit
     elif estimator_name == "arima":
         estimator_class = ARIMA
     elif estimator_name == "sarimax":

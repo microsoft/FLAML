@@ -1,6 +1,5 @@
 from .ts_model import (
     Prophet,
-    Orbit,
     ARIMA,
     SARIMAX,
     LGBM_TS,
