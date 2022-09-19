@@ -240,8 +240,11 @@ class MultiscaleModel(TimeSeriesEstimator):
             self.scale = X_train.next_scale()
         self.scale_transform = ScaleTransform(self.scale)
         X_lo, X_hi = self.scale_transform.fit_transform(X_train)
-        self.model_lo.fit(X_lo)
-        self.model_hi.fit(X_hi)
+        loargs = copy.deepcopy(kwargs)
+        if "period" in loargs:
+            loargs["period"] = math.ceil(loargs["period"] / self.scale)
+        self.model_lo.fit(X_lo, **loargs)
+        self.model_hi.fit(X_hi, **kwargs)
 
     def predict(self, X: Union[TimeSeriesDataset, pd.DataFrame]):
         # X has all the known past in train_data, genuine future in test_data

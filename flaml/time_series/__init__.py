@@ -13,4 +13,4 @@ from .ts_model import (
 )
 
 from .ts_data import TimeSeriesDataset
-from .feature import naive_date_features
+from .feature import naive_date_features_with_holidays
