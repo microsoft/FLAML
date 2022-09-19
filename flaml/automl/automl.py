@@ -599,7 +599,7 @@ class AutoML(BaseEstimator):
             X = X.tocsr()
 
         if self._transformer:
-            X, _ = self._transformer.transform(X)
+            X = self._transformer.transform(X)
 
         return X
 

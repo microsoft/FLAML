@@ -202,7 +202,7 @@ class GenericTask(Task):
                 X_val.shape[0] == y_val.shape[0]
             ), "# rows in X_val must match length of y_val."
             if automl._transformer:
-                automl._state.X_val, _ = automl._transformer.transform(X_val)
+                automl._state.X_val = automl._transformer.transform(X_val)
             else:
                 automl._state.X_val = X_val
             # If it's NLG_TASKS, y_val is a pandas series containing the output sequence tokens,

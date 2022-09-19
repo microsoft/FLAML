@@ -471,6 +471,8 @@ class DataTransformerTS:
         if self.transformer is not None:
             X[self.num_columns] = self.transformer.transform(X[self.num_columns])
 
+        if y is None:
+            return X
         return X, y
 
     def fit_transform(self, X: Union[DataFrame, np.array], y):
