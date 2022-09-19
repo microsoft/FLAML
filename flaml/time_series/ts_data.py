@@ -6,6 +6,7 @@ from typing import List, Optional, Callable, Dict, Generator, Union
 import pandas as pd
 import numpy as np
 from pandas import DataFrame, Series
+from scipy.sparse import issparse
 
 from sklearn.preprocessing import LabelEncoder
 from sklearn.impute import SimpleImputer
@@ -251,6 +252,7 @@ def enrich(
     test_end_date: Optional[datetime.datetime] = None,
     remove_constants: bool = False,
 ):
+    X = normalize_ts_data(X, None, time_col, None)
     if isinstance(X, int):
         X = create_forward_frame(frequency, X, test_end_date, time_col)
 
@@ -383,19 +385,6 @@ class DataTransformerTS:
             elif X[column].dtype.name == "datetime64[ns]":
                 pass  # these will be processed at model level,
                 # so they can also be done in the predict method
-
-                # self.datetime_columns.append(column)
-                # new_columns_dict = date_feature_dict(X[column])
-                # for key, value in new_columns_dict.items():
-                #     if key not in X.columns and value.nunique(dropna=False) >= 2:
-                #         self.num_columns.append(key)
-                #         X[key] = value
-                # if column != self.time_col:
-                #     X[column] = X[column].map(lambda x: x.toordinal())
-                #     self.num_columns.append(column)
-                # else:
-                #     X[column + "_ord"] = X[column].map(lambda x: x.toordinal())
-                #     self.num_columns.append(column + "_ord")
             else:
                 self.num_columns.append(column)
 
@@ -454,17 +443,6 @@ class DataTransformerTS:
                 X[col] = X[col].fillna("__NAN__")
                 X[col] = X[col].astype("category")
 
-        # for column in self.datetime_columns:
-        #     # as of now, don't do it to time_col? Why?
-        #     new_columns_dict = date_feature_dict(X[column])
-        #     for key, value in new_columns_dict.items():
-        #         if key in self.num_columns:
-        #             X[key] = value
-        #     if column != self.time_col:
-        #         X[column] = X[column].map(lambda x: x.toordinal())
-        #     else:
-        #         X[column + "_ord"] = X[column].map(lambda x: x.toordinal())
-
         for column in self.num_columns:
             X[column] = X[column].fillna(np.nan)
 
@@ -476,68 +454,6 @@ class DataTransformerTS:
     def fit_transform(self, X: Union[DataFrame, np.array], y):
         self.fit(X, y)
         return self.transform(X, y)
-
-    # def _transform(self, X: Union[DataFrame, np.array]):
-    #     """Process data using fit transformer.
-    #
-    #     Args:
-    #         X: A numpy array or a pandas dataframe of training data.
-    #
-    #     Returns:
-    #         X: Processed numpy array or pandas dataframe of training data.
-    #     """
-    #     X = X.copy()
-    #     if isinstance(X, np.ndarray):
-    #         array_order = len(X.shape)
-    #         feature_labels = []
-    #         if array_order > 1:
-    #             feature_labels = [f"x{i}" for i in range(X.shape[1] - 1)]
-    #         X = pd.DataFrame(X, columns=[self.time_col] + feature_labels)
-    #
-    #     if isinstance(X, DataFrame):
-    #         cat_columns, num_columns, datetime_columns = (
-    #             self._cat_columns,
-    #             self._num_columns,
-    #             self._datetime_columns,
-    #         )
-    #         ds_col = X.pop(self.time_col)
-    #         for column in datetime_columns:
-    #             tmp_dt = X[column].dt
-    #             new_columns_dict = {
-    #                 f"year_{column}": tmp_dt.year,
-    #                 f"month_{column}": tmp_dt.month,
-    #                 f"day_{column}": tmp_dt.day,
-    #                 f"hour_{column}": tmp_dt.hour,
-    #                 f"minute_{column}": tmp_dt.minute,
-    #                 f"second_{column}": tmp_dt.second,
-    #                 f"dayofweek_{column}": tmp_dt.dayofweek,
-    #                 f"dayofyear_{column}": tmp_dt.dayofyear,
-    #                 f"quarter_{column}": tmp_dt.quarter,
-    #             }
-    #             for new_col_name, new_col_value in new_columns_dict.items():
-    #                 if new_col_name not in X.columns and new_col_name in num_columns:
-    #                     X[new_col_name] = new_col_value
-    #             X[column] = X[column].map(datetime.toordinal)
-    #             del tmp_dt
-    #         X = X[cat_columns + num_columns].copy()
-    #         X.insert(0, self.time_col, ds_col)
-    #         for column in cat_columns:
-    #             if X[column].dtype.name == "object":
-    #                 X[column] = X[column].fillna("__NAN__")
-    #             elif X[column].dtype.name == "category":
-    #                 current_categories = X[column].cat.categories
-    #                 if "__NAN__" not in current_categories:
-    #                     X[column] = (
-    #                         X[column].cat.add_categories("__NAN__").fillna("__NAN__")
-    #                     )
-    #         if cat_columns:
-    #             X[cat_columns] = X[cat_columns].astype("category")
-    #         if num_columns:
-    #             X_num = X[num_columns].fillna(np.nan)
-    #             if self._drop:
-    #                 X_num.columns = range(X_num.shape[1])
-    #             X[num_columns] = self.transformer.transform(X_num)
-    #     return X
 
 
 def create_forward_frame(
@@ -553,3 +469,38 @@ def create_forward_frame(
         freq=frequency,
     )
     return pd.DataFrame({time_col: times})
+
+
+def normalize_ts_data(X_train_all, target_names, time_col, y_train_all=None):
+    if isinstance(X_train_all, TimeSeriesDataset):
+        return X_train_all
+
+    if issparse(X_train_all):
+        X_train_all = X_train_all.tocsr()
+
+    if isinstance(X_train_all, np.ndarray) and len(X_train_all.shape) == 1:
+        X_train_all = np.reshape(X_train_all, (X_train_all.size, 1))
+
+    if isinstance(X_train_all, np.ndarray):
+        X_train_all = pd.DataFrame(
+            X_train_all,
+            columns=[time_col] + [f"x{i}" for i in range(X_train_all.shape[1] - 1)],
+        )
+
+    if y_train_all is None:
+        return X_train_all
+    else:
+        if isinstance(y_train_all, np.ndarray):
+            # TODO: will need to revisit this when doing multivariate y
+            y_train_all = pd.DataFrame(
+                y_train_all.reshape(len(X_train_all), -1),
+                columns=target_names,
+                index=X_train_all.index,
+            )
+        elif isinstance(y_train_all, pd.Series):
+            y_train_all = pd.DataFrame(y_train_all)
+            y_train_all.index = X_train_all.index
+
+        dataframe = pd.concat([X_train_all, y_train_all], axis=1)
+
+        return dataframe

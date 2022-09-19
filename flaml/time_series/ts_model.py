@@ -189,7 +189,9 @@ class Prophet(TimeSeriesEstimator):
     def fit(self, X_train, y_train=None, budget=None, **kwargs):
         from prophet import Prophet
 
-        X_train = enrich(X_train, self.params["monthly_fourier_degree"], self.time_col)
+        X_train = enrich(
+            X_train, self.params.get("monthly_fourier_degree", None), self.time_col
+        )
         super().fit(X_train, y_train, budget=budget, **kwargs)
 
         current_time = time.time()
@@ -226,7 +228,7 @@ class Prophet(TimeSeriesEstimator):
     def predict(self, X, **kwargs):
         X = enrich(
             X,
-            self.params["monthly_fourier_degree"],
+            self.params.get("monthly_fourier_degree", None),
             self.time_col,
             frequency=self.frequency,
             test_end_date=self.end_date,
@@ -355,7 +357,7 @@ class ARIMA(TimeSeriesEstimator):
             frequency=self.frequency,
             test_end_date=self.end_date,
         )
-        if self._model is None:
+        if self._model is None or self._model is False:
             return np.ones(X if isinstance(X, int) else X.shape[0])
 
         if isinstance(X, int):
@@ -588,9 +590,15 @@ class TS_SKLearn(TimeSeriesEstimator):
             self._model = model
 
     def fit(self, X_train, y_train=None, budget=None, **kwargs):
-        # self.time_col = kwargs.pop("time_col", "ds")  # Doesn't work for some reason
         super().fit(X_train, y_train, budget=budget, **kwargs)
-        X_train = enrich(X_train, self.params["monthly_fourier_degree"], self.time_col)
+        X_train = enrich(
+            X_train,
+            self.params.get(
+                "monthly_fourier_degree",
+                None,
+            ),
+            self.time_col,
+        )
 
         current_time = time.time()
         if isinstance(X_train, TimeSeriesDataset):
@@ -608,9 +616,10 @@ class TS_SKLearn(TimeSeriesEstimator):
         return train_time
 
     def predict(self, X, **kwargs):
+
         X = enrich(
             X,
-            self.params["monthly_fourier_degree"],
+            self.params.get("monthly_fourier_degree", None),
             self.time_col,
             frequency=self.frequency,
             test_end_date=self.end_date,
@@ -619,9 +628,8 @@ class TS_SKLearn(TimeSeriesEstimator):
             data = X
             X = data.test_data
 
-        X = X[self.regressors + [self.time_col]]
-
         if self._model is not None:
+            X = X[self.regressors + [self.time_col]]
             X = self.transform_X(X)
             X = self._preprocess(X)
             if isinstance(self._model, list):

@@ -1,4 +1,3 @@
-from enum import auto
 import logging
 import time
 from typing import List
@@ -15,7 +14,11 @@ from flaml.automl.task import (
     TS_FORECASTREGRESSION,
     TS_FORECASTPANEL,
 )
-from flaml.time_series.ts_data import TimeSeriesDataset, DataTransformerTS
+from flaml.time_series.ts_data import (
+    TimeSeriesDataset,
+    DataTransformerTS,
+    normalize_ts_data,
+)
 
 from flaml.automl.task import TS_FORECAST
 from flaml.ml import default_cv_score_agg_func, get_val_loss
@@ -420,38 +423,6 @@ def validate_data_basic(X_train_all, y_train_all):
     assert (
         X_train_all.shape[0] == y_train_all.shape[0]
     ), "# rows in X_train must match length of y_train."
-
-
-def normalize_ts_data(X_train_all, target_names, time_col, y_train_all=None):
-    if issparse(X_train_all):
-        X_train_all = X_train_all.tocsr()
-
-    if isinstance(X_train_all, np.ndarray) and len(X_train_all.shape) == 1:
-        X_train_all = np.reshape(X_train_all, (X_train_all.size, 1))
-
-    if isinstance(X_train_all, np.ndarray):
-        X_train_all = pd.DataFrame(
-            X_train_all,
-            columns=[time_col] + [f"x{i}" for i in range(X_train_all.shape[1] - 1)],
-        )
-
-    if y_train_all is None:
-        return X_train_all
-    else:
-        if isinstance(y_train_all, np.ndarray):
-            # TODO: will need to revisit this when doing multivariate y
-            y_train_all = pd.DataFrame(
-                y_train_all.reshape(len(X_train_all), -1),
-                columns=target_names,
-                index=X_train_all.index,
-            )
-        elif isinstance(y_train_all, pd.Series):
-            y_train_all = pd.DataFrame(y_train_all)
-            y_train_all.index = X_train_all.index
-
-        dataframe = pd.concat([X_train_all, y_train_all], axis=1)
-
-        return dataframe
 
 
 def remove_ts_duplicates(
