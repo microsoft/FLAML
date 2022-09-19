@@ -45,8 +45,8 @@ class TimeSeriesEstimator(SKLearnEstimator):
             {
                 "monthly_fourier_degree": {
                     "domain": tune.randint(lower=0, upper=8),
-                    "init_value": 2,
-                    "low_cost_init_value": 1,
+                    "init_value": 4,
+                    "low_cost_init_value": 2,
                 }
             }
         )
@@ -271,7 +271,7 @@ class ARIMA(TimeSeriesEstimator):
                 "low_cost_init_value": 0,
             },
             "d": {
-                "domain": tune.qrandint(lower=0, upper=4, q=1),
+                "domain": tune.qrandint(lower=0, upper=6, q=1),
                 "init_value": 1,
                 "low_cost_init_value": 0,
             },
@@ -403,7 +403,7 @@ class SARIMAX(ARIMA):
                 "low_cost_init_value": 0,
             },
             "d": {
-                "domain": tune.qrandint(lower=0, upper=2, q=1),
+                "domain": tune.qrandint(lower=0, upper=6, q=1),
                 "init_value": 0,
                 "low_cost_init_value": 0,
             },
@@ -418,7 +418,7 @@ class SARIMAX(ARIMA):
                 "low_cost_init_value": 0,
             },
             "D": {
-                "domain": tune.qrandint(lower=0, upper=2, q=1),
+                "domain": tune.qrandint(lower=0, upper=6, q=1),
                 "init_value": 0,
                 "low_cost_init_value": 0,
             },
