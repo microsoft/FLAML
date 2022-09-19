@@ -261,6 +261,9 @@ def sklearn_metric_loss_score(
     """
     metric_name = metric_name.lower()
 
+    if y_true.dtype.name == "category":
+        y_true = np.array(y_true.cat.codes)
+
     # Align the types, just in case
     if isinstance(np.array(y_true)[0], str) or isinstance(np.array(y_predict)[0], str):
         y_true = np.array(y_true).astype(str)

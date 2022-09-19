@@ -35,6 +35,7 @@ CLASSIFICATION = (
     TOKENCLASSIFICATION,
     TS_FORECASTCLASSIFICATION,
 )
+RANK = ("rank",)
 SUMMARIZATION = "summarization"
 NLG_TASKS = (SUMMARIZATION,)
 NLU_TASKS = (
@@ -121,6 +122,9 @@ class Task(ABC):
 
     def is_classification(self):
         return self.name in CLASSIFICATION
+
+    def is_rank(self):
+        return self.name in RANK
 
     def is_binary(self):
         return self.name == "binary"
