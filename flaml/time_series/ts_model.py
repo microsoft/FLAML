@@ -293,7 +293,9 @@ class ARIMA(TimeSeriesEstimator):
         import warnings
 
         super().fit(X_train, y_train, budget=budget, **kwargs)
-        X_train = enrich(X_train, self.params["monthly_fourier_degree"], self.time_col)
+        X_train = enrich(
+            X_train, self.params.get("monthly_fourier_degree", None), self.time_col
+        )
 
         warnings.filterwarnings("ignore")
         from statsmodels.tsa.arima.model import ARIMA as ARIMA_estimator
@@ -345,7 +347,7 @@ class ARIMA(TimeSeriesEstimator):
     def predict(self, X, **kwargs) -> pd.Series:
         X = enrich(
             X,
-            self.params["monthly_fourier_degree"],
+            self.params.get("monthly_fourier_degree", None),
             self.time_col,
             frequency=self.frequency,
             test_end_date=self.end_date,
@@ -433,7 +435,9 @@ class SARIMAX(ARIMA):
         import warnings
 
         super().fit(X_train, y_train, budget=budget, **kwargs)
-        X_train = enrich(X_train, self.params["monthly_fourier_degree"], self.time_col)
+        X_train = enrich(
+            X_train, self.params.get("monthly_fourier_degree", None), self.time_col
+        )
 
         warnings.filterwarnings("ignore")
         from statsmodels.tsa.statespace.sarimax import SARIMAX as SARIMAX_estimator

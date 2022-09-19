@@ -246,16 +246,18 @@ class TaskTS(Task):
                 period = automl._state.fit_kwargs[
                     "period"
                 ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+                step_size = automl._state.fit_kwargs.get("cv_step_size", period)
 
                 ts_data = automl._state.X_train
-                if period * (n_splits + 1) > ts_data.y_train.size:
-                    n_splits = int(automl._state.y_train.size / period - 1)
+                if n_splits * step_size + 2 * period > ts_data.y_train.size:
+                    n_splits = int((ts_data.y_train.size - 2 * period) / step_size)
                     assert n_splits >= 2, (
                         f"cross validation for forecasting period={period}"
-                        f" requires input data with at least {3 * period} examples."
+                        f" requires input data with at least {2*period + 2*step_size} examples."
                     )
                     logger.info(f"Using nsplits={n_splits} due to data size limit.")
                 automl._state.kf = TimeSeriesSplit(n_splits=n_splits, test_size=period)
+                automl._state.kf.step_size = step_size
 
             else:
                 n_groups = ts_data.X_train.groupby(
@@ -361,7 +363,7 @@ class TaskTS(Task):
         ts_data = X_train_all
         budget_per_train = budget / n
         ts_data = X_train_all
-        for data in ts_data.cv_train_val_sets(kf.n_splits, kf.test_size):
+        for data in ts_data.cv_train_val_sets(kf.n_splits, kf.test_size, kf.step_size):
             estimator.cleanup()
             val_loss_i, metric_i, train_time_i, pred_time_i = get_val_loss(
                 config,

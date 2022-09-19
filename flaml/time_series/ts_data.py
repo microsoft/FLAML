@@ -41,8 +41,8 @@ class TimeSeriesDataset:
         self.target_names = (
             [target_names] if isinstance(target_names, str) else list(target_names)
         )
-        assert isinstance(target_names, list)
-        assert len(target_names)
+        assert isinstance(self.target_names, list)
+        assert len(self.target_names)
 
         self.frequency = pd.infer_freq(train_data[time_col].unique())
         assert (
@@ -181,12 +181,12 @@ class TimeSeriesDataset:
         return out
 
     def cv_train_val_sets(
-        self, n_splits: int, val_length: int
+        self, n_splits: int, val_length: int, step_size: int
     ) -> Generator["TimeSeriesDataset", None, None]:
         max_index = len(self.train_data) - 1
         for i in range(n_splits):
             out = copy.copy(self)
-            val_start = max_index - (n_splits - i) * val_length
+            val_start = max_index - (n_splits - i - 1) * step_size - val_length
             out.train_data = self.train_data[:val_start]
             out.test_data = self.train_data[val_start : val_start + val_length]
             yield out
@@ -245,13 +245,16 @@ class TimeSeriesDataset:
 
 def enrich(
     X: Union[int, TimeSeriesDataset, pd.DataFrame],
-    fourier_degree: int,
+    fourier_degree: Optional[int],
     time_col: str,
     frequency: Optional[str] = None,
     test_end_date: Optional[datetime.datetime] = None,
 ):
     if isinstance(X, int):
         X = create_forward_frame(frequency, X, test_end_date, time_col)
+
+    if fourier_degree is None:
+        fourier_degree = 4
 
     if isinstance(X, TimeSeriesDataset):
         return enrich_dataset(X, fourier_degree)
