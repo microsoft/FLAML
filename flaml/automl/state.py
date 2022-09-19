@@ -160,7 +160,8 @@ class SearchState:
         new_space = get_tune_domain(search_space)
         new_init = get_initial_value(search_space, "init_value")
         # integrate any starting_point values
-        new_init.update(self.init_config)
+        if isinstance(self.init_config, dict):
+            new_init.update(self.init_config)
 
         # def compare_dicts(d1, d2):
         #     for key in sorted(list(set([*d1.keys(), *d2.keys()]))):
