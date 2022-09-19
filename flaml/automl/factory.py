@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from flaml.automl.generic_task import GenericTask
-from flaml.time_series.time_series_task import TaskTS
+from flaml.time_series.ts_task import TSTask
 from flaml.automl.task import Task, TS_FORECAST
 
 
@@ -14,5 +14,5 @@ def task_factory(
     y_train: Optional[Union[np.ndarray, pd.DataFrame, pd.Series]] = None,
 ) -> Task:
     if task_name in TS_FORECAST:
-        return TaskTS(task_name, X_train, y_train)
+        return TSTask(task_name, X_train, y_train)
     return GenericTask(task_name, X_train, y_train)

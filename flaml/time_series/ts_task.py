@@ -7,7 +7,6 @@ import pandas as pd
 from scipy.sparse import issparse
 from sklearn.model_selection import TimeSeriesSplit
 
-# from .automl import AutoML
 from flaml.automl.task import (
     CLASSIFICATION,
     Task,
@@ -39,7 +38,7 @@ from flaml.time_series.multiscale import MultiscaleModel
 logger = logging.getLogger(__name__)
 
 
-class TaskTS(Task):
+class TSTask(Task):
     estimators = {
         "xgboost": XGBoost_TS,
         "xgb_limitdepth": XGBoostLimitDepth_TS,
@@ -400,7 +399,6 @@ class TaskTS(Task):
 
 
 def validate_data_basic(X_train_all, y_train_all):
-
     assert (
         isinstance(X_train_all, np.ndarray)
         or issparse(X_train_all)

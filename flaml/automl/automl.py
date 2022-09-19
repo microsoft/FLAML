@@ -14,7 +14,6 @@ import pandas as pd
 import logging
 import json
 
-from .state import SearchState, AutoMLState
 from ..ml import (
     train_estimator,
 )
@@ -29,19 +28,17 @@ from ..config import (
     SAMPLE_MULTIPLY_FACTOR,
 )
 from ..data import _is_nlp_task
-
-from flaml.automl.task import (
-    CLASSIFICATION,
-    TS_FORECAST,
-)
-
-from flaml.automl.factory import task_factory
-
 from .. import tune
 from ..training_log import training_log_reader, training_log_writer
 from ..default.suggest import suggest_learner
 from ..time_series.ts_data import TimeSeriesDataset
 from ..version import __version__
+from .factory import task_factory
+from .state import SearchState, AutoMLState
+from .task import (
+    CLASSIFICATION,
+    TS_FORECAST,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -786,8 +783,6 @@ class AutoML(BaseEstimator):
 
         task = task or self._settings.get("task")
         if not hasattr(self, "task"):
-            from .factory import task_factory
-
             self.task = task_factory(task)
 
         eval_method = eval_method or self._settings.get("eval_method")

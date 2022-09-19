@@ -163,15 +163,6 @@ class SearchState:
         if isinstance(self.init_config, dict):
             new_init.update(self.init_config)
 
-        # def compare_dicts(d1, d2):
-        #     for key in sorted(list(set([*d1.keys(), *d2.keys()]))):
-        #         if d1.get(key) != d2.get(key):
-        #             print("***", key, d1.get(key), d2.get(key))
-        #             # raise ValueError
-        #
-        # compare_dicts(self.init_config, new_init)
-        # compare_dicts(self.search_space, new_space)
-
         self.init_config = new_init
         self._search_space_domain = new_space
         # TODO:

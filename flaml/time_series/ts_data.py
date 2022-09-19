@@ -360,9 +360,6 @@ class DataTransformerTS:
         assert isinstance(X, DataFrame)
         X = X.copy()
         n = X.shape[0]
-        # drop = False
-
-        # ds_col = X[self.time_col]
 
         if isinstance(y, Series):
             y = y.rename(self.label)
@@ -381,7 +378,6 @@ class DataTransformerTS:
                     self.cat_columns.append(column)
             elif X[column].nunique(dropna=True) < 2:
                 self.drop_columns.append(column)
-                # drop = True
             elif X[column].dtype.name == "datetime64[ns]":
                 pass  # these will be processed at model level,
                 # so they can also be done in the predict method
@@ -389,18 +385,6 @@ class DataTransformerTS:
                 self.num_columns.append(column)
 
         if self.num_columns:
-            # TODO: what does this do???
-            # X_num = X[num_columns]
-            # if np.issubdtype(X_num.columns.dtype, np.integer) and (
-            #     drop
-            #     or min(X_num.columns) != 0
-            #     or max(X_num.columns) != X_num.shape[1] - 1
-            # ):
-            #     X_num.columns = range(X_num.shape[1])
-            #     drop = True
-            # else:
-            #     drop = False
-
             self.transformer = ColumnTransformer(
                 [
                     (
@@ -414,9 +398,6 @@ class DataTransformerTS:
             self.transformer.fit(X[self.num_columns])
         else:
             self.transformer = None
-
-        # TODO: want to generate datetime features for time_col, too!
-        # X.insert(0, self.time_col, ds_col)
 
         # TODO: revisit for multivariate series, and recast for a single df input anyway
         ycol = y[y.columns[0]]

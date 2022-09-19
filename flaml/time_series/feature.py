@@ -9,17 +9,6 @@ import pandas as pd
 def monthly_fourier_features(timestamps: pd.Series, month_fourier_degree: int = 2):
     if len(timestamps):
         data = pd.DataFrame({"time": timestamps})
-        # data["month"] = (
-        #     timestamps.apply(lambda x: x.month).astype(str).astype("category")
-        # )
-        # # data["day"] = timestamps.apply(lambda x: x.day).astype(str).astype("category")
-        # data["dayofweek"] = (
-        #     timestamps.apply(lambda x: x.dayofweek).astype(str).astype("category")
-        # )
-        # data["hourofday"] = (
-        #     timestamps.apply(lambda x: x.hour).astype(str).astype("category")
-        # )
-
         month_pos = timestamps.apply(
             lambda x: position_in_month(datetime.date(x.year, x.month, x.day))
         )
@@ -31,7 +20,7 @@ def monthly_fourier_features(timestamps: pd.Series, month_fourier_degree: int = 
         data = data.drop(columns=drop_cols)
         return data
     else:
-        columns = []  # ["month", "dayofweek", "hourofday"]
+        columns = []
         for d in range(month_fourier_degree):
             columns += [f"cos{d+1}", f"sin{d + 1}"]
 
@@ -49,9 +38,7 @@ def naive_date_features_with_holidays(
     holidays = create_holidays(timestamps)[
         [
             "is_UK_holiday",
-            # "uk_holiday_type",
             "is_US_holiday",
-            # "us_holiday_type",
         ]
     ]
     data = pd.concat([df_with_date_features, holidays], axis=1)
@@ -80,12 +67,6 @@ def country_holidays(time_column_series: pd.Series, country: str):
         .astype(str)
         .astype("category")
     )
-
-    # data[f"{country}_holiday_type"] = (
-    #     time_column_series.apply(lambda x: hols[x.date()] if x.date() in hols else 0)
-    #     .astype(str)
-    #     .astype("category")
-    # )
     return data
 
 

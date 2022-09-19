@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod, abstractstaticmethod
-from typing import Tuple
+from typing import Dict, Tuple
 
 # TODO: if your task is not specified in here, define your task as an all-capitalized word
 from typing import Union
@@ -56,6 +56,8 @@ def get_classification_objective(num_labels: int) -> str:
 
 
 class Task(ABC):
+    estimators = {}
+
     def __init__(
         self,
         task_name: str,
@@ -142,7 +144,7 @@ class Task(ABC):
         return self.name in SUMMARIZATION
 
     def default_estimator_list(self):
-        if self.name == "rank":
+        if self.is_rank():
             estimator_list = ["lgbm", "xgboost", "xgb_limitdepth"]
         elif self.is_nlp():
             estimator_list = ["transformer"]

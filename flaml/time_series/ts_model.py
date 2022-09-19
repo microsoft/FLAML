@@ -647,7 +647,7 @@ class TS_SKLearn(TimeSeriesEstimator):
                     preds.append(self._model[i - 1].predict(X_pred, **kwargs)[-1])
                 forecast = DataFrame(
                     data=np.asarray(preds).reshape(-1, 1),
-                    columns=self.target_names,  # [self.hcrystaball_model.name],
+                    columns=self.target_names,
                     index=X.index,
                 )
             else:
