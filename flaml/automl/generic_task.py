@@ -534,7 +534,7 @@ class GenericTask(Task):
 
     def default_estimator_list(self):
         estimator_list = super().default_estimator_list()
-        if self.name != "regression":
+        if self.name not in ("regression", "rank"):
             estimator_list += ["lrl1"]
         return estimator_list
 

@@ -492,7 +492,7 @@ class DataTransformer:
                 if self._drop:
                     X_num.columns = range(X_num.shape[1])
                 X[num_columns] = self.transformer.transform(X_num)
-        return X, None
+        return X
 
 
 def group_counts(groups):

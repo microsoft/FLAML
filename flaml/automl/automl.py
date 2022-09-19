@@ -41,6 +41,7 @@ from .. import tune
 from ..training_log import training_log_reader, training_log_writer
 from ..default.suggest import suggest_learner
 from ..time_series.ts_data import TimeSeriesDataset
+from ..version import __version__
 
 
 logger = logging.getLogger(__name__)
@@ -82,6 +83,8 @@ class AutoML(BaseEstimator):
     ```
 
     """
+
+    __version__ = __version__
 
     def __init__(self, **settings):
         """Constructor.
@@ -596,7 +599,7 @@ class AutoML(BaseEstimator):
             X = X.tocsr()
 
         if self._transformer:
-            X, _ = self._transformer.transform(X)
+            X = self._transformer.transform(X)
 
         return X
 

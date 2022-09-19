@@ -1,7 +1,7 @@
 import sys
 import pytest
 import requests
-from utils import (
+from .utils import (
     get_toy_data_tokenclassification_idlabel,
     get_toy_data_tokenclassification_tokenlabel,
     get_automl_settings,
