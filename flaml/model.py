@@ -2270,6 +2270,7 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
         from pytorch_forecasting.metrics import QuantileLoss
         import tensorboard as tb
 
+        self._kwargs = kwargs
         warnings.filterwarnings("ignore")
         current_time = time.time()
         training, train_dataloader, val_dataloader = self.transform_ds(
