@@ -1,12 +1,12 @@
 # Contributing
 
-This project welcomes (and encourages) all forms of contributions, including but not limited to:
+This project welcomes and encourages all forms of contributions, including but not limited to:
 
 -  Pushing patches.
 -  Code review of pull requests.
 -  Documentation, examples and test cases.
 -  Readability improvement, e.g., improvement on docstr and comments.
--  Community participation in [issues](https://github.com/microsoft/FLAML/issues), [discussions](https://github.com/microsoft/FLAML/discussions), and [gitter](https://gitter.im/FLAMLer/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge).
+-  Community participation in [issues](https://github.com/microsoft/FLAML/issues), [discussions](https://github.com/microsoft/FLAML/discussions), and [gitter](https://gitter.im/FLAMLer/community).
 -  Tutorials, blog posts, talks that promote the project.
 -  Sharing application scenarios and/or related research.
 
@@ -91,3 +91,82 @@ yarn start
 
 The last command starts a local development server and opens up a browser window.
 Most changes are reflected live without having to restart the server.
+
+# Authors
+
+The following people are currently core contributors to flaml's development and maintenance, in alphabetical order:
+
+* Kevin Chen
+* Susan Xueqing Liu
+* Mark Harley
+* Egor Kraev
+* Chi Wang
+* Qingyun Wu
+* Shaokun Zhang
+* Rui Zhuang
+
+## Contributor Experience Team
+
+The following people are active contributors who also help with triaging issues, PRs, and general maintenance:
+
+* Zvi Baratz
+* Antoni Baum
+* Michal Chromcak
+* Silu Huang
+
+## Communication Team
+
+The following people help with communication around flaml.
+
+* Luis Quintanilla
+
+## Emeritus Core Developers
+
+The following people have been active contributors in the past, but are no longer active in the project:
+
+* Gian Pio Domiziani
+* Iman Hosseini
+* Moe Kayali
+* Haozhe Zhang
+* Eric Zhu
+
+## Acknowledgment
+
+The following people have contributed to this project while not listed above:
+
+* Vijay Aski
+* Naga Balamurugan
+* Yael Brumer
+* Sebastien Bubeck
+* Surajit Chaudhuri
+* Yi Wei Chen
+* Nadiia Chepurko
+* Ofer Dekel
+* Alex Deng
+* Anshuman Dutt
+* Nicolo Fusi
+* Jianfeng Gao
+* Johannes Gehrke
+* Niklas Gustafsson
+* Dongwoo Kim
+* Christian Konig
+* John Langford
+* Menghao Li
+* Mingqin Li
+* Zhe Liu
+* Naveen Gaur
+* Paul Mineiro
+* Vivek Narasayya
+* Jake Radzikowski
+* Mona Rizqa
+* Marco Rossi
+* Amin Saied
+* Neil Tenenholtz
+* Olga Vrousgou
+* Yue Wang
+* Markus Weimer
+* Wentao Wu
+* Qiufeng Yin
+* Minjia Zhang
+* XiaoYun Zhang
+* Zhonghua Zheng
