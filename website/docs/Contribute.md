@@ -26,6 +26,31 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
+## How to make a good bug report
+
+When you submit an issue to [GitHub](https://github.com/microsoft/FLAML/issues), please do your best to
+follow these guidelines! This will make it a lot easier to provide you with good
+feedback:
+
+- The ideal bug report contains a short reproducible code snippet. This way
+  anyone can try to reproduce the bug easily (see [this](https://stackoverflow.com/help/mcve) for more details). If your snippet is
+  longer than around 50 lines, please link to a [gist](https://gist.github.com) or a GitHub repo.
+
+- If an exception is raised, please **provide the full traceback**.
+
+- Please include your **operating system type and version number**, as well as
+  your **Python, flaml, scikit-learn versions**. The version of flaml
+  can be found by running the following code snippet:
+```python
+import flaml
+print(flaml.__version__)
+```
+
+- Please ensure all **code snippets and error messages are formatted in
+  appropriate code blocks**.  See [Creating and highlighting code blocks](https://help.github.com/articles/creating-and-highlighting-code-blocks)
+  for more details.
+
+
 ## Becoming a Reviewer
 
 There is currently no formal reviewer solicitation process. Current reviewers identify reviewers from active contributors. If you are willing to become a reviewer, you are welcome to let us know on gitter.
@@ -112,7 +137,6 @@ The following people are active contributors who also help with triaging issues,
 * Zvi Baratz
 * Antoni Baum
 * Michal Chromcak
-* Silu Huang
 
 ### Communication Team
 
@@ -120,12 +144,13 @@ The following people help with communication around flaml.
 
 * Luis Quintanilla
 
-### Emeritus Core Developers
+### Emeritus Developers
 
 The following people have been active contributors in the past, but are no longer active in the project:
 
 * Gian Pio Domiziani
 * Iman Hosseini
+* Silu Huang
 * Moe Kayali
 * Haozhe Zhang
 * Eric Zhu
