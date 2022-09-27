@@ -92,7 +92,7 @@ yarn start
 The last command starts a local development server and opens up a browser window.
 Most changes are reflected live without having to restart the server.
 
-# Authors
+## Authors
 
 The following people are currently core contributors to flaml's development and maintenance, in alphabetical order:
 
@@ -105,7 +105,7 @@ The following people are currently core contributors to flaml's development and 
 * Shaokun Zhang
 * Rui Zhuang
 
-## Contributor Experience Team
+### Contributor Experience Team
 
 The following people are active contributors who also help with triaging issues, PRs, and general maintenance:
 
@@ -114,13 +114,13 @@ The following people are active contributors who also help with triaging issues,
 * Michal Chromcak
 * Silu Huang
 
-## Communication Team
+### Communication Team
 
 The following people help with communication around flaml.
 
 * Luis Quintanilla
 
-## Emeritus Core Developers
+### Emeritus Core Developers
 
 The following people have been active contributors in the past, but are no longer active in the project:
 
@@ -130,7 +130,7 @@ The following people have been active contributors in the past, but are no longe
 * Haozhe Zhang
 * Eric Zhu
 
-## Acknowledgment
+### Acknowledgment
 
 The following people have contributed to this project while not listed above:
 
