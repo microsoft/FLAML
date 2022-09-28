@@ -20,6 +20,7 @@ from sklearn.model_selection import (
 from sklearn.utils import shuffle
 from sklearn.base import BaseEstimator
 import pandas as pd
+import matplotlib.pyplot as plt
 import logging
 import json
 from .ml import (
@@ -2930,12 +2931,28 @@ class AutoML(BaseEstimator):
             del self._state.groups, self._state.groups_all, self._state.groups_val
         logger.setLevel(old_level)
 
-    def viz(self, wordage, value):
-        print(wordage)
-        if value == 0:
-            print("This shows that the new API for visualizations works correctly")
-        else:
-            print("Just a basic if else statement")
+    def viz(self, 
+            title = None, 
+            xlab = None,
+            ylab = None,
+            plottype = None,
+            time_history = None,
+            valid_loss_history = None,
+            best_valid_loss_history = None,
+            ):
+        if plottype == "scatter":
+            plt.title(title)
+            plt.xlabel(xlab)
+            plt.ylabel(ylab)
+            plt.scatter(time_history, 1 - np.array(valid_loss_history))
+            plt.step(time_history, 1 - np.array(best_valid_loss_history), where='post')
+            plt.show()
+        elif plottype == "feature":
+            print("working 1")
+        elif plottype == "Model":
+            print("best model b")
+        elif plottype == "parameters":
+            print("dees the best")
 
 
 
