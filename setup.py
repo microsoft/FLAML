@@ -58,7 +58,6 @@ setuptools.setup(
             "openml",
             "statsmodels>=0.12.2",
             "psutil==5.8.0",
-            "dataclasses",
             "transformers[torch]==4.18",
             "datasets",
             "nltk",
