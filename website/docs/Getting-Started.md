@@ -21,7 +21,7 @@ Install FLAML from pip: `pip install flaml`. Find more options in [Installation]
 
 There are several ways of using flaml:
 
-#### [GenericTask-oriented AutoML](Use-Cases/task-oriented-automl)
+#### [Task-oriented AutoML](Use-Cases/task-oriented-automl)
 
 For example, with three lines of code, you can start using this economical and fast AutoML engine as a scikit-learn style estimator.
 
@@ -88,7 +88,7 @@ Then, you can use it just like you use the original `LGMBClassifier`. Your other
 
 ### Where to Go Next?
 
-* Understand the use cases for [GenericTask-oriented AutoML](Use-Cases/task-oriented-automl), [Tune user-defined function](Use-Cases/Tune-User-Defined-Function) and [Zero-shot AutoML](Use-Cases/Zero-Shot-AutoML).
+* Understand the use cases for [Task-oriented AutoML](Use-Cases/task-oriented-automl), [Tune user-defined function](Use-Cases/Tune-User-Defined-Function) and [Zero-shot AutoML](Use-Cases/Zero-Shot-AutoML).
 * Find code examples under "Examples": from [AutoML - Classification](Examples/AutoML-Classification) to [Tune - PyTorch](Examples/Tune-PyTorch).
 * Find [talks](https://www.youtube.com/channel/UCfU0zfFXHXdAd5x-WvFBk5A) and [tutorials](https://github.com/microsoft/FLAML/tree/tutorial/tutorial) about FLAML.
 * Learn about [research](Research) around FLAML.
