@@ -7,7 +7,7 @@ from scipy.sparse import vstack, issparse
 import pandas as pd
 from pandas import DataFrame, Series
 
-from flaml.automl.task import (
+from .automl.task import (
     TOKENCLASSIFICATION,
     CLASSIFICATION,
     TS_FORECAST,
