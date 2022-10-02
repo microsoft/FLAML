@@ -7,47 +7,21 @@ from scipy.sparse import vstack, issparse
 import pandas as pd
 from pandas import DataFrame, Series
 
+from .automl.task import (
+    TOKENCLASSIFICATION,
+    CLASSIFICATION,
+    TS_FORECAST,
+    TS_FORECASTPANEL,
+    NLG_TASKS,
+    NLU_TASKS,
+)
 from .training_log import training_log_reader
 
 from datetime import datetime
-from typing import Dict, Union, List
+from typing import Union, List
 
-# TODO: if your task is not specified in here, define your task as an all-capitalized word
-SEQCLASSIFICATION = "seq-classification"
-MULTICHOICECLASSIFICATION = "multichoice-classification"
-TOKENCLASSIFICATION = "token-classification"
-CLASSIFICATION = (
-    "binary",
-    "multiclass",
-    "classification",
-    SEQCLASSIFICATION,
-    MULTICHOICECLASSIFICATION,
-    TOKENCLASSIFICATION,
-)
-SEQREGRESSION = "seq-regression"
-REGRESSION = ("regression", SEQREGRESSION)
-TS_FORECASTREGRESSION = (
-    "forecast",
-    "ts_forecast",
-    "ts_forecast_regression",
-)
-TS_FORECASTCLASSIFICATION = "ts_forecast_classification"
-TS_FORECASTPANEL = "ts_forecast_panel"
-TS_FORECAST = (
-    *TS_FORECASTREGRESSION,
-    TS_FORECASTCLASSIFICATION,
-    TS_FORECASTPANEL,
-)
 TS_TIMESTAMP_COL = "ds"
 TS_VALUE_COL = "y"
-SUMMARIZATION = "summarization"
-NLG_TASKS = (SUMMARIZATION,)
-NLU_TASKS = (
-    SEQREGRESSION,
-    SEQCLASSIFICATION,
-    MULTICHOICECLASSIFICATION,
-    TOKENCLASSIFICATION,
-)
 
 
 def _is_nlp_task(task):
@@ -286,7 +260,11 @@ class DataTransformer:
             X: Processed numpy array or pandas dataframe of training data.
             y: Processed numpy array or pandas series of labels.
         """
-        if _is_nlp_task(task):
+        if isinstance(task, str):
+            from .automl.factory import task_factory
+
+            task = task_factory(task)
+        if task.is_nlp():
             # if the mode is NLP, check the type of input, each column must be either string or
             # ids (input ids, token type id, attention mask, etc.)
             str_columns = []
@@ -301,14 +279,6 @@ class DataTransformer:
             n = X.shape[0]
             cat_columns, num_columns, datetime_columns = [], [], []
             drop = False
-            if task in TS_FORECAST:
-                X = X.rename(columns={X.columns[0]: TS_TIMESTAMP_COL})
-                if task is TS_FORECASTPANEL:
-                    if "time_idx" not in X:
-                        X = add_time_idx_col(X)
-                ds_col = X.pop(TS_TIMESTAMP_COL)
-                if isinstance(y, Series):
-                    y = y.rename(TS_VALUE_COL)
             for column in X.columns:
                 # sklearn\utils\validation.py needs int/float values
                 if X[column].dtype.name in ("object", "category"):
@@ -361,8 +331,6 @@ class DataTransformer:
                     X[column] = X[column].fillna(np.nan)
                     num_columns.append(column)
             X = X[cat_columns + num_columns]
-            if task in TS_FORECAST:
-                X.insert(0, TS_TIMESTAMP_COL, ds_col)
             if cat_columns:
                 X[cat_columns] = X[cat_columns].astype("category")
             if num_columns:
@@ -415,7 +383,7 @@ class DataTransformer:
         self._task = task
         return X, y
 
-    def transform(self, X: Union[DataFrame, np.array]):
+    def transform(self, X: Union[DataFrame, np.ndarray]):
         """Process data using fit transformer.
 
         Args:

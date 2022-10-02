@@ -1,7 +1,7 @@
 import sys
 import pytest
 import requests
-from utils import get_toy_data_summarization, get_automl_settings
+from .utils import get_toy_data_summarization, get_automl_settings
 
 
 @pytest.mark.skipif(

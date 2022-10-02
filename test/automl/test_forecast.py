@@ -1,8 +1,11 @@
 import numpy as np
+import pandas as pd
+import datetime
+
 from flaml import AutoML
 
 
-def test_forecast_automl(budget=5):
+def test_forecast_automl(budget=30):
     # using dataframe
     import statsmodels.api as sm
 
@@ -28,6 +31,7 @@ def test_forecast_automl(budget=5):
         "log_file_name": "test/CO2_forecast.log",  # flaml log file
         "eval_method": "holdout",
         "label": "y",
+        "time_col": "ds",
     }
     """The main flaml automl API"""
     try:
@@ -92,6 +96,7 @@ def test_forecast_automl(budget=5):
             estimator_list=["arima", "sarimax"],
             period=time_horizon,
         )
+    print("done")
 
 
 def test_numpy():
@@ -106,6 +111,7 @@ def test_numpy():
         time_budget=3,  # time budget in seconds
         log_file_name="test/ts_forecast.log",
         n_splits=3,  # number of splits
+        eval_method="cv",
     )
     print(automl.predict(X_train[72:]))
 
@@ -182,6 +188,7 @@ def test_multivariate_forecast_num(budget=5):
         "eval_method": "holdout",
         "log_type": "all",
         "label": "demand",
+        "time_col": "timeStamp",
     }
     """The main flaml automl API"""
     try:
@@ -197,7 +204,7 @@ def test_multivariate_forecast_num(budget=5):
             period=time_horizon,
         )
     """ retrieve best config and best learner"""
-    print("Best ML leaner:", automl.best_estimator)
+    print("Best ML learner:", automl.best_estimator)
     print("Best hyperparmeter config:", automl.best_config)
     print(f"Best mape on validation data: {automl.best_loss}")
     print(f"Training duration of best run: {automl.best_config_train_time}s")
@@ -309,6 +316,7 @@ def test_multivariate_forecast_cat(budget=5):
         "eval_method": "holdout",
         "log_type": "all",
         "label": "demand",
+        "time_col": "timeStamp",
     }
     """The main flaml automl API"""
     try:
@@ -396,11 +404,12 @@ def test_forecast_classification(budget=5):
         "task": "ts_forecast_classification",  # task type
         "log_file_name": "test/sales_classification_forecast.log",  # flaml log file
         "eval_method": "holdout",
+        "time_col": "Date",
     }
     """The main flaml automl API"""
     automl.fit(X_train=X_train, y_train=y_train, **settings, period=time_horizon)
     """ retrieve best config and best learner"""
-    print("Best ML leaner:", automl.best_estimator)
+    print("Best ML learner:", automl.best_estimator)
     print("Best hyperparmeter config:", automl.best_config)
     print(f"Best mape on validation data: {automl.best_loss}")
     print(f"Training duration of best run: {automl.best_config_train_time}s")
@@ -501,6 +510,8 @@ def test_forecast_panel(budget=5):
         "task": "ts_forecast_panel",  # task type
         "log_file_name": "test/stallion_forecast.log",  # flaml log file
         "eval_method": "holdout",
+        "time_col": "date",
+        "label": "volume",
     }
     fit_kwargs_by_estimator = {
         "tft": {
@@ -518,7 +529,7 @@ def test_forecast_panel(budget=5):
             ],
             "time_varying_unknown_categoricals": [],
             "time_varying_unknown_reals": [
-                "y",  # always need a 'y' column for the target column
+                "volume",
                 "log_volume",
                 "industry_volume",
                 "soda_volume",

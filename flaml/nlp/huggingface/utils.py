@@ -2,12 +2,12 @@ import pandas as pd
 from itertools import chain
 import numpy as np
 
-from ...data import (
-    SUMMARIZATION,
-    SEQREGRESSION,
+from ...automl.task import (
     SEQCLASSIFICATION,
     MULTICHOICECLASSIFICATION,
     TOKENCLASSIFICATION,
+    SEQREGRESSION,
+    SUMMARIZATION,
     NLG_TASKS,
 )
 
@@ -408,7 +408,7 @@ def load_model(checkpoint_path, task, num_labels=None):
         AutoSeqClassificationHead,
         MODEL_CLASSIFICATION_HEAD_MAPPING,
     )
-    from ...data import SEQCLASSIFICATION, SEQREGRESSION, TOKENCLASSIFICATION
+    from ...automl.task import SEQCLASSIFICATION, SEQREGRESSION, TOKENCLASSIFICATION
 
     def get_this_model(checkpoint_path, task, model_config):
         from transformers import AutoModelForSequenceClassification

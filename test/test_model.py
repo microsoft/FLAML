@@ -10,10 +10,8 @@ from flaml.model import (
     CatBoostEstimator,
     XGBoostEstimator,
     RandomForestEstimator,
-    Prophet,
-    ARIMA,
-    LGBM_TS,
 )
+from flaml.time_series import Prophet, ARIMA, LGBM_TS
 
 
 def test_lrl2():
@@ -125,10 +123,6 @@ def test_prep():
     )
     y = np.array([0, 1, 0, 1, 0, 0])
     lgbm.predict(X[:2])
-    lgbm.fit(X, y, period=2)
-    lgbm.predict(X[:2])
-    print(lgbm.feature_names_in_)
-    print(lgbm.feature_importances_)
 
 
 if __name__ == "__main__":

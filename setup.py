@@ -20,6 +20,7 @@ install_requires = [
     "scipy>=1.4.1",
     "pandas>=1.1.4",
     "scikit-learn>=0.24",
+    "dataclasses>=0.8 ; python_version=='3.6'",
 ]
 
 
@@ -57,7 +58,6 @@ setuptools.setup(
             "openml",
             "statsmodels>=0.12.2",
             "psutil==5.8.0",
-            "dataclasses",
             "transformers[torch]==4.18",
             "datasets",
             "nltk",

@@ -3,8 +3,9 @@ from sklearn.neighbors import NearestNeighbors
 import logging
 import pathlib
 import json
-from flaml.data import CLASSIFICATION, DataTransformer
-from flaml.ml import get_estimator_class, get_classification_objective
+from flaml.data import DataTransformer
+from flaml.automl.task import CLASSIFICATION, get_classification_objective
+from flaml.ml import get_estimator_class
 from flaml.version import __version__
 
 LOCATION = pathlib.Path(__file__).parent.resolve()

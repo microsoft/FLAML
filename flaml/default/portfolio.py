@@ -171,7 +171,9 @@ def main():
     parser.add_argument("--metafeatures", help="CSV of task metafeatures")
     parser.add_argument("--exclude", help="One task name to exclude (for LOO purposes)")
     parser.add_argument("--output", help="Location to write portfolio JSON")
-    parser.add_argument("--task", help="Task to merge portfolios", default="binary")
+    parser.add_argument(
+        "--task", help="Task to merge portfolios", default="binary"
+    )
     parser.add_argument(
         "--estimator",
         help="Estimators to merge portfolios",

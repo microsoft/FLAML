@@ -20,27 +20,31 @@ from sklearn.metrics import (
 from sklearn.model_selection import RepeatedStratifiedKFold, GroupKFold, TimeSeriesSplit
 from .model import (
     XGBoostSklearnEstimator,
-    XGBoost_TS,
     XGBoostLimitDepthEstimator,
-    XGBoostLimitDepth_TS,
     RandomForestEstimator,
-    RF_TS,
     LGBMEstimator,
-    LGBM_TS,
     LRL1Classifier,
     LRL2Classifier,
     CatBoostEstimator,
     ExtraTreesEstimator,
-    ExtraTrees_TS,
     KNeighborsEstimator,
+    TransformersEstimator,
+    TransformersEstimatorModelSelection,
+)
+from flaml.time_series import (
     Prophet,
     ARIMA,
     SARIMAX,
-    TransformersEstimator,
+    LGBM_TS,
+    XGBoost_TS,
+    RF_TS,
+    ExtraTrees_TS,
+    XGBoostLimitDepth_TS,
     TemporalFusionTransformerEstimator,
-    TransformersEstimatorModelSelection,
 )
-from .data import CLASSIFICATION, group_counts, TS_FORECAST
+from .data import group_counts
+from flaml.automl.task import CLASSIFICATION, TS_FORECAST
+from flaml.time_series.ts_data import TimeSeriesDataset
 import logging
 
 logger = logging.getLogger(__name__)
@@ -254,6 +258,14 @@ def sklearn_metric_loss_score(
     """
     metric_name = metric_name.lower()
 
+    if y_true.dtype.name == "category":
+        y_true = np.array(y_true.cat.codes)
+
+    # Align the types, just in case
+    if isinstance(np.array(y_true)[0], str) or isinstance(np.array(y_predict)[0], str):
+        y_true = np.array(y_true).astype(str)
+        y_predict = np.array(y_predict).astype(str)
+
     if "r2" == metric_name:
         score = 1.0 - r2_score(y_true, y_predict, sample_weight=sample_weight)
     elif metric_name == "rmse":
@@ -317,14 +329,20 @@ def sklearn_metric_loss_score(
     return score
 
 
-def get_y_pred(estimator, X, eval_metric, obj):
-    if eval_metric in ["roc_auc", "ap"] and "binary" in obj:
+def get_y_pred(estimator, X, eval_metric, task):
+    if eval_metric in ["roc_auc", "ap"] and task.is_binary():
         y_pred_classes = estimator.predict_proba(X)
         y_pred = y_pred_classes[:, 1] if y_pred_classes.ndim > 1 else y_pred_classes
     elif eval_metric in ["log_loss", "roc_auc", "roc_auc_ovr", "roc_auc_ovo"]:
         y_pred = estimator.predict_proba(X)
     else:
         y_pred = estimator.predict(X)
+
+    if isinstance(X, TimeSeriesDataset) and isinstance(y_pred, pd.DataFrame):
+        y_pred = y_pred[X.target_names]
+
+    if isinstance(y_pred, pd.DataFrame) and len(y_pred.columns) == 1:
+        y_pred = y_pred[y_pred.columns[0]]
     return y_pred
 
 
@@ -338,15 +356,24 @@ def _eval_estimator(
     weight_val,
     groups_val,
     eval_metric,
-    obj,
+    task,
     labels=None,
     log_training_metric=False,
     fit_kwargs={},
 ):
     if isinstance(eval_metric, str):
         pred_start = time.time()
-        val_pred_y = get_y_pred(estimator, X_val, eval_metric, obj)
-        pred_time = (time.time() - pred_start) / X_val.shape[0]
+        val_pred_y = get_y_pred(estimator, X_val, eval_metric, task)
+
+        if isinstance(X_val, TimeSeriesDataset):
+            num_val_rows = len(X_val.test_data)
+            y_val = X_val.test_data[X_val.target_names].values.astype(val_pred_y.dtype)
+            y_train = X_val.train_data[X_val.target_names].values.astype(
+                val_pred_y.dtype
+            )
+        else:
+            num_val_rows = X_val.shape[0]
+        pred_time = (time.time() - pred_start) / num_val_rows
 
         val_loss = metric_loss_score(
             eval_metric,
@@ -358,7 +385,7 @@ def _eval_estimator(
         )
         metric_for_logging = {"pred_time": pred_time}
         if log_training_metric:
-            train_pred_y = get_y_pred(estimator, X_train, eval_metric, obj)
+            train_pred_y = get_y_pred(estimator, X_train, eval_metric, task)
             metric_for_logging["train_loss"] = metric_loss_score(
                 eval_metric,
                 train_pred_y,
@@ -384,6 +411,8 @@ def _eval_estimator(
         pred_time = metric_for_logging.get("pred_time", 0)
         val_pred_y = None
         # eval_metric may return val_pred_y but not necessarily. Setting None for now.
+
+    val_loss = np.float64(val_loss)
     return val_loss, metric_for_logging, pred_time, val_pred_y
 
 
@@ -397,7 +426,7 @@ def get_val_loss(
     weight_val,
     groups_val,
     eval_metric,
-    obj,
+    task,
     labels=None,
     budget=None,
     log_training_metric=False,
@@ -409,7 +438,7 @@ def get_val_loss(
     #     fit_kwargs['groups_val'] = groups_val
     #     fit_kwargs['X_val'] = X_val
     #     fit_kwargs['y_val'] = y_val
-    estimator.fit(X_train, y_train, budget, **fit_kwargs)
+    estimator.fit(X_train, y_train, budget=budget, **fit_kwargs)
     val_loss, metric_for_logging, pred_time, _ = _eval_estimator(
         config,
         estimator,
@@ -420,7 +449,7 @@ def get_val_loss(
         weight_val,
         groups_val,
         eval_metric,
-        obj,
+        task,
         labels,
         log_training_metric,
         fit_kwargs,
@@ -451,108 +480,6 @@ def default_cv_score_agg_func(val_loss_folds, log_metrics_folds):
     return metric_to_minimize, metrics_to_log
 
 
-def evaluate_model_CV(
-    config,
-    estimator,
-    X_train_all,
-    y_train_all,
-    budget,
-    kf,
-    task,
-    eval_metric,
-    best_val_loss,
-    cv_score_agg_func=None,
-    log_training_metric=False,
-    fit_kwargs={},
-):
-    if cv_score_agg_func is None:
-        cv_score_agg_func = default_cv_score_agg_func
-    start_time = time.time()
-    val_loss_folds = []
-    log_metric_folds = []
-    metric = None
-    train_time = pred_time = 0
-    total_fold_num = 0
-    n = kf.get_n_splits()
-    X_train_split, y_train_split = X_train_all, y_train_all
-    if task in CLASSIFICATION:
-        labels = np.unique(y_train_all)
-    else:
-        labels = fit_kwargs.get(
-            "label_list"
-        )  # pass the label list on to compute the evaluation metric
-    groups = None
-    shuffle = getattr(kf, "shuffle", task not in TS_FORECAST)
-    if isinstance(kf, RepeatedStratifiedKFold):
-        kf = kf.split(X_train_split, y_train_split)
-    elif isinstance(kf, GroupKFold):
-        groups = kf.groups
-        kf = kf.split(X_train_split, y_train_split, groups)
-        shuffle = False
-    elif isinstance(kf, TimeSeriesSplit):
-        kf = kf.split(X_train_split, y_train_split)
-    else:
-        kf = kf.split(X_train_split)
-    rng = np.random.RandomState(2020)
-    budget_per_train = budget / n
-    if "sample_weight" in fit_kwargs:
-        weight = fit_kwargs["sample_weight"]
-        weight_val = None
-    else:
-        weight = weight_val = None
-    for train_index, val_index in kf:
-        if shuffle:
-            train_index = rng.permutation(train_index)
-        if isinstance(X_train_all, pd.DataFrame):
-            X_train = X_train_split.iloc[train_index]
-            X_val = X_train_split.iloc[val_index]
-        else:
-            X_train, X_val = X_train_split[train_index], X_train_split[val_index]
-        y_train, y_val = y_train_split[train_index], y_train_split[val_index]
-        estimator.cleanup()
-        if weight is not None:
-            fit_kwargs["sample_weight"], weight_val = (
-                weight[train_index],
-                weight[val_index],
-            )
-        if groups is not None:
-            fit_kwargs["groups"] = groups[train_index]
-            groups_val = groups[val_index]
-        else:
-            groups_val = None
-        val_loss_i, metric_i, train_time_i, pred_time_i = get_val_loss(
-            config,
-            estimator,
-            X_train,
-            y_train,
-            X_val,
-            y_val,
-            weight_val,
-            groups_val,
-            eval_metric,
-            task,
-            labels,
-            budget_per_train,
-            log_training_metric=log_training_metric,
-            fit_kwargs=fit_kwargs,
-        )
-        if isinstance(metric_i, dict) and "intermediate_results" in metric_i.keys():
-            del metric_i["intermediate_results"]
-        if weight is not None:
-            fit_kwargs["sample_weight"] = weight
-        total_fold_num += 1
-        val_loss_folds.append(val_loss_i)
-        log_metric_folds.append(metric_i)
-        train_time += train_time_i
-        pred_time += pred_time_i
-        if time.time() - start_time >= budget:
-            break
-    val_loss, metric = cv_score_agg_func(val_loss_folds, log_metric_folds)
-    n = total_fold_num
-    pred_time /= n
-    return val_loss, metric, train_time, pred_time
-
-
 def compute_estimator(
     X_train,
     y_train,
@@ -574,7 +501,7 @@ def compute_estimator(
     log_training_metric=False,
     fit_kwargs={},
 ):
-    estimator_class = estimator_class or get_estimator_class(task, estimator_name)
+    estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
         task=task,
@@ -607,14 +534,13 @@ def compute_estimator(
             fit_kwargs=fit_kwargs,
         )
     else:
-        val_loss, metric_for_logging, train_time, pred_time = evaluate_model_CV(
+        val_loss, metric_for_logging, train_time, pred_time = task.evaluate_model_CV(
             config_dic,
             estimator,
             X_train,
             y_train,
             budget,
             kf,
-            task,
             eval_metric,
             best_val_loss,
             cv_score_agg_func,
@@ -641,7 +567,7 @@ def train_estimator(
     eval_metric=None,
 ):
     start_time = time.time()
-    estimator_class = estimator_class or get_estimator_class(task, estimator_name)
+    estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
         task=task,
@@ -656,14 +582,6 @@ def train_estimator(
         estimator = estimator.estimator_class(**estimator.params)
     train_time = time.time() - start_time
     return estimator, train_time
-
-
-def get_classification_objective(num_labels: int) -> str:
-    if num_labels == 2:
-        objective_name = "binary"
-    else:
-        objective_name = "multiclass"
-    return objective_name
 
 
 def norm_confusion_matrix(y_true, y_pred):

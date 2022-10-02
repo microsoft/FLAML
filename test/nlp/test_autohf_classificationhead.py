@@ -1,4 +1,4 @@
-from utils import get_toy_data_multiclassclassification, get_automl_settings
+from .utils import get_toy_data_multiclassclassification, get_automl_settings
 
 
 def test_classification_head():

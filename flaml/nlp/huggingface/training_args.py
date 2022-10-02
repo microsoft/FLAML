@@ -1,10 +1,8 @@
 import argparse
 from dataclasses import dataclass, field
-
-from ...data import (
-    NLG_TASKS,
-)
 from typing import Optional, List
+
+from ...automl.task import NLG_TASKS
 
 try:
     from transformers import TrainingArguments
