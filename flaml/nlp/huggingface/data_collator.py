@@ -6,7 +6,7 @@ from transformers.data.data_collator import (
 )
 from collections import OrderedDict
 
-from ....automl.task import (
+from ...automl.task import (
     MULTICHOICECLASSIFICATION,
     TOKENCLASSIFICATION,
     SUMMARIZATION,
