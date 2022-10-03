@@ -939,7 +939,7 @@ try:
         qloguniform,
     )
 except (ImportError, AssertionError):
-    from ..tune.sample import (
+    from ..sample import (
         uniform,
         quniform,
         choice,
