@@ -93,7 +93,6 @@ coverage run -m pytest test
 
 Then you can see the coverage report by
 `coverage report -m` or `coverage html`.
-If all the tests are passed, please also test run [notebook/automl_classification](https://github.com/microsoft/FLAML/blob/main/notebook/automl_classification.ipynb) to make sure your commit does not break the notebook example.
 
 ### Documentation
 
@@ -116,3 +115,6 @@ yarn start
 
 The last command starts a local development server and opens up a browser window.
 Most changes are reflected live without having to restart the server.
+
+Note:
+some tips in this guide are based off the contributor guide from [ray](https://docs.ray.io/en/latest/ray-contribute/getting-involved.html), [scikit-learn](https://scikit-learn.org/stable/developers/contributing.html), or [hummingbird](https://github.com/microsoft/hummingbird/blob/main/CONTRIBUTING.md).
