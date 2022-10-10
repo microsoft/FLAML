@@ -441,7 +441,7 @@ def load_model(checkpoint_path, task, num_labels=None):
             return model_config
 
     current_config = AutoConfig.from_pretrained(checkpoint_path)
-    this_vocab_size = (current_config.vocab_size,)
+    this_vocab_size = current_config.vocab_size
 
     model_config_num_labels = num_labels
     new_config = _set_model_config(checkpoint_path)
