@@ -2991,7 +2991,7 @@ class AutoML(BaseEstimator):
                 else:
                     from ray.tune.search.optuna import OptunaSearch as SearchAlgo
             except (ImportError, AssertionError):
-                from .searcher.suggestion import OptunaSearch as SearchAlgo
+                from flaml.tune.searcher.suggestion import OptunaSearch as SearchAlgo
         else:
             raise NotImplementedError(
                 f"hpo_method={self._hpo_method} is not recognized. "
@@ -3138,7 +3138,7 @@ class AutoML(BaseEstimator):
                 mlflow.log_metric("trial_time", search_state.trial_time)
                 mlflow.log_metric("wall_clock_time", self._state.time_from_start)
                 mlflow.log_metric("validation_loss", search_state.val_loss)
-                mlflow.log_param("config", search_state.config)
+                mlflow.log_params(search_state.config)
                 mlflow.log_param("learner", estimator)
                 mlflow.log_param("sample_size", search_state.sample_size)
                 mlflow.log_metric("best_validation_loss", search_state.best_loss)
@@ -3155,7 +3155,7 @@ class AutoML(BaseEstimator):
             else:
                 from ray.tune.search import ConcurrencyLimiter
         except (ImportError, AssertionError):
-            from .searcher.suggestion import ConcurrencyLimiter
+            from flaml.tune.searcher.suggestion import ConcurrencyLimiter
         if self._hpo_method in ("cfo", "grid"):
             from flaml import CFO as SearchAlgo
         elif "optuna" == self._hpo_method:
@@ -3168,13 +3168,13 @@ class AutoML(BaseEstimator):
                 else:
                     from ray.tune.search.optuna import OptunaSearch as SearchAlgo
             except (ImportError, AssertionError):
-                from .searcher.suggestion import OptunaSearch as SearchAlgo
+                from flaml.tune.searcher.suggestion import OptunaSearch as SearchAlgo
         elif "bs" == self._hpo_method:
             from flaml import BlendSearch as SearchAlgo
         elif "random" == self._hpo_method:
-            from flaml.searcher import RandomSearch as SearchAlgo
+            from flaml.tune.searcher import RandomSearch as SearchAlgo
         elif "cfocat" == self._hpo_method:
-            from flaml.searcher.cfo_cat import CFOCat as SearchAlgo
+            from flaml.tune.searcher.cfo_cat import CFOCat as SearchAlgo
         else:
             raise NotImplementedError(
                 f"hpo_method={self._hpo_method} is not recognized. "
