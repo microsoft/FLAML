@@ -3,6 +3,7 @@
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
 from contextlib import contextmanager
+import inspect
 from functools import partial
 import signal
 import os
@@ -190,7 +191,8 @@ class BaseEstimator:
                 #     kwargs['verbose'] = False
                 #     del kwargs['groups_val'], kwargs['X_val'], kwargs['y_val']
         X_train = self._preprocess(X_train)
-        model = self.estimator_class(**self.params)
+        params = self.params2signature(self.params)
+        model = self.estimator_class(**params)
         if logger.level == logging.DEBUG:
             # xgboost 1.6 doesn't display all the params in the model str
             logger.debug(f"flaml.model - {model} fit started with params {self.params}")
@@ -384,6 +386,38 @@ class BaseEstimator:
         if "FLAML_sample_size" in params:
             params.pop("FLAML_sample_size")
         return params
+
+    def params2signature(self, params: dict) -> dict:
+        """
+        Removes parameters in params if some are not used in the estimator's signature and issues
+        a warning when it does so.
+
+        Args:
+            params: A dict of the hyperparameter config.
+
+        Returns:
+            A dict that will be passed to self.estimator_class's constructor matching the signature.
+        """
+        if self.estimator_class is None:
+            return params
+
+        argspec = inspect.getfullargspec(self.estimator_class)
+        if argspec.varkw is not None:
+            return params
+
+        cparams = params.copy()
+        args = argspec.args + argspec.kwonlyargs
+        cparams = {k: v for k, v in params.items() if k in args}
+
+        if len(cparams) < len(params):
+            accepted = set(cparams.keys())
+            passed = set(params.keys())
+            logger.warning(
+                "Some parameters in params are not used in the estimator's signature and "
+                + "were removed. "
+                + f"Accepted: {accepted} vs. Passed: {passed}"
+            )
+        return cparams
 
 
 class TransformersEstimator(BaseEstimator):

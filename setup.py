@@ -65,6 +65,7 @@ setuptools.setup(
             "hcrystalball==0.1.10",
             "seqeval",
             "pytorch-forecasting>=0.9.0",
+            "vowpalwabbit>=8.10.0, <9.0.0",
         ],
         "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],
