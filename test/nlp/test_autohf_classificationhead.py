@@ -45,7 +45,7 @@ def test_switch_classificationhead():
                     **automl_settings
                 )
             except requests.exceptions.HTTPError:
-                return
+                continue
 
 
 if __name__ == "__main__":
