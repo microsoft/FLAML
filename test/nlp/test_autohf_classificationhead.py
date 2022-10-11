@@ -19,6 +19,7 @@ model_path_list = [
 ]
 
 
+@pytest.mark.skipif(sys.platform.startswith("win"), reason="do not run on windows")
 def test_switch_1_1():
     data_idx, model_path_idx = 0, 0
     _test_switch_classificationhead(
