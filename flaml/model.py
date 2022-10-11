@@ -390,7 +390,7 @@ class BaseEstimator:
     def params2signature(self, params: dict) -> dict:
         """
         Removes parameters in params if some are not used in the estimator's signature and issues
-        a warning when it does so. 
+        a warning when it does so.
 
         Args:
             params: A dict of the hyperparameter config.
@@ -401,19 +401,24 @@ class BaseEstimator:
         if self.estimator_class is None:
             return params
 
+        argspec = inspect.getfullargspec(self.estimator_class)
+        if argspec.varkw is not None:
+            return params
+
         cparams = params.copy()
-        estimator_params = inspect.signature(self.estimator_class.__init__).parameters
-        estimator_param_names = [param_tuple[0] for param_tuple in estimator_params.items()]
-        cparams = {k: v for k, v in params.items() if k in estimator_param_names}
-        
+        args = argspec.args + argspec.kwonlyargs
+        cparams = {k: v for k, v in params.items() if k in args}
+
         if len(cparams) < len(params):
             accepted = set(cparams.keys())
             passed = set(params.keys())
             logger.warning(
-                "Some parameters in params are not used in the estimator's signature. " + 
-                f"Accepted: {accepted} vs. Passed:{passed}"
+                "Some parameters in params are not used in the estimator's signature and "
+                + "were removed. "
+                + f"Accepted: {accepted} vs. Passed: {passed}"
             )
         return cparams
+
 
 class TransformersEstimator(BaseEstimator):
     """The class for fine-tuning language models, using huggingface transformers API."""
