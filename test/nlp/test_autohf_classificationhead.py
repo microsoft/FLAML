@@ -29,6 +29,13 @@ def test_switch_classificationhead():
             automl_settings = get_automl_settings()
             automl_settings["model_path"] = each_model_path
 
+            if each_data == "get_toy_data_regression":
+                automl_settings["task"] = "seq-regression"
+                automl_settings["metric"] = "pearsonr"
+            else:
+                automl_settings["task"] = "seq-classification"
+                automl_settings["metric"] = "accuracy"
+
             try:
                 automl.fit(
                     X_train=X_train,
