@@ -15,7 +15,7 @@ def get_toy_data_seqclassification():
             "On June 10 , the ship 's owners had published an advertisement on the Internet , offering the explosives for sale .",
             "Tab shares jumped 20 cents , or 4.6 % , to set a record closing high at A $ 4.57 .",
         ],
-        "label": [1, 0, 1, 0],
+        "label": [1, 0, 1, 1],
         "idx": [0, 1, 2, 3],
     }
     train_dataset = pd.DataFrame(train_data)
