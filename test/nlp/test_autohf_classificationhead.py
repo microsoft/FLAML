@@ -4,8 +4,14 @@ from utils import (
     get_toy_data_multiclassclassification,
     get_automl_settings,
 )
+import sys
+import pytest
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("win"),
+    reason="do not run on windows",
+)
 def test_switch_classificationhead(each_data, each_model_path):
     from flaml import AutoML
     import requests
