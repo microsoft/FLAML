@@ -7,12 +7,82 @@ from utils import (
 import sys
 import pytest
 
+data_list = [
+    "get_toy_data_regression",
+    "get_toy_data_binclassification",
+    "get_toy_data_multiclassclassification",
+]
+model_path_list = [
+    "textattack/bert-base-uncased-STS-B",
+    "textattack/bert-base-uncased-SST-2",
+    "textattack/bert-base-uncased-MNLI",
+]
 
-@pytest.mark.skipif(
-    sys.platform.startswith("win"),
-    reason="do not run on windows",
-)
-def test_switch_classificationhead(each_data, each_model_path):
+
+def test_switch_1_1():
+    data_idx, model_path_idx = 0, 0
+    _test_switch_classificationhead(
+        data_list[data_idx], model_path_list[model_path_idx]
+    )
+
+
+def test_switch_1_2():
+    data_idx, model_path_idx = 0, 1
+    _test_switch_classificationhead(
+        data_list[data_idx], model_path_list[model_path_idx]
+    )
+
+
+def test_switch_1_3():
+    data_idx, model_path_idx = 0, 2
+    _test_switch_classificationhead(
+        data_list[data_idx], model_path_list[model_path_idx]
+    )
+
+
+def test_switch_2_1():
+    data_idx, model_path_idx = 1, 0
+    _test_switch_classificationhead(
+        data_list[data_idx], model_path_list[model_path_idx]
+    )
+
+
+def test_switch_2_2():
+    data_idx, model_path_idx = 1, 1
+    _test_switch_classificationhead(
+        data_list[data_idx], model_path_list[model_path_idx]
+    )
+
+
+def test_switch_2_3():
+    data_idx, model_path_idx = 1, 2
+    _test_switch_classificationhead(
+        data_list[data_idx], model_path_list[model_path_idx]
+    )
+
+
+def test_switch_3_1():
+    data_idx, model_path_idx = 2, 0
+    _test_switch_classificationhead(
+        data_list[data_idx], model_path_list[model_path_idx]
+    )
+
+
+def test_switch_3_2():
+    data_idx, model_path_idx = 2, 1
+    _test_switch_classificationhead(
+        data_list[data_idx], model_path_list[model_path_idx]
+    )
+
+
+def test_switch_3_3():
+    data_idx, model_path_idx = 2, 2
+    _test_switch_classificationhead(
+        data_list[data_idx], model_path_list[model_path_idx]
+    )
+
+
+def _test_switch_classificationhead(each_data, each_model_path):
     from flaml import AutoML
     import requests
 
@@ -42,17 +112,4 @@ def test_switch_classificationhead(each_data, each_model_path):
 
 
 if __name__ == "__main__":
-    data_list = [
-        "get_toy_data_regression",
-        "get_toy_data_binclassification",
-        "get_toy_data_multiclassclassification",
-    ]
-    model_path_list = [
-        "textattack/bert-base-uncased-SST-2",
-        "textattack/bert-base-uncased-STS-B",
-        "textattack/bert-base-uncased-MNLI",
-    ]
-
-    for each_data in data_list:
-        for each_model_path in model_path_list:
-            test_switch_classificationhead(each_data, each_model_path)
+    _test_switch_classificationhead(data_list[0], model_path_list[0])
