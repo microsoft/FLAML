@@ -85,6 +85,7 @@ def test_starting_point_not_in_search_space():
     if os.path.exists("test/data/output/"):
         shutil.rmtree("test/data/output/")
 
+
 def test_points_to_evaluate():
     from flaml import AutoML
 
@@ -107,6 +108,7 @@ def test_points_to_evaluate():
 
     if os.path.exists("test/data/output/"):
         shutil.rmtree("test/data/output/")
+
 
 # TODO: implement _test_zero_shot_model
 def test_zero_shot_nomodel():

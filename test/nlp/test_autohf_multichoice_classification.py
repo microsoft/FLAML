@@ -51,5 +51,6 @@ def test_mcc():
     if os.path.exists("test/data/output/"):
         shutil.rmtree("test/data/output/")
 
+
 if __name__ == "__main__":
     test_mcc()
