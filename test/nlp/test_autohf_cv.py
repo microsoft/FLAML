@@ -19,6 +19,12 @@ def test_cv():
     except requests.exceptions.HTTPError:
         return
 
+    import os
+    import shutil
+
+    if os.path.exists("test/data/output/"):
+        shutil.rmtree("test/data/output/")
+
 
 if __name__ == "__main__":
     test_cv()

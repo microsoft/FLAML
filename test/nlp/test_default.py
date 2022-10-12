@@ -79,7 +79,11 @@ def test_starting_point_not_in_search_space():
         automl._search_states[this_estimator_name].search_space["model_path"]
         == "albert-base-v2"
     )
+    import os
+    import shutil
 
+    if os.path.exists("test/data/output/"):
+        shutil.rmtree("test/data/output/")
 
 def test_points_to_evaluate():
     from flaml import AutoML
@@ -98,7 +102,11 @@ def test_points_to_evaluate():
     }
 
     automl.fit(X_train, y_train, **automl_settings)
+    import os
+    import shutil
 
+    if os.path.exists("test/data/output/"):
+        shutil.rmtree("test/data/output/")
 
 # TODO: implement _test_zero_shot_model
 def test_zero_shot_nomodel():
@@ -130,6 +138,11 @@ def test_zero_shot_nomodel():
     fit_kwargs.update(automl_settings)
     pop_args(fit_kwargs)
     model.fit(X_train, y_train, **fit_kwargs)
+    import os
+    import shutil
+
+    if os.path.exists("test/data/output/"):
+        shutil.rmtree("test/data/output/")
 
 
 def test_build_error_portfolio(path="./test/nlp/default", strategy="greedy"):
@@ -159,3 +172,9 @@ def test_build_error_portfolio(path="./test/nlp/default", strategy="greedy"):
         )
     except ValueError:
         print("Feature not implemented")
+
+    import os
+    import shutil
+
+    if os.path.exists("test/data/output/"):
+        shutil.rmtree("test/data/output/")

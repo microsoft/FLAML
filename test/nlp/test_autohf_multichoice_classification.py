@@ -45,7 +45,11 @@ def test_mcc():
             true_count += 1
     accuracy = round(true_count / len(y_pred), 5)
     print("Accuracy: " + str(accuracy))
+    import os
+    import shutil
 
+    if os.path.exists("test/data/output/"):
+        shutil.rmtree("test/data/output/")
 
 if __name__ == "__main__":
     test_mcc()
