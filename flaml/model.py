@@ -921,7 +921,12 @@ class TransformersEstimatorModelSelection(TransformersEstimator):
 
 
 class SKLearnEstimator(BaseEstimator):
-    """The base class for tuning scikit-learn estimators."""
+    """
+    The base class for tuning scikit-learn estimators.
+
+    Subclasses should accept a `n_jobs` parameter in their constructor
+    regardless of whether it is used by the estimator.
+    """
 
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
