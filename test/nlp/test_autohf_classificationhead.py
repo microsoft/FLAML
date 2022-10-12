@@ -6,6 +6,8 @@ from utils import (
 )
 import sys
 import pytest
+import os
+import shutil
 
 data_list = [
     "get_toy_data_regression",
@@ -110,9 +112,6 @@ def _test_switch_classificationhead(each_data, each_model_path):
         )
     except requests.exceptions.HTTPError:
         return
-
-    import os
-    import shutil
 
     if os.path.exists("test/data/output/"):
         shutil.rmtree("test/data/output/")

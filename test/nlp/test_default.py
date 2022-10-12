@@ -1,6 +1,8 @@
 from utils import get_toy_data_seqclassification, get_automl_settings
 import sys
 from flaml.default import portfolio
+import os
+import shutil
 
 
 def pop_args(fit_kwargs):
@@ -79,8 +81,6 @@ def test_starting_point_not_in_search_space():
         automl._search_states[this_estimator_name].search_space["model_path"]
         == "albert-base-v2"
     )
-    import os
-    import shutil
 
     if os.path.exists("test/data/output/"):
         shutil.rmtree("test/data/output/")
@@ -103,8 +103,6 @@ def test_points_to_evaluate():
     }
 
     automl.fit(X_train, y_train, **automl_settings)
-    import os
-    import shutil
 
     if os.path.exists("test/data/output/"):
         shutil.rmtree("test/data/output/")
@@ -140,8 +138,6 @@ def test_zero_shot_nomodel():
     fit_kwargs.update(automl_settings)
     pop_args(fit_kwargs)
     model.fit(X_train, y_train, **fit_kwargs)
-    import os
-    import shutil
 
     if os.path.exists("test/data/output/"):
         shutil.rmtree("test/data/output/")

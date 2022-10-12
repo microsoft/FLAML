@@ -2,6 +2,8 @@ import sys
 import pytest
 import requests
 from utils import get_toy_data_seqclassification, get_automl_settings
+import os
+import shutil
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
@@ -70,9 +72,6 @@ def test_hf_data():
     print(automl.classes_)
 
     del automl
-
-    import os
-    import shutil
 
     if os.path.exists("test/data/output/"):
         shutil.rmtree("test/data/output/")
