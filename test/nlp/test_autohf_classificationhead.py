@@ -111,6 +111,12 @@ def _test_switch_classificationhead(each_data, each_model_path):
     except requests.exceptions.HTTPError:
         return
 
+    import os
+    import shutil
+
+    if os.path.exists("test/data/output/"):
+        shutil.rmtree("test/data/output/")
+
 
 if __name__ == "__main__":
     _test_switch_classificationhead(data_list[0], model_path_list[0])
