@@ -73,7 +73,6 @@ def test_custom_metric():
     # testing calling custom metric in TransformersEstimator._compute_metrics_by_dataset_name
 
     automl_settings["max_iter"] = 3
-    automl_settings["time_budget"] = 10
     automl.fit(
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
     )
