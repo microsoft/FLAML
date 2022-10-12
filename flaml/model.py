@@ -667,7 +667,6 @@ class TransformersEstimator(BaseEstimator):
                     control.should_save = True
                     control.should_evaluate = True
 
-        self._training_args.report_to = []
         self._trainer = TrainerForAuto(
             args=self._training_args,
             model_init=self._model_init,
