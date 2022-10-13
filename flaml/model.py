@@ -924,8 +924,9 @@ class SKLearnEstimator(BaseEstimator):
     """
     The base class for tuning scikit-learn estimators.
 
-    Subclasses should accept a `n_jobs` parameter in their constructor
-    regardless of whether it is used by the estimator.
+    Subclasses should modify the function signature of ``__init__`` to
+    ignore the values in ``config`` that are not relevant to the constructor
+    of their estimator.
     """
 
     def __init__(self, task="binary", **config):
