@@ -498,7 +498,7 @@ class AutoML(BaseEstimator):
                 'f1', 'micro_f1', 'macro_f1', 'log_loss', 'mae', 'mse', 'r2',
                 'mape'. Default is 'auto'.
                 If passing a customized metric function, the function needs to
-                have the follwing signature:
+                have the following input arguments:
 
         ```python
         def custom_metric(
@@ -2175,7 +2175,7 @@ class AutoML(BaseEstimator):
                 'f1', 'micro_f1', 'macro_f1', 'log_loss', 'mae', 'mse', 'r2',
                 'mape'. Default is 'auto'.
                 If passing a customized metric function, the function needs to
-                have the following signature:
+                have the following input argument:
 
         ```python
         def custom_metric(
@@ -2370,11 +2370,12 @@ class AutoML(BaseEstimator):
         ```
 
             cv_score_agg_func: customized cross-validation scores aggregate function. Default to average metrics across folds. If specificed, this function needs to
-                have the following signature:
+                have the following input arguments:
 
                 * val_loss_folds: list of floats, the loss scores of each fold;
                 * log_metrics_folds: list of dicts/floats, the metrics of each fold to log.
-                    This function should return the final aggregate result of all folds. A float number of the minimization objective, and a dictionary as the metrics to log or None.
+
+                This function should return the final aggregate result of all folds. A float number of the minimization objective, and a dictionary as the metrics to log or None.
                     E.g.,
 
         ```python
