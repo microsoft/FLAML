@@ -924,9 +924,12 @@ class SKLearnEstimator(BaseEstimator):
     """
     The base class for tuning scikit-learn estimators.
 
-    Subclasses should modify the function signature of ``__init__`` to
+    Subclasses can modify the function signature of ``__init__`` to
     ignore the values in ``config`` that are not relevant to the constructor
-    of their estimator.
+    of their underlying estimator. For example, some regressors in ``scikit-learn``
+    don't deal with the ``n_jobs`` parameter contained in ``config``. For those,
+    one can add ``n_jobs=1,`` before ``**config`` to make sure ``config`` doesn't
+    contain ``n_jobs``.
     """
 
     def __init__(self, task="binary", **config):
