@@ -2931,32 +2931,20 @@ class AutoML(BaseEstimator):
             del self._state.groups, self._state.groups_all, self._state.groups_val
         logger.setLevel(old_level)
 
-    def viz(self, 
+    def vizualization(self, 
             title = None, 
             xlab = None,
             ylab = None,
-            plottype = None,
+            type = None,
             time_history = None,
             valid_loss_history = None,
             best_valid_loss_history = None,
             ):
-        if plottype == "scatter":
-            plt.title(title)
-            plt.xlabel(xlab)
-            plt.ylabel(ylab)
-            plt.scatter(time_history, 1 - np.array(valid_loss_history))
-            plt.step(time_history, 1 - np.array(best_valid_loss_history), where='post')
-            plt.show()
-        elif plottype == "feature":
+        if type == "feature":
             plt.title(title)
             plt.barh(self.feature_names_in_, self.feature_importances_)
             plt.show()
-        elif plottype == "Model":
-            # pie graph that shows percentage of each model with the two best
-            print("best model b")
-        elif plottype == "parameters":
-            # ANOVA 
-            print("dees the best")
+
 
 
 
