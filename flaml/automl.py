@@ -2945,6 +2945,13 @@ class AutoML(BaseEstimator):
             plt.title(title)
             plt.barh(self.feature_names_in_, self.feature_importances_)
             plt.show()
+            '''
+            Example:
+                automl = AutoML()
+                automl.fit(***settings and data)
+                automl.visualization(title = "", type = "feature_importance")
+                It will then display the graph
+            '''
 
 
 
