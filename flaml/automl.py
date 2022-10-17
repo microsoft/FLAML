@@ -2938,7 +2938,7 @@ class AutoML(BaseEstimator):
             valid_loss_history = None,
             best_valid_loss_history = None,
             ):
-        if type == "feature":
+        if type == "feature_importance":
             plt.title(title)
             plt.barh(self.feature_names_in_, self.feature_importances_)
             plt.show()
