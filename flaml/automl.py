@@ -2929,7 +2929,9 @@ class AutoML(BaseEstimator):
             del self._state.groups, self._state.groups_all, self._state.groups_val
         logger.setLevel(old_level)
 
-    def vizualization(self, 
+
+    # A visualization API for FLAML to improve explainability of the automation
+    def visualization(self, 
             title = None, 
             xlab = None,
             ylab = None,
@@ -2938,6 +2940,7 @@ class AutoML(BaseEstimator):
             valid_loss_history = None,
             best_valid_loss_history = None,
             ):
+        # Showing the feature importance of the data that was trained on
         if type == "feature_importance":
             plt.title(title)
             plt.barh(self.feature_names_in_, self.feature_importances_)
