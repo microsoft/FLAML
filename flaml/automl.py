@@ -1031,7 +1031,7 @@ class AutoML(BaseEstimator):
             # check for each time series independently
             group_ids = self._state.fit_kwargs.get("group_ids")
             unique_ids = dataframe[group_ids].value_counts().reset_index()[group_ids]
-            for _, row in unique_ids:
+            for _, row in unique_ids.iterrows():
                 df = dataframe.copy()
                 for id in group_ids:
                     ts = df.loc[df[id] == row[id]]
