@@ -1029,7 +1029,7 @@ class AutoML(BaseEstimator):
         if self._state.task == TS_FORECASTPANEL:
             # check for each time series independently
             group_ids = self._state.fit_kwargs.get("group_ids")
-            group_df = dataframe.groupby([group_ids])
+            group_df = dataframe.groupby(group_ids)
             for group in group_df:
                 ts = group[1]
                 ts_series = pd.to_datetime(ts[ts.columns[0]])
