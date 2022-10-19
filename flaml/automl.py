@@ -1029,17 +1029,15 @@ class AutoML(BaseEstimator):
         if self._state.task == TS_FORECASTPANEL:
             # check for each time series independently
             group_ids = self._state.fit_kwargs.get("group_ids")
-            unique_ids = dataframe[group_ids].value_counts().reset_index()[group_ids]
-            for _, row in unique_ids.iterrows():
-                df = dataframe.copy()
-                for id in group_ids:
-                    ts = df.loc[df[id] == row[id]]
-            ts_series = pd.to_datetime(ts[ts.columns[0]])
-            inferred_freq = pd.infer_freq(ts_series)
-            if inferred_freq is None:
-                logger.warning(
-                    "Missing timestamps detected. To avoid error with estimators, set estimator list to ['prophet']. "
-                )
+            group_df = dataframe.groupby([group_ids])
+            for group in group_df:
+                ts = group[1]
+                ts_series = pd.to_datetime(ts[ts.columns[0]])
+                inferred_freq = pd.infer_freq(ts_series)
+                if inferred_freq is None:
+                    logger.warning(
+                        "Missing timestamps detected."
+                    )
         else:
             ts_series = pd.to_datetime(dataframe[dataframe.columns[0]])
             inferred_freq = pd.infer_freq(ts_series)
