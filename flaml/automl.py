@@ -1026,7 +1026,6 @@ class AutoML(BaseEstimator):
             assert (
                 dataframe[[dataframe.columns[0]]].duplicated() is None
             ), "Duplicate timestamp values with different values for other columns."
-        ts_series = pd.to_datetime(dataframe[dataframe.columns[0]])
         if self._state.task == TS_FORECASTPANEL:
             # check for each time series independently
             group_ids = self._state.fit_kwargs.get("group_ids")
@@ -1035,12 +1034,14 @@ class AutoML(BaseEstimator):
                 df = dataframe.copy()
                 for id in group_ids:
                     ts = df.loc[df[id] == row[id]]
-            inferred_freq = pd.infer_freq(ts)
+            ts_series = pd.to_datetime(ts[ts.columns[0]])
+            inferred_freq = pd.infer_freq(ts_series)
             if inferred_freq is None:
                 logger.warning(
                     "Missing timestamps detected. To avoid error with estimators, set estimator list to ['prophet']. "
                 )
         else:
+            ts_series = pd.to_datetime(dataframe[dataframe.columns[0]])
             inferred_freq = pd.infer_freq(ts_series)
             if inferred_freq is None:
                 logger.warning(
