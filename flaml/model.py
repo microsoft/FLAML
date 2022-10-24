@@ -928,7 +928,7 @@ class SKLearnEstimator(BaseEstimator):
     ignore the values in ``config`` that are not relevant to the constructor
     of their underlying estimator. For example, some regressors in ``scikit-learn``
     don't deal with the ``n_jobs`` parameter contained in ``config``. For those,
-    one can add ``n_jobs=1,`` before ``**config`` to make sure ``config`` doesn't
+    one can add ``n_jobs=None,`` before ``**config`` to make sure ``config`` doesn't
     contain ``n_jobs``.
     """
 
