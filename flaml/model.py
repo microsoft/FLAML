@@ -927,9 +927,9 @@ class SKLearnEstimator(BaseEstimator):
     Subclasses can modify the function signature of ``__init__`` to
     ignore the values in ``config`` that are not relevant to the constructor
     of their underlying estimator. For example, some regressors in ``scikit-learn``
-    don't deal with the ``n_jobs`` parameter contained in ``config``. For those,
+    don't accept the ``n_jobs`` parameter contained in ``config``. For these,
     one can add ``n_jobs=None,`` before ``**config`` to make sure ``config`` doesn't
-    contain ``n_jobs``.
+    contain an ``n_jobs`` key.
     """
 
     def __init__(self, task="binary", **config):
