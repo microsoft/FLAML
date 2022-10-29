@@ -122,7 +122,7 @@ class SearchState:
     ):
         self.init_eci = learner_class.cost_relative2lgbm()
         self._search_space_domain = {}
-        self.init_config = {}
+        self.init_config = None
         self.low_cost_partial_config = {}
         self.cat_hp_cost = {}
         self.data_size = data_size
@@ -183,6 +183,8 @@ class SearchState:
                 isinstance(starting_point, dict)
                 and starting_point.get(name) is not None
             ):
+                if self.init_config is None:
+                    self.init_config = {}
                 self.init_config[name] = starting_point[name]
             elif (
                 not isinstance(starting_point, list)
@@ -190,13 +192,15 @@ class SearchState:
                 and self.valid_starting_point_one_dim(
                     space["init_value"], space["domain"]
                 )
-            ):  # If starting point is list, no need to check the validity of self.init_config w.r.t search space
-                self.init_config[name] = space[
-                    "init_value"
-                ]  # If starting_point is list, no need to assign value to self.init_config here
+            ):
+                if self.init_config is None:
+                    self.init_config = {}
+                self.init_config[name] = space["init_value"]
 
         if isinstance(starting_point, list):
             self.init_config = starting_point
+        else:
+            self.init_config = [] if self.init_config is None else [self.init_config]
 
         self._hp_names = list(self._search_space_domain.keys())
         self.search_alg = None
@@ -1987,10 +1991,7 @@ class AutoML(BaseEstimator):
         """
         points = []
         for estimator in self.estimator_list:
-            if isinstance(self._search_states[estimator].init_config, list):
-                configs = self._search_states[estimator].init_config
-            else:
-                configs = [self._search_states[estimator].init_config]
+            configs = self._search_states[estimator].init_config
             for config in configs:
                 config["learner"] = estimator
                 if len(self.estimator_list) > 1:
@@ -3208,11 +3209,7 @@ class AutoML(BaseEstimator):
                     self._max_iter_per_learner = len(points_to_evaluate)
                     low_cost_partial_config = None
                 else:
-                    points_to_evaluate = (
-                        search_state.init_config
-                        if isinstance(search_state.init_config, list)
-                        else [search_state.init_config]
-                    )
+                    points_to_evaluate = search_state.init_config
 
                     low_cost_partial_config = search_state.low_cost_partial_config
                 if self._hpo_method in ("bs", "cfo", "grid", "cfocat", "random"):
@@ -3437,17 +3434,12 @@ class AutoML(BaseEstimator):
         self.modelcount = 0
         if self._max_iter < 2 and self.estimator_list and self._state.retrain_final:
             # when max_iter is 1, no need to search
-            # TODO: otherwise, need to make sure SearchStates.init_config is inside search space
             self.modelcount = self._max_iter
             self._max_iter = 0
             self._best_estimator = estimator = self.estimator_list[0]
             self._selected = state = self._search_states[estimator]
             state.best_config_sample_size = self._state.data_size[0]
-            state.best_config = (
-                state.init_config
-                if isinstance(state.init_config, dict)
-                else state.init_config[0]
-            )
+            state.best_config = state.init_config[0] if state.init_config else {}
         elif self._use_ray is False:
             self._search_sequential()
         else:
