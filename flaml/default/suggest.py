@@ -172,6 +172,15 @@ def suggest_hyperparams(task, X, y, estimator_or_predictor, location=None):
     return hyperparams, estimator_class
 
 
+class AutoMLTransformer:
+    def __init__(self, model, data_transformer):
+        self._model = model
+        self._dt = data_transformer
+
+    def transform(self, X):
+        return self._model._preprocess(self._dt.transform(X))
+
+
 def preprocess_and_suggest_hyperparams(
     task,
     X,
@@ -251,9 +260,5 @@ def preprocess_and_suggest_hyperparams(
         X = model._preprocess(X)
         hyperparams = hyperparams and model.params
 
-        class AutoMLTransformer:
-            def transform(self, X):
-                return model._preprocess(dt.transform(X))
-
-        transformer = AutoMLTransformer()
+        transformer = AutoMLTransformer(model, dt)
         return hyperparams, estimator_class, X, y, transformer, dt.label_transformer
