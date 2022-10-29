@@ -2862,7 +2862,7 @@ class AutoML(BaseEstimator):
                     "period"
                 ),  # NOTE: this is after kwargs is updated to fit_kwargs_by_estimator
                 custom_hp=custom_hp and custom_hp.get(estimator_name),
-                max_iter=max_iter,
+                max_iter=max_iter / len(estimator_list),
             )
         logger.info("List of ML learners in AutoML Run: {}".format(estimator_list))
         self.estimator_list = estimator_list

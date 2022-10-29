@@ -1,4 +1,5 @@
 import sys
+import pickle
 from sklearn.datasets import load_iris, fetch_california_housing, load_breast_cancer
 from sklearn.model_selection import train_test_split
 import pandas as pd
@@ -96,6 +97,8 @@ def test_suggest_classification():
     ) = preprocess_and_suggest_hyperparams(
         "classification", X_train, y_train, "lgbm", location=location
     )
+    with open("test/default/feature_transformer", "wb") as f:
+        pickle.dump(feature_transformer, f, pickle.HIGHEST_PROTOCOL)
     model = estimator_class(**hyperparams)  # estimator_class is LGBMClassifier
     model.fit(X, y)
     X_test = feature_transformer.transform(X_test)
@@ -216,6 +219,14 @@ def test_xgboost():
     regressor.fit(X_train[:100], y_train[:100])
     regressor.predict(X_train)
     print(regressor)
+
+
+def test_nobudget():
+    X_train, y_train = load_breast_cancer(return_X_y=True, as_frame=True)
+    automl = AutoML()
+    automl.fit(X_train[:20], y_train[:20])
+    # make sure that zero-shot config out of the search space does not degnerate to low cost init config
+    assert automl.best_config_per_estimator["extra_tree"]["n_estimators"] > 4
 
 
 if __name__ == "__main__":
