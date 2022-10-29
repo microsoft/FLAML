@@ -13,21 +13,21 @@ from flaml.default import (
 )
 
 
-def test_build_portfolio(path="test/default", strategy="greedy"):
-    sys.argv = f"portfolio.py --output {path} --input {path} --metafeatures {path}/all/metafeatures.csv --task binary --estimator lgbm xgboost xgb_limitdepth rf extra_tree --strategy {strategy}".split()
-    portfolio.main()
-    sys.argv = f"portfolio.py --output {path} --input {path} --metafeatures {path}/all/metafeatures.csv --task multiclass --estimator lgbm xgboost xgb_limitdepth rf extra_tree --strategy {strategy}".split()
-    portfolio.main()
-    sys.argv = f"portfolio.py --output {path} --input {path} --metafeatures {path}/all/metafeatures.csv --task regression --estimator lgbm xgboost xgb_limitdepth rf extra_tree --strategy {strategy}".split()
-    portfolio.main()
-
-
 def test_greedy_feedback(path="test/default", strategy="greedy-feedback"):
     # sys.argv = f"portfolio.py --output {path} --input {path} --metafeatures {path}/all/metafeatures.csv --task binary --estimator lgbm xgboost xgb_limitdepth rf extra_tree --strategy {strategy}".split()
     # portfolio.main()
     # sys.argv = f"portfolio.py --output {path} --input {path} --metafeatures {path}/all/metafeatures.csv --task multiclass --estimator lgbm xgboost xgb_limitdepth rf extra_tree --strategy {strategy}".split()
     # portfolio.main()
     sys.argv = f"portfolio.py --output {path} --input {path} --metafeatures {path}/all/metafeatures.csv --task regression --estimator lgbm --strategy {strategy}".split()
+    portfolio.main()
+
+
+def test_build_portfolio(path="test/default", strategy="greedy"):
+    sys.argv = f"portfolio.py --output {path} --input {path} --metafeatures {path}/all/metafeatures.csv --task binary --estimator lgbm xgboost xgb_limitdepth rf extra_tree --strategy {strategy}".split()
+    portfolio.main()
+    sys.argv = f"portfolio.py --output {path} --input {path} --metafeatures {path}/all/metafeatures.csv --task multiclass --estimator lgbm xgboost xgb_limitdepth rf extra_tree --strategy {strategy}".split()
+    portfolio.main()
+    sys.argv = f"portfolio.py --output {path} --input {path} --metafeatures {path}/all/metafeatures.csv --task regression --estimator lgbm xgboost xgb_limitdepth rf extra_tree --strategy {strategy}".split()
     portfolio.main()
 
 
@@ -224,9 +224,20 @@ def test_xgboost():
 def test_nobudget():
     X_train, y_train = load_breast_cancer(return_X_y=True, as_frame=True)
     automl = AutoML()
-    automl.fit(X_train[:20], y_train[:20])
+    automl.fit(
+        X_train[:20],
+        y_train[:20],
+        estimator_list=["lgbm", "extra_tree", "rf"],
+        max_iter=12,
+        starting_points="data",
+        log_file_name="test/default/no_budget.txt",
+        log_type="all",
+    )
+    automl.fit(X_train[:20], y_train[:20], estimator_list=["lgbm", "extra_tree", "rf"])
     # make sure that zero-shot config out of the search space does not degnerate to low cost init config
     assert automl.best_config_per_estimator["extra_tree"]["n_estimators"] > 4
+    # make sure that the zero-shot config {} is not modified
+    assert "criterion" not in automl.best_config_per_estimator["rf"]
 
 
 if __name__ == "__main__":

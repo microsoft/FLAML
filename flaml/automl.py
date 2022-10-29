@@ -268,7 +268,7 @@ class SearchState:
         self.val_loss, self.config = obj, config
 
     def get_hist_config_sig(self, sample_size, config):
-        config_values = tuple([config[k] for k in self._hp_names])
+        config_values = tuple([config[k] for k in self._hp_names if k in config])
         config_sig = str(sample_size) + "_" + str(config_values)
         return config_sig
 
@@ -2994,6 +2994,7 @@ class AutoML(BaseEstimator):
                 metric_constraints=self.metric_constraints,
                 seed=self._seed,
                 time_budget_s=time_left,
+                allow_empty_config=True,
             )
         else:
             # if self._hpo_method is bo, sometimes the search space and the initial config dimension do not match
@@ -3230,6 +3231,7 @@ class AutoML(BaseEstimator):
                         ],
                         metric_constraints=self.metric_constraints,
                         seed=self._seed,
+                        allow_empty_config=True,
                     )
                 else:
                     # if self._hpo_method is bo, sometimes the search space and the initial config dimension do not match

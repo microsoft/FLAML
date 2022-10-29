@@ -45,7 +45,7 @@ def meta_feature(task, X_train, y_train, meta_feature_names):
 
 
 def load_config_predictor(estimator_name, task, location=None):
-    key = f"{estimator_name}_{task}"
+    key = f"{location}/{estimator_name}/{task}"
     predictor = CONFIG_PREDICTORS.get(key)
     if predictor:
         return predictor
