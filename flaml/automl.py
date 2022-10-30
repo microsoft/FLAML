@@ -3209,7 +3209,7 @@ class AutoML(BaseEstimator):
                     self._max_iter_per_learner = len(points_to_evaluate)
                     low_cost_partial_config = None
                 else:
-                    points_to_evaluate = search_state.init_config
+                    points_to_evaluate = search_state.init_config.copy()
 
                     low_cost_partial_config = search_state.low_cost_partial_config
                 if self._hpo_method in ("bs", "cfo", "grid", "cfocat", "random"):
