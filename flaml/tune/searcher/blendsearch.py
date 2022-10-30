@@ -256,9 +256,9 @@ class BlendSearch(Searcher):
         else:
             self._candidate_start_points = None
         self._time_budget_s, self._num_samples = time_budget_s, num_samples
+        self._allow_empty_config = allow_empty_config
         if space is not None:
             self._init_search()
-        self._allow_empty_config = allow_empty_config
 
     def set_search_properties(
         self,
