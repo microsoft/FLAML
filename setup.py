@@ -65,6 +65,7 @@ setuptools.setup(
             "hcrystalball==0.1.10",
             "seqeval",
             "pytorch-forecasting>=0.9.0",
+            "matplotlib"
         ],
         "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],
@@ -100,6 +101,7 @@ setuptools.setup(
             "hcrystalball==0.1.10",
             "pytorch-forecasting>=0.9.0",
         ],
+        "visualization": ["matplotlib"]
         "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3"],
     },
     classifiers=[

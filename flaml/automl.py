@@ -20,7 +20,6 @@ from sklearn.model_selection import (
 from sklearn.utils import shuffle
 from sklearn.base import BaseEstimator
 import pandas as pd
-import matplotlib.pyplot as plt
 import logging
 import json
 from .ml import (
@@ -2940,11 +2939,19 @@ class AutoML(BaseEstimator):
             valid_loss_history = None,
             best_valid_loss_history = None,
             ):
+        try:
+            import matplotlib as plt
+        except ImportError:
+            matplotlib = None
+            logger.warning(
+                        "In order to the use the visualization functionality of FLAML use pip install matplotlib."
+                    )
         # Showing the feature importance of the data that was trained on
         if type == "feature_importance":
+            plotfilename = input("Enter a filename to save the feature importance figure:\n")
             plt.title(title)
             plt.barh(self.feature_names_in_, self.feature_importances_)
-            plt.show()
+            plt.savefig("{plotfilename}.png")
             '''
             Example:
                 automl = AutoML()
