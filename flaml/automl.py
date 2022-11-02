@@ -1277,8 +1277,8 @@ class AutoML(BaseEstimator):
                 )
             if self._df:
                 X_train_all.reset_index(drop=True, inplace=True)
-                if isinstance(y_train_all, pd.Series):
-                    y_train_all.reset_index(drop=True, inplace=True)
+            if isinstance(y_train_all, pd.Series):
+                y_train_all.reset_index(drop=True, inplace=True)
 
         X_train, y_train = X_train_all, y_train_all
         self._state.groups_all = self._state.groups
@@ -2863,7 +2863,9 @@ class AutoML(BaseEstimator):
                     "period"
                 ),  # NOTE: this is after kwargs is updated to fit_kwargs_by_estimator
                 custom_hp=custom_hp and custom_hp.get(estimator_name),
-                max_iter=max_iter / len(estimator_list),
+                max_iter=max_iter / len(estimator_list)
+                if self._learner_selector == "roundrobin"
+                else max_iter,
             )
         logger.info("List of ML learners in AutoML Run: {}".format(estimator_list))
         self.estimator_list = estimator_list
