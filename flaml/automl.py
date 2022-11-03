@@ -1273,8 +1273,8 @@ class AutoML(BaseEstimator):
                 )
             if self._df:
                 X_train_all.reset_index(drop=True, inplace=True)
-                if isinstance(y_train_all, pd.Series):
-                    y_train_all.reset_index(drop=True, inplace=True)
+            if isinstance(y_train_all, pd.Series):
+                y_train_all.reset_index(drop=True, inplace=True)
 
         X_train, y_train = X_train_all, y_train_all
         self._state.groups_all = self._state.groups
