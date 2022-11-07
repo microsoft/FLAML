@@ -2944,14 +2944,115 @@ class AutoML(BaseEstimator):
         except ImportError:
             matplotlib = None
             logger.warning(
-                        "In order to the use the visualization functionality of FLAML use pip install matplotlib."
-                    )
+                "In order to the use the visualization functionality of FLAML use pip install matplotlib."
+            )
+        try:
+            import lime
+        except ImportError:
+            lime = None
+            logger.warning(
+                "In order to the use the visualization functionality of FLAML use pip install lime."
+            )
+        try:
+            import shap
+        except ImportError:
+            shap = None
+            logger.warning(
+                "In order to the use the visualization functionality of FLAML use pip install shap."
+            )
         # Showing the feature importance of the data that was trained on
         if type == "feature_importance":
+            feature_importance_type = int(input("Choose 1 for basic feature importance and choose 2 to use Lime for a move advanced calculation of feature importance. \n"))
             plotfilename = input("Enter a filename to save the feature importance figure:\n")
-            plt.title(title)
-            plt.barh(self.feature_names_in_, self.feature_importances_)
-            plt.savefig("{plotfilename}.png")
+            if feature_importance_type == 1:
+                plt.title(title)
+                plt.barh(self.feature_names_in_, self.feature_importances_)
+                plt.savefig("{plotfilename}.png")
+            elif feature_importance_type == 2:
+                ''' The code for calculating feature importance with Lime and Diagnose was provided by group 7 in DS 440'''
+                estimator = getattr(self, "_trained_estimator", None)
+                if estimator is None:
+                    logger.warning(
+                        "No estimator is trained. Please run fit with enough budget."
+                    )
+                    return None
+
+                if explainer == "LIME":
+                    pandas_xtrain = pd.DataFrame(self._state.X_train)
+                    pandas_xval = pd.DataFrame(self._state.X_val)
+                
+                    if problem_type == "classification":
+                        explain = lime_tabular.LimeTabularExplainer(
+                        training_data=self._state.X_train,
+                        feature_names=pandas_xtrain.columns,
+                        class_names= list(class_names.values()),
+                        mode='classification',
+                        **kwargs)
+                    
+                        print("True Label: {}\n".format(class_names[self._state.y_train[row_index]]))
+
+                        exp = explain.explain_instance(data_row=pandas_xtrain.values[row_index], predict_fn = estimator.predict_proba, **kwargs)
+                        exp.save_to_file('lime_classification.html')
+                        return exp.show_in_notebook(show_table=True)
+                
+                    if problem_type == "regression":
+                        explain = lime_tabular.LimeTabularExplainer(
+                        training_data= np.array(self._state.X_train),
+                        feature_names=pandas_xtrain.columns,
+                        mode='regression',
+                        **kwargs)
+                    
+                        print(self._state.X_val)
+                        print("True Label: {}\n".format(self._state.y_val[row_index]))
+                    
+                        exp = explain.explain_instance(data_row=self._state.X_val[row_index], predict_fn = estimator.predict, **kwargs)
+                        exp.save_to_file('lime_regression.html')
+                        return exp.show_in_notebook(show_table=True)
+                   
+
+                    if problem_type == "text":
+                        pass
+
+
+                if explainer == "SHAP":
+                    if problem_type == "classification":
+                        if model_type == "linear":
+                            explainer = shap.LinearExplainer(estimator.predict_proba, self.train_data, feature_dependence="independent")
+
+                        elif model_type == "tree":
+                            explainer = shap.TreeExplainer(estimator.predict_proba)
+                    
+                        else:
+                            explainer = shap.KernelExplainer(estimator.predict_proba, self._state.X_train)
+                    
+                        shap_values = explainer.shap_values(self._state.X_val)
+                        return shap.summary_plot(shap_values, self._state.X_val)
+
+                    if problem_type == "regression":
+                        print(self._state.X_val)
+                        if plot_type == "waterfall":
+                            explainer = shap.Explainer(estimator.model)
+                            shap_values = explainer(self._state.X_train)
+                            return shap.plots.waterfall(shap_values[row_index])
+                    
+                        if plot_type == "bar":
+                            explainer = shap.Explainer(estimator.model)
+                            shap_values = explainer(self._state.X_train)
+                            return shap.plots.bar(shap_values)
+
+                        if plot_type == "beeswarm":
+                            explainer = shap.Explainer(estimator.model)
+                            shap_values = explainer(self._state.X_train)
+                            return shap.plots.beeswarm(shap_values)
+
+                        if plot_type == "force":
+                            shap.initjs()
+                            explainer = shap.Explainer(estimator.model)
+                            shap_values = explainer(self._state.X_train)
+                            shap_plot = shap.plots.force(shap_values[row_index])
+                            shap.save_html("shap_regression.html", shap_plot)
+                            return shap_plot
+
             '''
             Example:
                 automl = AutoML()
