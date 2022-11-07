@@ -2935,12 +2935,10 @@ class AutoML(BaseEstimator):
             xlab = None,
             ylab = None,
             type = None,
-            time_history = None,
-            valid_loss_history = None,
-            best_valid_loss_history = None,
+            settings = None,
             ):
         try:
-            import matplotlib as plt
+            import matplotlib.pyplot as plt
         except ImportError:
             matplotlib = None
             logger.warning(
@@ -2962,12 +2960,12 @@ class AutoML(BaseEstimator):
             )
         # Showing the feature importance of the data that was trained on
         if type == "feature_importance":
-            feature_importance_type = int(input("Choose 1 for basic feature importance and choose 2 to use Lime for a move advanced calculation of feature importance. \n"))
+            feature_importance_type = int(input("Enter 1 for the model's feature importance and enter 2 to use Lime for a different method of feature importance. \n"))
             plotfilename = input("Enter a filename to save the feature importance figure:\n")
             if feature_importance_type == 1:
-                plt.title(title)
                 plt.barh(self.feature_names_in_, self.feature_importances_)
-                plt.savefig("{plotfilename}.png")
+                plt.savefig("{}.png".format(plotfilename))
+            """
             elif feature_importance_type == 2:
                 ''' The code for calculating feature importance with Lime and Diagnose was provided by group 7 in DS 440'''
                 estimator = getattr(self, "_trained_estimator", None)
@@ -3060,7 +3058,18 @@ class AutoML(BaseEstimator):
                 automl.visualization(title = "", type = "feature_importance")
                 It will then display the graph
             '''
-
+            """
+        elif type == "validation_accuracy":
+            from flaml.data import get_output_from_log
+            plotfilename = input("Enter a filename to save the validation accuracy figure:\n")
+            time_history, best_valid_loss_history, valid_loss_history, config_history, metric_history = \
+                get_output_from_log(filename=settings['log_file_name'], time_budget=240)
+            plt.title(title)
+            plt.xlabel(xlab)
+            plt.ylabel(ylab)
+            plt.scatter(time_history, 1 - np.array(valid_loss_history))
+            plt.step(time_history, 1 - np.array(best_valid_loss_history), where='post')
+            plt.savefig("{}".format(plotfilename))
 
 
 
