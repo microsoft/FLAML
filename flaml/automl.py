@@ -3064,6 +3064,8 @@ class AutoML(BaseEstimator):
             plotfilename = input("Enter a filename to save the validation accuracy figure:\n")
             time_history, best_valid_loss_history, valid_loss_history, config_history, metric_history = \
                 get_output_from_log(filename=settings['log_file_name'], time_budget=240)
+            plt.clf()
+            plt.cla()
             plt.title(title)
             plt.xlabel(xlab)
             plt.ylabel(ylab)
