@@ -1,6 +1,6 @@
 # Zero Shot AutoML
 
-`flaml.default` is a package for zero-shot AutoML, or "no-tuning" AutoML. It uses [`flaml.AutoML`](../reference/automl#automl-objects) and [`flaml.default.portfolio`](../reference/default/portfolio) to mine good hyperparameter configurations across different datasets offline, and recommend data-dependent default configurations at runtime without expensive tuning.
+`flaml.default` is a package for zero-shot AutoML, or "no-tuning" AutoML. It uses [`flaml.AutoML`](../reference/automl/automl#automl-objects) and [`flaml.default.portfolio`](../reference/default/portfolio) to mine good hyperparameter configurations across different datasets offline, and recommend data-dependent default configurations at runtime without expensive tuning.
 
 Zero-shot AutoML has several benefits:
 * The computation cost is just training one model. No tuning is involved.

@@ -2,7 +2,7 @@
 
 ## Overview
 
-[`flaml.AutoML`](../reference/automl#automl-objects) is a class for task-oriented AutoML. It can be used as a scikit-learn style estimator with the standard `fit` and `predict` functions. The minimal inputs from users are the training data and the task type.
+[`flaml.AutoML`](../reference/automl/automl#automl-objects) is a class for task-oriented AutoML. It can be used as a scikit-learn style estimator with the standard `fit` and `predict` functions. The minimal inputs from users are the training data and the task type.
 
 * Training data:
     - numpy array. When the input data are stored in numpy array, they are passed to `fit()` as `X_train` and `y_train`.
@@ -239,7 +239,7 @@ We override the `search_space` function to tune two hyperparameters only, "n_est
 
 ##### A shortcut to override the search space
 
-One can use the `custom_hp` argument in [`AutoML.fit()`](../reference/automl#fit) to override the search space for an existing estimator quickly. For example, if you would like to temporarily change the search range of "n_estimators" of xgboost, disable searching "max_leaves" in random forest, and add "subsample" in the search space of lightgbm, you can set:
+One can use the `custom_hp` argument in [`AutoML.fit()`](../reference/automl/automl#fit) to override the search space for an existing estimator quickly. For example, if you would like to temporarily change the search range of "n_estimators" of xgboost, disable searching "max_leaves" in random forest, and add "subsample" in the search space of lightgbm, you can set:
 
 ```python
 custom_hp = {
