@@ -22,13 +22,13 @@ from sklearn.base import BaseEstimator
 import pandas as pd
 import logging
 import json
-from .ml import (
+from flaml.automl.ml import (
     compute_estimator,
     train_estimator,
     get_estimator_class,
     get_classification_objective,
 )
-from .config import (
+from flaml.config import (
     MIN_SAMPLE_TRAIN,
     MEM_THRES,
     RANDOM_SEED,
@@ -38,7 +38,7 @@ from .config import (
     N_SPLITS,
     SAMPLE_MULTIPLY_FACTOR,
 )
-from .data import (
+from flaml.automl.data import (
     concat,
     CLASSIFICATION,
     TOKENCLASSIFICATION,
@@ -50,9 +50,10 @@ from .data import (
     _is_nlp_task,
     NLG_TASKS,
 )
-from . import tune
-from .training_log import training_log_reader, training_log_writer
-from flaml.default.suggest import suggest_learner
+from flaml import tune
+from flaml.automl.training_log import training_log_reader, training_log_writer
+from flaml.automl.default.suggest import suggest_learner
+from flaml.version import __version__ as flaml_version
 
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
@@ -78,7 +79,7 @@ class SearchState:
         )
 
     def valid_starting_point_one_dim(self, value_one_dim, domain_one_dim):
-        from .tune.space import sample
+        from flaml.tune.space import sample
 
         """
             For each hp in the starting point, check the following 3 conditions:
@@ -487,7 +488,7 @@ class AutoML(BaseEstimator):
 
     """
 
-    from .version import __version__
+    __version__ = flaml_version
 
     def __init__(self, **settings):
         """Constructor.
@@ -2799,7 +2800,7 @@ class AutoML(BaseEstimator):
                 )
         # set up learner search space
         if isinstance(starting_points, str) and starting_points.startswith("data"):
-            from flaml.default import suggest_config
+            from flaml.automl.default import suggest_config
 
             location = starting_points[5:]
             starting_points = {}

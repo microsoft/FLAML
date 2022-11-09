@@ -19,8 +19,8 @@ import shutil
 from pandas import DataFrame, Series, to_datetime
 import sys
 import math
-from . import tune
-from .data import (
+from flaml import tune
+from flaml.automl.data import (
     group_counts,
     CLASSIFICATION,
     add_time_idx_col,
@@ -302,8 +302,8 @@ class BaseEstimator:
         Returns:
             The evaluation score on the validation dataset.
         """
-        from .ml import metric_loss_score
-        from .ml import is_min_metric
+        from flaml.automl.ml import metric_loss_score
+        from flaml.automl.ml import is_min_metric
 
         if self._model is not None:
             if self._task == "rank":
@@ -397,11 +397,11 @@ class TransformersEstimator(BaseEstimator):
 
         self.trial_id = str(uuid.uuid1().hex)[:8]
         if task not in NLG_TASKS:  # TODO: not in NLG_TASKS
-            from .nlp.huggingface.training_args import (
+            from flaml.automl.nlp.huggingface.training_args import (
                 TrainingArgumentsForAuto as TrainingArguments,
             )
         else:
-            from .nlp.huggingface.training_args import (
+            from flaml.automl.nlp.huggingface.training_args import (
                 Seq2SeqTrainingArgumentsForAuto as TrainingArguments,
             )
         self._TrainingArguments = TrainingArguments
@@ -444,7 +444,7 @@ class TransformersEstimator(BaseEstimator):
         return not self._kwargs.get("gpu_per_trial")
 
     def _set_training_args(self, **kwargs):
-        from .nlp.utils import date_str, Counter
+        from flaml.automl.nlp.utils import date_str, Counter
 
         for (key, val) in kwargs.items():
             assert key not in self.params, (
@@ -497,8 +497,8 @@ class TransformersEstimator(BaseEstimator):
             setattr(self._training_args, "max_seq_length", None)
 
     def _tokenize_text(self, X, y=None, **kwargs):
-        from .nlp.huggingface.utils import tokenize_text
-        from .nlp.utils import is_a_list_of_str
+        from flaml.automl.nlp.huggingface.utils import tokenize_text
+        from flaml.automl.nlp.utils import is_a_list_of_str
 
         is_str = str(X.dtypes[0]) in ("string", "str")
         is_list_of_str = is_a_list_of_str(X[list(X.keys())[0]].to_list()[0])
@@ -515,7 +515,7 @@ class TransformersEstimator(BaseEstimator):
             return X, y
 
     def _model_init(self):
-        from .nlp.huggingface.utils import load_model
+        from flaml.automl.nlp.huggingface.utils import load_model
 
         this_model = load_model(
             checkpoint_path=self._training_args.model_path,
@@ -567,7 +567,9 @@ class TransformersEstimator(BaseEstimator):
 
     @property
     def data_collator(self):
-        from .nlp.huggingface.data_collator import task_to_datacollator_class
+        from flaml.automl.nlp.huggingface.data_collator import (
+            task_to_datacollator_class,
+        )
 
         data_collator_class = task_to_datacollator_class.get(self._task)
 
@@ -606,7 +608,7 @@ class TransformersEstimator(BaseEstimator):
 
         from transformers import TrainerCallback
         from transformers.trainer_utils import set_seed
-        from .nlp.huggingface.trainer import TrainerForAuto
+        from flaml.automl.nlp.huggingface.trainer import TrainerForAuto
 
         try:
             from ray.tune import is_session_enabled
@@ -761,8 +763,10 @@ class TransformersEstimator(BaseEstimator):
     def _compute_metrics_by_dataset_name(self, eval_pred):
         # TODO: call self._metric(eval_pred, self)
         if isinstance(self._metric, str):
-            from .ml import metric_loss_score
-            from .nlp.huggingface.utils import postprocess_prediction_and_true
+            from flaml.automl.ml import metric_loss_score
+            from flaml.automl.nlp.huggingface.utils import (
+                postprocess_prediction_and_true,
+            )
 
             predictions, y_true = eval_pred
             # postprocess the matrix prediction and ground truth into user readable format, e.g., for summarization, decode into text
@@ -796,7 +800,7 @@ class TransformersEstimator(BaseEstimator):
         return metric_dict
 
     def _init_model_for_predict(self):
-        from .nlp.huggingface.trainer import TrainerForAuto
+        from flaml.automl.nlp.huggingface.trainer import TrainerForAuto
 
         """
             Need to reinit training_args because of a bug in deepspeed: if not reinit, the deepspeed config will be inconsistent
@@ -853,7 +857,7 @@ class TransformersEstimator(BaseEstimator):
     def predict(self, X, **pred_kwargs):
         import transformers
         from datasets import Dataset
-        from .nlp.huggingface.utils import postprocess_prediction_and_true
+        from flaml.automl.nlp.huggingface.utils import postprocess_prediction_and_true
 
         transformers.logging.set_verbosity_error()
 
@@ -1828,7 +1832,7 @@ class Prophet(SKLearnEstimator):
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         from sklearn.metrics import r2_score
-        from .ml import metric_loss_score
+        from flaml.automl.ml import metric_loss_score
 
         y_pred = self.predict(X_val, **kwargs)
         self._metric = kwargs.get("metric", None)
@@ -2266,18 +2270,13 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
         return training, train_dataloader, val_dataloader
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
-        import copy
-        from pathlib import Path
         import warnings
-        import numpy as np
-        import pandas as pd
         import pytorch_lightning as pl
         from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
         from pytorch_lightning.loggers import TensorBoardLogger
         import torch
         from pytorch_forecasting import TemporalFusionTransformer
         from pytorch_forecasting.metrics import QuantileLoss
-        import tensorboard as tb
 
         warnings.filterwarnings("ignore")
         current_time = time.time()

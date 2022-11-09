@@ -44,7 +44,8 @@ You can run generic hyperparameter tuning for a custom function (machine learnin
 
 ```python
 from flaml import tune
-from flaml.model import LGBMEstimator
+from flaml.automl.model import LGBMEstimator
+
 
 def train_lgbm(config: dict) -> dict:
     # convert config dict to lgbm params
@@ -57,6 +58,7 @@ def train_lgbm(config: dict) -> dict:
     mse = mean_squared_error(y_test, pred)
     # return eval results as a dictionary
     return {"mse": mse}
+
 
 # load a built-in search space from flaml
 flaml_lgbm_search_space = LGBMEstimator.search_space(X_train.shape)
@@ -81,7 +83,7 @@ Please see this [script](https://github.com/microsoft/FLAML/blob/main/test/tune_
 FLAML offers a unique, seamless and effortless way to leverage AutoML for the commonly used classifiers and regressors such as LightGBM and XGBoost. For example, if you are using `lightgbm.LGBMClassifier` as your current learner, all you need to do is to replace `from lightgbm import LGBMClassifier` by:
 
 ```python
-from flaml.default import LGBMClassifier
+from flaml.automl.default import LGBMClassifier
 ```
 
 Then, you can use it just like you use the original `LGMBClassifier`. Your other code can remain unchanged. When you call the `fit()` function from `flaml.default.LGBMClassifier`, it will automatically instantiate a good data-dependent hyperparameter configuration for your dataset, which is expected to work better than the default configuration.

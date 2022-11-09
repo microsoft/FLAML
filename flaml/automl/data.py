@@ -7,10 +7,10 @@ from scipy.sparse import vstack, issparse
 import pandas as pd
 from pandas import DataFrame, Series
 
-from .training_log import training_log_reader
+from flaml.automl.training_log import training_log_reader
 
 from datetime import datetime
-from typing import Dict, Union, List
+from typing import Union
 
 # TODO: if your task is not specified in here, define your task as an all-capitalized word
 SEQCLASSIFICATION = "seq-classification"
@@ -405,7 +405,7 @@ class DataTransformer:
 
                 self.label_transformer = LabelEncoder()
             else:
-                from .nlp.utils import LabelEncoderforTokenClassification
+                from flaml.automl.nlp.utils import LabelEncoderforTokenClassification
 
                 self.label_transformer = LabelEncoderforTokenClassification()
             y = self.label_transformer.fit_transform(y)

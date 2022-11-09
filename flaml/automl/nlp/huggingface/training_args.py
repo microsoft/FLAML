@@ -1,7 +1,7 @@
 import argparse
 from dataclasses import dataclass, field
 
-from ...data import (
+from flaml.automl.data import (
     NLG_TASKS,
 )
 from typing import Optional, List

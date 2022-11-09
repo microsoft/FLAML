@@ -1,6 +1,6 @@
 from utils import get_toy_data_seqclassification, get_automl_settings
 import sys
-from flaml.default import portfolio
+from flaml.automl.default import portfolio
 import os
 import shutil
 
@@ -111,7 +111,7 @@ def test_points_to_evaluate():
 
 # TODO: implement _test_zero_shot_model
 def test_zero_shot_nomodel():
-    from flaml.default import preprocess_and_suggest_hyperparams
+    from flaml.automl.default import preprocess_and_suggest_hyperparams
 
     estimator_name = "transformer_ms"
 
@@ -151,7 +151,7 @@ def test_build_error_portfolio(path="./test/nlp/default", strategy="greedy"):
     sys.argv = f"portfolio.py --output {path} --input {path} --metafeatures {path}/all/metafeatures_err.csv --task seq-classification --estimator transformer_ms --strategy {strategy}".split()
     portfolio.main()
 
-    from flaml.default import preprocess_and_suggest_hyperparams
+    from flaml.automl.default import preprocess_and_suggest_hyperparams
 
     estimator_name = "transformer_ms"
 

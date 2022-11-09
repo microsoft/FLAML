@@ -132,41 +132,42 @@ To tune a custom estimator that is not built-in, you need to:
 For example, if you have a estimator class with scikit-learn style `fit()` and `predict()` functions, you only need to set `self.estimator_class` to be that class in your constructor.
 
 ```python
-from flaml.model import SKLearnEstimator
+from flaml.automl.model import SKLearnEstimator
 # SKLearnEstimator is derived from BaseEstimator
 import rgf
 
+
 class MyRegularizedGreedyForest(SKLearnEstimator):
-    def __init__(self, task="binary", **config):
-        super().__init__(task, **config)
+  def __init__(self, task="binary", **config):
+    super().__init__(task, **config)
 
-        if task in CLASSIFICATION:
-            from rgf.sklearn import RGFClassifier
+    if task in CLASSIFICATION:
+      from rgf.sklearn import RGFClassifier
 
-            self.estimator_class = RGFClassifier
-        else:
-            from rgf.sklearn import RGFRegressor
+      self.estimator_class = RGFClassifier
+    else:
+      from rgf.sklearn import RGFRegressor
 
-            self.estimator_class = RGFRegressor
+      self.estimator_class = RGFRegressor
 
-    @classmethod
-    def search_space(cls, data_size, task):
-        space = {
-            "max_leaf": {
-                "domain": tune.lograndint(lower=4, upper=data_size),
-                "low_cost_init_value": 4,
-            },
-            "n_iter": {
-                "domain": tune.lograndint(lower=1, upper=data_size),
-                "low_cost_init_value": 1,
-            },
-            "learning_rate": {"domain": tune.loguniform(lower=0.01, upper=20.0)},
-            "min_samples_leaf": {
-                "domain": tune.lograndint(lower=1, upper=20),
-                "init_value": 20,
-            },
-        }
-        return space
+  @classmethod
+  def search_space(cls, data_size, task):
+    space = {
+      "max_leaf": {
+        "domain": tune.lograndint(lower=4, upper=data_size),
+        "low_cost_init_value": 4,
+      },
+      "n_iter": {
+        "domain": tune.lograndint(lower=1, upper=data_size),
+        "low_cost_init_value": 1,
+      },
+      "learning_rate": {"domain": tune.loguniform(lower=0.01, upper=20.0)},
+      "min_samples_leaf": {
+        "domain": tune.lograndint(lower=1, upper=20),
+        "init_value": 20,
+      },
+    }
+    return space
 ```
 
 In the constructor, we set `self.estimator_class` as `RGFClassifier` or `RGFRegressor` according to the task type. If the estimator you want to tune does not have a scikit-learn style `fit()` and `predict()` API, you can override the `fit()` and `predict()` function of `flaml.model.BaseEstimator`, like [XGBoostEstimator](../reference/model#xgboostestimator-objects). Importantly, we also add the `task="binary"` parameter in the signature of `__init__` so that it doesn't get grouped together with the `**config` kwargs that determines the parameters with which the underlying estimator (`self.estimator_class`) is constructed. If your estimator doesn't use one of the parameters that it is passed, for example some regressors in `scikit-learn` don't use the `n_jobs` parameter, it is enough to add `n_jobs=None` to the signature so that it is ignored by the `**config` dict.
@@ -197,20 +198,22 @@ In the example above, we tune four hyperparameters, three integers and one float
 To customize the search space for a built-in estimator, use a similar approach to define a class that inherits the existing estimator. For example,
 
 ```python
-from flaml.model import XGBoostEstimator
+from flaml.automl.model import XGBoostEstimator
+
 
 def logregobj(preds, dtrain):
-    labels = dtrain.get_label()
-    preds = 1.0 / (1.0 + np.exp(-preds))  # transform raw leaf weight
-    grad = preds - labels
-    hess = preds * (1.0 - preds)
-    return grad, hess
+  labels = dtrain.get_label()
+  preds = 1.0 / (1.0 + np.exp(-preds))  # transform raw leaf weight
+  grad = preds - labels
+  hess = preds * (1.0 - preds)
+  return grad, hess
+
 
 class MyXGB1(XGBoostEstimator):
-    """XGBoostEstimator with logregobj as the objective function"""
+  """XGBoostEstimator with logregobj as the objective function"""
 
-    def __init__(self, **config):
-        super().__init__(objective=logregobj, **config)
+  def __init__(self, **config):
+    super().__init__(objective=logregobj, **config)
 ```
 
 We override the constructor and set the training objective as a custom function `logregobj`. The hyperparameters and their search range do not change. For another example,
@@ -450,7 +453,7 @@ Extra fit arguments that are needed by the estimators can be passed to `AutoML.f
 In addition, you can specify the different arguments needed by different estimators using the `fit_kwargs_by_estimator` argument. For example, you can set the custom arguments for a Transformers model:
 
 ```python
-from flaml.data import load_openml_dataset
+from flaml.automl.data import load_openml_dataset
 from flaml import AutoML
 
 X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=1169, data_dir="./")
@@ -541,9 +544,9 @@ print(automl.config_history)
 To plot how the loss is improved over time during the model search, first load the search history from the log file:
 
 ```python
-from flaml.data import get_output_from_log
+from flaml.automl.data import get_output_from_log
 
-time_history, best_valid_loss_history, valid_loss_history, config_history, metric_history = \
+time_history, best_valid_loss_history, valid_loss_history, config_history, metric_history =
     get_output_from_log(filename=settings["log_file_name"], time_budget=120)
 ```
 

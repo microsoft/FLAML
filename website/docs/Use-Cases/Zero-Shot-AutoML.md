@@ -25,7 +25,7 @@ estimator.predict(X_test)
 Simply replace the first line with:
 
 ```python
-from flaml.default import LGBMRegressor
+from flaml.automl.default import LGBMRegressor
 ```
 
 All the other code remains the same. And you are expected to get a equal or better model in most cases.
@@ -47,7 +47,8 @@ The recommendation of which configuration should be used is based on offline Aut
 Yes. You can use `suggest_hyperparams()` to find the suggested configuration. For example,
 
 ```python
-from flaml.default import LGBMRegressor
+from flaml.automl.default import LGBMRegressor
+
 estimator = LGBMRegressor()
 hyperparams, estimator_name, X_transformed, y_transformed = estimator.suggest_hyperparams(X_train, y_train)
 print(hyperparams)
@@ -56,7 +57,8 @@ print(hyperparams)
 If you would like more control over the training, use an equivalent, open-box way for zero-shot AutoML. For example,
 
 ```python
-from flaml.default import preprocess_and_suggest_hyperparams
+from flaml.automl.default import preprocess_and_suggest_hyperparams
+
 X, y = load_iris(return_X_y=True, as_frame=True)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 hyperparams, estimator_class, X_transformed, y_transformed, feature_transformer, label_transformer = preprocess_and_suggest_hyperparams(
@@ -238,7 +240,8 @@ Optionally, you can "flamlize" a learner using [`flaml.default.flamlize_estimato
 
 ```python
 import sklearn.ensemble as ensemble
-from flaml.default import flamlize_estimator
+from flaml.automl.default import flamlize_estimator
+
 ExtraTreesClassifier = flamlize_estimator(
     ensemble.ExtraTreesClassifier, "extra_tree", "classification"
 )

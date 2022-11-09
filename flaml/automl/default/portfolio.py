@@ -4,8 +4,8 @@ import argparse
 from pathlib import Path
 import json
 from sklearn.preprocessing import RobustScaler
-from flaml.default import greedy
-from flaml.default.regret import load_result, build_regret
+from flaml.automl.default import greedy
+from flaml.automl.default.regret import load_result, build_regret
 from flaml.version import __version__
 
 regret_bound = 0.01

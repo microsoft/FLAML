@@ -18,7 +18,7 @@ from sklearn.metrics import (
     ndcg_score,
 )
 from sklearn.model_selection import RepeatedStratifiedKFold, GroupKFold, TimeSeriesSplit
-from .model import (
+from flaml.automl.model import (
     XGBoostSklearnEstimator,
     XGBoost_TS,
     XGBoostLimitDepthEstimator,
@@ -40,7 +40,7 @@ from .model import (
     TemporalFusionTransformerEstimator,
     TransformersEstimatorModelSelection,
 )
-from .data import CLASSIFICATION, group_counts, TS_FORECAST
+from flaml.automl.data import CLASSIFICATION, group_counts, TS_FORECAST
 import logging
 
 logger = logging.getLogger(__name__)

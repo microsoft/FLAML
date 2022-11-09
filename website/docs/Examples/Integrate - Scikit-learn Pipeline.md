@@ -3,7 +3,7 @@ As FLAML's AutoML module can be used a transformer in the Sklearn's pipeline we 
 ### Load data
 
 ```python
-from flaml.data import load_openml_dataset
+from flaml.automl.data import load_openml_dataset
 
 # Download [Airlines dataset](https://www.openml.org/d/1169) from OpenML. The task is to predict whether a given flight will be delayed, given the information of the scheduled departure.
 X_train, X_test, y_train, y_test = load_openml_dataset(
