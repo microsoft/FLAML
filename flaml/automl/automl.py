@@ -52,7 +52,7 @@ from flaml.automl.data import (
 )
 from flaml import tune
 from flaml.automl.training_log import training_log_reader, training_log_writer
-from flaml.automl.default.suggest import suggest_learner
+from flaml.default import suggest_learner
 from flaml.version import __version__ as flaml_version
 
 logger = logging.getLogger(__name__)
@@ -2800,7 +2800,7 @@ class AutoML(BaseEstimator):
                 )
         # set up learner search space
         if isinstance(starting_points, str) and starting_points.startswith("data"):
-            from flaml.automl.default import suggest_config
+            from flaml.default import suggest_config
 
             location = starting_points[5:]
             starting_points = {}

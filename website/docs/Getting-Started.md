@@ -83,7 +83,7 @@ Please see this [script](https://github.com/microsoft/FLAML/blob/main/test/tune_
 FLAML offers a unique, seamless and effortless way to leverage AutoML for the commonly used classifiers and regressors such as LightGBM and XGBoost. For example, if you are using `lightgbm.LGBMClassifier` as your current learner, all you need to do is to replace `from lightgbm import LGBMClassifier` by:
 
 ```python
-from flaml.automl.default import LGBMClassifier
+from flaml.default import LGBMClassifier
 ```
 
 Then, you can use it just like you use the original `LGMBClassifier`. Your other code can remain unchanged. When you call the `fit()` function from `flaml.default.LGBMClassifier`, it will automatically instantiate a good data-dependent hyperparameter configuration for your dataset, which is expected to work better than the default configuration.

@@ -1,5 +1,5 @@
 from flaml.automl.data import load_openml_dataset
-from flaml.automl.default import XGBClassifier
+from flaml.default import XGBClassifier
 from flaml.automl.ml import sklearn_metric_loss_score
 
 X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=1169, data_dir="./")

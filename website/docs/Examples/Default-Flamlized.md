@@ -10,7 +10,7 @@ This example requires openml==0.10.2.
 
 ```python
 from flaml.automl.data import load_openml_dataset
-from flaml.automl.default import LGBMRegressor
+from flaml.default import LGBMRegressor
 from flaml.automl.ml import sklearn_metric_loss_score
 
 X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=537, data_dir="./")
@@ -66,7 +66,7 @@ X_test.shape: (5160, 8), y_test.shape: (5160,)
 
 ```python
 from flaml.automl.data import load_openml_dataset
-from flaml.automl.default import XGBClassifier
+from flaml.default import XGBClassifier
 from flaml.automl.ml import sklearn_metric_loss_score
 
 X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=1169, data_dir="./")

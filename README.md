@@ -83,7 +83,7 @@ tune.run(evaluation_function, config={…}, low_cost_partial_config={…}, time_
 * [Zero-shot AutoML](https://microsoft.github.io/FLAML/docs/Use-Cases/Zero-Shot-AutoML) allows using the existing training API from lightgbm, xgboost etc. while getting the benefit of AutoML in choosing high-performance hyperparameter configurations per task.
 
 ```python
-from flaml.automl.default import LGBMRegressor
+from flaml.default import LGBMRegressor
 
 # Use LGBMRegressor in the same way as you use lightgbm.LGBMRegressor.
 estimator = LGBMRegressor()

@@ -7,7 +7,7 @@ There are several ways to use zero-shot AutoML, i.e., train a model with the dat
 0. Use estimators in `flaml.default.estimator`.
 
 ```python
-from flaml.automl.default import LGBMRegressor
+from flaml.default import LGBMRegressor
 
 estimator = LGBMRegressor()
 estimator.fit(X_train, y_train)
@@ -33,7 +33,7 @@ automl.fit(X_train, y_train, **automl_settings)
 2. Use `flaml.default.preprocess_and_suggest_hyperparams`.
 
 ```python
-from flaml.automl.default import preprocess_and_suggest_hyperparams
+from flaml.default import preprocess_and_suggest_hyperparams
 
 X, y = load_iris(return_X_y=True, as_frame=True)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)

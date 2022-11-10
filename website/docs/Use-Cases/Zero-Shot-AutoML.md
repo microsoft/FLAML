@@ -1,6 +1,6 @@
 # Zero Shot AutoML
 
-`flaml.default` is a package for zero-shot AutoML, or "no-tuning" AutoML. It uses [`flaml.AutoML`](../reference/automl/automl#automl-objects) and [`flaml.default.portfolio`](../reference/automl/default/portfolio) to mine good hyperparameter configurations across different datasets offline, and recommend data-dependent default configurations at runtime without expensive tuning.
+`flaml.default` is a package for zero-shot AutoML, or "no-tuning" AutoML. It uses [`flaml.AutoML`](../reference/automl/automl#automl-objects) and [`flaml.default.portfolio`](../reference/default/portfolio) to mine good hyperparameter configurations across different datasets offline, and recommend data-dependent default configurations at runtime without expensive tuning.
 
 Zero-shot AutoML has several benefits:
 * The computation cost is just training one model. No tuning is involved.
@@ -25,7 +25,7 @@ estimator.predict(X_test)
 Simply replace the first line with:
 
 ```python
-from flaml.automl.default import LGBMRegressor
+from flaml.default import LGBMRegressor
 ```
 
 All the other code remains the same. And you are expected to get a equal or better model in most cases.
@@ -47,7 +47,7 @@ The recommendation of which configuration should be used is based on offline Aut
 Yes. You can use `suggest_hyperparams()` to find the suggested configuration. For example,
 
 ```python
-from flaml.automl.default import LGBMRegressor
+from flaml.default import LGBMRegressor
 
 estimator = LGBMRegressor()
 hyperparams, estimator_name, X_transformed, y_transformed = estimator.suggest_hyperparams(X_train, y_train)
@@ -57,7 +57,7 @@ print(hyperparams)
 If you would like more control over the training, use an equivalent, open-box way for zero-shot AutoML. For example,
 
 ```python
-from flaml.automl.default import preprocess_and_suggest_hyperparams
+from flaml.default import preprocess_and_suggest_hyperparams
 
 X, y = load_iris(return_X_y=True, as_frame=True)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
@@ -236,11 +236,11 @@ Change "binary" into "multiclass" or "regression", or your own types in your "re
 
 You have now effectively built your own zero-shot AutoML solution. Congratulations!
 
-Optionally, you can "flamlize" a learner using [`flaml.default.flamlize_estimator`](../reference/automl/default/estimator#flamlize_estimator) for easy dissemination. For example,
+Optionally, you can "flamlize" a learner using [`flaml.default.flamlize_estimator`](../reference/default/estimator#flamlize_estimator) for easy dissemination. For example,
 
 ```python
 import sklearn.ensemble as ensemble
-from flaml.automl.default import flamlize_estimator
+from flaml.default import flamlize_estimator
 
 ExtraTreesClassifier = flamlize_estimator(
     ensemble.ExtraTreesClassifier, "extra_tree", "classification"
