@@ -7,54 +7,21 @@ from scipy.sparse import vstack, issparse
 import pandas as pd
 from pandas import DataFrame, Series
 
+from flaml.automl.task import (
+    CLASSIFICATION,
+    NLG_TASKS,
+    TOKENCLASSIFICATION,
+    TS_FORECAST,
+    TS_FORECASTPANEL,
+    _is_nlp_task,
+)
 from flaml.automl.training_log import training_log_reader
 
 from datetime import datetime
 from typing import Union
 
-# TODO: if your task is not specified in here, define your task as an all-capitalized word
-SEQCLASSIFICATION = "seq-classification"
-MULTICHOICECLASSIFICATION = "multichoice-classification"
-TOKENCLASSIFICATION = "token-classification"
-CLASSIFICATION = (
-    "binary",
-    "multiclass",
-    "classification",
-    SEQCLASSIFICATION,
-    MULTICHOICECLASSIFICATION,
-    TOKENCLASSIFICATION,
-)
-SEQREGRESSION = "seq-regression"
-REGRESSION = ("regression", SEQREGRESSION)
-TS_FORECASTREGRESSION = (
-    "forecast",
-    "ts_forecast",
-    "ts_forecast_regression",
-)
-TS_FORECASTCLASSIFICATION = "ts_forecast_classification"
-TS_FORECASTPANEL = "ts_forecast_panel"
-TS_FORECAST = (
-    *TS_FORECASTREGRESSION,
-    TS_FORECASTCLASSIFICATION,
-    TS_FORECASTPANEL,
-)
 TS_TIMESTAMP_COL = "ds"
 TS_VALUE_COL = "y"
-SUMMARIZATION = "summarization"
-NLG_TASKS = (SUMMARIZATION,)
-NLU_TASKS = (
-    SEQREGRESSION,
-    SEQCLASSIFICATION,
-    MULTICHOICECLASSIFICATION,
-    TOKENCLASSIFICATION,
-)
-
-
-def _is_nlp_task(task):
-    if task in NLU_TASKS or task in NLG_TASKS:
-        return True
-    else:
-        return False
 
 
 def load_openml_dataset(
