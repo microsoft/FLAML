@@ -7,14 +7,7 @@ from scipy.sparse import vstack, issparse
 import pandas as pd
 from pandas import DataFrame, Series
 
-from flaml.automl.task import (
-    CLASSIFICATION,
-    NLG_TASKS,
-    TOKENCLASSIFICATION,
-    TS_FORECAST,
-    TS_FORECASTPANEL,
-    _is_nlp_task,
-)
+from flaml.automl.task import Task
 from flaml.automl.training_log import training_log_reader
 
 from datetime import datetime
@@ -240,20 +233,19 @@ def add_time_idx_col(X):
 class DataTransformer:
     """Transform input training data."""
 
-    def fit_transform(self, X: Union[DataFrame, np.array], y, task):
+    def fit_transform(self, X: Union[DataFrame, np.ndarray], y, task: Task):
         """Fit transformer and process the input training data according to the task type.
 
         Args:
             X: A numpy array or a pandas dataframe of training data.
             y: A numpy array or a pandas series of labels.
-            task: A string of the task type, e.g.,
-                'classification', 'regression', 'ts_forecast', 'rank'.
+            task: An instance of type Task
 
         Returns:
             X: Processed numpy array or pandas dataframe of training data.
             y: Processed numpy array or pandas series of labels.
         """
-        if _is_nlp_task(task):
+        if task.is_nlp():
             # if the mode is NLP, check the type of input, each column must be either string or
             # ids (input ids, token type id, attention mask, etc.)
             str_columns = []
@@ -268,9 +260,9 @@ class DataTransformer:
             n = X.shape[0]
             cat_columns, num_columns, datetime_columns = [], [], []
             drop = False
-            if task in TS_FORECAST:
+            if task.is_ts_forecast():
                 X = X.rename(columns={X.columns[0]: TS_TIMESTAMP_COL})
-                if task is TS_FORECASTPANEL:
+                if task.is_ts_forecastpanel():
                     if "time_idx" not in X:
                         X = add_time_idx_col(X)
                 ds_col = X.pop(TS_TIMESTAMP_COL)
@@ -328,7 +320,7 @@ class DataTransformer:
                     X[column] = X[column].fillna(np.nan)
                     num_columns.append(column)
             X = X[cat_columns + num_columns]
-            if task in TS_FORECAST:
+            if task.is_ts_forecast():
                 X.insert(0, TS_TIMESTAMP_COL, ds_col)
             if cat_columns:
                 X[cat_columns] = X[cat_columns].astype("category")
@@ -363,11 +355,11 @@ class DataTransformer:
             )
             self._drop = drop
         if (
-            task in CLASSIFICATION
+            task.is_classification()
             or not pd.api.types.is_numeric_dtype(y)
-            and task not in NLG_TASKS
+            and not task.is_nlg()
         ):
-            if task != TOKENCLASSIFICATION:
+            if not task.is_token_classification():
                 from sklearn.preprocessing import LabelEncoder
 
                 self.label_transformer = LabelEncoder()
@@ -393,7 +385,7 @@ class DataTransformer:
         """
         X = X.copy()
 
-        if _is_nlp_task(self._task):
+        if self._task.is_nlp():
             # if the mode is NLP, check the type of input, each column must be either string or
             # ids (input ids, token type id, attention mask, etc.)
             if len(self._str_columns) > 0:
@@ -404,7 +396,7 @@ class DataTransformer:
                 self._num_columns,
                 self._datetime_columns,
             )
-            if self._task in TS_FORECAST:
+            if self._task.is_ts_forecast():
                 X = X.rename(columns={X.columns[0]: TS_TIMESTAMP_COL})
                 ds_col = X.pop(TS_TIMESTAMP_COL)
             for column in datetime_columns:
@@ -426,7 +418,7 @@ class DataTransformer:
                 X[column] = X[column].map(datetime.toordinal)
                 del tmp_dt
             X = X[cat_columns + num_columns].copy()
-            if self._task in TS_FORECAST:
+            if self._task.is_ts_forecast():
                 X.insert(0, TS_TIMESTAMP_COL, ds_col)
             for column in cat_columns:
                 if X[column].dtype.name == "object":

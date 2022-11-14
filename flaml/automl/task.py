@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Tuple, Union, Optional
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -47,13 +47,6 @@ NLU_TASKS = (
 NLP_TASKS = (*NLG_TASKS, *NLU_TASKS)
 
 
-def _is_nlp_task(task):
-    if task in NLU_TASKS or task in NLG_TASKS:
-        return True
-    else:
-        return False
-
-
 def get_classification_objective(num_labels: int) -> str:
     if num_labels == 2:
         objective_name = "binary"
@@ -68,8 +61,8 @@ class Task(ABC):
     def __init__(
         self,
         task_name: str,
-        X_train: Union[np.ndarray, pd.DataFrame],
-        y_train: Union[np.ndarray, pd.DataFrame, pd.Series],
+        X_train: Optional[Union[np.ndarray, pd.DataFrame]],
+        y_train: Optional[Union[np.ndarray, pd.DataFrame, pd.Series]],
     ):
         self.name = task_name
         if X_train is not None:
@@ -93,6 +86,7 @@ class Task(ABC):
     ) -> Tuple[float, float, float, float]:
         pass
 
+    # TODO Remove private marker
     @staticmethod
     @abstractmethod
     def _validate_data(
@@ -111,7 +105,7 @@ class Task(ABC):
         pass
 
     @abstractmethod
-    def _prepare_data(
+    def prepare_data(
         self,
         automl,
         eval_method,
@@ -121,8 +115,22 @@ class Task(ABC):
     ):
         pass
 
+    @abstractmethod
+    def decide_split_type(
+        self, split_type, y_train_all, fit_kwargs, groups=None
+    ) -> str:
+        pass
+
+    # TODO Remove private marker
+    @abstractmethod
+    def preprocess(self, X):
+        pass
+
     def is_ts_forecast(self):
         return self.name in TS_FORECAST
+
+    def is_ts_forecastpanel(self):
+        return self.name in TS_FORECASTPANEL
 
     def is_nlp(self):
         return self.name in NLP_TASKS
@@ -151,29 +159,16 @@ class Task(ABC):
     def is_summarization(self):
         return self.name in SUMMARIZATION
 
-    def default_estimator_list(self):
-        if self.is_rank():
-            estimator_list = ["lgbm", "xgboost", "xgb_limitdepth"]
-        elif self.is_nlp():
-            estimator_list = ["transformer"]
-        else:
-            estimator_list = [
-                "lgbm",
-                "rf",
-                "xgboost",
-                "extra_tree",
-                "xgb_limitdepth",
-            ]
+    def is_multiclass(self):
+        return "multiclass" in self.name
 
-            try:
-                import catboost
+    @abstractmethod
+    def default_estimator_list(self) -> List[str]:
+        pass
 
-                estimator_list += ["catboost"]
-
-            except ImportError:
-                pass
-
-        return estimator_list
+    @abstractmethod
+    def default_metric(self) -> str:
+        pass
 
     def __eq__(self, other):
         """For backward compatibility with all the string comparisons to task"""

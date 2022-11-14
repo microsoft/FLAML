@@ -481,108 +481,6 @@ def default_cv_score_agg_func(val_loss_folds, log_metrics_folds):
     return metric_to_minimize, metrics_to_log
 
 
-def evaluate_model_CV(
-    config,
-    estimator,
-    X_train_all,
-    y_train_all,
-    budget,
-    kf,
-    task,
-    eval_metric,
-    best_val_loss,
-    cv_score_agg_func=None,
-    log_training_metric=False,
-    fit_kwargs={},
-):
-    if cv_score_agg_func is None:
-        cv_score_agg_func = default_cv_score_agg_func
-    start_time = time.time()
-    val_loss_folds = []
-    log_metric_folds = []
-    metric = None
-    train_time = pred_time = 0
-    total_fold_num = 0
-    n = kf.get_n_splits()
-    X_train_split, y_train_split = X_train_all, y_train_all
-    if task in CLASSIFICATION:
-        labels = np.unique(y_train_all)
-    else:
-        labels = fit_kwargs.get(
-            "label_list"
-        )  # pass the label list on to compute the evaluation metric
-    groups = None
-    shuffle = getattr(kf, "shuffle", task not in TS_FORECAST)
-    if isinstance(kf, RepeatedStratifiedKFold):
-        kf = kf.split(X_train_split, y_train_split)
-    elif isinstance(kf, GroupKFold):
-        groups = kf.groups
-        kf = kf.split(X_train_split, y_train_split, groups)
-        shuffle = False
-    elif isinstance(kf, TimeSeriesSplit):
-        kf = kf.split(X_train_split, y_train_split)
-    else:
-        kf = kf.split(X_train_split)
-    rng = np.random.RandomState(2020)
-    budget_per_train = budget / n
-    if "sample_weight" in fit_kwargs:
-        weight = fit_kwargs["sample_weight"]
-        weight_val = None
-    else:
-        weight = weight_val = None
-    for train_index, val_index in kf:
-        if shuffle:
-            train_index = rng.permutation(train_index)
-        if isinstance(X_train_all, pd.DataFrame):
-            X_train = X_train_split.iloc[train_index]
-            X_val = X_train_split.iloc[val_index]
-        else:
-            X_train, X_val = X_train_split[train_index], X_train_split[val_index]
-        y_train, y_val = y_train_split[train_index], y_train_split[val_index]
-        estimator.cleanup()
-        if weight is not None:
-            fit_kwargs["sample_weight"], weight_val = (
-                weight[train_index],
-                weight[val_index],
-            )
-        if groups is not None:
-            fit_kwargs["groups"] = groups[train_index]
-            groups_val = groups[val_index]
-        else:
-            groups_val = None
-        val_loss_i, metric_i, train_time_i, pred_time_i = get_val_loss(
-            config,
-            estimator,
-            X_train,
-            y_train,
-            X_val,
-            y_val,
-            weight_val,
-            groups_val,
-            eval_metric,
-            task,
-            labels,
-            budget_per_train,
-            log_training_metric=log_training_metric,
-            fit_kwargs=fit_kwargs,
-        )
-        if isinstance(metric_i, dict) and "intermediate_results" in metric_i.keys():
-            del metric_i["intermediate_results"]
-        if weight is not None:
-            fit_kwargs["sample_weight"] = weight
-        total_fold_num += 1
-        val_loss_folds.append(val_loss_i)
-        log_metric_folds.append(metric_i)
-        train_time += train_time_i
-        pred_time += pred_time_i
-        if time.time() - start_time >= budget:
-            break
-    val_loss, metric = cv_score_agg_func(val_loss_folds, log_metric_folds)
-    n = total_fold_num
-    pred_time /= n
-    return val_loss, metric, train_time, pred_time
-
-
 def compute_estimator(
     X_train,
     y_train,
@@ -637,7 +535,7 @@ def compute_estimator(
             fit_kwargs=fit_kwargs,
         )
     else:
-        val_loss, metric_for_logging, train_time, pred_time = evaluate_model_CV(
+        val_loss, metric_for_logging, train_time, pred_time = task.evaluate_model_CV(
             config_dic,
             estimator,
             X_train,
@@ -686,14 +584,6 @@ def train_estimator(
         estimator = estimator.estimator_class(**estimator.params)
     train_time = time.time() - start_time
     return estimator, train_time
-
-
-def get_classification_objective(num_labels: int) -> str:
-    if num_labels == 2:
-        objective_name = "binary"
-    else:
-        objective_name = "multiclass"
-    return objective_name
 
 
 def norm_confusion_matrix(y_true, y_pred):
