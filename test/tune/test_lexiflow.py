@@ -158,7 +158,7 @@ def test_lexiflow():
     print(analysis.best_result)
 
 
-def test_lexiflow_BraninCurrin():
+def test_lexiflow_performance():
     lexico_objectives = {}
     lexico_objectives["metrics"] = ["brain", "currin"]
     lexico_objectives["tolerances"] = {"brain": 10.0, "currin": 0.0}
@@ -189,4 +189,4 @@ def test_lexiflow_BraninCurrin():
 
 if __name__ == "__main__":
     test_lexiflow()
-    test_lexiflow_BraninCurrin()
+    test_lexiflow_performance()
