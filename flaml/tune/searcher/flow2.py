@@ -364,8 +364,8 @@ class FLOW2(Searcher):
         for k_metric in self.lexico_objectives["metrics"]:
             k_values = np.array(self._histories[k_metric])
             self._f_best[k_metric] = np.min(k_values.take(feasible_index))
-            feasible_index_prior = np.where(
-                k_values
+            feasible_index_filter = np.where(
+                k_values.take(feasible_index)
                 <= max(
                     [
                         self._f_best[k_metric]
@@ -374,9 +374,7 @@ class FLOW2(Searcher):
                     ]
                 )
             )[0].tolist()
-            feasible_index = [
-                val for val in feasible_index if val in feasible_index_prior
-            ]
+            feasible_index = np.array(feasible_index).take(feasible_index_filter)
 
     def lexico_compare(self, result) -> bool:
         if self._histories is None:
