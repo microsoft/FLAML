@@ -14,7 +14,7 @@
     <br>
 </p>
 
-:fire: **Update (2022/08): We will give a [hands-on tutorial on FLAML at KDD 2022](https://github.com/microsoft/FLAML/tree/tutorial/tutorial) on 08/16/2022.**
+:fire: **Here is a link to a hands-on FLAML tutorial on KDD: https://github.com/microsoft/FLAML/tree/tutorial/tutorial**
 
 ## What is FLAML
 FLAML is a lightweight Python library that finds accurate machine
