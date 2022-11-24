@@ -40,7 +40,7 @@ setuptools.setup(
     install_requires=install_requires,
     extras_require={
         "notebook": [
-            "openml==0.10.2",
+            "openml",
             "jupyter",
             "matplotlib",
             "rgf-python",
