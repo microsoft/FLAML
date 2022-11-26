@@ -11,8 +11,8 @@ from utils import (
 
 
 @pytest.mark.skipif(
-    sys.platform == "darwin" or sys.version < "3.7",
-    reason="do not run on mac os or py<3.7",
+    sys.platform in ["darwin", "win32"] or sys.version < "3.7",
+    reason="do not run on mac os, windows or py<3.7",
 )
 def test_tokenclassification_idlabel():
     from flaml import AutoML
