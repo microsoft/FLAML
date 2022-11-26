@@ -3,6 +3,7 @@ import sys
 from flaml.default import portfolio
 import os
 import shutil
+import pytest
 
 
 def pop_args(fit_kwargs):
@@ -18,6 +19,7 @@ def test_build_portfolio(path="./test/nlp/default", strategy="greedy"):
     portfolio.main()
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="do not run on windows")
 def test_starting_point_not_in_search_space():
     from flaml import AutoML
 
