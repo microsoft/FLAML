@@ -124,4 +124,4 @@ contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additio
 
 ## Announcement
 
-This is the upcoming AAAI tutorial link [Link](https://github.com/microsoft/FLAML/tree/tutorial-aaai23/tutorial)
+This is the upcoming AAAI-23 tutorial link [Link](https://github.com/microsoft/FLAML/tree/tutorial-aaai23/tutorial)
