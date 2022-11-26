@@ -1,6 +1,7 @@
 import sys
 from openml.exceptions import OpenMLServerException
 from requests.exceptions import ChunkedEncodingError, SSLError
+import pytest
 
 
 def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
@@ -107,6 +108,10 @@ def _test_nobudget():
     test_automl(-1)
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32" and "3.10" in sys.version,
+    reason="do not run on windows python 3.10",
+)
 def test_mlflow():
     import subprocess
     import sys
@@ -154,6 +159,10 @@ def test_mlflow():
         pass
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32" and "3.10" in sys.version,
+    reason="do not run on windows python 3.10",
+)
 def test_mlflow_iris():
     from sklearn.datasets import load_iris
     import mlflow
