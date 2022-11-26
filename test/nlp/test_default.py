@@ -92,6 +92,7 @@ def test_starting_point_not_in_search_space():
             print("PermissionError when deleting test/data/output/")
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="do not run on windows")
 def test_points_to_evaluate():
     from flaml import AutoML
 
@@ -118,6 +119,7 @@ def test_points_to_evaluate():
 
 
 # TODO: implement _test_zero_shot_model
+@pytest.mark.skipif(sys.platform == "win32", reason="do not run on windows")
 def test_zero_shot_nomodel():
     from flaml.default import preprocess_and_suggest_hyperparams
 
