@@ -152,9 +152,12 @@ def test_mlflow():
         print(automl.predict_proba(X_test))
     except ImportError:
         pass
-    # subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "mlflow"])
 
+
+def test_mlflow_iris():
     from sklearn.datasets import load_iris
+    import mlflow
+    from flaml import AutoML
 
     with mlflow.start_run():
         automl = AutoML()
@@ -166,6 +169,8 @@ def test_mlflow():
         }
         X_train, y_train = load_iris(return_X_y=True)
         automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
+
+    # subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "mlflow"])
 
 
 if __name__ == "__main__":
