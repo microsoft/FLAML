@@ -112,7 +112,10 @@ def test_tokenclassification_tokenlabel():
                     assert val_loss == min_inter_result
 
     if os.path.exists("test/data/output/"):
-        shutil.rmtree("test/data/output/")
+        try:
+            shutil.rmtree("test/data/output/")
+        except PermissionError:
+            print("PermissionError when deleting test/data/output/")
 
 
 if __name__ == "__main__":

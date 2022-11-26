@@ -21,7 +21,6 @@ model_path_list = [
 ]
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="do not run on windows")
 def test_switch_1_1():
     data_idx, model_path_idx = 0, 0
     _test_switch_classificationhead(
@@ -29,7 +28,6 @@ def test_switch_1_1():
     )
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="do not run on windows")
 def test_switch_1_2():
     data_idx, model_path_idx = 0, 1
     _test_switch_classificationhead(
@@ -37,7 +35,6 @@ def test_switch_1_2():
     )
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="do not run on windows")
 def test_switch_1_3():
     data_idx, model_path_idx = 0, 2
     _test_switch_classificationhead(
@@ -45,7 +42,6 @@ def test_switch_1_3():
     )
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="do not run on windows")
 def test_switch_2_1():
     data_idx, model_path_idx = 1, 0
     _test_switch_classificationhead(
@@ -53,7 +49,6 @@ def test_switch_2_1():
     )
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="do not run on windows")
 def test_switch_2_2():
     data_idx, model_path_idx = 1, 1
     _test_switch_classificationhead(
@@ -61,7 +56,6 @@ def test_switch_2_2():
     )
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="do not run on windows")
 def test_switch_2_3():
     data_idx, model_path_idx = 1, 2
     _test_switch_classificationhead(
@@ -69,7 +63,6 @@ def test_switch_2_3():
     )
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="do not run on windows")
 def test_switch_3_1():
     data_idx, model_path_idx = 2, 0
     _test_switch_classificationhead(
@@ -77,7 +70,6 @@ def test_switch_3_1():
     )
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="do not run on windows")
 def test_switch_3_2():
     data_idx, model_path_idx = 2, 1
     _test_switch_classificationhead(
@@ -85,7 +77,6 @@ def test_switch_3_2():
     )
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="do not run on windows")
 def test_switch_3_3():
     data_idx, model_path_idx = 2, 2
     _test_switch_classificationhead(
@@ -122,7 +113,10 @@ def _test_switch_classificationhead(each_data, each_model_path):
         return
 
     if os.path.exists("test/data/output/"):
-        shutil.rmtree("test/data/output/")
+        try:
+            shutil.rmtree("test/data/output/")
+        except PermissionError:
+            print("PermissionError when deleting test/data/output/")
 
 
 if __name__ == "__main__":
