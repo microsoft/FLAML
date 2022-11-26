@@ -5,7 +5,9 @@ import os
 import shutil
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
+@pytest.mark.skipif(
+    sys.platform in ["darwin", "win32"], reason="do not run on mac os or windows"
+)
 def test_mcc():
     from flaml import AutoML
     import requests
