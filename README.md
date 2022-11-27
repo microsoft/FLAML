@@ -123,5 +123,3 @@ For more information see the [Code of Conduct FAQ](https://opensource.microsoft.
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
 ## Announcement
-
-This is the upcoming AAAI-23 tutorial link [Link](https://github.com/microsoft/FLAML/tree/tutorial-aaai23/tutorial)
