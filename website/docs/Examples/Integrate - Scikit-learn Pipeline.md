@@ -40,7 +40,7 @@ automl_pipeline
 ```python
 automl_settings = {
     "time_budget": 60,  # total running time in seconds
-    "metric": "accuracy",  # primary metrics can be chosen from: ['accuracy','roc_auc','roc_auc_weighted', 'roc_auc_ovr', 'roc_auc_ovo', 'f1','log_loss','mae','mse','r2']
+    "metric": "accuracy",  # primary metrics can be chosen from: ['accuracy', 'roc_auc', 'roc_auc_weighted', 'roc_auc_ovr', 'roc_auc_ovo', 'f1', 'log_loss', 'mae', 'mse', 'r2']
     "task": "classification",  # task type
     "estimator_list": ["xgboost", "catboost", "lgbm"],
     "log_file_name": "airlines_experiment.log",  # flaml log file
