@@ -498,7 +498,7 @@ class AutoML(BaseEstimator):
 
         Args:
             metric: A string of the metric name or a function,
-                e.g., 'accuracy', 'roc_auc', 'roc_auc_ovr', 'roc_auc_ovo','roc_auc_weighted',
+                e.g., 'accuracy', 'roc_auc', 'roc_auc_ovr', 'roc_auc_ovo', 'roc_auc_weighted',
                 'roc_auc_ovo_weighted', 'roc_auc_ovr_weighted', 'f1', 'micro_f1', 'macro_f1',
                 'log_loss', 'mae', 'mse', 'r2', 'mape'. Default is 'auto'.
                 If passing a customized metric function, the function needs to
