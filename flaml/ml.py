@@ -242,7 +242,8 @@ def sklearn_metric_loss_score(
     Args:
         metric_name: A string of the metric name, one of
             'r2', 'rmse', 'mae', 'mse', 'accuracy', 'roc_auc', 'roc_auc_ovr',
-            'roc_auc_ovo','roc_auc_weighted','roc_auc_ovo_weighted','roc_auc_ovr_weighted',
+            'roc_auc_ovo', 'roc_auc_weighted', 'roc_auc_ovo_weighted', 'roc_auc_ovr_weighted',
+
             'log_loss', 'mape', 'f1', 'ap', 'ndcg','micro_f1', 'macro_f1'.
         y_predict: A 1d or 2d numpy array of the predictions which can be
             used to calculate the metric. E.g., 2d for log_loss and 1d
