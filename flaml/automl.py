@@ -98,8 +98,10 @@ class SearchState:
                 and renamed_type is float
             )
             if not (type_match and domain_one_dim.is_valid(value_one_dim)):
+                logger.error("Starting_points is not provided in the right format")
                 return False
         elif value_one_dim != domain_one_dim:
+            logger.error("Starting_points is not provided in the right format")
             return False
         return True
 
@@ -3396,6 +3398,13 @@ class AutoML(BaseEstimator):
                     state.best_config,
                     self.data_size_full,
                 )
+
+                if(self._trained_estimator.params[self._trained_estimaotr.ITER_HP]!=self.best_config[self._trained_estimaotr.ITER_HP]):
+                    logger.warning(
+                        "early stopping happened"
+                    )
+
+
                 logger.info(
                     "retrain {} for {:.1f}s".format(self._best_estimator, retrain_time)
                 )
