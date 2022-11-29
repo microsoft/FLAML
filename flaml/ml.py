@@ -52,6 +52,7 @@ sklearn_metric_name_set = {
     "mse",
     "accuracy",
     "roc_auc",
+    "roc_auc_weighted",
     "roc_auc_ovr",
     "roc_auc_ovo",
     "log_loss",
@@ -192,7 +193,7 @@ def metric_loss_score(
                 metric_name
                 + " is not an built-in sklearn metric and nlp is not installed. "
                 "Currently built-in sklearn metrics are: "
-                "r2, rmse, mae, mse, accuracy, roc_auc, roc_auc_ovr, roc_auc_ovo,"
+                "r2, rmse, mae, mse, accuracy, roc_auc, roc_auc_weighted, roc_auc_ovr, roc_auc_ovo,"
                 "log_loss, mape, f1, micro_f1, macro_f1, ap. "
                 "If the metric is an nlp metric, please pip install flaml[nlp] ",
                 "or pass a customized metric function to AutoML.fit(metric=func)",
@@ -203,7 +204,7 @@ def metric_loss_score(
             raise ValueError(
                 metric_name + " is neither an sklearn metric nor a huggingface metric. "
                 "Currently built-in sklearn metrics are: "
-                "r2, rmse, mae, mse, accuracy, roc_auc, roc_auc_ovr, roc_auc_ovo,"
+                "r2, rmse, mae, mse, accuracy, roc_auc, roc_auc_weighted, roc_auc_ovr, roc_auc_ovo,"
                 "log_loss, mape, f1, micro_f1, macro_f1, ap. "
                 "Currently built-in huggingface metrics are: "
                 + ", ".join(huggingface_metric_to_mode.keys())
@@ -268,6 +269,8 @@ def sklearn_metric_loss_score(
         score = 1.0 - accuracy_score(y_true, y_predict, sample_weight=sample_weight)
     elif metric_name == "roc_auc":
         score = 1.0 - roc_auc_score(y_true, y_predict, sample_weight=sample_weight)
+    elif metric_name == "roc_auc_weighted":
+        score = 1.0 - roc_auc_score(y_true, y_predict, average=weighted, sample_weight=sample_weight)
     elif metric_name == "roc_auc_ovr":
         score = 1.0 - roc_auc_score(
             y_true, y_predict, sample_weight=sample_weight, multi_class="ovr"
@@ -318,10 +321,10 @@ def sklearn_metric_loss_score(
 
 
 def get_y_pred(estimator, X, eval_metric, obj):
-    if eval_metric in ["roc_auc", "ap"] and "binary" in obj:
+    if eval_metric in ["roc_auc", "roc_auc_weighted", "ap"] and "binary" in obj:
         y_pred_classes = estimator.predict_proba(X)
         y_pred = y_pred_classes[:, 1] if y_pred_classes.ndim > 1 else y_pred_classes
-    elif eval_metric in ["log_loss", "roc_auc", "roc_auc_ovr", "roc_auc_ovo"]:
+    elif eval_metric in ["log_loss", "roc_auc", "roc_auc_weighted", "roc_auc_ovr", "roc_auc_ovo"]:
         y_pred = estimator.predict_proba(X)
     else:
         y_pred = estimator.predict(X)

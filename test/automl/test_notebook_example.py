@@ -75,6 +75,9 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     print(
         "roc_auc", "=", 1 - sklearn_metric_loss_score("roc_auc", y_pred_proba, y_test)
     )
+    print(
+        "roc_auc_weighted", "=", 1 - sklearn_metric_loss_score("roc_auc_weighted", y_pred_proba, y_test)
+    )
     print("log_loss", "=", sklearn_metric_loss_score("log_loss", y_pred_proba, y_test))
     if budget is None:
         assert accuracy >= 0.669, "the accuracy of flaml should be larger than 0.67"
@@ -108,7 +111,10 @@ def _test_nobudget():
 
 
 def test_mlflow():
-    # subprocess.check_call([sys.executable, "-m", "pip", "install", "mlflow"])
+    import subprocess
+    import sys
+
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "mlflow"])
     import mlflow
     from flaml.data import load_openml_task
 
@@ -149,12 +155,9 @@ def test_mlflow():
         print(automl.predict_proba(X_test))
     except ImportError:
         pass
+    # subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "mlflow"])
 
-
-def test_mlflow_iris():
     from sklearn.datasets import load_iris
-    import mlflow
-    from flaml import AutoML
 
     with mlflow.start_run():
         automl = AutoML()
@@ -166,8 +169,6 @@ def test_mlflow_iris():
         }
         X_train, y_train = load_iris(return_X_y=True)
         automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
-
-    # subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "mlflow"])
 
 
 if __name__ == "__main__":
