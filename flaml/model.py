@@ -213,19 +213,19 @@ class BaseEstimator:
             train_time: A float of the training time in seconds.
         """
         if (
-                getattr(self, "limit_resource", None)
-                and resource is not None
-                and (budget is not None or psutil is not None)
+            getattr(self, "limit_resource", None)
+            and resource is not None
+            and (budget is not None or psutil is not None)
         ):
             start_time = time.time()
             mem = psutil.virtual_memory() if psutil is not None else None
             try:
                 with limit_resource(
-                        mem.available * (1 - FREE_MEM_RATIO)
-                        + psutil.Process(os.getpid()).memory_info().rss
-                        if mem is not None
-                        else -1,
-                        budget,
+                    mem.available * (1 - FREE_MEM_RATIO)
+                    + psutil.Process(os.getpid()).memory_info().rss
+                    if mem is not None
+                    else -1,
+                    budget,
                 ):
                     train_time = self._fit(X_train, y_train, **kwargs)
             except (MemoryError, TimeoutError) as e:
@@ -488,8 +488,8 @@ class TransformersEstimator(BaseEstimator):
         self._training_args.no_cuda = self.no_cuda
 
         if (
-                self._task == TOKENCLASSIFICATION
-                and self._training_args.max_seq_length is not None
+            self._task == TOKENCLASSIFICATION
+            and self._training_args.max_seq_length is not None
         ):
             logger.warning(
                 "For token classification task, FLAML currently does not support customizing the max_seq_length, max_seq_length will be reset to None."
@@ -583,8 +583,8 @@ class TransformersEstimator(BaseEstimator):
 
             for key in list(kwargs.keys()):
                 if (
-                        key not in data_collator_class.__dict__.keys()
-                        and key != "tokenizer"
+                    key not in data_collator_class.__dict__.keys()
+                    and key != "tokenizer"
                 ):
                     del kwargs[key]
             return data_collator_class(**kwargs)
@@ -592,15 +592,15 @@ class TransformersEstimator(BaseEstimator):
             return None
 
     def fit(
-            self,
-            X_train: DataFrame,
-            y_train: Series,
-            budget=None,
-            X_val=None,
-            y_val=None,
-            gpu_per_trial=None,
-            metric=None,
-            **kwargs,
+        self,
+        X_train: DataFrame,
+        y_train: Series,
+        budget=None,
+        X_val=None,
+        y_val=None,
+        gpu_per_trial=None,
+        metric=None,
+        **kwargs,
     ):
         import transformers
 
@@ -623,7 +623,7 @@ class TransformersEstimator(BaseEstimator):
         self._X_train, self._y_train = X_train, y_train
         self._set_training_args(**kwargs)
         self._add_prefix_space = (
-                "roberta" in self._training_args.model_path
+            "roberta" in self._training_args.model_path
         )  # If using roberta model, must set add_prefix_space to True to avoid the assertion error at
         # https://github.com/huggingface/transformers/blob/main/src/transformers/models/roberta/tokenization_roberta_fast.py#L249
 
@@ -649,12 +649,12 @@ class TransformersEstimator(BaseEstimator):
                 if state.global_step == 1:
                     self.time_per_iter = time.time() - self.step_begin_time
                 if (
-                        budget
-                        and (
+                    budget
+                    and (
                         time.time() + self.time_per_iter
                         > self.train_begin_time + budget
-                )
-                        or state.global_step >= this_params[TransformersEstimator.ITER_HP]
+                    )
+                    or state.global_step >= this_params[TransformersEstimator.ITER_HP]
                 ):
                     control.should_training_stop = True
                     control.should_save = True
@@ -663,8 +663,8 @@ class TransformersEstimator(BaseEstimator):
 
             def on_epoch_end(self, args, state, control, **callback_kwargs):
                 if (
-                        control.should_training_stop
-                        or state.epoch + 1 >= args.num_train_epochs
+                    control.should_training_stop
+                    or state.epoch + 1 >= args.num_train_epochs
                 ):
                     control.should_save = True
                     control.should_evaluate = True
@@ -829,7 +829,7 @@ class TransformersEstimator(BaseEstimator):
                 setattr(self._training_args, key, val)
 
         assert (
-                self._task in CLASSIFICATION
+            self._task in CLASSIFICATION
         ), "predict_proba() only for classification tasks."
 
         X_test, _ = self._tokenize_text(X, **self._kwargs)
@@ -974,7 +974,7 @@ class LGBMEstimator(BaseEstimator):
                 "low_cost_init_value": 4,
             },
             "min_child_samples": {
-                "domain": tune.lograndint(lower=2, upper=2 ** 7 + 1),
+                "domain": tune.lograndint(lower=2, upper=2**7 + 1),
                 "init_value": 20,
             },
             "learning_rate": {
@@ -1040,9 +1040,9 @@ class LGBMEstimator(BaseEstimator):
 
     def _preprocess(self, X):
         if (
-                not isinstance(X, DataFrame)
-                and issparse(X)
-                and np.issubdtype(X.dtype, np.integer)
+            not isinstance(X, DataFrame)
+            and issparse(X)
+            and np.issubdtype(X.dtype, np.integer)
         ):
             X = X.astype(float)
         elif isinstance(X, np.ndarray) and X.dtype.kind not in "buif":
@@ -1062,13 +1062,13 @@ class LGBMEstimator(BaseEstimator):
         if not self.HAS_CALLBACK:
             mem0 = psutil.virtual_memory().available if psutil is not None else 1
             if (
-                    (
-                            not self._time_per_iter
-                            or abs(self._train_size - X_train.shape[0]) > 4
-                    )
-                    and budget is not None
-                    or self._mem_per_iter < 0
-                    and psutil is not None
+                (
+                    not self._time_per_iter
+                    or abs(self._train_size - X_train.shape[0]) > 4
+                )
+                and budget is not None
+                or self._mem_per_iter < 0
+                and psutil is not None
             ) and n_iter > 1:
                 self.params[self.ITER_HP] = 1
                 self._t1 = self._fit(X_train, y_train, **kwargs)
@@ -1099,9 +1099,9 @@ class LGBMEstimator(BaseEstimator):
                 )
                 self._train_size = X_train.shape[0]
                 if (
-                        budget is not None
-                        and self._t1 + self._t2 >= budget
-                        or n_iter == self.params[self.ITER_HP]
+                    budget is not None
+                    and self._t1 + self._t2 >= budget
+                    or n_iter == self.params[self.ITER_HP]
                 ):
                     # self.params[self.ITER_HP] = n_iter
                     return time.time() - start_time
@@ -1253,9 +1253,9 @@ class XGBoostEstimator(SKLearnEstimator):
         return params
 
     def __init__(
-            self,
-            task="regression",
-            **config,
+        self,
+        task="regression",
+        **config,
     ):
         super().__init__(task, **config)
         self.params["verbosity"] = 0
@@ -1358,9 +1358,9 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         return params
 
     def __init__(
-            self,
-            task="binary",
-            **config,
+        self,
+        task="binary",
+        **config,
     ):
         super().__init__(task, **config)
         del self.params["verbose"]
@@ -1462,9 +1462,9 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         return params
 
     def __init__(
-            self,
-            task="binary",
-            **params,
+        self,
+        task="binary",
+        **params,
     ):
         super().__init__(task, **params)
         self.params["verbose"] = 0
@@ -1608,9 +1608,9 @@ class CatBoostEstimator(BaseEstimator):
         return params
 
     def __init__(
-            self,
-            task="binary",
-            **config,
+        self,
+        task="binary",
+        **config,
     ):
         super().__init__(task, **config)
         self.params.update(
@@ -2349,7 +2349,7 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
         if "time_idx" not in decoder_data:
             decoder_data = add_time_idx_col(decoder_data)
         decoder_data["time_idx"] += (
-                encoder_data["time_idx"].max() + 1 - decoder_data["time_idx"].min()
+            encoder_data["time_idx"].max() + 1 - decoder_data["time_idx"].min()
         )
         # decoder_data[TS_VALUE_COL] = 0
         decoder_data = decoder_data.merge(last_data, how="inner", on=self.group_ids)
