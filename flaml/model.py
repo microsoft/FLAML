@@ -2289,7 +2289,7 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
         )
         lr_logger = LearningRateMonitor()  # log the learning rate
 
-        def _fit(logger):
+        def _fit(log):
             default_trainer_kwargs = dict(
                 gpus=kwargs.get("gpu_per_trial", [0])
                 if torch.cuda.is_available()
@@ -2297,7 +2297,7 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
                 max_epochs=max_epochs,
                 gradient_clip_val=gradient_clip_val,
                 callbacks=[lr_logger, early_stop_callback],
-                logger=logger,
+                logger=log,
             )
             trainer = pl.Trainer(
                 **default_trainer_kwargs,
@@ -2324,9 +2324,9 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
             logger = TensorBoardLogger(
                 kwargs.get("log_dir", "lightning_logs")
             )  # logging results to a tensorboard
-            trainer = _fit(logger)
-        except ValueError:
-            trainer = _fit(logger=False)
+            trainer = _fit(log=logger)
+        except:
+            trainer = _fit(log=False)
         best_model_path = trainer.checkpoint_callback.best_model_path
         best_tft = TemporalFusionTransformer.load_from_checkpoint(best_model_path)
         train_time = time.time() - current_time
