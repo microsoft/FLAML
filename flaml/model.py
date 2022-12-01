@@ -2326,6 +2326,8 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
             )  # logging results to a tensorboard
             trainer = _fit(log=logger)
         except ValueError:
+            # issue with pytorch forecasting model log_prediction() function
+            # pytorch-forecasting issue #1145
             trainer = _fit(log=False)
         best_model_path = trainer.checkpoint_callback.best_model_path
         best_tft = TemporalFusionTransformer.load_from_checkpoint(best_model_path)
