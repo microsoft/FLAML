@@ -905,18 +905,29 @@ class TransformersEstimatorModelSelection(TransformersEstimator):
             If OOM, user should change the search space themselves
         """
 
-        search_space_dict["model_path"] = {
-            "domain": tune.choice(
-                [
-                    "google/electra-base-discriminator",
-                    "bert-base-uncased",
-                    "roberta-base",
-                    "facebook/muppet-roberta-base",
-                    "google/electra-small-discriminator",
-                ]
-            ),
-            "init_value": "facebook/muppet-roberta-base",
-        }
+        if task in NLG_TASKS:
+            search_space_dict["model_path"] = {
+                "domain": tune.choice(
+                    [
+                        "t5-small",
+                        "facebook/bart-base",
+                    ]
+                ),
+                "init_value": "t5-small",
+            }
+        else:
+            search_space_dict["model_path"] = {
+                "domain": tune.choice(
+                    [
+                        "google/electra-base-discriminator",
+                        "bert-base-uncased",
+                        "roberta-base",
+                        "facebook/muppet-roberta-base",
+                        "google/electra-small-discriminator",
+                    ]
+                ),
+                "init_value": "facebook/muppet-roberta-base",
+            }
         return search_space_dict
 
 
