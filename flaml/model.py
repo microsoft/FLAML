@@ -2325,7 +2325,7 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
                 kwargs.get("log_dir", "lightning_logs")
             )  # logging results to a tensorboard
             trainer = _fit(log=logger)
-        except:
+        except ValueError:
             trainer = _fit(log=False)
         best_model_path = trainer.checkpoint_callback.best_model_path
         best_tft = TemporalFusionTransformer.load_from_checkpoint(best_model_path)
