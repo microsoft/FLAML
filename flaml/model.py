@@ -2325,7 +2325,7 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
                 kwargs.get("log_dir", "lightning_logs")
             )  # logging results to a tensorboard
             trainer = _fit(log=logger)
-        except ValueError:
+        except (ValueError, AttributeError):
             # issue with pytorch forecasting model log_prediction() function
             # pytorch-forecasting issue #1145
             trainer = _fit(log=False)
