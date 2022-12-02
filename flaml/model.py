@@ -2296,7 +2296,7 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
                 else None,
                 max_epochs=max_epochs,
                 gradient_clip_val=gradient_clip_val,
-                callbacks=[lr_logger, early_stop_callback],
+                callbacks=[lr_logger, early_stop_callback] if log else False,
                 logger=log,
             )
             trainer = pl.Trainer(
@@ -2325,7 +2325,7 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
                 kwargs.get("log_dir", "lightning_logs")
             )  # logging results to a tensorboard
             trainer = _fit(log=logger)
-        except (ValueError, AttributeError):
+        except ValueError:
             # issue with pytorch forecasting model log_prediction() function
             # pytorch-forecasting issue #1145
             trainer = _fit(log=False)
