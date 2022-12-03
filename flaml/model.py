@@ -2308,7 +2308,7 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
                 lstm_layers=2,  # 2 is mostly optimal according to documentation
                 output_size=7,  # 7 quantiles by default
                 loss=QuantileLoss(),
-                log_interval=10,
+                log_interval=10 if log else 0,
                 # uncomment for learning rate finder and otherwise, e.g. to 10 for logging every 10 batches
                 reduce_on_plateau_patience=4,
             )
