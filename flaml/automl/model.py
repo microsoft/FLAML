@@ -19,7 +19,7 @@ import shutil
 from pandas import DataFrame, Series, to_datetime
 import sys
 import math
-from . import tune
+from flaml import tune
 from flaml.automl.data import (
     group_counts,
     CLASSIFICATION,
