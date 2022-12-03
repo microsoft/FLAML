@@ -19,7 +19,7 @@ import shutil
 from pandas import DataFrame, Series, to_datetime
 import sys
 import math
-from flaml import tune
+from . import tune
 from flaml.automl.data import (
     group_counts,
     CLASSIFICATION,
@@ -302,8 +302,8 @@ class BaseEstimator:
         Returns:
             The evaluation score on the validation dataset.
         """
-        from flaml.automl.ml import metric_loss_score
-        from flaml.automl.ml import is_min_metric
+        from .ml import metric_loss_score
+        from .ml import is_min_metric
 
         if self._model is not None:
             if self._task == "rank":
@@ -397,11 +397,11 @@ class TransformersEstimator(BaseEstimator):
 
         self.trial_id = str(uuid.uuid1().hex)[:8]
         if task not in NLG_TASKS:  # TODO: not in NLG_TASKS
-            from flaml.automl.nlp.huggingface.training_args import (
+            from .nlp.huggingface.training_args import (
                 TrainingArgumentsForAuto as TrainingArguments,
             )
         else:
-            from flaml.automl.nlp.huggingface.training_args import (
+            from .nlp.huggingface.training_args import (
                 Seq2SeqTrainingArgumentsForAuto as TrainingArguments,
             )
         self._TrainingArguments = TrainingArguments
@@ -444,7 +444,7 @@ class TransformersEstimator(BaseEstimator):
         return not self._kwargs.get("gpu_per_trial")
 
     def _set_training_args(self, **kwargs):
-        from flaml.automl.nlp.utils import date_str, Counter
+        from .nlp.utils import date_str, Counter
 
         for (key, val) in kwargs.items():
             assert key not in self.params, (
@@ -497,8 +497,8 @@ class TransformersEstimator(BaseEstimator):
             setattr(self._training_args, "max_seq_length", None)
 
     def _tokenize_text(self, X, y=None, **kwargs):
-        from flaml.automl.nlp.huggingface.utils import tokenize_text
-        from flaml.automl.nlp.utils import is_a_list_of_str
+        from .nlp.huggingface.utils import tokenize_text
+        from .nlp.utils import is_a_list_of_str
 
         is_str = str(X.dtypes[0]) in ("string", "str")
         is_list_of_str = is_a_list_of_str(X[list(X.keys())[0]].to_list()[0])
@@ -515,7 +515,7 @@ class TransformersEstimator(BaseEstimator):
             return X, y
 
     def _model_init(self):
-        from flaml.automl.nlp.huggingface.utils import load_model
+        from .nlp.huggingface.utils import load_model
 
         this_model = load_model(
             checkpoint_path=self._training_args.model_path,
@@ -567,17 +567,17 @@ class TransformersEstimator(BaseEstimator):
 
     @property
     def data_collator(self):
-        from flaml.automl.nlp.huggingface.data_collator import (
-            task_to_datacollator_class,
-        )
+        from .nlp.huggingface.data_collator import task_to_datacollator_class
 
         data_collator_class = task_to_datacollator_class.get(self._task)
 
         if data_collator_class:
             kwargs = {
-                "model": self._model_init(),  # need to set model, or there's ValueError: Expected input batch_size (..) to match target batch_size (..)
+                "model": self._model_init(),
+                # need to set model, or there's ValueError: Expected input batch_size (..) to match target batch_size (..)
                 "label_pad_token_id": -100,  # pad with token id -100
-                "pad_to_multiple_of": 8,  # pad to multiple of 8 because quote Transformers: "This is especially useful to enable the use of Tensor Cores on NVIDIA hardware with compute capability >= 7.5 (Volta)"
+                "pad_to_multiple_of": 8,
+                # pad to multiple of 8 because quote Transformers: "This is especially useful to enable the use of Tensor Cores on NVIDIA hardware with compute capability >= 7.5 (Volta)"
                 "tokenizer": self.tokenizer,
             }
 
@@ -608,7 +608,7 @@ class TransformersEstimator(BaseEstimator):
 
         from transformers import TrainerCallback
         from transformers.trainer_utils import set_seed
-        from flaml.automl.nlp.huggingface.trainer import TrainerForAuto
+        from .nlp.huggingface.trainer import TrainerForAuto
 
         try:
             from ray.tune import is_session_enabled
@@ -694,7 +694,6 @@ class TransformersEstimator(BaseEstimator):
             # if gpu_per_trial == 0:
             #     os.environ["CUDA_VISIBLE_DEVICES"] = ""
             if tmp_cuda_visible_devices.count(",") != math.ceil(gpu_per_trial) - 1:
-
                 os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(
                     [str(x) for x in range(math.ceil(gpu_per_trial))]
                 )
@@ -763,10 +762,8 @@ class TransformersEstimator(BaseEstimator):
     def _compute_metrics_by_dataset_name(self, eval_pred):
         # TODO: call self._metric(eval_pred, self)
         if isinstance(self._metric, str):
-            from flaml.automl.ml import metric_loss_score
-            from flaml.automl.nlp.huggingface.utils import (
-                postprocess_prediction_and_true,
-            )
+            from .ml import metric_loss_score
+            from .nlp.huggingface.utils import postprocess_prediction_and_true
 
             predictions, y_true = eval_pred
             # postprocess the matrix prediction and ground truth into user readable format, e.g., for summarization, decode into text
@@ -800,7 +797,7 @@ class TransformersEstimator(BaseEstimator):
         return metric_dict
 
     def _init_model_for_predict(self):
-        from flaml.automl.nlp.huggingface.trainer import TrainerForAuto
+        from .nlp.huggingface.trainer import TrainerForAuto
 
         """
             Need to reinit training_args because of a bug in deepspeed: if not reinit, the deepspeed config will be inconsistent
@@ -857,7 +854,7 @@ class TransformersEstimator(BaseEstimator):
     def predict(self, X, **pred_kwargs):
         import transformers
         from datasets import Dataset
-        from flaml.automl.nlp.huggingface.utils import postprocess_prediction_and_true
+        from .nlp.huggingface.utils import postprocess_prediction_and_true
 
         transformers.logging.set_verbosity_error()
 
@@ -1832,7 +1829,7 @@ class Prophet(SKLearnEstimator):
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         from sklearn.metrics import r2_score
-        from flaml.automl.ml import metric_loss_score
+        from .ml import metric_loss_score
 
         y_pred = self.predict(X_val, **kwargs)
         self._metric = kwargs.get("metric", None)
@@ -2291,36 +2288,47 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
             monitor="val_loss", min_delta=1e-4, patience=10, verbose=False, mode="min"
         )
         lr_logger = LearningRateMonitor()  # log the learning rate
-        logger = TensorBoardLogger(
-            kwargs.get("log_dir", "lightning_logs")
-        )  # logging results to a tensorboard
-        default_trainer_kwargs = dict(
-            gpus=kwargs.get("gpu_per_trial", [0])
-            if torch.cuda.is_available()
-            else None,
-            max_epochs=max_epochs,
-            gradient_clip_val=gradient_clip_val,
-            callbacks=[lr_logger, early_stop_callback],
-            logger=logger,
-        )
-        trainer = pl.Trainer(
-            **default_trainer_kwargs,
-        )
-        tft = TemporalFusionTransformer.from_dataset(
-            training,
-            **params,
-            lstm_layers=2,  # 2 is mostly optimal according to documentation
-            output_size=7,  # 7 quantiles by default
-            loss=QuantileLoss(),
-            log_interval=10,  # uncomment for learning rate finder and otherwise, e.g. to 10 for logging every 10 batches
-            reduce_on_plateau_patience=4,
-        )
-        # fit network
-        trainer.fit(
-            tft,
-            train_dataloaders=train_dataloader,
-            val_dataloaders=val_dataloader,
-        )
+
+        def _fit(log):
+            default_trainer_kwargs = dict(
+                gpus=kwargs.get("gpu_per_trial", [0])
+                if torch.cuda.is_available()
+                else None,
+                max_epochs=max_epochs,
+                gradient_clip_val=gradient_clip_val,
+                callbacks=[lr_logger, early_stop_callback] if log else False,
+                logger=log,
+            )
+            trainer = pl.Trainer(
+                **default_trainer_kwargs,
+            )
+            tft = TemporalFusionTransformer.from_dataset(
+                training,
+                **params,
+                lstm_layers=2,  # 2 is mostly optimal according to documentation
+                output_size=7,  # 7 quantiles by default
+                loss=QuantileLoss(),
+                log_interval=10,
+                # uncomment for learning rate finder and otherwise, e.g. to 10 for logging every 10 batches
+                reduce_on_plateau_patience=4,
+            )
+            # fit network
+            trainer.fit(
+                tft,
+                train_dataloaders=train_dataloader,
+                val_dataloaders=val_dataloader,
+            )
+            return trainer
+
+        try:
+            logger = TensorBoardLogger(
+                kwargs.get("log_dir", "lightning_logs")
+            )  # logging results to a tensorboard
+            trainer = _fit(log=logger)
+        except ValueError:
+            # issue with pytorch forecasting model log_prediction() function
+            # pytorch-forecasting issue #1145
+            trainer = _fit(log=False)
         best_model_path = trainer.checkpoint_callback.best_model_path
         best_tft = TemporalFusionTransformer.load_from_checkpoint(best_model_path)
         train_time = time.time() - current_time

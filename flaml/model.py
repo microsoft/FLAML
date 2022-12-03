@@ -7,4 +7,3 @@ warnings.warn(
     "Importing from `flaml.model` is deprecated. Please use `flaml.automl.model`.",
     DeprecationWarning,
 )
-
