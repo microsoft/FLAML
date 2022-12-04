@@ -119,8 +119,9 @@ class SearchState:
         period=None,
         custom_hp=None,
         max_iter=None,
+        budget=None,
     ):
-        self.init_eci = learner_class.cost_relative2lgbm()
+        self.init_eci = learner_class.cost_relative2lgbm() if budget < 1e10 else 1
         self._search_space_domain = {}
         self.init_config = None
         self.low_cost_partial_config = {}
@@ -128,6 +129,7 @@ class SearchState:
         self.data_size = data_size
         self.ls_ever_converged = False
         self.learner_class = learner_class
+        self._budget = budget
         if task in TS_FORECAST:
             search_space = learner_class.search_space(
                 data_size=data_size, task=task, pred_horizon=period
@@ -240,7 +242,7 @@ class SearchState:
             obj, time2eval, trained_estimator = np.inf, 0.0, None
             metric_for_logging = config = None
         self.trial_time = time2eval
-        self.total_time_used += time_used
+        self.total_time_used += time_used if self._budget < 1e10 else 1
         self.total_iter += 1
 
         if self.base_eci is None:
@@ -373,6 +375,7 @@ class AutoMLState:
             state.cv_score_agg_func,
             state.log_training_metric,
             this_estimator_kwargs,
+            state.free_mem_ratio,
         )
         if state.retrain_final and not state.model_history:
             trained_estimator.cleanup()
@@ -433,7 +436,7 @@ class AutoMLState:
 
         budget = (
             None
-            if self.time_budget is None
+            if self.time_budget is None or self.time_budget >= 1e10
             else self.time_budget - self.time_from_start
         )
 
@@ -448,6 +451,7 @@ class AutoMLState:
             budget=budget,
             fit_kwargs=this_estimator_kwargs,  # NOTE: _train_with_config is after kwargs is updated to fit_kwargs_by_estimator
             eval_metric=self.metric if hasattr(self, "metric") else "train_time",
+            free_mem_ratio=self.free_mem_ratio,
         )
 
         if sampled_weight is not None:
@@ -648,6 +652,7 @@ class AutoML(BaseEstimator):
                 datasets, but will incur more overhead in time.
                 If dict: the dict contains the keywords arguments to be passed to
                 [ray.tune.run](https://docs.ray.io/en/latest/tune/api_docs/execution.html).
+            free_mem_ratio: float between 0 and 1, default=0. The free memory ratio to keep during training.
             metric_constraints: list, default=[] | The list of metric constraints.
                 Each element in this list is a 3-tuple, which shall be expressed
                 in the following format: the first element of the 3-tuple is the name of the
@@ -738,6 +743,7 @@ class AutoML(BaseEstimator):
         settings["append_log"] = settings.get("append_log", False)
         settings["min_sample_size"] = settings.get("min_sample_size", MIN_SAMPLE_TRAIN)
         settings["use_ray"] = settings.get("use_ray", False)
+        settings["free_mem_ratio"] = settings.get("free_mem_ratio", 0)
         settings["metric_constraints"] = settings.get("metric_constraints", [])
         settings["cv_score_agg_func"] = settings.get("cv_score_agg_func", None)
         settings["fit_kwargs_by_estimator"] = settings.get(
@@ -2145,6 +2151,7 @@ class AutoML(BaseEstimator):
         auto_augment=None,
         min_sample_size=None,
         use_ray=None,
+        free_mem_ratio=0,
         metric_constraints=None,
         custom_hp=None,
         cv_score_agg_func=None,
@@ -2337,6 +2344,7 @@ class AutoML(BaseEstimator):
                 datasets, but will incur more overhead in time.
                 If dict: the dict contains the keywords arguments to be passed to
                 [ray.tune.run](https://docs.ray.io/en/latest/tune/api_docs/execution.html).
+            free_mem_ratio: float between 0 and 1, default=0. The free memory ratio to keep during training.
             metric_constraints: list, default=[] | The list of metric constraints.
                 Each element in this list is a 3-tuple, which shall be expressed
                 in the following format: the first element of the 3-tuple is the name of the
@@ -2562,7 +2570,11 @@ class AutoML(BaseEstimator):
                 X_train = ray.get(X_train)
             elif isinstance(dataframe, ray.ObjectRef):
                 dataframe = ray.get(dataframe)
-
+        self._state.free_mem_ratio = (
+            self._settings.get("free_mem_ratio")
+            if free_mem_ratio is None
+            else free_mem_ratio
+        )
         self._state.task = task
         self._state.log_training_metric = log_training_metric
 
@@ -2835,8 +2847,8 @@ class AutoML(BaseEstimator):
             except FileNotFoundError:
                 pass
 
+        self._state.time_budget = time_budget if time_budget > 0 else 1e10
         starting_points = {} if starting_points == "static" else starting_points
-
         for estimator_name in estimator_list:
             estimator_class = self._state.learner_classes[estimator_name]
             estimator_class.init()
@@ -2869,10 +2881,10 @@ class AutoML(BaseEstimator):
                 max_iter=max_iter / len(estimator_list)
                 if self._learner_selector == "roundrobin"
                 else max_iter,
+                budget=self._state.time_budget,
             )
         logger.info("List of ML learners in AutoML Run: {}".format(estimator_list))
         self.estimator_list = estimator_list
-        self._state.time_budget = time_budget if time_budget > 0 else 1e10
         self._active_estimators = estimator_list.copy()
         self._ensemble = ensemble
         self._max_iter = max_iter
@@ -2907,6 +2919,7 @@ class AutoML(BaseEstimator):
             )
             if (
                 self._hpo_method in ("cfo", "bs")
+                and self._state.time_budget is not None
                 and (self._time_taken_best_iter >= self._state.time_budget * 0.7)
                 and not all(
                     state.search_alg and state.search_alg.searcher.is_ls_ever_converged
@@ -2973,7 +2986,11 @@ class AutoML(BaseEstimator):
             )
         space = self.search_space
         self._state.time_from_start = time.time() - self._start_time_flag
-        time_left = self._state.time_budget - self._state.time_from_start
+        time_budget_s = (
+            self._state.time_budget - self._state.time_from_start
+            if self._state.time_budget < 1e10
+            else None
+        )
         if self._hpo_method != "optuna":
             min_resource = self.min_resource
             if isinstance(min_resource, dict):
@@ -2999,7 +3016,8 @@ class AutoML(BaseEstimator):
                 ],
                 metric_constraints=self.metric_constraints,
                 seed=self._seed,
-                time_budget_s=time_left,
+                time_budget_s=time_budget_s,
+                num_samples=self._max_iter,
                 allow_empty_config=True,
             )
         else:
@@ -3032,7 +3050,7 @@ class AutoML(BaseEstimator):
             metric="val_loss",
             mode="min",
             resources_per_trial=resources_per_trial,
-            time_budget_s=self._state.time_budget,
+            time_budget_s=time_budget_s,
             num_samples=self._max_iter,
             verbose=max(self.verbose - 2, 0),
             raise_on_failed_trial=False,
@@ -3217,6 +3235,11 @@ class AutoML(BaseEstimator):
                     points_to_evaluate = search_state.init_config.copy()
 
                     low_cost_partial_config = search_state.low_cost_partial_config
+                time_budget_s = (
+                    min(budget_left, self._state.train_time_limit)
+                    if self._state.time_budget < 1e10
+                    else None
+                )
                 if self._hpo_method in ("bs", "cfo", "grid", "cfocat", "random"):
                     algo = SearchAlgo(
                         metric="val_loss",
@@ -3234,6 +3257,8 @@ class AutoML(BaseEstimator):
                         metric_constraints=self.metric_constraints,
                         seed=self._seed,
                         allow_empty_config=True,
+                        time_budget_s=time_budget_s,
+                        num_samples=self._max_iter,
                     )
                 else:
                     # if self._hpo_method is bo, sometimes the search space and the initial config dimension do not match
@@ -3272,7 +3297,7 @@ class AutoML(BaseEstimator):
             analysis = tune.run(
                 search_state.training_function,
                 search_alg=search_state.search_alg,
-                time_budget_s=min(budget_left, self._state.train_time_limit),
+                time_budget_s=time_budget_s,
                 verbose=max(self.verbose - 3, 0),
                 use_ray=False,
             )
@@ -3581,7 +3606,7 @@ class AutoML(BaseEstimator):
             elif self._state.retrain_final:
                 # reset time budget for retraining
                 if self._max_iter > 1:
-                    self._state.time_from_start -= self._state.time_budget
+                    self._state.time_budget = None
                 if (
                     self._state.task in TS_FORECAST
                     or self._trained_estimator is None
@@ -3646,7 +3671,10 @@ class AutoML(BaseEstimator):
                     inv.append(0)
                     continue
                 estimated_cost = search_state.estimated_cost4improvement
-                if search_state.sample_size < self._state.data_size[0]:
+                if (
+                    search_state.sample_size < self._state.data_size[0]
+                    and self._state.time_budget < 1e10
+                ):
                     estimated_cost = min(
                         estimated_cost,
                         search_state.time2eval_best
