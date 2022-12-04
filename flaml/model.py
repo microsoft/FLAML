@@ -2276,7 +2276,6 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
         import warnings
         import pytorch_lightning as pl
         from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
-        from pytorch_lightning.loggers import TensorBoardLogger
         import torch
         from pytorch_forecasting import TemporalFusionTransformer
         from pytorch_forecasting.metrics import QuantileLoss
@@ -2293,7 +2292,6 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
         early_stop_callback = EarlyStopping(
             monitor="val_loss", min_delta=1e-4, patience=10, verbose=False, mode="min"
         )
-        lr_logger = LearningRateMonitor()  # log the learning rate
 
         def _fit(log):
             default_trainer_kwargs = dict(
@@ -2302,7 +2300,9 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
                 else None,
                 max_epochs=max_epochs,
                 gradient_clip_val=gradient_clip_val,
-                callbacks=[lr_logger, early_stop_callback] if log else False,
+                callbacks=[LearningRateMonitor(), early_stop_callback]
+                if log
+                else [early_stop_callback],
                 logger=log,
             )
             trainer = pl.Trainer(
@@ -2326,15 +2326,17 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
             )
             return trainer
 
-        try:
-            logger = TensorBoardLogger(
-                kwargs.get("log_dir", "lightning_logs")
-            )  # logging results to a tensorboard
-            trainer = _fit(log=logger)
-        except ValueError:
-            # issue with pytorch forecasting model log_prediction() function
-            # pytorch-forecasting issue #1145
-            trainer = _fit(log=False)
+        # try:
+        #     from pytorch_lightning.loggers import TensorBoardLogger
+
+        #     logger = TensorBoardLogger(
+        #         kwargs.get("log_dir", "lightning_logs")
+        #     )  # logging results to a tensorboard
+        #     trainer = _fit(log=logger)
+        # except ValueError:
+        # issue with pytorch forecasting model log_prediction() function
+        # pytorch-forecasting issue #1145
+        trainer = _fit(log=False)
         best_model_path = trainer.checkpoint_callback.best_model_path
         best_tft = TemporalFusionTransformer.load_from_checkpoint(best_model_path)
         train_time = time.time() - current_time
