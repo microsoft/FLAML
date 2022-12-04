@@ -1803,6 +1803,7 @@ class AutoML(BaseEstimator):
         self._auto_augment = auto_augment
         self._prepare_data(eval_method, split_ratio, n_splits)
         self._state.time_budget = None
+        self._state.free_mem_ratio = 0
         self._state.n_jobs = n_jobs
         import os
 
