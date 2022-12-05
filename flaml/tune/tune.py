@@ -633,6 +633,19 @@ def run(
             len([executor.host() for executor in sc.statusTracker().getExecutorInfos()])
             - 1
         )
+        """
+        By default, the number of executors is the number of VMs in the cluster. And we can
+        launch one trial per executor. However, sometimes we can launch more trials than
+        the number of executors (e.g., local mode). In this case, we can set the environment
+        variable `FLAML_MAX_CONCURRENT` to override the detected `num_executors`.
+
+        `max_concurrent` is the maximum number of concurrent trials defined by `search_alg`,
+        `FLAML_MAX_CONCURRENT` will also be used to override `max_concurrent` if `search_alg`
+        is not an instance of `ConcurrencyLimiter`.
+
+        The final number of concurrent trials is the minimum of `max_concurrent` and
+        `num_executors`.
+        """
         num_executors = max(num_executors, int(os.getenv("FLAML_MAX_CONCURRENT", 1)), 1)
         time_start = time.time()
         _use_ray = False

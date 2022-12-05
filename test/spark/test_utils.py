@@ -1,4 +1,4 @@
-from flaml.utils import with_parameters, check_spark
+from flaml.utils import with_parameters, check_spark, get_n_cpus
 from functools import partial
 import sys
 from timeit import timeit
@@ -39,6 +39,11 @@ def test_with_parameters_spark():
     print("spark_with_parameters_train: " + str(t_spark))
 
     assert t_spark < t_partial
+
+
+def test_get_n_cpus_spark():
+    n_cpus = get_n_cpus()
+    assert isinstance(n_cpus, int)
 
 
 if __name__ == "__main__":
