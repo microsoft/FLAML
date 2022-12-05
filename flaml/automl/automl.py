@@ -2675,7 +2675,9 @@ class AutoML(BaseEstimator):
             )
         if "auto" == metric:
             if _is_nlp_task(self._state.task):
-                from .nlp.utils import load_default_huggingface_metric_for_task
+                from flaml.automl.nlp.utils import (
+                    load_default_huggingface_metric_for_task,
+                )
 
                 metric = load_default_huggingface_metric_for_task(self._state.task)
             elif "binary" in self._state.task:
@@ -2710,7 +2712,7 @@ class AutoML(BaseEstimator):
             ]:
                 return True, f"1-{metric}"
             if _is_nlp_task(task):
-                from .ml import huggingface_metric_to_mode
+                from flaml.automl.ml import huggingface_metric_to_mode
 
                 if (
                     metric in huggingface_metric_to_mode
