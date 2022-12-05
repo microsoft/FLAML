@@ -624,6 +624,7 @@ def run(
             raise ImportError(
                 f"{e}. Try pip install flaml[spark] or set use_spark=False"
             )
+        from flaml.tune.searcher.suggestion import ConcurrencyLimiter
 
         register_spark()
         spark = SparkSession.builder.getOrCreate()
@@ -640,7 +641,7 @@ def run(
         if isinstance(search_alg, ConcurrencyLimiter):
             max_concurrent = max(1, search_alg.max_concurrent)
         else:
-            max_concurrent = 1
+            max_concurrent = max(1, int(os.getenv("FLAML_MAX_CONCURRENT", 1)))
 
         from .trial_runner import SparkTrialRunner
 
