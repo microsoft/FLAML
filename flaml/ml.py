@@ -526,7 +526,7 @@ def evaluate_model_CV(
     else:
         kf = kf.split(X_train_split)
     rng = np.random.RandomState(2020)
-    budget_per_train = budget / n
+    budget_per_train = budget and budget / n
     if "sample_weight" in fit_kwargs:
         weight = fit_kwargs["sample_weight"]
         weight_val = None
@@ -578,7 +578,7 @@ def evaluate_model_CV(
         log_metric_folds.append(metric_i)
         train_time += train_time_i
         pred_time += pred_time_i
-        if time.time() - start_time >= budget:
+        if budget and time.time() - start_time >= budget:
             break
     val_loss, metric = cv_score_agg_func(val_loss_folds, log_metric_folds)
     n = total_fold_num

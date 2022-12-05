@@ -52,6 +52,7 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
             "rf",
             "extra_tree",
         ],  # list of ML learners
+        "eval_method": "holdout",
     }
     """The main flaml automl API"""
     automl.fit(X_train=X_train, y_train=y_train, **settings)

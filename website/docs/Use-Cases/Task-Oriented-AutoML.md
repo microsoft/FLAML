@@ -112,7 +112,8 @@ The estimator list can contain one or more estimator names, each corresponding t
 #### Estimator
 * Built-in estimator.
     - 'lgbm': LGBMEstimator for task "classification", "regression", "rank", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators, num_leaves, min_child_samples, learning_rate, log_max_bin (logarithm of (max_bin + 1) with base 2), colsample_bytree, reg_alpha, reg_lambda.
-    - 'xgboost': XGBoostSkLearnEstimator for task "classification", "regression", "rank", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators, max_leaves, max_depth, min_child_weight, learning_rate, subsample, colsample_bylevel, colsample_bytree, reg_alpha, reg_lambda.
+    - 'xgboost': XGBoostSkLearnEstimator for task "classification", "regression", "rank", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators, max_leaves, min_child_weight, learning_rate, subsample, colsample_bylevel, colsample_bytree, reg_alpha, reg_lambda.
+    - 'xgb_limitdepth': XGBoostLimitDepthEstimator for task "classification", "regression", "rank", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators,  max_depth, min_child_weight, learning_rate, subsample, colsample_bylevel, colsample_bytree, reg_alpha, reg_lambda.
     - 'rf': RandomForestEstimator for task "classification", "regression", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators, max_features, max_leaves, criterion (for classification only). Starting from v1.1.0,
     it uses a fixed ranndom_state by default.
     - 'extra_tree': ExtraTreesEstimator for task "classification", "regression", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators, max_features, max_leaves, criterion (for classification only). Starting from v1.1.0,

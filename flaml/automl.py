@@ -121,7 +121,7 @@ class SearchState:
         max_iter=None,
         budget=None,
     ):
-        self.init_eci = learner_class.cost_relative2lgbm() if budget < 1e10 else 1
+        self.init_eci = learner_class.cost_relative2lgbm() if budget >= 0 else 1
         self._search_space_domain = {}
         self.init_config = None
         self.low_cost_partial_config = {}
@@ -242,7 +242,7 @@ class SearchState:
             obj, time2eval, trained_estimator = np.inf, 0.0, None
             metric_for_logging = config = None
         self.trial_time = time2eval
-        self.total_time_used += time_used if self._budget < 1e10 else 1
+        self.total_time_used += time_used if self._budget >= 0 else 1
         self.total_iter += 1
 
         if self.base_eci is None:
@@ -338,7 +338,7 @@ class AutoMLState:
             del config["FLAML_sample_size"]
         budget = (
             None
-            if state.time_budget is None
+            if state.time_budget < 0
             else state.time_budget - state.time_from_start
             if sample_size == state.data_size[0]
             else (state.time_budget - state.time_from_start)
@@ -362,7 +362,7 @@ class AutoMLState:
             state.groups_val,
             state.train_time_limit
             if budget is None
-            else min(budget, state.train_time_limit),
+            else min(budget, state.train_time_limit or np.inf),
             state.kf,
             config,
             state.task,
@@ -435,9 +435,7 @@ class AutoMLState:
             ] = groups  # NOTE: _train_with_config is after kwargs is updated to fit_kwargs_by_estimator
 
         budget = (
-            None
-            if self.time_budget is None or self.time_budget >= 1e10
-            else self.time_budget - self.time_from_start
+            None if self.time_budget < 0 else self.time_budget - self.time_from_start
         )
 
         estimator, train_time = train_estimator(
@@ -729,7 +727,7 @@ class AutoML(BaseEstimator):
         settings["log_training_metric"] = settings.get("log_training_metric", False)
         settings["mem_thres"] = settings.get("mem_thres", MEM_THRES)
         settings["pred_time_limit"] = settings.get("pred_time_limit", np.inf)
-        settings["train_time_limit"] = settings.get("train_time_limit", np.inf)
+        settings["train_time_limit"] = settings.get("train_time_limit", None)
         settings["verbose"] = settings.get("verbose", 3)
         settings["retrain_full"] = settings.get("retrain_full", True)
         settings["split_type"] = settings.get("split_type", "auto")
@@ -1802,7 +1800,7 @@ class AutoML(BaseEstimator):
         self.modelcount = 0
         self._auto_augment = auto_augment
         self._prepare_data(eval_method, split_ratio, n_splits)
-        self._state.time_budget = None
+        self._state.time_budget = -1
         self._state.free_mem_ratio = 0
         self._state.n_jobs = n_jobs
         import os
@@ -1892,7 +1890,7 @@ class AutoML(BaseEstimator):
             return eval_method
         nrow, dim = self._nrow, self._ndim
         if (
-            time_budget is None
+            time_budget < 0
             or nrow * dim / 0.9 < SMALL_LARGE_THRES * (time_budget / 3600)
             and nrow < CV_HOLDOUT_THRESHOLD
         ):
@@ -2258,7 +2256,7 @@ class AutoML(BaseEstimator):
             mem_thres: A float of the memory size constraint in bytes.
             pred_time_limit: A float of the prediction latency constraint in seconds.
                 It refers to the average prediction time per row in validation data.
-            train_time_limit: A float of the training time constraint in seconds.
+            train_time_limit: None or a float of the training time constraint in seconds.
             X_val: None or a numpy array or a pandas dataframe of validation data.
             y_val: None or a numpy array or a pandas series of validation labels.
             sample_weight_val: None or a numpy array of the sample weight of
@@ -2532,7 +2530,7 @@ class AutoML(BaseEstimator):
             self._settings.get("early_stop") if early_stop is None else early_stop
         )
         # no search budget is provided?
-        no_budget = time_budget == -1 and max_iter is None and not early_stop
+        no_budget = time_budget < 0 and max_iter is None and not early_stop
         append_log = (
             self._settings.get("append_log") if append_log is None else append_log
         )
@@ -2848,7 +2846,7 @@ class AutoML(BaseEstimator):
             except FileNotFoundError:
                 pass
 
-        self._state.time_budget = time_budget if time_budget > 0 else 1e10
+        self._state.time_budget = time_budget
         starting_points = {} if starting_points == "static" else starting_points
         for estimator_name in estimator_list:
             estimator_class = self._state.learner_classes[estimator_name]
@@ -2920,7 +2918,7 @@ class AutoML(BaseEstimator):
             )
             if (
                 self._hpo_method in ("cfo", "bs")
-                and self._state.time_budget is not None
+                and self._state.time_budget > 0
                 and (self._time_taken_best_iter >= self._state.time_budget * 0.7)
                 and not all(
                     state.search_alg and state.search_alg.searcher.is_ls_ever_converged
@@ -2989,7 +2987,7 @@ class AutoML(BaseEstimator):
         self._state.time_from_start = time.time() - self._start_time_flag
         time_budget_s = (
             self._state.time_budget - self._state.time_from_start
-            if self._state.time_budget < 1e10
+            if self._state.time_budget >= 0
             else None
         )
         if self._hpo_method != "optuna":
@@ -3237,8 +3235,8 @@ class AutoML(BaseEstimator):
 
                     low_cost_partial_config = search_state.low_cost_partial_config
                 time_budget_s = (
-                    min(budget_left, self._state.train_time_limit)
-                    if self._state.time_budget < 1e10
+                    min(budget_left, self._state.train_time_limit or np.inf)
+                    if self._state.time_budget >= 0
                     else None
                 )
                 if self._hpo_method in ("bs", "cfo", "grid", "cfocat", "random"):
@@ -3434,7 +3432,7 @@ class AutoML(BaseEstimator):
                 est_retrain_time = 0
             self._state.time_from_start = time.time() - self._start_time_flag
             if (
-                self._state.time_from_start >= self._state.time_budget
+                self._state.time_from_start >= self._state.time_budget >= 0
                 or not self._active_estimators
             ):
                 break
@@ -3607,17 +3605,18 @@ class AutoML(BaseEstimator):
             elif self._state.retrain_final:
                 # reset time budget for retraining
                 if self._max_iter > 1:
-                    self._state.time_budget = None
+                    self._state.time_budget = -1
                 if (
                     self._state.task in TS_FORECAST
                     or self._trained_estimator is None
                     or self._trained_estimator.model is None
                     or (
-                        self._state.time_budget - self._state.time_from_start
+                        self._state.time_budget < 0
+                        or self._state.time_budget - self._state.time_from_start
                         > self._selected.est_retrain_time(self.data_size_full)
-                        and self._selected.best_config_sample_size
-                        == self._state.data_size[0]
                     )
+                    and self._selected.best_config_sample_size
+                    == self._state.data_size[0]
                 ):
                     state = self._search_states[self._best_estimator]
                     (
@@ -3664,7 +3663,8 @@ class AutoML(BaseEstimator):
             ):  # sample_size=None meaning no result
                 search_state = self._search_states[estimator]
                 if (
-                    self._search_states[estimator].time2eval_best
+                    self._state.time_budget >= 0
+                    and self._search_states[estimator].time2eval_best
                     > self._state.time_budget - self._state.time_from_start
                     or self._iter_per_learner_fullsize[estimator]
                     >= self._max_iter_per_learner
@@ -3674,7 +3674,7 @@ class AutoML(BaseEstimator):
                 estimated_cost = search_state.estimated_cost4improvement
                 if (
                     search_state.sample_size < self._state.data_size[0]
-                    and self._state.time_budget < 1e10
+                    and self._state.time_budget >= 0
                 ):
                     estimated_cost = min(
                         estimated_cost,
