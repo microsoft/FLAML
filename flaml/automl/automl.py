@@ -668,7 +668,8 @@ class AutoML(BaseEstimator):
                 concurrent trials. When n_concurrent_trials > 1, flaml performes
                 [parallel tuning](../../Use-Cases/Task-Oriented-AutoML#parallel-tuning)
                 and installation of ray or spark is required: `pip install flaml[ray]`
-                or `pip install flaml[spark]`.
+                or `pip install flaml[spark]`. More details about installing
+                [PySpark](https://spark.apache.org/docs/latest/api/python/getting_started/install.html)
             keep_search_state: boolean, default=False | Whether to keep data needed
                 for model search after fit(). By default the state is deleted for
                 space saving.
@@ -2386,7 +2387,8 @@ class AutoML(BaseEstimator):
                 concurrent trials. When n_concurrent_trials > 1, flaml performes
                 [parallel tuning](../../Use-Cases/Task-Oriented-AutoML#parallel-tuning)
                 and installation of ray or spark is required: `pip install flaml[ray]`
-                or `pip install flaml[spark]`.
+                or `pip install flaml[spark]`. More details about installing
+                [PySpark](https://spark.apache.org/docs/latest/api/python/getting_started/install.html)
             keep_search_state: boolean, default=False | Whether to keep data needed
                 for model search after fit(). By default the state is deleted for
                 space saving.

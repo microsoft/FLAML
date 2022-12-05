@@ -20,6 +20,7 @@ install_requires = [
     "scipy>=1.4.1",
     "pandas>=1.1.4",
     "scikit-learn>=0.24",
+    "openml>=0.10.2",  # many demos use openml datasets
 ]
 
 
@@ -43,6 +44,11 @@ setuptools.setup(
             "jupyter",
             "matplotlib",
             "openml==0.10.2",
+        ],
+        "spark": [
+            "pyspark>=3.0.0",
+            "optuna==2.8.0",
+            "joblibspark",
         ],
         "test": [
             "flake8>=3.8.4",

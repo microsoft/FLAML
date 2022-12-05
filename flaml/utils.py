@@ -24,7 +24,8 @@ def check_spark():
     if not _have_spark:
         raise ImportError(
             "use_spark=True requires installation of PySpark. "
-            "Please run pip install flaml[spark]"
+            "Please run pip install flaml[spark]. More details about installing "
+            "[PySpark](https://spark.apache.org/docs/latest/api/python/getting_started/install.html)"
         )
 
     if _spark_major_minor_version[0] < 3:

@@ -622,7 +622,7 @@ def run(
             from joblibspark import register_spark
         except ImportError as e:
             raise ImportError(
-                f"{e}. Try pip install flaml[spark] or set use_spark=False"
+                f"{e}. Try pip install flaml[spark] or set use_spark=False."
             )
         from flaml.tune.searcher.suggestion import ConcurrencyLimiter
 
