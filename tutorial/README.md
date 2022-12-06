@@ -46,4 +46,4 @@ Break (15m)
 - Online AuotML
 - Fair AutoML
 
-**Challenges and open problems**
+### **Challenges and open problems**
