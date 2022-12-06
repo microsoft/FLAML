@@ -625,6 +625,7 @@ def run(
                 f"{e}. Try pip install flaml[spark] or set use_spark=False."
             )
         from flaml.tune.searcher.suggestion import ConcurrencyLimiter
+        from .trial_runner import SparkTrialRunner
 
         register_spark()
         spark = SparkSession.builder.getOrCreate()
@@ -656,10 +657,9 @@ def run(
         else:
             max_concurrent = max(1, int(os.getenv("FLAML_MAX_CONCURRENT", 1)))
 
-        from .trial_runner import SparkTrialRunner
-
+        n_concurrent_trials = min(num_executors, max_concurrent)
         with parallel_backend("spark"):
-            with Parallel(n_jobs=num_executors, verbose=verbose * 5) as parallel:
+            with Parallel(n_jobs=n_concurrent_trials, verbose=verbose * 5) as parallel:
                 try:
                     _runner = SparkTrialRunner(
                         search_alg=search_alg,
@@ -679,7 +679,7 @@ def run(
                         and (num_samples < 0 or num_trials < num_samples)
                         and fail < ub
                     ):
-                        for i in range(min(num_executors, max_concurrent)):
+                        for i in range(n_concurrent_trials):
                             # suggest trials for spark
                             trial_next = _runner.step()
                             if trial_next:

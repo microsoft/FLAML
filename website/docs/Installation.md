@@ -50,6 +50,10 @@ pip install flaml[nlp]
 ```bash
 pip install flaml[ray]
 ```
+* spark
+```bash
+pip install flaml[spark]
+```
 * nni
 ```bash
 pip install flaml[nni]
