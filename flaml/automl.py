@@ -293,14 +293,25 @@ class AutoMLState:
                 sampled_X_train = self.X_train.iloc[:sample_size]
             else:
                 sampled_X_train = self.X_train[:sample_size]
-            sampled_y_train = self.y_train[:sample_size]
+            if isinstance(self.y_train, pd.Series):
+                sampled_y_train = self.y_train.iloc[:sample_size]
+            else:
+                sampled_y_train = self.y_train[:sample_size]
             weight = self.fit_kwargs.get(
                 "sample_weight"
             )  # NOTE: _prepare_sample_train_data is before kwargs is updated to fit_kwargs_by_estimator
             if weight is not None:
-                sampled_weight = weight[:sample_size]
+                sampled_weight = (
+                    weight.iloc[:sample_size]
+                    if isinstance(weight, pd.Series)
+                    else weight[:sample_size]
+                )
             if self.groups is not None:
-                groups = self.groups[:sample_size]
+                groups = (
+                    self.groups.iloc[:sample_size]
+                    if isinstance(self.groups, pd.Series)
+                    else self.groups[:sample_size]
+                )
         else:
             sampled_X_train = self.X_train_all
             sampled_y_train = self.y_train_all
@@ -1400,7 +1411,8 @@ class AutoML(BaseEstimator):
                             rest
                         ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
                         test_size=split_ratio,
-                        shuffle=False,
+                        stratify=stratify,
+                        random_state=RANDOM_SEED,
                     )
                     weight1 = self._state.fit_kwargs["sample_weight"][
                         first
@@ -1417,7 +1429,7 @@ class AutoML(BaseEstimator):
                         y_rest,
                         test_size=split_ratio,
                         stratify=stratify,
-                        shuffle=False,
+                        random_state=RANDOM_SEED,
                     )
                 X_train = concat(X_first, X_train)
                 y_train = (
@@ -1451,14 +1463,14 @@ class AutoML(BaseEstimator):
                             "sample_weight"
                         ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
                         test_size=split_ratio,
-                        shuffle=False,
+                        random_state=RANDOM_SEED,
                     )
                 else:
                     X_train, X_val, y_train, y_val = train_test_split(
                         X_train_all,
                         y_train_all,
                         test_size=split_ratio,
-                        shuffle=False,
+                        random_state=RANDOM_SEED,
                     )
         self._state.data_size = X_train.shape
         self.data_size_full = len(y_train_all)
