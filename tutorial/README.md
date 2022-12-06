@@ -27,7 +27,7 @@ For the most up-to-date information, see the [AAAI'23 Program Agenda](https://aa
 - Task-oriented AutoML with FLAML
 - Tune user defined functions with FLAML
 - Zero-shot AutoML with FLAML
-- [ML.NET demo](https://docs.microsoft.com/dotnet/machine-learning/tutorials/predict-prices-with-model-builder)
+- ML.NET demo
 
 Break (15m)
 
@@ -40,9 +40,6 @@ Break (15m)
 
 ### **Part 3. New features in FLAML**
 - Natural language processing
-    - [Notebook: AutoML for NLP tasks](https://github.com/microsoft/FLAML/blob/tutorial/notebook/automl_nlp.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/automl_nlp.ipynb)
-- Time series forecasting
-    - [Notebook: AutoML for Time Series Forecast tasks](https://github.com/microsoft/FLAML/blob/tutorial/notebook/automl_time_series_forecast.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/automl_time_series_forecast.ipynb)
 - Online AuotML
 - Fair AutoML
 
