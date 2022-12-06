@@ -1275,6 +1275,8 @@ class AutoML(BaseEstimator):
                 ] = (
                     self._state.sample_weight_all
                 )  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+                if isinstance(self._state.sample_weight_all, pd.Series):
+                    self._state.sample_weight_all.reset_index(drop=True, inplace=True)
             else:
                 X_train_all, y_train_all = shuffle(
                     X_train_all, y_train_all, random_state=RANDOM_SEED
@@ -1398,7 +1400,7 @@ class AutoML(BaseEstimator):
                             rest
                         ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
                         test_size=split_ratio,
-                        random_state=RANDOM_SEED,
+                        shuffle=False,
                     )
                     weight1 = self._state.fit_kwargs["sample_weight"][
                         first
@@ -1415,7 +1417,7 @@ class AutoML(BaseEstimator):
                         y_rest,
                         test_size=split_ratio,
                         stratify=stratify,
-                        random_state=RANDOM_SEED,
+                        shuffle=False,
                     )
                 X_train = concat(X_first, X_train)
                 y_train = (
@@ -1449,14 +1451,14 @@ class AutoML(BaseEstimator):
                             "sample_weight"
                         ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
                         test_size=split_ratio,
-                        random_state=RANDOM_SEED,
+                        shuffle=False,
                     )
                 else:
                     X_train, X_val, y_train, y_val = train_test_split(
                         X_train_all,
                         y_train_all,
                         test_size=split_ratio,
-                        random_state=RANDOM_SEED,
+                        shuffle=False,
                     )
         self._state.data_size = X_train.shape
         self.data_size_full = len(y_train_all)
