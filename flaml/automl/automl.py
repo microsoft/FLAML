@@ -4,6 +4,7 @@
 #  * project root for license information.
 import time
 import os
+import sys
 from typing import Callable, Optional, List, Union, Any
 import inspect
 from functools import partial
@@ -60,6 +61,7 @@ logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
     "[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s", "%m-%d %H:%M:%S"
 )
+logger.propagate = False
 
 try:
     import mlflow
@@ -2616,7 +2618,7 @@ class AutoML(BaseEstimator):
         logger.setLevel(50 - verbose * 10)
         if not logger.handlers:
             # Add the console handler.
-            _ch = logging.StreamHandler()
+            _ch = logging.StreamHandler(stream=sys.stdout)
             _ch.setFormatter(logger_formatter)
             logger.addHandler(_ch)
 

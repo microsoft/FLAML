@@ -7,6 +7,7 @@ import numpy as np
 import datetime
 import time
 import os
+import sys
 from collections import defaultdict
 
 try:
@@ -25,6 +26,7 @@ from .result import DEFAULT_METRIC
 import logging
 
 logger = logging.getLogger(__name__)
+logger.propagate = False
 _use_ray = True
 _runner = None
 _verbose = 0
@@ -448,7 +450,7 @@ def run(
                 logger.addHandler(logging.FileHandler(log_file_name))
             elif not logger.hasHandlers():
                 # Add the console handler.
-                _ch = logging.StreamHandler()
+                _ch = logging.StreamHandler(stream=sys.stdout)
                 logger_formatter = logging.Formatter(
                     "[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s",
                     "%m-%d %H:%M:%S",
@@ -659,7 +661,9 @@ def run(
 
         n_concurrent_trials = min(num_executors, max_concurrent)
         with parallel_backend("spark"):
-            with Parallel(n_jobs=n_concurrent_trials, verbose=verbose * 5) as parallel:
+            with Parallel(
+                n_jobs=n_concurrent_trials, verbose=50 * (verbose - 1)
+            ) as parallel:
                 try:
                     _runner = SparkTrialRunner(
                         search_alg=search_alg,
