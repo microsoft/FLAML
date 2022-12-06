@@ -5,14 +5,23 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from flaml import tune
 from flaml.model import LGBMEstimator
+from flaml.utils import check_spark
 import os
+import pytest
 
+try:
+    check_spark()
+    skip_spark = False
+except Exception:
+    print("Spark is not installed. Skip all spark tests.")
+    skip_spark = True
 
 os.environ["FLAML_MAX_CONCURRENT"] = "2"
 X, y = load_breast_cancer(return_X_y=True)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25)
 
 
+@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def train_breast_cancer(config):
     params = LGBMEstimator(**config).params
     train_set = lgb.Dataset(X_train, label=y_train)
@@ -25,6 +34,7 @@ def train_breast_cancer(config):
     return result
 
 
+@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_tune_spark():
     flaml_lgbm_search_space = LGBMEstimator.search_space(X_train.shape)
     config_search_space = {

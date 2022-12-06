@@ -2,7 +2,6 @@ import numpy as np
 import scipy.sparse
 from flaml import AutoML
 from flaml.utils import check_spark
-import sys
 import os
 import pytest
 
@@ -23,11 +22,13 @@ os.environ["FLAML_MAX_CONCURRENT"] = "2"
 
 try:
     check_spark()
+    skip_spark = False
 except Exception:
-    print("Spark is not installed. Skip all tests in test_utils.py")
-    sys.exit(0)
+    print("Spark is not installed. Skip all spark tests.")
+    skip_spark = True
 
 
+@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_parallel_xgboost(hpo_method=None, data_size=1000):
     automl_experiment = AutoML()
     automl_settings = {
@@ -54,11 +55,13 @@ def test_parallel_xgboost(hpo_method=None, data_size=1000):
     print(automl_experiment.best_estimator)
 
 
+@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_parallel_xgboost_others():
     # use random search as the hpo_method
     test_parallel_xgboost(hpo_method="random")
 
 
+@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 @pytest.mark.skip(
     reason="currently not supporting too large data, will support spark dataframe in the future"
 )
@@ -66,6 +69,7 @@ def test_large_dataset():
     test_parallel_xgboost(data_size=90000000)
 
 
+@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 @pytest.mark.skipif(
     skip_my_learner,
     reason="please run pytest in the root directory of FLAML, i.e., the directory that contains the setup.py file",

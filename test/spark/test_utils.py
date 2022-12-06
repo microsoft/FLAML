@@ -1,18 +1,20 @@
 from flaml.utils import with_parameters, check_spark, get_n_cpus
 from functools import partial
-import sys
 from timeit import timeit
+import pytest
 
 try:
     check_spark()
+    skip_spark = False
 except Exception:
-    print("Spark is not installed. Skip all tests in test_utils.py")
-    sys.exit(0)
+    print("Spark is not installed. Skip all spark tests.")
+    skip_spark = True
 
 from pyspark.sql import SparkSession
 import pyspark
 
 
+@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_with_parameters_spark():
     def train(config, data=None):
         if isinstance(data, pyspark.broadcast.Broadcast):
@@ -41,11 +43,13 @@ def test_with_parameters_spark():
     assert t_spark < t_partial
 
 
+@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_get_n_cpus_spark():
     n_cpus = get_n_cpus()
     assert isinstance(n_cpus, int)
 
 
+@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_customize_learner():
     from flaml.utils import customize_learner
     from flaml.model import LGBMEstimator

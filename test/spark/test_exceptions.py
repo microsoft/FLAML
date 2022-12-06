@@ -1,8 +1,16 @@
 from flaml.data import load_openml_dataset
 from flaml import AutoML
 import flaml
+from flaml.utils import check_spark
 import os
 import pytest
+
+try:
+    check_spark()
+    skip_spark = False
+except Exception:
+    print("Spark is not installed. Skip all spark tests.")
+    skip_spark = True
 
 os.environ["FLAML_MAX_CONCURRENT"] = "2"
 
@@ -35,11 +43,13 @@ def base_automl(n_concurrent_trials=1, use_ray=False, use_spark=False, verbose=0
     )
 
 
+@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_both_ray_spark():
     with pytest.raises(ValueError):
         base_automl(n_concurrent_trials=2, use_ray=True, use_spark=True)
 
 
+@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_verboses():
     for verbose in [1, 3, 5]:
         base_automl(verbose=verbose)
