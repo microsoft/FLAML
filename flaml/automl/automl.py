@@ -2963,152 +2963,54 @@ class AutoML(BaseEstimator):
             del self._state.groups, self._state.groups_all, self._state.groups_val
         logger.setLevel(old_level)
 
-
-    # A visualization API for FLAML to improve explainability of the automation
-    def visualization(self, 
-            title = None, 
-            xlab = None,
-            ylab = None,
-            type = None,
-            settings = None,
-            ):
+    def visualize(
+        self,
+        type="learning_curve",
+        automl_instance=None,
+        plot_filename=None,
+        log_file_name=None,
+        **kwargs,
+    ):
+        """
+        type: The type of the plot. The default visualization type is the learning curve.
+        automl_instance: An flaml AutoML instance.
+        plot_filename: str | File name
+        log_file_name: str | Log file name
+        """
         try:
             import matplotlib.pyplot as plt
         except ImportError:
-            matplotlib = None
-            logger.warning(
-                "In order to the use the visualization functionality of FLAML use pip install matplotlib."
+            raise ImportError(
+                "The visualization functionalitye requires installation of matplotlib. "
+                "Please run pip install flaml[visualization]"
             )
-        try:
-            import lime
-        except ImportError:
-            lime = None
-            logger.warning(
-                "In order to the use the visualization functionality of FLAML use pip install lime."
-            )
-        try:
-            import shap
-        except ImportError:
-            shap = None
-            logger.warning(
-                "In order to the use the visualization functionality of FLAML use pip install shap."
-            )
-        # Showing the feature importance of the data that was trained on
+
         if type == "feature_importance":
-            feature_importance_type = int(input("Enter 1 for the model's feature importance and enter 2 to use Lime for a different method of feature importance. \n"))
-            plotfilename = input("Enter a filename to save the feature importance figure:\n")
-            if feature_importance_type == 1:
-                plt.barh(self.feature_names_in_, self.feature_importances_)
-                plt.savefig("{}.png".format(plotfilename))
-            """
-            elif feature_importance_type == 2:
-                ''' The code for calculating feature importance with Lime and Diagnose was provided by group 7 in DS 440'''
-                estimator = getattr(self, "_trained_estimator", None)
-                if estimator is None:
-                    logger.warning(
-                        "No estimator is trained. Please run fit with enough budget."
-                    )
-                    return None
-
-                if explainer == "LIME":
-                    pandas_xtrain = pd.DataFrame(self._state.X_train)
-                    pandas_xval = pd.DataFrame(self._state.X_val)
-                
-                    if problem_type == "classification":
-                        explain = lime_tabular.LimeTabularExplainer(
-                        training_data=self._state.X_train,
-                        feature_names=pandas_xtrain.columns,
-                        class_names= list(class_names.values()),
-                        mode='classification',
-                        **kwargs)
-                    
-                        print("True Label: {}\n".format(class_names[self._state.y_train[row_index]]))
-
-                        exp = explain.explain_instance(data_row=pandas_xtrain.values[row_index], predict_fn = estimator.predict_proba, **kwargs)
-                        exp.save_to_file('lime_classification.html')
-                        return exp.show_in_notebook(show_table=True)
-                
-                    if problem_type == "regression":
-                        explain = lime_tabular.LimeTabularExplainer(
-                        training_data= np.array(self._state.X_train),
-                        feature_names=pandas_xtrain.columns,
-                        mode='regression',
-                        **kwargs)
-                    
-                        print(self._state.X_val)
-                        print("True Label: {}\n".format(self._state.y_val[row_index]))
-                    
-                        exp = explain.explain_instance(data_row=self._state.X_val[row_index], predict_fn = estimator.predict, **kwargs)
-                        exp.save_to_file('lime_regression.html')
-                        return exp.show_in_notebook(show_table=True)
-                   
-
-                    if problem_type == "text":
-                        pass
-
-
-                if explainer == "SHAP":
-                    if problem_type == "classification":
-                        if model_type == "linear":
-                            explainer = shap.LinearExplainer(estimator.predict_proba, self.train_data, feature_dependence="independent")
-
-                        elif model_type == "tree":
-                            explainer = shap.TreeExplainer(estimator.predict_proba)
-                    
-                        else:
-                            explainer = shap.KernelExplainer(estimator.predict_proba, self._state.X_train)
-                    
-                        shap_values = explainer.shap_values(self._state.X_val)
-                        return shap.summary_plot(shap_values, self._state.X_val)
-
-                    if problem_type == "regression":
-                        print(self._state.X_val)
-                        if plot_type == "waterfall":
-                            explainer = shap.Explainer(estimator.model)
-                            shap_values = explainer(self._state.X_train)
-                            return shap.plots.waterfall(shap_values[row_index])
-                    
-                        if plot_type == "bar":
-                            explainer = shap.Explainer(estimator.model)
-                            shap_values = explainer(self._state.X_train)
-                            return shap.plots.bar(shap_values)
-
-                        if plot_type == "beeswarm":
-                            explainer = shap.Explainer(estimator.model)
-                            shap_values = explainer(self._state.X_train)
-                            return shap.plots.beeswarm(shap_values)
-
-                        if plot_type == "force":
-                            shap.initjs()
-                            explainer = shap.Explainer(estimator.model)
-                            shap_values = explainer(self._state.X_train)
-                            shap_plot = shap.plots.force(shap_values[row_index])
-                            shap.save_html("shap_regression.html", shap_plot)
-                            return shap_plot
-
-            '''
-            Example:
-                automl = AutoML()
-                automl.fit(***settings and data)
-                automl.visualization(title = "", type = "feature_importance")
-                It will then display the graph
-            '''
-            """
-        elif type == "validation_accuracy":
+            plt.barh(self.feature_names_in_, self.feature_importances_)
+            plt.savefig("{}.png".format(plot_filename))
+            plt.close()
+        elif type == "learning_curve":
             from flaml.data import get_output_from_log
-            plotfilename = input("Enter a filename to save the validation accuracy figure:\n")
-            time_history, best_valid_loss_history, valid_loss_history, config_history, metric_history = \
-                get_output_from_log(filename=settings['log_file_name'], time_budget=240)
-            plt.clf()
-            plt.cla()
-            plt.title(title)
-            plt.xlabel(xlab)
-            plt.ylabel(ylab)
+
+            log_file_name = kwargs.get("log_file_name")
+            if not log_file_name:
+                log_file_name = self._settings.get("log_file_name")
+            print("log", log_file_name)
+            if not log_file_name:
+                logger.warning("Please provide a search history log file.")
+            (
+                time_history,
+                best_valid_loss_history,
+                valid_loss_history,
+                config_history,
+                metric_history,
+            ) = get_output_from_log(filename=log_file_name, time_budget=240)
+            plt.title("Learning Curve")
+            plt.xlabel("Wall Clock Time (s)")
+            plt.ylabel("Validation Accuracy")
             plt.scatter(time_history, 1 - np.array(valid_loss_history))
-            plt.step(time_history, 1 - np.array(best_valid_loss_history), where='post')
-            plt.savefig("{}".format(plotfilename))
-
-
+            plt.step(time_history, 1 - np.array(best_valid_loss_history), where="post")
+            plt.savefig("{}".format(plot_filename))
 
     def _search_parallel(self):
         try:

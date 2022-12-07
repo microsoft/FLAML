@@ -65,8 +65,7 @@ setuptools.setup(
             "rouge_score",
             "hcrystalball==0.1.10",
             "seqeval",
-            "matplotlib"
-            "pytorch-forecasting>=0.9.0,<=0.10.1",
+            "matplotlib" "pytorch-forecasting>=0.9.0,<=0.10.1",
             "mlflow",
         ],
         "catboost": ["catboost>=0.26"],
@@ -103,7 +102,7 @@ setuptools.setup(
             "hcrystalball==0.1.10",
             "pytorch-forecasting>=0.9.0",
         ],
-        "visualization": ["matplotlib", "lime", "shap"],
+        "visualization": ["matplotlib"],
         "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3"],
     },
     classifiers=[
