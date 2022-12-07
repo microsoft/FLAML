@@ -162,10 +162,6 @@ class SparkTrialRunner(BaseTrialRunner):
         trial_id = Trial.generate_id()
         config = self._search_alg.suggest(trial_id)
         if config is not None:
-            # handle [LightGBM] [Warning] Unknown parameter: _choice_
-            if "_choice_" in config.get("ml", {}):
-                config["ml"].pop("_choice_")
-
             trial = SimpleTrial(config, trial_id)
             self.add_trial(trial)
             trial.set_status(Trial.RUNNING)
