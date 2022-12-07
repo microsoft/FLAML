@@ -32,6 +32,18 @@ def check_spark():
     if _spark_major_minor_version[0] < 3:
         raise Exception("Spark version must be >= 3.0 to use flaml[spark]")
 
+    try:
+        spark = SparkSession.builder.getOrCreate()
+        assert isinstance(spark, SparkSession)
+    except Exception:
+        raise Exception(
+            "Can't start SparkSession. Please check your Spark installation. "
+            "More details about installing "
+            "[PySpark](https://spark.apache.org/docs/latest/api/python/getting_started/install.html)."
+        )
+
+    return True
+
 
 def get_n_cpus():
     """Return the number of CPUs each trial can use."""

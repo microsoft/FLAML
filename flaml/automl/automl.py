@@ -2151,7 +2151,7 @@ class AutoML(BaseEstimator):
                 state=self._state,
             )
         elif self._use_spark is not False:
-            from .utils import with_parameters
+            from flaml.utils import with_parameters
 
             return with_parameters(train, state=self._state, is_report=False)
         else:
@@ -3669,7 +3669,7 @@ class AutoML(BaseEstimator):
                         or os.cpu_count()
                     )
                 elif self._use_spark is not False:
-                    from .utils import get_n_cpus
+                    from flaml.utils import get_n_cpus
 
                     n_cpus = get_n_cpus()
                 else:

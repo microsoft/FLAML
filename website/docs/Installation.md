@@ -54,6 +54,22 @@ pip install flaml[ray]
 ```bash
 pip install flaml[spark]
 ```
+
+You may also need to install `Spark` manually. For latest Ubuntu system,
+you can install Spark 3.3.0 standalone version with below script.
+For more details of installing Spark, please ref to [Spark Doc](https://spark.apache.org/docs/latest/api/python/getting_started/install.html).
+```bash
+sudo apt-get update && sudo apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
+    ca-certificates-java ca-certificates openjdk-17-jdk-headless \
+    && sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/*
+wget --progress=dot:giga "https://www.apache.org/dyn/closer.lua/spark/spark-3.3.0/spark-3.3.0-bin-hadoop2.tgz?action=download" \
+    -O - | tar -xzC /tmp; archive=$(basename "spark-3.3.0/spark-3.3.0-bin-hadoop2.tgz") \
+    bash -c "sudo mv -v /tmp/\${archive/%.tgz/} /spark"
+export SPARK_HOME=/spark
+export PYTHONPATH=/spark/python/lib/py4j-0.10.9.5-src.zip:/spark/python
+export PATH=$PATH:$SPARK_HOME/bin
+```
+
 * nni
 ```bash
 pip install flaml[nni]
