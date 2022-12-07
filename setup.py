@@ -20,7 +20,6 @@ install_requires = [
     "scipy>=1.4.1",
     "pandas>=1.1.4",
     "scikit-learn>=0.24",
-    "openml>=0.10.2",  # many demos use openml datasets
 ]
 
 
