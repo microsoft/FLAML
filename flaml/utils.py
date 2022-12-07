@@ -1,6 +1,6 @@
 import os
 import logging
-from functools import partial
+from functools import partial, lru_cache
 import textwrap
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,10 @@ except ImportError as e:
     _spark_major_minor_version = (0, 0)
 
 
+@lru_cache
 def check_spark():
+    """Cache the result of the check_spark function since test once is enough."""
+    logger.debug("\ncheck Spark installation...This line should appear only once.\n")
     if not _have_spark:
         raise ImportError(
             "use_spark=True requires installation of PySpark. "
