@@ -14,7 +14,9 @@
     <br>
 </p>
 
-:fire: **Update (2022/08): We will give a [hands-on tutorial on FLAML at KDD 2022](https://github.com/microsoft/FLAML/tree/tutorial/tutorial) on 08/16/2022.**
+:fire: An [upcoming tutorial on FLAML](https://github.com/microsoft/FLAML/tree/tutorial-aaai23/tutorial) at [AAAI-23](https://aaai.org/Conferences/AAAI-23/aaai23tutorials/) (to be held on Feb 08, 2023)
+
+:fire: A [hands-on tutorial](https://github.com/microsoft/FLAML/tree/tutorial/tutorial) on FLAML presented at KDD 2022
 
 ## What is FLAML
 FLAML is a lightweight Python library that finds accurate machine
@@ -84,6 +86,7 @@ tune.run(evaluation_function, config={…}, low_cost_partial_config={…}, time_
 
 ```python
 from flaml.default import LGBMRegressor
+
 # Use LGBMRegressor in the same way as you use lightgbm.LGBMRegressor.
 estimator = LGBMRegressor()
 # The hyperparameters are automatically set according to the training data.
