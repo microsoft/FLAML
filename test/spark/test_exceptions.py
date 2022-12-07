@@ -1,4 +1,4 @@
-from flaml.data import load_openml_dataset
+from flaml.automl.data import load_openml_dataset
 from flaml import AutoML
 import flaml
 from flaml.utils import check_spark

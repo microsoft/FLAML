@@ -1,4 +1,4 @@
-from flaml.model import LGBMEstimator
+from flaml.automl.model import LGBMEstimator
 from flaml import tune
 
 

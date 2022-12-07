@@ -1,6 +1,7 @@
 from flaml.utils import with_parameters, check_spark, get_n_cpus
 from functools import partial
 from timeit import timeit
+import os
 import pytest
 
 try:
@@ -52,10 +53,10 @@ def test_get_n_cpus_spark():
 @pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_customize_learner():
     from flaml.utils import customize_learner
-    from flaml.model import LGBMEstimator
+    from flaml.automl.model import LGBMEstimator
 
     learner_code = """
-    from flaml.model import LGBMEstimator
+    from flaml.automl.model import LGBMEstimator
     from flaml import tune
 
     class MyLargeLGBM(LGBMEstimator):
@@ -75,10 +76,11 @@ def test_customize_learner():
             }
     """
 
-    customize_learner(learner_code=learner_code)
+    learner_path = customize_learner(learner_code=learner_code)
     from flaml.mylearner import MyLargeLGBM
 
     assert isinstance(MyLargeLGBM(), LGBMEstimator)
+    os.remove(learner_path)
 
 
 if __name__ == "__main__":

@@ -104,6 +104,7 @@ def with_parameters(trainable, **kwargs):
 def customize_learner(learner_code="", file_name="mylearner", use_spark=True):
     """Write customized learner code contents to a file for importing.
     It is necessary for using the customized learner in spark backend.
+    The path of the learner file will be returned.
 
     Args:
         learner_code: str, default="" | code contents of the customized learner.
@@ -114,10 +115,10 @@ def customize_learner(learner_code="", file_name="mylearner", use_spark=True):
     ```python
     import pyspark
     from flaml.utils import customize_learner
-    from flaml.model import LGBMEstimator
+    from flaml.automl.model import LGBMEstimator
 
     learner_code = '''
-    from flaml.model import LGBMEstimator
+    from flaml.automl.model import LGBMEstimator
     from flaml import tune
 
     class MyLargeLGBM(LGBMEstimator):
@@ -163,3 +164,4 @@ def customize_learner(learner_code="", file_name="mylearner", use_spark=True):
         sc.parallelize(range(num_executors * 2)).map(writefile).collect()
     # write learner file to local/driver
     writefile(None)
+    return learner_path
