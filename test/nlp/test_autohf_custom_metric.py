@@ -19,7 +19,6 @@ def custom_metric(
     groups_train=None,
 ):
     from datasets import Dataset
-    from flaml.model import TransformersEstimator
 
     if estimator._trainer is None:
         trainer = estimator._init_model_for_predict()
@@ -84,7 +83,10 @@ def test_custom_metric():
     del automl
 
     if os.path.exists("test/data/output/"):
-        shutil.rmtree("test/data/output/")
+        try:
+            shutil.rmtree("test/data/output/")
+        except PermissionError:
+            print("PermissionError when deleting test/data/output/")
 
 
 if __name__ == "__main__":
