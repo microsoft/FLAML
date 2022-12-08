@@ -614,7 +614,7 @@ def run(
 
     if use_spark:
         # parallel run with spark
-        from ..utils import check_spark
+        from flaml.utils import check_spark
 
         check_spark()
         try:
