@@ -21,7 +21,7 @@ except ImportError as e:
     _spark_major_minor_version = (0, 0)
 
 
-@lru_cache
+@lru_cache(maxsize=2)
 def check_spark():
     """Cache the result of the check_spark function since test once is enough."""
     logger.debug("\ncheck Spark installation...This line should appear only once.\n")
