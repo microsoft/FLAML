@@ -27,13 +27,14 @@ For the most up-to-date information, see the [AAAI'23 Program Agenda](https://aa
 - Task-oriented AutoML with FLAML
 - Tune user defined functions with FLAML
 - Zero-shot AutoML with FLAML
-- ML.NET demo
+- [ML.NET demo](https://docs.microsoft.com/dotnet/machine-learning/tutorials/predict-prices-with-model-builder)
 
 Break (15m)
 
 ### **Part 2. Deep Dive Into FLAML**
 - Why FLAML works so well
 - Customization and advanced functionalities
+  - [Notebook: A classification task with AutoML](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/automl_classification.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/automl_classification.ipynb)
 
 
 Break (15m)
