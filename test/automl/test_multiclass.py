@@ -146,6 +146,18 @@ class TestMultiClass(unittest.TestCase):
         MyRegularizedGreedyForest.search_space = lambda data_size, task: {}
         automl.fit(X_train=X_train, y_train=y_train, **settings)
 
+        try:
+            import ray
+
+            del settings["time_budget"]
+            settings["max_iter"] = 5
+            # test the "_choice_" issue when using ray
+            automl.fit(
+                X_train=X_train, y_train=y_train, n_concurrent_trials=2, **settings
+            )
+        except ImportError:
+            return
+
     def test_ensemble(self):
         automl = AutoML()
         automl.add_learner(learner_name="RGF", learner_class=MyRegularizedGreedyForest)
@@ -334,19 +346,6 @@ class TestMultiClass(unittest.TestCase):
         }
         X_train, y_train = load_iris(return_X_y=True)
         automl.fit(X_train=X_train, y_train=y_train, **settings)
-
-        LGBMEstimator.search_space = lambda data_size, task: {}
-        try:
-            import ray
-
-            del settings["time_budget"]
-            settings["max_iter"] = 5
-            # test the "_choice_" issue when using ray
-            automl.fit(
-                X_train=X_train, y_train=y_train, n_concurrent_trials=2, **settings
-            )
-        except ImportError:
-            return
 
     def test_roc_auc_ovo_weighted(self):
         automl_experiment = AutoML()
