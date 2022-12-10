@@ -1,4 +1,4 @@
-from flaml.utils import with_parameters, check_spark, get_n_cpus
+from flaml.spark.utils import with_parameters, check_spark, get_n_cpus
 from functools import partial
 from timeit import timeit
 import pytest
@@ -6,7 +6,7 @@ import pytest
 try:
     check_spark()
     skip_spark = False
-except Exception:
+except (ImportError, RuntimeError):
     print("Spark is not installed. Skip all spark tests.")
     skip_spark = True
 
@@ -51,7 +51,7 @@ def test_get_n_cpus_spark():
 
 @pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_customize_learner():
-    from flaml.utils import customize_learner
+    from flaml.spark.utils import customize_learner
     from flaml.automl.model import LGBMEstimator
 
     learner_code = """
@@ -76,7 +76,7 @@ def test_customize_learner():
     """
 
     learner_path = customize_learner(learner_code=learner_code)
-    from flaml.mylearner import MyLargeLGBM
+    from flaml.spark.mylearner import MyLargeLGBM
 
     assert isinstance(MyLargeLGBM(), LGBMEstimator)
 

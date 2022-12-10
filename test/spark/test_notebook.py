@@ -1,14 +1,14 @@
 import nbformat
 from nbconvert.preprocessors import ExecutePreprocessor
 from nbconvert.preprocessors import CellExecutionError
-from flaml.utils import check_spark
+from flaml.spark.utils import check_spark
 import os
 import pytest
 
 try:
     check_spark()
     skip_spark = False
-except Exception:
+except (ImportError, RuntimeError):
     print("Spark is not installed. Skip all spark tests.")
     skip_spark = True
 
@@ -35,7 +35,7 @@ def run_notebook(input_nb, output_nb="executed_notebook.ipynb", save=False):
 
 @pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_automl_lightgbm_test():
-    run_notebook("automl_lightgbm_test.ipynb")
+    run_notebook("integrate_spark.ipynb")
 
 
 if __name__ == "__main__":

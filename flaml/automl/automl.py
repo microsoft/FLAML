@@ -55,7 +55,7 @@ from flaml import tune
 from flaml.automl.training_log import training_log_reader, training_log_writer
 from flaml.default import suggest_learner
 from flaml.version import __version__ as flaml_version
-from flaml.utils import check_spark
+from flaml.spark.utils import check_spark
 
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
@@ -670,8 +670,9 @@ class AutoML(BaseEstimator):
                 concurrent trials. When n_concurrent_trials > 1, flaml performes
                 [parallel tuning](../../Use-Cases/Task-Oriented-AutoML#parallel-tuning)
                 and installation of ray or spark is required: `pip install flaml[ray]`
-                or `pip install flaml[spark]`. More details about installing
-                [PySpark](https://spark.apache.org/docs/latest/api/python/getting_started/install.html)
+                or `pip install flaml[spark]`. Please check
+                [here](https://spark.apache.org/docs/latest/api/python/getting_started/install.html)
+                for more details about installing Spark.
             keep_search_state: boolean, default=False | Whether to keep data needed
                 for model search after fit(). By default the state is deleted for
                 space saving.
@@ -694,7 +695,12 @@ class AutoML(BaseEstimator):
             use_spark: boolean, default=False | Whether to use spark to run the training
                 in parallel spark jobs. This can be used to accelerate training on large models
                 and large datasets, but will incur more overhead in time and thus slow down
-                training in some cases.
+                training in some cases. GPU training is not supported yet when use_spark is True.
+                For Spark clusters, by default, we will launch one trial per executor. However, 
+                sometimes we want to launch more trials than the number of executors (e.g., local mode). 
+                In this case, we can set the environment variable `FLAML_MAX_CONCURRENT` to override
+                the detected `num_executors`. The final number of concurrent trials will be the minimum
+                of `n_concurrent_trials` and `num_executors`.
             free_mem_ratio: float between 0 and 1, default=0. The free memory ratio to keep during training.
             metric_constraints: list, default=[] | The list of metric constraints.
                 Each element in this list is a 3-tuple, which shall be expressed
@@ -2150,8 +2156,8 @@ class AutoML(BaseEstimator):
                 train,
                 state=self._state,
             )
-        elif self._use_spark is not False:
-            from flaml.utils import with_parameters
+        elif self._use_spark:
+            from flaml.spark.utils import with_parameters
 
             return with_parameters(train, state=self._state, is_report=False)
         else:
@@ -2389,8 +2395,9 @@ class AutoML(BaseEstimator):
                 concurrent trials. When n_concurrent_trials > 1, flaml performes
                 [parallel tuning](../../Use-Cases/Task-Oriented-AutoML#parallel-tuning)
                 and installation of ray or spark is required: `pip install flaml[ray]`
-                or `pip install flaml[spark]`. More details about installing
-                [PySpark](https://spark.apache.org/docs/latest/api/python/getting_started/install.html)
+                or `pip install flaml[spark]`. Please check
+                [here](https://spark.apache.org/docs/latest/api/python/getting_started/install.html)
+                for more details about installing Spark.
             keep_search_state: boolean, default=False | Whether to keep data needed
                 for model search after fit(). By default the state is deleted for
                 space saving.
@@ -2608,7 +2615,7 @@ class AutoML(BaseEstimator):
         min_sample_size = min_sample_size or self._settings.get("min_sample_size")
         use_ray = self._settings.get("use_ray") if use_ray is None else use_ray
         use_spark = self._settings.get("use_spark") if use_spark is None else use_spark
-        if use_spark is not False and use_ray is not False:
+        if use_spark and use_ray is not False:
             raise ValueError("use_spark and use_ray cannot be both True.")
         elif use_spark:
             check_spark()
@@ -2678,6 +2685,7 @@ class AutoML(BaseEstimator):
             elif isinstance(dataframe, ray.ObjectRef):
                 dataframe = ray.get(dataframe)
         else:
+            # TODO: Integrate with Spark
             self._state.resources_per_trial = (
                 {"cpu": n_jobs} if n_jobs > 0 else {"cpu": 1}
             )
@@ -3005,7 +3013,7 @@ class AutoML(BaseEstimator):
             else (
                 "bs"
                 if n_concurrent_trials > 1
-                or (self._use_ray is not False or self._use_spark is not False)
+                or (self._use_ray is not False or self._use_spark)
                 and len(estimator_list) > 1
                 else "cfo"
             )
@@ -3157,7 +3165,7 @@ class AutoML(BaseEstimator):
         search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
         resources_per_trial = self._state.resources_per_trial
 
-        if self._use_spark is not False:
+        if self._use_spark:
             # use spark as parallel backend
             analysis = tune.run(
                 self.trainable,
@@ -3668,8 +3676,8 @@ class AutoML(BaseEstimator):
                         and ray.available_resources()["CPU"]
                         or os.cpu_count()
                     )
-                elif self._use_spark is not False:
-                    from flaml.utils import get_n_cpus
+                elif self._use_spark:
+                    from flaml.spark.utils import get_n_cpus
 
                     n_cpus = get_n_cpus()
                 else:

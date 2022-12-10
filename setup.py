@@ -46,7 +46,6 @@ setuptools.setup(
         ],
         "spark": [
             "pyspark>=3.0.0",
-            "optuna==2.8.0",
             "joblibspark",
         ],
         "test": [

@@ -1,14 +1,13 @@
 from flaml.automl.data import load_openml_dataset
 from flaml import AutoML
-import flaml
-from flaml.utils import check_spark
+from flaml.spark.utils import check_spark
 import os
 import pytest
 
 try:
     check_spark()
     skip_spark = False
-except Exception:
+except (ImportError, RuntimeError):
     print("Spark is not installed. Skip all spark tests.")
     skip_spark = True
 
@@ -21,7 +20,7 @@ def base_automl(n_concurrent_trials=1, use_ray=False, use_spark=False, verbose=0
     )
     automl = AutoML()
     settings = {
-        "time_budget": 10,  # total running time in seconds
+        "time_budget": 3,  # total running time in seconds
         "metric": "r2",  # primary metrics for regression can be chosen from: ['mae','mse','r2','rmse','mape']
         "estimator_list": ["lgbm", "rf", "xgboost"],  # list of ML learners
         "task": "regression",  # task type

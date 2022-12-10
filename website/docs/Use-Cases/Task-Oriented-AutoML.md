@@ -382,7 +382,11 @@ and have ``split`` and ``get_n_splits`` methods with the same signatures.  To di
 
 When you have parallel resources, you can either spend them in training and keep the model search sequential, or perform parallel search. Following scikit-learn, the parameter `n_jobs` specifies how many CPU cores to use for each training job. The number of parallel trials is specified via the parameter `n_concurrent_trials`. By default, `n_jobs=-1, n_concurrent_trials=1`. That is, all the CPU cores (in a single compute node) are used for training a single model and the search is sequential. When you have more resources than what each single training job needs, you can consider increasing `n_concurrent_trials`.
 
-To do parallel tuning, install the `ray` and `blendsearch` options:
+FLAML now support two backends for parallel tuning, i.e., `Ray` and `Spark`. You can use either of them, but not both for one tuning.
+
+#### Parallel tuning with Ray
+
+To do parallel tuning with Ray, install the `ray` and `blendsearch` options:
 ```bash
 pip install flaml[ray,blendsearch]
 ```
@@ -396,6 +400,35 @@ allocates 16 CPU cores. Then, when you run:
 automl.fit(X_train, y_train, n_jobs=4, n_concurrent_trials=4)
 ```
 flaml will perform 4 trials in parallel, each consuming 4 CPU cores. The parallel tuning uses the [BlendSearch](Tune-User-Defined-Function##blendsearch-economical-hyperparameter-optimization-with-blended-search-strategy) algorithm.
+
+#### Parallel tuning with Spark
+
+To do parallel tuning with Spark, install the `spark` and `blendsearch` options:
+```bash
+pip install flaml[spark,blendsearch]
+```
+
+For cloud platforms such as [Azure Synapse](https://azure.microsoft.com/en-us/products/synapse-analytics/), Spark clusters are provided.
+But you may also need to install `Spark` manually when setting up your own environment.
+For latest Ubuntu system, you can install Spark 3.3.0 standalone version with below script.
+For more details of installing Spark, please ref to [Spark Doc](https://spark.apache.org/docs/latest/api/python/getting_started/install.html).
+```bash
+sudo apt-get update && sudo apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
+    ca-certificates-java ca-certificates openjdk-17-jdk-headless \
+    && sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/*
+wget --progress=dot:giga "https://www.apache.org/dyn/closer.lua/spark/spark-3.3.0/spark-3.3.0-bin-hadoop2.tgz?action=download" \
+    -O - | tar -xzC /tmp; archive=$(basename "spark-3.3.0/spark-3.3.0-bin-hadoop2.tgz") \
+    bash -c "sudo mv -v /tmp/\${archive/%.tgz/} /spark"
+export SPARK_HOME=/spark
+export PYTHONPATH=/spark/python/lib/py4j-0.10.9.5-src.zip:/spark/python
+export PATH=$PATH:$SPARK_HOME/bin
+```
+
+An example of using Spark for parallel tuning is:
+```python
+automl.fit(X_train, y_train, n_concurrent_trials=4, use_spark=True)
+```
+For Spark clusters, by default, we will launch one trial per executor. However, sometimes we want to launch more trials than the number of executors (e.g., local mode). In this case, we can set the environment variable `FLAML_MAX_CONCURRENT` to override the detected `num_executors`. The final number of concurrent trials will be the minimum of `n_concurrent_trials` and `num_executors`. Also, GPU training is not supported yet when use_spark is True.
 
 #### **Guidelines on parallel vs sequential tuning**
 

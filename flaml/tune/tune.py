@@ -427,7 +427,7 @@ def run(
         log_file_name = os.path.join(
             local_dir, "tune_" + str(datetime.datetime.now()).replace(":", "-") + ".log"
         )
-    if use_ray is not False and use_spark is not False:
+    if use_ray and use_spark:
         raise ValueError("use_ray and use_spark cannot be both True.")
     if not use_ray:
         _use_ray = False
@@ -530,7 +530,7 @@ def run(
         if metric is None or mode is None:
             metric = metric or search_alg.metric or DEFAULT_METRIC
             mode = mode or search_alg.mode
-        if ray_import and use_ray is not False:
+        if ray_import and use_ray:
             if ray_version.startswith("1."):
                 from ray.tune.suggest import ConcurrencyLimiter
             else:
@@ -614,7 +614,7 @@ def run(
 
     if use_spark:
         # parallel run with spark
-        from flaml.utils import check_spark
+        from flaml.spark.utils import check_spark
 
         check_spark()
         try:
@@ -651,7 +651,6 @@ def run(
         """
         num_executors = max(num_executors, int(os.getenv("FLAML_MAX_CONCURRENT", 1)), 1)
         time_start = time.time()
-        _use_ray = False
         if scheduler:
             scheduler.set_search_properties(metric=metric, mode=mode)
         if isinstance(search_alg, ConcurrencyLimiter):
@@ -662,7 +661,7 @@ def run(
         n_concurrent_trials = min(num_executors, max_concurrent)
         with parallel_backend("spark"):
             with Parallel(
-                n_jobs=n_concurrent_trials, verbose=50 * (verbose - 1)
+                n_jobs=n_concurrent_trials, verbose=max(0, (verbose - 1) * 50)
             ) as parallel:
                 try:
                     _runner = SparkTrialRunner(
@@ -683,7 +682,7 @@ def run(
                         and (num_samples < 0 or num_trials < num_samples)
                         and fail < ub
                     ):
-                        for i in range(n_concurrent_trials):
+                        while len(_runner.running_trials) < n_concurrent_trials:
                             # suggest trials for spark
                             trial_next = _runner.step()
                             if trial_next:
@@ -691,39 +690,45 @@ def run(
                             else:
                                 fail += 1  # break with ub consecutive failures
                                 logger.debug(f"consecutive failures is {fail}")
+                                if fail >= ub:
+                                    break
                         trials_to_run = _runner.running_trials
-                        if trials_to_run:
-                            logger.debug(
-                                f"Configs of Trials to run: {[trial_to_run.config for trial_to_run in trials_to_run]}"
+                        if not trials_to_run:
+                            logger.warning(
+                                f"fail to sample a trial for {max_failure} times in a row, stopping."
                             )
-                            logger.info(
-                                f"Number of trials: {num_trials}/{num_samples}, {len(_runner.running_trials)} RUNNING,"
-                                f" {len(_runner._trials) - len(_runner.running_trials)} TERMINATED"
-                            )
-                            results = parallel(
-                                delayed(evaluation_function)(trial_to_run.config)
-                                for trial_to_run in trials_to_run
-                            )
-                            # results = [evaluation_function(trial_to_run.config) for trial_to_run in trials_to_run]
-                            while results:
-                                result = results.pop(0)
-                                trial_to_run = trials_to_run[0]
-                                _runner.running_trial = trial_to_run
-                                if result is not None:
-                                    if isinstance(result, dict):
-                                        if result:
-                                            report(**result)
-                                        else:
-                                            # When the result returned is an empty dict, set the trial status to error
-                                            trial_to_run.set_status(Trial.ERROR)
-                                    else:
-                                        report(_metric=result)
-                                _runner.stop_trial(trial_to_run)
-                            fail = 0
-                    if fail >= ub:
-                        logger.warning(
-                            f"fail to sample a trial for {max_failure} times in a row, stopping."
+                            break
+                        logger.info(
+                            f"Number of trials: {num_trials}/{num_samples}, {len(_runner.running_trials)} RUNNING,"
+                            f" {len(_runner._trials) - len(_runner.running_trials)} TERMINATED"
                         )
+                        logger.debug(
+                            f"Configs of Trials to run: {[trial_to_run.config for trial_to_run in trials_to_run]}"
+                        )
+                        results = parallel(
+                            delayed(evaluation_function)(trial_to_run.config)
+                            for trial_to_run in trials_to_run
+                        )
+                        # results = [evaluation_function(trial_to_run.config) for trial_to_run in trials_to_run]
+                        while results:
+                            result = results.pop(0)
+                            trial_to_run = trials_to_run[0]
+                            _runner.running_trial = trial_to_run
+                            if result is not None:
+                                if isinstance(result, dict):
+                                    if result:
+                                        logger.info(f"Brief result: {result}")
+                                        report(**result)
+                                    else:
+                                        # When the result returned is an empty dict, set the trial status to error
+                                        trial_to_run.set_status(Trial.ERROR)
+                                else:
+                                    logger.info(
+                                        "Brief result: {}".format({metric: result})
+                                    )
+                                    report(_metric=result)
+                            _runner.stop_trial(trial_to_run)
+                        fail = 0
                     analysis = ExperimentAnalysis(
                         _runner.get_trials(),
                         metric=metric,

@@ -5,14 +5,14 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from flaml import tune
 from flaml.automl.model import LGBMEstimator
-from flaml.utils import check_spark
+from flaml.spark.utils import check_spark
 import os
 import pytest
 
 try:
     check_spark()
     skip_spark = False
-except Exception:
+except (ImportError, RuntimeError):
     print("Spark is not installed. Skip all spark tests.")
     skip_spark = True
 
@@ -47,8 +47,9 @@ def test_tune_spark():
         mode="max",
         config=config_search_space,
         num_samples=-1,
-        time_budget_s=10,
+        time_budget_s=5,
         use_spark=True,
+        verbose=3,
     )
 
     # print("Best hyperparameters found were: ", analysis.best_config)

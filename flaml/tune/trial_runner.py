@@ -172,7 +172,4 @@ class SparkTrialRunner(BaseTrialRunner):
 
     def stop_trial(self, trial):
         super().stop_trial(trial)
-        try:
-            self.running_trials.remove(trial)
-        except ValueError:
-            logger.warning("Trial {} is not running.".format(trial.trial_id))
+        self.running_trials.remove(trial)

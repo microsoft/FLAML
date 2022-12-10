@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.sparse
 from flaml import AutoML
-from flaml.utils import check_spark
+from flaml.spark.utils import check_spark
 import os
 import pytest
 
@@ -23,7 +23,7 @@ os.environ["FLAML_MAX_CONCURRENT"] = "2"
 try:
     check_spark()
     skip_spark = False
-except Exception:
+except (ImportError, RuntimeError):
     print("Spark is not installed. Skip all spark tests.")
     skip_spark = True
 

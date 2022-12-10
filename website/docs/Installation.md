@@ -55,8 +55,9 @@ pip install flaml[ray]
 pip install flaml[spark]
 ```
 
-You may also need to install `Spark` manually. For latest Ubuntu system,
-you can install Spark 3.3.0 standalone version with below script.
+For cloud platforms such as [Azure Synapse](https://azure.microsoft.com/en-us/products/synapse-analytics/), Spark clusters are provided.
+But you may also need to install `Spark` manually when setting up your own environment.
+For latest Ubuntu system, you can install Spark 3.3.0 standalone version with below script.
 For more details of installing Spark, please ref to [Spark Doc](https://spark.apache.org/docs/latest/api/python/getting_started/install.html).
 ```bash
 sudo apt-get update && sudo apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \

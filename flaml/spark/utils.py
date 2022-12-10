@@ -23,40 +23,48 @@ except ImportError as e:
 
 @lru_cache(maxsize=2)
 def check_spark():
-    """Cache the result of the check_spark function since test once is enough."""
+    """Check if Spark is installed and running.
+    Result of the function will be cached since test once is enough.
+
+    Returns:
+        Return True if the check passes, otherwise raise an exception.
+    """
     logger.debug("\ncheck Spark installation...This line should appear only once.\n")
     if not _have_spark:
         raise ImportError(
             "use_spark=True requires installation of PySpark. "
-            "Please run pip install flaml[spark]. More details about installing "
-            "[PySpark](https://spark.apache.org/docs/latest/api/python/getting_started/install.html)"
+            "Please run pip install flaml[spark] and check "
+            "[here](https://spark.apache.org/docs/latest/api/python/getting_started/install.html) "
+            "for more details about installing Spark."
         )
 
     if _spark_major_minor_version[0] < 3:
-        raise Exception("Spark version must be >= 3.0 to use flaml[spark]")
+        raise ImportError("Spark version must be >= 3.0 to use flaml[spark]")
 
-    try:
-        spark = SparkSession.builder.getOrCreate()
-        assert isinstance(spark, SparkSession)
-    except Exception:
-        raise Exception(
-            "Can't start SparkSession. Please check your Spark installation. "
-            "More details about installing "
-            "[PySpark](https://spark.apache.org/docs/latest/api/python/getting_started/install.html)."
-        )
+    # Raise the original exception if SparkSession is not available
+    SparkSession.builder.getOrCreate()
 
     return True
 
 
-def get_n_cpus():
-    """Return the number of CPUs each trial can use."""
+def get_n_cpus(node="driver"):
+    """Get the number of CPU cores of the given type of node.
+
+    Args:
+        node: string | The type of node to get the number of cores. Can be 'driver' or 'executor'.
+            Default is 'driver'.
+
+    Returns:
+        An int of the number of CPU cores.
+    """
+    assert node in ["driver", "executor"]
     try:
         n_cpus = int(
             SparkSession.builder.getOrCreate()
             .sparkContext.getConf()
-            .get("spark.executor.cores")
+            .get(f"spark.{node}.cores")
         )
-    except Exception:
+    except (TypeError, RuntimeError):
         n_cpus = os.cpu_count()
     return n_cpus
 
@@ -71,6 +79,12 @@ def with_parameters(trainable, **kwargs):
         trainable: Trainable to wrap.
         **kwargs: parameters to store in object store.
 
+    Returns:
+        A new function with partial application of the given arguments
+        and keywords, the given arguments and keywords will be broadcasted
+        to all the executors.
+
+
     ```python
     import pyspark
     import flaml
@@ -81,9 +95,9 @@ def with_parameters(trainable, **kwargs):
         print(config, data)
 
     data = load_iris()
-    with_parameters_train = flaml.utils.with_parameters(train, data=data)
+    with_parameters_train = flaml.spark.utils.with_parameters(train, data=data)
     with_parameters_train(config=1)
-    train(config=1)
+    train(config={"metric": "accuracy"})
     ```
     """
 
@@ -104,20 +118,20 @@ def with_parameters(trainable, **kwargs):
     return partial(trainable, **bc_kwargs)
 
 
-def customize_learner(learner_code="", file_name="mylearner", use_spark=True):
-    """Write customized learner code contents to a file for importing.
+def customize_learner(learner_code="", file_name="mylearner"):
+    """Write customized learner/metric code contents to a file for importing.
     It is necessary for using the customized learner in spark backend.
     The path of the learner file will be returned.
 
     Args:
         learner_code: str, default="" | code contents of the customized learner.
         file_name: str, default="mylearner" | file name of the customized learner.
-        use_spark: bool, default=True | whether to use spark backend. If True, this
-            function will write the customized learner code to all the executors.
 
+    Returns:
+        The path of the customized learner file.
     ```python
     import pyspark
-    from flaml.utils import customize_learner
+    from flaml.spark.utils import customize_learner
     from flaml.automl.model import LGBMEstimator
 
     learner_code = '''
@@ -142,7 +156,7 @@ def customize_learner(learner_code="", file_name="mylearner", use_spark=True):
     '''
 
     customize_learner(learner_code=learner_code)
-    from flaml.mylearner import MyLargeLGBM
+    from flaml.spark.mylearner import MyLargeLGBM
     assert isinstance(MyLargeLGBM(), LGBMEstimator)
     ```
     """
@@ -154,17 +168,6 @@ def customize_learner(learner_code="", file_name="mylearner", use_spark=True):
         with open(learner_path, "w") as f:
             f.write(learner_code)
 
-    if use_spark:
-        check_spark()
-        spark = SparkSession.builder.getOrCreate()
-        sc = spark._jsc.sc()
-        num_executors = (
-            len([executor.host() for executor in sc.statusTracker().getExecutorInfos()])
-            - 1
-        )
-        sc = spark.sparkContext
-        # do two times to make sure all executors have the learner file
-        sc.parallelize(range(num_executors * 2)).map(writefile).collect()
-    # write learner file to local/driver
+    # write learner into a file
     writefile(None)
     return learner_path

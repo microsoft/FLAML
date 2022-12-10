@@ -1,35 +1,30 @@
 import sys
 from openml.exceptions import OpenMLServerException
 from requests.exceptions import ChunkedEncodingError, SSLError
-from flaml.utils import check_spark
+from flaml.spark.utils import check_spark
 import os
 import pytest
 
 try:
     check_spark()
     skip_spark = False
-except Exception:
+except (ImportError, RuntimeError):
     print("Spark is not installed. Skip all spark tests.")
     skip_spark = True
 
 os.environ["FLAML_MAX_CONCURRENT"] = "2"
 
 
-def run_automl(budget=5, dataset_format="dataframe", hpo_method=None):
+def run_automl(budget=3, dataset_format="dataframe", hpo_method=None):
     from flaml.automl.data import load_openml_dataset
     import urllib3
 
-    performance_check_budget = 600
-    if (
-        sys.platform == "darwin"
-        and budget < performance_check_budget
-        and dataset_format == "dataframe"
-        and "3.9" in sys.version
-    ):
-        budget = performance_check_budget  # revise the buget on macos
-    if budget == performance_check_budget:
-        budget = None
+    performance_check_budget = 3600
+    if sys.platform == "darwin" or "nt" in os.name or "3.10" not in sys.version:
+        budget = 3  # revise the buget if the platform is not linux + python 3.10
+    if budget >= performance_check_budget:
         max_iter = 60
+        performance_check_budget = None
     else:
         max_iter = None
     try:
@@ -98,18 +93,18 @@ def run_automl(budget=5, dataset_format="dataframe", hpo_method=None):
         "roc_auc", "=", 1 - sklearn_metric_loss_score("roc_auc", y_pred_proba, y_test)
     )
     print("log_loss", "=", sklearn_metric_loss_score("log_loss", y_pred_proba, y_test))
-    if budget is None:
+    if performance_check_budget is None:
         assert accuracy >= 0.669, "the accuracy of flaml should be larger than 0.67"
 
 
 @pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_automl_array():
-    run_automl(5, "array", "bs")
+    run_automl(3, "array", "bs")
 
 
 @pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_automl_performance():
-    run_automl(600)
+    run_automl(3600)
 
 
 if __name__ == "__main__":
