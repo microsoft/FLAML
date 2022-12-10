@@ -2083,6 +2083,7 @@ class AutoML(BaseEstimator):
             # check memory constraints before training
             if states[estimator].learner_class.size(config) <= mem_res:
                 del config["learner"]
+                config.pop("_choice_", None)
                 result = AutoMLState._compute_with_config_base(
                     config, state=state, estimator=estimator
                 )

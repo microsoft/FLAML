@@ -146,6 +146,17 @@ class TestMultiClass(unittest.TestCase):
         MyRegularizedGreedyForest.search_space = lambda data_size, task: {}
         automl.fit(X_train=X_train, y_train=y_train, **settings)
 
+        try:
+            import ray
+
+            del settings["time_budget"]
+            settings["max_iter"] = 10
+            automl.fit(
+                X_train=X_train, y_train=y_train, n_concurrent_trials=2, **settings
+            )
+        except ImportError:
+            return
+
     def test_ensemble(self):
         automl = AutoML()
         automl.add_learner(learner_name="RGF", learner_class=MyRegularizedGreedyForest)
