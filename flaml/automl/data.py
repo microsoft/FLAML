@@ -7,11 +7,13 @@ from scipy.sparse import vstack, issparse
 import pandas as pd
 from pandas import DataFrame, Series
 
-from flaml.automl.task import Task
 from flaml.automl.training_log import training_log_reader
 
 from datetime import datetime
-from typing import Union
+from typing import TYPE_CHECKING, Union
+
+if TYPE_CHECKING:
+    from flaml.automl.task import Task
 
 TS_TIMESTAMP_COL = "ds"
 TS_VALUE_COL = "y"
@@ -233,7 +235,7 @@ def add_time_idx_col(X):
 class DataTransformer:
     """Transform input training data."""
 
-    def fit_transform(self, X: Union[DataFrame, np.ndarray], y, task: Task):
+    def fit_transform(self, X: Union[DataFrame, np.ndarray], y, task: Union[str, 'Task']):
         """Fit transformer and process the input training data according to the task type.
 
         Args:
@@ -245,6 +247,11 @@ class DataTransformer:
             X: Processed numpy array or pandas dataframe of training data.
             y: Processed numpy array or pandas series of labels.
         """
+        if isinstance(task, str):
+            from flaml.automl.task.factory import task_factory
+
+            task = task_factory(task, X, y)
+
         if task.is_nlp():
             # if the mode is NLP, check the type of input, each column must be either string or
             # ids (input ids, token type id, attention mask, etc.)
@@ -368,7 +375,6 @@ class DataTransformer:
 
                 self.label_transformer = LabelEncoderforTokenClassification()
             y = self.label_transformer.fit_transform(y)
-
         else:
             self.label_transformer = None
         self._task = task

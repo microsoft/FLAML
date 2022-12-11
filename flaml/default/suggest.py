@@ -3,7 +3,8 @@ from sklearn.neighbors import NearestNeighbors
 import logging
 import pathlib
 import json
-from flaml.automl.data import CLASSIFICATION, DataTransformer
+from flaml.automl.data import DataTransformer
+from flaml.automl.task.task import CLASSIFICATION
 from flaml.automl.ml import get_estimator_class, get_classification_objective
 from flaml.version import __version__
 

@@ -4,8 +4,6 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from flaml.automl.generic_task import GenericTask
-
 # TODO: if your task is not specified in here, define your task as an all-capitalized word
 SEQCLASSIFICATION = "seq-classification"
 MULTICHOICECLASSIFICATION = "multichoice-classification"
@@ -86,17 +84,15 @@ class Task(ABC):
     ) -> Tuple[float, float, float, float]:
         pass
 
-    # TODO Remove private marker
-    @staticmethod
     @abstractmethod
-    def _validate_data(
+    def validate_data(
+        self,
         automl,
+        state,
         X_train_all,
         y_train_all,
         dataframe,
         label,
-        eval_method,
-        time_col=None,
         X_val=None,
         y_val=None,
         groups_val=None,
@@ -107,11 +103,16 @@ class Task(ABC):
     @abstractmethod
     def prepare_data(
         self,
-        automl,
+        state,
+        X_train_all,
+        y_train_all,
+        auto_argument,
         eval_method,
+        split_type,
         split_ratio,
         n_splits,
-        time_col=None,
+        data_is_df,
+        sample_weight_full,
     ):
         pass
 
@@ -123,14 +124,25 @@ class Task(ABC):
 
     # TODO Remove private marker
     @abstractmethod
-    def preprocess(self, X):
+    def preprocess(self, X, transformer=None):
+        pass
+
+    @abstractmethod
+    def default_estimator_list(self, estimator_list: List[str]) -> List[str]:
+        pass
+
+    @abstractmethod
+    def default_metric(self, metric: str) -> str:
         pass
 
     def is_ts_forecast(self):
         return self.name in TS_FORECAST
 
     def is_ts_forecastpanel(self):
-        return self.name in TS_FORECASTPANEL
+        return self.name == TS_FORECASTPANEL
+
+    def is_ts_forecastregression(self):
+        return self.name in TS_FORECASTREGRESSION
 
     def is_nlp(self):
         return self.name in NLP_TASKS
@@ -148,27 +160,22 @@ class Task(ABC):
         return self.name == "binary"
 
     def is_seq_regression(self):
-        return self.name in SEQREGRESSION
+        return self.name == SEQREGRESSION
 
     def is_seq_classification(self):
-        return self.name in SEQCLASSIFICATION
+        return self.name == SEQCLASSIFICATION
 
     def is_token_classification(self):
-        return self.name in TOKENCLASSIFICATION
+        return self.name == TOKENCLASSIFICATION
 
     def is_summarization(self):
-        return self.name in SUMMARIZATION
+        return self.name == SUMMARIZATION
 
     def is_multiclass(self):
         return "multiclass" in self.name
 
-    @abstractmethod
-    def default_estimator_list(self) -> List[str]:
-        pass
-
-    @abstractmethod
-    def default_metric(self) -> str:
-        pass
+    def is_regression(self):
+        return self.name in REGRESSION
 
     def __eq__(self, other):
         """For backward compatibility with all the string comparisons to task"""
@@ -184,11 +191,3 @@ class Task(ABC):
                 f"only {list(cls.estimators.keys())} are supported."
                 "Please use AutoML.add_learner() to add a customized learner."
             )
-
-
-def task_factory(
-    task_name: str,
-    X_train: Optional[Union[np.ndarray, pd.DataFrame]] = None,
-    y_train: Optional[Union[np.ndarray, pd.DataFrame, pd.Series]] = None,
-) -> Task:
-    return GenericTask(task_name, X_train, y_train)
