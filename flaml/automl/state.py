@@ -65,8 +65,9 @@ class SearchState:
         period=None,
         custom_hp=None,
         max_iter=None,
+        budget=None,
     ):
-        self.init_eci = learner_class.cost_relative2lgbm()
+        self.init_eci = learner_class.cost_relative2lgbm() if budget >= 0 else 1
         self._search_space_domain = {}
         self.init_config = None
         self.low_cost_partial_config = {}
@@ -74,6 +75,7 @@ class SearchState:
         self.data_size = data_size
         self.ls_ever_converged = False
         self.learner_class = learner_class
+        self._budget = budget
         if task in TS_FORECAST:
             search_space = learner_class.search_space(
                 data_size=data_size, task=task, pred_horizon=period
@@ -178,7 +180,7 @@ class SearchState:
             n_iter = (
                 trained_estimator
                 and hasattr(trained_estimator, "ITER_HP")
-                and trained_estimator.params[trained_estimator.ITER_HP]
+                and trained_estimator.params.get(trained_estimator.ITER_HP)
             )
             if n_iter:
                 config[trained_estimator.ITER_HP] = n_iter
@@ -186,7 +188,7 @@ class SearchState:
             obj, time2eval, trained_estimator = np.inf, 0.0, None
             metric_for_logging = config = None
         self.trial_time = time2eval
-        self.total_time_used += time_used
+        self.total_time_used += time_used if self._budget >= 0 else 1
         self.total_iter += 1
 
         if self.base_eci is None:
@@ -227,6 +229,192 @@ class SearchState:
             self.best_config_sample_size is not None
         ), "need to first get best_config_sample_size"
         return self.time2eval_best * retrain_sample_size / self.best_config_sample_size
+
+
+class AutoMLState:
+    def _prepare_sample_train_data(self, sample_size):
+        sampled_weight = groups = None
+        if sample_size <= self.data_size[0]:
+            if isinstance(self.X_train, pd.DataFrame):
+                sampled_X_train = self.X_train.iloc[:sample_size]
+            else:
+                sampled_X_train = self.X_train[:sample_size]
+            if isinstance(self.y_train, pd.Series):
+                sampled_y_train = self.y_train.iloc[:sample_size]
+            else:
+                sampled_y_train = self.y_train[:sample_size]
+            weight = self.fit_kwargs.get(
+                "sample_weight"
+            )  # NOTE: _prepare_sample_train_data is before kwargs is updated to fit_kwargs_by_estimator
+            if weight is not None:
+                sampled_weight = (
+                    weight.iloc[:sample_size]
+                    if isinstance(weight, pd.Series)
+                    else weight[:sample_size]
+                )
+            if self.groups is not None:
+                groups = (
+                    self.groups.iloc[:sample_size]
+                    if isinstance(self.groups, pd.Series)
+                    else self.groups[:sample_size]
+                )
+        else:
+            sampled_X_train = self.X_train_all
+            sampled_y_train = self.y_train_all
+            if (
+                "sample_weight" in self.fit_kwargs
+            ):  # NOTE: _prepare_sample_train_data is before kwargs is updated to fit_kwargs_by_estimator
+                sampled_weight = self.sample_weight_all
+            if self.groups is not None:
+                groups = self.groups_all
+        return sampled_X_train, sampled_y_train, sampled_weight, groups
+
+    @staticmethod
+    def _compute_with_config_base(config_w_resource, state, estimator):
+        if "FLAML_sample_size" in config_w_resource:
+            sample_size = int(config_w_resource["FLAML_sample_size"])
+        else:
+            sample_size = state.data_size[0]
+
+        this_estimator_kwargs = state.fit_kwargs_by_estimator.get(
+            estimator
+        ).copy()  # NOTE: _compute_with_config_base is after kwargs is updated to fit_kwargs_by_estimator
+        (
+            sampled_X_train,
+            sampled_y_train,
+            sampled_weight,
+            groups,
+        ) = state._prepare_sample_train_data(sample_size)
+        if sampled_weight is not None:
+            weight = this_estimator_kwargs["sample_weight"]
+            this_estimator_kwargs["sample_weight"] = sampled_weight
+        if groups is not None:
+            this_estimator_kwargs["groups"] = groups
+        config = config_w_resource.copy()
+        if "FLAML_sample_size" in config:
+            del config["FLAML_sample_size"]
+        budget = (
+            None
+            if state.time_budget < 0
+            else state.time_budget - state.time_from_start
+            if sample_size == state.data_size[0]
+            else (state.time_budget - state.time_from_start)
+            / 2
+            * sample_size
+            / state.data_size[0]
+        )
+
+        (
+            trained_estimator,
+            val_loss,
+            metric_for_logging,
+            _,
+            pred_time,
+        ) = compute_estimator(
+            sampled_X_train,
+            sampled_y_train,
+            state.X_val,
+            state.y_val,
+            state.weight_val,
+            state.groups_val,
+            state.train_time_limit
+            if budget is None
+            else min(budget, state.train_time_limit or np.inf),
+            state.kf,
+            config,
+            state.task,
+            estimator,
+            state.eval_method,
+            state.metric,
+            state.best_loss,
+            state.n_jobs,
+            state.learner_classes.get(estimator),
+            state.cv_score_agg_func,
+            state.log_training_metric,
+            this_estimator_kwargs,
+            state.free_mem_ratio,
+        )
+        if state.retrain_final and not state.model_history:
+            trained_estimator.cleanup()
+
+        result = {
+            "pred_time": pred_time,
+            "wall_clock_time": time.time() - state._start_time_flag,
+            "metric_for_logging": metric_for_logging,
+            "val_loss": val_loss,
+            "trained_estimator": trained_estimator,
+        }
+        if sampled_weight is not None:
+            this_estimator_kwargs["sample_weight"] = weight
+        tune.report(**result)
+        return result
+
+    def sanitize(self, config: dict) -> dict:
+        """Make a config ready for passing to estimator."""
+        config = config.get("ml", config).copy()
+        if "FLAML_sample_size" in config:
+            del config["FLAML_sample_size"]
+        if "learner" in config:
+            del config["learner"]
+        return config
+
+    def _train_with_config(
+        self,
+        estimator,
+        config_w_resource,
+        sample_size=None,
+    ):
+        if not sample_size:
+            sample_size = config_w_resource.get(
+                "FLAML_sample_size", len(self.y_train_all)
+            )
+        config = self.sanitize(config_w_resource)
+
+        this_estimator_kwargs = self.fit_kwargs_by_estimator.get(
+            estimator
+        ).copy()  # NOTE: _train_with_config is after kwargs is updated to fit_kwargs_by_estimator
+        (
+            sampled_X_train,
+            sampled_y_train,
+            sampled_weight,
+            groups,
+        ) = self._prepare_sample_train_data(sample_size)
+        if sampled_weight is not None:
+            weight = this_estimator_kwargs[
+                "sample_weight"
+            ]  # NOTE: _train_with_config is after kwargs is updated to fit_kwargs_by_estimator
+            this_estimator_kwargs[
+                "sample_weight"
+            ] = sampled_weight  # NOTE: _train_with_config is after kwargs is updated to fit_kwargs_by_estimator
+        if groups is not None:
+            this_estimator_kwargs[
+                "groups"
+            ] = groups  # NOTE: _train_with_config is after kwargs is updated to fit_kwargs_by_estimator
+
+        budget = (
+            None if self.time_budget < 0 else self.time_budget - self.time_from_start
+        )
+
+        estimator, train_time = train_estimator(
+            X_train=sampled_X_train,
+            y_train=sampled_y_train,
+            config_dic=config,
+            task=self.task,
+            estimator_name=estimator,
+            n_jobs=self.n_jobs,
+            estimator_class=self.learner_classes.get(estimator),
+            budget=budget,
+            fit_kwargs=this_estimator_kwargs,  # NOTE: _train_with_config is after kwargs is updated to fit_kwargs_by_estimator
+            eval_metric=self.metric if hasattr(self, "metric") else "train_time",
+            free_mem_ratio=self.free_mem_ratio,
+        )
+
+        if sampled_weight is not None:
+            this_estimator_kwargs[
+                "sample_weight"
+            ] = weight  # NOTE: _train_with_config is after kwargs is updated to fit_kwargs_by_estimator
+
+        return estimator, train_time
 
 
 class AutoMLState:
