@@ -437,7 +437,7 @@ class TestMultiClass(unittest.TestCase):
         print(automl_experiment.model)
 
     @unittest.skipIf(skip_spark, "Spark is not installed. Skip all spark tests.")
-    def _test_fit_w_starting_point(self, as_frame=True):
+    def test_fit_w_starting_point(self, as_frame=True):
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 3,
@@ -500,7 +500,7 @@ class TestMultiClass(unittest.TestCase):
         )
 
     @unittest.skipIf(skip_spark, "Spark is not installed. Skip all spark tests.")
-    def _test_fit_w_starting_points_list(self, as_frame=True):
+    def test_fit_w_starting_points_list(self, as_frame=True):
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 3,

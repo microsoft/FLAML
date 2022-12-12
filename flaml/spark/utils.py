@@ -81,7 +81,7 @@ def with_parameters(trainable, **kwargs):
 
     Returns:
         A new function with partial application of the given arguments
-        and keywords, the given arguments and keywords will be broadcasted
+        and keywords. The given arguments and keywords will be broadcasted
         to all the executors.
 
 

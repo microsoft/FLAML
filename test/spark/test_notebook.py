@@ -14,11 +14,12 @@ except (ImportError, RuntimeError):
 
 
 here = os.path.abspath(os.path.dirname(__file__))
+os.environ["FLAML_MAX_CONCURRENT"] = "2"
 
 
 def run_notebook(input_nb, output_nb="executed_notebook.ipynb", save=False):
     try:
-        file_path = os.path.join(here, input_nb)
+        file_path = os.path.join(here, os.pardir, os.pardir, "notebook", input_nb)
         with open(file_path) as f:
             nb = nbformat.read(f, as_version=4)
         ep = ExecutePreprocessor(timeout=600, kernel_name="python3")
