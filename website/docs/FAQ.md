@@ -68,7 +68,7 @@ Model explanation is frequently asked and adding a native support may be a good 
 Optimization history can be checked from the [log](Use-Cases/Task-Oriented-AutoML#log-the-trials). You can also [retrieve the log and plot the learning curve](Use-Cases/Task-Oriented-AutoML#plot-learning-curve).
 
 
-### How to reduce out-of-memory error in `AutoML.fit()`
+### How to resolve out-of-memory error in `AutoML.fit()`
 
 * Set `free_mem_ratio` a float between 0 and 1. For example, 0.2 means try to keep free memory above 20% of total memory. Training may be early stopped for memory consumption reason when this is set.
 * Set `model_history` False.
