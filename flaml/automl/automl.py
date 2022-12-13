@@ -2567,10 +2567,6 @@ class AutoML(BaseEstimator):
         # use the following condition if we have an estimation of average_trial_time and average_trial_overhead
         # self._use_ray = use_ray or n_concurrent_trials > ( average_trail_time + average_trial_overhead) / (average_trial_time)
 
-        # If no time_budget and no max_iter is specified, then effectively zero-shot AutoML is used. 
-        if time_budget is -1 and max_iter is None:
-            logger.info('Neither time_budegt nor max_iter is specified, zero-shot ML is used. ')
-
         if self._use_ray is not False:
             import ray
 
@@ -2823,6 +2819,7 @@ class AutoML(BaseEstimator):
                 " Training only one model per estimator."
                 " To tune hyperparameters for each estimator,"
                 " please provide budget either via time_budget or max_iter."
+                " Note that if both are not specified, zero-shot ML is used"
             )
         elif max_iter is None:
             # set to a large number
