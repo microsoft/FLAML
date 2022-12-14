@@ -2817,9 +2817,9 @@ class AutoML(BaseEstimator):
             logger.warning(
                 "No search budget is provided via time_budget or max_iter."
                 " Training only one model per estimator."
+                " Zero-shot ML is used for certain tasks and estimators."                
                 " To tune hyperparameters for each estimator,"
                 " please provide budget either via time_budget or max_iter."
-                " Note that if both are not specified, zero-shot ML is used"
             )
         elif max_iter is None:
             # set to a large number
