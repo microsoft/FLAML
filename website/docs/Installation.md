@@ -51,7 +51,7 @@ pip install flaml[nlp]
 pip install flaml[ray]
 ```
 * spark
-> *Spark supporting is added in v1.1.0*
+> *Spark support is added in v1.1.0*
 ```bash
 pip install flaml[spark]>=1.1.0
 ```

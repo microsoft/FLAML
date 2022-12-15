@@ -382,7 +382,7 @@ and have ``split`` and ``get_n_splits`` methods with the same signatures.  To di
 
 When you have parallel resources, you can either spend them in training and keep the model search sequential, or perform parallel search. Following scikit-learn, the parameter `n_jobs` specifies how many CPU cores to use for each training job. The number of parallel trials is specified via the parameter `n_concurrent_trials`. By default, `n_jobs=-1, n_concurrent_trials=1`. That is, all the CPU cores (in a single compute node) are used for training a single model and the search is sequential. When you have more resources than what each single training job needs, you can consider increasing `n_concurrent_trials`.
 
-FLAML now support two backends for parallel tuning, i.e., `Ray` and `Spark`. You can use either of them, but not both for one tuning.
+FLAML now support two backends for parallel tuning, i.e., `Ray` and `Spark`. You can use either of them, but not both for one tuning job.
 
 #### Parallel tuning with Ray
 
@@ -405,7 +405,7 @@ flaml will perform 4 trials in parallel, each consuming 4 CPU cores. The paralle
 
 To do parallel tuning with Spark, install the `spark` and `blendsearch` options:
 
-> *Spark supporting is added in v1.1.0*
+> *Spark support is added in v1.1.0*
 ```bash
 pip install flaml[spark,blendsearch]>=1.1.0
 ```

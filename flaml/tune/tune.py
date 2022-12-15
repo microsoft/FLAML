@@ -362,9 +362,10 @@ def run(
         print(analysis.trials[-1].last_result)
     ```
 
-        verbose: 0, 1, 2, or 3. Verbosity mode for ray and spark if backend is used.
-            0 = silent, 1 = only status updates, 2 = status and brief trial
-            results, 3 = status and detailed trial results. Defaults to 2.
+        verbose: 0, 1, 2, or 3. If ray or spark backend is used, their verbosity will be
+            affected by this argument. 0 = silent, 1 = only status updates,
+            2 = status and brief trial results, 3 = status and detailed trial results.
+            Defaults to 2.
         local_dir: A string of the local dir to save ray logs if ray backend is
             used; or a local dir to save the tuning log.
         num_samples: An integer of the number of configs to try. Defaults to 1.

@@ -696,8 +696,8 @@ class AutoML(BaseEstimator):
                 in parallel spark jobs. This can be used to accelerate training on large models
                 and large datasets, but will incur more overhead in time and thus slow down
                 training in some cases. GPU training is not supported yet when use_spark is True.
-                For Spark clusters, by default, we will launch one trial per executor. However, 
-                sometimes we want to launch more trials than the number of executors (e.g., local mode). 
+                For Spark clusters, by default, we will launch one trial per executor. However,
+                sometimes we want to launch more trials than the number of executors (e.g., local mode).
                 In this case, we can set the environment variable `FLAML_MAX_CONCURRENT` to override
                 the detected `num_executors`. The final number of concurrent trials will be the minimum
                 of `n_concurrent_trials` and `num_executors`.
