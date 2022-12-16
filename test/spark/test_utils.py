@@ -75,7 +75,7 @@ def test_customize_learner():
             }
     """
 
-    learner_path = customize_learner(learner_code=learner_code)
+    _ = customize_learner(learner_code=learner_code)
     from flaml.spark.mylearner import MyLargeLGBM
 
     assert isinstance(MyLargeLGBM(), LGBMEstimator)

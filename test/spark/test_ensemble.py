@@ -26,7 +26,7 @@ else:
     skip_my_learner = True
 
 
-class TestMultiClass(unittest.TestCase):
+class TestEnsemble(unittest.TestCase):
     @unittest.skipIf(skip_spark, "Spark is not installed. Skip all spark tests.")
     @unittest.skipIf(
         skip_my_learner,
