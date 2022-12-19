@@ -391,13 +391,15 @@ class AutoML(BaseEstimator):
     def best_config(self):
         """A dictionary of the best configuration."""
         state = self._search_states.get(self._best_estimator)
-        return state and getattr(state, "best_config", None)
+        config = state and getattr(state, "best_config", None)
+        return config and AutoMLState.sanitize(config)
 
     @property
     def best_config_per_estimator(self):
         """A dictionary of all estimators' best configuration."""
         return {
             e: e_search_state.best_config
+            and AutoMLState.sanitize(e_search_state.best_config)
             for e, e_search_state in self._search_states.items()
         }
 
@@ -594,7 +596,7 @@ class AutoML(BaseEstimator):
         with training_log_reader(log_file_name) as reader:
             record = reader.get_record(record_id)
             estimator = record.learner
-            config = record.config
+            config = AutoMLState.sanitize(record.config)
 
         if isinstance(task, str):
             task = task_factory(task)
@@ -1072,6 +1074,7 @@ class AutoML(BaseEstimator):
             # check memory constraints before training
             if states[estimator].learner_class.size(config) <= mem_res:
                 del config["learner"]
+                config.pop("_choice_", None)
                 result = AutoMLState._compute_with_config_base(
                     config, state=state, estimator=estimator
                 )
@@ -1564,6 +1567,7 @@ class AutoML(BaseEstimator):
         self._use_ray = use_ray or n_concurrent_trials > 1
         # use the following condition if we have an estimation of average_trial_time and average_trial_overhead
         # self._use_ray = use_ray or n_concurrent_trials > ( average_trail_time + average_trial_overhead) / (average_trial_time)
+
         if self._use_ray is not False:
             import ray
 
@@ -1767,6 +1771,7 @@ class AutoML(BaseEstimator):
             logger.warning(
                 "No search budget is provided via time_budget or max_iter."
                 " Training only one model per estimator."
+                " Zero-shot AutoML is used for certain tasks and estimators."                
                 " To tune hyperparameters for each estimator,"
                 " please provide budget either via time_budget or max_iter."
             )
@@ -2477,7 +2482,7 @@ class AutoML(BaseEstimator):
                         x[1].learner_class(
                             task=self._state.task,
                             n_jobs=self._state.n_jobs,
-                            **self._state.sanitize(x[1].best_config),
+                            **AutoMLState.sanitize(x[1].best_config),
                         ),
                     )
                     for x in search_states[:2]
@@ -2488,7 +2493,7 @@ class AutoML(BaseEstimator):
                         x[1].learner_class(
                             task=self._state.task,
                             n_jobs=self._state.n_jobs,
-                            **self._state.sanitize(x[1].best_config),
+                            **AutoMLState.sanitize(x[1].best_config),
                         ),
                     )
                     for x in search_states[2:]
