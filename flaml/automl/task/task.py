@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from scipy.sparse import issparse
 
 # TODO: if your task is not specified in here, define your task as an all-capitalized word
 SEQCLASSIFICATION = "seq-classification"
@@ -181,13 +182,13 @@ class Task(ABC):
         """For backward compatibility with all the string comparisons to task"""
         return self.name == other
 
-    @classmethod
-    def estimator_class_from_str(cls, estimator_name: str):
-        if estimator_name in cls.estimators:
-            return cls.estimators[estimator_name]
+    def estimator_class_from_str(self, estimator_name: str):
+        if estimator_name in self.estimators:
+            return self.estimators[estimator_name]
         else:
             raise ValueError(
                 f"{estimator_name} is not a built-in learner for this task type, "
-                f"only {list(cls.estimators.keys())} are supported."
+                f"only {list(self.estimators.keys())} are supported."
                 "Please use AutoML.add_learner() to add a customized learner."
             )
+

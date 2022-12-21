@@ -18,30 +18,12 @@ from sklearn.metrics import (
     ndcg_score,
 )
 from sklearn.model_selection import RepeatedStratifiedKFold, GroupKFold, TimeSeriesSplit
-from flaml.automl.model import (
-    XGBoostSklearnEstimator,
-    XGBoost_TS,
-    XGBoostLimitDepthEstimator,
-    XGBoostLimitDepth_TS,
-    RandomForestEstimator,
-    RF_TS,
-    LGBMEstimator,
-    LGBM_TS,
-    LRL1Classifier,
-    LRL2Classifier,
-    CatBoostEstimator,
-    ExtraTreesEstimator,
-    ExtraTrees_TS,
-    KNeighborsEstimator,
-    Prophet,
-    ARIMA,
-    SARIMAX,
-    TransformersEstimator,
-    TemporalFusionTransformerEstimator,
-    TransformersEstimatorModelSelection,
-)
+from flaml.automl.model import TransformersEstimator
+from flaml.automl.time_series import TimeSeriesDataset
+
+from flaml.automl.task import Task
 from flaml.automl.data import group_counts
-from flaml.automl.task.task import TS_FORECAST
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -95,48 +77,6 @@ huggingface_metric_to_mode = {
     "wer": "min",
 }
 huggingface_submetric_to_metric = {"rouge1": "rouge", "rouge2": "rouge"}
-
-
-def get_estimator_class(task, estimator_name):
-    # when adding a new learner, need to add an elif branch
-    if "xgboost" == estimator_name:
-        estimator_class = XGBoost_TS if task in TS_FORECAST else XGBoostSklearnEstimator
-    elif "xgb_limitdepth" == estimator_name:
-        estimator_class = (
-            XGBoostLimitDepth_TS if task in TS_FORECAST else XGBoostLimitDepthEstimator
-        )
-    elif "rf" == estimator_name:
-        estimator_class = RF_TS if task in TS_FORECAST else RandomForestEstimator
-    elif "lgbm" == estimator_name:
-        estimator_class = LGBM_TS if task in TS_FORECAST else LGBMEstimator
-    elif "lrl1" == estimator_name:
-        estimator_class = LRL1Classifier
-    elif "lrl2" == estimator_name:
-        estimator_class = LRL2Classifier
-    elif "catboost" == estimator_name:
-        estimator_class = CatBoostEstimator
-    elif "extra_tree" == estimator_name:
-        estimator_class = ExtraTrees_TS if task in TS_FORECAST else ExtraTreesEstimator
-    elif "kneighbor" == estimator_name:
-        estimator_class = KNeighborsEstimator
-    elif "prophet" in estimator_name:
-        estimator_class = Prophet
-    elif estimator_name == "arima":
-        estimator_class = ARIMA
-    elif estimator_name == "sarimax":
-        estimator_class = SARIMAX
-    elif estimator_name == "transformer":
-        estimator_class = TransformersEstimator
-    elif estimator_name == "tft":
-        estimator_class = TemporalFusionTransformerEstimator
-    elif estimator_name == "transformer_ms":
-        estimator_class = TransformersEstimatorModelSelection
-    else:
-        raise ValueError(
-            estimator_name + " is not a built-in learner. "
-            "Please use AutoML.add_learner() to add a customized learner."
-        )
-    return estimator_class
 
 
 def metric_loss_score(
@@ -377,7 +317,17 @@ def _eval_estimator(
     if isinstance(eval_metric, str):
         pred_start = time.time()
         val_pred_y = get_y_pred(estimator, X_val, eval_metric, task)
-        pred_time = (time.time() - pred_start) / X_val.shape[0]
+
+        if isinstance(X_val, TimeSeriesDataset):
+            num_val_rows = len(X_val.test_data)
+            y_val = X_val.test_data[X_val.target_names].values.astype(val_pred_y.dtype)
+            y_train = X_val.train_data[X_val.target_names].values.astype(
+                val_pred_y.dtype
+            )
+        else:
+            num_val_rows = X_val.shape[0]
+
+        pred_time = (time.time() - pred_start) / num_val_rows
 
         val_loss = metric_loss_score(
             eval_metric,
@@ -441,7 +391,7 @@ def get_val_loss(
     #     fit_kwargs['groups_val'] = groups_val
     #     fit_kwargs['X_val'] = X_val
     #     fit_kwargs['y_val'] = y_val
-    estimator.fit(X_train, y_train, budget, free_mem_ratio, **fit_kwargs)
+    estimator.fit(X_train, y_train, budget=budget, free_mem_ratio=free_mem_ratio, **fit_kwargs)
     val_loss, metric_for_logging, pred_time, _ = _eval_estimator(
         config,
         estimator,
@@ -493,7 +443,7 @@ def compute_estimator(
     budget,
     kf,
     config_dic,
-    task,
+    task: Task,
     estimator_name,
     eval_method,
     eval_metric,
@@ -505,7 +455,7 @@ def compute_estimator(
     fit_kwargs={},
     free_mem_ratio=0,
 ):
-    estimator_class = estimator_class or get_estimator_class(task, estimator_name)
+    estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
         task=task,
@@ -564,8 +514,8 @@ def train_estimator(
     config_dic,
     X_train,
     y_train,
-    task,
-    estimator_name,
+    task:Task,
+    estimator_name: str,
     n_jobs=1,
     estimator_class=None,
     budget=None,
@@ -574,7 +524,7 @@ def train_estimator(
     free_mem_ratio=0,
 ):
     start_time = time.time()
-    estimator_class = estimator_class or get_estimator_class(task, estimator_name)
+    estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
         task=task,
@@ -585,7 +535,7 @@ def train_estimator(
 
     if X_train is not None:
         train_time = estimator.fit(
-            X_train, y_train, budget, free_mem_ratio, **fit_kwargs
+            X_train, y_train, budget=budget, free_mem_ratio=free_mem_ratio, **fit_kwargs
         )
     else:
         estimator = estimator.estimator_class(**estimator.params)

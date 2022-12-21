@@ -13,11 +13,8 @@ import logging
 import json
 
 from flaml.automl.state import SearchState, AutoMLState
-from flaml.automl.ml import (
-    compute_estimator,
-    train_estimator,
-    get_estimator_class,
-)
+from flaml.automl.ml import train_estimator
+
 from flaml.config import (
     MIN_SAMPLE_TRAIN,
     MEM_THRES,
@@ -33,8 +30,6 @@ from flaml.automl.data import concat
 from flaml.automl.task.task import (
     CLASSIFICATION,
     TS_FORECAST,
-    TS_FORECASTREGRESSION,
-    TS_FORECASTPANEL,
 )
 from flaml.automl.task.factory import task_factory
 from flaml import tune
@@ -1125,7 +1120,7 @@ class AutoML(BaseEstimator):
             self._df,
             self._sample_weight_full,
         )
-        self.data_size_full = len(self._state.y_train_all)
+        # self.data_size_full = len(self._y_train_all)
 
     def fit(
         self,
@@ -1175,6 +1170,7 @@ class AutoML(BaseEstimator):
         free_mem_ratio=0,
         metric_constraints=None,
         custom_hp=None,
+        time_col=None,
         cv_score_agg_func=None,
         skip_transform=None,
         fit_kwargs_by_estimator=None,
@@ -1487,6 +1483,7 @@ class AutoML(BaseEstimator):
         if isinstance(task, str):
             task = task_factory(task, X_train, y_train)
         self.task = task
+        self.task.time_col = time_col
         self._estimator_type = "classifier" if task.is_classification() else "regressor"
         time_budget = time_budget or self._settings.get("time_budget")
         n_jobs = n_jobs or self._settings.get("n_jobs")
@@ -1791,7 +1788,7 @@ class AutoML(BaseEstimator):
             if estimator_name not in self._state.learner_classes:
                 self.add_learner(
                     estimator_name,
-                    get_estimator_class(self._state.task, estimator_name),
+                    self._state.task.estimator_class_from_str(estimator_name),
                 )
         # set up learner search space
         if isinstance(starting_points, str) and starting_points.startswith("data"):
@@ -1853,6 +1850,7 @@ class AutoML(BaseEstimator):
             self._search_states[estimator_name] = SearchState(
                 learner_class=estimator_class,
                 data_size=self._state.data_size,
+                data=self._state.X_val,
                 task=self._state.task,
                 starting_point=starting_points.get(estimator_name),
                 period=self._state.fit_kwargs.get(

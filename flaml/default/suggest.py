@@ -5,7 +5,7 @@ import pathlib
 import json
 from flaml.automl.data import DataTransformer
 from flaml.automl.task.task import CLASSIFICATION
-from flaml.automl.ml import get_estimator_class, get_classification_objective
+from flaml.automl.ml import get_classification_objective
 from flaml.version import __version__
 
 LOCATION = pathlib.Path(__file__).parent.resolve()
@@ -165,7 +165,7 @@ def suggest_hyperparams(task, X, y, estimator_or_predictor, location=None):
         0
     ]
     estimator = config["class"]
-    model_class = get_estimator_class(task, estimator)
+    model_class = task.estimator_class_from_str(estimator)
     hyperparams = config["hyperparameters"]
     model = model_class(task=task, **hyperparams)
     estimator_class = model.estimator_class
@@ -251,7 +251,7 @@ def preprocess_and_suggest_hyperparams(
         0
     ]
     estimator = config["class"]
-    model_class = get_estimator_class(task, estimator)
+    model_class = task.estimator_class_from_str(estimator)
     hyperparams = config["hyperparameters"]
     model = model_class(task=task, **hyperparams)
     if model.estimator_class is None:

@@ -1,4 +1,5 @@
 import inspect
+import copy
 import time
 from typing import Any
 
@@ -8,7 +9,7 @@ import pandas as pd
 from flaml import tune
 from flaml.automl.logger import logger
 from flaml.automl.ml import compute_estimator, train_estimator
-
+from flaml.automl.time_series.ts_data import TimeSeriesDataset
 
 class SearchState:
     @property
@@ -59,6 +60,7 @@ class SearchState:
             self,
             learner_class,
             data_size,
+            data,
             task,
             starting_point=None,
             period=None,
@@ -77,7 +79,7 @@ class SearchState:
         self._budget = budget
         if task.is_ts_forecast():
             search_space = learner_class.search_space(
-                data_size=data_size, task=task, pred_horizon=period
+                data=data, task=task, pred_horizon=period
             )
         else:
             search_space = learner_class.search_space(data_size=data_size, task=task)
@@ -240,14 +242,21 @@ class AutoMLState:
     def _prepare_sample_train_data(self, sample_size):
         sampled_weight = groups = None
         if sample_size <= self.data_size[0]:
-            if isinstance(self.X_train, pd.DataFrame):
-                sampled_X_train = self.X_train.iloc[:sample_size]
+            if isinstance(self.X_train, TimeSeriesDataset):
+                sampled_X_train = copy.copy(self.X_train)
+                sampled_X_train.train_data = self.X_train.train_data.iloc[-sample_size:]
+                sampled_y_train = None
             else:
-                sampled_X_train = self.X_train[:sample_size]
-            if isinstance(self.y_train, pd.Series):
-                sampled_y_train = self.y_train.iloc[:sample_size]
-            else:
-                sampled_y_train = self.y_train[:sample_size]
+                if isinstance(self.X_train, pd.DataFrame):
+                    sampled_X_train = self.X_train.iloc[:sample_size]
+                else:
+                    sampled_X_train = self.X_train[:sample_size]
+                if isinstance(self.y_train, pd.Series):
+                    sampled_y_train = self.y_train.iloc[:sample_size]
+                else:
+                    sampled_y_train = self.y_train[:sample_size]
+
+
             weight = self.fit_kwargs.get(
                 "sample_weight"
             )  # NOTE: _prepare_sample_train_data is before kwargs is updated to fit_kwargs_by_estimator

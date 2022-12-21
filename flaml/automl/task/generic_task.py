@@ -230,6 +230,8 @@ class GenericTask(Task):
             state.groups_val = groups_val
             state.groups = groups
 
+        automl.data_size_full = len(automl._y_train_all)
+
     @staticmethod
     def _validate_ts_data(
         dataframe,
