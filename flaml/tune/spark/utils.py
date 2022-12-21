@@ -24,27 +24,33 @@ except ImportError as e:
 @lru_cache(maxsize=2)
 def check_spark():
     """Check if Spark is installed and running.
-    Result of the function will be cached since test once is enough.
+    Result of the function will be cached since test once is enough. As lru_cache will not
+    cache exceptions, we don't raise exceptions here but only log a warning message.
 
     Returns:
-        Return True if the check passes, otherwise raise an exception.
+        Return (True, None) if the check passes, otherwise log the exception message and
+        return (False, Exception(msg)). The exception can be raised by the caller.
     """
-    logger.debug("\ncheck Spark installation...This line should appear only once.\n")
+    logger.warning("\ncheck Spark installation...This line should appear only once.\n")
     if not _have_spark:
-        raise ImportError(
-            "use_spark=True requires installation of PySpark. "
-            "Please run pip install flaml[spark] and check "
-            "[here](https://spark.apache.org/docs/latest/api/python/getting_started/install.html) "
-            "for more details about installing Spark."
-        )
+        msg = """use_spark=True requires installation of PySpark. Please run pip install flaml[spark]
+        and check [here](https://spark.apache.org/docs/latest/api/python/getting_started/install.html)
+        for more details about installing Spark."""
+        logger.warning(msg)
+        return False, ImportError(msg)
 
     if _spark_major_minor_version[0] < 3:
-        raise ImportError("Spark version must be >= 3.0 to use flaml[spark]")
+        msg = "Spark version must be >= 3.0 to use flaml[spark]"
+        logger.warning(msg)
+        return False, ImportError(msg)
 
-    # Raise the original exception if SparkSession is not available
-    SparkSession.builder.getOrCreate()
+    try:
+        SparkSession.builder.getOrCreate()
+    except RuntimeError as e:
+        logger.warning(f"\nSparkSession is not available: {e}\n")
+        return False, RuntimeError(e)
 
-    return True
+    return True, None
 
 
 def get_n_cpus(node="driver"):
@@ -95,7 +101,7 @@ def with_parameters(trainable, **kwargs):
         print(config, data)
 
     data = load_iris()
-    with_parameters_train = flaml.spark.utils.with_parameters(train, data=data)
+    with_parameters_train = flaml.tune.spark.utils.with_parameters(train, data=data)
     with_parameters_train(config=1)
     train(config={"metric": "accuracy"})
     ```
@@ -108,7 +114,9 @@ def with_parameters(trainable, **kwargs):
             f"{type(trainable)}."
         )
 
-    check_spark()
+    spark_available, spark_error_msg = check_spark()
+    if not spark_available:
+        raise spark_error_msg
     spark = SparkSession.builder.getOrCreate()
 
     bc_kwargs = dict()
@@ -131,7 +139,7 @@ def customize_learner(learner_code="", file_name="mylearner"):
         The path of the customized learner file.
     ```python
     import pyspark
-    from flaml.spark.utils import customize_learner
+    from flaml.tune.spark.utils import customize_learner
     from flaml.automl.model import LGBMEstimator
 
     learner_code = '''
@@ -156,7 +164,7 @@ def customize_learner(learner_code="", file_name="mylearner"):
     '''
 
     customize_learner(learner_code=learner_code)
-    from flaml.spark.mylearner import MyLargeLGBM
+    from flaml.tune.spark.mylearner import MyLargeLGBM
     assert isinstance(MyLargeLGBM(), LGBMEstimator)
     ```
     """
@@ -164,10 +172,21 @@ def customize_learner(learner_code="", file_name="mylearner"):
     learner_code = textwrap.dedent(learner_code)
     learner_path = os.path.join(flaml_path, file_name + ".py")
 
-    def writefile(_):
-        with open(learner_path, "w") as f:
-            f.write(learner_code)
+    with open(learner_path, "w") as f:
+        f.write(learner_code)
 
-    # write learner into a file
-    writefile(None)
     return learner_path
+
+
+def get_broadcast_data(broadcast_data):
+    """Get the broadcast data from the broadcast variable.
+
+    Args:
+        broadcast_data: pyspark.broadcast.Broadcast | the broadcast variable.
+
+    Returns:
+        The broadcast data.
+    """
+    if _have_spark and isinstance(broadcast_data, pyspark.broadcast.Broadcast):
+        broadcast_data = broadcast_data.value
+    return broadcast_data

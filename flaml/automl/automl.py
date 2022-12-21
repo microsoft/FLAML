@@ -55,7 +55,7 @@ from flaml import tune
 from flaml.automl.training_log import training_log_reader, training_log_writer
 from flaml.default import suggest_learner
 from flaml.version import __version__ as flaml_version
-from flaml.spark.utils import check_spark
+from flaml.tune.spark.utils import check_spark, get_broadcast_data
 
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
@@ -69,21 +69,13 @@ except ImportError:
     mlflow = None
 
 try:
-    import pyspark
-    from pyspark.sql import SparkSession
-
-    spark_import = True
-except ImportError:
-    spark_import = False
-
-try:
     from ray import __version__ as ray_version
 
     assert ray_version >= "1.10.0"
 
-    ray_import = True
+    ray_available = True
 except (ImportError, AssertionError):
-    ray_import = False
+    ray_available = False
 
 
 class SearchState:
@@ -2119,11 +2111,8 @@ class AutoML(BaseEstimator):
 
         def train(config: dict, state, is_report=True):
             # handle spark broadcast variables
-            if spark_import:
-                if isinstance(state, pyspark.broadcast.Broadcast):
-                    state = state.value
-                if isinstance(is_report, pyspark.broadcast.Broadcast):
-                    is_report = is_report.value
+            state = get_broadcast_data(state)
+            is_report = get_broadcast_data(is_report)
             sample_size = config.get("FLAML_sample_size")
             config = config.get("ml", config).copy()
             if sample_size:
@@ -2157,7 +2146,7 @@ class AutoML(BaseEstimator):
                 state=self._state,
             )
         elif self._use_spark:
-            from flaml.spark.utils import with_parameters
+            from flaml.tune.spark.utils import with_parameters
 
             return with_parameters(train, state=self._state, is_report=False)
         else:
@@ -2615,10 +2604,11 @@ class AutoML(BaseEstimator):
         min_sample_size = min_sample_size or self._settings.get("min_sample_size")
         use_ray = self._settings.get("use_ray") if use_ray is None else use_ray
         use_spark = self._settings.get("use_spark") if use_spark is None else use_spark
+        spark_available, spark_error_msg = check_spark()
         if use_spark and use_ray is not False:
             raise ValueError("use_spark and use_ray cannot be both True.")
-        elif use_spark:
-            check_spark()
+        elif use_spark and not spark_available:
+            raise spark_error_msg
 
         old_level = logger.getEffectiveLevel()
         self.verbose = verbose
@@ -2630,19 +2620,18 @@ class AutoML(BaseEstimator):
             logger.addHandler(_ch)
 
         if not use_ray and not use_spark and n_concurrent_trials > 1:
-            if ray_import:
+            if ray_available:
                 logger.warning(
                     "n_concurrent_trials > 1 is only supported when using Ray or Spark. "
                     "Ray installed, setting use_ray to True. If you want to use Spark, set use_spark to True."
                 )
                 use_ray = True
-            elif spark_import:
+            elif spark_available:
                 logger.warning(
                     "n_concurrent_trials > 1 is only supported when using Ray or Spark. "
                     "Spark installed, setting use_spark to True. If you want to use Ray, set use_ray to True."
                 )
                 use_spark = True
-                check_spark()
             else:
                 logger.warning(
                     "n_concurrent_trials > 1 is only supported when using Ray or Spark. "
@@ -3679,7 +3668,7 @@ class AutoML(BaseEstimator):
                         or os.cpu_count()
                     )
                 elif self._use_spark:
-                    from flaml.spark.utils import get_n_cpus
+                    from flaml.tune.spark.utils import get_n_cpus
 
                     n_cpus = get_n_cpus()
                 else:

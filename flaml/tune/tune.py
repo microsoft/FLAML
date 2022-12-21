@@ -16,9 +16,9 @@ try:
     assert ray_version >= "1.10.0"
     from ray.tune.analysis import ExperimentAnalysis as EA
 
-    ray_import = True
+    ray_available = True
 except (ImportError, AssertionError):
-    ray_import = False
+    ray_available = False
     from .analysis import ExperimentAnalysis as EA
 
 from .trial import Trial
@@ -531,7 +531,7 @@ def run(
         if metric is None or mode is None:
             metric = metric or search_alg.metric or DEFAULT_METRIC
             mode = mode or search_alg.mode
-        if ray_import and use_ray:
+        if ray_available and use_ray:
             if ray_version.startswith("1."):
                 from ray.tune.suggest import ConcurrencyLimiter
             else:
@@ -575,7 +575,7 @@ def run(
             params["grace_period"] = min_resource
         if reduction_factor:
             params["reduction_factor"] = reduction_factor
-        if ray_import:
+        if ray_available:
             from ray.tune.schedulers import ASHAScheduler
 
             scheduler = ASHAScheduler(**params)
@@ -615,11 +615,12 @@ def run(
 
     if use_spark:
         # parallel run with spark
-        from flaml.spark.utils import check_spark
+        from flaml.tune.spark.utils import check_spark
 
-        check_spark()
+        spark_available, spark_error_msg = check_spark()
+        if not spark_available:
+            raise spark_error_msg
         try:
-            import pyspark
             from pyspark.sql import SparkSession
             from joblib import Parallel, delayed, parallel_backend
             from joblibspark import register_spark

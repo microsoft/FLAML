@@ -1,16 +1,16 @@
 import sys
 from openml.exceptions import OpenMLServerException
 from requests.exceptions import ChunkedEncodingError, SSLError
-from flaml.spark.utils import check_spark
+from flaml.tune.spark.utils import check_spark
 import os
 import pytest
 
-try:
-    check_spark()
-    skip_spark = False
-except (ImportError, RuntimeError):
-    print("Spark is not installed. Skip all spark tests.")
-    skip_spark = True
+spark_available, _ = check_spark()
+skip_spark = not spark_available
+
+pytestmark = pytest.mark.skipif(
+    skip_spark, reason="Spark is not installed. Skip all spark tests."
+)
 
 os.environ["FLAML_MAX_CONCURRENT"] = "2"
 
@@ -97,12 +97,10 @@ def run_automl(budget=3, dataset_format="dataframe", hpo_method=None):
         assert accuracy >= 0.669, "the accuracy of flaml should be larger than 0.67"
 
 
-@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_automl_array():
     run_automl(3, "array", "bs")
 
 
-@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_automl_performance():
     run_automl(3600)
 

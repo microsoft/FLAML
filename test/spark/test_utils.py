@@ -1,20 +1,28 @@
-from flaml.spark.utils import with_parameters, check_spark, get_n_cpus
+from flaml.tune.spark.utils import (
+    with_parameters,
+    check_spark,
+    get_n_cpus,
+    get_broadcast_data,
+)
 from functools import partial
 from timeit import timeit
 import pytest
 
 try:
-    check_spark()
-    skip_spark = False
-except (ImportError, RuntimeError):
+    from pyspark.sql import SparkSession
+    import pyspark
+
+    spark_available, _ = check_spark()
+    skip_spark = not spark_available
+except ImportError:
     print("Spark is not installed. Skip all spark tests.")
     skip_spark = True
 
-from pyspark.sql import SparkSession
-import pyspark
+pytestmark = pytest.mark.skipif(
+    skip_spark, reason="Spark is not installed. Skip all spark tests."
+)
 
 
-@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_with_parameters_spark():
     def train(config, data=None):
         if isinstance(data, pyspark.broadcast.Broadcast):
@@ -43,15 +51,13 @@ def test_with_parameters_spark():
     # assert t_spark < t_partial
 
 
-@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_get_n_cpus_spark():
     n_cpus = get_n_cpus()
     assert isinstance(n_cpus, int)
 
 
-@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_customize_learner():
-    from flaml.spark.utils import customize_learner
+    from flaml.tune.spark.utils import customize_learner
     from flaml.automl.model import LGBMEstimator
 
     learner_code = """
@@ -76,12 +82,20 @@ def test_customize_learner():
     """
 
     _ = customize_learner(learner_code=learner_code)
-    from flaml.spark.mylearner import MyLargeLGBM
+    from flaml.tune.spark.mylearner import MyLargeLGBM
 
     assert isinstance(MyLargeLGBM(), LGBMEstimator)
+
+
+def test_get_broadcast_data():
+    data = ["a"] * 10
+    spark = SparkSession.builder.getOrCreate()
+    bc_data = spark.sparkContext.broadcast(data)
+    assert get_broadcast_data(bc_data) == data
 
 
 if __name__ == "__main__":
     test_with_parameters_spark()
     test_get_n_cpus_spark()
     test_customize_learner()
+    test_get_broadcast_data()

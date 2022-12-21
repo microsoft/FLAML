@@ -5,15 +5,11 @@ from sklearn.datasets import load_iris, load_wine
 from flaml import AutoML
 from flaml.automl.data import CLASSIFICATION, get_output_from_log
 from flaml.automl.training_log import training_log_reader
-from flaml.spark.utils import check_spark
+from flaml.tune.spark.utils import check_spark
 import os
 
-try:
-    check_spark()
-    skip_spark = False
-except (ImportError, RuntimeError):
-    print("Spark is not installed. Skip all spark tests.")
-    skip_spark = True
+spark_available, _ = check_spark()
+skip_spark = not spark_available
 
 os.environ["FLAML_MAX_CONCURRENT"] = "2"
 
@@ -21,7 +17,7 @@ os.environ["FLAML_MAX_CONCURRENT"] = "2"
 if os.path.exists(os.path.join(os.getcwd(), "test", "spark", "custom_mylearner.py")):
     try:
         from test.spark.custom_mylearner import *
-        from flaml.spark.mylearner import (
+        from flaml.tune.spark.mylearner import (
             MyRegularizedGreedyForest,
             custom_metric,
             MyLargeLGBM,
@@ -36,7 +32,10 @@ else:
 
 
 class TestMultiClass(unittest.TestCase):
-    @unittest.skipIf(skip_spark, "Spark is not installed. Skip all spark tests.")
+    def setUp(self) -> None:
+        if skip_spark:
+            self.skipTest("Spark is not installed. Skip all spark tests.")
+
     @unittest.skipIf(
         skip_my_learner,
         "Please run pytest in the root directory of FLAML, i.e., the directory that contains the setup.py file",
@@ -64,7 +63,6 @@ class TestMultiClass(unittest.TestCase):
         MyRegularizedGreedyForest.search_space = lambda data_size, task: {}
         automl.fit(X_train=X_train, y_train=y_train, **settings)
 
-    @unittest.skipIf(skip_spark, "Spark is not installed. Skip all spark tests.")
     @unittest.skipIf(
         skip_my_learner,
         "Please run pytest in the root directory of FLAML, i.e., the directory that contains the setup.py file",
@@ -114,7 +112,6 @@ class TestMultiClass(unittest.TestCase):
         )
         print(metric_history)
 
-    @unittest.skipIf(skip_spark, "Spark is not installed. Skip all spark tests.")
     def test_classification(self, as_frame=False):
         automl_experiment = AutoML()
         automl_settings = {
@@ -156,7 +153,6 @@ class TestMultiClass(unittest.TestCase):
         print(automl_experiment.model)
         print(automl_experiment.predict_proba(X_train)[:5])
 
-    @unittest.skipIf(skip_spark, "Spark is not installed. Skip all spark tests.")
     def test_micro_macro_f1(self):
         automl_experiment_micro = AutoML()
         automl_experiment_macro = AutoML()
@@ -188,7 +184,6 @@ class TestMultiClass(unittest.TestCase):
         print(multi_class_curves(y_train, y_pred_proba, roc_curve))
         print(multi_class_curves(y_train, y_pred_proba, precision_recall_curve))
 
-    @unittest.skipIf(skip_spark, "Spark is not installed. Skip all spark tests.")
     def test_roc_auc_ovr(self):
         automl_experiment = AutoML()
         X_train, y_train = load_iris(return_X_y=True)
@@ -207,7 +202,6 @@ class TestMultiClass(unittest.TestCase):
         }
         automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
 
-    @unittest.skipIf(skip_spark, "Spark is not installed. Skip all spark tests.")
     def test_roc_auc_ovo(self):
         automl_experiment = AutoML()
         automl_settings = {
@@ -224,7 +218,6 @@ class TestMultiClass(unittest.TestCase):
         X_train, y_train = load_iris(return_X_y=True)
         automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
 
-    @unittest.skipIf(skip_spark, "Spark is not installed. Skip all spark tests.")
     def test_roc_auc_ovr_weighted(self):
         automl_experiment = AutoML()
         automl_settings = {
@@ -241,7 +234,6 @@ class TestMultiClass(unittest.TestCase):
         X_train, y_train = load_iris(return_X_y=True)
         automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
 
-    @unittest.skipIf(skip_spark, "Spark is not installed. Skip all spark tests.")
     def test_roc_auc_ovo_weighted(self):
         automl_experiment = AutoML()
         automl_settings = {
@@ -258,7 +250,6 @@ class TestMultiClass(unittest.TestCase):
         X_train, y_train = load_iris(return_X_y=True)
         automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
 
-    @unittest.skipIf(skip_spark, "Spark is not installed. Skip all spark tests.")
     def test_sparse_matrix_classification(self):
         automl_experiment = AutoML()
         automl_settings = {
@@ -283,7 +274,6 @@ class TestMultiClass(unittest.TestCase):
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
 
-    @unittest.skipIf(skip_spark, "Spark is not installed. Skip all spark tests.")
     @unittest.skipIf(
         skip_my_learner,
         "Please run pytest in the root directory of FLAML, i.e., the directory that contains the setup.py file",
@@ -311,7 +301,6 @@ class TestMultiClass(unittest.TestCase):
         )
         print(automl_experiment.model)
 
-    @unittest.skipIf(skip_spark, "Spark is not installed. Skip all spark tests.")
     @unittest.skipIf(
         skip_my_learner,
         "Please run pytest in the root directory of FLAML, i.e., the directory that contains the setup.py file",
@@ -344,7 +333,6 @@ class TestMultiClass(unittest.TestCase):
         automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
         print(automl_experiment.model)
 
-    @unittest.skipIf(skip_spark, "Spark is not installed. Skip all spark tests.")
     def test_fit_w_starting_point(self, as_frame=True):
         automl_experiment = AutoML()
         automl_settings = {
@@ -407,7 +395,6 @@ class TestMultiClass(unittest.TestCase):
             )
         )
 
-    @unittest.skipIf(skip_spark, "Spark is not installed. Skip all spark tests.")
     def test_fit_w_starting_points_list(self, as_frame=True):
         automl_experiment = AutoML()
         automl_settings = {

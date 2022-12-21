@@ -1,4 +1,4 @@
-from flaml.spark.utils import (
+from flaml.tune.spark.utils import (
     check_spark,
     get_n_cpus,
     with_parameters,

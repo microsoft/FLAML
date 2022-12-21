@@ -1,15 +1,15 @@
 from flaml.automl.data import load_openml_dataset
 from flaml import AutoML
-from flaml.spark.utils import check_spark
+from flaml.tune.spark.utils import check_spark
 import os
 import pytest
 
-try:
-    check_spark()
-    skip_spark = False
-except (ImportError, RuntimeError):
-    print("Spark is not installed. Skip all spark tests.")
-    skip_spark = True
+spark_available, _ = check_spark()
+skip_spark = not spark_available
+
+pytestmark = pytest.mark.skipif(
+    skip_spark, reason="Spark is not installed. Skip all spark tests."
+)
 
 os.environ["FLAML_MAX_CONCURRENT"] = "2"
 
@@ -42,17 +42,35 @@ def base_automl(n_concurrent_trials=1, use_ray=False, use_spark=False, verbose=0
     )
 
 
-@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_both_ray_spark():
     with pytest.raises(ValueError):
         base_automl(n_concurrent_trials=2, use_ray=True, use_spark=True)
 
 
-@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_verboses():
     for verbose in [1, 3, 5]:
         base_automl(verbose=verbose)
 
 
+def test_import_error():
+    from importlib import reload
+    import flaml.tune.spark.utils as utils
+
+    reload(utils)
+    utils._have_spark = False
+    spark_available, spark_error_msg = utils.check_spark()
+    assert not spark_available
+    assert isinstance(spark_error_msg, ImportError)
+
+    reload(utils)
+    utils._spark_major_minor_version = (1, 1)
+    spark_available, spark_error_msg = utils.check_spark()
+    assert not spark_available
+    assert isinstance(spark_error_msg, ImportError)
+
+    reload(utils)
+
+
 if __name__ == "__main__":
     base_automl()
+    test_import_error()

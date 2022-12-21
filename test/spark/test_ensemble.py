@@ -1,15 +1,11 @@
 import unittest
 from sklearn.datasets import load_wine
 from flaml import AutoML
-from flaml.spark.utils import check_spark
+from flaml.tune.spark.utils import check_spark
 import os
 
-try:
-    check_spark()
-    skip_spark = False
-except (ImportError, RuntimeError):
-    print("Spark is not installed. Skip all spark tests.")
-    skip_spark = True
+spark_available, _ = check_spark()
+skip_spark = not spark_available
 
 os.environ["FLAML_MAX_CONCURRENT"] = "2"
 
@@ -17,7 +13,7 @@ os.environ["FLAML_MAX_CONCURRENT"] = "2"
 if os.path.exists(os.path.join(os.getcwd(), "test", "spark", "custom_mylearner.py")):
     try:
         from test.spark.custom_mylearner import *
-        from flaml.spark.mylearner import MyRegularizedGreedyForest
+        from flaml.tune.spark.mylearner import MyRegularizedGreedyForest
 
         skip_my_learner = False
     except ImportError:
@@ -27,7 +23,10 @@ else:
 
 
 class TestEnsemble(unittest.TestCase):
-    @unittest.skipIf(skip_spark, "Spark is not installed. Skip all spark tests.")
+    def setUp(self) -> None:
+        if skip_spark:
+            self.skipTest("Spark is not installed. Skip all spark tests.")
+
     @unittest.skipIf(
         skip_my_learner,
         "Please run pytest in the root directory of FLAML, i.e., the directory that contains the setup.py file",

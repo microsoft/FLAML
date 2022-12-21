@@ -46,7 +46,7 @@ setuptools.setup(
         ],
         "spark": [
             "pyspark>=3.0.0",
-            "joblibspark",
+            "joblibspark>=0.5.0",
         ],
         "test": [
             "flake8>=3.8.4",
@@ -72,7 +72,7 @@ setuptools.setup(
             "pytorch-forecasting>=0.9.0,<=0.10.1",
             "mlflow",
             "pyspark>=3.0.0",
-            "joblibspark",
+            "joblibspark>=0.5.0",
             "nbconvert",
             "nbformat",
         ],

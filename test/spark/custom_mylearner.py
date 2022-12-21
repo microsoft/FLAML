@@ -1,4 +1,4 @@
-from flaml.spark.utils import customize_learner
+from flaml.tune.spark.utils import customize_learner
 
 learner_code = """
 from flaml import tune
