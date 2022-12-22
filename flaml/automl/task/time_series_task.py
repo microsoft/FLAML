@@ -84,8 +84,13 @@ class TimeSeriesTask(Task):
             self.time_col = X_train_all.time_col
             self.target_names = X_train_all.target_names
         else:
-            if label is None:
-                label = "y"  # Prophet convention
+            if label is None and dataframe is not None:
+                raise ValueError("If data is specified via dataframe parameter, you must also specify label")
+
+            if isinstance(y_train_all, pd.Series):
+                label = y_train_all.name
+            elif isinstance(y_train_all, np.ndarray):
+                label = 'y' #Prophet convention
 
             if isinstance(label, str):
                 target_names = [label]
@@ -96,7 +101,11 @@ class TimeSeriesTask(Task):
 
             if self.time_col is None:
                 if isinstance(X_train_all, pd.DataFrame):
+                    assert dataframe is None, "One of dataframe and X arguments must be None"
                     self.time_col = X_train_all.columns[0]
+                elif dataframe is not None:
+                    assert X_train_all is None, "One of dataframe and X arguments must be None"
+                    self.time_col = dataframe.columns[0]
                 else:
                     self.time_col = "ds"
 
@@ -528,6 +537,15 @@ class TimeSeriesTask(Task):
             raise ValueError(
                 "If this is not a TS forecasting task, this code should never have been called"
             )
+
+    @staticmethod
+    def prepare_sample_train_data(automlstate, sample_size):
+        # we take the tail, rather than the head, for compatibility with time series
+
+        shift = sample_size - len(automlstate.X_train.train_data)
+        sampled_X_train = automlstate.X_train.move_validation_boundary(shift)
+
+        return sampled_X_train, None, None, None
 
 
 def validate_data_basic(X_train_all, y_train_all):

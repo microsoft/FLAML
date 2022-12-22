@@ -196,6 +196,7 @@ def sklearn_metric_loss_score(
     Returns:
         score: A float number of the loss, the lower the better.
     """
+
     metric_name = metric_name.lower()
 
     if "r2" == metric_name:
@@ -296,7 +297,20 @@ def get_y_pred(estimator, X, eval_metric, task):
         y_pred = estimator.predict_proba(X)
     else:
         y_pred = estimator.predict(X)
+
+    if isinstance(y_pred, pd.Series) or isinstance(y_pred, pd.DataFrame):
+        y_pred = y_pred.values
+
     return y_pred
+
+
+def to_numpy(x):
+    if isinstance(x, pd.Series or isinstance(x, pd.DataFrame)):
+        x = x.values
+    else:
+        x = np.ndarray(x)
+
+    return x.reshape((-1, 1))
 
 
 def _eval_estimator(
@@ -317,6 +331,10 @@ def _eval_estimator(
     if isinstance(eval_metric, str):
         pred_start = time.time()
         val_pred_y = get_y_pred(estimator, X_val, eval_metric, task)
+
+        #TODO: why are integer labels being cast to str in the first place?
+        if not pd.api.types.is_numeric_dtype(val_pred_y):
+            val_pred_y = val_pred_y.astype(str)
 
         if isinstance(X_val, TimeSeriesDataset):
             num_val_rows = len(X_val.test_data)

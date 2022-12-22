@@ -239,7 +239,7 @@ class SearchState:
 
 
 class AutoMLState:
-    def _prepare_sample_train_data(self, sample_size):
+    def prepare_sample_train_data(self, sample_size):
         sampled_weight = groups = None
         if sample_size <= self.data_size[0]:
             if isinstance(self.X_train, TimeSeriesDataset):
@@ -298,7 +298,7 @@ class AutoMLState:
             sampled_y_train,
             sampled_weight,
             groups,
-        ) = state._prepare_sample_train_data(sample_size)
+        ) = state.task.prepare_sample_train_data(state, sample_size)
         if sampled_weight is not None:
             weight = this_estimator_kwargs["sample_weight"]
             this_estimator_kwargs["sample_weight"] = sampled_weight
@@ -392,7 +392,7 @@ class AutoMLState:
             sampled_y_train,
             sampled_weight,
             groups,
-        ) = self._prepare_sample_train_data(sample_size)
+        ) = self.task.prepare_sample_train_data(self, sample_size)
         if sampled_weight is not None:
             weight = this_estimator_kwargs[
                 "sample_weight"

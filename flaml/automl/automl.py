@@ -2587,7 +2587,7 @@ class AutoML(BaseEstimator):
                 if self._max_iter > 1:
                     self._state.time_budget = -1
                 if (
-                    self._state.task in TS_FORECAST
+                    self._state.task.is_ts_forecast()
                     or self._trained_estimator is None
                     or self._trained_estimator.model is None
                     or (

@@ -96,10 +96,7 @@ class TimeSeriesDataset:
         if len(self.target_names) > 1:
             return df[self.target_names]
         else:
-            out = df[self.target_names[0]]
-            if out.dtype == object:
-                out = out.astype(str)
-            return out
+            return df[self.target_names[0]]
 
     @property
     def X_train(self) -> pd.DataFrame:
@@ -182,7 +179,10 @@ class TimeSeriesDataset:
             out.test_data = self.test_data[steps:]
         elif steps < 0:
             out.train_data = self.train_data[:steps]
-            out.test_data = pd.concat([self.train_data[steps:], self.test_data])
+            if len(self.test_data):
+                out.test_data = pd.concat([self.train_data[steps:], self.test_data])
+            else:
+                out.test_data = self.train_data[steps:]
 
         return out
 
@@ -397,6 +397,9 @@ class DataTransformerTS:
 
         if isinstance(y, Series):
             y = y.rename(self.label)
+
+        assert len(self.num_columns)==0, "Trying to call fit() twice, something is wrong"
+
 
         for column in X.columns:
             # sklearn/utils/validation.py needs int/float values

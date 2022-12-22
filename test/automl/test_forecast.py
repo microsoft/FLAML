@@ -2,7 +2,7 @@ import numpy as np
 from flaml import AutoML
 
 
-def test_forecast_automl(budget=5):
+def test_forecast_automl(budget=30):
     # using dataframe
     import statsmodels.api as sm
 
@@ -518,7 +518,7 @@ def test_forecast_panel(budget=5):
             ],
             "time_varying_unknown_categoricals": [],
             "time_varying_unknown_reals": [
-                "y",  # always need a 'y' column for the target column
+                "volume",  # target column
                 "log_volume",
                 "industry_volume",
                 "soda_volume",
@@ -592,9 +592,9 @@ def test_forecast_panel(budget=5):
 
 
 if __name__ == "__main__":
-    test_forecast_automl(60)
-    test_multivariate_forecast_num(5)
-    test_multivariate_forecast_cat(5)
-    test_numpy()
-    test_forecast_classification(5)
+    # test_forecast_automl(60)
+    # test_multivariate_forecast_num(5)
+    # test_multivariate_forecast_cat(5)
+    # test_numpy()
+    # test_forecast_classification(5)
     test_forecast_panel(5)

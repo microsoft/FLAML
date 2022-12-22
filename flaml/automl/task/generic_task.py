@@ -842,3 +842,7 @@ class GenericTask(Task):
             return "ndcg"
         else:
             return "r2"
+
+    @staticmethod
+    def prepare_sample_train_data(automlstate, sample_size):
+        return automlstate.prepare_sample_train_data(sample_size)
