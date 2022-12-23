@@ -14,6 +14,7 @@ import json
 
 from flaml.automl.state import SearchState, AutoMLState
 from flaml.automl.ml import train_estimator
+from flaml.automl.time_series import TimeSeriesDataset
 
 from flaml.config import (
     MIN_SAMPLE_TRAIN,
@@ -26,6 +27,7 @@ from flaml.config import (
     SAMPLE_MULTIPLY_FACTOR,
 )
 from flaml.automl.data import concat
+
 # TODO check to see when we can remove these
 from flaml.automl.task.task import (
     CLASSIFICATION,
@@ -772,7 +774,9 @@ class AutoML(BaseEstimator):
             if preserve_checkpoint is None
             else preserve_checkpoint
         )
-        task.validate_data(self, self._state, X_train, y_train, dataframe, label, groups=groups)
+        task.validate_data(
+            self, self._state, X_train, y_train, dataframe, label, groups=groups
+        )
 
         logger.info("log file name {}".format(log_file_name))
 
@@ -877,7 +881,9 @@ class AutoML(BaseEstimator):
                 self._state.X_val is None
             ), "custom splitter and custom validation data can't be used together."
             return "cv"
-        if self._state.X_val is not None:
+        if self._state.X_val is not None and not isinstance(
+            self._state.X_val, TimeSeriesDataset
+        ):
             assert eval_method in [
                 "auto",
                 "holdout",
@@ -1616,7 +1622,16 @@ class AutoML(BaseEstimator):
         self._state.weight_val = sample_weight_val
 
         task.validate_data(
-            self, self._state, X_train, y_train, dataframe, label, X_val, y_val, groups_val, groups
+            self,
+            self._state,
+            X_train,
+            y_train,
+            dataframe,
+            label,
+            X_val,
+            y_val,
+            groups_val,
+            groups,
         )
         self._search_states = {}  # key: estimator name; value: SearchState
         self._random = np.random.RandomState(RANDOM_SEED)
@@ -1768,7 +1783,7 @@ class AutoML(BaseEstimator):
             logger.warning(
                 "No search budget is provided via time_budget or max_iter."
                 " Training only one model per estimator."
-                " Zero-shot AutoML is used for certain tasks and estimators."                
+                " Zero-shot AutoML is used for certain tasks and estimators."
                 " To tune hyperparameters for each estimator,"
                 " please provide budget either via time_budget or max_iter."
             )

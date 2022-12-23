@@ -332,7 +332,7 @@ def _eval_estimator(
         pred_start = time.time()
         val_pred_y = get_y_pred(estimator, X_val, eval_metric, task)
 
-        #TODO: why are integer labels being cast to str in the first place?
+        # TODO: why are integer labels being cast to str in the first place?
         if not pd.api.types.is_numeric_dtype(val_pred_y):
             val_pred_y = val_pred_y.astype(str)
 
@@ -396,7 +396,7 @@ def get_val_loss(
     weight_val,
     groups_val,
     eval_metric,
-    obj,
+    task,
     labels=None,
     budget=None,
     log_training_metric=False,
@@ -409,7 +409,9 @@ def get_val_loss(
     #     fit_kwargs['groups_val'] = groups_val
     #     fit_kwargs['X_val'] = X_val
     #     fit_kwargs['y_val'] = y_val
-    estimator.fit(X_train, y_train, budget=budget, free_mem_ratio=free_mem_ratio, **fit_kwargs)
+    estimator.fit(
+        X_train, y_train, budget=budget, free_mem_ratio=free_mem_ratio, **fit_kwargs
+    )
     val_loss, metric_for_logging, pred_time, _ = _eval_estimator(
         config,
         estimator,
@@ -420,7 +422,7 @@ def get_val_loss(
         weight_val,
         groups_val,
         eval_metric,
-        obj,
+        task,
         labels,
         log_training_metric,
         fit_kwargs,
@@ -532,7 +534,7 @@ def train_estimator(
     config_dic,
     X_train,
     y_train,
-    task:Task,
+    task: Task,
     estimator_name: str,
     n_jobs=1,
     estimator_class=None,
