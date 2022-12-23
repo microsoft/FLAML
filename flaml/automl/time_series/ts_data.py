@@ -118,6 +118,10 @@ class TimeSeriesDataset:
     def y_val(self) -> pd.DataFrame:
         return self._y(self.test_data)
 
+    @property
+    def y_all(self) -> pd.DataFrame:
+        return self._y(self.all_data)
+
     def next_scale(self) -> int:
         scale_map = {"D": 7, "MS": 12}
         return scale_map.get(self.frequency, 8)
@@ -395,11 +399,9 @@ class DataTransformerTS:
         X = X.copy()
         n = X.shape[0]
 
-        if isinstance(y, Series):
-            y = y.rename(self.label)
-
-        assert len(self.num_columns)==0, "Trying to call fit() twice, something is wrong"
-
+        assert (
+            len(self.num_columns) == 0
+        ), "Trying to call fit() twice, something is wrong"
 
         for column in X.columns:
             # sklearn/utils/validation.py needs int/float values
@@ -437,7 +439,18 @@ class DataTransformerTS:
             self.transformer = None
 
         # TODO: revisit for multivariate series, and recast for a single df input anyway
-        ycol = y[y.columns[0]]
+        if isinstance(y, Series):
+            y = y.rename(self.label)
+
+        if isinstance(y, pd.DataFrame):
+            ycol = y[y.columns[0]]
+        elif isinstance(y, pd.Series):
+            ycol = y
+        else:
+            raise ValueError(
+                "y must be either a pd.Series or a pd.DataFrame at this stage"
+            )
+
         if not pd.api.types.is_numeric_dtype(ycol):
             self.label_transformer = LabelEncoder()
             self.label_transformer.fit(ycol)

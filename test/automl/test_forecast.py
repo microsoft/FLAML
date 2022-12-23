@@ -650,8 +650,8 @@ def test_cv_step():
 
         preds[tgt] = pred
         plt.figure(figsize=(16, 8), dpi=80)
-        plt.plot(df.PERIOD, df[tgt])
-        plt.plot(val_df.PERIOD, pred)
+        plt.plot(df[time_col], df[tgt])
+        plt.plot(val_df[time_col], pred)
         plt.legend(["actual", "predicted"])
         plt.show()
 

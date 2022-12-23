@@ -157,9 +157,10 @@ class GenericTask(Task):
 
             automl._transformer = DataTransformer()
 
-            automl._X_train_all, automl._y_train_all = automl._transformer.fit_transform(
-                X, y, self
-            )
+            (
+                automl._X_train_all,
+                automl._y_train_all,
+            ) = automl._transformer.fit_transform(X, y, self)
             automl._label_transformer = automl._transformer.label_transformer
             if self.is_token_classification():
                 if hasattr(automl._label_transformer, "label_list"):
@@ -555,31 +556,26 @@ class GenericTask(Task):
             )
         elif split_type == "time":
             # logger.info("Using TimeSeriesSplit")
-            if (
-                self.is_ts_forecast()
-                and not self.is_ts_forecastpanel()
-            ):
-                period = state.fit_kwargs[
-                    "period"
-                ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                if period * (n_splits + 1) > y_train_all.size:
-                    n_splits = int(y_train_all.size / period - 1)
-                    assert n_splits >= 2, (
-                        f"cross validation for forecasting period={period}"
-                        f" requires input data with at least {3 * period} examples."
-                    )
-                    logger.info(f"Using nsplits={n_splits} due to data size limit.")
-                state.kf = TimeSeriesSplit(n_splits=n_splits, test_size=period)
-            elif self.is_ts_forecastpanel():
-                n_groups = X_train.groupby(
-                    state.fit_kwargs.get("group_ids")
-                ).ngroups
-                period = state.fit_kwargs.get("period")
-                state.kf = TimeSeriesSplit(
-                    n_splits=n_splits, test_size=period * n_groups
-                )
-            else:
-                state.kf = TimeSeriesSplit(n_splits=n_splits)
+            # if self.is_ts_forecast() and not self.is_ts_forecastpanel():
+            #     period = state.fit_kwargs[
+            #         "period"
+            #     ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+            #     if period * (n_splits + 1) > y_train_all.size:
+            #         n_splits = int(y_train_all.size / period - 1)
+            #         assert n_splits >= 2, (
+            #             f"cross validation for forecasting period={period}"
+            #             f" requires input data with at least {3 * period} examples."
+            #         )
+            #         logger.info(f"Using nsplits={n_splits} due to data size limit.")
+            #     state.kf = TimeSeriesSplit(n_splits=n_splits, test_size=period)
+            # elif self.is_ts_forecastpanel():
+            #     n_groups = X_train.groupby(state.fit_kwargs.get("group_ids")).ngroups
+            #     period = state.fit_kwargs.get("period")
+            #     state.kf = TimeSeriesSplit(
+            #         n_splits=n_splits, test_size=period * n_groups
+            #     )
+            # else:
+            state.kf = TimeSeriesSplit(n_splits=n_splits)
         elif isinstance(split_type, str):
             # logger.info("Using RepeatedKFold")
             state.kf = RepeatedKFold(
