@@ -10,10 +10,8 @@ from flaml.automl.model import (
     CatBoostEstimator,
     XGBoostEstimator,
     RandomForestEstimator,
-    Prophet,
-    ARIMA,
-    LGBM_TS,
 )
+from flaml.automl.time_series import Prophet, ARIMA, LGBM_TS
 
 
 def test_lrl2():
