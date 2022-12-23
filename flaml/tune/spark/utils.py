@@ -126,23 +126,22 @@ def with_parameters(trainable, **kwargs):
     return partial(trainable, **bc_kwargs)
 
 
-def customize_learner(learner_code="", file_name="mylearner"):
+def broadcast_code(custom_code="", file_name="mylearner"):
     """Write customized learner/metric code contents to a file for importing.
-    It is necessary for using the customized learner in spark backend.
-    The path of the learner file will be returned.
+    It is necessary for using the customized learner/metric in spark backend.
+    The path of the learner/metric file will be returned.
 
     Args:
-        learner_code: str, default="" | code contents of the customized learner.
-        file_name: str, default="mylearner" | file name of the customized learner.
+        custom_code: str, default="" | code contents of the custom learner/metric.
+        file_name: str, default="mylearner" | file name of the custom learner/metric.
 
     Returns:
-        The path of the customized learner file.
+        The path of the custom code file.
     ```python
-    import pyspark
-    from flaml.tune.spark.utils import customize_learner
+    from flaml.tune.spark.utils import broadcast_code
     from flaml.automl.model import LGBMEstimator
 
-    learner_code = '''
+    custom_code = '''
     from flaml.automl.model import LGBMEstimator
     from flaml import tune
 
@@ -163,19 +162,19 @@ def customize_learner(learner_code="", file_name="mylearner"):
             }
     '''
 
-    customize_learner(learner_code=learner_code)
+    broadcast_code(custom_code=custom_code)
     from flaml.tune.spark.mylearner import MyLargeLGBM
     assert isinstance(MyLargeLGBM(), LGBMEstimator)
     ```
     """
     flaml_path = os.path.dirname(os.path.abspath(__file__))
-    learner_code = textwrap.dedent(learner_code)
-    learner_path = os.path.join(flaml_path, file_name + ".py")
+    custom_code = textwrap.dedent(custom_code)
+    custom_path = os.path.join(flaml_path, file_name + ".py")
 
-    with open(learner_path, "w") as f:
-        f.write(learner_code)
+    with open(custom_path, "w") as f:
+        f.write(custom_code)
 
-    return learner_path
+    return custom_path
 
 
 def get_broadcast_data(broadcast_data):

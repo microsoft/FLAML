@@ -1,6 +1,6 @@
-from flaml.tune.spark.utils import customize_learner
+from flaml.tune.spark.utils import broadcast_code
 
-learner_code = """
+custom_code = """
 from flaml import tune
 from flaml.automl.model import LGBMEstimator, XGBoostSklearnEstimator, SKLearnEstimator
 from flaml.automl.data import CLASSIFICATION, get_output_from_log
@@ -121,4 +121,4 @@ def custom_metric(
     }
 """
 
-_ = customize_learner(learner_code=learner_code)
+_ = broadcast_code(custom_code=custom_code)

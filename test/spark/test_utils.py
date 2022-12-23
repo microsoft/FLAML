@@ -56,11 +56,11 @@ def test_get_n_cpus_spark():
     assert isinstance(n_cpus, int)
 
 
-def test_customize_learner():
-    from flaml.tune.spark.utils import customize_learner
+def test_broadcast_code():
+    from flaml.tune.spark.utils import broadcast_code
     from flaml.automl.model import LGBMEstimator
 
-    learner_code = """
+    custom_code = """
     from flaml.automl.model import LGBMEstimator
     from flaml import tune
 
@@ -81,7 +81,7 @@ def test_customize_learner():
             }
     """
 
-    _ = customize_learner(learner_code=learner_code)
+    _ = broadcast_code(custom_code=custom_code)
     from flaml.tune.spark.mylearner import MyLargeLGBM
 
     assert isinstance(MyLargeLGBM(), LGBMEstimator)
@@ -97,5 +97,5 @@ def test_get_broadcast_data():
 if __name__ == "__main__":
     test_with_parameters_spark()
     test_get_n_cpus_spark()
-    test_customize_learner()
+    test_broadcast_code()
     test_get_broadcast_data()
