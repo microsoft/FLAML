@@ -4,7 +4,6 @@
 #  * project root for license information.
 import time
 import os
-import sys
 from typing import Callable, Optional, List, Union, Any
 import inspect
 from functools import partial
@@ -55,27 +54,16 @@ from flaml import tune
 from flaml.automl.training_log import training_log_reader, training_log_writer
 from flaml.default import suggest_learner
 from flaml.version import __version__ as flaml_version
-from flaml.tune.spark.utils import check_spark, get_broadcast_data
 
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
     "[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s", "%m-%d %H:%M:%S"
 )
-logger.propagate = False
 
 try:
     import mlflow
 except ImportError:
     mlflow = None
-
-try:
-    from ray import __version__ as ray_version
-
-    assert ray_version >= "1.10.0"
-
-    ray_available = True
-except (ImportError, AssertionError):
-    ray_available = False
 
 
 class SearchState:
@@ -153,34 +141,31 @@ class SearchState:
         if custom_hp is not None:
             search_space.update(custom_hp)
 
-        if isinstance(starting_point, dict):
-            starting_point = AutoMLState.sanitize(starting_point)
-            if max_iter > 1 and not self.valid_starting_point(
-                starting_point, search_space
-            ):
-                # If the number of iterations is larger than 1, remove invalid point
-                logger.warning(
-                    "Starting point {} removed because it is outside of the search space".format(
-                        starting_point
-                    )
+        if (
+            isinstance(starting_point, dict)
+            and max_iter
+            > 1  # If the number of starting point is larger than max iter, avoid the checking
+            and not self.valid_starting_point(starting_point, search_space)
+        ):
+            logger.warning(
+                "Starting point {} removed because it is outside of the search space".format(
+                    starting_point
                 )
-                starting_point = None
-        elif isinstance(starting_point, list):
-            starting_point = [AutoMLState.sanitize(x) for x in starting_point]
-            if max_iter > len(starting_point):
-                # If the number of starting points is no smaller than max iter, avoid the checking
-                starting_point_len = len(starting_point)
-                starting_point = [
-                    x
-                    for x in starting_point
-                    if self.valid_starting_point(x, search_space)
-                ]
-                if starting_point_len > len(starting_point):
-                    logger.warning(
-                        "Starting points outside of the search space are removed. "
-                        f"Remaining starting points for {learner_class}: {starting_point}"
-                    )
-                starting_point = starting_point or None
+            )
+            starting_point = None
+        elif isinstance(starting_point, list) and max_iter > len(
+            starting_point
+        ):  # If the number of starting point is larger than max iter, avoid the checking
+            starting_point_len = len(starting_point)
+            starting_point = [
+                x for x in starting_point if self.valid_starting_point(x, search_space)
+            ]
+            if starting_point_len > len(starting_point):
+                logger.warning(
+                    "Starting points outside of the search space are removed. "
+                    f"Remaining starting points for {learner_class}: {starting_point}"
+                )
+            starting_point = starting_point or None
 
         for name, space in search_space.items():
             assert (
@@ -253,10 +238,7 @@ class SearchState:
                 and trained_estimator.params.get(trained_estimator.ITER_HP)
             )
             if n_iter:
-                if "ml" in config:
-                    config["ml"][trained_estimator.ITER_HP] = n_iter
-                else:
-                    config[trained_estimator.ITER_HP] = n_iter
+                config[trained_estimator.ITER_HP] = n_iter
         else:
             obj, time2eval, trained_estimator = np.inf, 0.0, None
             metric_for_logging = config = None
@@ -343,7 +325,7 @@ class AutoMLState:
         return sampled_X_train, sampled_y_train, sampled_weight, groups
 
     @staticmethod
-    def _compute_with_config_base(config_w_resource, state, estimator, is_report=True):
+    def _compute_with_config_base(config_w_resource, state, estimator):
         if "FLAML_sample_size" in config_w_resource:
             sample_size = int(config_w_resource["FLAML_sample_size"])
         else:
@@ -419,17 +401,16 @@ class AutoMLState:
         }
         if sampled_weight is not None:
             this_estimator_kwargs["sample_weight"] = weight
-        if is_report is True:
-            tune.report(**result)
+        tune.report(**result)
         return result
 
-    @classmethod
-    def sanitize(cls, config: dict) -> dict:
+    def sanitize(self, config: dict) -> dict:
         """Make a config ready for passing to estimator."""
         config = config.get("ml", config).copy()
-        config.pop("FLAML_sample_size", None)
-        config.pop("learner", None)
-        config.pop("_choice_", None)
+        if "FLAML_sample_size" in config:
+            del config["FLAML_sample_size"]
+        if "learner" in config:
+            del config["learner"]
         return config
 
     def _train_with_config(
@@ -442,7 +423,7 @@ class AutoMLState:
             sample_size = config_w_resource.get(
                 "FLAML_sample_size", len(self.y_train_all)
             )
-        config = AutoMLState.sanitize(config_w_resource)
+        config = self.sanitize(config_w_resource)
 
         this_estimator_kwargs = self.fit_kwargs_by_estimator.get(
             estimator
@@ -661,10 +642,7 @@ class AutoML(BaseEstimator):
             n_concurrent_trials: [Experimental] int, default=1 | The number of
                 concurrent trials. When n_concurrent_trials > 1, flaml performes
                 [parallel tuning](../../Use-Cases/Task-Oriented-AutoML#parallel-tuning)
-                and installation of ray or spark is required: `pip install flaml[ray]`
-                or `pip install flaml[spark]`. Please check
-                [here](https://spark.apache.org/docs/latest/api/python/getting_started/install.html)
-                for more details about installing Spark.
+                and installation of ray is required: `pip install flaml[ray]`.
             keep_search_state: boolean, default=False | Whether to keep data needed
                 for model search after fit(). By default the state is deleted for
                 space saving.
@@ -684,15 +662,6 @@ class AutoML(BaseEstimator):
                 datasets, but will incur more overhead in time.
                 If dict: the dict contains the keywords arguments to be passed to
                 [ray.tune.run](https://docs.ray.io/en/latest/tune/api_docs/execution.html).
-            use_spark: boolean, default=False | Whether to use spark to run the training
-                in parallel spark jobs. This can be used to accelerate training on large models
-                and large datasets, but will incur more overhead in time and thus slow down
-                training in some cases. GPU training is not supported yet when use_spark is True.
-                For Spark clusters, by default, we will launch one trial per executor. However,
-                sometimes we want to launch more trials than the number of executors (e.g., local mode).
-                In this case, we can set the environment variable `FLAML_MAX_CONCURRENT` to override
-                the detected `num_executors`. The final number of concurrent trials will be the minimum
-                of `n_concurrent_trials` and `num_executors`.
             free_mem_ratio: float between 0 and 1, default=0. The free memory ratio to keep during training.
             metric_constraints: list, default=[] | The list of metric constraints.
                 Each element in this list is a 3-tuple, which shall be expressed
@@ -784,9 +753,6 @@ class AutoML(BaseEstimator):
         settings["append_log"] = settings.get("append_log", False)
         settings["min_sample_size"] = settings.get("min_sample_size", MIN_SAMPLE_TRAIN)
         settings["use_ray"] = settings.get("use_ray", False)
-        settings["use_spark"] = settings.get("use_spark", False)
-        if settings["use_ray"] is not False and settings["use_spark"] is not False:
-            raise ValueError("use_ray and use_spark cannot be both True.")
         settings["free_mem_ratio"] = settings.get("free_mem_ratio", 0)
         settings["metric_constraints"] = settings.get("metric_constraints", [])
         settings["cv_score_agg_func"] = settings.get("cv_score_agg_func", None)
@@ -848,15 +814,13 @@ class AutoML(BaseEstimator):
     def best_config(self):
         """A dictionary of the best configuration."""
         state = self._search_states.get(self._best_estimator)
-        config = state and getattr(state, "best_config", None)
-        return config and AutoMLState.sanitize(config)
+        return state and getattr(state, "best_config", None)
 
     @property
     def best_config_per_estimator(self):
         """A dictionary of all estimators' best configuration."""
         return {
             e: e_search_state.best_config
-            and AutoMLState.sanitize(e_search_state.best_config)
             for e, e_search_state in self._search_states.items()
         }
 
@@ -1605,7 +1569,7 @@ class AutoML(BaseEstimator):
         with training_log_reader(log_file_name) as reader:
             record = reader.get_record(record_id)
             estimator = record.learner
-            config = AutoMLState.sanitize(record.config)
+            config = record.config
 
         estimator, _ = train_estimator(
             X_train=None,
@@ -2109,10 +2073,8 @@ class AutoML(BaseEstimator):
         states = self._search_states
         mem_res = self._mem_thres
 
-        def train(config: dict, state, is_report=True):
-            # handle spark broadcast variables
-            state = get_broadcast_data(state)
-            is_report = get_broadcast_data(is_report)
+        def train(config: dict, state):
+
             sample_size = config.get("FLAML_sample_size")
             config = config.get("ml", config).copy()
             if sample_size:
@@ -2121,9 +2083,8 @@ class AutoML(BaseEstimator):
             # check memory constraints before training
             if states[estimator].learner_class.size(config) <= mem_res:
                 del config["learner"]
-                config.pop("_choice_", None)
                 result = AutoMLState._compute_with_config_base(
-                    config, state=state, estimator=estimator, is_report=is_report
+                    config, state=state, estimator=estimator
                 )
             else:
                 # If search algorithm is not in flaml, it does not handle the config constraint, should also tune.report before return
@@ -2134,8 +2095,7 @@ class AutoML(BaseEstimator):
                     "val_loss": np.inf,
                     "trained_estimator": None,
                 }
-            if is_report is True:
-                tune.report(**result)
+            tune.report(**result)
             return result
 
         if self._use_ray is not False:
@@ -2145,10 +2105,6 @@ class AutoML(BaseEstimator):
                 train,
                 state=self._state,
             )
-        elif self._use_spark:
-            from flaml.tune.spark.utils import with_parameters
-
-            return with_parameters(train, state=self._state, is_report=False)
         else:
             return partial(
                 train,
@@ -2209,7 +2165,6 @@ class AutoML(BaseEstimator):
         auto_augment=None,
         min_sample_size=None,
         use_ray=None,
-        use_spark=None,
         free_mem_ratio=0,
         metric_constraints=None,
         custom_hp=None,
@@ -2383,10 +2338,7 @@ class AutoML(BaseEstimator):
             n_concurrent_trials: [Experimental] int, default=1 | The number of
                 concurrent trials. When n_concurrent_trials > 1, flaml performes
                 [parallel tuning](../../Use-Cases/Task-Oriented-AutoML#parallel-tuning)
-                and installation of ray or spark is required: `pip install flaml[ray]`
-                or `pip install flaml[spark]`. Please check
-                [here](https://spark.apache.org/docs/latest/api/python/getting_started/install.html)
-                for more details about installing Spark.
+                and installation of ray is required: `pip install flaml[ray]`.
             keep_search_state: boolean, default=False | Whether to keep data needed
                 for model search after fit(). By default the state is deleted for
                 space saving.
@@ -2406,10 +2358,6 @@ class AutoML(BaseEstimator):
                 datasets, but will incur more overhead in time.
                 If dict: the dict contains the keywords arguments to be passed to
                 [ray.tune.run](https://docs.ray.io/en/latest/tune/api_docs/execution.html).
-            use_spark: boolean, default=False | Whether to use spark to run the training
-                in parallel spark jobs. This can be used to accelerate training on large models
-                and large datasets, but will incur more overhead in time and thus slow down
-                training in some cases.
             free_mem_ratio: float between 0 and 1, default=0. The free memory ratio to keep during training.
             metric_constraints: list, default=[] | The list of metric constraints.
                 Each element in this list is a 3-tuple, which shall be expressed
@@ -2603,50 +2551,12 @@ class AutoML(BaseEstimator):
         )
         min_sample_size = min_sample_size or self._settings.get("min_sample_size")
         use_ray = self._settings.get("use_ray") if use_ray is None else use_ray
-        use_spark = self._settings.get("use_spark") if use_spark is None else use_spark
-        spark_available, spark_error_msg = check_spark()
-        if use_spark and use_ray is not False:
-            raise ValueError("use_spark and use_ray cannot be both True.")
-        elif use_spark and not spark_available:
-            raise spark_error_msg
-
-        old_level = logger.getEffectiveLevel()
-        self.verbose = verbose
-        logger.setLevel(50 - verbose * 10)
-        if not logger.handlers:
-            # Add the console handler.
-            _ch = logging.StreamHandler(stream=sys.stdout)
-            _ch.setFormatter(logger_formatter)
-            logger.addHandler(_ch)
-
-        if not use_ray and not use_spark and n_concurrent_trials > 1:
-            if ray_available:
-                logger.warning(
-                    "n_concurrent_trials > 1 is only supported when using Ray or Spark. "
-                    "Ray installed, setting use_ray to True. If you want to use Spark, set use_spark to True."
-                )
-                use_ray = True
-            elif spark_available:
-                logger.warning(
-                    "n_concurrent_trials > 1 is only supported when using Ray or Spark. "
-                    "Spark installed, setting use_spark to True. If you want to use Ray, set use_ray to True."
-                )
-                use_spark = True
-            else:
-                logger.warning(
-                    "n_concurrent_trials > 1 is only supported when using Ray or Spark. "
-                    "Neither Ray nor Spark installed, setting n_concurrent_trials to 1."
-                )
-                n_concurrent_trials = 1
-
         self._state.n_jobs = n_jobs
         self._n_concurrent_trials = n_concurrent_trials
         self._early_stop = early_stop
-        self._use_spark = use_spark
-        self._use_ray = use_ray
+        self._use_ray = use_ray or n_concurrent_trials > 1
         # use the following condition if we have an estimation of average_trial_time and average_trial_overhead
-        # self._use_ray = use_ray or n_concurrent_trials > ( average_trial_time + average_trial_overhead) / (average_trial_time)
-
+        # self._use_ray = use_ray or n_concurrent_trials > ( average_trail_time + average_trial_overhead) / (average_trial_time)
         if self._use_ray is not False:
             import ray
 
@@ -2674,11 +2584,6 @@ class AutoML(BaseEstimator):
                 X_train = ray.get(X_train)
             elif isinstance(dataframe, ray.ObjectRef):
                 dataframe = ray.get(dataframe)
-        else:
-            # TODO: Integrate with Spark
-            self._state.resources_per_trial = (
-                {"cpu": n_jobs} if n_jobs > 0 else {"cpu": 1}
-            )
         self._state.free_mem_ratio = (
             self._settings.get("free_mem_ratio")
             if free_mem_ratio is None
@@ -2709,6 +2614,14 @@ class AutoML(BaseEstimator):
         self._random = np.random.RandomState(RANDOM_SEED)
         self._seed = seed if seed is not None else 20
         self._learner_selector = learner_selector
+        old_level = logger.getEffectiveLevel()
+        self.verbose = verbose
+        logger.setLevel(50 - verbose * 10)
+        if not logger.handlers:
+            # Add the console handler.
+            _ch = logging.StreamHandler()
+            _ch.setFormatter(logger_formatter)
+            logger.addHandler(_ch)
         logger.info(f"task = {task}")
         self._decide_split_type(split_type)
         logger.info(f"Data split method: {self._split_type}")
@@ -2894,7 +2807,6 @@ class AutoML(BaseEstimator):
             logger.warning(
                 "No search budget is provided via time_budget or max_iter."
                 " Training only one model per estimator."
-                " Zero-shot AutoML is used for certain tasks and estimators."
                 " To tune hyperparameters for each estimator,"
                 " please provide budget either via time_budget or max_iter."
             )
@@ -3004,7 +2916,7 @@ class AutoML(BaseEstimator):
             else (
                 "bs"
                 if n_concurrent_trials > 1
-                or (self._use_ray is not False or self._use_spark)
+                or self._use_ray is not False
                 and len(estimator_list) > 1
                 else "cfo"
             )
@@ -3101,24 +3013,20 @@ class AutoML(BaseEstimator):
             plt.savefig("{}".format(plot_filename))
 
     def _search_parallel(self):
-        if self._use_ray is not False:
-            try:
-                from ray import __version__ as ray_version
+        try:
+            from ray import __version__ as ray_version
 
-                assert ray_version >= "1.10.0"
-                if ray_version.startswith("1."):
-                    from ray.tune.suggest import ConcurrencyLimiter
-                else:
-                    from ray.tune.search import ConcurrencyLimiter
-                import ray
-            except (ImportError, AssertionError):
-                raise ImportError(
-                    "use_ray=True requires installation of ray. "
-                    "Please run pip install flaml[ray]"
-                )
-        else:
-            from flaml.tune.searcher.suggestion import ConcurrencyLimiter
-
+            assert ray_version >= "1.10.0"
+            if ray_version.startswith("1."):
+                from ray.tune.suggest import ConcurrencyLimiter
+            else:
+                from ray.tune.search import ConcurrencyLimiter
+            import ray
+        except (ImportError, AssertionError):
+            raise ImportError(
+                "n_concurrent_trial>1 or use_ray=True requires installation of ray. "
+                "Please run pip install flaml[ray]"
+            )
         if self._hpo_method in ("cfo", "grid"):
             from flaml import CFO as SearchAlgo
         elif "bs" == self._hpo_method:
@@ -3126,20 +3034,15 @@ class AutoML(BaseEstimator):
         elif "random" == self._hpo_method:
             from flaml import RandomSearch as SearchAlgo
         elif "optuna" == self._hpo_method:
-            if self._use_ray is not False:
-                try:
-                    from ray import __version__ as ray_version
+            try:
+                from ray import __version__ as ray_version
 
-                    assert ray_version >= "1.10.0"
-                    if ray_version.startswith("1."):
-                        from ray.tune.suggest.optuna import OptunaSearch as SearchAlgo
-                    else:
-                        from ray.tune.search.optuna import OptunaSearch as SearchAlgo
-                except (ImportError, AssertionError):
-                    from flaml.tune.searcher.suggestion import (
-                        OptunaSearch as SearchAlgo,
-                    )
-            else:
+                assert ray_version >= "1.10.0"
+                if ray_version.startswith("1."):
+                    from ray.tune.suggest.optuna import OptunaSearch as SearchAlgo
+                else:
+                    from ray.tune.search.optuna import OptunaSearch as SearchAlgo
+            except (ImportError, AssertionError):
                 from flaml.tune.searcher.suggestion import OptunaSearch as SearchAlgo
         else:
             raise NotImplementedError(
@@ -3183,7 +3086,7 @@ class AutoML(BaseEstimator):
                 allow_empty_config=True,
             )
         else:
-            # if self._hpo_method is optuna, sometimes the search space and the initial config dimension do not match
+            # if self._hpo_method is bo, sometimes the search space and the initial config dimension do not match
             # need to remove the extra keys from the search space to be consistent with the initial config
             converted_space = SearchAlgo.convert_search_space(space)
 
@@ -3205,40 +3108,21 @@ class AutoML(BaseEstimator):
         search_alg = ConcurrencyLimiter(search_alg, self._n_concurrent_trials)
         resources_per_trial = self._state.resources_per_trial
 
-        if self._use_spark:
-            # use spark as parallel backend
-            analysis = tune.run(
-                self.trainable,
-                search_alg=search_alg,
-                config=space,
-                metric="val_loss",
-                mode="min",
-                time_budget_s=time_budget_s,
-                num_samples=self._max_iter,
-                verbose=max(self.verbose - 2, 0),
-                use_ray=False,
-                use_spark=True,
-                # raise_on_failed_trial=False,
-                # keep_checkpoints_num=1,
-                # checkpoint_score_attr="min-val_loss",
-            )
-        else:
-            # use ray as parallel backend
-            analysis = ray.tune.run(
-                self.trainable,
-                search_alg=search_alg,
-                config=space,
-                metric="val_loss",
-                mode="min",
-                resources_per_trial=resources_per_trial,
-                time_budget_s=time_budget_s,
-                num_samples=self._max_iter,
-                verbose=max(self.verbose - 2, 0),
-                raise_on_failed_trial=False,
-                keep_checkpoints_num=1,
-                checkpoint_score_attr="min-val_loss",
-                **self._use_ray if isinstance(self._use_ray, dict) else {},
-            )
+        analysis = ray.tune.run(
+            self.trainable,
+            search_alg=search_alg,
+            config=space,
+            metric="val_loss",
+            mode="min",
+            resources_per_trial=resources_per_trial,
+            time_budget_s=time_budget_s,
+            num_samples=self._max_iter,
+            verbose=max(self.verbose - 2, 0),
+            raise_on_failed_trial=False,
+            keep_checkpoints_num=1,
+            checkpoint_score_attr="min-val_loss",
+            **self._use_ray if isinstance(self._use_ray, dict) else {},
+        )
         # logger.info([trial.last_result for trial in analysis.trials])
         trials = sorted(
             (
@@ -3442,7 +3326,7 @@ class AutoML(BaseEstimator):
                         num_samples=self._max_iter,
                     )
                 else:
-                    # if self._hpo_method is optuna, sometimes the search space and the initial config dimension do not match
+                    # if self._hpo_method is bo, sometimes the search space and the initial config dimension do not match
                     # need to remove the extra keys from the search space to be consistent with the initial config
                     converted_space = SearchAlgo.convert_search_space(search_space)
                     removed_keys = set(search_space.keys()).difference(
@@ -3481,7 +3365,6 @@ class AutoML(BaseEstimator):
                 time_budget_s=time_budget_s,
                 verbose=max(self.verbose - 3, 0),
                 use_ray=False,
-                use_spark=False,
             )
             time_used = time.time() - start_run_time
             better = False
@@ -3652,7 +3535,7 @@ class AutoML(BaseEstimator):
             self._selected = state = self._search_states[estimator]
             state.best_config_sample_size = self._state.data_size[0]
             state.best_config = state.init_config[0] if state.init_config else {}
-        elif self._use_ray is False and self._use_spark is False:
+        elif self._use_ray is False:
             self._search_sequential()
         else:
             self._search_parallel()
@@ -3683,7 +3566,7 @@ class AutoML(BaseEstimator):
                         x[1].learner_class(
                             task=self._state.task,
                             n_jobs=self._state.n_jobs,
-                            **AutoMLState.sanitize(x[1].best_config),
+                            **self._state.sanitize(x[1].best_config),
                         ),
                     )
                     for x in search_states[:2]
@@ -3694,7 +3577,7 @@ class AutoML(BaseEstimator):
                         x[1].learner_class(
                             task=self._state.task,
                             n_jobs=self._state.n_jobs,
-                            **AutoMLState.sanitize(x[1].best_config),
+                            **self._state.sanitize(x[1].best_config),
                         ),
                     )
                     for x in search_states[2:]
@@ -3716,10 +3599,6 @@ class AutoML(BaseEstimator):
                         and ray.available_resources()["CPU"]
                         or os.cpu_count()
                     )
-                elif self._use_spark:
-                    from flaml.tune.spark.utils import get_n_cpus
-
-                    n_cpus = get_n_cpus()
                 else:
                     n_cpus = os.cpu_count()
                 ensemble_n_jobs = (
