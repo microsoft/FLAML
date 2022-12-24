@@ -693,7 +693,7 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
         }
         return space
 
-    def transform_ds(self, X_train, y_train, **kwargs):
+    def transform_ds(self, X_train: TimeSeriesDataset, y_train, **kwargs):
         self.data = X_train.train_data
 
         max_prediction_length = kwargs["period"]

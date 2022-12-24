@@ -16,20 +16,8 @@ from sklearn.model_selection import (
 )
 
 from flaml.automl.data import TS_TIMESTAMP_COL, concat
-from flaml.automl.ml import default_cv_score_agg_func, get_val_loss
-from flaml.automl.model import (
-    XGBoostSklearnEstimator,
-    XGBoostLimitDepthEstimator,
-    RandomForestEstimator,
-    LGBMEstimator,
-    LRL1Classifier,
-    LRL2Classifier,
-    CatBoostEstimator,
-    ExtraTreesEstimator,
-    KNeighborsEstimator,
-    TransformersEstimator,
-    TransformersEstimatorModelSelection,
-)
+from flaml.automl.ml import get_val_loss, default_cv_score_agg_func
+
 from flaml.automl.task.task import (
     Task,
     get_classification_objective,
@@ -42,19 +30,36 @@ logger = logging.getLogger(__name__)
 
 
 class GenericTask(Task):
-    estimators = {
-        "xgboost": XGBoostSklearnEstimator,
-        "xgb_limitdepth": XGBoostLimitDepthEstimator,
-        "rf": RandomForestEstimator,
-        "lgbm": LGBMEstimator,
-        "lrl1": LRL1Classifier,
-        "lrl2": LRL2Classifier,
-        "catboost": CatBoostEstimator,
-        "extra_tree": ExtraTreesEstimator,
-        "kneighbor": KNeighborsEstimator,
-        "transformer": TransformersEstimator,
-        "transformer_ms": TransformersEstimatorModelSelection,
-    }
+    @property
+    def estimators(self):
+        # put this into a function to avoid circular dependency
+        from flaml.automl.model import (
+            XGBoostSklearnEstimator,
+            XGBoostLimitDepthEstimator,
+            RandomForestEstimator,
+            LGBMEstimator,
+            LRL1Classifier,
+            LRL2Classifier,
+            CatBoostEstimator,
+            ExtraTreesEstimator,
+            KNeighborsEstimator,
+            TransformersEstimator,
+            TransformersEstimatorModelSelection,
+        )
+
+        return {
+            "xgboost": XGBoostSklearnEstimator,
+            "xgb_limitdepth": XGBoostLimitDepthEstimator,
+            "rf": RandomForestEstimator,
+            "lgbm": LGBMEstimator,
+            "lrl1": LRL1Classifier,
+            "lrl2": LRL2Classifier,
+            "catboost": CatBoostEstimator,
+            "extra_tree": ExtraTreesEstimator,
+            "kneighbor": KNeighborsEstimator,
+            "transformer": TransformersEstimator,
+            "transformer_ms": TransformersEstimatorModelSelection,
+        }
 
     def validate_data(
         self,

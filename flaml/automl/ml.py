@@ -17,14 +17,15 @@ from sklearn.metrics import (
     mean_absolute_percentage_error,
     ndcg_score,
 )
-from sklearn.model_selection import RepeatedStratifiedKFold, GroupKFold, TimeSeriesSplit
+
 from flaml.automl.model import TransformersEstimator
-from flaml.automl.time_series import TimeSeriesDataset
 
 from flaml.automl.task import Task
 from flaml.automl.data import group_counts
 
 import logging
+
+from flaml.automl.time_series import TimeSeriesDataset
 
 logger = logging.getLogger(__name__)
 
@@ -313,146 +314,6 @@ def to_numpy(x):
     return x.reshape((-1, 1))
 
 
-def _eval_estimator(
-    config,
-    estimator,
-    X_train,
-    y_train,
-    X_val,
-    y_val,
-    weight_val,
-    groups_val,
-    eval_metric,
-    task,
-    labels=None,
-    log_training_metric=False,
-    fit_kwargs={},
-):
-    if isinstance(eval_metric, str):
-        pred_start = time.time()
-        val_pred_y = get_y_pred(estimator, X_val, eval_metric, task)
-
-        # TODO: why are integer labels being cast to str in the first place?
-        if not pd.api.types.is_numeric_dtype(val_pred_y):
-            val_pred_y = val_pred_y.astype(str)
-
-        if isinstance(X_val, TimeSeriesDataset):
-            num_val_rows = len(X_val.test_data)
-            y_val = X_val.test_data[X_val.target_names].values.astype(val_pred_y.dtype)
-            y_train = X_val.train_data[X_val.target_names].values.astype(
-                val_pred_y.dtype
-            )
-        else:
-            num_val_rows = X_val.shape[0]
-
-        pred_time = (time.time() - pred_start) / num_val_rows
-
-        val_loss = metric_loss_score(
-            eval_metric,
-            y_processed_predict=val_pred_y,
-            y_processed_true=y_val,
-            labels=labels,
-            sample_weight=weight_val,
-            groups=groups_val,
-        )
-        metric_for_logging = {"pred_time": pred_time}
-        if log_training_metric:
-            train_pred_y = get_y_pred(estimator, X_train, eval_metric, task)
-            metric_for_logging["train_loss"] = metric_loss_score(
-                eval_metric,
-                train_pred_y,
-                y_train,
-                labels,
-                fit_kwargs.get("sample_weight"),
-                fit_kwargs.get("groups"),
-            )
-    else:  # customized metric function
-        val_loss, metric_for_logging = eval_metric(
-            X_val,
-            y_val,
-            estimator,
-            labels,
-            X_train,
-            y_train,
-            weight_val,
-            fit_kwargs.get("sample_weight"),
-            config,
-            groups_val,
-            fit_kwargs.get("groups"),
-        )
-        pred_time = metric_for_logging.get("pred_time", 0)
-        val_pred_y = None
-        # eval_metric may return val_pred_y but not necessarily. Setting None for now.
-    return val_loss, metric_for_logging, pred_time, val_pred_y
-
-
-def get_val_loss(
-    config,
-    estimator,
-    X_train,
-    y_train,
-    X_val,
-    y_val,
-    weight_val,
-    groups_val,
-    eval_metric,
-    task,
-    labels=None,
-    budget=None,
-    log_training_metric=False,
-    fit_kwargs={},
-    free_mem_ratio=0,
-):
-
-    start = time.time()
-    # if groups_val is not None:
-    #     fit_kwargs['groups_val'] = groups_val
-    #     fit_kwargs['X_val'] = X_val
-    #     fit_kwargs['y_val'] = y_val
-    estimator.fit(
-        X_train, y_train, budget=budget, free_mem_ratio=free_mem_ratio, **fit_kwargs
-    )
-    val_loss, metric_for_logging, pred_time, _ = _eval_estimator(
-        config,
-        estimator,
-        X_train,
-        y_train,
-        X_val,
-        y_val,
-        weight_val,
-        groups_val,
-        eval_metric,
-        task,
-        labels,
-        log_training_metric,
-        fit_kwargs,
-    )
-    if hasattr(estimator, "intermediate_results"):
-        metric_for_logging["intermediate_results"] = estimator.intermediate_results
-    train_time = time.time() - start
-    return val_loss, metric_for_logging, train_time, pred_time
-
-
-def default_cv_score_agg_func(val_loss_folds, log_metrics_folds):
-    metric_to_minimize = sum(val_loss_folds) / len(val_loss_folds)
-    metrics_to_log = None
-    for single_fold in log_metrics_folds:
-        if metrics_to_log is None:
-            metrics_to_log = single_fold
-        elif isinstance(metrics_to_log, dict):
-            metrics_to_log = {k: metrics_to_log[k] + v for k, v in single_fold.items()}
-        else:
-            metrics_to_log += single_fold
-    if metrics_to_log:
-        n = len(val_loss_folds)
-        metrics_to_log = (
-            {k: v / n for k, v in metrics_to_log.items()}
-            if isinstance(metrics_to_log, dict)
-            else metrics_to_log / n
-        )
-    return metric_to_minimize, metrics_to_log
-
-
 def compute_estimator(
     X_train,
     y_train,
@@ -614,3 +475,143 @@ def multi_class_curves(y_true, y_pred_proba, curve_func):
     for i in range(len(classes)):
         curve_x[i], curve_y[i], _ = curve_func(y_true_binary[:, i], y_pred_proba[:, i])
     return curve_x, curve_y
+
+
+def get_val_loss(
+    config,
+    estimator,
+    X_train,
+    y_train,
+    X_val,
+    y_val,
+    weight_val,
+    groups_val,
+    eval_metric,
+    task,
+    labels=None,
+    budget=None,
+    log_training_metric=False,
+    fit_kwargs={},
+    free_mem_ratio=0,
+):
+
+    start = time.time()
+    # if groups_val is not None:
+    #     fit_kwargs['groups_val'] = groups_val
+    #     fit_kwargs['X_val'] = X_val
+    #     fit_kwargs['y_val'] = y_val
+    estimator.fit(
+        X_train, y_train, budget=budget, free_mem_ratio=free_mem_ratio, **fit_kwargs
+    )
+    val_loss, metric_for_logging, pred_time, _ = _eval_estimator(
+        config,
+        estimator,
+        X_train,
+        y_train,
+        X_val,
+        y_val,
+        weight_val,
+        groups_val,
+        eval_metric,
+        task,
+        labels,
+        log_training_metric,
+        fit_kwargs,
+    )
+    if hasattr(estimator, "intermediate_results"):
+        metric_for_logging["intermediate_results"] = estimator.intermediate_results
+    train_time = time.time() - start
+    return val_loss, metric_for_logging, train_time, pred_time
+
+
+def default_cv_score_agg_func(val_loss_folds, log_metrics_folds):
+    metric_to_minimize = sum(val_loss_folds) / len(val_loss_folds)
+    metrics_to_log = None
+    for single_fold in log_metrics_folds:
+        if metrics_to_log is None:
+            metrics_to_log = single_fold
+        elif isinstance(metrics_to_log, dict):
+            metrics_to_log = {k: metrics_to_log[k] + v for k, v in single_fold.items()}
+        else:
+            metrics_to_log += single_fold
+    if metrics_to_log:
+        n = len(val_loss_folds)
+        metrics_to_log = (
+            {k: v / n for k, v in metrics_to_log.items()}
+            if isinstance(metrics_to_log, dict)
+            else metrics_to_log / n
+        )
+    return metric_to_minimize, metrics_to_log
+
+
+def _eval_estimator(
+    config,
+    estimator,
+    X_train,
+    y_train,
+    X_val,
+    y_val,
+    weight_val,
+    groups_val,
+    eval_metric,
+    task,
+    labels=None,
+    log_training_metric=False,
+    fit_kwargs={},
+):
+    if isinstance(eval_metric, str):
+        pred_start = time.time()
+        val_pred_y = get_y_pred(estimator, X_val, eval_metric, task)
+
+        # TODO: why are integer labels being cast to str in the first place?
+        if not pd.api.types.is_numeric_dtype(val_pred_y):
+            val_pred_y = val_pred_y.astype(str)
+
+        if isinstance(X_val, TimeSeriesDataset):
+            num_val_rows = len(X_val.test_data)
+            y_val = X_val.test_data[X_val.target_names].values.astype(val_pred_y.dtype)
+            y_train = X_val.train_data[X_val.target_names].values.astype(
+                val_pred_y.dtype
+            )
+        else:
+            num_val_rows = X_val.shape[0]
+
+        pred_time = (time.time() - pred_start) / num_val_rows
+
+        val_loss = metric_loss_score(
+            eval_metric,
+            y_processed_predict=val_pred_y,
+            y_processed_true=y_val,
+            labels=labels,
+            sample_weight=weight_val,
+            groups=groups_val,
+        )
+        metric_for_logging = {"pred_time": pred_time}
+        if log_training_metric:
+            train_pred_y = get_y_pred(estimator, X_train, eval_metric, task)
+            metric_for_logging["train_loss"] = metric_loss_score(
+                eval_metric,
+                train_pred_y,
+                y_train,
+                labels,
+                fit_kwargs.get("sample_weight"),
+                fit_kwargs.get("groups"),
+            )
+    else:  # customized metric function
+        val_loss, metric_for_logging = eval_metric(
+            X_val,
+            y_val,
+            estimator,
+            labels,
+            X_train,
+            y_train,
+            weight_val,
+            fit_kwargs.get("sample_weight"),
+            config,
+            groups_val,
+            fit_kwargs.get("groups"),
+        )
+        pred_time = metric_for_logging.get("pred_time", 0)
+        val_pred_y = None
+        # eval_metric may return val_pred_y but not necessarily. Setting None for now.
+    return val_loss, metric_for_logging, pred_time, val_pred_y

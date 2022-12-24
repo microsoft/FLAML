@@ -10,11 +10,12 @@ from sklearn.model_selection import (
     TimeSeriesSplit,
 )
 
-from flaml.automl.ml import default_cv_score_agg_func, get_val_loss
+from flaml.automl.ml import get_val_loss, default_cv_score_agg_func
 from flaml.automl.time_series.ts_data import (
     TimeSeriesDataset,
     DataTransformerTS,
     normalize_ts_data,
+    validate_data_basic,
 )
 
 from flaml.automl.task.task import (
@@ -23,7 +24,6 @@ from flaml.automl.task.task import (
     TS_FORECAST,
     TS_FORECASTPANEL,
 )
-from flaml.config import RANDOM_SEED
 
 logger = logging.getLogger(__name__)
 
@@ -96,8 +96,6 @@ class TimeSeriesTask(Task):
             else:
                 target_names = label
 
-            self.target_names = target_names
-
             if self.time_col is None:
                 if isinstance(X_train_all, pd.DataFrame):
                     assert (
@@ -114,11 +112,15 @@ class TimeSeriesTask(Task):
 
             automl._df = True
 
-            if X_train_all is not None and y_train_all is not None:
-                validate_data_basic(X_train_all, y_train_all)
-                # the below line forces data into a pd.DataFrame
-                dataframe = normalize_ts_data(
-                    X_train_all, target_names, self.time_col, y_train_all
+            if X_train_all is not None:
+                assert (
+                    y_train_all is not None
+                ), "If X_train_all is not None, y_train_all must also be"
+                assert (
+                    dataframe is None
+                ), "If X_train_all is provided, dataframe must be None"
+                dataframe = TimeSeriesDataset.to_dataframe(
+                    X_train_all, y_train_all, target_names, self.time_col
                 )
 
             elif dataframe is not None:
@@ -139,21 +141,12 @@ class TimeSeriesTask(Task):
             ), f"For '{TS_FORECAST}' task, time_col must contain timestamp values."
 
             dataframe = remove_ts_duplicates(dataframe, self.time_col)
-            X = dataframe.drop(columns=target_names)
-
-            # TODO: where are these used?
-            automl._nrow, automl._ndim = X.shape
 
             if X_val is not None:
-                assert (
-                    y_val is not None
-                ), "If X_val is not None, y_val must also be provided"
-                assert len(X_val) == len(
-                    y_val
-                ), "X_val and y_val must have the same length"
-                validate_data_basic(X_val, y_val)
-                # coerce them into a dataframe
-                val_df = normalize_ts_data(X_val, y_val, target_names, self.time_col)
+                assert y_val is not None, "If X_val is not None, y_val must also be"
+                val_df = TimeSeriesDataset.to_dataframe(
+                    X_val, y_val, target_names, self.time_col
+                )
                 val_len = len(val_df)
             else:
                 val_len = 0
@@ -182,6 +175,9 @@ class TimeSeriesTask(Task):
 
         # TODO: where are these used? Replace with pointers to data?
         automl._X_train_all, automl._y_train_all = Xt, yt
+
+        # TODO: where are these used?
+        automl._nrow, automl._ndim = data.X_train.shape
 
         # make a property instead? Or just fix the call?
         automl._label_transformer = automl._transformer.label_transformer
@@ -486,12 +482,13 @@ class TimeSeriesTask(Task):
             "xgb_limitdepth",
         ]
 
-        try:
-            import catboost
-
-            estimator_list.append("catboost")
-        except ImportError:
-            pass
+        # Catboost appears to be way slower than the others, don't include it by default
+        # try:
+        #     import catboost
+        #
+        #     estimator_list.append("catboost")
+        # except ImportError:
+        #     pass
 
         if self.is_regression():
             estimator_list += ["arima", "sarimax"]
@@ -524,31 +521,6 @@ class TimeSeriesTask(Task):
         sampled_X_train = automlstate.X_train.move_validation_boundary(shift)
 
         return sampled_X_train, None, None, None
-
-
-def validate_data_basic(X_train_all, y_train_all):
-    assert (
-        isinstance(X_train_all, np.ndarray)
-        or issparse(X_train_all)
-        or isinstance(X_train_all, pd.DataFrame)
-    ), (
-        "X_train_all must be a numpy array, a pandas dataframe, "
-        "or Scipy sparse matrix."
-    )
-
-    assert (
-        isinstance(y_train_all, np.ndarray)
-        or isinstance(y_train_all, pd.Series)
-        or isinstance(y_train_all, pd.DataFrame)
-    ), "y_train_all must be a numpy array or a pandas series or DataFrame."
-
-    assert (
-        X_train_all.size != 0 and y_train_all.size != 0
-    ), "Input data must not be empty, use None if no data"
-
-    assert (
-        X_train_all.shape[0] == y_train_all.shape[0]
-    ), "# rows in X_train must match length of y_train."
 
 
 def remove_ts_duplicates(

@@ -22,9 +22,6 @@ import math
 from flaml import tune
 from flaml.automl.data import (
     group_counts,
-    add_time_idx_col,
-    TS_TIMESTAMP_COL,
-    TS_VALUE_COL,
 )
 from flaml.automl.task.task import (
     Task,
@@ -34,6 +31,8 @@ from flaml.automl.task.task import (
     SUMMARIZATION,
     NLG_TASKS,
 )
+
+from flaml.automl.task.factory import task_factory, Task
 
 try:
     import psutil
@@ -100,14 +99,14 @@ class BaseEstimator:
             config: A dictionary containing the hyperparameter names, 'n_jobs' as keys.
                 n_jobs is the number of parallel threads.
         """
-        self._task = task
+        self._task = task if isinstance(task, Task) else task_factory(task, None, None)
         self.params = self.config2params(config)
         self.estimator_class = self._model = None
         if "_estimator_type" in config:
             self._estimator_type = self.params.pop("_estimator_type")
         else:
             self._estimator_type = (
-                "classifier" if task.is_classification() else "regressor"
+                "classifier" if self._task.is_classification() else "regressor"
             )
 
     def get_params(self, deep=False):
@@ -276,7 +275,9 @@ class BaseEstimator:
             Each element at (i,j) is the probability for instance i to be in
                 class j.
         """
-        assert self._task.is_classification(), "predict_proba() only for classification."
+        assert (
+            self._task.is_classification()
+        ), "predict_proba() only for classification."
 
         X = self._preprocess(X)
         return self._model.predict_proba(X, **kwargs)
@@ -570,7 +571,9 @@ class TransformersEstimator(BaseEstimator):
     @property
     def data_collator(self):
         from flaml.automl.task.task import Task
-        from flaml.automl.nlp.huggingface.data_collator import task_to_datacollator_class
+        from flaml.automl.nlp.huggingface.data_collator import (
+            task_to_datacollator_class,
+        )
 
         data_collator_class = task_to_datacollator_class.get(
             self._task.name if isinstance(self._task, Task) else self._task
@@ -1380,7 +1383,7 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
 
         if "rank" == task:
             self.estimator_class = xgb.XGBRanker
-        elif task.is_classification():
+        elif self._task.is_classification():
             self.estimator_class = xgb.XGBClassifier
         else:
             self.estimator_class = xgb.XGBRegressor
@@ -1484,10 +1487,11 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         super().__init__(task, **params)
         self.params["verbose"] = 0
 
-        if task.is_classification():
+        if self._task.is_classification():
             self.estimator_class = RandomForestClassifier
         else:
             self.estimator_class = RandomForestRegressor
+
 
 class ExtraTreesEstimator(RandomForestEstimator):
     """The class for tuning Extra Trees."""
@@ -1533,7 +1537,9 @@ class LRL1Classifier(SKLearnEstimator):
 
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
-        assert task.is_classification(), "LogisticRegression for classification task only"
+        assert (
+            self._task.is_classification()
+        ), "LogisticRegression for classification task only"
         self.estimator_class = LogisticRegression
 
 
@@ -1559,7 +1565,9 @@ class LRL2Classifier(SKLearnEstimator):
 
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
-        assert task.is_classification(), "LogisticRegression for classification task only"
+        assert (
+            self._task.is_classification()
+        ), "LogisticRegression for classification task only"
         self.estimator_class = LogisticRegression
 
 
@@ -1639,7 +1647,7 @@ class CatBoostEstimator(BaseEstimator):
                 "random_seed": config.get("random_seed", 10242048),
             }
         )
-        if task.is_classification():
+        if self._task.is_classification():
             from catboost import CatBoostClassifier
 
             self.estimator_class = CatBoostClassifier
@@ -1747,7 +1755,7 @@ class KNeighborsEstimator(BaseEstimator):
 
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
-        if task.is_classification():
+        if self._task.is_classification():
             from sklearn.neighbors import KNeighborsClassifier
 
             self.estimator_class = KNeighborsClassifier

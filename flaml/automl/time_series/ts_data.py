@@ -74,9 +74,20 @@ class TimeSeriesDataset:
             train_data, self.time_col, self.target_names, self.time_idx, X
         )
 
+    @staticmethod
+    def to_dataframe(X, y, target_names: List[str], time_col: str):
+        assert len(X) == len(y), "X_val and y_val must have the same length"
+        validate_data_basic(X, y)
+        # coerce them into a dataframe
+        val_df = normalize_ts_data(X, target_names, time_col, y)
+        return val_df
+
     @property
     def all_data(self):
-        return pd.concat([self.train_data, self.test_data], axis=0)
+        if len(self.test_data):
+            return pd.concat([self.train_data, self.test_data], axis=0)
+        else:
+            return self.train_data
 
     @property
     def regressors(self):
@@ -460,7 +471,14 @@ class DataTransformerTS:
     def transform(self, X: Union[DataFrame, np.array], y=None):
         # TODO: revisit for multivariate series, and recast for a single df input anyway
         if self.label_transformer is not None and y is not None:
-            ycol = y[y.columns[0]]
+            if isinstance(y, pd.DataFrame):
+                ycol = y[y.columns[0]]
+            elif isinstance(y, pd.Series):
+                ycol = y
+            else:
+                raise ValueError(
+                    "y must be either a pd.Series or a pd.DataFrame at this stage"
+                )
             y_tr = self.label_transformer.transform(ycol)
             y.iloc[:] = y_tr.reshape(y.shape)
 
@@ -537,3 +555,28 @@ def normalize_ts_data(X_train_all, target_names, time_col, y_train_all=None):
         dataframe = pd.concat([X_train_all, y_train_all], axis=1)
 
         return dataframe
+
+
+def validate_data_basic(X_train_all, y_train_all):
+    assert (
+        isinstance(X_train_all, np.ndarray)
+        or issparse(X_train_all)
+        or isinstance(X_train_all, pd.DataFrame)
+    ), (
+        "X_train_all must be a numpy array, a pandas dataframe, "
+        "or Scipy sparse matrix."
+    )
+
+    assert (
+        isinstance(y_train_all, np.ndarray)
+        or isinstance(y_train_all, pd.Series)
+        or isinstance(y_train_all, pd.DataFrame)
+    ), "y_train_all must be a numpy array or a pandas series or DataFrame."
+
+    assert (
+        X_train_all.size != 0 and y_train_all.size != 0
+    ), "Input data must not be empty, use None if no data"
+
+    assert (
+        X_train_all.shape[0] == y_train_all.shape[0]
+    ), "# rows in X_train must match length of y_train."

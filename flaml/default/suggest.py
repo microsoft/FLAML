@@ -4,7 +4,8 @@ import logging
 import pathlib
 import json
 from flaml.automl.data import DataTransformer
-from flaml.automl.task.task import CLASSIFICATION
+from flaml.automl.task.task import CLASSIFICATION, Task
+from flaml.automl.task.factory import task_factory
 from flaml.automl.ml import get_classification_objective
 from flaml.version import __version__
 
@@ -46,6 +47,8 @@ def meta_feature(task, X_train, y_train, meta_feature_names):
 
 
 def load_config_predictor(estimator_name, task, location=None):
+    if isinstance(task, Task):
+        task = task.name
     key = f"{location}/{estimator_name}/{task}"
     predictor = CONFIG_PREDICTORS.get(key)
     if predictor:
@@ -165,9 +168,10 @@ def suggest_hyperparams(task, X, y, estimator_or_predictor, location=None):
         0
     ]
     estimator = config["class"]
+    task = task_factory(task)
     model_class = task.estimator_class_from_str(estimator)
     hyperparams = config["hyperparameters"]
-    model = model_class(task=task, **hyperparams)
+    model = model_class(task=task.name, **hyperparams)
     estimator_class = model.estimator_class
     hyperparams = hyperparams and model.params
     return hyperparams, estimator_class
@@ -251,7 +255,7 @@ def preprocess_and_suggest_hyperparams(
         0
     ]
     estimator = config["class"]
-    model_class = task.estimator_class_from_str(estimator)
+    model_class = task_factory(task).estimator_class_from_str(estimator)
     hyperparams = config["hyperparameters"]
     model = model_class(task=task, **hyperparams)
     if model.estimator_class is None:

@@ -660,7 +660,7 @@ def test_cv_step():
 
 def test_finance_df():
     df = (
-        pd.read_csv("fincrime_finance_series.csv")
+        pd.read_csv("test/automl/fincrime_finance_series.csv")
         .fillna(0.0)
         .drop(columns=["CASE_DAY"])
     )
@@ -733,5 +733,5 @@ if __name__ == "__main__":
     # test_multivariate_forecast_cat(5)
     # test_numpy()
     # test_forecast_classification(5)
-    # test_forecast_panel(5)
-    test_cv_step()
+    test_forecast_panel(5)
+    # test_cv_step()
