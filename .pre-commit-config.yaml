@@ -18,4 +18,4 @@ repos:
     - id: check-merge-conflict
     - id: detect-private-key
     - id: trailing-whitespace
-    # - id: no-commit-to-branch
+    - id: no-commit-to-branch
