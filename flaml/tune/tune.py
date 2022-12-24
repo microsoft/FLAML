@@ -492,9 +492,7 @@ def run(
 
                 SearchAlgorithm = BlendSearch
                 logger.info(
-                    "Using search algorithm {}.".format(
-                        SearchAlgorithm.__class__.__name__
-                    )
+                    "Using search algorithm {}.".format(SearchAlgorithm.__name__)
                 )
             except ImportError:
                 SearchAlgorithm = CFO
@@ -504,9 +502,7 @@ def run(
             metric = metric or DEFAULT_METRIC
         else:
             SearchAlgorithm = CFO
-            logger.info(
-                "Using search algorithm {}.".format(SearchAlgorithm.__class__.__name__)
-            )
+            logger.info("Using search algorithm {}.".format(SearchAlgorithm.__name__))
             metric = lexico_objectives["metrics"][0] or DEFAULT_METRIC
         search_alg = SearchAlgorithm(
             metric=metric,
