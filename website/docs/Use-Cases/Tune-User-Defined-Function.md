@@ -100,14 +100,14 @@ If it is a numerical hyperparameter, you need to know whether it takes integer v
 
 ```python
 {
-"learning_rate": tune.loguniform(lower=1 / 1024, upper=1.0),
+    "learning_rate": tune.loguniform(lower=1 / 1024, upper=1.0),
 }
 ```
 When the search range of learning rate is small, it is more common to sample in the linear scale as shown in the following example,
 
 ```python
 {
-"learning_rate": tune.uniform(lower=0.1, upper=0.2),
+    "learning_rate": tune.uniform(lower=0.1, upper=0.2),
 }
 ```
 
@@ -117,7 +117,7 @@ When the search range of learning rate is small, it is more common to sample in 
 When you have a desired quantization granularity for the hyperparameter change, you can use `tune.qlograndint` or `tune.qloguniform` to realize the quantization requirement. The following code example helps you realize the need for sampling uniformly in the range of 0.1 and 0.2 with increments of 0.02, i.e., the sampled learning rate can only take values in {0.1, 0.12, 0.14, 0.16, ..., 0.2},
 ```python
 {
-"learning_rate": tune.uniform(lower=0.1, upper=0.2, q=0.02),
+    "learning_rate": tune.quniform(lower=0.1, upper=0.2, q=0.02),
 }
 ```
 
@@ -290,10 +290,13 @@ The key difference between these two types of constraints is that the calculatio
 Related arguments:
 
 - `use_ray`: A boolean of whether to use ray as the backend.
+- `use_spark`: A boolean of whether to use spark as the backend.
 - `resources_per_trial`: A dictionary of the hardware resources to allocate per trial, e.g., `{'cpu': 1}`. Only valid when using ray backend.
 
 
-You can perform parallel tuning by specifying `use_ray=True` (requiring flaml[ray] option installed). You can also limit the amount of resources allocated per trial by specifying `resources_per_trial`, e.g., `resources_per_trial={'cpu': 2}`.
+You can perform parallel tuning by specifying `use_ray=True` (requiring flaml[ray] option installed) or `use_spark=True`
+(requiring flaml[spark] option installed). You can also limit the amount of resources allocated per trial by specifying `resources_per_trial`,
+e.g., `resources_per_trial={'cpu': 2}` when `use_ray=True`.
 
 ```python
 # require: pip install flaml[ray]
@@ -306,6 +309,21 @@ analysis = tune.run(
     time_budget_s=10,  # the time budget in seconds
     use_ray=True,
     resources_per_trial={"cpu": 2}  # limit resources allocated per trial
+)
+print(analysis.best_trial.last_result)  # the best trial's result
+print(analysis.best_config)  # the best config
+```
+
+```python
+# require: pip install flaml[spark]
+analysis = tune.run(
+    evaluate_config,  # the function to evaluate a config
+    config=config_search_space,  # the search space defined
+    metric="score",
+    mode="min",  # the optimization mode, "min" or "max"
+    num_samples=-1,  # the maximal number of configs to try, -1 means infinite
+    time_budget_s=10,  # the time budget in seconds
+    use_spark=True,
 )
 print(analysis.best_trial.last_result)  # the best trial's result
 print(analysis.best_config)  # the best config
@@ -529,7 +547,7 @@ In the following example, we want to minimize `val_loss` and `pred_time` of the 
 ```python
 lexico_objectives = {}
 lexico_objectives["metrics"] = ["val_loss", "pred_time"]
-lexico_objectives["pred_time"] = ["min", "min"]
+lexico_objectives["modes"] = ["min", "min"]
 lexico_objectives["tolerances"] = {"val_loss": 0.02, "pred_time": 0.0}
 lexico_objectives["targets"] = {"val_loss": -float('inf'), "pred_time": -float('inf')}
 
