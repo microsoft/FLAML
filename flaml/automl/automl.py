@@ -111,10 +111,8 @@ class SearchState:
                 and renamed_type is float
             )
             if not (type_match and domain_one_dim.is_valid(value_one_dim)):
-                logger.error("Starting_points is not provided in the right format")
                 return False
         elif value_one_dim != domain_one_dim:
-            logger.error("Starting_points is not provided in the right format")
             return False
         return True
 
@@ -2726,56 +2724,86 @@ class AutoML(BaseEstimator):
         )
         self._auto_augment = auto_augment
 
-        _sample_size_from_starting_points = {}
+        if "auto" == estimator_list:
+            if self._state.task == "rank":
+                estimator_list = ["lgbm", "xgboost", "xgb_limitdepth"]
+            elif _is_nlp_task(self._state.task):
+                estimator_list = ["transformer"]
+            elif self._state.task == TS_FORECASTPANEL:
+                estimator_list = ["tft"]
+            else:
+                try:
+                    import catboost
+
+                    estimator_list = [
+                        "lgbm",
+                        "rf",
+                        "catboost",
+                        "xgboost",
+                        "extra_tree",
+                        "xgb_limitdepth",
+                    ]
+                except ImportError:
+                    estimator_list = [
+                        "lgbm",
+                        "rf",
+                        "xgboost",
+                        "extra_tree",
+                        "xgb_limitdepth",
+                    ]
+                if self._state.task in TS_FORECAST:
+                    # catboost is removed because it has a `name` parameter, making it incompatible with hcrystalball
+                    if "catboost" in estimator_list:
+                        estimator_list.remove("catboost")
+                    if self._state.task in TS_FORECASTREGRESSION:
+                        try:
+                            import prophet
+
+                            estimator_list += ["prophet", "arima", "sarimax"]
+                        except ImportError:
+                            estimator_list += ["arima", "sarimax"]
+                elif "regression" != self._state.task:
+                    estimator_list += ["lrl1"]
+
         if isinstance(starting_points, dict):
             _estimators_from_starting_points = starting_points.keys()
-            if not any(
-                i in self.estimator_list for i in _estimators_from_starting_points
-            ):
+            if not any(i in estimator_list for i in _estimators_from_starting_points):
                 logger.warning(
-                    "The proivded starting_points does not contain relevant estimators as keys"
-                    " and is thus NOT used. Please check the format of starting_points."
-                )
-            else:
-                for _estimator, _point_per_estimator in starting_points.items():
-
-                    if not isinstance(_point_per_estimator, dict) and not isinstance(
-                        _point_per_estimator, list
-                    ):
-                        logger.warning(
-                            "Starting_points for estimator {} is not provide in the format and is thus NOT used!"
-                            "When the starting_points is a dict, the keys are the name of the estimators, and the"
-                            "values should be hyperparamter configuration dicts or lists of hyperparamter configuration dicts".format(
-                                _estimator
-                            )
-                        )
-                    sample_size = (
-                        _point_per_estimator
-                        and isinstance(_point_per_estimator, dict)
-                        and _point_per_estimator.get("FLAML_sample_size")
+                    "The proivded starting_points {} is removed as it does not contain relevant estimators as keys"
+                    " and is thus NOT used. Please check the required format of starting_points.".format(
+                        starting_points
                     )
-                    if sample_size:
-                        _sample_size_from_starting_points[_estimator] = sample_size
-                    elif _point_per_estimator and isinstance(
-                        _point_per_estimator, list
-                    ):
-                        _sample_size_set = set(
-                            [
-                                config["FLAML_sample_size"]
-                                for config in _point_per_estimator
-                                if "FLAML_sample_size" in config
-                            ]
+                )
+                starting_points = {}
+
+        _sample_size_from_starting_points = {}
+        if isinstance(starting_points, dict):
+            for _estimator, _point_per_estimator in starting_points.items():
+                sample_size = (
+                    _point_per_estimator
+                    and isinstance(_point_per_estimator, dict)
+                    and _point_per_estimator.get("FLAML_sample_size")
+                )
+                if sample_size:
+                    _sample_size_from_starting_points[_estimator] = sample_size
+                elif _point_per_estimator and isinstance(_point_per_estimator, list):
+                    _sample_size_set = set(
+                        [
+                            config["FLAML_sample_size"]
+                            for config in _point_per_estimator
+                            if "FLAML_sample_size" in config
+                        ]
+                    )
+                    if _sample_size_set:
+                        _sample_size_from_starting_points[_estimator] = min(
+                            _sample_size_set
                         )
-                        if _sample_size_set:
-                            _sample_size_from_starting_points[_estimator] = min(
-                                _sample_size_set
+                    if len(_sample_size_set) > 1:
+                        logger.warning(
+                            "Using the min FLAML_sample_size of all the provided starting points for estimator {}. (Provided FLAML_sample_size are: {})".format(
+                                _estimator, _sample_size_set
                             )
-                        if len(_sample_size_set) > 1:
-                            logger.warning(
-                                "Using the min FLAML_sample_size of all the provided starting points for estimator {}. (Provided FLAML_sample_size are: {})".format(
-                                    _estimator, _sample_size_set
-                                )
-                            )
+                        )
 
         if not sample and isinstance(starting_points, dict):
             assert (
@@ -2867,46 +2895,6 @@ class AutoML(BaseEstimator):
             error_metric = "customized metric"
         logger.info(f"Minimizing error metric: {error_metric}")
 
-        if "auto" == estimator_list:
-            if self._state.task == "rank":
-                estimator_list = ["lgbm", "xgboost", "xgb_limitdepth"]
-            elif _is_nlp_task(self._state.task):
-                estimator_list = ["transformer"]
-            elif self._state.task == TS_FORECASTPANEL:
-                estimator_list = ["tft"]
-            else:
-                try:
-                    import catboost
-
-                    estimator_list = [
-                        "lgbm",
-                        "rf",
-                        "catboost",
-                        "xgboost",
-                        "extra_tree",
-                        "xgb_limitdepth",
-                    ]
-                except ImportError:
-                    estimator_list = [
-                        "lgbm",
-                        "rf",
-                        "xgboost",
-                        "extra_tree",
-                        "xgb_limitdepth",
-                    ]
-                if self._state.task in TS_FORECAST:
-                    # catboost is removed because it has a `name` parameter, making it incompatible with hcrystalball
-                    if "catboost" in estimator_list:
-                        estimator_list.remove("catboost")
-                    if self._state.task in TS_FORECASTREGRESSION:
-                        try:
-                            import prophet
-
-                            estimator_list += ["prophet", "arima", "sarimax"]
-                        except ImportError:
-                            estimator_list += ["arima", "sarimax"]
-                elif "regression" != self._state.task:
-                    estimator_list += ["lrl1"]
         # When no search budget is specified
         if no_budget:
             max_iter = len(estimator_list)
