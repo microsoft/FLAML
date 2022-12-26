@@ -2728,32 +2728,54 @@ class AutoML(BaseEstimator):
 
         _sample_size_from_starting_points = {}
         if isinstance(starting_points, dict):
-            for _estimator, _point_per_estimator in starting_points.items():
-                sample_size = (
-                    _point_per_estimator
-                    and isinstance(_point_per_estimator, dict)
-                    and _point_per_estimator.get("FLAML_sample_size")
+            _estimators_from_starting_points = starting_points.keys()
+            if not any(
+                i in self.estimator_list for i in _estimators_from_starting_points
+            ):
+                logger.warning(
+                    "The proivded starting_points does not contain relevant estimators as keys"
+                    " and is thus NOT used. Please check the format of starting_points."
                 )
-                if sample_size:
-                    _sample_size_from_starting_points[_estimator] = sample_size
-                elif _point_per_estimator and isinstance(_point_per_estimator, list):
-                    _sample_size_set = set(
-                        [
-                            config["FLAML_sample_size"]
-                            for config in _point_per_estimator
-                            if "FLAML_sample_size" in config
-                        ]
-                    )
-                    if _sample_size_set:
-                        _sample_size_from_starting_points[_estimator] = min(
-                            _sample_size_set
-                        )
-                    if len(_sample_size_set) > 1:
+            else:
+                for _estimator, _point_per_estimator in starting_points.items():
+
+                    if not isinstance(_point_per_estimator, dict) and not isinstance(
+                        _point_per_estimator, list
+                    ):
                         logger.warning(
-                            "Using the min FLAML_sample_size of all the provided starting points for estimator {}. (Provided FLAML_sample_size are: {})".format(
-                                _estimator, _sample_size_set
+                            "Starting_points for estimator {} is not provide in the format and is thus NOT used!"
+                            "When the starting_points is a dict, the keys are the name of the estimators, and the"
+                            "values should be hyperparamter configuration dicts or lists of hyperparamter configuration dicts".format(
+                                _estimator
                             )
                         )
+                    sample_size = (
+                        _point_per_estimator
+                        and isinstance(_point_per_estimator, dict)
+                        and _point_per_estimator.get("FLAML_sample_size")
+                    )
+                    if sample_size:
+                        _sample_size_from_starting_points[_estimator] = sample_size
+                    elif _point_per_estimator and isinstance(
+                        _point_per_estimator, list
+                    ):
+                        _sample_size_set = set(
+                            [
+                                config["FLAML_sample_size"]
+                                for config in _point_per_estimator
+                                if "FLAML_sample_size" in config
+                            ]
+                        )
+                        if _sample_size_set:
+                            _sample_size_from_starting_points[_estimator] = min(
+                                _sample_size_set
+                            )
+                        if len(_sample_size_set) > 1:
+                            logger.warning(
+                                "Using the min FLAML_sample_size of all the provided starting points for estimator {}. (Provided FLAML_sample_size are: {})".format(
+                                    _estimator, _sample_size_set
+                                )
+                            )
 
         if not sample and isinstance(starting_points, dict):
             assert (
@@ -3560,11 +3582,11 @@ class AutoML(BaseEstimator):
                     self.data_size_full,
                 )
 
-                if(self._trained_estimator.params[self._trained_estimaotr.ITER_HP]!=self.best_config[self._trained_estimaotr.ITER_HP]):
-                    logger.warning(
-                        "early stopping happened"
-                    )
-
+                if (
+                    self._trained_estimator.params[self._trained_estimaotr.ITER_HP]
+                    != self.best_config[self._trained_estimaotr.ITER_HP]
+                ):
+                    logger.warning("early stopping happened")
 
                 logger.info(
                     "retrain {} for {:.1f}s".format(self._best_estimator, retrain_time)
