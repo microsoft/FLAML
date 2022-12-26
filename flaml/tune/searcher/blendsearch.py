@@ -124,7 +124,7 @@ class BlendSearch(Searcher):
                 objectives in the metric list. If not provided, we use "min" as the default mode for all the objectives.
                 - "targets" (optional): a dictionary to specify the optimization targets on the objectives. The keys are the
                 metric names (provided in "metric"), and the values are the numerical target values.
-                - "tolerances"(optional): a dictionary to specify the optimality tolerances on objectives. The keys are the
+                - "tolerances" (optional): a dictionary to specify the optimality tolerances on objectives. The keys are the
                 metric names (provided in "metrics"), and the values are the numerical tolerances values.
                 E.g.,
                 ```python
@@ -146,7 +146,6 @@ class BlendSearch(Searcher):
                 self.cost_attr = None
         else:
             self.cost_attr = cost_attr
-
         self.penalty = PENALTY  # penalty term for constraints
         self._metric, self._mode = metric, mode
         self._use_incumbent_result_in_evaluation = use_incumbent_result_in_evaluation
@@ -310,7 +309,7 @@ class BlendSearch(Searcher):
                 self._time_used += now - self._start_time
                 self._start_time = now
                 self._set_deadline()
-                if self._input_cost_attr == "auto":
+                if self._input_cost_attr == "auto" and self._time_budget_s:
                     self.cost_attr = self._ls.cost_attr = TIME_TOTAL_S
             if "metric_target" in spec:
                 self._metric_target = spec.get("metric_target")
@@ -654,10 +653,11 @@ class BlendSearch(Searcher):
         for key in upper:
             ub = upper[key]
             if isinstance(ub, list):
-                choice = space[key]["_choice_"]
-                self._expand_admissible_region(
-                    lower[key][choice], upper[key][choice], space[key]
-                )
+                choice = space[key].get("_choice_")
+                if choice:
+                    self._expand_admissible_region(
+                        lower[key][choice], upper[key][choice], space[key]
+                    )
             elif isinstance(ub, dict):
                 self._expand_admissible_region(lower[key], ub, space[key])
             else:
