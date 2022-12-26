@@ -3571,8 +3571,8 @@ class AutoML(BaseEstimator):
                 )
 
                 if (
-                    self._trained_estimator.params[self._trained_estimaotr.ITER_HP]
-                    != self.best_config[self._trained_estimaotr.ITER_HP]
+                    self._trained_estimator.params[self._trained_estimator.ITER_HP]
+                    != self.best_config[self._trained_estimator.ITER_HP]
                 ):
                     logger.warning("early stopping happened")
 
