@@ -3583,7 +3583,7 @@ class AutoML(BaseEstimator):
                             "Early stopping happened when retraining a model with the best configuration."
                             f" The best config's ITER_HP is {_best_config_iter}"
                             f" and the actual ITER_HP used for retraining the model is {_hp_trained_iter}."
-                            " This early stopping happens because because flaml needs to do its best effort to"
+                            " This early stopping happens because flaml needs to do its best effort to"
                             " retrain without violating the time budget when retrain_full is set to 'budget'. "
                             " If this mismatch is not desired, please set retrain_full to True."
                         )
