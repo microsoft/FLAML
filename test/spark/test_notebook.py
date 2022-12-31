@@ -25,8 +25,8 @@ def run_notebook(input_nb, output_nb="executed_notebook.ipynb", save=False):
         ep.preprocess(nb, {"metadata": {"path": here}})
     except CellExecutionError:
         raise
-    except Exception as e:
-        print("\nIgnoring below error:\n", e, "\n\n")
+    # except Exception as e:
+    #     print("\nIgnoring below error:\n", e, "\n\n")
     finally:
         if save:
             with open(os.path.join(here, output_nb), "w", encoding="utf-8") as f:
