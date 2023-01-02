@@ -448,7 +448,9 @@ def run(
             logger.addHandler(old_handlers[0])
         if verbose > 0:
             if log_file_name:
-                os.makedirs(os.path.dirname(log_file_name), exist_ok=True)
+                dir_name = os.path.dirname(log_file_name)
+                if dir_name:
+                    os.makedirs(dir_name, exist_ok=True)
                 logger.addHandler(logging.FileHandler(log_file_name))
             elif not logger.hasHandlers():
                 # Add the console handler.
