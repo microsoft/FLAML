@@ -58,7 +58,7 @@ Break (15m)
     - [Notebook: AutoML for Time Series Forecast tasks](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/automl_time_series_forecast.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/automl_time_series_forecast.ipynb)
 - Targeted Hyperparameter Optimization With Lexicographic Objectives
     - [Documentation](https://microsoft.github.io/FLAML/docs/Use-Cases/Tune-User-Defined-Function/#lexicographic-objectives)
-    - [Notebook: Find accurate and fast neural networks with lexicographic objectives](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/tune_lexicographic.ipynb)
+    - [Notebook: Find accurate and fast neural networks with lexicographic objectives](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/tune_lexicographic.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/tune_lexicographic.ipynb)
 - Online AutoML
     - [Notebook: Online AutoML with Vowpal Wabbit](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/autovw.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/autovw.ipynb)
 - Fair AutoML
