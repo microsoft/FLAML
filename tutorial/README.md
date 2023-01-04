@@ -2,7 +2,7 @@
 
 ## Session Information
 
-Date and Time: February 8, 2023 at 2-6pm ET.
+**Date and Time: February 8, 2023 at 2-6pm ET.
 
 Location: Walter E. Washington Convention Center, Washington DC, USA
 
@@ -14,25 +14,25 @@ For the most up-to-date information, see the [AAAI'23 Program Agenda](https://aa
 
 ## What Will You Learn?
 
-- What FLAML is and how to use FLAML to (1) find accurate ML models with low computational resources for common ML tasks; (2) tune hyperparameters generically
+- What FLAML is and how to use FLAML to
+    - find accurate ML models with low computational resources for common ML tasks
+    - tune hyperparameters generically
 - How to leverage the flexible and rich customization choices
-  - Finish the last mile for deployment
-  - Create new applications
+  - finish the last mile for deployment
+  - create new applications
 - Code examples, demos, use cases
 - Research & development opportunities
 
 ## Session Agenda (tentative)
 
-### **Part 1. Overview**
+### **Part 1. Overview of FLAML**
 
 - Overview of AutoML and FLAML
 - Basic usages of FLAML
     - Task-oriented AutoML
         - [Notebook: A classification task with AutoML](https://github.com/microsoft/FLAML/blob/tutorial/notebook/automl_classification.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/automl_classification.ipynb)
-
     - Tune User-Defined-functions with FLAML
         - [Notebook: Tune pytorch](https://github.com/microsoft/FLAML/blob/tutorial/notebook/tune_pytorch.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/tune_pytorch.ipynb)
-
     - Zero-shot AutoML
         - [Notebook: Zeroshot AutoML](https://github.com/microsoft/FLAML/blob/tutorial/notebook/zeroshot_lightgbm.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/zeroshot_lightgbm.ipynb)
 - [ML.NET demo](https://docs.microsoft.com/dotnet/machine-learning/tutorials/predict-prices-with-model-builder)
