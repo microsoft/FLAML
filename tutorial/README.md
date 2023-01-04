@@ -2,7 +2,7 @@
 
 ## Session Information
 
-Date and Time: February 8, 2023, 2-6pm, ET
+Date and Time: February 8, 2023 at 2-6pm ET.
 
 Location: Walter E. Washington Convention Center, Washington DC, USA
 
@@ -10,7 +10,7 @@ Duration: 4 hours (3.5 hours + 0.5 hour break)
 
 For the most up-to-date information, see the [AAAI'23 Program Agenda](https://aaai.org/Conferences/AAAI-23/aaai23tutorials/)
 
-## Tutorial Slides: To be added
+## Lab Forum Slides: To be added
 
 ## What Will You Learn?
 
@@ -23,14 +23,14 @@ For the most up-to-date information, see the [AAAI'23 Program Agenda](https://aa
 
 ## Session Agenda (tentative)
 
-### Part 1. Overview
+### **Part 1. Overview**
 
 - Overview of AutoML and FLAML
 - Basic usages of FLAML
     - Task-oriented AutoML
         - [Notebook: A classification task with AutoML](https://github.com/microsoft/FLAML/blob/tutorial/notebook/automl_classification.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/automl_classification.ipynb)
 
-    - Tune User-Defined
+    - Tune User-Defined-functions with FLAML
         - [Notebook: Tune pytorch](https://github.com/microsoft/FLAML/blob/tutorial/notebook/tune_pytorch.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/tune_pytorch.ipynb)
 
     - Zero-shot AutoML
@@ -39,7 +39,7 @@ For the most up-to-date information, see the [AAAI'23 Program Agenda](https://aa
 
 Break (15m)
 
-### Part 2 Deep Dive into FLAML
+### **Part 2. Deep Dive into FLAML**
 - The Science Behind FLAML’s Success
     - [Economical hyperparameter optimization methods in FLAML](https://microsoft.github.io/FLAML/docs/Use-Cases/Tune-User-Defined-Function/#hyperparameter-optimization-algorithm)
     - [Other research in FLAML](https://microsoft.github.io/FLAML/docs/Research)
@@ -51,14 +51,11 @@ Break (15m)
     - [Notebook: Basic advanced tuning options](https://github.com/microsoft/FLAML/blob/tutorial/notebook/tune_demo.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/tune_demo.ipynb)
 
 
-Break (15m)
-
-### Part 3. New features
-
-- Time series forecasting
-    - [Notebook: AutoML for Time Series Forecast tasks](https://github.com/microsoft/FLAML/blob/tutorial/notebook/automl_time_series_forecast.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/automl_time_series_forecast.ipynb)
+### **Part 3. New features in FLAML**
 - Natural language processing
     - [Notebook: AutoML for NLP tasks](https://github.com/microsoft/FLAML/blob/tutorial/notebook/automl_nlp.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/automl_nlp.ipynb)
+- Time Series Forecasting
+    - [Notebook: AutoML for Time Series Forecast tasks](https://github.com/microsoft/FLAML/blob/tutorial/notebook/automl_time_series_forecast.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/automl_time_series_forecast.ipynb)
 - Targeted Hyperparameter Optimization With Lexicographic Objectives
     - [Documentation](https://microsoft.github.io/FLAML/docs/Use-Cases/Tune-User-Defined-Function/#lexicographic-objectives)
     - [Notebook: Find accurate and fast neural networks with lexicographic objectives](https://github.com/microsoft/FLAML/blob/main/notebook/tune_lexicographic.ipynb)

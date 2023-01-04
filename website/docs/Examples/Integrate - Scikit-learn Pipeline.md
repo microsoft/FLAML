@@ -1,9 +1,11 @@
 As FLAML's AutoML module can be used a transformer in the Sklearn's pipeline we can get all the benefits of pipeline.
 
+This example requires openml==0.10.2.
+
 ### Load data
 
 ```python
-from flaml.data import load_openml_dataset
+from flaml.automl.data import load_openml_dataset
 
 # Download [Airlines dataset](https://www.openml.org/d/1169) from OpenML. The task is to predict whether a given flight will be delayed, given the information of the scheduled departure.
 X_train, X_test, y_train, y_test = load_openml_dataset(
@@ -32,6 +34,7 @@ automl_pipeline = Pipeline([
 ])
 automl_pipeline
 ```
+
 ![png](images/pipeline.png)
 
 ### Run AutoML in the pipeline
@@ -39,7 +42,7 @@ automl_pipeline
 ```python
 automl_settings = {
     "time_budget": 60,  # total running time in seconds
-    "metric": "accuracy",  # primary metrics can be chosen from: ['accuracy','roc_auc', 'roc_auc_ovr', 'roc_auc_ovo', 'f1','log_loss','mae','mse','r2']
+    "metric": "accuracy",  # primary metrics can be chosen from: ['accuracy', 'roc_auc', 'roc_auc_weighted', 'roc_auc_ovr', 'roc_auc_ovo', 'f1', 'log_loss', 'mae', 'mse', 'r2'] Check the documentation for more details (https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML#optimization-metric)
     "task": "classification",  # task type
     "estimator_list": ["xgboost", "catboost", "lgbm"],
     "log_file_name": "airlines_experiment.log",  # flaml log file

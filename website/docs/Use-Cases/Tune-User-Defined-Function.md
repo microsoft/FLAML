@@ -130,7 +130,6 @@ You can find the corresponding search space choice in the table below once you h
 | log scale      | tune.lograndint(lower: int, upper: int, base: float = 10 | tune.loguniform(lower: float, upper: float, base: float = 10)|
 | linear scale with quantization| tune.qrandint(lower: int, upper: int, q: int = 1)| tune.quniform(lower: float, upper: float, q: float = 1)|
 log scale with quantization  | tune.qlograndint(lower: int, upper, q: int = 1, base: float = 10)| tune.qloguniform(lower: float, upper, q: float = 1, base: float = 10)
-|
 
 
 See the example below for the commonly used types of domains.
@@ -340,7 +339,8 @@ In the following code example, we consider the sample size as the resource dimen
 ```python
 from flaml import tune
 from functools import partial
-from flaml.data import load_openml_task
+from flaml.automl.data import load_openml_task
+
 
 def obj_from_resource_attr(resource_attr, X_train, X_test, y_train, y_test, config):
     from lightgbm import LGBMClassifier
@@ -363,13 +363,14 @@ def obj_from_resource_attr(resource_attr, X_train, X_test, y_train, y_test, conf
     test_loss = 1.0 - accuracy_score(y_test, y_test_predict)
     return {resource_attr: resource, "loss": test_loss}
 
+
 X_train, X_test, y_train, y_test = load_openml_task(task_id=7592, data_dir="test/")
 max_resource = len(y_train)
 resource_attr = "sample_size"
 min_resource = 1000
 analysis = tune.run(
     partial(obj_from_resource_attr, resource_attr, X_train, X_test, y_train, y_test),
-    config = {
+    config={
         "n_estimators": tune.lograndint(lower=4, upper=32768),
         "max_leaves": tune.lograndint(lower=4, upper=32768),
         "learning_rate": tune.loguniform(lower=1 / 1024, upper=1.0),
@@ -516,7 +517,7 @@ analysis = tune.run(
 ```
 
 ### Lexicographic Objectives
-We support tuning multiple objectives with lexicographic preference by providing argument `lexico_objectives` for `tune.tun()`.
+We support tuning multiple objectives with lexicographic preference by providing argument `lexico_objectives` for `tune.run()`.
 `lexico_objectives` is a dictionary that contains the following fields of key-value pairs:
  - `metrics`: a list of optimization objectives with the orders reflecting the priorities/preferences of the objectives.
  - `modes`: (optional) a list of optimization modes (each mode either "min" or "max") corresponding to the objectives in the metric list. If not provided, we use "min" as the default mode for all the objectives.
