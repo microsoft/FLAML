@@ -30,12 +30,12 @@ For the most up-to-date information, see the [AAAI'23 Program Agenda](https://aa
 - Overview of AutoML and FLAML
 - Basic usages of FLAML
     - Task-oriented AutoML
-        - [Notebook: A classification task with AutoML](https://github.com/microsoft/FLAML/blob/tutorial/notebook/automl_classification.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/automl_classification.ipynb)
+        - [Notebook: A classification task with AutoML](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/automl_classification.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/automl_classification.ipynb)
     - Tune User-Defined-functions with FLAML
-        - [Notebook: Tune pytorch](https://github.com/microsoft/FLAML/blob/tutorial/notebook/tune_pytorch.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/tune_pytorch.ipynb)
+        - [Notebook: Tune pytorch](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/tune_pytorch.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/tune_pytorch.ipynb)
     - Zero-shot AutoML
-        - [Notebook: Zeroshot AutoML](https://github.com/microsoft/FLAML/blob/tutorial/notebook/zeroshot_lightgbm.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/zeroshot_lightgbm.ipynb)
-- [ML.NET demo](https://docs.microsoft.com/dotnet/machine-learning/tutorials/predict-prices-with-model-builder)
+        - [Notebook: Zeroshot AutoML](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/zeroshot_lightgbm.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/zeroshot_lightgbm.ipynb)
+- [ML.NET demo](https://docs.microsoft.com/dotnet/machine-learning/tutorial-aaai23/predict-prices-with-model-builder)
 
 Break (15m)
 
@@ -46,20 +46,20 @@ Break (15m)
 
 - Maximize the Power of FLAML through Customization and Advanced Functionalities
 
-    - [Notebook: A classification task with AutoML](https://github.com/microsoft/FLAML/blob/tutorial/notebook/automl_classification.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/automl_classification.ipynb)
-    - [Notebook: A regression task with AuotML using LightGBM as the learner](https://github.com/microsoft/FLAML/blob/tutorial/notebook/automl_lightgbm.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/automl_lightgbm.ipynb)
-    - [Notebook: Basic advanced tuning options](https://github.com/microsoft/FLAML/blob/tutorial/notebook/tune_demo.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/tune_demo.ipynb)
+    - [Notebook: A classification task with AutoML](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/automl_classification.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/automl_classification.ipynb)
+    - [Notebook: A regression task with AuotML using LightGBM as the learner](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/automl_lightgbm.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/automl_lightgbm.ipynb)
+    - [Notebook: Basic advanced tuning options](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/tune_demo.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/tune_demo.ipynb)
 
 
 ### **Part 3. New features in FLAML**
 - Natural language processing
-    - [Notebook: AutoML for NLP tasks](https://github.com/microsoft/FLAML/blob/tutorial/notebook/automl_nlp.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/automl_nlp.ipynb)
+    - [Notebook: AutoML for NLP tasks](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/automl_nlp.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/automl_nlp.ipynb)
 - Time Series Forecasting
-    - [Notebook: AutoML for Time Series Forecast tasks](https://github.com/microsoft/FLAML/blob/tutorial/notebook/automl_time_series_forecast.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/automl_time_series_forecast.ipynb)
+    - [Notebook: AutoML for Time Series Forecast tasks](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/automl_time_series_forecast.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/automl_time_series_forecast.ipynb)
 - Targeted Hyperparameter Optimization With Lexicographic Objectives
     - [Documentation](https://microsoft.github.io/FLAML/docs/Use-Cases/Tune-User-Defined-Function/#lexicographic-objectives)
-    - [Notebook: Find accurate and fast neural networks with lexicographic objectives](https://github.com/microsoft/FLAML/blob/main/notebook/tune_lexicographic.ipynb)
+    - [Notebook: Find accurate and fast neural networks with lexicographic objectives](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/tune_lexicographic.ipynb)
 - Online AutoML
-    - [Notebook: Online AutoML with Vowpal Wabbit](https://github.com/microsoft/FLAML/blob/tutorial/notebook/autovw.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial/notebook/autovw.ipynb)
+    - [Notebook: Online AutoML with Vowpal Wabbit](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/autovw.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/autovw.ipynb)
 - Fair AutoML
 ### Challenges and open problems
