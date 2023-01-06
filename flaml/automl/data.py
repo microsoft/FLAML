@@ -12,6 +12,22 @@ from flaml.automl.training_log import training_log_reader
 from datetime import datetime
 from typing import Union
 
+import os
+
+try:
+    os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
+    import pyspark.pandas as ps
+    from pyspark.pandas import DataFrame as psDataFrame, Series as psSeries
+except ImportError:
+    ps = None
+
+    class psDataFrame:
+        pass
+
+    class psSeries:
+        pass
+
+
 # TODO: if your task is not specified in here, define your task as an all-capitalized word
 SEQCLASSIFICATION = "seq-classification"
 MULTICHOICECLASSIFICATION = "multichoice-classification"
@@ -241,6 +257,13 @@ def concat(X1, X2):
         df.reset_index(drop=True, inplace=True)
         if isinstance(X1, DataFrame):
             cat_columns = X1.select_dtypes(include="category").columns
+            if len(cat_columns):
+                df[cat_columns] = df[cat_columns].astype("category")
+        return df
+    if isinstance(X1, (psDataFrame, psSeries)):
+        df = ps.concat([X1, X2], ignore_index=True)
+        if isinstance(X1, psDataFrame):
+            cat_columns = X1.select_dtypes(include="category").columns.values.tolist()
             if len(cat_columns):
                 df[cat_columns] = df[cat_columns].astype("category")
         return df
@@ -483,3 +506,8 @@ class DataTransformer:
 def group_counts(groups):
     _, i, c = np.unique(groups, return_counts=True, return_index=True)
     return c[np.argsort(i)]
+
+
+def spark_split_xy():
+    # TODO: split pyspark dataframe into X and y
+    pass

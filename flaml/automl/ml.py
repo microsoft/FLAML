@@ -2,6 +2,7 @@
 #  * Copyright (c) FLAML authors. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
+import os
 import time
 import numpy as np
 import pandas as pd
@@ -44,8 +45,25 @@ from flaml.automl.model import (
     TransformersEstimator,
     TemporalFusionTransformerEstimator,
     TransformersEstimatorModelSelection,
+    SparkLGBMEstimator,
 )
 from flaml.automl.data import CLASSIFICATION, group_counts, TS_FORECAST
+from flaml.automl.spark.utils import len_labels
+
+try:
+    os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
+    import pyspark.pandas as ps
+    from pyspark.pandas import DataFrame as psDataFrame, Series as psSeries
+except ImportError:
+    ps = None
+
+    class psDataFrame:
+        pass
+
+    class psSeries:
+        pass
+
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -113,6 +131,8 @@ def get_estimator_class(task, estimator_name):
         estimator_class = RF_TS if task in TS_FORECAST else RandomForestEstimator
     elif "lgbm" == estimator_name:
         estimator_class = LGBM_TS if task in TS_FORECAST else LGBMEstimator
+    elif "lgbm_spark" == estimator_name:
+        estimator_class = SparkLGBMEstimator
     elif "lrl1" == estimator_name:
         estimator_class = LRL1Classifier
     elif "lrl2" == estimator_name:
@@ -151,6 +171,10 @@ def metric_loss_score(
     sample_weight=None,
     groups=None,
 ):
+    if isinstance(y_processed_predict, psSeries):
+        y_processed_predict = y_processed_predict.to_numpy()
+    if isinstance(y_processed_true, psSeries):
+        y_processed_true = y_processed_true.to_numpy()
     # y_processed_predict and y_processed_true are processed id labels if the original were the token labels
     if is_in_sklearn_metric_name_set(metric_name):
         return sklearn_metric_loss_score(
@@ -345,9 +369,12 @@ def sklearn_metric_loss_score(
     return score
 
 
-def get_y_pred(estimator, X, eval_metric, obj):
+def get_y_pred(estimator, X, eval_metric, obj, y=None):
     if eval_metric in ["roc_auc", "ap", "roc_auc_weighted"] and "binary" in obj:
-        y_pred_classes = estimator.predict_proba(X)
+        if y is not None:
+            y_pred_classes = estimator.predict_proba(X, y)
+        else:
+            y_pred_classes = estimator.predict_proba(X)
         y_pred = y_pred_classes[:, 1] if y_pred_classes.ndim > 1 else y_pred_classes
     elif eval_metric in [
         "log_loss",
@@ -357,9 +384,15 @@ def get_y_pred(estimator, X, eval_metric, obj):
         "roc_auc_ovo_weighted",
         "roc_auc_ovr_weighted",
     ]:
-        y_pred = estimator.predict_proba(X)
+        if y is not None:
+            y_pred = estimator.predict_proba(X, y)
+        else:
+            y_pred = estimator.predict_proba(X)
     else:
-        y_pred = estimator.predict(X)
+        if y is not None:
+            y_pred = estimator.predict(X, y)
+        else:
+            y_pred = estimator.predict(X)
     return y_pred
 
 
@@ -376,11 +409,16 @@ def _eval_estimator(
     obj,
     labels=None,
     log_training_metric=False,
-    fit_kwargs={},
+    fit_kwargs=None,
 ):
+    if fit_kwargs is None:
+        fit_kwargs = {}
     if isinstance(eval_metric, str):
         pred_start = time.time()
-        val_pred_y = get_y_pred(estimator, X_val, eval_metric, obj)
+        if isinstance(X_val, psDataFrame):
+            val_pred_y, y_val = get_y_pred(estimator, X_val, eval_metric, obj, y=y_val)
+        else:
+            val_pred_y = get_y_pred(estimator, X_val, eval_metric, obj)
         pred_time = (time.time() - pred_start) / X_val.shape[0]
 
         val_loss = metric_loss_score(
@@ -393,7 +431,13 @@ def _eval_estimator(
         )
         metric_for_logging = {"pred_time": pred_time}
         if log_training_metric:
-            train_pred_y = get_y_pred(estimator, X_train, eval_metric, obj)
+            if isinstance(X_train, psDataFrame):
+                train_pred_y, y_train = get_y_pred(
+                    estimator, X_train, eval_metric, obj, y=y_train
+                )
+            else:
+                train_pred_y = get_y_pred(estimator, X_train, eval_metric, obj)
+
             metric_for_logging["train_loss"] = metric_loss_score(
                 eval_metric,
                 train_pred_y,
@@ -436,10 +480,11 @@ def get_val_loss(
     labels=None,
     budget=None,
     log_training_metric=False,
-    fit_kwargs={},
+    fit_kwargs=None,
     free_mem_ratio=0,
 ):
-
+    if fit_kwargs is None:
+        fit_kwargs = {}
     start = time.time()
     # if groups_val is not None:
     #     fit_kwargs['groups_val'] = groups_val
@@ -499,9 +544,11 @@ def evaluate_model_CV(
     best_val_loss,
     cv_score_agg_func=None,
     log_training_metric=False,
-    fit_kwargs={},
+    fit_kwargs=None,
     free_mem_ratio=0,
 ):
+    if fit_kwargs is None:
+        fit_kwargs = {}
     if cv_score_agg_func is None:
         cv_score_agg_func = default_cv_score_agg_func
     start_time = time.time()
@@ -513,7 +560,7 @@ def evaluate_model_CV(
     n = kf.get_n_splits()
     X_train_split, y_train_split = X_train_all, y_train_all
     if task in CLASSIFICATION:
-        labels = np.unique(y_train_all)
+        _, labels = len_labels(y_train_all, return_labels=True)
     else:
         labels = fit_kwargs.get(
             "label_list"
@@ -537,34 +584,13 @@ def evaluate_model_CV(
         weight_val = None
     else:
         weight = weight_val = None
-    for train_index, val_index in kf:
-        if shuffle:
-            train_index = rng.permutation(train_index)
-        if isinstance(X_train_all, pd.DataFrame):
-            X_train = X_train_split.iloc[train_index]
-            X_val = X_train_split.iloc[val_index]
-        else:
-            X_train, X_val = X_train_split[train_index], X_train_split[val_index]
-        y_train, y_val = y_train_split[train_index], y_train_split[val_index]
+    if isinstance(X_train_all, ps.DataFrame):
+        # TODO: pyspark dataframe CV
+        X_train = X_val = X_train_all
+        y_train = y_val = y_train_all
         estimator.cleanup()
-        if weight is not None:
-            fit_kwargs["sample_weight"], weight_val = (
-                weight[train_index],
-                weight[val_index],
-            )
-        if groups is not None:
-            fit_kwargs["groups"] = (
-                groups[train_index]
-                if isinstance(groups, np.ndarray)
-                else groups.iloc[train_index]
-            )
-            groups_val = (
-                groups[val_index]
-                if isinstance(groups, np.ndarray)
-                else groups.iloc[val_index]
-            )
-        else:
-            groups_val = None
+        weight_val = None
+        groups_val = None
         val_loss_i, metric_i, train_time_i, pred_time_i = get_val_loss(
             config,
             estimator,
@@ -591,8 +617,63 @@ def evaluate_model_CV(
         log_metric_folds.append(metric_i)
         train_time += train_time_i
         pred_time += pred_time_i
-        if budget and time.time() - start_time >= budget:
-            break
+    else:
+        for train_index, val_index in kf:
+            if shuffle:
+                train_index = rng.permutation(train_index)
+            if isinstance(X_train_all, pd.DataFrame):
+                X_train = X_train_split.iloc[train_index]
+                X_val = X_train_split.iloc[val_index]
+            else:
+                X_train, X_val = X_train_split[train_index], X_train_split[val_index]
+            y_train, y_val = y_train_split[train_index], y_train_split[val_index]
+            estimator.cleanup()
+            if weight is not None:
+                fit_kwargs["sample_weight"], weight_val = (
+                    weight[train_index],
+                    weight[val_index],
+                )
+            if groups is not None:
+                fit_kwargs["groups"] = (
+                    groups[train_index]
+                    if isinstance(groups, np.ndarray)
+                    else groups.iloc[train_index]
+                )
+                groups_val = (
+                    groups[val_index]
+                    if isinstance(groups, np.ndarray)
+                    else groups.iloc[val_index]
+                )
+            else:
+                groups_val = None
+            val_loss_i, metric_i, train_time_i, pred_time_i = get_val_loss(
+                config,
+                estimator,
+                X_train,
+                y_train,
+                X_val,
+                y_val,
+                weight_val,
+                groups_val,
+                eval_metric,
+                task,
+                labels,
+                budget_per_train,
+                log_training_metric=log_training_metric,
+                fit_kwargs=fit_kwargs,
+                free_mem_ratio=free_mem_ratio,
+            )
+            if isinstance(metric_i, dict) and "intermediate_results" in metric_i.keys():
+                del metric_i["intermediate_results"]
+            if weight is not None:
+                fit_kwargs["sample_weight"] = weight
+            total_fold_num += 1
+            val_loss_folds.append(val_loss_i)
+            log_metric_folds.append(metric_i)
+            train_time += train_time_i
+            pred_time += pred_time_i
+            if budget and time.time() - start_time >= budget:
+                break
     val_loss, metric = cv_score_agg_func(val_loss_folds, log_metric_folds)
     n = total_fold_num
     pred_time /= n
@@ -618,9 +699,11 @@ def compute_estimator(
     estimator_class=None,
     cv_score_agg_func=None,
     log_training_metric=False,
-    fit_kwargs={},
+    fit_kwargs=None,
     free_mem_ratio=0,
 ):
+    if fit_kwargs is None:
+        fit_kwargs = {}
     estimator_class = estimator_class or get_estimator_class(task, estimator_name)
     estimator = estimator_class(
         **config_dic,
@@ -686,10 +769,12 @@ def train_estimator(
     n_jobs=1,
     estimator_class=None,
     budget=None,
-    fit_kwargs={},
+    fit_kwargs=None,
     eval_metric=None,
     free_mem_ratio=0,
 ):
+    if fit_kwargs is None:
+        fit_kwargs = {}
     start_time = time.time()
     estimator_class = estimator_class or get_estimator_class(task, estimator_name)
     estimator = estimator_class(
