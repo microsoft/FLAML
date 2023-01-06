@@ -791,6 +791,10 @@ def run(
                         report(_metric=result)
                 _runner.stop_trial(trial_to_run)
                 num_failures = 0
+                if trial_to_run.last_result is None:
+                    # application stops tuning by returning None
+                    # TODO document this feature when it is finalized
+                    break
             else:
                 # break with upperbound_num_failures consecutive failures
                 num_failures += 1
