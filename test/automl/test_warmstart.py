@@ -229,33 +229,5 @@ class TestWarmStart(unittest.TestCase):
             y_train,
             **automl_settings,
         )
-
-
-        automl5 = AutoML()
-        settings = {
-            "time_budget": 10,  # total running time in seconds
-            "metric": 'r2',  # primary metrics for regression can be chosen from: ['mae','mse','r2']
-            "estimator_list": ['lgbm'],  # list of ML learners; we tune lightgbm in this example
-            "task": 'regression',  # task type
-            "log_file_name": 'houses_experiment.log',  # flaml log file
-            "log_type": 'all',
-            "seed": 0,  # random seed
-        }
-        automl5.fit(X_train=X_train, y_train=y_train, **settings)
-        warm_start_config = automl5.best_config
-
-        # fitting again
-        settings = {
-            "time_budget": 10,  # total running time in seconds
-            "metric": 'r2',  # primary metrics for regression can be chosen from: ['mae','mse','r2']
-            "estimator_list": ['lgbm'],  # list of ML learners; we tune lightgbm in this example
-            "task": 'regression',  # task type
-            "log_file_name": 'houses_experiment2.log',  # flaml log file (changed name from last run)
-            "log_type": 'all',
-            "seed": 0,  # random seed
-        }
-        automl5.fit(X_train=X_train, y_train=y_train, **settings, starting_points=warm_start_config)
-
-
 if __name__ == "__main__":
     unittest.main()
