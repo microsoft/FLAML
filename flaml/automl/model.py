@@ -2346,7 +2346,7 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
         fit_keys = ["period", "gpu_per_trial", "group_ids", "freq", "log_dir", "max_epochs", "batch_size",
                     "static_categoricals", "static_reals", "time_varying_known_categoricals", "time_varying_known_reals",
                     "time_varying_unknown_reals", "time_varying_unknown_categoricals", "variable_groups",
-                    "max_encoder_length", "min_encoder_length", "lags"]
+                    "max_encoder_length", "min_encoder_length", "lags", "constant_fill_strategy"]
         for key in fit_keys:
             if key in kwargs: kwargs.pop(key)
         trainer = _fit(log=False, **kwargs)
