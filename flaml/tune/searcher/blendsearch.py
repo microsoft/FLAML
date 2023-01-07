@@ -217,7 +217,7 @@ class BlendSearch(Searcher):
                 import optuna as ot
 
                 sampler = ot.samplers.TPESampler(
-                    seed=seed, multivariate=True, group=True
+                    seed=gs_seed, multivariate=True, group=True
                 )
             else:
                 sampler = None
@@ -297,7 +297,7 @@ class BlendSearch(Searcher):
                         space=self._gs._space,
                         metric=metric,
                         mode=mode,
-                        sampler=self._gs._sampler,
+                        seed=self._gs._seed,
                     )
                     self._gs.space = self._ls.space
                 self._init_search()
