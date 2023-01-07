@@ -213,6 +213,7 @@ class BlendSearch(Searcher):
             else:
                 gs_space = space
             gs_seed = seed - 10 if (seed - 10) >= 0 else seed - 11 + (1 << 32)
+            self._gs_seed = gs_seed
             if experimental:
                 import optuna as ot
 
@@ -297,7 +298,7 @@ class BlendSearch(Searcher):
                         space=self._gs._space,
                         metric=metric,
                         mode=mode,
-                        seed=self._gs._seed,
+                        seed=self._gs_seed,
                     )
                     self._gs.space = self._ls.space
                 self._init_search()
