@@ -1054,12 +1054,14 @@ class AutoML(BaseEstimator):
             assert (
                 dataframe[[dataframe.columns[0]]].duplicated() is None
             ), "Duplicate timestamp values with different values for other columns."
-        ts_series = pd.to_datetime(dataframe[dataframe.columns[0]])
-        inferred_freq = pd.infer_freq(ts_series)
-        if inferred_freq is None:
-            logger.warning(
-                "Missing timestamps detected. To avoid error with estimators, set estimator list to ['prophet']. "
-            )
+        if self._state.task in TS_FORECAST and not TS_FORECASTPANEL:
+            # TFT estimator model for TS_FORECASTPANEL can handle missing data
+            ts_series = pd.to_datetime(dataframe[dataframe.columns[0]])
+            inferred_freq = pd.infer_freq(ts_series)
+            if inferred_freq is None:
+                logger.warning(
+                    "Missing timestamps detected. To avoid error with estimators, set estimator list to ['prophet']. "
+                )
         if y_train_all is not None:
             return dataframe.iloc[:, :-1], dataframe.iloc[:, -1]
         return dataframe
@@ -1720,7 +1722,11 @@ class AutoML(BaseEstimator):
                         `time_varying_known_categoricals`, `time_varying_known_reals`,
                         `time_varying_unknown_categoricals`, `time_varying_unknown_reals`,
                         `variable_groups`. To provide more information on your data, use
-                        `max_encoder_length`, `min_encoder_length`, `lags`.
+                        `max_encoder_length`, `min_encoder_length`, `lags`. To fill in
+                        missing values with constant values, use `constant_fill_strategy`,
+                        else forward fill strategy is used by default.
+                    freq: str or pandas offset | The frequency of the time-series, used only for
+                        'ts_forecast_panel' task.
                     log_dir: str, default = "lightning_logs" | Folder into which to log results
                         for tensorboard, only used by TemporalFusionTransformerEstimator.
                     max_epochs: int, default = 20 | Maximum number of epochs to run training,

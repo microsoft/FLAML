@@ -2250,6 +2250,8 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
             variable_groups=kwargs.get(
                 "variable_groups", {}
             ),  # group of categorical variables can be treated as one variable
+            constant_fill_strategy=kwargs.get("constant_fill_strategy", {}),
+            allow_missing_timesteps=True,
             lags=kwargs.get("lags", {}),
             target_normalizer=GroupNormalizer(
                 groups=kwargs["group_ids"], transformation="softplus"
