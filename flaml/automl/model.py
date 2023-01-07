@@ -1808,10 +1808,11 @@ class Prophet(SKLearnEstimator):
         cols.remove(TS_VALUE_COL)
         logging.getLogger("prophet").setLevel(logging.WARNING)
         model = Prophet(**self.params)
+        kwargs.pop("period")
         for regressor in cols:
             model.add_regressor(regressor)
         with suppress_stdout_stderr():
-            model.fit(train_df)
+            model.fit(train_df, **kwargs)
         train_time = time.time() - current_time
         self._model = model
         return train_time
@@ -1901,8 +1902,9 @@ class ARIMA(Prophet):
                 enforce_stationarity=False,
                 enforce_invertibility=False,
             )
+        kwargs.pop("period")
         with suppress_stdout_stderr():
-            model = model.fit()
+            model = model.fit(**kwargs)
         train_time = time.time() - current_time
         self._model = model
         return train_time
@@ -2013,8 +2015,9 @@ class SARIMAX(ARIMA):
                 enforce_stationarity=False,
                 enforce_invertibility=False,
             )
+        kwargs.pop("period")
         with suppress_stdout_stderr():
-            model = model.fit()
+            model = model.fit(**kwargs)
         train_time = time.time() - current_time
         self._model = model
         return train_time
@@ -2294,7 +2297,7 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
             monitor="val_loss", min_delta=1e-4, patience=10, verbose=False, mode="min"
         )
 
-        def _fit(log):
+        def _fit(log, **kwargs):
             default_trainer_kwargs = dict(
                 gpus=kwargs.get("gpu_per_trial", [0])
                 if torch.cuda.is_available()
@@ -2324,6 +2327,7 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
                 tft,
                 train_dataloaders=train_dataloader,
                 val_dataloaders=val_dataloader,
+                **kwargs
             )
             return trainer
 
@@ -2337,7 +2341,13 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
         # except ValueError:
         # issue with pytorch forecasting model log_prediction() function
         # pytorch-forecasting issue #1145
-        trainer = _fit(log=False)
+        fit_keys = ["period", "gpu_per_trial", "group_ids", "freq", "log_dir", "max_epochs", "batch_size",
+                    "static_categoricals", "static_reals", "time_varying_known_categoricals", "time_varying_known_reals",
+                    "time_varying_unknown_reals", "time_varying_unknown_categoricals", "variable_groups",
+                    "max_encoder_length", "min_encoder_length", "lags"]
+        for key in fit_keys:
+            if key in kwargs: kwargs.pop(key)
+        trainer = _fit(log=False, **kwargs)
         best_model_path = trainer.checkpoint_callback.best_model_path
         best_tft = TemporalFusionTransformer.load_from_checkpoint(best_model_path)
         train_time = time.time() - current_time
