@@ -2047,7 +2047,7 @@ class TS_SKLearn(SKLearnEstimator):
 
     def __init__(self, task="ts_forecast", **params):
         super().__init__(task, **params)
-        self.hcrystaball_model = None
+        self.hcrystalball_model = None
         self.ts_task = (
             "regression" if task in TS_FORECASTREGRESSION else "classification"
         )
@@ -2072,32 +2072,33 @@ class TS_SKLearn(SKLearnEstimator):
         lags = params.pop("lags")
         optimize_for_horizon = params.pop("optimize_for_horizon")
         estimator = self.base_class(task=self.ts_task, **params)
-        self.hcrystaball_model = get_sklearn_wrapper(estimator.estimator_class)
-        self.hcrystaball_model.lags = int(lags)
-        self.hcrystaball_model.fit(X_train, y_train)
+        self.hcrystalball_model = get_sklearn_wrapper(estimator.estimator_class)
+        self.hcrystalball_model.lags = int(lags)
+        period = kwargs.pop("period")
+        self.hcrystalball_model.fit(X_train, y_train, **kwargs)
         if optimize_for_horizon:
             # Direct Multi-step Forecast Strategy - fit a seperate model for each horizon
             model_list = []
-            for i in range(1, kwargs["period"] + 1):
+            for i in range(1, period + 1):
                 (
                     X_fit,
                     y_fit,
-                ) = self.hcrystaball_model._transform_data_to_tsmodel_input_format(
+                ) = self.hcrystalball_model._transform_data_to_tsmodel_input_format(
                     X_train, y_train, i
                 )
-                self.hcrystaball_model.model.set_params(**estimator.params)
-                model = self.hcrystaball_model.model.fit(X_fit, y_fit)
+                self.hcrystalball_model.model.set_params(**estimator.params)
+                model = self.hcrystalball_model.model.fit(X_fit, y_fit, **kwargs)
                 model_list.append(model)
             self._model = model_list
         else:
             (
                 X_fit,
                 y_fit,
-            ) = self.hcrystaball_model._transform_data_to_tsmodel_input_format(
-                X_train, y_train, kwargs["period"]
+            ) = self.hcrystalball_model._transform_data_to_tsmodel_input_format(
+                X_train, y_train, period
             )
-            self.hcrystaball_model.model.set_params(**estimator.params)
-            model = self.hcrystaball_model.model.fit(X_fit, y_fit)
+            self.hcrystalball_model.model.set_params(**estimator.params)
+            model = self.hcrystalball_model.model.fit(X_fit, y_fit, **kwargs)
             self._model = model
 
     def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
@@ -2119,20 +2120,20 @@ class TS_SKLearn(SKLearnEstimator):
                     (
                         X_pred,
                         _,
-                    ) = self.hcrystaball_model._transform_data_to_tsmodel_input_format(
+                    ) = self.hcrystalball_model._transform_data_to_tsmodel_input_format(
                         X.iloc[:i, :]
                     )
                     preds.append(self._model[i - 1].predict(X_pred, **kwargs)[-1])
                 forecast = DataFrame(
                     data=np.asarray(preds).reshape(-1, 1),
-                    columns=[self.hcrystaball_model.name],
+                    columns=[self.hcrystalball_model.name],
                     index=X.index,
                 )
             else:
                 (
                     X_pred,
                     _,
-                ) = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X)
+                ) = self.hcrystalball_model._transform_data_to_tsmodel_input_format(X)
                 forecast = self._model.predict(X_pred, **kwargs)
             return forecast
         else:
