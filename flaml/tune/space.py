@@ -547,8 +547,8 @@ def complete_config(
                     domain.categories[index],
                     flow2,
                     disturb,
-                    lower and lower.get(key, {}).get(index),
-                    upper and upper.get(key, {}).get(index),
+                    lower and lower.get(key) and lower[key][index],
+                    upper and upper.get(key) and upper[key][index],
                 )
                 assert (
                     "_choice_" not in subspace[key]
