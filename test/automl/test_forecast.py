@@ -591,10 +591,132 @@ def test_forecast_panel(budget=5):
     print(automl.min_resource)
 
 
+def test_forecast_panel_missing(budget=5):
+    data, special_days = get_stalliion_data()
+    time_horizon = 6  # predict six months
+    training_cutoff = data["time_idx"].max() - time_horizon
+    data["time_idx"] = data["time_idx"].astype("int")
+    ts_col = data.pop("date")
+    data.insert(0, "date", ts_col)
+    # FLAML assumes input is not sorted, but we sort here for comparison purposes with y_test
+    data = data.sort_values(["agency", "sku", "date"])
+    X_train = data[lambda x: x.time_idx <= training_cutoff]
+    print(X_train.head())
+    print("Before Drop", len(X_train))
+    np.random.seed(1)
+    drop_indices = np.random.choice(X_train.index, 10, replace=False)  # randomly choose 10 rows of train data to remove
+    X_train = X_train.drop(drop_indices)
+    print("After Drop", len(X_train))
+    X_test = data[lambda x: x.time_idx > training_cutoff]
+    y_train = X_train.pop("volume")
+    y_test = X_test.pop("volume")
+    print(len(X_train))
+    print(len(y_train))
+    print(len(X_test))
+    print(len(y_test))
+    automl = AutoML()
+    settings = {
+        "time_budget": budget,  # total running time in seconds
+        "metric": "mape",  # primary metric
+        "task": "ts_forecast_panel",  # task type
+        "log_file_name": "test/stallion_forecast_missing.log",  # flaml log file
+        "eval_method": "holdout",
+    }
+    fit_kwargs_by_estimator = {
+        "tft": {
+            "max_encoder_length": 24,
+            "static_categoricals": ["agency", "sku"],
+            "static_reals": ["avg_population_2017", "avg_yearly_household_income_2017"],
+            "time_varying_known_categoricals": ["special_days", "month"],
+            "variable_groups": {
+                "special_days": special_days
+            },  # group of categorical variables can be treated as one variable
+            "time_varying_known_reals": [
+                "time_idx",
+                "price_regular",
+                "discount_in_percent",
+            ],
+            "time_varying_unknown_categoricals": [],
+            "time_varying_unknown_reals": [
+                "y",  # always need a 'y' column for the target column
+                "log_volume",
+                "industry_volume",
+                "soda_volume",
+                "avg_max_temp",
+                "avg_volume_by_agency",
+                "avg_volume_by_sku",
+            ],
+            "batch_size": 256,
+            "max_epochs": 1,
+            "gpu_per_trial": -1,
+            "constant_fill_strategy": {
+                "discount_in_percent": 0.0,
+                "soda_volume": 0.0,
+            }  # for the gaps, use these constants to fill in missing values
+        }
+    }
+    """The main flaml automl API"""
+    automl.fit(
+        X_train=X_train,
+        y_train=y_train,
+        **settings,
+        period=time_horizon,
+        group_ids=["agency", "sku"],
+        fit_kwargs_by_estimator=fit_kwargs_by_estimator,
+    )
+    """ retrieve best config and best learner"""
+    print("Best ML leaner:", automl.best_estimator)
+    print("Best hyperparmeter config:", automl.best_config)
+    print(f"Best mape on validation data: {automl.best_loss}")
+    print(f"Training duration of best run: {automl.best_config_train_time}s")
+    print(automl.model.estimator)
+    """ pickle and save the automl object """
+    import pickle
+
+    with open("automl.pkl", "wb") as f:
+        pickle.dump(automl, f, pickle.HIGHEST_PROTOCOL)
+    """ compute predictions of testing dataset """
+    y_pred = automl.predict(X_test)
+    """ compute different metric values on testing dataset"""
+    from flaml.automl.ml import sklearn_metric_loss_score
+
+    print(y_test)
+    print(y_pred)
+    print("mape", "=", sklearn_metric_loss_score("mape", y_pred, y_test))
+
+    def smape(y_pred, y_test):
+        import numpy as np
+
+        y_test, y_pred = np.array(y_test), np.array(y_pred)
+        return round(
+            np.mean(np.abs(y_pred - y_test) / ((np.abs(y_pred) + np.abs(y_test)) / 2))
+            * 100,
+            2,
+        )
+
+    print("smape", "=", smape(y_pred, y_test))
+    from flaml.automl.data import get_output_from_log
+
+    (
+        time_history,
+        best_valid_loss_history,
+        valid_loss_history,
+        config_history,
+        metric_history,
+    ) = get_output_from_log(filename=settings["log_file_name"], time_budget=budget)
+    for config in config_history:
+        print(config)
+    print(automl.resource_attr)
+    print(automl.max_resource)
+    print(automl.min_resource)
+
+
 if __name__ == "__main__":
-    test_forecast_automl(60)
-    test_multivariate_forecast_num(5)
-    test_multivariate_forecast_cat(5)
-    test_numpy()
-    test_forecast_classification(5)
-    test_forecast_panel(5)
+    # test_forecast_automl(60)
+    # test_multivariate_forecast_num(5)
+    # test_multivariate_forecast_cat(5)
+    # test_numpy()
+    # test_forecast_classification(5)
+    # test_forecast_panel(5)
+    print("testing missing data")
+    test_forecast_panel_missing(5)
