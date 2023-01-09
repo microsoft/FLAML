@@ -564,7 +564,9 @@ def _eval_estimator(
         val_pred_y = get_y_pred(estimator, X_val, eval_metric, task)
 
         # TODO: why are integer labels being cast to str in the first place?
-        if not pd.api.types.is_numeric_dtype(val_pred_y):
+        if not pd.api.types.is_numeric_dtype(val_pred_y) and not isinstance(
+            val_pred_y, list
+        ):  # some NLP models return a list
             val_pred_y = val_pred_y.astype(str)
 
         if isinstance(X_val, TimeSeriesDataset):
