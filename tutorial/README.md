@@ -32,7 +32,7 @@ For the most up-to-date information, see the [AAAI'23 Program Agenda](https://aa
     - Task-oriented AutoML
         - [Notebook: A classification task with AutoML](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/automl_classification.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/automl_classification.ipynb)
     - Tune User-Defined-functions with FLAML
-        - [Notebook: Tune pytorch](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/tune_pytorch.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/tune_pytorch.ipynb)
+        - [Notebook: Tune user-defined function](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/tune_demo.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/tune_demo.ipynb)
     - Zero-shot AutoML
         - [Notebook: Zeroshot AutoML](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/zeroshot_lightgbm.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/zeroshot_lightgbm.ipynb)
 - [ML.NET demo](https://docs.microsoft.com/dotnet/machine-learning/tutorial-aaai23/predict-prices-with-model-builder)
@@ -46,8 +46,9 @@ Break (15m)
 
 - Maximize the Power of FLAML through Customization and Advanced Functionalities
 
-    - [Notebook: Customization choices in AutoML](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/automl_classification.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/automl_classification.ipynb)
-    - [Notebook: Advanced tuning options](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/tune_demo.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/tune_demo.ipynb)
+    - [Notebook: Customized your AutoML with FLAML](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/customize_your_automl_with_flaml.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/customize_your_automl_with_flaml.ipynb)
+    - [Notebook: Further acceleration of AutoML with FLAML](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/further_acceleration_of_automl_with_flaml.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/further_acceleration_of_automl_with_flaml.ipynb)
+    - [Notebook: Neural network model tuning with FLAML ](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/further_acceleration_of_tune.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/further_acceleration_of_tune.ipynb)
 
 
 ### **Part 3. New features in FLAML**
