@@ -68,6 +68,9 @@ class Task(ABC):
         else:
             self.train_data_size = None
 
+    def __str__(self):
+        return self.name
+
     @abstractmethod
     def evaluate_model_CV(
         self,
