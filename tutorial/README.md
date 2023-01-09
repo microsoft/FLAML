@@ -45,7 +45,6 @@ Break (15m)
     - [Other research in FLAML](https://microsoft.github.io/FLAML/docs/Research)
 
 - Maximize the Power of FLAML through Customization and Advanced Functionalities
-
     - [Notebook: Customized your AutoML with FLAML](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/customize_your_automl_with_flaml.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/customize_your_automl_with_flaml.ipynb)
     - [Notebook: Further acceleration of AutoML with FLAML](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/further_acceleration_of_automl_with_flaml.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/further_acceleration_of_automl_with_flaml.ipynb)
     - [Notebook: Neural network model tuning with FLAML ](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/further_acceleration_of_tune.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/further_acceleration_of_tune.ipynb)
