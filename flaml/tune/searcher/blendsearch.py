@@ -314,11 +314,12 @@ class BlendSearch(Searcher):
                     self.cost_attr = self._ls.cost_attr = TIME_TOTAL_S
             if "metric_target" in spec:
                 self._metric_target = spec.get("metric_target")
-            if "num_samples" in spec:
+            num_samples = spec.get("num_samples")
+            if num_samples is not None:
                 self._num_samples = (
-                    spec["num_samples"]
-                    + len(self._result)
-                    + len(self._trial_proposed_by)
+                    (num_samples + len(self._result) + len(self._trial_proposed_by))
+                    if num_samples > 0
+                    else num_samples
                 )
         return True
 
