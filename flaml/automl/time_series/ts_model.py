@@ -76,7 +76,7 @@ class TimeSeriesEstimator(SKLearnEstimator):
     @classmethod
     def search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int):
         space = cls._search_space(data=data, task=task, pred_horizon=pred_horizon)
-        space.update(cls.top_search_space)
+        space.update(cls.top_search_space())
         return space
 
     @staticmethod
@@ -98,7 +98,6 @@ class TimeSeriesEstimator(SKLearnEstimator):
         return scale, max_lags
 
     @classmethod
-    @property
     def top_search_space(cls):
         return {
             "monthly_fourier_degree": {
@@ -618,7 +617,7 @@ class TS_SKLearn(TimeSeriesEstimator):
         est_params = {
             k: v
             for k, v in self.params.items()
-            if k not in self.top_search_space.keys()
+            if k not in self.top_search_space().keys()
         }
 
         from flaml.automl.time_series.sklearn import SklearnWrapper
