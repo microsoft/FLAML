@@ -4,6 +4,11 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
+try:
+    import ray
+except:
+    ray=None
+
 # TODO: if your task is not specified in here, define your task as an all-capitalized word
 SEQCLASSIFICATION = "seq-classification"
 MULTICHOICECLASSIFICATION = "multichoice-classification"
@@ -63,6 +68,9 @@ class Task(ABC):
         y_train: Optional[Union[np.ndarray, pd.DataFrame, pd.Series]],
     ):
         self.name = task_name
+        if ray is not None and isinstance(X_train, ray.ObjectRef):
+            X_train = ray.get(X_train)
+
         if X_train is not None:
             self.train_data_size = X_train.shape[0]
         else:
