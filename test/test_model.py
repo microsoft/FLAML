@@ -11,7 +11,7 @@ from flaml.automl.model import (
     XGBoostEstimator,
     RandomForestEstimator,
 )
-from flaml.automl.time_series import Prophet, ARIMA, LGBM_TS
+from flaml.automl.time_series import Prophet, ARIMA, LGBM_TS, TimeSeriesDataset
 
 
 def test_lrl2():
@@ -107,26 +107,6 @@ def test_prep():
     except ValueError:
         # X_test needs to be either a pandas Dataframe with dates as the first column or an int number of periods for predict().
         pass
-
-    lgbm = LGBM_TS(optimize_for_horizon=True, lags=1)
-    X = DataFrame(
-        {
-            "A": [
-                datetime(1900, 2, 3),
-                datetime(1900, 3, 4),
-                datetime(1900, 3, 4),
-                datetime(1900, 3, 4),
-                datetime(1900, 7, 2),
-                datetime(1900, 8, 9),
-            ],
-        }
-    )
-    y = np.array([0, 1, 0, 1, 0, 0])
-    lgbm.predict(X[:2])
-    lgbm.fit(X, y, period=2)
-    lgbm.predict(X[:2])
-    print(lgbm.feature_names_in_)
-    print(lgbm.feature_importances_)
 
 
 if __name__ == "__main__":

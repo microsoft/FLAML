@@ -8,7 +8,7 @@ from scipy.sparse import issparse
 try:
     import ray
 except:
-    ray=None
+    ray = None
 
 # TODO: if your task is not specified in here, define your task as an all-capitalized word
 SEQCLASSIFICATION = "seq-classification"
@@ -69,7 +69,7 @@ class Task(ABC):
         y_train: Optional[Union[np.ndarray, pd.DataFrame, pd.Series]],
     ):
         self.name = task_name
-        if ray is not None and isinstance(X_train, ray.ObjectRef):
+        if hasattr(ray, "ObjectRef") and isinstance(X_train, ray.ObjectRef):
             X_train = ray.get(X_train)
 
         if X_train is not None:
@@ -202,4 +202,3 @@ class Task(ABC):
                 f"only {list(self.estimators.keys())} are supported."
                 "Please use AutoML.add_learner() to add a customized learner."
             )
-

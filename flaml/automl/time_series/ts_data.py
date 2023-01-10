@@ -34,7 +34,7 @@ class TimeSeriesDataset:
         train_data: pd.DataFrame,
         time_col: str,
         target_names: Union[str, List[str]],
-        time_idx: str = "index",
+        time_idx: str = "time_idx",
         test_data: Optional[pd.DataFrame] = None,
     ):
         self.train_data = train_data
@@ -383,8 +383,11 @@ def fourier_series(feature: pd.Series, name: str):
 class DataTransformerTS:
     """Transform input time series training data."""
 
-    def __init__(self, time_col: str, label: Union[str, List[str]]):
+    def __init__(
+        self, time_col: str, label: Union[str, List[str]], time_idx: str = "time_idx"
+    ):
         self.time_col = time_col
+        self.time_idx = time_idx
         self.label = label
         self.cat_columns = []
         self.num_columns = []
@@ -424,7 +427,7 @@ class DataTransformerTS:
                     or X[column].nunique(dropna=True) == n - X[column].isnull().sum()
                 ):
                     self.drop_columns.append(column)
-                else:
+                elif column != self.time_idx:
                     self.cat_columns.append(column)
             elif X[column].nunique(dropna=True) < 2:
                 self.drop_columns.append(column)
