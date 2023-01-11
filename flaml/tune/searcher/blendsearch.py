@@ -124,7 +124,7 @@ class BlendSearch(Searcher):
                 objectives in the metric list. If not provided, we use "min" as the default mode for all the objectives.
                 - "targets" (optional): a dictionary to specify the optimization targets on the objectives. The keys are the
                 metric names (provided in "metric"), and the values are the numerical target values.
-                - "tolerances"(optional): a dictionary to specify the optimality tolerances on objectives. The keys are the
+                - "tolerances" (optional): a dictionary to specify the optimality tolerances on objectives. The keys are the
                 metric names (provided in "metrics"), and the values are the numerical tolerances values.
                 E.g.,
                 ```python
@@ -213,11 +213,12 @@ class BlendSearch(Searcher):
             else:
                 gs_space = space
             gs_seed = seed - 10 if (seed - 10) >= 0 else seed - 11 + (1 << 32)
+            self._gs_seed = gs_seed
             if experimental:
                 import optuna as ot
 
                 sampler = ot.samplers.TPESampler(
-                    seed=seed, multivariate=True, group=True
+                    seed=gs_seed, multivariate=True, group=True
                 )
             else:
                 sampler = None
@@ -297,7 +298,7 @@ class BlendSearch(Searcher):
                         space=self._gs._space,
                         metric=metric,
                         mode=mode,
-                        sampler=self._gs._sampler,
+                        seed=self._gs_seed,
                     )
                     self._gs.space = self._ls.space
                 self._init_search()
