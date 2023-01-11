@@ -649,11 +649,11 @@ def test_cv_step():
         import matplotlib.pyplot as plt
 
         preds[tgt] = pred
-        plt.figure(figsize=(16, 8), dpi=80)
-        plt.plot(df[time_col], df[tgt])
-        plt.plot(val_df[time_col], pred)
-        plt.legend(["actual", "predicted"])
-        plt.show()
+        # plt.figure(figsize=(16, 8), dpi=80)
+        # plt.plot(df[time_col], df[tgt])
+        # plt.plot(val_df[time_col], pred)
+        # plt.legend(["actual", "predicted"])
+        # plt.show()
 
     print("yahoo!")
 
