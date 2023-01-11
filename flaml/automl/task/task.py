@@ -71,11 +71,6 @@ class Task(ABC):
         if ray is not None and isinstance(X_train, ray.ObjectRef):
             X_train = ray.get(X_train)
 
-        if X_train is not None:
-            self.train_data_size = X_train.shape[0]
-        else:
-            self.train_data_size = None
-
     def __str__(self):
         return self.name
 
