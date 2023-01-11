@@ -236,7 +236,6 @@ class TimeSeriesTask(Task):
         no_test_data = (
             ts_data is None or ts_data.test_data is None or len(ts_data.test_data) == 0
         )
-
         if no_test_data and eval_method == "holdout":
             # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
             period = state.fit_kwargs["period"]
