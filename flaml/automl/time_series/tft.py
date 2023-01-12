@@ -4,7 +4,8 @@ import pandas as pd
 
 from flaml import tune
 from flaml.automl.data import add_time_idx_col
-from flaml.automl.time_series import TimeSeriesEstimator, TimeSeriesDataset
+from flaml.automl.time_series.ts_data import TimeSeriesDataset
+from flaml.automl.time_series.ts_model import TimeSeriesEstimator
 
 
 class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
