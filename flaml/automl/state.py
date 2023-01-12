@@ -10,6 +10,7 @@ from flaml import tune
 from flaml.automl.logger import logger
 from flaml.automl.ml import compute_estimator, train_estimator
 from flaml.automl.time_series import TimeSeriesDataset
+from flaml.automl.task.task import TS_FORECAST
 
 
 class SearchState:
@@ -78,7 +79,7 @@ class SearchState:
         self.ls_ever_converged = False
         self.learner_class = learner_class
         self._budget = budget
-        if task.is_ts_forecast():
+        if task in TS_FORECAST:
             search_space = learner_class.search_space(
                 data=data, task=task, pred_horizon=period
             )
@@ -284,7 +285,7 @@ class AutoMLState:
         return sampled_X_train, sampled_y_train, sampled_weight, groups
 
     @staticmethod
-    def _compute_with_config_base(config_w_resource, state, estimator):
+    def _compute_with_config_base(config_w_resource, state, estimator, is_report=True):
         if "FLAML_sample_size" in config_w_resource:
             sample_size = int(config_w_resource["FLAML_sample_size"])
         else:
@@ -360,7 +361,8 @@ class AutoMLState:
         }
         if sampled_weight is not None:
             this_estimator_kwargs["sample_weight"] = weight
-        tune.report(**result)
+        if is_report is True:
+            tune.report(**result)
         return result
 
     @classmethod
