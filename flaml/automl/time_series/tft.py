@@ -115,7 +115,7 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
         def log_prediction(*args, **kwargs):
             pass
 
-        TemporalFusionTransformer.plot_prediction = log_prediction
+        TemporalFusionTransformer.log_prediction = log_prediction
 
         warnings.filterwarnings("ignore")
         current_time = time.time()
