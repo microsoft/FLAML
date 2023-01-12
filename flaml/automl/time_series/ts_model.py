@@ -762,6 +762,12 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
         from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
         from pytorch_lightning.loggers import TensorBoardLogger
 
+        # a bit of monkey patching to fix the MacOS test
+        def plot_prediction(*args, **kwargs):
+            pass
+
+        TemporalFusionTransformer.plot_prediction = plot_prediction
+
         warnings.filterwarnings("ignore")
         current_time = time.time()
         super().fit(X_train, **kwargs)
