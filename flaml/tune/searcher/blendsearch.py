@@ -62,6 +62,7 @@ class BlendSearch(Searcher):
         metric_constraints: Optional[List[Tuple[str, str, float]]] = None,
         seed: Optional[int] = 20,
         cost_attr: Optional[str] = "auto",
+        cost_budget: Optional[float] = None,
         experimental: Optional[bool] = False,
         lexico_objectives: Optional[dict] = None,
         use_incumbent_result_in_evaluation=False,
@@ -111,10 +112,12 @@ class BlendSearch(Searcher):
             metric_constraints: A list of metric constraints to be satisfied.
                 E.g., `['precision', '>=', 0.9]`. The sign can be ">=" or "<=".
             seed: An integer of the random seed.
-            cost_attr: Choose from ["auto", None] to specify the attribute to evaluate the cost of different trials.
-                Default is "auto", which means that we will automatically chose the cost attribute to use (depending
+            cost_attr: None or str to specify the attribute to evaluate the cost of different trials.
+                Default is "auto", which means that we will automatically choose the cost attribute to use (depending
                 on the nature of the resource budget). When cost_attr is set to None, cost differences between different trials will be omitted
-                in our search algorithm.
+                in our search algorithm. When cost_attr is set to a str different from "auto" and "time_total_s",
+                this cost_attr must be available in the result dict of the trial.
+            cost_budget: A float of the cost budget. Only valid when cost_attr is a str different from "auto" and "time_total_s".
             lexico_objectives: dict, default=None | It specifics information needed to perform multi-objective
                 optimization with lexicographic preferences. This is only supported in CFO currently.
                 When lexico_objectives is not None, the arguments metric, mode will be invalid.
@@ -145,8 +148,10 @@ class BlendSearch(Searcher):
                 self.cost_attr = TIME_TOTAL_S
             else:
                 self.cost_attr = None
+            self._cost_budget = None
         else:
             self.cost_attr = cost_attr
+            self._cost_budget = cost_budget
         self.penalty = PENALTY  # penalty term for constraints
         self._metric, self._mode = metric, mode
         self._use_incumbent_result_in_evaluation = use_incumbent_result_in_evaluation
@@ -379,6 +384,7 @@ class BlendSearch(Searcher):
         i = 0
         # config_signature: tuple -> result: Dict
         self._result = {}
+        self._cost_used = 0
         while self._evaluated_rewards:
             # go over the evaluated rewards
             trial_id = f"trial_for_evaluated_{i}"
@@ -458,6 +464,7 @@ class BlendSearch(Searcher):
             if error:  # remove from result cache
                 del self._result[signature]
             else:  # add to result cache
+                self._cost_used += result.get(self.cost_attr, 0)
                 self._result[signature] = result
                 # update target metric if improved
                 objective = result[self._ls.metric]
@@ -693,6 +700,8 @@ class BlendSearch(Searcher):
     def suggest(self, trial_id: str) -> Optional[Dict]:
         """choose thread, suggest a valid config."""
         if self._init_used and not self._points_to_evaluate:
+            if self._cost_budget and self._cost_used >= self._cost_budget:
+                return None
             choice, backup = self._select_thread()
             # if choice < 0:  # timeout
             #     return None
@@ -891,6 +900,8 @@ class BlendSearch(Searcher):
                     time_used = now - self._start_time + self._time_used
                     min_eci = min(min_eci, time_used / num_finished * num_left)
                 # print(f"{min_eci}, {time_used / num_finished * num_left}, {num_finished}, {num_left}")
+        elif self.cost_attr is not None and self._cost_budget:
+            min_eci = max(self._cost_budget - self._cost_used, 0)
         elif self._num_samples and self._num_samples > 0:
             num_finished = len(self._result)
             num_proposed = num_finished + len(self._trial_proposed_by)
