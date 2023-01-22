@@ -5,7 +5,6 @@ from sklearn.datasets import load_iris, load_wine
 from flaml import AutoML
 from flaml.automl.data import get_output_from_log
 from flaml.automl.model import LGBMEstimator, XGBoostSklearnEstimator, SKLearnEstimator
-from flaml.automl.task.task import CLASSIFICATION
 from flaml import tune
 from flaml.automl.training_log import training_log_reader
 
