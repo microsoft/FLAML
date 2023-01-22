@@ -6,8 +6,8 @@ import pandas as pd
 
 try:
     import ray
-except:
-    ray=None
+except ImportError:
+    ray = None
 
 # TODO: if your task is not specified in here, define your task as an all-capitalized word
 SEQCLASSIFICATION = "seq-classification"
@@ -68,8 +68,6 @@ class Task(ABC):
         y_train: Optional[Union[np.ndarray, pd.DataFrame, pd.Series]],
     ):
         self.name = task_name
-        if ray is not None and isinstance(X_train, ray.ObjectRef):
-            X_train = ray.get(X_train)
 
     def __str__(self):
         return self.name

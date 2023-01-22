@@ -2040,7 +2040,7 @@ class TS_SKLearn(SKLearnEstimator):
         space.update(
             {
                 "optimize_for_horizon": {
-                    "domain": tune.choice([False]), #tune.choice([True, False]),
+                    "domain": tune.choice([True, False]),
                     "init_value": False,
                     "low_cost_init_value": False,
                 },
