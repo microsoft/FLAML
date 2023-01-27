@@ -25,6 +25,7 @@ WORKDIR /home/flaml-dev/FLAML
 
 # Install FLAML (Note: extra components can be installed if needed)
 RUN pip install -e .[test,notebook]
+ENV PATH="$PATH:/home/flaml-dev/.local/bin"
 
 # Install precommit hooks
 RUN pre-commit install
