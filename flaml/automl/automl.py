@@ -3779,6 +3779,53 @@ class AutoML(BaseEstimator):
                 else:
                     logger.info("not retraining because the time budget is too small.")
 
+    def visualize(self):
+        """
+        Show an interative dashboard widget for a trained AutoML instance.
+        Must be called after fit(...).
+        """
+
+        import matplotlib.pyplot as plt
+        from ipywidgets import interact
+
+        @interact
+        def helper(option=["Feature Importance", "Learning Curve"]):
+            if option == "Feature Importance":
+                plt.barh(self.feature_names_in_, self.feature_importances_)
+                plt.xlabel("Feature Importance")
+                plt.ylabel("Feature")
+                plt.show()
+
+            if option == "Learning Curve":
+                from flaml.data import get_output_from_log
+
+                log_file_name = self._settings.get("log_file_name")
+                if not log_file_name:
+                    logger.warning(
+                        "Log file for this instance not found. Unable to visualize learning curve."
+                    )
+                else:
+                    (
+                        time_history,
+                        best_valid_loss_history,
+                        valid_loss_history,
+                        config_history,
+                        metric_history,
+                    ) = get_output_from_log(filename=log_file_name, time_budget=240)
+
+                    plt.title("Learning Curve")
+                    plt.xlabel("Wall Clock Time (s)")
+                    plt.ylabel("Validation Accuracy")
+                    plt.scatter(time_history, 1 - np.array(valid_loss_history))
+                    plt.step(
+                        time_history,
+                        1 - np.array(best_valid_loss_history),
+                        where="post",
+                    )
+                    plt.show()
+
+        helper()
+
     def __del__(self):
         if (
             hasattr(self, "_trained_estimator")
