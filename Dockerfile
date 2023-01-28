@@ -24,7 +24,7 @@ RUN cd /home/flaml-dev && git clone https://github.com/microsoft/FLAML.git
 WORKDIR /home/flaml-dev/FLAML
 
 # Install FLAML (Note: extra components can be installed if needed)
-RUN pip install -e .[test,notebook]
+RUN pip install -e .[test,notebook,vw]
 ENV PATH="$PATH:/home/flaml-dev/.local/bin"
 
 # Install precommit hooks
