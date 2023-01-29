@@ -6,8 +6,18 @@ name: Build
 on:
   push:
     branches: ['main']
+    path:
+      - 'flaml/*'
+      - 'test/*'
+      - '.github/workflows/python-package.yml'
+      - 'setup.py'
   pull_request:
     branches: ['main']
+    path:
+      - 'flaml/*'
+      - 'test/*'
+      - '.github/workflows/python-package.yml'
+      - 'setup.py'
 
 jobs:
   build:

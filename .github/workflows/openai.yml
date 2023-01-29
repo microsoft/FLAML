@@ -8,7 +8,7 @@ on:
     branches: ['main']
     path:
       - 'flaml/integrations/oai/*'
-      - 'flaml/test/openai/*'
+      - 'test/openai/*'
 
 jobs:
   build:
@@ -34,7 +34,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          pip install coverage
+          pip install coverage pytest
           coverage run -a -m pytest test
           coverage xml
       - name: Upload coverage to Codecov
