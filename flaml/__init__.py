@@ -7,7 +7,7 @@ from flaml.version import __version__
 try:
     from flaml.integrations import oai
 except ImportError:
-    pass
+    oai = "please install flaml[openai] option to use the flaml.oai subpackage"
 
 # Set the root logger.
 logger = logging.getLogger(__name__)

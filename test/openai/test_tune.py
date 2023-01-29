@@ -3,10 +3,15 @@ import signal
 import subprocess
 import sys
 import numpy as np
-import openai
-from flaml import oai, tune
+import pytest
 
-openai.api_key_path = "test/openai/key.txt"
+try:
+    import openai
+
+    skip = False
+except ImportError:
+    skip = True
+from flaml import oai, tune
 
 
 def timeout_handler(signum, frame):
@@ -59,6 +64,7 @@ def success_metrics(responses, prompt, test, entry_point):
     }
 
 
+@pytest.mark.skipif(skip, reason="do not run openai test if openai is not installed")
 def test_humaneval(num_samples=1):
     seed = 41
     data = datasets.load_dataset("openai_humaneval")["test"].shuffle(seed=seed)
@@ -110,4 +116,5 @@ def test_humaneval(num_samples=1):
 
 
 if __name__ == "__main__":
+    openai.api_key_path = "test/openai/key.txt"
     test_humaneval(-1)
