@@ -14,58 +14,54 @@ except ImportError:
 from flaml import oai, tune
 
 
-def timeout_handler(signum, frame):
-    raise TimeoutError("Timed out!")
-
-
-signal.signal(signal.SIGALRM, timeout_handler)
-max_exec_time = 3  # seconds
-
-
-def execute_code(code):
-    code = code.strip()
-    with open("codetest.py", "w") as fout:
-        fout.write(code)
-    try:
-        signal.alarm(max_exec_time)
-        result = subprocess.run(
-            [sys.executable, "codetest.py"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-        )
-        signal.alarm(0)
-    except TimeoutError:
-        return 0
-    return int(result.returncode == 0)
-
-
-def success_metrics(responses, prompt, test, entry_point):
-    """Check if the response is correct.
-
-    Args:
-        responses (list): The list of responses.
-        prompt (str): The input prompt.
-        test (str): The test code.
-        entry_point (str): The name of the function.
-
-    Returns:
-        list: The list of success indicators for each response.
-    """
-    success_list = []
-    n = len(responses)
-    for i in range(n):
-        response = responses[i]
-        code = f"{prompt}{response}\n{test}\ncheck({entry_point})"
-        succeed = execute_code(code)
-        success_list.append(succeed)
-    return {
-        "expected_success": 1 - pow(1 - np.mean(success_list), n),
-        "success": any(s for s in success_list),
-    }
-
-
 @pytest.mark.skipif(skip, reason="do not run openai test if openai is not installed")
 def test_humaneval(num_samples=1):
+    def timeout_handler(signum, frame):
+        raise TimeoutError("Timed out!")
+
+    signal.signal(signal.SIGALRM, timeout_handler)
+    max_exec_time = 3  # seconds
+
+    def execute_code(code):
+        code = code.strip()
+        with open("codetest.py", "w") as fout:
+            fout.write(code)
+        try:
+            signal.alarm(max_exec_time)
+            result = subprocess.run(
+                [sys.executable, "codetest.py"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+            )
+            signal.alarm(0)
+        except TimeoutError:
+            return 0
+        return int(result.returncode == 0)
+
+    def success_metrics(responses, prompt, test, entry_point):
+        """Check if the response is correct.
+
+        Args:
+            responses (list): The list of responses.
+            prompt (str): The input prompt.
+            test (str): The test code.
+            entry_point (str): The name of the function.
+
+        Returns:
+            list: The list of success indicators for each response.
+        """
+        success_list = []
+        n = len(responses)
+        for i in range(n):
+            response = responses[i]
+            code = f"{prompt}{response}\n{test}\ncheck({entry_point})"
+            succeed = execute_code(code)
+            success_list.append(succeed)
+        return {
+            "expected_success": 1 - pow(1 - np.mean(success_list), n),
+            "success": any(s for s in success_list),
+        }
+
     seed = 41
     data = datasets.load_dataset("openai_humaneval")["test"].shuffle(seed=seed)
     n_tune_data = 20
