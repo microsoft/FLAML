@@ -16,7 +16,7 @@ For technical details, please check our research publications.
 * [Frugal Optimization for Cost-related Hyperparameters](https://arxiv.org/abs/2005.01571). Qingyun Wu, Chi Wang, Silu Huang. AAAI 2021.
 
 ```bibtex
-@inproceedings{wang2021flaml,
+@inproceedings{wu2021cfo,
     title={Frugal Optimization for Cost-related Hyperparameters},
     author={Qingyun Wu and Chi Wang and Silu Huang},
     year={2021},
