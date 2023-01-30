@@ -74,7 +74,7 @@ For technical details, please check our research publications.
 @inproceedings{kayaliwang2022default,
     title={Mining Robust Default Configurations for Resource-constrained AutoML},
     author={Moe Kayali and Chi Wang},
-    year={2021},
+    year={2022},
     booktitle={ArXiv preprint arXiv:2202.09927},
 }
 ```
