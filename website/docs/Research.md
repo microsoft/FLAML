@@ -38,7 +38,7 @@ For technical details, please check our research publications.
 * [An Empirical Study on Hyperparameter Optimization for Fine-Tuning Pre-trained Language Models](https://aclanthology.org/2021.acl-long.178.pdf). Susan Xueqing Liu, Chi Wang. ACL 2021.
 
 ```bibtex
-@inproceedings{wang2021flaml,
+@inproceedings{liuwang2021hpolm,
     title={An Empirical Study on Hyperparameter Optimization for Fine-Tuning Pre-trained Language Models},
     author={Susan Xueqing Liu and Chi Wang},
     year={2021},
