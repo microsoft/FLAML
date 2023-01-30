@@ -60,7 +60,7 @@ For technical details, please check our research publications.
 * [Fair AutoML](https://arxiv.org/abs/2111.06495). Qingyun Wu, Chi Wang. ArXiv preprint arXiv:2111.06495 (2021).
 
 ```bibtex
-@inproceedings{wang2021flaml,
+@inproceedings{wuwang2021fairautoml,
     title={Fair AutoML},
     author={Qingyun Wu and Chi Wang},
     year={2021},
