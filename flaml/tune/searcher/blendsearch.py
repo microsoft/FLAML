@@ -710,10 +710,8 @@ class BlendSearch(Searcher):
         """choose thread, suggest a valid config."""
         if self._init_used and not self._points_to_evaluate:
             if self._cost_budget and self._cost_used >= self._cost_budget:
-                return None
+                return
             choice, backup = self._select_thread()
-            # if choice < 0:  # timeout
-            #     return None
             config = self._search_thread_pool[choice].suggest(trial_id)
             if not choice and config is not None and self._ls.resource:
                 config[self._ls.resource_attr] = self.best_resource
@@ -726,19 +724,19 @@ class BlendSearch(Searcher):
                         self._search_thread_pool[choice].space,
                     )
                     del self._search_thread_pool[choice]
-                return None
+                return
             # preliminary check; not checking config validation
             space = self._search_thread_pool[choice].space
             skip = self._should_skip(choice, trial_id, config, space)
             use_rs = 0
             if skip:
                 if choice:
-                    return None
+                    return
                 # use rs when BO fails to suggest a config
                 config, space = self._ls.complete_config({})
                 skip = self._should_skip(-1, trial_id, config, space)
                 if skip:
-                    return None
+                    return
                 use_rs = 1
             if choice or self._valid(
                 config,
@@ -765,7 +763,7 @@ class BlendSearch(Searcher):
                     space = thread.space
                     skip = self._should_skip(backup, trial_id, config, space)
                     if skip:
-                        return None
+                        return
                     self._trial_proposed_by[trial_id] = backup
                     choice = backup
             if not choice:  # global search
@@ -810,14 +808,14 @@ class BlendSearch(Searcher):
             if reward is None:
                 result = self._result.get(config_signature)
                 if result:  # tried before
-                    return None
+                    return
                 elif result is None:  # not tried before
                     if self._violate_config_constriants(config, config_signature):
                         # violate config constraints
-                        return None
+                        return
                     self._result[config_signature] = {}
                 else:  # running but no result yet
-                    return None
+                    return
             self._init_used = True
             self._trial_proposed_by[trial_id] = 0
             self._search_thread_pool[0].running += 1
@@ -826,7 +824,7 @@ class BlendSearch(Searcher):
                 result = {self._metric: reward, self.cost_attr: 1, "config": config}
                 # result = self._result[config_signature]
                 self.on_trial_complete(trial_id, result)
-                return None
+                return
         if self._use_incumbent_result_in_evaluation:
             if self._trial_proposed_by[trial_id] > 0:
                 choice_thread = self._search_thread_pool[
