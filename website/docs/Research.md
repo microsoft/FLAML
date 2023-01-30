@@ -49,7 +49,7 @@ For technical details, please check our research publications.
 * [ChaCha for Online AutoML](https://www.microsoft.com/en-us/research/publication/chacha-for-online-automl/). Qingyun Wu, Chi Wang, John Langford, Paul Mineiro and Marco Rossi. ICML 2021.
 
 ```bibtex
-@inproceedings{wang2021flaml,
+@inproceedings{wu2021chacha,
     title={ChaCha for Online AutoML},
     author={Qingyun Wu and Chi Wang and John Langford and Paul Mineiro and Marco Rossi},
     year={2021},
