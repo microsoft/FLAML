@@ -27,7 +27,7 @@ For technical details, please check our research publications.
 * [Economical Hyperparameter Optimization With Blended Search Strategy](https://www.microsoft.com/en-us/research/publication/economical-hyperparameter-optimization-with-blended-search-strategy/). Chi Wang, Qingyun Wu, Silu Huang, Amin Saied. ICLR 2021.
 
 ```bibtex
-@inproceedings{wang2021flaml,
+@inproceedings{wang2021blendsearch,
     title={Economical Hyperparameter Optimization With Blended Search Strategy},
     author={Chi Wang and Qingyun Wu and Silu Huang and Amin Saied},
     year={2021},
