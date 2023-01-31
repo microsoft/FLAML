@@ -108,6 +108,14 @@ def test_stratified_groupkfold():
         "eval_method": "cv",
         "split_type": splitter,
         "groups": X_train["Airline"],
+        "estimator_list": [
+            "lgbm",
+            "rf",
+            "xgboost",
+            "extra_tree",
+            "xgb_limitdepth",
+            "lrl1",
+        ],
     }
 
     automl.fit(X_train=X_train, y_train=y_train, **settings)
