@@ -48,7 +48,7 @@ def test_humaneval(num_samples=1):
             entry_point (str): The name of the function.
 
         Returns:
-            list: The list of success indicators for each response.
+            dict: The success metrics.
         """
         success_list = []
         n = len(responses)

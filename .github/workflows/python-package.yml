@@ -9,6 +9,7 @@ on:
     path:
       - 'flaml/*'
       - 'test/*'
+      - 'notebook/*'
       - '.github/workflows/python-package.yml'
       - 'setup.py'
   pull_request:
