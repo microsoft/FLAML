@@ -116,8 +116,8 @@ class Completion:
         return max(
             (
                 value
-                for key, value in cls._max_safe_n_per_max_tokens.get(key, {}).items()
-                if key >= max_tokens
+                for k, value in cls._max_safe_n_per_max_tokens.get(key, {}).items()
+                if k >= max_tokens
             ),
             default=1,
         )
@@ -128,8 +128,8 @@ class Completion:
         return min(
             (
                 value
-                for key, value in cls._min_unsafe_n_per_max_tokens.get(key, {}).items()
-                if key <= max_tokens
+                for k, value in cls._min_unsafe_n_per_max_tokens.get(key, {}).items()
+                if k <= max_tokens
             ),
             default=None,
         )
