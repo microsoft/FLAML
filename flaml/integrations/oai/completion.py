@@ -153,7 +153,11 @@ class Completion:
         """
         cost = 0
         data = cls.data
-        target_n_tokens = 1000 * cls.inference_budget / cls.price1K[config["model"]]
+        target_n_tokens = (
+            1000 * cls.inference_budget / cls.price1K[config["model"]]
+            if cls.inference_budget and cls.price1K.get(config["model"])
+            else None
+        )
         prune_hp = cls._prune_hp
         metric = cls._metric
         config_n = config[prune_hp]
@@ -161,7 +165,7 @@ class Completion:
         region_key = cls._get_region_key(config)
         prompt = cls._prompts[config["prompt"]]
         stop = cls._stops and cls._stops[config["stop"]]
-        if prune:
+        if prune and target_n_tokens:
             max_safe_n = cls._get_max_safe_n(region_key, max_tokens)
             min_unsafe_n = cls._get_min_unsafe_n(region_key, max_tokens)
             if min_unsafe_n is not None and config_n >= min_unsafe_n:
@@ -226,7 +230,11 @@ class Completion:
                     )
                     cls._total_cost += query_cost
                     cost += query_cost
-                    if cls._total_cost >= cls.optimization_budget and not eval_only:
+                    if (
+                        cls.optimization_budget
+                        and cls._total_cost >= cls.optimization_budget
+                        and not eval_only
+                    ):
                         # limit the total tuning cost
                         return {
                             metric: 0,
@@ -247,7 +255,11 @@ class Completion:
                 )
                 # Hoeffding-Serfling bound
                 ratio = 0.1 * np.sqrt(rho / data_limit)
-                if n_tokens > target_n_tokens * (1 + ratio) and not eval_only:
+                if (
+                    target_n_tokens
+                    and n_tokens > target_n_tokens * (1 + ratio)
+                    and not eval_only
+                ):
                     if prune:
                         # update unsafe n and prune this config
                         cls._min_unsafe_n_per_max_tokens[
@@ -262,6 +274,7 @@ class Completion:
                     return result
                 if (
                     prune
+                    and target_n_tokens
                     and n_tokens <= target_n_tokens * (1 - ratio)
                     and (n < config_n or n == config_n and data_limit == data_length)
                 ):
@@ -329,11 +342,13 @@ class Completion:
             metric (str): The metric to optimize.
             mode (str): The optimization mode, "min" or "max.
             eval_func (Callable): The evaluation function for responses.
-            log_file_name (str): The log file.
-            inference_budget (float): The inference budget.
-            optimization_budget (float): The optimization budget.
-            num_samples (int): The number of samples to evaluate.
-            search_space (dict): The search space to update over the default search.
+            log_file_name (str, optional): The log file.
+            inference_budget (float, optional): The inference budget.
+            optimization_budget (float, optional): The optimization budget.
+            num_samples (int, optional): The number of samples to evaluate.
+            **config (dict): The search space to update over the default search.
+                For prompt, please provide a string or a list of strings.
+                For stop, please provide a string, a list of strings, or a list of lists of strings.
 
         Returns:
             dict: The optimized hyperparameter setting.
@@ -358,13 +373,20 @@ class Completion:
             cls.inference_budget = inference_budget
             cls._prune_hp = "best_of" if space.get("best_of", 1) != 1 else "n"
             cls._prompts = space["prompt"]
+            assert isinstance(
+                cls._prompts, (str, list)
+            ), "prompt must be a string or a list of strings."
+            if isinstance(cls._prompts, str):
+                cls._prompts = [cls._prompts]
             space["prompt"] = tune.choice(list(range(len(cls._prompts))))
             cls._stops = space.get("stop")
             if cls._stops:
                 assert isinstance(
                     cls._stops, (str, list)
-                ), "stop must be None, str or list."
-                if isinstance(cls._stops, str) or not isinstance(cls._stops[0], list):
+                ), "stop must be a string, a list of strings, or a list of lists of strings."
+                if not (
+                    isinstance(cls._stops, list) and isinstance(cls._stops[0], list)
+                ):
                     cls._stops = [cls._stops]
                 space["stop"] = tune.choice(list(range(len(cls._stops))))
             cls._metric, cls._mode = metric, mode

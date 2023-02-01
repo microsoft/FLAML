@@ -82,6 +82,15 @@ def test_humaneval(num_samples=1):
         for x in range(n_tune_data, len(data))
     ]
     oai.Completion.set_cache(seed)
+    # a minimal tuning example
+    oai.Completion.tune(
+        data=tune_data,
+        metric="success",
+        mode="max",
+        eval_func=success_metrics,
+        n=1,
+    )
+    # a more comprehensive tuning example
     config, analysis = oai.Completion.tune(
         data=tune_data,
         metric="expected_success",
@@ -91,14 +100,12 @@ def test_humaneval(num_samples=1):
         inference_budget=0.02,
         optimization_budget=5,
         num_samples=num_samples,
-        prompt=tune.choice(
-            [
-                "{prompt}",
-                "# Python 3{prompt}",
-                "Complete the following Python function:{prompt}",
-                "Complete the following Python function while including necessary import statements inside the function:{prompt}",
-            ]
-        ),
+        prompt=[
+            "{prompt}",
+            "# Python 3{prompt}",
+            "Complete the following Python function:{prompt}",
+            "Complete the following Python function while including necessary import statements inside the function:{prompt}",
+        ],
         stop=["\nclass", "\ndef", "\nif", "\nprint"],
     )
     print(config)
