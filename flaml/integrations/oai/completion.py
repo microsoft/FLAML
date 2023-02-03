@@ -111,24 +111,26 @@ class Completion:
         return response
 
     @classmethod
-    def _get_max_safe_n(cls, key, max_tokens):
-        # find the max value in max_safe_n_per_max_tokens whose key is equal or larger than max_tokens
+    def _get_max_valid_n(cls, key, max_tokens):
+        # find the max value in max_valid_n_per_max_tokens
+        # whose key is equal or larger than max_tokens
         return max(
             (
                 value
-                for k, value in cls._max_safe_n_per_max_tokens.get(key, {}).items()
+                for k, value in cls._max_valid_n_per_max_tokens.get(key, {}).items()
                 if k >= max_tokens
             ),
             default=1,
         )
 
     @classmethod
-    def _get_min_unsafe_n(cls, key, max_tokens):
-        # find the min value in min_unsafe_n_per_max_tokens whose key is equal or smaller than max_tokens
+    def _get_min_invalid_n(cls, key, max_tokens):
+        # find the min value in min_invalid_n_per_max_tokens
+        # whose key is equal or smaller than max_tokens
         return min(
             (
                 value
-                for k, value in cls._min_unsafe_n_per_max_tokens.get(key, {}).items()
+                for k, value in cls._min_invalid_n_per_max_tokens.get(key, {}).items()
                 if k <= max_tokens
             ),
             default=None,
@@ -136,8 +138,19 @@ class Completion:
 
     @classmethod
     def _get_region_key(cls, config):
-        # get a key for the safe/unsafe region corresponding to the given config
+        # get a key for the valid/invalid region corresponding to the given config
         return (config["model"], config["prompt"], config.get("stop"))
+
+    @classmethod
+    def _update_invalid_n(cls, prune, region_key, max_tokens, num_completions):
+        if prune:
+            # update invalid n and prune this config
+            cls._min_invalid_n_per_max_tokens[
+                region_key
+            ] = invalid_n = cls._min_invalid_n_per_max_tokens.get(region_key, {})
+            invalid_n[max_tokens] = min(
+                num_completions, invalid_n.get(max_tokens, np.inf)
+            )
 
     @classmethod
     def eval(cls, config: dict, prune=True, eval_only=False):
@@ -166,21 +179,21 @@ class Completion:
         prompt = cls._prompts[config["prompt"]]
         stop = cls._stops and cls._stops[config["stop"]]
         if prune and target_n_tokens:
-            max_safe_n = cls._get_max_safe_n(region_key, max_tokens)
-            min_unsafe_n = cls._get_min_unsafe_n(region_key, max_tokens)
-            if min_unsafe_n is not None and config_n >= min_unsafe_n:
-                if config_n > max_safe_n:
+            max_valid_n = cls._get_max_valid_n(region_key, max_tokens)
+            min_invalid_n = cls._get_min_invalid_n(region_key, max_tokens)
+            if min_invalid_n is not None and config_n >= min_invalid_n:
+                if config_n > max_valid_n:
                     # prune this config
                     return {
                         "inference_cost": np.inf,
                         metric: np.inf if cls._mode == "min" else -np.inf,
                         "cost": cost,
                     }
-                # since config_n<=max_safe_n, there is a chance config_n is safe
+                # since config_n<=max_valid_n, there is a chance config_n is valid
                 start_n = config_n
             else:
-                # start from a safe n
-                start_n = min(max_safe_n, config_n)
+                # start from a valid n
+                start_n = min(max_valid_n, config_n)
         else:
             start_n = config_n
         params = config.copy()
@@ -189,30 +202,23 @@ class Completion:
         if temperature_or_top_p:
             params.update(temperature_or_top_p)
         data_length = len(data)
-        n, previous_n = start_n, 0
+        num_completions, previous_num_completions = start_n, 0
         n_tokens_list, result, responses_list = [], {}, []
         while True:  # n <= config_n
-            params[prune_hp] = n - previous_n
+            params[prune_hp] = num_completions - previous_num_completions
             data_limit = 1 if prune else data_length
             prev_data_limit = 0
             data_early_stop = False  # whether data early stop happens for this n
             while True:  # data_limit <= data_length
                 # limit the number of data points to avoid rate limit
                 for i in range(prev_data_limit, data_limit):
-                    x = data[i]
-                    params["prompt"] = prompt.format(**x)
+                    data_i = data[i]
+                    params["prompt"] = prompt.format(**data_i)
                     response = cls._get_response(params, eval_only)
                     if response == -1:  # rate limit error, treat as invalid
-                        if prune:
-                            # update unsafe n and prune this config
-                            cls._min_unsafe_n_per_max_tokens[
-                                region_key
-                            ] = unsafe_n = cls._min_unsafe_n_per_max_tokens.get(
-                                region_key, {}
-                            )
-                            unsafe_n[max_tokens] = min(
-                                n, unsafe_n.get(max_tokens, np.inf)
-                            )
+                        cls._update_invalid_n(
+                            prune, region_key, max_tokens, num_completions
+                        )
                         result[metric] = 0
                         result["cost"] = cost
                         return result
@@ -220,7 +226,7 @@ class Completion:
                     responses = [r["text"].rstrip() for r in response["choices"]]
                     n_tokens = (
                         response["usage"]["completion_tokens"]
-                        if previous_n
+                        if previous_num_completions  # if querying incrementally, input tokens are not counted
                         else response["usage"]["total_tokens"]
                     )
                     query_cost = (
@@ -241,13 +247,15 @@ class Completion:
                             "total_cost": cls._total_cost,
                             "cost": cost,
                         }
-                    if previous_n:
+                    if previous_num_completions:
                         n_tokens_list[i] += n_tokens
                         responses_list[i].extend(responses)
+                        # assuming requesting n1, n2 responses separatively then combining them
+                        # is the same as requesting (n1+n2) responses together
                     else:
                         n_tokens_list.append(n_tokens)
                         responses_list.append(responses)
-                n_tokens = np.mean(n_tokens_list[:data_limit])
+                avg_n_tokens = np.mean(n_tokens_list[:data_limit])
                 rho = (
                     (1 - data_limit / data_length) * (1 + 1 / data_limit)
                     if data_limit << 1 > data_length
@@ -257,17 +265,12 @@ class Completion:
                 ratio = 0.1 * np.sqrt(rho / data_limit)
                 if (
                     target_n_tokens
-                    and n_tokens > target_n_tokens * (1 + ratio)
+                    and avg_n_tokens > target_n_tokens * (1 + ratio)
                     and not eval_only
                 ):
-                    if prune:
-                        # update unsafe n and prune this config
-                        cls._min_unsafe_n_per_max_tokens[
-                            region_key
-                        ] = unsafe_n = cls._min_unsafe_n_per_max_tokens.get(
-                            region_key, {}
-                        )
-                        unsafe_n[max_tokens] = min(n, unsafe_n.get(max_tokens, np.inf))
+                    cls._update_invalid_n(
+                        prune, region_key, max_tokens, num_completions
+                    )
                     result[metric] = 0
                     result["total_cost"] = cls._total_cost
                     result["cost"] = cost
@@ -275,16 +278,22 @@ class Completion:
                 if (
                     prune
                     and target_n_tokens
-                    and n_tokens <= target_n_tokens * (1 - ratio)
-                    and (n < config_n or n == config_n and data_limit == data_length)
+                    and avg_n_tokens <= target_n_tokens * (1 - ratio)
+                    and (
+                        num_completions < config_n
+                        or num_completions == config_n
+                        and data_limit == data_length
+                    )
                 ):
-                    # update safe n
-                    cls._max_safe_n_per_max_tokens[
+                    # update valid n
+                    cls._max_valid_n_per_max_tokens[
                         region_key
-                    ] = safe_n = cls._max_safe_n_per_max_tokens.get(region_key, {})
-                    safe_n[max_tokens] = max(n, safe_n.get(max_tokens, 0))
-                    if n < config_n:
-                        # safe already, skip the rest of the data
+                    ] = valid_n = cls._max_valid_n_per_max_tokens.get(region_key, {})
+                    valid_n[max_tokens] = max(
+                        num_completions, valid_n.get(max_tokens, 0)
+                    )
+                    if num_completions < config_n:
+                        # valid already, skip the rest of the data
                         data_limit = data_length
                         data_early_stop = True
                         break
@@ -294,11 +303,11 @@ class Completion:
                 else:
                     break
             # use exponential search to increase n
-            if n == config_n:
+            if num_completions == config_n:
                 for i in range(data_limit):
-                    x = data[i]
+                    data_i = data[i]
                     responses = responses_list[i]
-                    metrics = cls._eval_func(responses, **x)
+                    metrics = cls._eval_func(responses, **data_i)
                     if result:
                         for key, value in metrics.items():
                             result[key] += value
@@ -309,17 +318,17 @@ class Completion:
                 result["total_cost"] = cls._total_cost
                 result["cost"] = cost
                 result["inference_cost"] = (
-                    n_tokens * cls.price1K[config["model"]] / 1000
+                    avg_n_tokens * cls.price1K[config["model"]] / 1000
                 )
                 break
             else:
                 if data_early_stop:
-                    previous_n = 0
+                    previous_num_completions = 0
                     n_tokens_list.clear()
                     responses_list.clear()
                 else:
-                    previous_n = n
-                n = min(n << 1, config_n)
+                    previous_num_completions = num_completions
+                num_completions = min(num_completions << 1, config_n)
         return result
 
     @classmethod
@@ -367,8 +376,11 @@ class Completion:
                 space.pop("temperature_or_top_p")
                 space["temperature"] = temperature
                 space["top_p"] = top_p
+                logger.warning(
+                    "temperature and top_p are not recommended to vary together."
+                )
         with diskcache.Cache(cls.cache_path) as cls._cache:
-            cls._max_safe_n_per_max_tokens, cls._min_unsafe_n_per_max_tokens = {}, {}
+            cls._max_valid_n_per_max_tokens, cls._min_invalid_n_per_max_tokens = {}, {}
             cls.optimization_budget = optimization_budget
             cls.inference_budget = inference_budget
             cls._prune_hp = "best_of" if space.get("best_of", 1) != 1 else "n"
