@@ -35,7 +35,7 @@ For the most up-to-date information, see the [AAAI'23 Program Agenda](https://aa
         - [Notebook: Tune user-defined function](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/tune_demo.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/tune_demo.ipynb)
     - Zero-shot AutoML
         - [Notebook: Zeroshot AutoML](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/zeroshot_lightgbm.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/zeroshot_lightgbm.ipynb)
-- [ML.NET demo](https://docs.microsoft.com/dotnet/machine-learning/tutorial-aaai23/predict-prices-with-model-builder)
+- [ML.NET demo](https://learn.microsoft.com/dotnet/machine-learning/tutorials/predict-prices-with-model-builder)
 
 Break (15m)
 
