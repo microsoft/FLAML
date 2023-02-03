@@ -226,9 +226,11 @@ class Completion:
                     responses = [r["text"].rstrip() for r in response["choices"]]
                     n_tokens = (
                         response["usage"]["completion_tokens"]
-                        if previous_num_completions  # if querying incrementally, input tokens are not counted
+                        if previous_num_completions
                         else response["usage"]["total_tokens"]
                     )
+                    # Under Assumption 1, we should count both the input and output tokens in the first query,
+                    # and only count ouput tokens afterwards
                     query_cost = (
                         response["usage"]["total_tokens"]
                         * cls.price1K[config["model"]]
@@ -250,7 +252,7 @@ class Completion:
                     if previous_num_completions:
                         n_tokens_list[i] += n_tokens
                         responses_list[i].extend(responses)
-                        # assuming requesting n1, n2 responses separatively then combining them
+                        # Assumption 1: assuming requesting n1, n2 responses separatively then combining them
                         # is the same as requesting (n1+n2) responses together
                     else:
                         n_tokens_list.append(n_tokens)
