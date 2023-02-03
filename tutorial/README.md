@@ -10,7 +10,7 @@ Duration: 4 hours (3.5 hours + 0.5 hour break)
 
 For the most up-to-date information, see the [AAAI'23 Program Agenda](https://aaai.org/Conferences/AAAI-23/aaai23tutorials/)
 
-## Lab Forum Slides: To be added
+## [Lab Forum Slides](https://1drv.ms/b/s!Ao3suATqM7n7iohvC6apE2NmcCHQRw?e=3cvjBg)
 
 ## What Will You Learn?
 
@@ -47,7 +47,7 @@ Break (15m)
 - Maximize the Power of FLAML through Customization and Advanced Functionalities
     - [Notebook: Customized your AutoML with FLAML](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/customize_your_automl_with_flaml.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/customize_your_automl_with_flaml.ipynb)
     - [Notebook: Further acceleration of AutoML with FLAML](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/further_acceleration_of_automl_with_flaml.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/further_acceleration_of_automl_with_flaml.ipynb)
-    - [Notebook: Neural network model tuning with FLAML ](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/further_acceleration_of_tune.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/further_acceleration_of_tune.ipynb)
+    - [Notebook: Neural network model tuning with FLAML ](https://github.com/microsoft/FLAML/blob/tutorial-aaai23/notebook/tune_pytorch.ipynb); [Open In Colab](https://colab.research.google.com/github/microsoft/FLAML/blob/tutorial-aaai23/notebook/tune_pytorch.ipynb)
 
 
 ### **Part 3. New features in FLAML**
