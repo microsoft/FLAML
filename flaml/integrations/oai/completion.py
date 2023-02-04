@@ -32,6 +32,7 @@ def get_key(config):
 
 
 class Completion:
+    """A class for OpenAI API completion."""
 
     price1K = {
         "text-ada-001": 0.0004,
@@ -95,7 +96,6 @@ class Completion:
             except (
                 ServiceUnavailableError,
                 APIError,
-                InvalidRequestError,
                 APIConnectionError,
             ):
                 logger.info(f"retrying in {cls.retry_time} seconds...", exc_info=1)
@@ -103,6 +103,12 @@ class Completion:
             except RateLimitError:
                 logger.info(f"retrying in {cls.retry_time} seconds...", exc_info=1)
                 retry += 1
+            except InvalidRequestError:
+                if "model" in config:
+                    config = config.copy()
+                    config["engine"] = config.pop("model")
+                else:
+                    raise
         logger.warning(
             f"Failed to get response from openai api due to getting RateLimitError for {cls.retry_timeout} seconds."
         )
@@ -415,6 +421,23 @@ class Completion:
                 mode=mode,
                 space=space,
             )
+            if len(space["model"]) > 1:
+                # start all the models with the same hp config
+                config0 = search_alg.suggest("t0")
+                points_to_evaluate = [config0]
+                for model in space["model"]:
+                    if model != config0["model"]:
+                        point = config0.copy()
+                        point["model"] = model
+                        points_to_evaluate.append(point)
+                search_alg = BlendSearch(
+                    cost_attr="cost",
+                    cost_budget=optimization_budget,
+                    metric=metric,
+                    mode=mode,
+                    space=space,
+                    points_to_evaluate=points_to_evaluate,
+                )
             analysis = tune.run(
                 cls.eval,
                 search_alg=search_alg,
