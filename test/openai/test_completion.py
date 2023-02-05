@@ -3,18 +3,10 @@ import signal
 import subprocess
 import sys
 import numpy as np
-import pytest
 
-try:
-    import openai
-
-    skip = False
-except ImportError:
-    skip = True
-from flaml import oai, tune
+from flaml import oai
 
 
-@pytest.mark.skipif(skip, reason="do not run openai test if openai is not installed")
 def test_humaneval(num_samples=1):
     def timeout_handler(signum, frame):
         raise TimeoutError("Timed out!")
@@ -82,42 +74,47 @@ def test_humaneval(num_samples=1):
         for x in range(n_tune_data, len(data))
     ]
     oai.Completion.set_cache(seed)
-    # a minimal tuning example
-    oai.Completion.tune(
-        data=tune_data,
-        metric="success",
-        mode="max",
-        eval_func=success_metrics,
-        n=1,
-    )
-    # a more comprehensive tuning example
-    config, analysis = oai.Completion.tune(
-        data=tune_data,
-        metric="expected_success",
-        mode="max",
-        eval_func=success_metrics,
-        log_file_name="logs/humaneval.log",
-        inference_budget=0.02,
-        optimization_budget=5,
-        num_samples=num_samples,
-        prompt=[
-            "{prompt}",
-            "# Python 3{prompt}",
-            "Complete the following Python function:{prompt}",
-            "Complete the following Python function while including necessary import statements inside the function:{prompt}",
-        ],
-        stop=["\nclass", "\ndef", "\nif", "\nprint"],
-    )
-    print(config)
-    print(analysis.best_result)
-    print(test_data[0])
-    responses = oai.Completion.create(context=test_data[0], **config)
-    print(responses)
-    oai.Completion.data = test_data[:num_samples]
-    result = oai.Completion.eval(analysis.best_config, prune=False, eval_only=True)
-    print(result)
+    try:
+        # a minimal tuning example
+        oai.Completion.tune(
+            data=tune_data,
+            metric="success",
+            mode="max",
+            eval_func=success_metrics,
+            n=1,
+        )
+        # a more comprehensive tuning example
+        config, analysis = oai.Completion.tune(
+            data=tune_data,
+            metric="expected_success",
+            mode="max",
+            eval_func=success_metrics,
+            log_file_name="logs/humaneval.log",
+            inference_budget=0.02,
+            optimization_budget=5,
+            num_samples=num_samples,
+            prompt=[
+                "{prompt}",
+                "# Python 3{prompt}",
+                "Complete the following Python function:{prompt}",
+                "Complete the following Python function while including necessary import statements inside the function:{prompt}",
+            ],
+            stop=["\nclass", "\ndef", "\nif", "\nprint"],
+        )
+        print(config)
+        print(analysis.best_result)
+        print(test_data[0])
+        responses = oai.Completion.create(context=test_data[0], **config)
+        print(responses)
+        oai.Completion.data = test_data[:num_samples]
+        result = oai.Completion.eval(analysis.best_config, prune=False, eval_only=True)
+        print(result)
+    except ImportError as exc:
+        print(exc)
 
 
 if __name__ == "__main__":
+    import openai
+
     openai.api_key_path = "test/openai/key.txt"
     test_humaneval(-1)

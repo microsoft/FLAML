@@ -1,17 +1,24 @@
 from time import sleep
 import logging
-import openai
-from openai.error import (
-    ServiceUnavailableError,
-    RateLimitError,
-    APIError,
-    InvalidRequestError,
-    APIConnectionError,
-)
-import diskcache
 import numpy as np
 from flaml import tune, BlendSearch
 
+try:
+    import openai
+    from openai.error import (
+        ServiceUnavailableError,
+        RateLimitError,
+        APIError,
+        InvalidRequestError,
+        APIConnectionError,
+    )
+    import diskcache
+
+    ERROR = None
+except ImportError:
+    ERROR = ImportError(
+        "please install flaml[openai] option to use the flaml.oai subpackage."
+    )
 logger = logging.getLogger(__name__)
 
 
@@ -52,7 +59,7 @@ class Completion:
                 {"top_p": tune.uniform(0, 1)},
             ]
         ),
-        "max_tokens": tune.lograndint(100, 1000),
+        "max_tokens": tune.lograndint(50, 1000),
         "n": tune.randint(1, 100),
         "prompt": "{prompt}",
     }
@@ -354,6 +361,8 @@ class Completion:
     ):
         """Tune the parameters for the OpenAI API call.
 
+        TODO: support parallel tuning with ray or spark.
+
         Args:
             data (list): The list of data points.
             metric (str): The metric to optimize.
@@ -371,6 +380,8 @@ class Completion:
             dict: The optimized hyperparameter setting.
             tune.ExperimentAnalysis: The tuning results.
         """
+        if ERROR:
+            raise ERROR
         space = Completion.default_search_space.copy()
         if config is not None:
             space.update(config)
@@ -471,6 +482,8 @@ class Completion:
         Returns:
             Responses from OpenAI API.
         """
+        if ERROR:
+            raise ERROR
         params = config.copy()
         params["prompt"] = config["prompt"].format(**context)
         if use_cache:
