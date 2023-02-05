@@ -3,10 +3,14 @@ import signal
 import subprocess
 import sys
 import numpy as np
-
+import pytest
 from flaml import oai
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="do not run on windows",
+)
 def test_humaneval(num_samples=1):
     def timeout_handler(signum, frame):
         raise TimeoutError("Timed out!")
