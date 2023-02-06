@@ -6,7 +6,7 @@ name: Build
 on:
   push:
     branches: ['main']
-    path:
+    paths:
       - 'flaml/*'
       - 'test/*'
       - 'notebook/*'
@@ -14,7 +14,7 @@ on:
       - 'setup.py'
   pull_request:
     branches: ['main']
-    path:
+    paths:
       - 'flaml/*'
       - 'test/*'
       - 'notebook/*'
