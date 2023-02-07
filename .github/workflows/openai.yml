@@ -7,8 +7,8 @@ on:
   pull_request:
     branches: ['main']
     paths:
-      - 'flaml/integrations/oai/*'
-      - 'test/openai/*'
+      - 'flaml/integrations/oai/**'
+      - 'test/openai/**'
       - 'notebook/integrate_openai.ipynb'
       - '.github/workflows/openai.yml'
 

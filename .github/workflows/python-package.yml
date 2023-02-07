@@ -7,17 +7,17 @@ on:
   push:
     branches: ['main']
     paths:
-      - 'flaml/*'
-      - 'test/*'
-      - 'notebook/*'
+      - 'flaml/**'
+      - 'test/**'
+      - 'notebook/**'
       - '.github/workflows/python-package.yml'
       - 'setup.py'
   pull_request:
     branches: ['main']
     paths:
-      - 'flaml/*'
-      - 'test/*'
-      - 'notebook/*'
+      - 'flaml/**'
+      - 'test/**'
+      - 'notebook/**'
       - '.github/workflows/python-package.yml'
       - 'setup.py'
 
