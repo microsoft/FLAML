@@ -61,6 +61,7 @@ from flaml.automl.spark.utils import (
     train_test_split_pyspark,
     unique_pandas_on_spark,
     len_labels,
+    unique_value_first_index,
 )
 
 logger = logging.getLogger(__name__)
@@ -326,16 +327,14 @@ class SearchState:
 
 class AutoMLState:
     def _prepare_sample_train_data(self, sample_size):
+        # TODO: sample pandas_on_spark, reproducible and stratify or at least with [first]
         sampled_weight = groups = None
-        # TODO: sample pyspark dataframe
-        if sample_size <= self.data_size[0] and not isinstance(
-            self.y_train_all, psDataFrame
-        ):
-            if isinstance(self.X_train, pd.DataFrame):
+        if sample_size <= self.data_size[0]:
+            if isinstance(self.X_train, (pd.DataFrame, psDataFrame)):
                 sampled_X_train = self.X_train.iloc[:sample_size]
             else:
                 sampled_X_train = self.X_train[:sample_size]
-            if isinstance(self.y_train, pd.Series):
+            if isinstance(self.y_train, (pd.Series, psSeries)):
                 sampled_y_train = self.y_train.iloc[:sample_size]
             else:
                 sampled_y_train = self.y_train[:sample_size]
@@ -345,17 +344,16 @@ class AutoMLState:
             if weight is not None:
                 sampled_weight = (
                     weight.iloc[:sample_size]
-                    if isinstance(weight, pd.Series)
+                    if isinstance(weight, (pd.Series, psSeries))
                     else weight[:sample_size]
                 )
             if self.groups is not None:
                 groups = (
                     self.groups.iloc[:sample_size]
-                    if isinstance(self.groups, pd.Series)
+                    if isinstance(self.groups, (pd.Series, psSeries))
                     else self.groups[:sample_size]
                 )
         else:
-            # TODO: sample pandas_on_spark, reproducible and stratify or at least with [first]
             sampled_X_train = self.X_train_all
             sampled_y_train = self.y_train_all
             if (
@@ -1098,6 +1096,7 @@ class AutoML(BaseEstimator):
             elif isinstance(y_train_all, np.ndarray):
                 y_df = pd.DataFrame(y_train_all, columns=["labels"])
             elif isinstance(y_train_all, (psDataFrame, psSeries)):
+                # TODO: need to optimize this
                 set_option("compute.ops_on_diff_frames", True)
             dataframe = dataframe.join(y_df)
         duplicates = dataframe.duplicated()
@@ -1311,6 +1310,7 @@ class AutoML(BaseEstimator):
             self._state.groups = groups
 
     def _split_pyspark(self, X_train_all, y_train_all, split_ratio):
+        # TODO: need to optimize this
         set_option("compute.ops_on_diff_frames", True)
         df_all_in_one = X_train_all.join(y_train_all)
         startify_column = (
@@ -1523,11 +1523,11 @@ class AutoML(BaseEstimator):
                                 ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
                                 self._state.weight_val,
                             ) = self._split_pyspark(
-                                self, X_train_all, y_train_all, split_ratio
+                                X_train_all, y_train_all, split_ratio
                             )
                         else:
                             X_train, X_val, y_train, y_val = self._split_pyspark(
-                                self, X_train_all, y_train_all, split_ratio
+                                X_train_all, y_train_all, split_ratio
                             )
             elif self._split_type == "group":
                 gss = GroupShuffleSplit(
@@ -1547,24 +1547,22 @@ class AutoML(BaseEstimator):
             elif self._state.task in CLASSIFICATION:
                 # for classification, make sure the labels are complete in both
                 # training and validation data
+                label_set, first = unique_value_first_index(y_train_all)
+                rest = []
+                last = 0
+                first.sort()
+                for i in range(len(first)):
+                    rest.extend(range(last, first[i]))
+                    last = first[i] + 1
+                rest.extend(range(last, len(y_train_all)))
+                X_first = X_train_all.iloc[first] if self._df else X_train_all[first]
+                X_rest = X_train_all.iloc[rest] if self._df else X_train_all[rest]
+                y_rest = (
+                    y_train_all[rest]
+                    if isinstance(y_train_all, np.ndarray)
+                    else y_train_all.iloc[rest]
+                )
                 if not isinstance(y_train_all, (psDataFrame, psSeries)):
-                    label_set, first = np.unique(y_train_all, return_index=True)
-                    rest = []
-                    last = 0
-                    first.sort()
-                    for i in range(len(first)):
-                        rest.extend(range(last, first[i]))
-                        last = first[i] + 1
-                    rest.extend(range(last, len(y_train_all)))
-                    X_first = (
-                        X_train_all.iloc[first] if self._df else X_train_all[first]
-                    )
-                    X_rest = X_train_all.iloc[rest] if self._df else X_train_all[rest]
-                    y_rest = (
-                        y_train_all[rest]
-                        if isinstance(y_train_all, np.ndarray)
-                        else y_train_all.iloc[rest]
-                    )
                     stratify = y_rest if self._split_type == "stratified" else None
                     if (
                         "sample_weight" in self._state.fit_kwargs
@@ -1586,15 +1584,6 @@ class AutoML(BaseEstimator):
                             stratify=stratify,
                             random_state=RANDOM_SEED,
                         )
-                        weight1 = self._state.fit_kwargs["sample_weight"][
-                            first
-                        ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                        self._state.weight_val = concat(weight1, weight_val)
-                        self._state.fit_kwargs[
-                            "sample_weight"
-                        ] = concat(  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                            weight1, weight_train
-                        )
                     else:
                         X_train, X_val, y_train, y_val = train_test_split(
                             X_rest,
@@ -1603,20 +1592,7 @@ class AutoML(BaseEstimator):
                             stratify=stratify,
                             random_state=RANDOM_SEED,
                         )
-                    X_train = concat(X_first, X_train)
-                    y_train = (
-                        concat(label_set, y_train)
-                        if self._df
-                        else np.concatenate([label_set, y_train])
-                    )
-                    X_val = concat(X_first, X_val)
-                    y_val = (
-                        concat(label_set, y_val)
-                        if self._df
-                        else np.concatenate([label_set, y_val])
-                    )
                 else:
-                    # TODO: may need to add all classes to the first rows
                     if (
                         "sample_weight" in self._state.fit_kwargs
                     ):  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
@@ -1629,13 +1605,32 @@ class AutoML(BaseEstimator):
                                 "sample_weight"
                             ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
                             self._state.weight_val,
-                        ) = self._split_pyspark(
-                            self, X_train_all, y_train_all, split_ratio
-                        )
+                        ) = self._split_pyspark(X_train_all, y_train_all, split_ratio)
                     else:
                         X_train, X_val, y_train, y_val = self._split_pyspark(
-                            self, X_train_all, y_train_all, split_ratio
+                            X_train_all, y_train_all, split_ratio
                         )
+                weight1 = self._state.fit_kwargs["sample_weight"][
+                    first
+                ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+                self._state.weight_val = concat(weight1, weight_val)
+                self._state.fit_kwargs[
+                    "sample_weight"
+                ] = concat(  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+                    weight1, weight_train
+                )
+                X_train = concat(X_first, X_train)
+                y_train = (
+                    concat(label_set, y_train)
+                    if self._df
+                    else np.concatenate([label_set, y_train])
+                )
+                X_val = concat(X_first, X_val)
+                y_val = (
+                    concat(label_set, y_val)
+                    if self._df
+                    else np.concatenate([label_set, y_val])
+                )
             elif self._state.task in REGRESSION:
                 if not isinstance(y_train_all, (psDataFrame, psSeries)):
                     if (
@@ -1679,12 +1674,10 @@ class AutoML(BaseEstimator):
                                 "sample_weight"
                             ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
                             self._state.weight_val,
-                        ) = self._split_pyspark(
-                            self, X_train_all, y_train_all, split_ratio
-                        )
+                        ) = self._split_pyspark(X_train_all, y_train_all, split_ratio)
                     else:
                         X_train, X_val, y_train, y_val = self._split_pyspark(
-                            self, X_train_all, y_train_all, split_ratio
+                            X_train_all, y_train_all, split_ratio
                         )
         self._state.data_size = X_train.shape
         self.data_size_full = len(y_train_all)

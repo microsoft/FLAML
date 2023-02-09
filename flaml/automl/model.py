@@ -654,16 +654,22 @@ class SparkLGBMEstimator(SparkEstimator):
         trained = False
         mem0 = psutil.virtual_memory().available if psutil is not None else 1
         _kwargs = kwargs.copy()
-        if "objective" not in _kwargs:
-            _kwargs["objective"] = (
-                "binary" if self.model_n_classes_ == 2 else "multiclass"
-            )
+        # TODO: update regression model and rank model
+        if self._task == "regression":
+            pass
+        elif self._task == "rank":
+            pass
+        else:
+            if "objective" not in _kwargs:
+                _kwargs["objective"] = (
+                    "binary" if self.model_n_classes_ == 2 else "multiclass"
+                )
+            if "isUnbalance" not in _kwargs:
+                _kwargs["isUnbalance"] = True
         if "featuresCol" not in _kwargs:
             _kwargs["featuresCol"] = "features"
         if "labelCol" not in _kwargs:
             _kwargs["labelCol"] = "target"
-        if "isUnbalance" not in _kwargs:
-            _kwargs["isUnbalance"] = True
         for k, v in _kwargs.items():
             if k not in ["featuresCol", "labelCol", "isUnbalance", "objective"]:
                 _kwargs.pop(k)

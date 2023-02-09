@@ -160,3 +160,14 @@ def len_labels(y, return_labels=False):
     if return_labels:
         return len(labels), labels
     return len(labels)
+
+
+def unique_value_first_index(y: Union[pd.Series, ps.Series, np.ndarray]):
+    """Get the unique values and indices of a pandas_on_spark series."""
+    if isinstance(y, ps.Series):
+        y_unique = y.drop_duplicates().sort_index()
+        label_set = y_unique.values
+        first_index = y_unique.index.values
+    else:
+        label_set, first_index = np.unique(y, return_index=True)
+    return label_set, first_index
