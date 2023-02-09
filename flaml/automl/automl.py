@@ -407,7 +407,7 @@ class AutoMLState:
             metric_for_logging,
             _,
             pred_time,
-        ) = compute_estimator(  # continue here
+        ) = compute_estimator(
             sampled_X_train,
             sampled_y_train,
             state.X_val,
@@ -964,6 +964,7 @@ class AutoML(BaseEstimator):
         return self.__dict__.get("_time_taken_best_iter")
 
     def score(self, X: pd.DataFrame, y: pd.Series, **kwargs):
+        # TODO: support pyspark dataframe
         estimator = getattr(self, "_trained_estimator", None)
         if estimator is None:
             logger.warning(
@@ -980,6 +981,7 @@ class AutoML(BaseEstimator):
         X: Union[np.array, pd.DataFrame, List[str], List[List[str]]],
         **pred_kwargs,
     ):
+        # TODO: support pyspark dataframe
         """Predict label from features.
 
         Args:
@@ -1052,6 +1054,7 @@ class AutoML(BaseEstimator):
         return proba
 
     def _preprocess(self, X):
+        # TODO: support pyspark dataframe
         if isinstance(X, List):
             try:
                 if isinstance(X[0], List):
@@ -1085,6 +1088,7 @@ class AutoML(BaseEstimator):
         dataframe,
         y_train_all=None,
     ):
+        # TODO: support pyspark dataframe
         assert (
             dataframe[dataframe.columns[0]].dtype.name == "datetime64[ns]"
         ), f"For '{TS_FORECAST}' task, the first column must contain timestamp values."
@@ -1139,6 +1143,7 @@ class AutoML(BaseEstimator):
         groups_val=None,
         groups=None,
     ):
+        # TODO: support pyspark dataframe
 
         if X_train_all is not None and y_train_all is not None:
             assert isinstance(

@@ -171,6 +171,7 @@ def metric_loss_score(
     sample_weight=None,
     groups=None,
 ):
+    # TODO: support pyspark dataframe
     if isinstance(y_processed_predict, psSeries):
         y_processed_predict = y_processed_predict.to_numpy()
     if isinstance(y_processed_true, psSeries):
@@ -266,6 +267,7 @@ def sklearn_metric_loss_score(
     sample_weight=None,
     groups=None,
 ):
+    # TODO: support pyspark dataframe
     """Loss using the specified metric.
 
     Args:
