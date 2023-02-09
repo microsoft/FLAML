@@ -52,7 +52,7 @@ from flaml.model import BaseEstimator
 import logging
 
 logger = logging.getLogger(__name__)
-EstimatorType = TypeVar("EstimatorType", bound=BaseEstimator)
+EstimatorSubclass = TypeVar("EstimatorSubclass", bound=BaseEstimator)
 
 sklearn_metric_name_set = {
     "r2",
@@ -105,7 +105,7 @@ huggingface_metric_to_mode = {
 huggingface_submetric_to_metric = {"rouge1": "rouge", "rouge2": "rouge"}
 
 
-def get_estimator_class(task: str, estimator_name: str) -> EstimatorType:
+def get_estimator_class(task: str, estimator_name: str) -> EstimatorSubclass:
     """Given a task and an estimator name, return the relevant flaml-wrapped estimator class
 
     NOTE: See why the return type is declarad by using TypeVar here on the mypy doc
@@ -381,7 +381,7 @@ def _eval_estimator(
     y_val,
     weight_val,
     groups_val,
-    eval_metric,
+    eval_metric: Union[str, Callable],
     obj,
     labels=None,
     log_training_metric=False,
@@ -433,14 +433,14 @@ def _eval_estimator(
 
 def get_val_loss(
     config,
-    estimator,
+    estimator: Optional[EstimatorSubclass],
     X_train,
     y_train,
     X_val,
     y_val,
     weight_val,
     groups_val,
-    eval_metric,
+    eval_metric: Union[str, Callable],
     obj,
     labels=None,
     budget=None,
@@ -498,12 +498,12 @@ def default_cv_score_agg_func(val_loss_folds, log_metrics_folds):
 
 def evaluate_model_CV(
     config: dict,
-    estimator,
+    estimator: EstimatorSubclass,
     X_train_all,
     y_train_all,
     budget,
     kf,
-    task,
+    task: str,
     eval_metric,
     best_val_loss,
     cv_score_agg_func=None,
@@ -619,12 +619,12 @@ def compute_estimator(
     kf,
     config_dic: dict,
     task: str,
-    estimator_name,
-    eval_method,
-    eval_metric,
+    estimator_name: str,
+    eval_method: str,
+    eval_metric: Union[str, Callable],
     best_val_loss=np.Inf,
-    n_jobs=1,
-    estimator_class: Optional[EstimatorType] = None,
+    n_jobs: int = 1,
+    estimator_class: Optional[EstimatorSubclass] = None,
     cv_score_agg_func: Optional[callable] = None,
     log_training_metric: Optional[bool] = False,
     fit_kwargs: dict = {},
@@ -693,12 +693,12 @@ def train_estimator(
     task: str,
     estimator_name: str,
     n_jobs: int = 1,
-    estimator_class=None,
+    estimator_class: Optional[EstimatorSubclass] = None,
     budget=None,
     fit_kwargs: dict = {},
     eval_metric=None,
     free_mem_ratio=0,
-) -> Tuple[EstimatorType, float]:
+) -> Tuple[EstimatorSubclass, float]:
     start_time = time.time()
     estimator_class = estimator_class or get_estimator_class(task, estimator_name)
     estimator = estimator_class(
