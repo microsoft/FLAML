@@ -63,7 +63,7 @@ setuptools.setup(
             "statsmodels>=0.12.2",
             "psutil==5.8.0",
             "dataclasses",
-            "transformers[torch]==4.18",
+            "transformers[torch]",
             "datasets",
             "nltk",
             "rouge_score",
@@ -92,7 +92,7 @@ setuptools.setup(
             "vowpalwabbit>=8.10.0, <9.0.0",
         ],
         "nlp": [
-            "transformers[torch]==4.18",
+            "transformers[torch]",
             "datasets",
             "nltk",
             "rouge_score",
