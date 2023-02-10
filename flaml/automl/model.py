@@ -670,7 +670,7 @@ class SparkLGBMEstimator(SparkEstimator):
             _kwargs["featuresCol"] = "features"
         if "labelCol" not in _kwargs:
             _kwargs["labelCol"] = "target"
-        for k, v in _kwargs.items():
+        for k in list(_kwargs.keys()):
             if k not in ["featuresCol", "labelCol", "isUnbalance", "objective"]:
                 _kwargs.pop(k)
         if (
