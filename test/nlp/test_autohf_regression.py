@@ -1,6 +1,8 @@
 import sys
 import pytest
 from utils import get_toy_data_seqregression, get_automl_settings
+import os
+import shutil
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
@@ -22,7 +24,7 @@ def test_regression():
     automl_settings["task"] = "seq-regression"
     automl_settings["metric"] = "pearsonr"
     automl_settings["starting_points"] = {"transformer": {"num_train_epochs": 1}}
-    automl_settings["use_ray"] = {"local_dir": "data/outut/"}
+    automl_settings["use_ray"] = {"local_dir": "data/output/"}
 
     ray.shutdown()
     ray.init()
@@ -31,6 +33,12 @@ def test_regression():
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
     )
     automl.predict(X_val)
+
+    if os.path.exists("test/data/output/"):
+        try:
+            shutil.rmtree("test/data/output/")
+        except PermissionError:
+            print("PermissionError when deleting test/data/output/")
 
 
 if __name__ == "__main__":

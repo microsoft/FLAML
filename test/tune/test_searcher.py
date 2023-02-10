@@ -5,7 +5,10 @@ try:
     from ray import __version__ as ray_version
 
     assert ray_version >= "1.10.0"
-    from ray.tune import sample
+    if ray_version.startswith("1."):
+        from ray.tune import sample
+    else:
+        from ray.tune.search import sample
 
     use_ray = True
 except (ImportError, AssertionError):
@@ -28,9 +31,13 @@ def wrong_define_search_space(trial):
     return {1: 1}
 
 
-def test_searcher():
-    from flaml.searcher.suggestion import OptunaSearch, Searcher, ConcurrencyLimiter
-    from flaml.searcher.blendsearch import BlendSearch, CFO, RandomSearch
+def test_searchers():
+    from flaml.tune.searcher.suggestion import (
+        OptunaSearch,
+        Searcher,
+        ConcurrencyLimiter,
+    )
+    from flaml.tune.searcher.blendsearch import BlendSearch, CFO, RandomSearch
     from flaml.tune import sample as flamlsample
 
     searcher = Searcher()
@@ -187,8 +194,8 @@ def test_searcher():
     searcher.on_trial_complete("t2", None, True)
     searcher.suggest("t3")
     searcher.on_trial_complete("t3", {"m": np.nan})
-    searcher.save("test/tune/optuna.pickle")
-    searcher.restore("test/tune/optuna.pickle")
+    searcher.save("test/tune/optuna.pkl")
+    searcher.restore("test/tune/optuna.pkl")
     try:
         searcher = BlendSearch(
             metric="m", global_search_alg=searcher, metric_constraints=[("c", "<", 1)]
@@ -295,7 +302,14 @@ def test_searcher():
     print(searcher.suggest("t1"))
     from flaml import tune
 
-    tune.run(lambda x: 1, config={}, use_ray=use_ray)
+    tune.run(lambda x: 1, config={}, use_ray=use_ray, log_file_name="logs/searcher.log")
+    searcher = BlendSearch(
+        space=config, cost_attr="cost", cost_budget=10, metric="m", mode="min"
+    )
+    analysis = tune.run(
+        lambda x: {"cost": 2, "m": x["b"]}, search_alg=searcher, num_samples=10
+    )
+    assert len(analysis.trials) == 5
 
 
 def test_no_optuna():
@@ -303,6 +317,6 @@ def test_no_optuna():
     import sys
 
     subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "-y", "optuna"])
-    import flaml.searcher.suggestion
+    import flaml.tune.searcher.suggestion
 
     subprocess.check_call([sys.executable, "-m", "pip", "install", "optuna==2.8.0"])

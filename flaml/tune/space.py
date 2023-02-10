@@ -2,11 +2,15 @@ try:
     from ray import __version__ as ray_version
 
     assert ray_version >= "1.10.0"
-    from ray.tune import sample
-    from ray.tune.suggest.variant_generator import generate_variants
+    if ray_version.startswith("1."):
+        from ray.tune import sample
+        from ray.tune.suggest.variant_generator import generate_variants
+    else:
+        from ray.tune.search import sample
+        from ray.tune.search.variant_generator import generate_variants
 except (ImportError, AssertionError):
     from . import sample
-    from ..searcher.variant_generator import generate_variants
+    from .searcher.variant_generator import generate_variants
 from typing import Dict, Optional, Any, Tuple, Generator
 import numpy as np
 import logging
@@ -225,15 +229,18 @@ def add_cost_to_space(space: Dict, low_cost_point: Dict, choice_cost: Dict):
                 domain.choice_cost = cost[ind]
                 domain.const = [domain.const[i] for i in ind]
                 domain.ordered = True
-            elif all(
-                isinstance(x, int) or isinstance(x, float) for x in domain.categories
-            ):
-                # sort the choices by value
-                ind = np.argsort(domain.categories)
-                domain.categories = [domain.categories[i] for i in ind]
-                domain.ordered = True
             else:
-                domain.ordered = False
+                ordered = getattr(domain, "ordered", None)
+                if ordered is None:
+                    # automatically decide whether to order the choices based on the value type
+                    domain.ordered = ordered = all(
+                        isinstance(x, (int, float)) for x in domain.categories
+                    )
+                if ordered:
+                    # sort the choices by value
+                    ind = np.argsort(domain.categories)
+                    domain.categories = [domain.categories[i] for i in ind]
+
             if low_cost and low_cost not in domain.categories:
                 assert isinstance(
                     low_cost, list
@@ -540,8 +547,8 @@ def complete_config(
                     domain.categories[index],
                     flow2,
                     disturb,
-                    lower and lower[key][index],
-                    upper and upper[key][index],
+                    lower and lower.get(key) and lower[key][index],
+                    upper and upper.get(key) and upper[key][index],
                 )
                 assert (
                     "_choice_" not in subspace[key]
@@ -553,8 +560,8 @@ def complete_config(
                     space[key],
                     flow2,
                     disturb,
-                    lower and lower[key],
-                    upper and upper[key],
+                    lower and lower.get(key),
+                    upper and upper.get(key),
                 )
             continue
         subspace[key] = domain

@@ -3,8 +3,16 @@ name: docs
 on:
   pull_request:
     branches: [main]
+    path:
+      - 'flaml/*'
+      - 'website/*'
+      - '.github/workflows/deploy-website.yml'
   push:
     branches: [main]
+    path:
+      - 'flaml/*'
+      - 'website/*'
+      - '.github/workflows/deploy-website.yml'
   workflow_dispatch:
 
 jobs:
@@ -15,14 +23,14 @@ jobs:
       run:
         working-directory: website
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
         with:
           node-version: 14.x
           # cache: yarn
           # cache-dependency-path: '**/yarn.lock'
       - name: setup python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: "3.8"
       - name: pydoc-markdown install
@@ -35,7 +43,7 @@ jobs:
       - name: Test Build
         run: |
           if [ -e yarn.lock ]; then
-          yarn install --frozen-lockfile
+          yarn install --frozen-lockfile --ignore-engines
           yarn build
           elif [ -e package-lock.json ]; then
           npm ci
@@ -51,14 +59,14 @@ jobs:
       run:
         working-directory: website
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
         with:
           node-version: 14.x
           # cache: yarn
           # cache-dependency-path: '**/yarn.lock'
       - name: setup python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: "3.8"
       - name: pydoc-markdown install
@@ -71,7 +79,7 @@ jobs:
       - name: Build website
         run: |
           if [ -e yarn.lock ]; then
-          yarn install --frozen-lockfile
+          yarn install --frozen-lockfile --ignore-engines
           yarn build
           elif [ -e package-lock.json ]; then
           npm ci

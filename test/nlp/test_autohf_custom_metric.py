@@ -1,6 +1,8 @@
 import sys
 import pytest
 from utils import get_toy_data_seqclassification, get_automl_settings
+import os
+import shutil
 
 
 def custom_metric(
@@ -17,18 +19,17 @@ def custom_metric(
     groups_train=None,
 ):
     from datasets import Dataset
-    from flaml.model import TransformersEstimator
 
     if estimator._trainer is None:
         trainer = estimator._init_model_for_predict()
         estimator._trainer = None
     else:
         trainer = estimator._trainer
+    X_test, y_test = estimator._tokenize_text(X_test)
+
     if y_test is not None:
-        X_test = estimator._preprocess(X_test)
-        eval_dataset = Dataset.from_pandas(TransformersEstimator._join(X_test, y_test))
+        eval_dataset = Dataset.from_pandas(X_test.join(y_test))
     else:
-        X_test = estimator._preprocess(X_test)
         eval_dataset = Dataset.from_pandas(X_test)
 
     estimator_metric_backup = estimator._metric
@@ -80,6 +81,12 @@ def test_custom_metric():
     automl.pickle("automl.pkl")
 
     del automl
+
+    if os.path.exists("test/data/output/"):
+        try:
+            shutil.rmtree("test/data/output/")
+        except PermissionError:
+            print("PermissionError when deleting test/data/output/")
 
 
 if __name__ == "__main__":

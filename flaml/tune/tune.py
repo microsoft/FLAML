@@ -2,10 +2,13 @@
 #  * Copyright (c) FLAML authors. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
-from typing import Optional, Union, List, Callable, Tuple
+from typing import Optional, Union, List, Callable, Tuple, Dict
 import numpy as np
 import datetime
 import time
+import os
+import sys
+from collections import defaultdict
 
 try:
     from ray import __version__ as ray_version
@@ -13,9 +16,9 @@ try:
     assert ray_version >= "1.10.0"
     from ray.tune.analysis import ExperimentAnalysis as EA
 
-    ray_import = True
+    ray_available = True
 except (ImportError, AssertionError):
-    ray_import = False
+    ray_available = False
     from .analysis import ExperimentAnalysis as EA
 
 from .trial import Trial
@@ -23,6 +26,7 @@ from .result import DEFAULT_METRIC
 import logging
 
 logger = logging.getLogger(__name__)
+logger.propagate = False
 _use_ray = True
 _runner = None
 _verbose = 0
@@ -35,13 +39,106 @@ INCUMBENT_RESULT = "__incumbent_result__"
 class ExperimentAnalysis(EA):
     """Class for storing the experiment results."""
 
-    def __init__(self, trials, metric, mode):
+    def __init__(self, trials, metric, mode, lexico_objectives=None):
         try:
             super().__init__(self, None, trials, metric, mode)
+            self.lexico_objectives = lexico_objectives
         except (TypeError, ValueError):
             self.trials = trials
             self.default_metric = metric or DEFAULT_METRIC
             self.default_mode = mode
+            self.lexico_objectives = lexico_objectives
+
+    @property
+    def best_trial(self) -> Trial:
+        if self.lexico_objectives is None:
+            return super().best_trial
+        else:
+            return self.get_best_trial(self.default_metric, self.default_mode)
+
+    @property
+    def best_config(self) -> Dict:
+        if self.lexico_objectives is None:
+            return super().best_config
+        else:
+            return self.get_best_config(self.default_metric, self.default_mode)
+
+    def lexico_best(self, trials):
+        results = {
+            index: trial.last_result
+            for index, trial in enumerate(trials)
+            if trial.last_result
+        }
+        metrics = self.lexico_objectives["metrics"]
+        modes = self.lexico_objectives["modes"]
+        f_best = {}
+        keys = list(results.keys())
+        length = len(keys)
+        histories = defaultdict(list)
+        for time_index in range(length):
+            for objective, mode in zip(metrics, modes):
+                histories[objective].append(
+                    results[keys[time_index]][objective]
+                    if mode == "min"
+                    else -results[keys[time_index]][objective]
+                )
+        obj_initial = self.lexico_objectives["metrics"][0]
+        feasible_index = np.array([*range(len(histories[obj_initial]))])
+        for k_metric, k_mode in zip(
+            self.lexico_objectives["metrics"], self.lexico_objectives["modes"]
+        ):
+            k_values = np.array(histories[k_metric])
+            k_target = (
+                -self.lexico_objectives["targets"][k_metric]
+                if k_mode == "max"
+                else self.lexico_objectives["targets"][k_metric]
+            )
+            feasible_value = k_values.take(feasible_index)
+            f_best[k_metric] = np.min(feasible_value)
+
+            feasible_index_filter = np.where(
+                feasible_value
+                <= max(
+                    f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
+                    if not isinstance(
+                        self.lexico_objectives["tolerances"][k_metric], str
+                    )
+                    else f_best[k_metric]
+                    * (
+                        1
+                        + 0.01
+                        * float(
+                            self.lexico_objectives["tolerances"][k_metric].replace(
+                                "%", ""
+                            )
+                        )
+                    ),
+                    k_target,
+                )
+            )[0]
+            feasible_index = feasible_index.take(feasible_index_filter)
+        best_trial = trials[feasible_index[-1]]
+        return best_trial
+
+    def get_best_trial(
+        self,
+        metric: Optional[str] = None,
+        mode: Optional[str] = None,
+        scope: str = "last",
+        filter_nan_and_inf: bool = True,
+    ) -> Optional[Trial]:
+        if self.lexico_objectives is not None:
+            best_trial = self.lexico_best(self.trials)
+        else:
+            best_trial = super().get_best_trial(metric, mode, scope, filter_nan_and_inf)
+        return best_trial
+
+    @property
+    def best_result(self) -> Dict:
+        if self.lexico_best is None:
+            return super().best_result
+        else:
+            return self.best_trial.last_result
 
 
 def report(_metric=None, **kwargs):
@@ -146,7 +243,10 @@ def run(
     metric_constraints: Optional[List[Tuple[str, str, float]]] = None,
     max_failure: Optional[int] = 100,
     use_ray: Optional[bool] = False,
+    use_spark: Optional[bool] = False,
     use_incumbent_result_in_evaluation: Optional[bool] = None,
+    log_file_name: Optional[str] = None,
+    lexico_objectives: Optional[dict] = None,
     **ray_args,
 ):
     """The trigger for HPO.
@@ -277,9 +377,10 @@ def run(
         print(analysis.trials[-1].last_result)
     ```
 
-        verbose: 0, 1, 2, or 3. Verbosity mode for ray if ray backend is used.
-            0 = silent, 1 = only status updates, 2 = status and brief trial
-            results, 3 = status and detailed trial results. Defaults to 2.
+        verbose: 0, 1, 2, or 3. If ray or spark backend is used, their verbosity will be
+            affected by this argument. 0 = silent, 1 = only status updates,
+            2 = status and brief trial results, 3 = status and detailed trial results.
+            Defaults to 2.
         local_dir: A string of the local dir to save ray logs if ray backend is
             used; or a local dir to save the tuning log.
         num_samples: An integer of the number of configs to try. Defaults to 1.
@@ -298,6 +399,43 @@ def run(
         max_failure: int | the maximal consecutive number of failures to sample
             a trial before the tuning is terminated.
         use_ray: A boolean of whether to use ray as the backend.
+        use_spark: A boolean of whether to use spark as the backend.
+        log_file_name: A string of the log file name. Default to None.
+            When set to None:
+                if local_dir is not given, no log file is created;
+                if local_dir is given, the log file name will be autogenerated under local_dir.
+            Only valid when verbose > 0 or use_ray is True.
+        lexico_objectives: dict, default=None | It specifics information needed to perform multi-objective
+            optimization with lexicographic preferences. When lexico_objectives is not None, the arguments metric,
+            mode, will be invalid, and flaml's tune uses CFO
+            as the `search_alg`, which makes the input (if provided) `search_alg' invalid.
+            This dictionary shall contain the following fields of key-value pairs:
+            - "metrics":  a list of optimization objectives with the orders reflecting the priorities/preferences of the
+            objectives.
+            - "modes" (optional): a list of optimization modes (each mode either "min" or "max") corresponding to the
+            objectives in the metric list. If not provided, we use "min" as the default mode for all the objectives.
+            - "targets" (optional): a dictionary to specify the optimization targets on the objectives. The keys are the
+            metric names (provided in "metric"), and the values are the numerical target values.
+            - "tolerances" (optional): a dictionary to specify the optimality tolerances on objectives. The keys are the metric names (provided in "metrics"), and the values are the absolute/percentage tolerance in the form of numeric/string.
+            E.g.,
+    ```python
+    lexico_objectives = {
+        "metrics": ["error_rate", "pred_time"],
+        "modes": ["min", "min"],
+        "tolerances": {"error_rate": 0.01, "pred_time": 0.0},
+        "targets": {"error_rate": 0.0},
+    }
+    ```
+            We also support percentage tolerance.
+            E.g.,
+    ```python
+    lexico_objectives = {
+        "metrics": ["error_rate", "pred_time"],
+        "modes": ["min", "min"],
+        "tolerances": {"error_rate": "5%", "pred_time": "0%"},
+        "targets": {"error_rate": 0.0},
+    }
+    ```
         **ray_args: keyword arguments to pass to ray.tune.run().
             Only valid when use_ray=True.
     """
@@ -309,11 +447,26 @@ def run(
     old_verbose = _verbose
     old_running_trial = _running_trial
     old_training_iteration = _training_iteration
+    if log_file_name:
+        dir_name = os.path.dirname(log_file_name)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
+    elif local_dir and verbose > 0:
+        os.makedirs(local_dir, exist_ok=True)
+        log_file_name = os.path.join(
+            local_dir, "tune_" + str(datetime.datetime.now()).replace(":", "-") + ".log"
+        )
+    if use_ray and use_spark:
+        raise ValueError("use_ray and use_spark cannot be both True.")
     if not use_ray:
+        _use_ray = False
         _verbose = verbose
         old_handlers = logger.handlers
         old_level = logger.getEffectiveLevel()
         logger.handlers = []
+        global _runner
+        old_runner = _runner
+        assert not ray_args, "ray_args is only valid when use_ray=True"
         if (
             old_handlers
             and isinstance(old_handlers[0], logging.StreamHandler)
@@ -322,21 +475,11 @@ def run(
             # Add the console handler.
             logger.addHandler(old_handlers[0])
         if verbose > 0:
-            if local_dir:
-                import os
-
-                os.makedirs(local_dir, exist_ok=True)
-                logger.addHandler(
-                    logging.FileHandler(
-                        local_dir
-                        + "/tune_"
-                        + str(datetime.datetime.now()).replace(":", "-")
-                        + ".log"
-                    )
-                )
+            if log_file_name:
+                logger.addHandler(logging.FileHandler(log_file_name))
             elif not logger.hasHandlers():
                 # Add the console handler.
-                _ch = logging.StreamHandler()
+                _ch = logging.StreamHandler(stream=sys.stdout)
                 logger_formatter = logging.Formatter(
                     "[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s",
                     "%m-%d %H:%M:%S",
@@ -350,8 +493,13 @@ def run(
         else:
             logger.setLevel(logging.CRITICAL)
 
-    from ..searcher.blendsearch import BlendSearch, CFO
+    from .searcher.blendsearch import BlendSearch, CFO
 
+    if lexico_objectives is not None:
+        logger.warning(
+            "If lexico_objectives is not None, search_alg is forced to be CFO"
+        )
+        search_alg = None
     if search_alg is None:
         flaml_scheduler_resource_attr = (
             flaml_scheduler_min_resource
@@ -366,18 +514,26 @@ def run(
             flaml_scheduler_max_resource = max_resource
             flaml_scheduler_reduction_factor = reduction_factor
             scheduler = None
-        try:
-            import optuna as _
+        if lexico_objectives is None:
+            try:
+                import optuna as _
 
-            SearchAlgorithm = BlendSearch
-        except ImportError:
+                SearchAlgorithm = BlendSearch
+                logger.info(
+                    "Using search algorithm {}.".format(SearchAlgorithm.__name__)
+                )
+            except ImportError:
+                SearchAlgorithm = CFO
+                logger.warning(
+                    "Using CFO for search. To use BlendSearch, run: pip install flaml[blendsearch]"
+                )
+            metric = metric or DEFAULT_METRIC
+        else:
             SearchAlgorithm = CFO
-            logger.warning(
-                "Using CFO for search. To use BlendSearch, run: pip install flaml[blendsearch]"
-            )
-
+            logger.info("Using search algorithm {}.".format(SearchAlgorithm.__name__))
+            metric = lexico_objectives["metrics"][0] or DEFAULT_METRIC
         search_alg = SearchAlgorithm(
-            metric=metric or DEFAULT_METRIC,
+            metric=metric,
             mode=mode,
             space=config,
             points_to_evaluate=points_to_evaluate,
@@ -393,15 +549,19 @@ def run(
             config_constraints=config_constraints,
             metric_constraints=metric_constraints,
             use_incumbent_result_in_evaluation=use_incumbent_result_in_evaluation,
+            lexico_objectives=lexico_objectives,
         )
     else:
         if metric is None or mode is None:
             metric = metric or search_alg.metric or DEFAULT_METRIC
             mode = mode or search_alg.mode
-        if ray_import:
-            from ray.tune.suggest import ConcurrencyLimiter
+        if ray_available and use_ray:
+            if ray_version.startswith("1."):
+                from ray.tune.suggest import ConcurrencyLimiter
+            else:
+                from ray.tune.search import ConcurrencyLimiter
         else:
-            from flaml.searcher.suggestion import ConcurrencyLimiter
+            from flaml.tune.searcher.suggestion import ConcurrencyLimiter
         if (
             search_alg.__class__.__name__
             in [
@@ -439,7 +599,7 @@ def run(
             params["grace_period"] = min_resource
         if reduction_factor:
             params["reduction_factor"] = reduction_factor
-        if ray_import:
+        if ray_available:
             from ray.tune.schedulers import ASHAScheduler
 
             scheduler = ASHAScheduler(**params)
@@ -466,12 +626,152 @@ def run(
                 resources_per_trial=resources_per_trial,
                 **ray_args,
             )
+            if log_file_name:
+                with open(log_file_name, "w") as f:
+                    for trial in analysis.trials:
+                        f.write(f"result: {trial.last_result}\n")
             return analysis
         finally:
             _use_ray = old_use_ray
             _verbose = old_verbose
             _running_trial = old_running_trial
             _training_iteration = old_training_iteration
+
+    if use_spark:
+        # parallel run with spark
+        from flaml.tune.spark.utils import check_spark
+
+        spark_available, spark_error_msg = check_spark()
+        if not spark_available:
+            raise spark_error_msg
+        try:
+            from pyspark.sql import SparkSession
+            from joblib import Parallel, delayed, parallel_backend
+            from joblibspark import register_spark
+        except ImportError as e:
+            raise ImportError(
+                f"{e}. Try pip install flaml[spark] or set use_spark=False."
+            )
+        from flaml.tune.searcher.suggestion import ConcurrencyLimiter
+        from .trial_runner import SparkTrialRunner
+
+        register_spark()
+        spark = SparkSession.builder.getOrCreate()
+        sc = spark._jsc.sc()
+        num_executors = (
+            len([executor.host() for executor in sc.statusTracker().getExecutorInfos()])
+            - 1
+        )
+        """
+        By default, the number of executors is the number of VMs in the cluster. And we can
+        launch one trial per executor. However, sometimes we can launch more trials than
+        the number of executors (e.g., local mode). In this case, we can set the environment
+        variable `FLAML_MAX_CONCURRENT` to override the detected `num_executors`.
+
+        `max_concurrent` is the maximum number of concurrent trials defined by `search_alg`,
+        `FLAML_MAX_CONCURRENT` will also be used to override `max_concurrent` if `search_alg`
+        is not an instance of `ConcurrencyLimiter`.
+
+        The final number of concurrent trials is the minimum of `max_concurrent` and
+        `num_executors`.
+        """
+        num_executors = max(num_executors, int(os.getenv("FLAML_MAX_CONCURRENT", 1)), 1)
+        time_start = time.time()
+        if scheduler:
+            scheduler.set_search_properties(metric=metric, mode=mode)
+        if isinstance(search_alg, ConcurrencyLimiter):
+            max_concurrent = max(1, search_alg.max_concurrent)
+        else:
+            max_concurrent = max(1, int(os.getenv("FLAML_MAX_CONCURRENT", 1)))
+
+        n_concurrent_trials = min(num_executors, max_concurrent)
+        with parallel_backend("spark"):
+            with Parallel(
+                n_jobs=n_concurrent_trials, verbose=max(0, (verbose - 1) * 50)
+            ) as parallel:
+                try:
+                    _runner = SparkTrialRunner(
+                        search_alg=search_alg,
+                        scheduler=scheduler,
+                        metric=metric,
+                        mode=mode,
+                    )
+                    num_trials = 0
+                    if time_budget_s is None:
+                        time_budget_s = np.inf
+                    num_failures = 0
+                    upperbound_num_failures = (
+                        len(evaluated_rewards) if evaluated_rewards else 0
+                    ) + max_failure
+                    while (
+                        time.time() - time_start < time_budget_s
+                        and (num_samples < 0 or num_trials < num_samples)
+                        and num_failures < upperbound_num_failures
+                    ):
+                        while len(_runner.running_trials) < n_concurrent_trials:
+                            # suggest trials for spark
+                            trial_next = _runner.step()
+                            if trial_next:
+                                num_trials += 1
+                            else:
+                                num_failures += 1  # break with upperbound_num_failures consecutive failures
+                                logger.debug(f"consecutive failures is {num_failures}")
+                                if num_failures >= upperbound_num_failures:
+                                    break
+                        trials_to_run = _runner.running_trials
+                        if not trials_to_run:
+                            logger.warning(
+                                f"fail to sample a trial for {max_failure} times in a row, stopping."
+                            )
+                            break
+                        logger.info(
+                            f"Number of trials: {num_trials}/{num_samples}, {len(_runner.running_trials)} RUNNING,"
+                            f" {len(_runner._trials) - len(_runner.running_trials)} TERMINATED"
+                        )
+                        logger.debug(
+                            f"Configs of Trials to run: {[trial_to_run.config for trial_to_run in trials_to_run]}"
+                        )
+                        results = parallel(
+                            delayed(evaluation_function)(trial_to_run.config)
+                            for trial_to_run in trials_to_run
+                        )
+                        # results = [evaluation_function(trial_to_run.config) for trial_to_run in trials_to_run]
+                        while results:
+                            result = results.pop(0)
+                            trial_to_run = trials_to_run[0]
+                            _runner.running_trial = trial_to_run
+                            if result is not None:
+                                if isinstance(result, dict):
+                                    if result:
+                                        logger.info(f"Brief result: {result}")
+                                        report(**result)
+                                    else:
+                                        # When the result returned is an empty dict, set the trial status to error
+                                        trial_to_run.set_status(Trial.ERROR)
+                                else:
+                                    logger.info(
+                                        "Brief result: {}".format({metric: result})
+                                    )
+                                    report(_metric=result)
+                            _runner.stop_trial(trial_to_run)
+                        num_failures = 0
+                    analysis = ExperimentAnalysis(
+                        _runner.get_trials(),
+                        metric=metric,
+                        mode=mode,
+                        lexico_objectives=lexico_objectives,
+                    )
+                    return analysis
+                finally:
+                    # recover the global variables in case of nested run
+                    _use_ray = old_use_ray
+                    _verbose = old_verbose
+                    _running_trial = old_running_trial
+                    _training_iteration = old_training_iteration
+                    if not use_ray:
+                        _runner = old_runner
+                        logger.handlers = old_handlers
+                        logger.setLevel(old_level)
 
     # simple sequential run without using tune.run() from ray
     time_start = time.time()
@@ -480,8 +780,6 @@ def run(
         scheduler.set_search_properties(metric=metric, mode=mode)
     from .trial_runner import SequentialTrialRunner
 
-    global _runner
-    old_runner = _runner
     try:
         _runner = SequentialTrialRunner(
             search_alg=search_alg,
@@ -492,12 +790,14 @@ def run(
         num_trials = 0
         if time_budget_s is None:
             time_budget_s = np.inf
-        fail = 0
-        ub = (len(evaluated_rewards) if evaluated_rewards else 0) + max_failure
+        num_failures = 0
+        upperbound_num_failures = (
+            len(evaluated_rewards) if evaluated_rewards else 0
+        ) + max_failure
         while (
             time.time() - time_start < time_budget_s
             and (num_samples < 0 or num_trials < num_samples)
-            and fail < ub
+            and num_failures < upperbound_num_failures
         ):
             trial_to_run = _runner.step()
             if trial_to_run:
@@ -515,14 +815,24 @@ def run(
                     else:
                         report(_metric=result)
                 _runner.stop_trial(trial_to_run)
-                fail = 0
+                num_failures = 0
+                if trial_to_run.last_result is None:
+                    # application stops tuning by returning None
+                    # TODO document this feature when it is finalized
+                    break
             else:
-                fail += 1  # break with ub consecutive failures
-        if fail == ub:
+                # break with upperbound_num_failures consecutive failures
+                num_failures += 1
+        if num_failures == upperbound_num_failures:
             logger.warning(
                 f"fail to sample a trial for {max_failure} times in a row, stopping."
             )
-        analysis = ExperimentAnalysis(_runner.get_trials(), metric=metric, mode=mode)
+        analysis = ExperimentAnalysis(
+            _runner.get_trials(),
+            metric=metric,
+            mode=mode,
+            lexico_objectives=lexico_objectives,
+        )
         return analysis
     finally:
         # recover the global variables in case of nested run
@@ -530,7 +840,7 @@ def run(
         _verbose = old_verbose
         _running_trial = old_running_trial
         _training_iteration = old_training_iteration
-        _runner = old_runner
         if not use_ray:
+            _runner = old_runner
             logger.handlers = old_handlers
             logger.setLevel(old_level)

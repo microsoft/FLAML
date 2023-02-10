@@ -74,16 +74,64 @@ from flaml import tune
 config_search_space = {
     "x": tune.lograndint(lower=1, upper=100000),
     "y": tune.randint(lower=1, upper=100000)
-}  
+}
 
 # provide the search space to tune.run
 tune.run(..., config=config_search_space, ...)
 ```
 
-#### More details about the search space domain
+#### **Details and guidelines on hyperparameter search space**
+The corresponding value of a particular hyperparameter in the search space dictionary is called a *domain*, for example, `tune.randint(lower=1, upper=100000)` is the domain for the hyperparameter `y`.
+The domain specifies a *type* and *valid range* to sample parameters from. Supported types include float, integer, and categorical.
 
-The corresponding value of a particular hyperparameter in the search space dictionary is called a domain, for example, `tune.randint(lower=1, upper=100000)` is the domain for the hyperparameter `y`. The domain specifies a type and valid range to sample parameters from. Supported types include float, integer, and categorical. You can also specify how to sample values from certain distributions in linear scale or log scale.
-It is a common practice to sample in log scale if the valid value range is large and the evaluation function changes more regularly with respect to the log domain.
+- **Categorical hyperparameter**
+
+ If it is a categorical hyperparameter, then you should use `tune.choice(possible_choices)` in which `possible_choices` is the list of possible categorical values of the hyperparameter. For example, if you are tuning the optimizer used in model training, and the candidate optimizers are "sgd" and "adam", you should specify the search space in the following way:
+```python
+{
+    "optimizer": tune.choice(["sgd", "adam"]),
+}
+```
+- **Numerical hyperparameter**
+
+If it is a numerical hyperparameter, you need to know whether it takes integer values or float values. In addition, you need to know:
+- The range of valid values, i.e., what are the lower limit and upper limit of the hyperparameter value?
+- Do you want to sample in linear scale or log scale? It is a common practice to sample in the log scale if the valid value range is large and the evaluation function changes more regularly with respect to the log domain, as shown in the following example for learning rate tuning. In this code example, we set the lower limit and the upper limit of the learning rate to be 1/1024 and 1.0, respectively. We sample in the log space because model performance changes more regularly in the log scale with respect to the learning rate within such a large search range.
+
+```python
+{
+    "learning_rate": tune.loguniform(lower=1 / 1024, upper=1.0),
+}
+```
+When the search range of learning rate is small, it is more common to sample in the linear scale as shown in the following example,
+
+```python
+{
+    "learning_rate": tune.uniform(lower=0.1, upper=0.2),
+}
+```
+
+
+- Do you have quantization granularity requirements?
+
+When you have a desired quantization granularity for the hyperparameter change, you can use `tune.qlograndint` or `tune.qloguniform` to realize the quantization requirement. The following code example helps you realize the need for sampling uniformly in the range of 0.1 and 0.2 with increments of 0.02, i.e., the sampled learning rate can only take values in {0.1, 0.12, 0.14, 0.16, ..., 0.2},
+```python
+{
+    "learning_rate": tune.quniform(lower=0.1, upper=0.2, q=0.02),
+}
+```
+
+You can find the corresponding search space choice in the table below once you have answers to the aforementioned three questions.
+
+
+|      | Integer | Float |
+| ----------- | ----------- |-----------
+| linear scale      | tune.randint(lower: int, upper: int)| tune.uniform(lower: float, upper: float)|
+| log scale      | tune.lograndint(lower: int, upper: int, base: float = 10 | tune.loguniform(lower: float, upper: float, base: float = 10)|
+| linear scale with quantization| tune.qrandint(lower: int, upper: int, q: int = 1)| tune.quniform(lower: float, upper: float, q: float = 1)|
+log scale with quantization  | tune.qlograndint(lower: int, upper, q: int = 1, base: float = 10)| tune.qloguniform(lower: float, upper, q: float = 1, base: float = 10)
+
+
 See the example below for the commonly used types of domains.
 
 ```python
@@ -131,6 +179,7 @@ config = {
 }
 ```
 <!-- Please refer to [ray.tune](https://docs.ray.io/en/latest/tune/api_docs/search_space.html#overview) for a more comprehensive introduction about possible choices of the domain. -->
+
 
 #### Cost-related hyperparameters
 
@@ -215,33 +264,39 @@ A user can specify constraints on the configurations to be satisfied via the arg
 In the following code example, we constrain the output of `area`, which takes a configuration as input and outputs a numerical value, to be no larger than 1000.
 
 ```python
-def area(config):
-    return config["width"] * config["height"]
+def my_model_size(config):
+    return config["n_estimators"] * config["max_leaves"]
 
-flaml.tune.run(evaluation_function=evaluate_config, mode="min",
-               config=config_search_space,
-               config_constraints=[(area, "<=", 1000)], ...)
+analysis = tune.run(...,
+    config_constraints = [(my_model_size, "<=", 40)],
+)
 ```
 
- You can also specify a list of metric constraints to be satisfied via the argument `metric_constraints`. Each element in the `metric_constraints` list is a tuple that consists of (1) a string specifying the name of the metric (the metric name must be defined and returned in the user-defined `evaluation_function`); (2) an operation chosen from "<=" or ">="; (3) a numerical threshold.  
+ You can also specify a list of metric constraints to be satisfied via the argument `metric_constraints`. Each element in the `metric_constraints` list is a tuple that consists of (1) a string specifying the name of the metric (the metric name must be defined and returned in the user-defined `evaluation_function`); (2) an operation chosen from "<=" or ">="; (3) a numerical threshold.
 
- In the following code example, we constrain the metric `score` to be no larger than 0.4.
+ In the following code example, we constrain the metric `training_cost` to be no larger than 1 second.
 
 ```python
-flaml.tune.run(evaluation_function=evaluate_config, mode="min",
-               config=config_search_space,
-               metric_constraints=[("score", "<=", 0.4)],...)
+analysis = tune.run(...,
+    metric_constraints = [("training_cost", "<=", 1)]),
 ```
+
+#### **`config_constraints` vs `metric_constraints`:**
+The key difference between these two types of constraints is that the calculation of constraints in `config_constraints` does not rely on the computation procedure in the evaluation function, i.e., in `evaluation_function`. For example, when a constraint only depends on the config itself, as shown in the code example. Due to this independency, constraints in `config_constraints` will be checked before evaluation. So configurations that do not satisfy `config_constraints` will not be evaluated.
+
 
 ### Parallel tuning
 
 Related arguments:
 
 - `use_ray`: A boolean of whether to use ray as the backend.
+- `use_spark`: A boolean of whether to use spark as the backend.
 - `resources_per_trial`: A dictionary of the hardware resources to allocate per trial, e.g., `{'cpu': 1}`. Only valid when using ray backend.
 
 
-You can perform parallel tuning by specifying `use_ray=True` (requiring flaml[ray] option installed). You can also limit the amount of resources allocated per trial by specifying `resources_per_trial`, e.g., `resources_per_trial={'cpu': 2}`.
+You can perform parallel tuning by specifying `use_ray=True` (requiring flaml[ray] option installed) or `use_spark=True`
+(requiring flaml[spark] option installed). You can also limit the amount of resources allocated per trial by specifying `resources_per_trial`,
+e.g., `resources_per_trial={'cpu': 2}` when `use_ray=True`.
 
 ```python
 # require: pip install flaml[ray]
@@ -254,6 +309,21 @@ analysis = tune.run(
     time_budget_s=10,  # the time budget in seconds
     use_ray=True,
     resources_per_trial={"cpu": 2}  # limit resources allocated per trial
+)
+print(analysis.best_trial.last_result)  # the best trial's result
+print(analysis.best_config)  # the best config
+```
+
+```python
+# require: pip install flaml[spark]
+analysis = tune.run(
+    evaluate_config,  # the function to evaluate a config
+    config=config_search_space,  # the search space defined
+    metric="score",
+    mode="min",  # the optimization mode, "min" or "max"
+    num_samples=-1,  # the maximal number of configs to try, -1 means infinite
+    time_budget_s=10,  # the time budget in seconds
+    use_spark=True,
 )
 print(analysis.best_trial.last_result)  # the best trial's result
 print(analysis.best_config)  # the best config
@@ -287,7 +357,8 @@ In the following code example, we consider the sample size as the resource dimen
 ```python
 from flaml import tune
 from functools import partial
-from flaml.data import load_openml_task
+from flaml.automl.data import load_openml_task
+
 
 def obj_from_resource_attr(resource_attr, X_train, X_test, y_train, y_test, config):
     from lightgbm import LGBMClassifier
@@ -310,13 +381,14 @@ def obj_from_resource_attr(resource_attr, X_train, X_test, y_train, y_test, conf
     test_loss = 1.0 - accuracy_score(y_test, y_test_predict)
     return {resource_attr: resource, "loss": test_loss}
 
+
 X_train, X_test, y_train, y_test = load_openml_task(task_id=7592, data_dir="test/")
 max_resource = len(y_train)
 resource_attr = "sample_size"
 min_resource = 1000
 analysis = tune.run(
     partial(obj_from_resource_attr, resource_attr, X_train, X_test, y_train, y_test),
-    config = {
+    config={
         "n_estimators": tune.lograndint(lower=4, upper=32768),
         "max_leaves": tune.lograndint(lower=4, upper=32768),
         "learning_rate": tune.loguniform(lower=1 / 1024, upper=1.0),
@@ -462,6 +534,37 @@ analysis = tune.run(
 )
 ```
 
+### Lexicographic Objectives
+We support tuning multiple objectives with lexicographic preference by providing argument `lexico_objectives` for `tune.run()`.
+`lexico_objectives` is a dictionary that contains the following fields of key-value pairs:
+ - `metrics`: a list of optimization objectives with the orders reflecting the priorities/preferences of the objectives.
+ - `modes`: (optional) a list of optimization modes (each mode either "min" or "max") corresponding to the objectives in the metric list. If not provided, we use "min" as the default mode for all the objectives.
+ - `tolerances`: (optional) a dictionary to specify the optimality tolerances on objectives. The keys are the metric names (provided in "metrics"), and the values are the absolute/percentage tolerance in the form of numeric/string.
+ - `targets`: (optional) a dictionary to specify the optimization targets on the objectives. The keys are the metric names (provided in "metric"), and the values are the numerical target values.
+
+In the following example, we want to minimize `val_loss` and `pred_time` of the model where `val_loss` has high priority. The tolerances for `val_loss` and `pre_time` are 0.02 and 0 respectively. We do not set targets for these two objectives and we set them to -inf for both objectives.
+
+```python
+lexico_objectives = {}
+lexico_objectives["metrics"] = ["val_loss", "pred_time"]
+lexico_objectives["modes"] = ["min", "min"]
+lexico_objectives["tolerances"] = {"val_loss": 0.02, "pred_time": 0.0}
+lexico_objectives["targets"] = {"val_loss": -float('inf'), "pred_time": -float('inf')}
+
+# provide the lexico_objectives to tune.run
+tune.run(..., search_alg=None, lexico_objectives=lexico_objectives)
+```
+
+We also supports providing percentage tolerance as shown below.
+
+```python
+lexico_objectives["tolerances"] = {"val_loss": "10%", "pred_time": "0%"}
+```
+NOTE:
+
+1. When lexico_objectives is not None, the arguments metric, mode, will be invalid, and flaml's tune uses CFO as the `search_alg`, which makes the input (if provided) `search_alg` invalid.
+
+2. This is a new feature that will be released in version 1.1.0 and is subject to change in the future version.
 
 ## Hyperparameter Optimization Algorithm
 

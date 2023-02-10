@@ -5,7 +5,6 @@ try:
     from ray.tune import (
         uniform,
         quniform,
-        choice,
         randint,
         qrandint,
         randn,
@@ -15,11 +14,15 @@ try:
         lograndint,
         qlograndint,
     )
+
+    if ray_version.startswith("1."):
+        from ray.tune import sample
+    else:
+        from ray.tune.search import sample
 except (ImportError, AssertionError):
     from .sample import (
         uniform,
         quniform,
-        choice,
         randint,
         qrandint,
         randn,
@@ -29,7 +32,9 @@ except (ImportError, AssertionError):
         lograndint,
         qlograndint,
     )
+    from . import sample
 from .tune import run, report, INCUMBENT_RESULT
 from .sample import polynomial_expansion_set
 from .sample import PolynomialExpansionSet, Categorical, Float
 from .trial import Trial
+from .utils import choice

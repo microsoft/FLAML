@@ -38,6 +38,13 @@ automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_
 automl.predict(X_test)
 ```
 
+Notice that after you run `automl.fit`, the intermediate checkpoints are saved under the specified output_dir `data/output`. You can use the following code to clean these outputs if they consume a large storage space:
+
+```python
+if os.path.exists("data/output/"):
+    shutil.rmtree("data/output/")
+```
+
 #### Sample output
 
 ```
@@ -86,7 +93,6 @@ automl_settings["fit_kwargs_by_estimator"] = {  # setting the huggingface argume
     "transformer": {
         "model_path": "google/electra-small-discriminator", # if model_path is not set, the default model is facebook/muppet-roberta-base: https://huggingface.co/facebook/muppet-roberta-base
         "output_dir": "data/output/",                       # setting the output directory
-        "ckpt_per_epoch": 5,                                # setting the number of checkpoints per epoch
         "fp16": False,
     }   # setting whether to use FP16
 }
@@ -138,7 +144,6 @@ automl_settings["fit_kwargs_by_estimator"] = {      # setting the huggingface ar
     "transformer": {
         "model_path": "t5-small",             # if model_path is not set, the default model is t5-small: https://huggingface.co/t5-small
         "output_dir": "data/output/",         # setting the output directory
-        "ckpt_per_epoch": 5,                  # setting the number of checkpoints per epoch
         "fp16": False,
     } # setting whether to use FP16
 }
@@ -366,6 +371,6 @@ For tasks that are not currently supported, use `flaml.tune` for [customized tun
 
 ### Link to Jupyter notebook
 
-To run these examples in our Jupyter notebook, please go to:
+To run more examples, especially examples using Ray Tune, please go to:
 
 [Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/automl_nlp.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/automl_nlp.ipynb)

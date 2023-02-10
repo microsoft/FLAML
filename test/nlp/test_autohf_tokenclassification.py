@@ -1,6 +1,8 @@
 import sys
 import pytest
 import requests
+import os
+import shutil
 from utils import (
     get_toy_data_tokenclassification_idlabel,
     get_toy_data_tokenclassification_tokenlabel,
@@ -9,8 +11,8 @@ from utils import (
 
 
 @pytest.mark.skipif(
-    sys.platform == "darwin" or sys.version < "3.7",
-    reason="do not run on mac os or py<3.7",
+    sys.platform in ["darwin", "win32"] or sys.version < "3.7",
+    reason="do not run on mac os, windows or py<3.7",
 )
 def test_tokenclassification_idlabel():
     from flaml import AutoML
@@ -62,10 +64,16 @@ def test_tokenclassification_idlabel():
                 if min_inter_result != sys.maxsize:
                     assert val_loss == min_inter_result
 
+    if os.path.exists("test/data/output/"):
+        try:
+            shutil.rmtree("test/data/output/")
+        except PermissionError:
+            print("PermissionError when deleting test/data/output/")
+
 
 @pytest.mark.skipif(
-    sys.platform == "darwin" or sys.version < "3.7",
-    reason="do not run on mac os or py<3.7",
+    sys.platform in ["darwin", "win32"] or sys.version < "3.7",
+    reason="do not run on mac os, windows or py<3.7",
 )
 def test_tokenclassification_tokenlabel():
     from flaml import AutoML
@@ -105,6 +113,12 @@ def test_tokenclassification_tokenlabel():
 
                 if min_inter_result != sys.maxsize:
                     assert val_loss == min_inter_result
+
+    if os.path.exists("test/data/output/"):
+        try:
+            shutil.rmtree("test/data/output/")
+        except PermissionError:
+            print("PermissionError when deleting test/data/output/")
 
 
 if __name__ == "__main__":

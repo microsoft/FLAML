@@ -1,6 +1,6 @@
 """Require: pip install flaml[test,ray]
 """
-from flaml.searcher.blendsearch import BlendSearch
+from flaml import BlendSearch
 import time
 import os
 from sklearn.model_selection import train_test_split
@@ -46,7 +46,8 @@ def test_nested_run():
         metric="loss",
         mode="min",
         num_samples=5,
-        local_dir="logs",
+        log_file_name="logs/create/nested.log",
+        verbose=3,
     )
     print(analysis.best_result)
 
@@ -144,7 +145,7 @@ def _test_xgboost(method="BlendSearch"):
                         },
                     )
                 elif "CFOCat" == method:
-                    from flaml.searcher.cfo_cat import CFOCat
+                    from flaml.tune.searcher.cfo_cat import CFOCat
 
                     algo = CFOCat(
                         low_cost_partial_config={

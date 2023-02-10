@@ -1,8 +1,15 @@
 # Frequently Asked Questions
 
+### [Guidelines on how to set a hyperparameter search space](Use-Cases/Tune-User-Defined-Function#details-and-guidelines-on-hyperparameter-search-space)
+
+### [Guidelines on parallel vs seqential tuning](Use-Cases/Task-Oriented-AutoML#guidelines-on-parallel-vs-sequential-tuning)
+
+### [Guidelines on creating and tuning a custom estimator](Use-Cases/Task-Oriented-AutoML#guidelines-on-tuning-a-custom-estimator)
+
+
 ### About `low_cost_partial_config` in `tune`.
 
-- Definition and purpose: The `low_cost_partial_config` is a dictionary of subset of the hyperparameter coordinates whose value corresponds to a configuration with known low-cost (i.e., low computation cost for training the corresponding model).  The concept of low/high-cost is meaningful in the case where a subset of the hyperparameters to tune directly affects the computation cost for training the model. For example, `n_estimators` and `max_leaves` are known to affect the training cost of tree-based learners. We call this subset of hyperparameters, *cost-related hyperparameters*. In such scenarios, if you are aware of low-cost configurations for the cost-related hyperparameters, you are recommended to set them as the `low_cost_partial_config`. Using the tree-based method example again, since we know that small `n_estimators` and  `max_leaves` generally correspond to simpler models and thus lower cost, we set `{'n_estimators': 4, 'max_leaves': 4}` as the `low_cost_partial_config` by default (note that `4` is the lower bound of search space for these two hyperparameters), e.g., in [LGBM](https://github.com/microsoft/FLAML/blob/main/flaml/model.py#L215).  Configuring `low_cost_partial_config` helps the search algorithms make more cost-efficient choices.  
+- Definition and purpose: The `low_cost_partial_config` is a dictionary of subset of the hyperparameter coordinates whose value corresponds to a configuration with known low-cost (i.e., low computation cost for training the corresponding model).  The concept of low/high-cost is meaningful in the case where a subset of the hyperparameters to tune directly affects the computation cost for training the model. For example, `n_estimators` and `max_leaves` are known to affect the training cost of tree-based learners. We call this subset of hyperparameters, *cost-related hyperparameters*. In such scenarios, if you are aware of low-cost configurations for the cost-related hyperparameters, you are recommended to set them as the `low_cost_partial_config`. Using the tree-based method example again, since we know that small `n_estimators` and  `max_leaves` generally correspond to simpler models and thus lower cost, we set `{'n_estimators': 4, 'max_leaves': 4}` as the `low_cost_partial_config` by default (note that `4` is the lower bound of search space for these two hyperparameters), e.g., in [LGBM](https://github.com/microsoft/FLAML/blob/main/flaml/model.py#L215).  Configuring `low_cost_partial_config` helps the search algorithms make more cost-efficient choices.
 In AutoML, the `low_cost_init_value` in `search_space()` function for each estimator serves the same role.
 
 - Usage in practice: It is recommended to configure it if there are cost-related hyperparameters in your tuning task and you happen to know the low-cost values for them, but it is not required (It is fine to leave it the default value, i.e., `None`).
@@ -59,3 +66,16 @@ Packages such as `azureml-interpret` and `sklearn.inspection.permutation_importa
 Model explanation is frequently asked and adding a native support may be a good feature. Suggestions/contributions are welcome.
 
 Optimization history can be checked from the [log](Use-Cases/Task-Oriented-AutoML#log-the-trials). You can also [retrieve the log and plot the learning curve](Use-Cases/Task-Oriented-AutoML#plot-learning-curve).
+
+
+### How to resolve out-of-memory error in `AutoML.fit()`
+
+* Set `free_mem_ratio` a float between 0 and 1. For example, 0.2 means try to keep free memory above 20% of total memory. Training may be early stopped for memory consumption reason when this is set.
+* Set `model_history` False.
+* If your data are already preprocessed, set `skip_transform` False. If you can preprocess the data before the fit starts, this setting can save memory needed for preprocessing in `fit`.
+* If the OOM error only happens for some particular trials:
+    - set `use_ray` True. This will increase the overhead per trial but can keep the AutoML process running when a single trial fails due to OOM error.
+    - provide a more accurate [`size`](reference/automl/model#size) function for the memory bytes consumption of each config for the estimator causing this error.
+    - modify the [search space](Use-Cases/Task-Oriented-AutoML#a-shortcut-to-override-the-search-space) for the estimators causing this error.
+    - or remove this estimator from the `estimator_list`.
+* If the OOM error happens when ensembling, consider disabling ensemble, or use a cheaper ensemble option. ([Example](Use-Cases/Task-Oriented-AutoML#ensemble)).
