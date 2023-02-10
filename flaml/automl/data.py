@@ -252,6 +252,15 @@ def get_output_from_log(filename, time_budget):
 
 def concat(X1, X2):
     """concatenate two matrices vertically."""
+    if type(X1) != type(X2):
+        if isinstance(X2, (psDataFrame, psSeries)):
+            X1 = ps.from_pandas(pd.DataFrame(X1))
+        elif isinstance(X1, (psDataFrame, psSeries)):
+            X2 = ps.from_pandas(pd.DataFrame(X2))
+        else:
+            X1 = pd.DataFrame(X1)
+            X2 = pd.DataFrame(X2)
+
     if isinstance(X1, (DataFrame, Series)):
         df = pd.concat([X1, X2], sort=False)
         df.reset_index(drop=True, inplace=True)

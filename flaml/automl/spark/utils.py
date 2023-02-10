@@ -156,7 +156,7 @@ def len_labels(y, return_labels=False):
     if not isinstance(y, (ps.DataFrame, ps.Series)):
         labels = np.unique(y)
     else:
-        labels = y.unique()
+        labels = y.unique() if isinstance(y, ps.Series) else y.iloc[:, 0].unique()
     if return_labels:
         return len(labels), labels
     return len(labels)
