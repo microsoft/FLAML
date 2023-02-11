@@ -433,7 +433,7 @@ def _eval_estimator(
 
 def get_val_loss(
     config,
-    estimator: Optional[EstimatorSubclass],
+    estimator: EstimatorSubclass,
     X_train,
     y_train,
     X_val,
@@ -623,13 +623,18 @@ def compute_estimator(
     eval_method: str,
     eval_metric: Union[str, Callable],
     best_val_loss=np.Inf,
-    n_jobs: int = 1,
+    n_jobs: Optional[
+        int
+    ] = 1,  # some estimators of EstimatorSubclass don't accept n_jobs. Should be None in that case.
     estimator_class: Optional[EstimatorSubclass] = None,
     cv_score_agg_func: Optional[callable] = None,
     log_training_metric: Optional[bool] = False,
-    fit_kwargs: dict = {},
+    fit_kwargs: Optional[dict] = None,
     free_mem_ratio=0,
 ):
+    if not fit_kwargs:
+        fit_kwargs = {}
+
     estimator_class = estimator_class or get_estimator_class(task, estimator_name)
     estimator = estimator_class(
         **config_dic,
@@ -692,10 +697,10 @@ def train_estimator(
     y_train,
     task: str,
     estimator_name: str,
-    n_jobs: int = 1,
+    n_jobs: Optional[int] = 1,
     estimator_class: Optional[EstimatorSubclass] = None,
     budget=None,
-    fit_kwargs: dict = {},
+    fit_kwargs: Optional[dict] = None,
     eval_metric=None,
     free_mem_ratio=0,
 ) -> Tuple[EstimatorSubclass, float]:
@@ -706,6 +711,9 @@ def train_estimator(
         task=task,
         n_jobs=n_jobs,
     )
+    if not fit_kwargs:
+        fit_kwargs = {}
+
     if isinstance(estimator, TransformersEstimator):
         fit_kwargs["metric"] = eval_metric
 
