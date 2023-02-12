@@ -62,6 +62,7 @@ class BlendSearch(Searcher):
         metric_constraints: Optional[List[Tuple[str, str, float]]] = None,
         seed: Optional[int] = 20,
         cost_attr: Optional[str] = "auto",
+        cost_budget: Optional[float] = None,
         experimental: Optional[bool] = False,
         lexico_objectives: Optional[dict] = None,
         use_incumbent_result_in_evaluation=False,
@@ -90,7 +91,8 @@ class BlendSearch(Searcher):
                 needing to re-compute the trial. Must be the same or shorter length than
                 points_to_evaluate. When provided, `mode` must be specified.
             time_budget_s: int or float | Time budget in seconds.
-            num_samples: int | The number of configs to try.
+            num_samples: int | The number of configs to try. -1 means no limit on the
+                number of configs to try.
             resource_attr: A string to specify the resource dimension and the best
                 performance is assumed to be at the max_resource.
             min_resource: A float of the minimal resource to use for the resource_attr.
@@ -110,10 +112,12 @@ class BlendSearch(Searcher):
             metric_constraints: A list of metric constraints to be satisfied.
                 E.g., `['precision', '>=', 0.9]`. The sign can be ">=" or "<=".
             seed: An integer of the random seed.
-            cost_attr: Choose from ["auto", None] to specify the attribute to evaluate the cost of different trials.
-                Default is "auto", which means that we will automatically chose the cost attribute to use (depending
+            cost_attr: None or str to specify the attribute to evaluate the cost of different trials.
+                Default is "auto", which means that we will automatically choose the cost attribute to use (depending
                 on the nature of the resource budget). When cost_attr is set to None, cost differences between different trials will be omitted
-                in our search algorithm.
+                in our search algorithm. When cost_attr is set to a str different from "auto" and "time_total_s",
+                this cost_attr must be available in the result dict of the trial.
+            cost_budget: A float of the cost budget. Only valid when cost_attr is a str different from "auto" and "time_total_s".
             lexico_objectives: dict, default=None | It specifics information needed to perform multi-objective
                 optimization with lexicographic preferences. This is only supported in CFO currently.
                 When lexico_objectives is not None, the arguments metric, mode will be invalid.
@@ -124,8 +128,7 @@ class BlendSearch(Searcher):
                 objectives in the metric list. If not provided, we use "min" as the default mode for all the objectives.
                 - "targets" (optional): a dictionary to specify the optimization targets on the objectives. The keys are the
                 metric names (provided in "metric"), and the values are the numerical target values.
-                - "tolerances"(optional): a dictionary to specify the optimality tolerances on objectives. The keys are the
-                metric names (provided in "metrics"), and the values are the numerical tolerances values.
+                - "tolerances" (optional): a dictionary to specify the optimality tolerances on objectives. The keys are the metric names (provided in "metrics"), and the values are the absolute/percentage tolerance in the form of numeric/string.
                 E.g.,
                 ```python
                 lexico_objectives = {
@@ -134,6 +137,16 @@ class BlendSearch(Searcher):
                     "tolerances": {"error_rate": 0.01, "pred_time": 0.0},
                     "targets": {"error_rate": 0.0},
                 }
+                ```
+                We also support percentage tolerance.
+                E.g.,
+                ```python
+                lexico_objectives = {
+                    "metrics": ["error_rate", "pred_time"],
+                    "modes": ["min", "min"],
+                    "tolerances": {"error_rate": "5%", "pred_time": "0%"},
+                    "targets": {"error_rate": 0.0},
+                   }
                 ```
             experimental: A bool of whether to use experimental features.
         """
@@ -144,9 +157,10 @@ class BlendSearch(Searcher):
                 self.cost_attr = TIME_TOTAL_S
             else:
                 self.cost_attr = None
+            self._cost_budget = None
         else:
             self.cost_attr = cost_attr
-
+            self._cost_budget = cost_budget
         self.penalty = PENALTY  # penalty term for constraints
         self._metric, self._mode = metric, mode
         self._use_incumbent_result_in_evaluation = use_incumbent_result_in_evaluation
@@ -214,11 +228,12 @@ class BlendSearch(Searcher):
             else:
                 gs_space = space
             gs_seed = seed - 10 if (seed - 10) >= 0 else seed - 11 + (1 << 32)
+            self._gs_seed = gs_seed
             if experimental:
                 import optuna as ot
 
                 sampler = ot.samplers.TPESampler(
-                    seed=seed, multivariate=True, group=True
+                    seed=gs_seed, multivariate=True, group=True
                 )
             else:
                 sampler = None
@@ -298,7 +313,7 @@ class BlendSearch(Searcher):
                         space=self._gs._space,
                         metric=metric,
                         mode=mode,
-                        sampler=self._gs._sampler,
+                        seed=self._gs_seed,
                     )
                     self._gs.space = self._ls.space
                 self._init_search()
@@ -310,15 +325,16 @@ class BlendSearch(Searcher):
                 self._time_used += now - self._start_time
                 self._start_time = now
                 self._set_deadline()
-                if self._input_cost_attr == "auto":
+                if self._input_cost_attr == "auto" and self._time_budget_s:
                     self.cost_attr = self._ls.cost_attr = TIME_TOTAL_S
             if "metric_target" in spec:
                 self._metric_target = spec.get("metric_target")
-            if "num_samples" in spec:
+            num_samples = spec.get("num_samples")
+            if num_samples is not None:
                 self._num_samples = (
-                    spec["num_samples"]
-                    + len(self._result)
-                    + len(self._trial_proposed_by)
+                    (num_samples + len(self._result) + len(self._trial_proposed_by))
+                    if num_samples > 0  # 0 is currently treated the same as -1
+                    else num_samples
                 )
         return True
 
@@ -377,6 +393,7 @@ class BlendSearch(Searcher):
         i = 0
         # config_signature: tuple -> result: Dict
         self._result = {}
+        self._cost_used = 0
         while self._evaluated_rewards:
             # go over the evaluated rewards
             trial_id = f"trial_for_evaluated_{i}"
@@ -456,6 +473,7 @@ class BlendSearch(Searcher):
             if error:  # remove from result cache
                 del self._result[signature]
             else:  # add to result cache
+                self._cost_used += result.get(self.cost_attr, 0)
                 self._result[signature] = result
                 # update target metric if improved
                 objective = result[self._ls.metric]
@@ -654,10 +672,11 @@ class BlendSearch(Searcher):
         for key in upper:
             ub = upper[key]
             if isinstance(ub, list):
-                choice = space[key]["_choice_"]
-                self._expand_admissible_region(
-                    lower[key][choice], upper[key][choice], space[key]
-                )
+                choice = space[key].get("_choice_")
+                if choice:
+                    self._expand_admissible_region(
+                        lower[key][choice], upper[key][choice], space[key]
+                    )
             elif isinstance(ub, dict):
                 self._expand_admissible_region(lower[key], ub, space[key])
             else:
@@ -690,9 +709,9 @@ class BlendSearch(Searcher):
     def suggest(self, trial_id: str) -> Optional[Dict]:
         """choose thread, suggest a valid config."""
         if self._init_used and not self._points_to_evaluate:
+            if self._cost_budget and self._cost_used >= self._cost_budget:
+                return None
             choice, backup = self._select_thread()
-            # if choice < 0:  # timeout
-            #     return None
             config = self._search_thread_pool[choice].suggest(trial_id)
             if not choice and config is not None and self._ls.resource:
                 config[self._ls.resource_attr] = self.best_resource
@@ -705,19 +724,19 @@ class BlendSearch(Searcher):
                         self._search_thread_pool[choice].space,
                     )
                     del self._search_thread_pool[choice]
-                return None
+                return
             # preliminary check; not checking config validation
             space = self._search_thread_pool[choice].space
             skip = self._should_skip(choice, trial_id, config, space)
             use_rs = 0
             if skip:
                 if choice:
-                    return None
+                    return
                 # use rs when BO fails to suggest a config
                 config, space = self._ls.complete_config({})
                 skip = self._should_skip(-1, trial_id, config, space)
                 if skip:
-                    return None
+                    return
                 use_rs = 1
             if choice or self._valid(
                 config,
@@ -744,7 +763,7 @@ class BlendSearch(Searcher):
                     space = thread.space
                     skip = self._should_skip(backup, trial_id, config, space)
                     if skip:
-                        return None
+                        return
                     self._trial_proposed_by[trial_id] = backup
                     choice = backup
             if not choice:  # global search
@@ -789,14 +808,14 @@ class BlendSearch(Searcher):
             if reward is None:
                 result = self._result.get(config_signature)
                 if result:  # tried before
-                    return None
+                    return
                 elif result is None:  # not tried before
                     if self._violate_config_constriants(config, config_signature):
                         # violate config constraints
-                        return None
+                        return
                     self._result[config_signature] = {}
                 else:  # running but no result yet
-                    return None
+                    return
             self._init_used = True
             self._trial_proposed_by[trial_id] = 0
             self._search_thread_pool[0].running += 1
@@ -805,7 +824,7 @@ class BlendSearch(Searcher):
                 result = {self._metric: reward, self.cost_attr: 1, "config": config}
                 # result = self._result[config_signature]
                 self.on_trial_complete(trial_id, result)
-                return None
+                return
         if self._use_incumbent_result_in_evaluation:
             if self._trial_proposed_by[trial_id] > 0:
                 choice_thread = self._search_thread_pool[
@@ -888,6 +907,8 @@ class BlendSearch(Searcher):
                     time_used = now - self._start_time + self._time_used
                     min_eci = min(min_eci, time_used / num_finished * num_left)
                 # print(f"{min_eci}, {time_used / num_finished * num_left}, {num_finished}, {num_left}")
+        elif self.cost_attr is not None and self._cost_budget:
+            min_eci = max(self._cost_budget - self._cost_used, 0)
         elif self._num_samples and self._num_samples > 0:
             num_finished = len(self._result)
             num_proposed = num_finished + len(self._trial_proposed_by)

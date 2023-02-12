@@ -3,7 +3,7 @@ import unittest
 from sklearn.datasets import fetch_openml
 from sklearn.model_selection import train_test_split
 from flaml.automl import AutoML
-from flaml.model import XGBoostSklearnEstimator
+from flaml.automl.model import XGBoostSklearnEstimator
 from flaml import tune
 
 
@@ -77,7 +77,9 @@ def test_simple(method=None):
         min_resource=automl.min_resource,
         max_resource=automl.max_resource,
         time_budget_s=automl._state.time_budget,
-        config_constraints=[(partial(size, automl._state), "<=", automl._mem_thres)],
+        config_constraints=[
+            (partial(size, automl._state.learner_classes), "<=", automl._mem_thres)
+        ],
         metric_constraints=automl.metric_constraints,
         num_samples=5,
     )

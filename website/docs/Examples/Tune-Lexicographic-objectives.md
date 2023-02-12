@@ -3,8 +3,9 @@
 ## Requirements
 
 ```python
-pip install flaml thop torchvision torch
+pip install "flaml>=1.1.0" thop torchvision torch
 ```
+Tuning multiple objectives with Lexicographic preference is a new feature added in version 1.1.0 and is subject to change in future versions.
 
 ## Tuning accurate and efficient neural networks with lexicographic preference
 
@@ -161,5 +162,10 @@ analysis = tune.run(
 )
 ```
 
+We also support providing percentage tolerance as shown below.
+
+```python
+lexico_objectives["tolerances"] = {"error_rate": "5%", "flops": "0%"}
+```
 
 [Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/tune_lexicographic.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/tune_lexicographic.ipynb)

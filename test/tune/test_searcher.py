@@ -31,7 +31,7 @@ def wrong_define_search_space(trial):
     return {1: 1}
 
 
-def test_searcher():
+def test_searchers():
     from flaml.tune.searcher.suggestion import (
         OptunaSearch,
         Searcher,
@@ -194,8 +194,8 @@ def test_searcher():
     searcher.on_trial_complete("t2", None, True)
     searcher.suggest("t3")
     searcher.on_trial_complete("t3", {"m": np.nan})
-    searcher.save("test/tune/optuna.pickle")
-    searcher.restore("test/tune/optuna.pickle")
+    searcher.save("test/tune/optuna.pkl")
+    searcher.restore("test/tune/optuna.pkl")
     try:
         searcher = BlendSearch(
             metric="m", global_search_alg=searcher, metric_constraints=[("c", "<", 1)]
@@ -303,6 +303,13 @@ def test_searcher():
     from flaml import tune
 
     tune.run(lambda x: 1, config={}, use_ray=use_ray, log_file_name="logs/searcher.log")
+    searcher = BlendSearch(
+        space=config, cost_attr="cost", cost_budget=10, metric="m", mode="min"
+    )
+    analysis = tune.run(
+        lambda x: {"cost": 2, "m": x["b"]}, search_alg=searcher, num_samples=10
+    )
+    assert len(analysis.trials) == 5
 
 
 def test_no_optuna():
