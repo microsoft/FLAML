@@ -64,7 +64,11 @@ class ExperimentAnalysis(EA):
             return self.get_best_config(self.default_metric, self.default_mode)
 
     def lexico_best(self, trials):
-        results = {index: trial.last_result for index, trial in enumerate(trials)}
+        results = {
+            index: trial.last_result
+            for index, trial in enumerate(trials)
+            if trial.last_result
+        }
         metrics = self.lexico_objectives["metrics"]
         modes = self.lexico_objectives["modes"]
         f_best = {}
@@ -91,14 +95,25 @@ class ExperimentAnalysis(EA):
             )
             feasible_value = k_values.take(feasible_index)
             f_best[k_metric] = np.min(feasible_value)
+
             feasible_index_filter = np.where(
                 feasible_value
                 <= max(
-                    [
-                        f_best[k_metric]
-                        + self.lexico_objectives["tolerances"][k_metric],
-                        k_target,
-                    ]
+                    f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
+                    if not isinstance(
+                        self.lexico_objectives["tolerances"][k_metric], str
+                    )
+                    else f_best[k_metric]
+                    * (
+                        1
+                        + 0.01
+                        * float(
+                            self.lexico_objectives["tolerances"][k_metric].replace(
+                                "%", ""
+                            )
+                        )
+                    ),
+                    k_target,
                 )
             )[0]
             feasible_index = feasible_index.take(feasible_index_filter)
@@ -401,14 +416,23 @@ def run(
             objectives in the metric list. If not provided, we use "min" as the default mode for all the objectives.
             - "targets" (optional): a dictionary to specify the optimization targets on the objectives. The keys are the
             metric names (provided in "metric"), and the values are the numerical target values.
-            - "tolerances" (optional): a dictionary to specify the optimality tolerances on objectives. The keys are the
-            metric names (provided in "metrics"), and the values are the numerical tolerances values.
+            - "tolerances" (optional): a dictionary to specify the optimality tolerances on objectives. The keys are the metric names (provided in "metrics"), and the values are the absolute/percentage tolerance in the form of numeric/string.
             E.g.,
     ```python
     lexico_objectives = {
         "metrics": ["error_rate", "pred_time"],
         "modes": ["min", "min"],
         "tolerances": {"error_rate": 0.01, "pred_time": 0.0},
+        "targets": {"error_rate": 0.0},
+    }
+    ```
+            We also support percentage tolerance.
+            E.g.,
+    ```python
+    lexico_objectives = {
+        "metrics": ["error_rate", "pred_time"],
+        "modes": ["min", "min"],
+        "tolerances": {"error_rate": "5%", "pred_time": "0%"},
         "targets": {"error_rate": 0.0},
     }
     ```
@@ -423,7 +447,11 @@ def run(
     old_verbose = _verbose
     old_running_trial = _running_trial
     old_training_iteration = _training_iteration
-    if local_dir and not log_file_name and verbose > 0:
+    if log_file_name:
+        dir_name = os.path.dirname(log_file_name)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
+    elif local_dir and verbose > 0:
         os.makedirs(local_dir, exist_ok=True)
         log_file_name = os.path.join(
             local_dir, "tune_" + str(datetime.datetime.now()).replace(":", "-") + ".log"
@@ -448,9 +476,6 @@ def run(
             logger.addHandler(old_handlers[0])
         if verbose > 0:
             if log_file_name:
-                dir_name = os.path.dirname(log_file_name)
-                if dir_name:
-                    os.makedirs(dir_name, exist_ok=True)
                 logger.addHandler(logging.FileHandler(log_file_name))
             elif not logger.hasHandlers():
                 # Add the console handler.
