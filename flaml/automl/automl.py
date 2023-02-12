@@ -31,6 +31,7 @@ from flaml.config import (
     SAMPLE_MULTIPLY_FACTOR,
 )
 from flaml.automl.data import concat
+
 # TODO check to see when we can remove these
 from flaml.automl.task.task import (
     CLASSIFICATION,
@@ -804,7 +805,9 @@ class AutoML(BaseEstimator):
             if preserve_checkpoint is None
             else preserve_checkpoint
         )
-        task.validate_data(self, self._state, X_train, y_train, dataframe, label, groups=groups)
+        task.validate_data(
+            self, self._state, X_train, y_train, dataframe, label, groups=groups
+        )
 
         logger.info("log file name {}".format(log_file_name))
 
@@ -1706,7 +1709,16 @@ class AutoML(BaseEstimator):
         self._state.weight_val = sample_weight_val
 
         task.validate_data(
-            self, self._state, X_train, y_train, dataframe, label, X_val, y_val, groups_val, groups
+            self,
+            self._state,
+            X_train,
+            y_train,
+            dataframe,
+            label,
+            X_val,
+            y_val,
+            groups_val,
+            groups,
         )
         self._search_states = {}  # key: estimator name; value: SearchState
         self._random = np.random.RandomState(RANDOM_SEED)
