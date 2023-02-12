@@ -92,7 +92,7 @@ setuptools.setup(
             "vowpalwabbit>=8.10.0, <9.0.0",
         ],
         "nlp": [
-            "transformers[torch]",
+            "transformers[torch]==4.26",
             "datasets",
             "nltk",
             "rouge_score",
