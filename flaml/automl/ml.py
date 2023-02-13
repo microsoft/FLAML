@@ -48,7 +48,7 @@ from flaml.automl.model import (
     TransformersEstimatorModelSelection,
 )
 from flaml.automl.data import CLASSIFICATION, group_counts, TS_FORECAST
-from flaml.model import BaseEstimator
+from flaml.automl.model import BaseEstimator
 import logging
 
 logger = logging.getLogger(__name__)
