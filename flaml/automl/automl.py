@@ -3055,6 +3055,55 @@ class AutoML(BaseEstimator):
             del self._state.groups, self._state.groups_all, self._state.groups_val
         logger.setLevel(old_level)
 
+    def visualize(
+        self,
+        type="learning_curve",
+        automl_instance=None,
+        plot_filename=None,
+        log_file_name=None,
+        **kwargs,
+    ):
+        """
+        type: The type of the plot. The default visualization type is the learning curve.
+        automl_instance: An flaml AutoML instance.
+        plot_filename: str | File name
+        log_file_name: str | Log file name
+        """
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:
+            raise ImportError(
+                "The visualization functionalitye requires installation of matplotlib. "
+                "Please run pip install flaml[visualization]"
+            )
+
+        if type == "feature_importance":
+            plt.barh(self.feature_names_in_, self.feature_importances_)
+            plt.savefig("{}.png".format(plot_filename))
+            plt.close()
+        elif type == "learning_curve":
+            from flaml.data import get_output_from_log
+
+            log_file_name = kwargs.get("log_file_name")
+            if not log_file_name:
+                log_file_name = self._settings.get("log_file_name")
+            print("log", log_file_name)
+            if not log_file_name:
+                logger.warning("Please provide a search history log file.")
+            (
+                time_history,
+                best_valid_loss_history,
+                valid_loss_history,
+                config_history,
+                metric_history,
+            ) = get_output_from_log(filename=log_file_name, time_budget=240)
+            plt.title("Learning Curve")
+            plt.xlabel("Wall Clock Time (s)")
+            plt.ylabel("Validation Accuracy")
+            plt.scatter(time_history, 1 - np.array(valid_loss_history))
+            plt.step(time_history, 1 - np.array(best_valid_loss_history), where="post")
+            plt.savefig("{}".format(plot_filename))
+
     def _search_parallel(self):
         if self._use_ray is not False:
             try:
