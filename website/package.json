@@ -11,7 +11,7 @@
     "loader-utils": "2.0.4",
     "eta": "2.0.0",
     "@sideway/formula": "3.0.1",
-     "http-cache-semantics": "4.1.1"
+    "http-cache-semantics": "4.1.1"
    },
   "scripts": {
     "docusaurus": "docusaurus",
