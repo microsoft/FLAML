@@ -33,7 +33,7 @@ from flaml.automl.data import (
     SUMMARIZATION,
     NLG_TASKS,
 )
-from flaml.automl.spark.utils import len_labels
+from flaml.automl.spark.utils import len_labels, to_pandas_on_spark
 
 try:
     import psutil
@@ -493,7 +493,9 @@ class SparkEstimator(BaseEstimator):
         """Predict label from features."""
         if self._model is not None:
             X = self._preprocess(X, y)
-            predictions = self._model.transform(X).pandas_api(index_col="index")
+            predictions = to_pandas_on_spark(
+                self._model.transform(X), index_col="index"
+            )
             pred_y = predictions["prediction"]
             if y is not None:
                 y = predictions[y.name]
