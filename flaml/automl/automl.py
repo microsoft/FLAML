@@ -1387,6 +1387,9 @@ class AutoML(BaseEstimator):
                 rare_index = y_train_all == label
                 n = len(y_train_all)
                 while count < rare_threshld:
+                    if isinstance(X_train_all, (psDataFrame, psSeries)):
+                        # TODO: need to optimize this
+                        set_option("compute.ops_on_diff_frames", True)
                     if self._df:
                         X_train_all = concat(
                             X_train_all, X_train_all.iloc[:n].loc[rare_index]
