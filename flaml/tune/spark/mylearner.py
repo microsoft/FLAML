@@ -1,10 +1,8 @@
-from flaml.tune.spark.utils import broadcast_code
-
-custom_code = """
 from flaml import tune
 import time
 from flaml.automl.model import LGBMEstimator, XGBoostSklearnEstimator, SKLearnEstimator
 from flaml.automl.data import CLASSIFICATION, get_output_from_log
+
 
 class MyRegularizedGreedyForest(SKLearnEstimator):
     def __init__(self, task="binary", **config):
@@ -91,6 +89,7 @@ class MyLargeLGBM(LGBMEstimator):
             },
         }
 
+
 class MyLazyLGBM(LGBMEstimator):
     def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
         time.sleep(3)
@@ -126,6 +125,7 @@ def custom_metric(
         "pred_time": pred_time,
     }
 
+
 def lazy_metric(
     X_val,
     y_val,
@@ -141,6 +141,7 @@ def lazy_metric(
 ):
     from sklearn.metrics import log_loss
     import time
+
     time.sleep(1)
     start = time.time()
     y_pred = estimator.predict_proba(X_val)
@@ -154,6 +155,3 @@ def lazy_metric(
         "train_loss": train_loss,
         "pred_time": pred_time,
     }
-"""
-
-_ = broadcast_code(custom_code=custom_code)
