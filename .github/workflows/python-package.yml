@@ -21,8 +21,7 @@ on:
       - '.github/workflows/python-package.yml'
       - 'setup.py'
   merge_group:
-    types: [created]
-    branches: ['main']
+    types: [checks_requested]
 
 jobs:
   build:
