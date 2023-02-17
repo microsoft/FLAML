@@ -962,7 +962,7 @@ class AutoML(BaseEstimator):
         return self.__dict__.get("_time_taken_best_iter")
 
     def score(self, X: pd.DataFrame, y: pd.Series, **kwargs):
-        # TODO: support pyspark dataframe
+        # TODO: support pyspark.pandas dataframe
         estimator = getattr(self, "_trained_estimator", None)
         if estimator is None:
             logger.warning(
@@ -979,7 +979,7 @@ class AutoML(BaseEstimator):
         X: Union[np.array, pd.DataFrame, List[str], List[List[str]]],
         **pred_kwargs,
     ):
-        # TODO: support pyspark dataframe
+        # TODO: support pyspark.pandas dataframe
         """Predict label from features.
 
         Args:
@@ -1029,6 +1029,7 @@ class AutoML(BaseEstimator):
             return y_pred
 
     def predict_proba(self, X, **pred_kwargs):
+        # TODO: support pyspark.pandas dataframe
         """Predict the probability of each class from features, only works for
         classification problems.
 
@@ -1052,7 +1053,7 @@ class AutoML(BaseEstimator):
         return proba
 
     def _preprocess(self, X):
-        # TODO: support pyspark dataframe
+        # TODO: support pyspark.pandas dataframe
         if isinstance(X, List):
             try:
                 if isinstance(X[0], List):
@@ -1086,7 +1087,6 @@ class AutoML(BaseEstimator):
         dataframe,
         y_train_all=None,
     ):
-        # TODO: support pyspark dataframe
         assert (
             dataframe[dataframe.columns[0]].dtype.name == "datetime64[ns]"
         ), f"For '{TS_FORECAST}' task, the first column must contain timestamp values."
@@ -1142,8 +1142,6 @@ class AutoML(BaseEstimator):
         groups_val=None,
         groups=None,
     ):
-        # TODO: support pyspark dataframe
-
         if X_train_all is not None and y_train_all is not None:
             assert isinstance(
                 X_train_all, (np.ndarray, pd.DataFrame, psDataFrame)
@@ -1227,7 +1225,7 @@ class AutoML(BaseEstimator):
             )
 
         if isinstance(X, psDataFrame):
-            # TODO: support pandas_on_spark in DataTransformer
+            # TODO: support pyspark.pandas dataframe in DataTransformer
             self._skip_transform = True
 
         if self._skip_transform or issparse(X_train_all):
@@ -3028,7 +3026,7 @@ class AutoML(BaseEstimator):
             error_metric = "customized metric"
         logger.info(f"Minimizing error metric: {error_metric}")
 
-        # todo: estimator_list == auto_spark
+        # TODO: estimator_list == auto_spark
         if "auto" == estimator_list:
             if self._state.task == "rank":
                 estimator_list = ["lgbm", "xgboost", "xgb_limitdepth"]

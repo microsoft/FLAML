@@ -85,6 +85,7 @@ def _test_spark_synapseml_lightgbm(task="classification"):
     print(automl_experiment.best_model_for_estimator("lgbm_spark"))
     print(automl_experiment.best_iteration)
     print(automl_experiment.best_estimator)
+    print(automl_experiment.best_loss)
     del automl_settings["metric"]
     del automl_settings["model_history"]
     del automl_settings["log_training_metric"]

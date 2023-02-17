@@ -171,7 +171,7 @@ def metric_loss_score(
     sample_weight=None,
     groups=None,
 ):
-    # TODO: support pyspark dataframe
+    # TODO: support pyspark.pandas dataframe
     if isinstance(y_processed_predict, psSeries):
         y_processed_predict = y_processed_predict.to_numpy()
     if isinstance(y_processed_true, psSeries):
@@ -267,7 +267,7 @@ def sklearn_metric_loss_score(
     sample_weight=None,
     groups=None,
 ):
-    # TODO: support pyspark dataframe
+    # TODO: support pyspark.pandas dataframe
     """Loss using the specified metric.
 
     Args:
@@ -587,7 +587,7 @@ def evaluate_model_CV(
     else:
         weight = weight_val = None
     if isinstance(X_train_all, ps.DataFrame):
-        # TODO: pyspark dataframe CV
+        # TODO: support pyspark.pandas dataframe CV
         X_train = X_val = X_train_all
         y_train = y_val = y_train_all
         estimator.cleanup()
