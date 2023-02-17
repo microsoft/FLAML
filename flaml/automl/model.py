@@ -35,11 +35,9 @@ from flaml.automl.data import (
 )
 from flaml.automl.spark.utils import len_labels, to_pandas_on_spark
 from flaml.automl.spark.configs import (
-    ParamList_LightGBM_Base,
     ParamList_LightGBM_Classifier,
     ParamList_LightGBM_Regressor,
     ParamList_LightGBM_Ranker,
-    Default_groupCol,
 )
 
 try:
@@ -631,6 +629,7 @@ class SparkLGBMEstimator(SparkEstimator):
                 raise ImportError(err_msg)
 
             self.estimator_class = LightGBMRegressor
+            self.estimator_params = ParamList_LightGBM_Regressor
         elif "rank" == task:
             try:
                 from synapse.ml.lightgbm import LightGBMRanker
@@ -638,6 +637,7 @@ class SparkLGBMEstimator(SparkEstimator):
                 raise ImportError(err_msg)
 
             self.estimator_class = LightGBMRanker
+            self.estimator_params = ParamList_LightGBM_Ranker
         else:
             try:
                 from synapse.ml.lightgbm import LightGBMClassifier
@@ -645,6 +645,7 @@ class SparkLGBMEstimator(SparkEstimator):
                 raise ImportError(err_msg)
 
             self.estimator_class = LightGBMClassifier
+            self.estimator_params = ParamList_LightGBM_Classifier
         self._time_per_iter = None
         self._train_size = 0
         self._mem_per_iter = -1
@@ -662,34 +663,15 @@ class SparkLGBMEstimator(SparkEstimator):
         trained = False
         mem0 = psutil.virtual_memory().available if psutil is not None else 1
         _kwargs = kwargs.copy()
-        print(list(_kwargs.keys()))
-        if "featuresCol" not in _kwargs:
-            _kwargs["featuresCol"] = "features"
-        if "labelCol" not in _kwargs:
-            _kwargs["labelCol"] = "target"
         # TODO: update regression model and rank model, update ParamList_LightGBM_
-        if self._task == "regression":
-            if "objective" not in _kwargs:
-                _kwargs["objective"] = "quantile"
-            for k in list(_kwargs.keys()):
-                if k not in ParamList_LightGBM_Regressor:
-                    _kwargs.pop(k)
-        elif self._task == "rank":
-            if "groupCol" not in _kwargs:
-                _kwargs["groupCol"] = Default_groupCol
-            for k in list(_kwargs.keys()):
-                if k not in ParamList_LightGBM_Ranker:
-                    _kwargs.pop(k)
-        else:
+        if self._task not in ["regression", "rank"]:
             if "objective" not in _kwargs:
                 _kwargs["objective"] = (
                     "binary" if self.model_n_classes_ == 2 else "multiclass"
                 )
-            if "isUnbalance" not in _kwargs:
-                _kwargs["isUnbalance"] = True
-            for k in list(_kwargs.keys()):
-                if k not in ParamList_LightGBM_Classifier:
-                    _kwargs.pop(k)
+        for k in list(_kwargs.keys()):
+            if k not in self.estimator_params:
+                _kwargs.pop(k)
         if (
             (not self._time_per_iter or abs(self._train_size - df_train.count()) > 4)
             and budget is not None

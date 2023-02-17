@@ -95,4 +95,3 @@ ParamList_LightGBM_Ranker = ParamList_LightGBM_Base + [
     "labelGain",
     "maxPosition",
 ]
-Default_groupCol = "query"
