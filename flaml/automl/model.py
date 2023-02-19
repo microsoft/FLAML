@@ -571,7 +571,9 @@ class TransformersEstimator(BaseEstimator):
     @property
     def data_collator(self):
         from flaml.automl.task.task import Task
-        from flaml.automl.nlp.huggingface.data_collator import task_to_datacollator_class
+        from flaml.automl.nlp.huggingface.data_collator import (
+            task_to_datacollator_class,
+        )
 
         data_collator_class = task_to_datacollator_class.get(
             self._task.name if isinstance(self._task, Task) else self._task
