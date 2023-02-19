@@ -31,8 +31,7 @@ from flaml.automl.task.task import (
     SUMMARIZATION,
     NLG_TASKS,
 )
-
-from flaml.automl.task.factory import task_factory, Task
+from flaml.automl.task.factory import task_factory
 
 try:
     import psutil

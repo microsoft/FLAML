@@ -514,7 +514,7 @@ class AutoML(BaseEstimator):
                 "No estimator is trained. Please run fit with enough budget."
             )
             return None
-        X = self.task.preprocess(X, self._transformer)
+        X = self._state.task.preprocess(X, self._transformer)
         if self._label_transformer:
             y = self._label_transformer.transform(y)
         return estimator.score(X, y, **kwargs)
@@ -557,7 +557,7 @@ class AutoML(BaseEstimator):
                 "No estimator is trained. Please run fit with enough budget."
             )
             return None
-        X = self.task.preprocess(X, self._transformer)
+        X = self._state.task.preprocess(X, self._transformer)
         y_pred = estimator.predict(X, **pred_kwargs)
         if (
             isinstance(y_pred, np.ndarray)
@@ -591,7 +591,7 @@ class AutoML(BaseEstimator):
                 "No estimator is trained. Please run fit with enough budget."
             )
             return None
-        X = self.task.preprocess(X, self._transformer)
+        X = self._state.task.preprocess(X, self._transformer)
         proba = self._trained_estimator.predict_proba(X, **pred_kwargs)
         return proba
 
@@ -783,7 +783,6 @@ class AutoML(BaseEstimator):
         auto_augment = (
             self._settings.get("auto_augment") if auto_augment is None else auto_augment
         )
-        self.task = task
         self._state.task = task
         self._estimator_type = "classifier" if task.is_classification() else "regressor"
 
@@ -1149,7 +1148,7 @@ class AutoML(BaseEstimator):
         return self._metric_constraints
 
     def _prepare_data(self, eval_method, split_ratio, n_splits):
-        self.task.prepare_data(
+        self._state.task.prepare_data(
             self._state,
             self._X_train_all,
             self._y_train_all,
@@ -1531,8 +1530,8 @@ class AutoML(BaseEstimator):
         task = task or self._settings.get("task")
         if isinstance(task, str):
             task = task_factory(task, X_train, y_train)
-        self.task = task
-        self.task.time_col = time_col
+        self._state.task = task
+        self._state.task.time_col = time_col
         self._estimator_type = "classifier" if task.is_classification() else "regressor"
         time_budget = time_budget or self._settings.get("time_budget")
         n_jobs = n_jobs or self._settings.get("n_jobs")
@@ -1726,7 +1725,7 @@ class AutoML(BaseEstimator):
         self._seed = seed if seed is not None else 20
         self._learner_selector = learner_selector
         logger.info(f"task = {task}")
-        self._split_type = self.task.decide_split_type(
+        self._split_type = self._state.task.decide_split_type(
             split_type,
             self._y_train_all,
             self._state.fit_kwargs,

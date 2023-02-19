@@ -10,7 +10,12 @@ class MyRegularizedGreedyForest(SKLearnEstimator):
 
         super().__init__(task, **config)
 
-        if task in CLASSIFICATION:
+        if isinstance(task, str):
+            from flaml.automl.task.factory import task_factory
+
+            task = task_factory(task)
+
+        if task.is_classification():
             from rgf.sklearn import RGFClassifier
 
             self.estimator_class = RGFClassifier

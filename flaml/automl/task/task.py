@@ -7,7 +7,7 @@ from scipy.sparse import issparse
 
 try:
     import ray
-except:
+except Exception:
     ray = None
 
 # TODO: if your task is not specified in here, define your task as an all-capitalized word
