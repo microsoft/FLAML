@@ -5,7 +5,6 @@ import threading
 import time
 from functools import lru_cache, partial
 
-import py4j
 
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
@@ -16,12 +15,14 @@ try:
     import pyspark
     from pyspark.sql import SparkSession
     from pyspark.util import VersionUtils
+    import py4j
 
     _have_spark = True
     _spark_major_minor_version = VersionUtils.majorMinorVersion(pyspark.__version__)
 except ImportError as e:
     logger.debug("Could not import pyspark: %s", e)
     _have_spark = False
+    py4j = None
     _spark_major_minor_version = (0, 0)
 
 
