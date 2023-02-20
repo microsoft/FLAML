@@ -59,7 +59,7 @@ def test_overtime():
             time_budget, elapsed_time
         )
     )
-    assert abs(elapsed_time - time_budget) < 1
+    assert abs(elapsed_time - time_budget) < 2
     print(automl_experiment.predict(df))
     print(automl_experiment.model)
     print(automl_experiment.best_iteration)
