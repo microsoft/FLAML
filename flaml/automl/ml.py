@@ -374,7 +374,11 @@ def sklearn_metric_loss_score(
 def get_y_pred(estimator, X, eval_metric, obj, y=None):
     if eval_metric in ["roc_auc", "ap", "roc_auc_weighted"] and "binary" in obj:
         if y is not None:
-            y_pred_classes = estimator.predict_proba(X, y)
+            y_pred_classes, y = estimator.predict_proba(X, y)
+            if isinstance(y_pred_classes, psSeries):
+                y_pred_classes = np.array(
+                    [np.array(x) for _, x in y_pred_classes.iteritems()]
+                )
         else:
             y_pred_classes = estimator.predict_proba(X)
         y_pred = y_pred_classes[:, 1] if y_pred_classes.ndim > 1 else y_pred_classes
@@ -387,15 +391,18 @@ def get_y_pred(estimator, X, eval_metric, obj, y=None):
         "roc_auc_ovr_weighted",
     ]:
         if y is not None:
-            y_pred = estimator.predict_proba(X, y)
+            y_pred, y = estimator.predict_proba(X, y)
         else:
             y_pred = estimator.predict_proba(X)
     else:
         if y is not None:
-            y_pred = estimator.predict(X, y)
+            y_pred, y = estimator.predict(X, y)
         else:
             y_pred = estimator.predict(X)
-    return y_pred
+    if y is not None:
+        return y_pred, y
+    else:
+        return y_pred
 
 
 def _eval_estimator(

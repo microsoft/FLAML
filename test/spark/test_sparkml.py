@@ -108,5 +108,54 @@ def test_spark_synapseml():
         _test_spark_synapseml_lightgbm(task)
 
 
+def test_spark_input_df():
+    df = (
+        spark.read.format("csv")
+        .option("header", True)
+        .option("inferSchema", True)
+        .load(
+            "wasbs://publicwasb@mmlspark.blob.core.windows.net/company_bankruptcy_prediction_data.csv"
+        )
+    )
+    train, test = df.randomSplit([0.8, 0.2], seed=1)
+    feature_cols = df.columns[1:]
+    featurizer = VectorAssembler(inputCols=feature_cols, outputCol="features")
+    train_data = featurizer.transform(train)["Bankrupt?", "features"]
+    test_data = featurizer.transform(test)["Bankrupt?", "features"]
+    automl = AutoML()
+    settings = {
+        "time_budget": 30,  # total running time in seconds
+        "metric": "roc_auc",
+        "estimator_list": [
+            "lgbm_spark"
+        ],  # list of ML learners; we tune lightgbm in this example
+        "task": "classification",  # task type
+        "log_file_name": "flaml_experiment.log",  # flaml log file
+        "seed": 7654321,  # random seed
+    }
+    df = to_pandas_on_spark(to_pandas_on_spark(train_data).to_spark(index_col="index"))
+
+    automl.fit(
+        dataframe=df,
+        label="Bankrupt?",
+        labelCol="Bankrupt?",
+        isUnbalance=True,
+        **settings,
+    )
+
+    model = automl.model.estimator
+    predictions = model.transform(test_data)
+
+    from synapse.ml.train import ComputeModelStatistics
+
+    metrics = ComputeModelStatistics(
+        evaluationMetric="classification",
+        labelCol="Bankrupt?",
+        scoredLabelsCol="prediction",
+    ).transform(predictions)
+    metrics.show()
+
+
 if __name__ == "__main__":
-    test_spark_synapseml()
+    # test_spark_synapseml()
+    test_spark_input_df()

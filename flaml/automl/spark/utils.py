@@ -77,7 +77,7 @@ def to_pandas_on_spark(
     if isinstance(df, (pd.DataFrame, pd.Series)):
         return ps.from_pandas(df)
     elif isinstance(df, DataFrame):
-        if _spark_major_minor_version[1] < 3:
+        if _spark_major_minor_version[0] == 3 and _spark_major_minor_version[1] < 3:
             return df.to_pandas_on_spark(index_col=index_col)
         else:
             return df.pandas_api(index_col=index_col)

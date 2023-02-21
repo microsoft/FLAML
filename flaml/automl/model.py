@@ -530,9 +530,12 @@ class SparkEstimator(BaseEstimator):
         """
         assert self._task in CLASSIFICATION, "predict_proba() only for classification."
         if self._model is not None:
-            X = self._preprocess(X)
-            predictions = self._model.transform(X).pandas_api(index_col="index")
+            X = self._preprocess(X, y)
+            predictions = to_pandas_on_spark(
+                self._model.transform(X), index_col="index"
+            )
             pred_y = predictions["probability"]
+
             if y is not None:
                 y = predictions[y.name]
                 return pred_y, y
