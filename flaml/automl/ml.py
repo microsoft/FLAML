@@ -697,7 +697,9 @@ def train_estimator(
     y_train,
     task: str,
     estimator_name: str,
-    n_jobs: Optional[int] = 1,
+    n_jobs: Optional[
+        int
+    ] = 1,  # some estimators of EstimatorSubclass don't accept n_jobs. Should be None in that case.
     estimator_class: Optional[EstimatorSubclass] = None,
     budget=None,
     fit_kwargs: Optional[dict] = None,
