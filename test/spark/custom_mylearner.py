@@ -91,10 +91,6 @@ class MyLargeLGBM(LGBMEstimator):
             },
         }
 
-class MyLazyLGBM(LGBMEstimator):
-    def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
-        time.sleep(4)
-        return super().fit(X_train, y_train, budget, free_mem_ratio, **kwargs)
 
 
 def custom_metric(
