@@ -28,7 +28,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def test_overtime():
-    time_budget = 10
+    time_budget = 15
     df, y = load_iris(return_X_y=True, as_frame=True)
     df["label"] = y
     automl_experiment = AutoML()

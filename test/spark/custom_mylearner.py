@@ -93,7 +93,7 @@ class MyLargeLGBM(LGBMEstimator):
 
 class MyLazyLGBM(LGBMEstimator):
     def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
-        time.sleep(3)
+        time.sleep(4)
         return super().fit(X_train, y_train, budget, free_mem_ratio, **kwargs)
 
 
@@ -141,7 +141,7 @@ def lazy_metric(
 ):
     from sklearn.metrics import log_loss
     import time
-    time.sleep(1)
+    time.sleep(2)
     start = time.time()
     y_pred = estimator.predict_proba(X_val)
     pred_time = (time.time() - start) / len(X_val)

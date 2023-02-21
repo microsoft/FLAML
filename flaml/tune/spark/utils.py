@@ -212,7 +212,7 @@ class PySparkOvertimeMonitor:
         self,
         start_time,
         time_budget_s,
-        force_cancel,
+        force_cancel=False,
         cancel_func=None,
         parallel=None,
         sc=None,
@@ -285,7 +285,7 @@ class PySparkOvertimeMonitor:
         This will start a monitor thread if spark is available and force_cancel is True."""
         if self._force_cancel:
             self._monitor_daemon = threading.Thread(target=self._monitor_overtime)
-            logger.setLevel("INFO")
+            # logger.setLevel("INFO")
             logger.info("monitor started")
             self._setLogLevel("OFF")
             self._monitor_daemon.start()
