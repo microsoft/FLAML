@@ -997,10 +997,9 @@ class AutoML(BaseEstimator):
             )
             return None
         X = self._preprocess(X)
-        try:
-            y_pred = estimator.predict(X, **pred_kwargs)
-        except ZeroDivisionError:
-            y_pred = 0
+
+        y_pred = estimator.predict(X, **pred_kwargs)
+
         if (
             isinstance(y_pred, np.ndarray)
             and y_pred.ndim > 1

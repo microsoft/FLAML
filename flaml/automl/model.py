@@ -837,8 +837,11 @@ class TransformersEstimator(BaseEstimator):
         test_dataset = Dataset.from_pandas(X_test)
 
         new_trainer = self._init_model_for_predict()
-        predictions = new_trainer.predict(test_dataset)
-        return predictions.predictions
+        try:
+            predictions = new_trainer.predict(test_dataset)
+            return predictions.predictions
+        except ZeroDivisionError:
+            return None
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         import transformers
@@ -868,21 +871,25 @@ class TransformersEstimator(BaseEstimator):
 
         new_trainer = self._init_model_for_predict()
 
-        if self._task not in NLG_TASKS:
-            predictions = new_trainer.predict(test_dataset)
-        else:
-            predictions = new_trainer.predict(
-                test_dataset,
-                metric_key_prefix="predict",
+        try:
+            if self._task not in NLG_TASKS:
+                predictions = new_trainer.predict(test_dataset)
+            else:
+                predictions = new_trainer.predict(
+                    test_dataset,
+                    metric_key_prefix="predict",
+                )
+
+            post_y_pred, _ = postprocess_prediction_and_true(
+                task=self._task,
+                y_pred=predictions.predictions,
+                tokenizer=self.tokenizer,
+                hf_args=self._training_args,
+                X=X,
             )
-        post_y_pred, _ = postprocess_prediction_and_true(
-            task=self._task,
-            y_pred=predictions.predictions,
-            tokenizer=self.tokenizer,
-            hf_args=self._training_args,
-            X=X,
-        )
-        return post_y_pred
+            return post_y_pred
+        except ZeroDivisionError:
+            return None
 
     def config2params(self, config: dict) -> dict:
         params = super().config2params(config)
