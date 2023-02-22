@@ -2399,6 +2399,7 @@ class AutoML(BaseEstimator):
                 on disk when deleting automl. By default the checkpoint is preserved.
             early_stop: boolean, default=False | Whether to stop early if the
                 search is considered to converge.
+            force_cancel: boolean, default=False | Whether to forcely cancel the PySpark job if overtime.
             append_log: boolean, default=False | Whetehr to directly append the log
                 records to the input log file if it exists.
             auto_augment: boolean, default=True | Whether to automatically

@@ -223,16 +223,15 @@ class PySparkOvertimeMonitor:
 
         Args:
             Args relate to monitoring:
-                start_time: A float of the start time in seconds of the PySpark job.
-                time_budget_s: A float of the time budget in seconds for the PySpark job.
-                force_cancel: A boolean of whether to forcely cancel the PySpark job if it is overtime.
+                start_time: float | The start time of the PySpark job.
+                time_budget_s: float | The time budget of the PySpark job in seconds.
+                force_cancel: boolean, default=False | Whether to forcely cancel the PySpark job if overtime.
 
             Args relate to how to cancel the PySpark job:
             (Only one of the following args will work. Priorities from top to bottom)
-                cancel_func: The specific function to cancel the PySpark job.
-                parallel: a joblib.Parallel object of the PySpark job.
-                    If using joblib_spark as a parallel backend, it will call parallel._backend.terminate() to cancel the jobs.
-                sc: a pyspark.SparkContext object. You can get it by pyspark.SparkContext.getOrCreate().
+                cancel_func: function | A function to cancel the PySpark job.
+                parallel: joblib.parallel.Parallel | Specify this if using joblib_spark as a parallel backend. It will call parallel._backend.terminate() to cancel the jobs.
+                sc: pyspark.SparkContext object | You can pass a specific SparkContext.
 
                 If all three args is None, the monitor will call pyspark.SparkContext.getOrCreate().cancelAllJobs() to cancel the jobs.
 
