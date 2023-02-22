@@ -137,7 +137,6 @@ def lazy_metric(
 ):
     from sklearn.metrics import log_loss
 
-
     time.sleep(2)
     start = time.time()
     y_pred = estimator.predict_proba(X_val)
