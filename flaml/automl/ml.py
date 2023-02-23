@@ -427,7 +427,7 @@ def _eval_estimator(
     obj,
     labels=None,
     log_training_metric=False,
-    fit_kwargs=None,
+    fit_kwargs: Optional[dict] = None,
 ):
     if fit_kwargs is None:
         fit_kwargs = {}
@@ -498,7 +498,7 @@ def get_val_loss(
     labels=None,
     budget=None,
     log_training_metric=False,
-    fit_kwargs=None,
+    fit_kwargs: Optional[dict] = None,
     free_mem_ratio=0,
 ):
     if fit_kwargs is None:
@@ -562,7 +562,7 @@ def evaluate_model_CV(
     best_val_loss,
     cv_score_agg_func=None,
     log_training_metric=False,
-    fit_kwargs=None,
+    fit_kwargs: Optional[dict] = None,
     free_mem_ratio=0,
 ):
     if fit_kwargs is None:
