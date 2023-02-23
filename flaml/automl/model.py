@@ -430,7 +430,8 @@ class SparkEstimator(BaseEstimator):
             self.df_train = X_train.join(y_train)
         else:
             self.df_train = X_train
-        self.df_train = self.df_train.to_spark()
+        if isinstance(self.df_train, psDataFrame):
+            self.df_train = self.df_train.to_spark()
         return self.df_train
 
     def fit(

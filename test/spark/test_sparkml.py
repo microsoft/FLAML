@@ -86,6 +86,8 @@ def _test_spark_synapseml_lightgbm(task="classification"):
     print(automl_experiment.best_iteration)
     print(automl_experiment.best_estimator)
     print(automl_experiment.best_loss)
+    if task != "rank":
+        print(automl_experiment.score(X_train, y_train, metric=metric))
     del automl_settings["metric"]
     del automl_settings["model_history"]
     del automl_settings["log_training_metric"]
@@ -157,5 +159,5 @@ def test_spark_input_df():
 
 
 if __name__ == "__main__":
-    # test_spark_synapseml()
+    test_spark_synapseml()
     test_spark_input_df()
