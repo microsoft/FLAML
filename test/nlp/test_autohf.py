@@ -62,7 +62,7 @@ def test_hf_data():
         **automl_settings
     )
     automl.predict(X_test, **{"per_device_eval_batch_size": 2})
-    prediction = automl.predict(["t"])
+    prediction = automl.predict(["t", "t"])
     assert len(prediction) == 0
     automl.predict(
         [
