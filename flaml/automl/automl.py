@@ -967,8 +967,12 @@ class AutoML(BaseEstimator):
         """Time taken to find best model in seconds."""
         return self.__dict__.get("_time_taken_best_iter")
 
-    def score(self, X: pd.DataFrame, y: pd.Series, **kwargs):
-        # TODO: support pyspark.pandas dataframe
+    def score(
+        self,
+        X: Union[pd.DataFrame, psDataFrame],
+        y: Union[pd.Series, psSeries],
+        **kwargs,
+    ):
         estimator = getattr(self, "_trained_estimator", None)
         if estimator is None:
             logger.warning(
@@ -982,14 +986,14 @@ class AutoML(BaseEstimator):
 
     def predict(
         self,
-        X: Union[np.array, pd.DataFrame, List[str], List[List[str]]],
+        X: Union[np.array, pd.DataFrame, List[str], List[List[str]], psDataFrame],
         **pred_kwargs,
     ):
-        # TODO: support pyspark.pandas dataframe
         """Predict label from features.
 
         Args:
-            X: A numpy array of featurized instances, shape n * m,
+            X: A numpy array or pandas dataframe or pyspark.pandas dataframe
+            of featurized instances, shape n * m,
                 or for time series forcast tasks:
                     a pandas dataframe with the first column containing
                     timestamp values (datetime type) or an integer n for
@@ -1035,7 +1039,6 @@ class AutoML(BaseEstimator):
             return y_pred
 
     def predict_proba(self, X, **pred_kwargs):
-        # TODO: support pyspark.pandas dataframe
         """Predict the probability of each class from features, only works for
         classification problems.
 
@@ -1059,7 +1062,6 @@ class AutoML(BaseEstimator):
         return proba
 
     def _preprocess(self, X):
-        # TODO: support pyspark.pandas dataframe
         if isinstance(X, List):
             try:
                 if isinstance(X[0], List):
@@ -1079,6 +1081,8 @@ class AutoML(BaseEstimator):
                     "Test data contains more columns than training data, exiting"
                 )
         elif isinstance(X, int):
+            return X
+        elif isinstance(X, psDataFrame):
             return X
         elif issparse(X):
             X = X.tocsr()
