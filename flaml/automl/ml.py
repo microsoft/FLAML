@@ -576,7 +576,7 @@ def evaluate_model_CV(
     train_time = pred_time = 0
     total_fold_num = 0
     n = kf.get_n_splits()
-    X_train_split, y_train_split = X_train_all, y_train_all
+    X_train_split, y_train_split = np.ones(y_train_all.shape), y_train_all.to_numpy()
     if task in CLASSIFICATION:
         _, labels = len_labels(y_train_all, return_labels=True)
     else:
@@ -602,13 +602,38 @@ def evaluate_model_CV(
         weight_val = None
     else:
         weight = weight_val = None
-    if isinstance(X_train_all, ps.DataFrame):
-        # TODO: support pyspark.pandas dataframe CV
-        X_train = X_val = X_train_all
-        y_train = y_val = y_train_all
+
+    for train_index, val_index in kf:
+        if shuffle:
+            train_index = rng.permutation(train_index)
+        if isinstance(X_train_all, (pd.DataFrame, psDataFrame)):
+            X_train = X_train_all.iloc[train_index]
+            X_val = X_train_all.iloc[val_index]
+        else:
+            X_train, X_val = X_train_all[train_index], X_train_all[val_index]
+        if isinstance(y_train_all, (pd.Series, psSeries)):
+            y_train, y_val = y_train_all.iloc[train_index], y_train_all.iloc[val_index]
+        else:
+            y_train, y_val = y_train_all[train_index], y_train_all[val_index]
         estimator.cleanup()
-        weight_val = None
-        groups_val = None
+        if weight is not None:
+            fit_kwargs["sample_weight"], weight_val = (
+                weight[train_index],
+                weight[val_index],
+            )
+        if groups is not None:
+            fit_kwargs["groups"] = (
+                groups[train_index]
+                if isinstance(groups, np.ndarray)
+                else groups.iloc[train_index]
+            )
+            groups_val = (
+                groups[val_index]
+                if isinstance(groups, np.ndarray)
+                else groups.iloc[val_index]
+            )
+        else:
+            groups_val = None
         val_loss_i, metric_i, train_time_i, pred_time_i = get_val_loss(
             config,
             estimator,
@@ -635,63 +660,8 @@ def evaluate_model_CV(
         log_metric_folds.append(metric_i)
         train_time += train_time_i
         pred_time += pred_time_i
-    else:
-        for train_index, val_index in kf:
-            if shuffle:
-                train_index = rng.permutation(train_index)
-            if isinstance(X_train_all, pd.DataFrame):
-                X_train = X_train_split.iloc[train_index]
-                X_val = X_train_split.iloc[val_index]
-            else:
-                X_train, X_val = X_train_split[train_index], X_train_split[val_index]
-            y_train, y_val = y_train_split[train_index], y_train_split[val_index]
-            estimator.cleanup()
-            if weight is not None:
-                fit_kwargs["sample_weight"], weight_val = (
-                    weight[train_index],
-                    weight[val_index],
-                )
-            if groups is not None:
-                fit_kwargs["groups"] = (
-                    groups[train_index]
-                    if isinstance(groups, np.ndarray)
-                    else groups.iloc[train_index]
-                )
-                groups_val = (
-                    groups[val_index]
-                    if isinstance(groups, np.ndarray)
-                    else groups.iloc[val_index]
-                )
-            else:
-                groups_val = None
-            val_loss_i, metric_i, train_time_i, pred_time_i = get_val_loss(
-                config,
-                estimator,
-                X_train,
-                y_train,
-                X_val,
-                y_val,
-                weight_val,
-                groups_val,
-                eval_metric,
-                task,
-                labels,
-                budget_per_train,
-                log_training_metric=log_training_metric,
-                fit_kwargs=fit_kwargs,
-                free_mem_ratio=free_mem_ratio,
-            )
-            if isinstance(metric_i, dict) and "intermediate_results" in metric_i.keys():
-                del metric_i["intermediate_results"]
-            if weight is not None:
-                fit_kwargs["sample_weight"] = weight
-            total_fold_num += 1
-            val_loss_folds.append(val_loss_i)
-            log_metric_folds.append(metric_i)
-            train_time += train_time_i
-            pred_time += pred_time_i
-            if budget and time.time() - start_time >= budget:
-                break
+        if budget and time.time() - start_time >= budget:
+            break
     val_loss, metric = cv_score_agg_func(val_loss_folds, log_metric_folds)
     n = total_fold_num
     pred_time /= n
