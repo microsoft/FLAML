@@ -576,7 +576,10 @@ def evaluate_model_CV(
     train_time = pred_time = 0
     total_fold_num = 0
     n = kf.get_n_splits()
-    X_train_split, y_train_split = np.ones(y_train_all.shape), y_train_all.to_numpy()
+    X_train_split, y_train_split = (
+        np.ones(y_train_all.shape),
+        y_train_all.to_numpy() if isinstance(y_train_all, psSeries) else y_train_all,
+    )
     if task in CLASSIFICATION:
         _, labels = len_labels(y_train_all, return_labels=True)
     else:

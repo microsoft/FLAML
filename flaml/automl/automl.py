@@ -1109,7 +1109,7 @@ class AutoML(BaseEstimator):
             elif isinstance(y_train_all, np.ndarray):
                 y_df = pd.DataFrame(y_train_all, columns=["labels"])
             elif isinstance(y_train_all, (psDataFrame, psSeries)):
-                # TODO: need to optimize this
+                # TODO: optimize this
                 set_option("compute.ops_on_diff_frames", True)
             dataframe = dataframe.join(y_df)
         duplicates = dataframe.duplicated()
@@ -1321,7 +1321,7 @@ class AutoML(BaseEstimator):
             self._state.groups = groups
 
     def _split_pyspark(self, X_train_all, y_train_all, split_ratio):
-        # TODO: need to optimize this
+        # TODO: optimize this
         set_option("compute.ops_on_diff_frames", True)
         df_all_in_one = X_train_all.join(y_train_all)
         startify_column = (
@@ -1398,7 +1398,7 @@ class AutoML(BaseEstimator):
                 n = len(y_train_all)
                 while count < rare_threshld:
                     if isinstance(X_train_all, (psDataFrame, psSeries)):
-                        # TODO: need to optimize this
+                        # TODO: optimize this
                         set_option("compute.ops_on_diff_frames", True)
                     if self._df:
                         X_train_all = concat(
@@ -3044,9 +3044,17 @@ class AutoML(BaseEstimator):
             error_metric = "customized metric"
         logger.info(f"Minimizing error metric: {error_metric}")
 
-        # TODO: estimator_list == auto_spark
         if "auto" == estimator_list:
-            if self._state.task == "rank":
+            # TODO: update estimator_list for spark dataframe
+            if isinstance(X_train, psDataFrame):
+                if self._state.task in ["rank", "classification", "regression"]:
+                    estimator_list = ["lgbm_spark"]
+                else:
+                    raise ValueError(
+                        "Spark dataframe is currently supported for classification, regression, and rank tasks."
+                        f"For {self._state.task} task, please convert the dataframe to pandas dataframe."
+                    )
+            elif self._state.task == "rank":
                 estimator_list = ["lgbm", "xgboost", "xgb_limitdepth"]
             elif _is_nlp_task(self._state.task):
                 estimator_list = ["transformer"]

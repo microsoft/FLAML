@@ -425,7 +425,7 @@ class SparkEstimator(BaseEstimator):
         self.df_train = None
 
     def _preprocess(self, X_train: psDataFrame, y_train: psSeries = None):
-        # TODO: this could take a few seconds, need to optimize
+        # TODO: optimize this
         if y_train is not None:
             self.df_train = X_train.join(y_train)
         else:
@@ -454,9 +454,7 @@ class SparkEstimator(BaseEstimator):
         Returns:
             train_time: A float of the training time in seconds.
         """
-        df_train = self._preprocess(
-            X_train, y_train
-        )  # TODO: this could take a few seconds
+        df_train = self._preprocess(X_train, y_train)
         if (
             getattr(self, "limit_resource", None)
             and resource is not None

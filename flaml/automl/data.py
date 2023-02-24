@@ -515,8 +515,3 @@ class DataTransformer:
 def group_counts(groups):
     _, i, c = np.unique(groups, return_counts=True, return_index=True)
     return c[np.argsort(i)]
-
-
-def spark_split_xy():
-    # TODO: split pyspark dataframe into X and y
-    pass
