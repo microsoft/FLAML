@@ -4,7 +4,14 @@ from flaml.tune.spark.utils import (
     get_n_cpus,
     get_broadcast_data,
 )
-from flaml.automl.spark.utils import to_pandas_on_spark
+from flaml.automl.spark.utils import (
+    to_pandas_on_spark,
+    train_test_split_pyspark,
+    unique_pandas_on_spark,
+    len_labels,
+    unique_value_first_index,
+)
+import numpy as np
 import pandas as pd
 from functools import partial
 from timeit import timeit
@@ -123,8 +130,59 @@ def test_to_pandas_on_spark(capsys):
     assert isinstance(pss, ps.Series)
 
 
+def test_train_test_split_pyspark():
+    pdf = pd.DataFrame({"x": [1, 2, 3, 4], "y": [0, 1, 1, 0]})
+    spark = SparkSession.builder.getOrCreate()
+    sdf = spark.createDataFrame(pdf)
+    psdf = to_pandas_on_spark(sdf)
+    train_sdf, test_sdf = train_test_split_pyspark(
+        sdf, test_fraction=0.5, to_pandas_spark=False, seed=1
+    )
+    train_psdf, test_psdf = train_test_split_pyspark(
+        psdf, test_fraction=0.5, startify_column="y", seed=1
+    )
+
+    out1 = pd.DataFrame({"x": [2, 3, 4], "y": [1, 1, 0]})
+    out2 = pd.DataFrame({"x": [1], "y": [0]})
+    assert train_sdf.toPandas().equals(out1)
+    assert test_sdf.toPandas().equals(out2)
+    assert train_psdf.to_pandas().equals(out2)
+    assert test_psdf.to_pandas().equals(out1)
+
+
+def test_unique_pandas_on_spark():
+    pdf = pd.DataFrame({"x": [1, 2, 2, 3], "y": [0, 1, 1, 0]})
+    spark = SparkSession.builder.getOrCreate()
+    sdf = spark.createDataFrame(pdf)
+    psdf = to_pandas_on_spark(sdf)
+    label_set, counts = unique_pandas_on_spark(psdf)
+    assert np.array_equal(label_set, np.array([2, 1, 3]))
+    assert np.array_equal(counts, np.array([2, 1, 1]))
+
+
+def test_len_labels():
+    y1 = np.array([1, 2, 5, 4, 5])
+    y2 = ps.Series([1, 2, 5, 4, 5])
+    assert len_labels(y1) == 4
+    ll, la = len_labels(y2, return_labels=True)
+    assert ll == 4
+    assert np.array_equal(la.to_numpy(), np.array([1, 2, 5, 4]))
+
+
+def test_unique_value_first_index():
+    y1 = np.array([1, 2, 5, 4, 5])
+    y2 = ps.Series([1, 2, 5, 4, 5])
+    l1, f1 = unique_value_first_index(y1)
+    l2, f2 = unique_value_first_index(y2)
+    assert np.array_equal(l1, np.array([1, 2, 4, 5]))
+    assert np.array_equal(f1, np.array([0, 1, 3, 2]))
+    assert np.array_equal(l2, np.array([1, 2, 5, 4]))
+    assert np.array_equal(f2, np.array([0, 1, 2, 3]))
+
+
 if __name__ == "__main__":
     test_with_parameters_spark()
     test_get_n_cpus_spark()
     test_broadcast_code()
     test_get_broadcast_data()
+    test_train_test_split_pyspark()

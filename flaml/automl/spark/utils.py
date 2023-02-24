@@ -3,21 +3,6 @@ import os
 from typing import Union, List, Optional, Tuple
 import pandas as pd
 import numpy as np
-from sklearn.base import BaseEstimator
-from scipy.sparse import issparse
-
-from flaml.automl.data import (
-    concat,
-    CLASSIFICATION,
-    TOKENCLASSIFICATION,
-    TS_FORECAST,
-    TS_FORECASTREGRESSION,
-    TS_FORECASTPANEL,
-    TS_TIMESTAMP_COL,
-    REGRESSION,
-    _is_nlp_task,
-    NLG_TASKS,
-)
 
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
@@ -141,7 +126,9 @@ def train_test_split_pyspark(
     return (df_train, df_test)
 
 
-def unique_pandas_on_spark(psds: Union[ps.Series, ps.DataFrame]):
+def unique_pandas_on_spark(
+    psds: Union[ps.Series, ps.DataFrame]
+) -> Tuple[np.ndarray, np.ndarray]:
     """Get the unique values and counts of a pandas_on_spark series."""
     if isinstance(psds, ps.DataFrame):
         psds = psds.iloc[:, 0]
@@ -151,7 +138,9 @@ def unique_pandas_on_spark(psds: Union[ps.Series, ps.DataFrame]):
     return label_set, counts
 
 
-def len_labels(y, return_labels=False):
+def len_labels(
+    y: Union[ps.Series, np.ndarray], return_labels=False
+) -> Union[int, Optional[np.ndarray]]:
     """Get the number of unique labels in y."""
     if not isinstance(y, (ps.DataFrame, ps.Series)):
         labels = np.unique(y)
@@ -162,7 +151,9 @@ def len_labels(y, return_labels=False):
     return len(labels)
 
 
-def unique_value_first_index(y: Union[pd.Series, ps.Series, np.ndarray]):
+def unique_value_first_index(
+    y: Union[pd.Series, ps.Series, np.ndarray]
+) -> Tuple[np.ndarray, np.ndarray]:
     """Get the unique values and indices of a pandas_on_spark series."""
     if isinstance(y, ps.Series):
         y_unique = y.drop_duplicates().sort_index()
