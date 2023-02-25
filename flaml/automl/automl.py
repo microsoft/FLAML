@@ -679,6 +679,8 @@ class AutoML(BaseEstimator):
                 on disk when deleting automl. By default the checkpoint is preserved.
             early_stop: boolean, default=False | Whether to stop early if the
                 search is considered to converge.
+            force_cancel: boolean, default=False | Whether to forcely cancel Spark jobs if the
+                search time exceeded the time budget.
             append_log: boolean, default=False | Whetehr to directly append the log
                 records to the input log file if it exists.
             auto_augment: boolean, default=True | Whether to automatically
@@ -788,6 +790,7 @@ class AutoML(BaseEstimator):
         settings["keep_search_state"] = settings.get("keep_search_state", False)
         settings["preserve_checkpoint"] = settings.get("preserve_checkpoint", True)
         settings["early_stop"] = settings.get("early_stop", False)
+        settings["force_cancel"] = settings.get("force_cancel", False)
         settings["append_log"] = settings.get("append_log", False)
         settings["min_sample_size"] = settings.get("min_sample_size", MIN_SAMPLE_TRAIN)
         settings["use_ray"] = settings.get("use_ray", False)
@@ -2210,6 +2213,7 @@ class AutoML(BaseEstimator):
         keep_search_state=None,
         preserve_checkpoint=True,
         early_stop=None,
+        force_cancel=None,
         append_log=None,
         auto_augment=None,
         min_sample_size=None,
@@ -2399,6 +2403,7 @@ class AutoML(BaseEstimator):
                 on disk when deleting automl. By default the checkpoint is preserved.
             early_stop: boolean, default=False | Whether to stop early if the
                 search is considered to converge.
+            force_cancel: boolean, default=False | Whether to forcely cancel the PySpark job if overtime.
             append_log: boolean, default=False | Whetehr to directly append the log
                 records to the input log file if it exists.
             auto_augment: boolean, default=True | Whether to automatically
@@ -2601,6 +2606,9 @@ class AutoML(BaseEstimator):
         early_stop = (
             self._settings.get("early_stop") if early_stop is None else early_stop
         )
+        force_cancel = (
+            self._settings.get("force_cancel") if force_cancel is None else force_cancel
+        )
         # no search budget is provided?
         no_budget = time_budget < 0 and max_iter is None and not early_stop
         append_log = (
@@ -2651,6 +2659,7 @@ class AutoML(BaseEstimator):
         self._n_concurrent_trials = n_concurrent_trials
         self._early_stop = early_stop
         self._use_spark = use_spark
+        self._force_cancel = force_cancel
         self._use_ray = use_ray
         # use the following condition if we have an estimation of average_trial_time and average_trial_overhead
         # self._use_ray = use_ray or n_concurrent_trials > ( average_trial_time + average_trial_overhead) / (average_trial_time)
@@ -3177,6 +3186,7 @@ class AutoML(BaseEstimator):
                 verbose=max(self.verbose - 2, 0),
                 use_ray=False,
                 use_spark=True,
+                force_cancel=self._force_cancel,
                 # raise_on_failed_trial=False,
                 # keep_checkpoints_num=1,
                 # checkpoint_score_attr="min-val_loss",
