@@ -92,7 +92,7 @@ jobs:
         if: matrix.python-version == '3.9'
         run: |
           # Uninstall pyspark to test env without pyspark
-          pip uninstall pyspark
+          pip uninstall -y pyspark
       - name: Lint with flake8
         run: |
           # stop the build if there are Python syntax errors or undefined names
