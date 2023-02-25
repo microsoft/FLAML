@@ -180,9 +180,52 @@ def test_unique_value_first_index():
     assert np.array_equal(f2, np.array([0, 1, 2, 3]))
 
 
+def test_n_current_trials():
+    spark = SparkSession.builder.getOrCreate()
+    sc = spark._jsc.sc()
+    num_executors = (
+        len([executor.host() for executor in sc.statusTracker().getExecutorInfos()]) - 1
+    )
+
+    def get_n_current_trials(n_concurrent_trials=0, num_executors=num_executors):
+        try:
+            FLAML_MAX_CONCURRENT = int(os.getenv("FLAML_MAX_CONCURRENT", 0))
+            num_executors = max(num_executors, FLAML_MAX_CONCURRENT, 1)
+        except ValueError:
+            FLAML_MAX_CONCURRENT = 0
+        max_spark_parallelism = (
+            min(spark.sparkContext.defaultParallelism, FLAML_MAX_CONCURRENT)
+            if FLAML_MAX_CONCURRENT > 0
+            else spark.sparkContext.defaultParallelism
+        )
+        max_concurrent = max(1, max_spark_parallelism)
+        n_concurrent_trials = min(
+            n_concurrent_trials if n_concurrent_trials > 0 else num_executors,
+            max_concurrent,
+        )
+        print("n_concurrent_trials:", n_concurrent_trials)
+        return n_concurrent_trials
+
+    os.environ["FLAML_MAX_CONCURRENT"] = "invlaid"
+    assert get_n_current_trials() == num_executors
+    os.environ["FLAML_MAX_CONCURRENT"] = "0"
+    assert get_n_current_trials() == max(num_executors, 1)
+    os.environ["FLAML_MAX_CONCURRENT"] = "4"
+    assert get_n_current_trials() == max(num_executors, 4)
+    os.environ["FLAML_MAX_CONCURRENT"] = "9999999"
+    assert get_n_current_trials() == spark.sparkContext.defaultParallelism
+    os.environ["FLAML_MAX_CONCURRENT"] = "100"
+    tmp_max = min(100, spark.sparkContext.defaultParallelism)
+    assert get_n_current_trials(1) == 1
+    assert get_n_current_trials(2) == min(2, tmp_max)
+    assert get_n_current_trials(50) == min(50, tmp_max)
+    assert get_n_current_trials(200) == min(200, tmp_max)
+
+
 if __name__ == "__main__":
     test_with_parameters_spark()
     test_get_n_cpus_spark()
     test_broadcast_code()
     test_get_broadcast_data()
     test_train_test_split_pyspark()
+    test_n_current_trials()
