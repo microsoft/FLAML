@@ -57,22 +57,21 @@ except ImportError:
 
 try:
     os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
-    import pyspark
+    from pyspark.sql.dataframe import DataFrame as sparkDataFrame
     from pyspark.sql import SparkSession
-    from pyspark.sql.functions import udf
-    from pyspark.ml import Pipeline
-    import pyspark.pandas as ps
     from pyspark.pandas import DataFrame as psDataFrame, Series as psSeries
 
     _have_spark = True
 except ImportError:
     _have_spark = False
-    ps = None
 
     class psDataFrame:
         pass
 
     class psSeries:
+        pass
+
+    class sparkDataFrame:
         pass
 
 
@@ -484,7 +483,7 @@ class SparkEstimator(BaseEstimator):
             train_time = self._fit(df_train, **kwargs)
         return train_time
 
-    def _fit(self, df_train: pyspark.sql.DataFrame, **kwargs):
+    def _fit(self, df_train: sparkDataFrame, **kwargs):
         current_time = time.time()
         pipeline_model = self.estimator_class(**self.params, **kwargs)
         if logger.level == logging.DEBUG:
@@ -734,7 +733,7 @@ class SparkLGBMEstimator(SparkEstimator):
         train_time = time.time() - start_time
         return train_time
 
-    def _fit(self, df_train: pyspark.sql.DataFrame, **kwargs):
+    def _fit(self, df_train: sparkDataFrame, **kwargs):
         # from pyspark.ml.feature import VectorAssembler
         # feature_cols = df_train.columns[1:]
         # featurizer = VectorAssembler(inputCols=feature_cols, outputCol="features")

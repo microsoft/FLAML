@@ -4,27 +4,31 @@ import pytest
 import numpy as np
 import pandas as pd
 import sklearn.datasets as skds
+import flaml
 from flaml import AutoML
 from flaml.tune.spark.utils import check_spark
-from flaml.automl.spark.utils import to_pandas_on_spark
-import pyspark
-from pyspark.ml.feature import VectorAssembler
 
-warnings.simplefilter(action="ignore")
+try:
+    import pyspark
+    from pyspark.ml.feature import VectorAssembler
+    from flaml.automl.spark.utils import to_pandas_on_spark
 
-os.environ["FLAML_MAX_CONCURRENT"] = "2"
-
-spark = (
-    pyspark.sql.SparkSession.builder.appName("MyApp")
-    .config(
-        "spark.jars.packages",
-        f"com.microsoft.azure:synapseml_2.12:0.10.2,org.apache.hadoop:hadoop-azure:{pyspark.__version__},com.microsoft.azure:azure-storage:8.6.6",
+    warnings.simplefilter(action="ignore")
+    os.environ["FLAML_MAX_CONCURRENT"] = "2"
+    spark = (
+        pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config(
+            "spark.jars.packages",
+            f"com.microsoft.azure:synapseml_2.12:0.10.2,org.apache.hadoop:hadoop-azure:{pyspark.__version__},com.microsoft.azure:azure-storage:8.6.6",
+        )
+        .config("spark.sql.debug.maxToStringFields", "100")
+        .getOrCreate()
     )
-    .config("spark.sql.debug.maxToStringFields", "100")
-    .getOrCreate()
-)
-spark_available, _ = check_spark()
-skip_spark = not spark_available
+    spark_available, _ = check_spark()
+    skip_spark = not spark_available
+except ImportError:
+    skip_spark = True
+
 
 pytestmark = pytest.mark.skipif(
     skip_spark, reason="Spark is not installed. Skip all spark tests."
@@ -134,6 +138,7 @@ def test_spark_input_df():
         "task": "classification",  # task type
         "log_file_name": "flaml_experiment.log",  # flaml log file
         "seed": 7654321,  # random seed
+        "force_cancle": True,
     }
     df = to_pandas_on_spark(to_pandas_on_spark(train_data).to_spark(index_col="index"))
 

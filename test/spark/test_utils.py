@@ -1,16 +1,3 @@
-from flaml.tune.spark.utils import (
-    with_parameters,
-    check_spark,
-    get_n_cpus,
-    get_broadcast_data,
-)
-from flaml.automl.spark.utils import (
-    to_pandas_on_spark,
-    train_test_split_pyspark,
-    unique_pandas_on_spark,
-    len_labels,
-    unique_value_first_index,
-)
 import numpy as np
 import pandas as pd
 from functools import partial
@@ -23,6 +10,19 @@ try:
     from pyspark.sql import SparkSession
     import pyspark
     import pyspark.pandas as ps
+    from flaml.tune.spark.utils import (
+        with_parameters,
+        check_spark,
+        get_n_cpus,
+        get_broadcast_data,
+    )
+    from flaml.automl.spark.utils import (
+        to_pandas_on_spark,
+        train_test_split_pyspark,
+        unique_pandas_on_spark,
+        len_labels,
+        unique_value_first_index,
+    )
 
     spark_available, _ = check_spark()
     skip_spark = not spark_available
