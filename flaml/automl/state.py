@@ -1,6 +1,6 @@
 import inspect
 import time
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -238,7 +238,7 @@ class SearchState:
 
 
 class AutoMLState:
-    def _prepare_sample_train_data(self, sample_size):
+    def _prepare_sample_train_data(self, sample_size: int):
         sampled_weight = groups = None
         if sample_size <= self.data_size[0]:
             if isinstance(self.X_train, pd.DataFrame):
@@ -276,7 +276,12 @@ class AutoMLState:
         return sampled_X_train, sampled_y_train, sampled_weight, groups
 
     @staticmethod
-    def _compute_with_config_base(config_w_resource, state, estimator, is_report=True):
+    def _compute_with_config_base(
+        config_w_resource: dict,
+        state: "AutoMLState",
+        estimator: str,
+        is_report: bool = True,
+    ) -> dict:
         if "FLAML_sample_size" in config_w_resource:
             sample_size = int(config_w_resource["FLAML_sample_size"])
         else:
@@ -367,9 +372,9 @@ class AutoMLState:
 
     def _train_with_config(
         self,
-        estimator,
-        config_w_resource,
-        sample_size=None,
+        estimator: str,
+        config_w_resource: dict,
+        sample_size: Optional[int] = None,
     ):
         if not sample_size:
             sample_size = config_w_resource.get(

@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import List
+from typing import List, Optional
 
 import pandas as pd
 import numpy as np
@@ -17,7 +17,7 @@ from sklearn.model_selection import (
 )
 
 from flaml.automl.data import TS_TIMESTAMP_COL, concat
-from flaml.automl.ml import default_cv_score_agg_func, get_val_loss
+from flaml.automl.ml import EstimatorSubclass, default_cv_score_agg_func, get_val_loss
 from flaml.automl.model import (
     XGBoostSklearnEstimator,
     XGBoostLimitDepthEstimator,
@@ -671,8 +671,8 @@ class GenericTask(Task):
 
     def evaluate_model_CV(
         self,
-        config,
-        estimator,
+        config: dict,
+        estimator: EstimatorSubclass,
         X_train_all,
         y_train_all,
         budget,
@@ -681,9 +681,11 @@ class GenericTask(Task):
         best_val_loss,
         cv_score_agg_func=None,
         log_training_metric=False,
-        fit_kwargs={},
+        fit_kwargs: Optional[dict] = None,
         free_mem_ratio=0,
     ):
+        if fit_kwargs is None:
+            fit_kwargs = {}
         if cv_score_agg_func is None:
             cv_score_agg_func = default_cv_score_agg_func
         start_time = time.time()

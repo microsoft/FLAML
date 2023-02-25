@@ -110,7 +110,6 @@ class TrainingArgumentsForAuto(TrainingArguments):
 
 @dataclass
 class Seq2SeqTrainingArgumentsForAuto(TrainingArgumentsForAuto):
-
     model_path: str = field(
         default="t5-small",
         metadata={
