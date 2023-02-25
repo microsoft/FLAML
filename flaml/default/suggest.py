@@ -3,12 +3,15 @@ from sklearn.neighbors import NearestNeighbors
 import logging
 import pathlib
 import json
+import os
 from flaml.automl.data import CLASSIFICATION, DataTransformer
 from flaml.automl.ml import get_estimator_class, get_classification_objective
 from flaml.version import __version__
-from flaml.automl.spark.utils import len_labels
-import os
 
+try:
+    from flaml.automl.spark.utils import len_labels
+except ImportError:
+    from flaml.automl.utils import len_labels
 try:
     os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
     import pyspark.pandas as ps

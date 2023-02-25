@@ -58,12 +58,21 @@ from flaml.automl.training_log import training_log_reader, training_log_writer
 from flaml.default import suggest_learner
 from flaml.version import __version__ as flaml_version
 from flaml.tune.spark.utils import check_spark, get_broadcast_data
-from flaml.automl.spark.utils import (
-    train_test_split_pyspark,
-    unique_pandas_on_spark,
-    len_labels,
-    unique_value_first_index,
-)
+
+try:
+    from flaml.automl.spark.utils import (
+        train_test_split_pyspark,
+        unique_pandas_on_spark,
+        len_labels,
+        unique_value_first_index,
+    )
+except ImportError:
+    train_test_split_pyspark = None
+    unique_pandas_on_spark = None
+    from flaml.automl.utils import (
+        len_labels,
+        unique_value_first_index,
+    )
 
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(

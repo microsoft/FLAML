@@ -50,8 +50,11 @@ from flaml.automl.model import (
     SparkLGBMEstimator,
 )
 from flaml.automl.data import CLASSIFICATION, group_counts, TS_FORECAST
-from flaml.automl.spark.utils import len_labels
 
+try:
+    from flaml.automl.spark.utils import len_labels
+except ImportError:
+    from flaml.automl.utils import len_labels
 try:
     os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
     import pyspark.pandas as ps

@@ -33,7 +33,13 @@ from flaml.automl.data import (
     SUMMARIZATION,
     NLG_TASKS,
 )
-from flaml.automl.spark.utils import len_labels, to_pandas_on_spark
+
+try:
+    from flaml.automl.spark.utils import len_labels, to_pandas_on_spark
+except ImportError:
+    from flaml.automl.utils import len_labels
+
+    to_pandas_on_spark = None
 from flaml.automl.spark.configs import (
     ParamList_LightGBM_Classifier,
     ParamList_LightGBM_Regressor,
@@ -416,10 +422,11 @@ class BaseEstimator:
 class SparkEstimator(BaseEstimator):
     """The base class for fine-tuning spark models, using pyspark.ml and SynapseML API."""
 
-    if not _have_spark:
-        raise ImportError("pyspark is not installed. Try `pip install flaml[spark]`.")
-
     def __init__(self, task="binary", **config):
+        if not _have_spark:
+            raise ImportError(
+                "pyspark is not installed. Try `pip install flaml[spark]`."
+            )
         super().__init__(task, **config)
         self.spark = SparkSession.builder.getOrCreate()
         self.df_train = None

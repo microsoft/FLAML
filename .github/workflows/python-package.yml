@@ -57,8 +57,8 @@ jobs:
           export CFLAGS="$CFLAGS -I/usr/local/opt/libomp/include"
           export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
           export LDFLAGS="$LDFLAGS -Wl,-rpath,/usr/local/opt/libomp/lib -L/usr/local/opt/libomp/lib -lomp"
-      - name: On Linux, install Spark stand-alone cluster and PySpark
-        if: matrix.os == 'ubuntu-latest'
+      - name: On Linux + python != 3.9, install Spark stand-alone cluster and PySpark
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version != '3.9'
         run: |
           sudo apt-get update && sudo apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends ca-certificates-java ca-certificates openjdk-17-jdk-headless && sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/*
           wget --progress=dot:giga "https://www.apache.org/dyn/closer.lua/spark/spark-${{ matrix.pyspark-version }}/spark-${{ matrix.pyspark-version }}-bin-${{ matrix.hadoop-version }}.tgz?action=download" -O - | tar -xzC /tmp; archive=$(basename "spark-${{ matrix.pyspark-version }}/spark-${{ matrix.pyspark-version }}-bin-${{ matrix.hadoop-version }}.tgz") bash -c "sudo mv -v /tmp/\${archive/%.tgz/} /spark"
@@ -91,7 +91,7 @@ jobs:
       - name: Uninstall pyspark on python 3.9
         if: matrix.python-version == '3.9'
         run: |
-          # Uninstall pyspark to test env without spark
+          # Uninstall pyspark to test env without pyspark
           pip uninstall pyspark
       - name: Lint with flake8
         run: |

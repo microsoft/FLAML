@@ -154,7 +154,8 @@ def len_labels(
 def unique_value_first_index(
     y: Union[pd.Series, ps.Series, np.ndarray]
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Get the unique values and indices of a pandas_on_spark series."""
+    """Get the unique values and indices of a pandas series,
+    pandas_on_spark series or numpy array."""
     if isinstance(y, ps.Series):
         y_unique = y.drop_duplicates().sort_index()
         label_set = y_unique.values
