@@ -5,6 +5,7 @@ import pathlib
 import json
 from flaml.automl.data import DataTransformer
 from flaml.automl.task.task import CLASSIFICATION, get_classification_objective
+from flaml.automl.task.factory import task_factory
 from flaml.version import __version__
 
 LOCATION = pathlib.Path(__file__).parent.resolve()
