@@ -15,9 +15,7 @@ pytestmark = pytest.mark.skipif(
 os.environ["FLAML_MAX_CONCURRENT"] = "2"
 
 
-def run_automl(
-    budget=3, dataset_format="dataframe", hpo_method=None, force_cancel=False
-):
+def run_automl(budget=3, dataset_format="dataframe", hpo_method=None):
     from flaml.automl.data import load_openml_dataset
     import urllib3
 
@@ -65,7 +63,6 @@ def run_automl(
         "eval_method": "holdout",
         "n_concurrent_trials": 2,
         "use_spark": True,
-        "force_cancel": force_cancel,
     }
 
     """The main flaml automl API"""
@@ -105,7 +102,7 @@ def test_automl_array():
 
 
 def test_automl_performance():
-    run_automl(3600, force_cancel=True)
+    run_automl(3600)
 
 
 if __name__ == "__main__":
