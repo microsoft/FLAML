@@ -1525,7 +1525,7 @@ class AutoML(BaseEstimator):
         if isinstance(task, str):
             task = task_factory(task, X_train, y_train)
         self._state.task = task
-        self.task.time_col = time_col
+        self._state.task.time_col = time_col
         self._estimator_type = "classifier" if task.is_classification() else "regressor"
         time_budget = time_budget or self._settings.get("time_budget")
         n_jobs = n_jobs or self._settings.get("n_jobs")
