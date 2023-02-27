@@ -2,6 +2,7 @@
 #  * Copyright (c) FLAML authors. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
+from __future__ import annotations
 import time
 import os
 import sys
@@ -306,7 +307,7 @@ class SearchState:
 
 
 class AutoMLState:
-    def _prepare_sample_train_data(self, sample_size):
+    def _prepare_sample_train_data(self, sample_size: int):
         sampled_weight = groups = None
         if sample_size <= self.data_size[0]:
             if isinstance(self.X_train, pd.DataFrame):
@@ -344,7 +345,9 @@ class AutoMLState:
         return sampled_X_train, sampled_y_train, sampled_weight, groups
 
     @staticmethod
-    def _compute_with_config_base(config_w_resource, state, estimator, is_report=True):
+    def _compute_with_config_base(
+        config_w_resource: dict, state: AutoMLState, estimator: str, is_report: bool = True
+    ) -> dict:
         if "FLAML_sample_size" in config_w_resource:
             sample_size = int(config_w_resource["FLAML_sample_size"])
         else:
@@ -435,9 +438,9 @@ class AutoMLState:
 
     def _train_with_config(
         self,
-        estimator,
-        config_w_resource,
-        sample_size=None,
+        estimator: str,
+        config_w_resource: dict,
+        sample_size: Optional[int] = None,
     ):
         if not sample_size:
             sample_size = config_w_resource.get(
@@ -673,6 +676,8 @@ class AutoML(BaseEstimator):
                 on disk when deleting automl. By default the checkpoint is preserved.
             early_stop: boolean, default=False | Whether to stop early if the
                 search is considered to converge.
+            force_cancel: boolean, default=False | Whether to forcely cancel Spark jobs if the
+                search time exceeded the time budget.
             append_log: boolean, default=False | Whetehr to directly append the log
                 records to the input log file if it exists.
             auto_augment: boolean, default=True | Whether to automatically
@@ -782,6 +787,7 @@ class AutoML(BaseEstimator):
         settings["keep_search_state"] = settings.get("keep_search_state", False)
         settings["preserve_checkpoint"] = settings.get("preserve_checkpoint", True)
         settings["early_stop"] = settings.get("early_stop", False)
+        settings["force_cancel"] = settings.get("force_cancel", False)
         settings["append_log"] = settings.get("append_log", False)
         settings["min_sample_size"] = settings.get("min_sample_size", MIN_SAMPLE_TRAIN)
         settings["use_ray"] = settings.get("use_ray", False)
@@ -801,11 +807,11 @@ class AutoML(BaseEstimator):
             "classifier" if settings["task"] in CLASSIFICATION else "regressor"
         )
 
-    def get_params(self, deep=False):
+    def get_params(self, deep: bool = False) -> dict:
         return self._settings.copy()
 
     @property
-    def config_history(self):
+    def config_history(self) -> dict:
         """A dictionary of iter->(estimator, config, time),
         storing the best estimator, config, and the time when the best
         model is updated each time.
@@ -819,7 +825,7 @@ class AutoML(BaseEstimator):
         """
         return self.__dict__.get("_trained_estimator")
 
-    def best_model_for_estimator(self, estimator_name):
+    def best_model_for_estimator(self, estimator_name: str):
         """Return the best model found for a particular estimator.
 
         Args:
@@ -1104,7 +1110,6 @@ class AutoML(BaseEstimator):
         groups_val=None,
         groups=None,
     ):
-
         if X_train_all is not None and y_train_all is not None:
             assert (
                 isinstance(X_train_all, np.ndarray)
@@ -1266,7 +1271,6 @@ class AutoML(BaseEstimator):
             self._state.groups = groups
 
     def _prepare_data(self, eval_method, split_ratio, n_splits):
-
         X_val, y_val = self._state.X_val, self._state.y_val
         if issparse(X_val):
             X_val = X_val.tocsr()
@@ -1589,7 +1593,7 @@ class AutoML(BaseEstimator):
         """
         self._state.learner_classes[learner_name] = learner_class
 
-    def get_estimator_from_log(self, log_file_name, record_id, task):
+    def get_estimator_from_log(self, log_file_name: str, record_id: int, task: str):
         """Get the estimator from log file.
 
         Args:
@@ -2206,6 +2210,7 @@ class AutoML(BaseEstimator):
         keep_search_state=None,
         preserve_checkpoint=True,
         early_stop=None,
+        force_cancel=None,
         append_log=None,
         auto_augment=None,
         min_sample_size=None,
@@ -2395,6 +2400,7 @@ class AutoML(BaseEstimator):
                 on disk when deleting automl. By default the checkpoint is preserved.
             early_stop: boolean, default=False | Whether to stop early if the
                 search is considered to converge.
+            force_cancel: boolean, default=False | Whether to forcely cancel the PySpark job if overtime.
             append_log: boolean, default=False | Whetehr to directly append the log
                 records to the input log file if it exists.
             auto_augment: boolean, default=True | Whether to automatically
@@ -2597,6 +2603,9 @@ class AutoML(BaseEstimator):
         early_stop = (
             self._settings.get("early_stop") if early_stop is None else early_stop
         )
+        force_cancel = (
+            self._settings.get("force_cancel") if force_cancel is None else force_cancel
+        )
         # no search budget is provided?
         no_budget = time_budget < 0 and max_iter is None and not early_stop
         append_log = (
@@ -2647,6 +2656,7 @@ class AutoML(BaseEstimator):
         self._n_concurrent_trials = n_concurrent_trials
         self._early_stop = early_stop
         self._use_spark = use_spark
+        self._force_cancel = force_cancel
         self._use_ray = use_ray
         # use the following condition if we have an estimation of average_trial_time and average_trial_overhead
         # self._use_ray = use_ray or n_concurrent_trials > ( average_trial_time + average_trial_overhead) / (average_trial_time)
@@ -3173,6 +3183,7 @@ class AutoML(BaseEstimator):
                 verbose=max(self.verbose - 2, 0),
                 use_ray=False,
                 use_spark=True,
+                force_cancel=self._force_cancel,
                 # raise_on_failed_trial=False,
                 # keep_checkpoints_num=1,
                 # checkpoint_score_attr="min-val_loss",
