@@ -165,9 +165,10 @@ def suggest_hyperparams(task, X, y, estimator_or_predictor, location=None):
         0
     ]
     estimator = config["class"]
+    task = task_factory(task)
     model_class = task.estimator_class_from_str(estimator)
     hyperparams = config["hyperparameters"]
-    model = model_class(task=task, **hyperparams)
+    model = model_class(task=task.name, **hyperparams)
     estimator_class = model.estimator_class
     hyperparams = hyperparams and model.params
     return hyperparams, estimator_class
@@ -251,7 +252,7 @@ def preprocess_and_suggest_hyperparams(
         0
     ]
     estimator = config["class"]
-    model_class = task.estimator_class_from_str(estimator)
+    model_class = task_factory(task).estimator_class_from_str(estimator)
     hyperparams = config["hyperparameters"]
     model = model_class(task=task, **hyperparams)
     if model.estimator_class is None:

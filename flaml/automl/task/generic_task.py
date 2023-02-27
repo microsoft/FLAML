@@ -13,23 +13,12 @@ from sklearn.model_selection import (
     GroupKFold,
     TimeSeriesSplit,
     GroupShuffleSplit,
+    StratifiedGroupKFold,
 )
 
 from flaml.automl.data import TS_TIMESTAMP_COL, concat
-from flaml.automl.ml import default_cv_score_agg_func, get_val_loss
-from flaml.automl.model import (
-    XGBoostSklearnEstimator,
-    XGBoostLimitDepthEstimator,
-    RandomForestEstimator,
-    LGBMEstimator,
-    LRL1Classifier,
-    LRL2Classifier,
-    CatBoostEstimator,
-    ExtraTreesEstimator,
-    KNeighborsEstimator,
-    TransformersEstimator,
-    TransformersEstimatorModelSelection,
-)
+from flaml.automl.ml import get_val_loss, default_cv_score_agg_func
+
 from flaml.automl.task.task import (
     Task,
     get_classification_objective,
@@ -42,19 +31,36 @@ logger = logging.getLogger(__name__)
 
 
 class GenericTask(Task):
-    estimators = {
-        "xgboost": XGBoostSklearnEstimator,
-        "xgb_limitdepth": XGBoostLimitDepthEstimator,
-        "rf": RandomForestEstimator,
-        "lgbm": LGBMEstimator,
-        "lrl1": LRL1Classifier,
-        "lrl2": LRL2Classifier,
-        "catboost": CatBoostEstimator,
-        "extra_tree": ExtraTreesEstimator,
-        "kneighbor": KNeighborsEstimator,
-        "transformer": TransformersEstimator,
-        "transformer_ms": TransformersEstimatorModelSelection,
-    }
+    @property
+    def estimators(self):
+        # put this into a function to avoid circular dependency
+        from flaml.automl.model import (
+            XGBoostSklearnEstimator,
+            XGBoostLimitDepthEstimator,
+            RandomForestEstimator,
+            LGBMEstimator,
+            LRL1Classifier,
+            LRL2Classifier,
+            CatBoostEstimator,
+            ExtraTreesEstimator,
+            KNeighborsEstimator,
+            TransformersEstimator,
+            TransformersEstimatorModelSelection,
+        )
+
+        return {
+            "xgboost": XGBoostSklearnEstimator,
+            "xgb_limitdepth": XGBoostLimitDepthEstimator,
+            "rf": RandomForestEstimator,
+            "lgbm": LGBMEstimator,
+            "lrl1": LRL1Classifier,
+            "lrl2": LRL2Classifier,
+            "catboost": CatBoostEstimator,
+            "extra_tree": ExtraTreesEstimator,
+            "kneighbor": KNeighborsEstimator,
+            "transformer": TransformersEstimator,
+            "transformer_ms": TransformersEstimatorModelSelection,
+        }
 
     def validate_data(
         self,
@@ -157,9 +163,10 @@ class GenericTask(Task):
 
             automl._transformer = DataTransformer()
 
-            automl._X_train_all, automl._y_train_all = automl._transformer.fit_transform(
-                X, y, self
-            )
+            (
+                automl._X_train_all,
+                automl._y_train_all,
+            ) = automl._transformer.fit_transform(X, y, self)
             automl._label_transformer = automl._transformer.label_transformer
             if self.is_token_classification():
                 if hasattr(automl._label_transformer, "label_list"):
@@ -273,7 +280,7 @@ class GenericTask(Task):
         state,
         X_train_all,
         y_train_all,
-        auto_argument,
+        auto_augment,
         eval_method,
         split_type,
         split_ratio,
@@ -288,7 +295,7 @@ class GenericTask(Task):
             X_train_all = X_train_all.tocsr()
         if (
             self.is_classification()
-            and auto_argument
+            and auto_augment
             and state.fit_kwargs.get("sample_weight")
             is None  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
             and split_type in ["stratified", "uniform"]
@@ -555,31 +562,7 @@ class GenericTask(Task):
             )
         elif split_type == "time":
             # logger.info("Using TimeSeriesSplit")
-            if (
-                self.is_ts_forecast()
-                and not self.is_ts_forecastpanel()
-            ):
-                period = state.fit_kwargs[
-                    "period"
-                ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                if period * (n_splits + 1) > y_train_all.size:
-                    n_splits = int(y_train_all.size / period - 1)
-                    assert n_splits >= 2, (
-                        f"cross validation for forecasting period={period}"
-                        f" requires input data with at least {3 * period} examples."
-                    )
-                    logger.info(f"Using nsplits={n_splits} due to data size limit.")
-                state.kf = TimeSeriesSplit(n_splits=n_splits, test_size=period)
-            elif self.is_ts_forecastpanel():
-                n_groups = X_train.groupby(
-                    state.fit_kwargs.get("group_ids")
-                ).ngroups
-                period = state.fit_kwargs.get("period")
-                state.kf = TimeSeriesSplit(
-                    n_splits=n_splits, test_size=period * n_groups
-                )
-            else:
-                state.kf = TimeSeriesSplit(n_splits=n_splits)
+            state.kf = TimeSeriesSplit(n_splits=n_splits)
         elif isinstance(split_type, str):
             # logger.info("Using RepeatedKFold")
             state.kf = RepeatedKFold(
@@ -588,8 +571,8 @@ class GenericTask(Task):
         else:
             # logger.info("Using splitter object")
             state.kf = split_type
-        if isinstance(state.kf, GroupKFold):
-            # split_type is either "group" or a GroupKFold object
+        if isinstance(state.kf, (GroupKFold, StratifiedGroupKFold)):
+            # self._split_type is either "group", a GroupKFold object, or a StratifiedGroupKFold object
             state.kf.groups = state.groups_all
 
     def decide_split_type(
@@ -709,7 +692,7 @@ class GenericTask(Task):
         shuffle = getattr(kf, "shuffle", not self.is_ts_forecast())
         if isinstance(kf, RepeatedStratifiedKFold):
             kf = kf.split(X_train_split, y_train_split)
-        elif isinstance(kf, GroupKFold):
+        elif isinstance(kf, (GroupKFold, StratifiedGroupKFold)):
             groups = kf.groups
             kf = kf.split(X_train_split, y_train_split, groups)
             shuffle = False
@@ -740,8 +723,16 @@ class GenericTask(Task):
                     weight[val_index],
                 )
             if groups is not None:
-                fit_kwargs["groups"] = groups[train_index]
-                groups_val = groups[val_index]
+                fit_kwargs["groups"] = (
+                    groups[train_index]
+                    if isinstance(groups, np.ndarray)
+                    else groups.iloc[train_index]
+                )
+                groups_val = (
+                    groups[val_index]
+                    if isinstance(groups, np.ndarray)
+                    else groups.iloc[val_index]
+                )
             else:
                 groups_val = None
             val_loss_i, metric_i, train_time_i, pred_time_i = get_val_loss(

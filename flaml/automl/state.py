@@ -61,12 +61,12 @@ class SearchState:
         learner_class,
         data_size,
         data,
-            task,
-            starting_point=None,
-            period=None,
-            custom_hp=None,
-            max_iter=None,
-            budget=None,
+        task,
+        starting_point=None,
+        period=None,
+        custom_hp=None,
+        max_iter=None,
+        budget=None,
     ):
         self.init_eci = learner_class.cost_relative2lgbm() if budget >= 0 else 1
         self._search_space_domain = {}
@@ -255,7 +255,6 @@ class AutoMLState:
                     sampled_y_train = self.y_train.iloc[:sample_size]
                 else:
                     sampled_y_train = self.y_train[:sample_size]
-
 
             weight = self.fit_kwargs.get(
                 "sample_weight"

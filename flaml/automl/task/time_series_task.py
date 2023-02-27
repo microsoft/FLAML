@@ -10,11 +10,12 @@ from sklearn.model_selection import (
     TimeSeriesSplit,
 )
 
-from flaml.automl.ml import default_cv_score_agg_func, get_val_loss
+from flaml.automl.ml import get_val_loss, default_cv_score_agg_func
 from flaml.automl.time_series.ts_data import (
     TimeSeriesDataset,
     DataTransformerTS,
     normalize_ts_data,
+    validate_data_basic,
 )
 
 from flaml.automl.task.task import (
@@ -23,13 +24,11 @@ from flaml.automl.task.task import (
     TS_FORECAST,
     TS_FORECASTPANEL,
 )
-from flaml.config import RANDOM_SEED
 
 logger = logging.getLogger(__name__)
 
 
 class TimeSeriesTask(Task):
-
     @property
     def estimators(self):
         # put this into a function to avoid circular dependency
@@ -61,7 +60,7 @@ class TimeSeriesTask(Task):
             "tft": TemporalFusionTransformerEstimator,
         }
 
-    #processed
+    # processed
     def validate_data(
         self,
         automl,
@@ -75,47 +74,53 @@ class TimeSeriesTask(Task):
         groups_val=None,
         groups=None,
     ):
+        # first beat the data into a TimeSeriesDataset shape
         if isinstance(X_train_all, TimeSeriesDataset):
             # in this case, we're most likely being called by another FLAML instance
             # so all the preliminary cleaning has already been done
-            data = X_train_all
-            automl._transformer = None
-            automl._label_transformer = None
-            self.time_col = X_train_all.time_col
-            self.target_names = X_train_all.target_names
+            pre_data = X_train_all
+            val_len = len(pre_data.X_val)
         else:
             if label is None and dataframe is not None:
-                raise ValueError("If data is specified via dataframe parameter, you must also specify label")
+                raise ValueError(
+                    "If data is specified via dataframe parameter, you must also specify label"
+                )
 
             if isinstance(y_train_all, pd.Series):
                 label = y_train_all.name
             elif isinstance(y_train_all, np.ndarray):
-                label = 'y' #Prophet convention
+                label = "y"  # Prophet convention
 
             if isinstance(label, str):
                 target_names = [label]
             else:
                 target_names = label
 
-            self.target_names = target_names
-
             if self.time_col is None:
                 if isinstance(X_train_all, pd.DataFrame):
-                    assert dataframe is None, "One of dataframe and X arguments must be None"
+                    assert (
+                        dataframe is None
+                    ), "One of dataframe and X arguments must be None"
                     self.time_col = X_train_all.columns[0]
                 elif dataframe is not None:
-                    assert X_train_all is None, "One of dataframe and X arguments must be None"
+                    assert (
+                        X_train_all is None
+                    ), "One of dataframe and X arguments must be None"
                     self.time_col = dataframe.columns[0]
                 else:
                     self.time_col = "ds"
 
             automl._df = True
 
-            if X_train_all is not None and y_train_all is not None:
-                validate_data_basic(X_train_all, y_train_all)
-                # the below line forces data into a pd.DataFrame
-                dataframe = normalize_ts_data(
-                    X_train_all, target_names, self.time_col, y_train_all
+            if X_train_all is not None:
+                assert (
+                    y_train_all is not None
+                ), "If X_train_all is not None, y_train_all must also be"
+                assert (
+                    dataframe is None
+                ), "If X_train_all is provided, dataframe must be None"
+                dataframe = TimeSeriesDataset.to_dataframe(
+                    X_train_all, y_train_all, target_names, self.time_col
                 )
 
             elif dataframe is not None:
@@ -136,46 +141,55 @@ class TimeSeriesTask(Task):
             ), f"For '{TS_FORECAST}' task, time_col must contain timestamp values."
 
             dataframe = remove_ts_duplicates(dataframe, self.time_col)
-            X = dataframe.drop(columns=target_names)
-            automl._nrow, automl._ndim = X.shape
 
-            # transform them all together to guarantee consistency
-            if X_val is not None and y_val is not None:
-                validate_data_basic(X_val, y_val)
-                val_df = normalize_ts_data(X_val, y_val, target_names, self.time_col)
-                all_df = pd.concat([dataframe, val_df], axis=0)
+            if X_val is not None:
+                assert y_val is not None, "If X_val is not None, y_val must also be"
+                val_df = TimeSeriesDataset.to_dataframe(
+                    X_val, y_val, target_names, self.time_col
+                )
                 val_len = len(val_df)
             else:
-                all_df = dataframe
                 val_len = 0
+                val_df = None
 
-            automl._transformer = DataTransformerTS(self.time_col, label)
-            Xt, yt = automl._transformer.fit_transform(
-                all_df.drop(columns=target_names), all_df[target_names]
-            )
-            df_t = pd.concat([Xt, yt], axis=1)
-
-            if val_len == 0:
-                df_train, df_val = df_t, None
-            else:
-                df_train, df_val = df_t[:-val_len], df_t[-val_len:]
-
-            automl._X_train_all, automl._y_train_all = Xt, yt
-
-            automl._label_transformer = automl._transformer.label_transformer
-
-            automl._feature_names_in_ = (
-                automl._X_train_all.columns.to_list()
-                if hasattr(automl._X_train_all, "columns")
-                else None
-            )
-
-            data = TimeSeriesDataset(
-                train_data=df_train,
+            pre_data = TimeSeriesDataset(
+                train_data=dataframe,
                 time_col=self.time_col,
                 target_names=target_names,
-                test_data=df_val,
+                test_data=val_df,
             )
+
+        # TODO: should the transformer be a property of the dataset instead?
+        automl._transformer = DataTransformerTS(self.time_col, label)
+        Xt, yt = automl._transformer.fit_transform(pre_data.X_all, pre_data.y_all)
+
+        df_t = pd.concat([Xt, yt], axis=1)
+
+        data = TimeSeriesDataset(
+            train_data=df_t,
+            time_col=pre_data.time_col,
+            target_names=pre_data.target_names,
+        ).move_validation_boundary(-val_len)
+
+        # now setup the properties of all the other relevant objects
+
+        # TODO: where are these used? Replace with pointers to data?
+        automl._X_train_all, automl._y_train_all = Xt, yt
+
+        # TODO: where are these used?
+        automl._nrow, automl._ndim = data.X_train.shape
+
+        # make a property instead? Or just fix the call?
+        automl._label_transformer = automl._transformer.label_transformer
+
+        automl._feature_names_in_ = (
+            automl._X_train_all.columns.to_list()
+            if hasattr(automl._X_train_all, "columns")
+            else None
+        )
+
+        self.time_col = data.time_col
+        self.target_names = data.target_names
 
         automl._state.X_val = data
         automl._state.X_train = data
@@ -193,43 +207,6 @@ class TimeSeriesTask(Task):
         automl.data_size_full = len(data.all_data)
         automl._state.groups = None
         automl._sample_weight_full = None
-    #
-    # # Needed?
-    # @staticmethod
-    # def _validate_ts_data(
-    #     dataframe,
-    #     y_train_all=None,
-    # ):
-    #     assert (
-    #         dataframe[dataframe.columns[0]].dtype.name == "datetime64[ns]"
-    #     ), f"For '{TS_FORECAST}' task, the first column must contain timestamp values."
-    #     if y_train_all is not None:
-    #         y_df = (
-    #             pd.DataFrame(y_train_all)
-    #             if isinstance(y_train_all, pd.Series)
-    #             else pd.DataFrame(y_train_all, columns=["labels"])
-    #         )
-    #         dataframe = dataframe.join(y_df)
-    #     duplicates = dataframe.duplicated()
-    #     if any(duplicates):
-    #         logger.warning(
-    #             "Duplicate timestamp values found in timestamp column. "
-    #             f"\n{dataframe.loc[duplicates, dataframe][dataframe.columns[0]]}"
-    #         )
-    #         dataframe = dataframe.drop_duplicates()
-    #         logger.warning("Removed duplicate rows based on all columns")
-    #         assert (
-    #             dataframe[[dataframe.columns[0]]].duplicated() is None
-    #         ), "Duplicate timestamp values with different values for other columns."
-    #     ts_series = pd.to_datetime(dataframe[dataframe.columns[0]])
-    #     inferred_freq = pd.infer_freq(ts_series)
-    #     if inferred_freq is None:
-    #         logger.warning(
-    #             "Missing timestamps detected. To avoid error with estimators, set estimator list to ['prophet']. "
-    #         )
-    #     if y_train_all is not None:
-    #         return dataframe.iloc[:, :-1], dataframe.iloc[:, -1]
-    #     return dataframe
 
     def prepare_data(
         self,
@@ -249,9 +226,7 @@ class TimeSeriesTask(Task):
         state.kf = None
 
         if split_type in ["uniform", "stratified"]:
-            raise ValueError(
-                f"Split type {split_type} is not valid for time series"
-            )
+            raise ValueError(f"Split type {split_type} is not valid for time series")
 
         state.groups = None
         state.groups_all = None
@@ -266,7 +241,7 @@ class TimeSeriesTask(Task):
             period = state.fit_kwargs["period"]
 
             if self.name == TS_FORECASTPANEL:
-                #TODO: move this into the TimeSeriesDataset class
+                # TODO: move this into the TimeSeriesDataset class
                 X_train_all = ts_data.X_train
                 y_train_all = ts_data.y_train
 
@@ -345,7 +320,7 @@ class TimeSeriesTask(Task):
                     n_splits=n_splits, test_size=period * n_groups
                 )
 
-    #TODO: move task detection to Task.__init__!
+    # TODO: move task detection to Task.__init__!
     def decide_split_type(
         self,
         split_type,
@@ -381,7 +356,7 @@ class TimeSeriesTask(Task):
                 ), f"missing a required List[str] 'group_ids' for '{TS_FORECASTPANEL}' task."
             return "time"
 
-    #TODO: merge with preprocess() below
+    # TODO: merge with preprocess() below
     def _preprocess(self, X, transformer=None):
         if isinstance(X, List):
             try:
@@ -411,7 +386,6 @@ class TimeSeriesTask(Task):
             X = transformer.transform(X)
         return X
 
-
     def preprocess(self, X, transformer=None):
         if (
             isinstance(X, pd.DataFrame)
@@ -439,7 +413,7 @@ class TimeSeriesTask(Task):
         cv_score_agg_func=None,
         log_training_metric=False,
         fit_kwargs={},
-        free_mem_ratio=0, # what is this for?
+        free_mem_ratio=0,  # what is this for?
     ):
         if cv_score_agg_func is None:
             cv_score_agg_func = default_cv_score_agg_func
@@ -476,7 +450,7 @@ class TimeSeriesTask(Task):
                 task=self,
                 weight_val=None,
                 groups_val=None,
-                free_mem_ratio=free_mem_ratio
+                free_mem_ratio=free_mem_ratio,
             )
             if isinstance(metric_i, dict) and "intermediate_results" in metric_i:
                 del metric_i["intermediate_results"]
@@ -508,12 +482,13 @@ class TimeSeriesTask(Task):
             "xgb_limitdepth",
         ]
 
-        try:
-            import catboost
-
-            estimator_list.append("catboost")
-        except ImportError:
-            pass
+        # Catboost appears to be way slower than the others, don't include it by default
+        # try:
+        #     import catboost
+        #
+        #     estimator_list.append("catboost")
+        # except ImportError:
+        #     pass
 
         if self.is_regression():
             estimator_list += ["arima", "sarimax"]
@@ -546,31 +521,6 @@ class TimeSeriesTask(Task):
         sampled_X_train = automlstate.X_train.move_validation_boundary(shift)
 
         return sampled_X_train, None, None, None
-
-
-def validate_data_basic(X_train_all, y_train_all):
-    assert (
-        isinstance(X_train_all, np.ndarray)
-        or issparse(X_train_all)
-        or isinstance(X_train_all, pd.DataFrame)
-    ), (
-        "X_train_all must be a numpy array, a pandas dataframe, "
-        "or Scipy sparse matrix."
-    )
-
-    assert (
-        isinstance(y_train_all, np.ndarray)
-        or isinstance(y_train_all, pd.Series)
-        or isinstance(y_train_all, pd.DataFrame)
-    ), "y_train_all must be a numpy array or a pandas series or DataFrame."
-
-    assert (
-        X_train_all.size != 0 and y_train_all.size != 0
-    ), "Input data must not be empty, use None if no data"
-
-    assert (
-        X_train_all.shape[0] == y_train_all.shape[0]
-    ), "# rows in X_train must match length of y_train."
 
 
 def remove_ts_duplicates(

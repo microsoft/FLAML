@@ -10,8 +10,7 @@ from .ts_model import (
     XGBoostLimitDepth_TS,
     CatBoost_TS,
     TimeSeriesEstimator,
-    TemporalFusionTransformerEstimator,
 )
+from .tft import TemporalFusionTransformerEstimator
 
 from .ts_data import TimeSeriesDataset
-from .feature import naive_date_features_with_holidays

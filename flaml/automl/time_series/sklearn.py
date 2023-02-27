@@ -61,7 +61,7 @@ class SklearnWrapper:
         self.pca_features = pca_features
         if self.pca_features:
             self.norm = StandardScaler()
-            self.pca = PCA()
+            self.pca = None
 
     def fit(self, X: pd.DataFrame, y: pd.Series, **kwargs):
         self._X = X
@@ -72,8 +72,12 @@ class SklearnWrapper:
         if self.pca_features:
             X_trans = self.norm.fit_transform(X_feat)
 
-            cum_expl_var = np.cumsum(self.pca.fit(X_trans).explained_variance_ratio_)
-            self.pca = PCA(n_components=np.argmax(1 - cum_expl_var < 1e-6))
+            cum_expl_var = np.cumsum(
+                PCA(svd_solver="full").fit(X_trans).explained_variance_ratio_
+            )
+            self.pca = PCA(
+                svd_solver="full", n_components=np.argmax(1 - cum_expl_var < 1e-6)
+            )
             X_trans = self.pca.fit_transform(X_trans)
         else:
             X_trans = X_feat
