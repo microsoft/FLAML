@@ -241,7 +241,7 @@ class DataTransformer:
         Args:
             X: A numpy array or a pandas dataframe of training data.
             y: A numpy array or a pandas series of labels.
-            task: An instance of type Task
+            task: An instance of type Task, or a str such as 'classification', 'regression'.
 
         Returns:
             X: Processed numpy array or pandas dataframe of training data.

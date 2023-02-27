@@ -5,6 +5,11 @@ import numpy as np
 import pandas as pd
 from scipy.sparse import issparse
 
+try:
+    import ray
+except ImportError:
+    ray = None
+
 # TODO: if your task is not specified in here, define your task as an all-capitalized word
 SEQCLASSIFICATION = "seq-classification"
 MULTICHOICECLASSIFICATION = "multichoice-classification"
@@ -64,10 +69,9 @@ class Task(ABC):
         y_train: Optional[Union[np.ndarray, pd.DataFrame, pd.Series]],
     ):
         self.name = task_name
-        if X_train is not None:
-            self.train_data_size = X_train.shape[0]
-        else:
-            self.train_data_size = None
+
+    def __str__(self):
+        return self.name
 
     @abstractmethod
     def evaluate_model_CV(

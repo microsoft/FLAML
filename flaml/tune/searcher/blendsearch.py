@@ -90,7 +90,8 @@ class BlendSearch(Searcher):
                 needing to re-compute the trial. Must be the same or shorter length than
                 points_to_evaluate. When provided, `mode` must be specified.
             time_budget_s: int or float | Time budget in seconds.
-            num_samples: int | The number of configs to try.
+            num_samples: int | The number of configs to try. -1 means no limit on the
+                number of configs to try.
             resource_attr: A string to specify the resource dimension and the best
                 performance is assumed to be at the max_resource.
             min_resource: A float of the minimal resource to use for the resource_attr.
@@ -124,8 +125,7 @@ class BlendSearch(Searcher):
                 objectives in the metric list. If not provided, we use "min" as the default mode for all the objectives.
                 - "targets" (optional): a dictionary to specify the optimization targets on the objectives. The keys are the
                 metric names (provided in "metric"), and the values are the numerical target values.
-                - "tolerances"(optional): a dictionary to specify the optimality tolerances on objectives. The keys are the
-                metric names (provided in "metrics"), and the values are the numerical tolerances values.
+                - "tolerances" (optional): a dictionary to specify the optimality tolerances on objectives. The keys are the metric names (provided in "metrics"), and the values are the absolute/percentage tolerance in the form of numeric/string.
                 E.g.,
                 ```python
                 lexico_objectives = {
@@ -134,6 +134,16 @@ class BlendSearch(Searcher):
                     "tolerances": {"error_rate": 0.01, "pred_time": 0.0},
                     "targets": {"error_rate": 0.0},
                 }
+                ```
+                We also support percentage tolerance.
+                E.g.,
+                ```python
+                lexico_objectives = {
+                    "metrics": ["error_rate", "pred_time"],
+                    "modes": ["min", "min"],
+                    "tolerances": {"error_rate": "5%", "pred_time": "0%"},
+                    "targets": {"error_rate": 0.0},
+                   }
                 ```
             experimental: A bool of whether to use experimental features.
         """
@@ -213,11 +223,12 @@ class BlendSearch(Searcher):
             else:
                 gs_space = space
             gs_seed = seed - 10 if (seed - 10) >= 0 else seed - 11 + (1 << 32)
+            self._gs_seed = gs_seed
             if experimental:
                 import optuna as ot
 
                 sampler = ot.samplers.TPESampler(
-                    seed=seed, multivariate=True, group=True
+                    seed=gs_seed, multivariate=True, group=True
                 )
             else:
                 sampler = None
@@ -297,7 +308,7 @@ class BlendSearch(Searcher):
                         space=self._gs._space,
                         metric=metric,
                         mode=mode,
-                        sampler=self._gs._sampler,
+                        seed=self._gs_seed,
                     )
                     self._gs.space = self._ls.space
                 self._init_search()
@@ -313,11 +324,12 @@ class BlendSearch(Searcher):
                     self.cost_attr = self._ls.cost_attr = TIME_TOTAL_S
             if "metric_target" in spec:
                 self._metric_target = spec.get("metric_target")
-            if "num_samples" in spec:
+            num_samples = spec.get("num_samples")
+            if num_samples is not None:
                 self._num_samples = (
-                    spec["num_samples"]
-                    + len(self._result)
-                    + len(self._trial_proposed_by)
+                    (num_samples + len(self._result) + len(self._trial_proposed_by))
+                    if num_samples > 0  # 0 is currently treated the same as -1
+                    else num_samples
                 )
         return True
 

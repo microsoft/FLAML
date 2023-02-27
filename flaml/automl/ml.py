@@ -561,15 +561,6 @@ def train_estimator(
     return estimator, train_time
 
 
-# TODO(Mark) Can remove?
-def get_classification_objective(num_labels: int) -> str:
-    if num_labels == 2:
-        objective_name = "binary"
-    else:
-        objective_name = "multiclass"
-    return objective_name
-
-
 def norm_confusion_matrix(y_true, y_pred):
     """normalized confusion matrix.
 
