@@ -3858,3 +3858,16 @@ class AutoML(BaseEstimator):
                 q += inv[i] / s
                 if p < q:
                     return estimator_list[i]
+                
+    def retrain(self, X_train, y_train, config=None):
+        if config is None:
+            config = self.best_config
+        else:
+            self.best_config.update(config)
+
+        model = self.load_best_model()
+        model.set_params(**config)
+
+        model.fit(X_train, y_train)
+
+        return model
