@@ -21,6 +21,7 @@ try:
             "spark.jars.packages",
             f"com.microsoft.azure:synapseml_2.12:0.10.2,org.apache.hadoop:hadoop-azure:{pyspark.__version__},com.microsoft.azure:azure-storage:8.6.6",
         )
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .config("spark.sql.debug.maxToStringFields", "100")
         .getOrCreate()
     )
