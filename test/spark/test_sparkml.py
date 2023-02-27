@@ -1,34 +1,37 @@
-import warnings
 import os
+import sys
+import warnings
 import pytest
-import numpy as np
-import pandas as pd
 import sklearn.datasets as skds
-import flaml
 from flaml import AutoML
 from flaml.tune.spark.utils import check_spark
 
-try:
-    import pyspark
-    from pyspark.ml.feature import VectorAssembler
-    from flaml.automl.spark.utils import to_pandas_on_spark
-
-    warnings.simplefilter(action="ignore")
-    os.environ["FLAML_MAX_CONCURRENT"] = "2"
-    spark = (
-        pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config(
-            "spark.jars.packages",
-            f"com.microsoft.azure:synapseml_2.12:0.10.2,org.apache.hadoop:hadoop-azure:{pyspark.__version__},com.microsoft.azure:azure-storage:8.6.6",
-        )
-        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
-        .config("spark.sql.debug.maxToStringFields", "100")
-        .getOrCreate()
-    )
-    spark_available, _ = check_spark()
-    skip_spark = not spark_available
-except ImportError:
+if sys.platform == "darwin" or "nt" in os.name:
+    # skip this test if the platform is not linux
     skip_spark = True
+else:
+    try:
+        import pyspark
+        from pyspark.ml.feature import VectorAssembler
+        from flaml.automl.spark.utils import to_pandas_on_spark
+
+        warnings.simplefilter(action="ignore")
+        spark = (
+            pyspark.sql.SparkSession.builder.appName("MyApp")
+            .config(
+                "spark.jars.packages",
+                f"com.microsoft.azure:synapseml_2.12:0.10.2,org.apache.hadoop:hadoop-azure:{pyspark.__version__},com.microsoft.azure:azure-storage:8.6.6",
+            )
+            .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+            .config("spark.sql.debug.maxToStringFields", "100")
+            .config("spark.driver.extraJavaOptions", "-Xss4m")
+            .config("spark.executor.extraJavaOptions", "-Xss4m")
+            .getOrCreate()
+        )
+        spark_available, _ = check_spark()
+        skip_spark = not spark_available
+    except ImportError:
+        skip_spark = True
 
 
 pytestmark = pytest.mark.skipif(
@@ -46,7 +49,7 @@ def _test_spark_synapseml_lightgbm(task="classification"):
     elif task == "rank":
         metric = "ndcg"
         sdf = spark.read.format("parquet").load(
-            "wasbs://publicwasb@mmlspark.blob.core.windows.net/lightGBMRanker_train.parquet"
+            "wasbs://publicwasb@mmlspark.blob.core.windows.net/lightGBMRanker_test.parquet"
         )
         df = to_pandas_on_spark(sdf)
         X_train = df.drop(["labels"], axis=1)
@@ -124,6 +127,7 @@ def test_spark_input_df():
             "wasbs://publicwasb@mmlspark.blob.core.windows.net/company_bankruptcy_prediction_data.csv"
         )
     )
+    df = df.limit(500)
     train, test = df.randomSplit([0.8, 0.2], seed=1)
     feature_cols = df.columns[1:]
     featurizer = VectorAssembler(inputCols=feature_cols, outputCol="features")
