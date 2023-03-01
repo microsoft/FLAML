@@ -136,7 +136,7 @@ config, analysis = oai.Completion.tune(
         [
             # These two models are in Beta test and free to use from OpenAI as of Feb 2023,
             # so no actual cost will incur (please double check when you run it). They are not free in Azure OpenAI.
-            # The optimization is based on the price in Azure OpenAI.
+            # The optimization is based on the price in Azure OpenAI as of Feb 2023.
             "code-cushman-001",
             "code-davinci-002",
         ]
