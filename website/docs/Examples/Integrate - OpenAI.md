@@ -153,7 +153,7 @@ config, analysis = oai.Completion.tune(
 
 #### Output tuning results
 
-After the tuning, we can print out the config and the result found by FLAML:
+After the tuning, we can print out the optimized config and the result found by FLAML:
 
 ```python
 print("optimized config", config)
