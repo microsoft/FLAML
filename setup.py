@@ -69,14 +69,14 @@ setuptools.setup(
             "rouge_score",
             "hcrystalball==0.1.10",
             "seqeval",
-            "pytorch-forecasting>=0.9.0,<=0.10.1",
+            "pytorch-forecasting==0.10.1", # test_forecast_panel
             "mlflow",
             "pyspark>=3.0.0",
             "joblibspark>=0.5.0",
             "nbconvert",
             "nbformat",
             "ipykernel",
-            "pytorch-lightning<1.9.1",  # test_forecast_panel
+            "pytorch-lightning==1.9.1",  # test_forecast_panel
         ],
         "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],
