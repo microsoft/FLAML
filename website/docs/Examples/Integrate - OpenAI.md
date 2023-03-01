@@ -134,8 +134,8 @@ config, analysis = oai.Completion.tune(
     num_samples=-1,
     model=tune.choice(
         [
-            # These two models are currently free to use from OpenAI,
-            # so no actual cost will incur. They are not free in Azure OpenAI.
+            # These two models are in Beta test and free to use from OpenAI as of Feb 2023,
+            # so no actual cost will incur (please double check when you run it). They are not free in Azure OpenAI.
             # The optimization is based on the price in Azure OpenAI.
             "code-cushman-001",
             "code-davinci-002",
