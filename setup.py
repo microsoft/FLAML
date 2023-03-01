@@ -112,7 +112,7 @@ setuptools.setup(
             "statsmodels>=0.12.2",
             "hcrystalball==0.1.10",
             "pytorch-forecasting==0.10.1",
-            "pytorch-lightning==1.9.1",
+            "pytorch-lightning==1.9.0",
             "tensorboardX==2.6"
         ],
         "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3"],
