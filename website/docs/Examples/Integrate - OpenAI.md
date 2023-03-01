@@ -162,7 +162,7 @@ print("best result on tuning data", analysis.best_result)
 
 #### Make a request with the tuned config
 
-We can apply the tuned config on the request for an example task:
+We can apply the tuned config to the request for an instance:
 
 ```python
 responses = oai.Completion.create(context=tune_data[1], **config)
