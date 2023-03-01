@@ -76,7 +76,7 @@ setuptools.setup(
             "nbconvert",
             "nbformat",
             "ipykernel",
-            "pytorch-lightning==1.9.1",  # test_forecast_panel
+            "pytorch-lightning==1.9.0",  # test_forecast_panel
             "tensorboardX==2.6" # test_forecast_panel
         ],
         "catboost": ["catboost>=0.26"],
