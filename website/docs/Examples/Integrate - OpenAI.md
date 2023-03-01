@@ -48,7 +48,7 @@ Before starting tuning, you need to define the metric for the optimization. For 
 
 #### Define a code executor
 
-First, we write a simple code executor. The code executor takes the generated code and the test code as the input, and execute them with a timer
+First, we write a simple code executor. The code executor takes the generated code and the test code as the input, and execute them with a timer.
 
 ```python
 import signal
