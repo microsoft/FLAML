@@ -1,4 +1,4 @@
-﻿# Project
+# Project
 /.vs
 .vscode
 
@@ -159,4 +159,3 @@ automl.pkl
 
 test/nlp/testtmp.py
 test/nlp/testtmpfl.py
-
