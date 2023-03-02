@@ -110,9 +110,9 @@ class TimeSeriesEstimator(SKLearnEstimator):
                 "init_value": 1,
                 "low_cost_init_value": 0,
             },
-            "pca_features": {
-                "domain": tune.choice([True, False]),
-                "init_value": True,
+            "pca_features": { #disable for now, will deal with occasional svd fail later
+                "domain": tune.choice([False]),
+                "init_value": False,
                 "low_cost_init_value": False,
             },
         }
