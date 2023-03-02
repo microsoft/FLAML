@@ -25,8 +25,8 @@ else:
             )
             .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
             .config("spark.sql.debug.maxToStringFields", "100")
-            .config("spark.driver.extraJavaOptions", "-Xss4m")
-            .config("spark.executor.extraJavaOptions", "-Xss4m")
+            .config("spark.driver.extraJavaOptions", "-Xss1m")
+            .config("spark.executor.extraJavaOptions", "-Xss1m")
             .getOrCreate()
         )
         spark_available, _ = check_spark()
@@ -131,7 +131,6 @@ def test_spark_input_df():
             "wasbs://publicwasb@mmlspark.blob.core.windows.net/company_bankruptcy_prediction_data.csv"
         )
     )
-    df = df.limit(500)
     train, test = df.randomSplit([0.8, 0.2], seed=1)
     feature_cols = df.columns[1:]
     featurizer = VectorAssembler(inputCols=feature_cols, outputCol="features")

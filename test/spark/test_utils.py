@@ -22,6 +22,7 @@ try:
         unique_pandas_on_spark,
         len_labels,
         unique_value_first_index,
+        iloc_pandas_on_spark,
     )
 
     spark_available, _ = check_spark()
@@ -224,6 +225,21 @@ def test_n_current_trials():
     assert get_n_current_trials(200) == min(200, tmp_max)
 
 
+def test_iloc_pandas_on_spark():
+    psdf = ps.DataFrame({"x": [1, 2, 2, 3], "y": [0, 1, 1, 0]}, index=[0, 1, 2, 3])
+    psds = ps.Series([1, 2, 2, 3], index=[0, 1, 2, 3])
+    assert iloc_pandas_on_spark(psdf, 0).tolist() == [1, 0]
+    d1 = iloc_pandas_on_spark(psdf, slice(1, 3)).to_pandas()
+    d2 = pd.DataFrame({"x": [2, 2], "y": [1, 1]}, index=[1, 2])
+    assert d1.equals(d2)
+    d1 = iloc_pandas_on_spark(psdf, [1, 3]).to_pandas()
+    d2 = pd.DataFrame({"x": [2, 3], "y": [1, 0]}, index=[0, 1])
+    assert d1.equals(d2)
+    assert iloc_pandas_on_spark(psds, 0) == 1
+    assert iloc_pandas_on_spark(psds, slice(1, 3)).tolist() == [2, 2]
+    assert iloc_pandas_on_spark(psds, [0, 3]).tolist() == [1, 3]
+
+
 if __name__ == "__main__":
     test_with_parameters_spark()
     test_get_n_cpus_spark()
@@ -232,3 +248,4 @@ if __name__ == "__main__":
     test_train_test_split_pyspark()
     test_n_current_trials()
     test_len_labels()
+    test_iloc_pandas_on_spark()

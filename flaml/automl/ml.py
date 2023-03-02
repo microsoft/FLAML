@@ -57,8 +57,10 @@ except ImportError:
     from flaml.automl.utils import len_labels
 try:
     os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
+    from pyspark.sql.functions import col
     import pyspark.pandas as ps
     from pyspark.pandas import DataFrame as psDataFrame, Series as psSeries
+    from flaml.automl.spark.utils import to_pandas_on_spark, iloc_pandas_on_spark
 except ImportError:
     ps = None
 
@@ -612,12 +614,18 @@ def evaluate_model_CV(
     for train_index, val_index in kf:
         if shuffle:
             train_index = rng.permutation(train_index)
-        if isinstance(X_train_all, (pd.DataFrame, psDataFrame)):
+        if isinstance(X_train_all, psDataFrame):
+            X_train = iloc_pandas_on_spark(X_train_all, train_index.tolist())
+            X_val = iloc_pandas_on_spark(X_train_all, val_index.tolist())
+        elif isinstance(X_train_all, pd.DataFrame):
             X_train = X_train_all.iloc[train_index]
             X_val = X_train_all.iloc[val_index]
         else:
             X_train, X_val = X_train_all[train_index], X_train_all[val_index]
-        if isinstance(y_train_all, (pd.Series, psSeries)):
+        if isinstance(y_train_all, psSeries):
+            y_train = iloc_pandas_on_spark(y_train_all, train_index.tolist())
+            y_val = iloc_pandas_on_spark(y_train_all, val_index.tolist())
+        elif isinstance(y_train_all, pd.Series):
             y_train, y_val = y_train_all.iloc[train_index], y_train_all.iloc[val_index]
         else:
             y_train, y_val = y_train_all[train_index], y_train_all[val_index]

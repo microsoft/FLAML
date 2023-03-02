@@ -372,6 +372,9 @@ class AutoMLState:
                 sampled_weight = self.sample_weight_all
             if self.groups is not None:
                 groups = self.groups_all
+        if isinstance(sampled_X_train, psDataFrame):
+            sampled_X_train = sampled_X_train.spark.cache()
+            sampled_X_train.count()
         return sampled_X_train, sampled_y_train, sampled_weight, groups
 
     @staticmethod

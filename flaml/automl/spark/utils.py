@@ -163,3 +163,35 @@ def unique_value_first_index(
     else:
         label_set, first_index = np.unique(y, return_index=True)
     return label_set, first_index
+
+
+def iloc_pandas_on_spark(
+    psdf: Union[ps.DataFrame, ps.Series],
+    index: Union[int, slice, list],
+    index_col: Optional[str] = "index",
+) -> Union[ps.DataFrame, ps.Series]:
+    """Get the rows of a pandas_on_spark dataframe/series by index."""
+    if isinstance(index, (int, slice)):
+        if isinstance(psdf, ps.Series):
+            return psdf.iloc[index]
+        else:
+            return psdf.iloc[index, :]
+    elif isinstance(index, list):
+        if isinstance(psdf, ps.Series):
+            sdf = psdf.to_frame().to_spark(index_col=index_col)
+        else:
+            if index_col not in psdf.columns:
+                sdf = psdf.to_spark(index_col=index_col)
+            else:
+                sdf = psdf.to_spark()
+        sdfiloc = sdf.filter(f.col(index_col).isin(index))
+        psdfiloc = to_pandas_on_spark(sdfiloc)
+        if isinstance(psdf, ps.Series):
+            psdfiloc = psdfiloc[psdfiloc.columns.drop(index_col)[0]]
+        elif index_col not in psdf.columns:
+            psdfiloc = psdfiloc.drop(columns=[index_col])
+        return psdfiloc
+    else:
+        raise TypeError(
+            f"{type(index)} is not one of int, slice and list for pandas_on_spark iloc"
+        )
