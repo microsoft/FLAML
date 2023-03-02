@@ -197,6 +197,7 @@ class Completion:
         cost = 0
         data = cls.data
         model = config["model"]
+        data_length = len(data)
         target_n_tokens = (
             1000 * cls.inference_budget / cls.price1K[model]
             if cls.inference_budget and cls.price1K.get(model)
@@ -205,7 +206,7 @@ class Completion:
         prune_hp = cls._prune_hp
         metric = cls._metric
         config_n = config[prune_hp]
-        max_tokens = config["max_tokens"]
+        max_tokens = config.get("max_tokens", 16)  # default value is 16
         region_key = cls._get_region_key(config)
         if model in cls.chat_models:
             # either "prompt" should be in config (for being compatible with non-chat models)
@@ -225,20 +226,27 @@ class Completion:
         stop = cls._stops and cls._stops[config["stop"]]
         if prune and target_n_tokens:
             max_valid_n = cls._get_max_valid_n(region_key, max_tokens)
-            min_invalid_n = cls._get_min_invalid_n(region_key, max_tokens)
-            if min_invalid_n is not None and config_n >= min_invalid_n:
-                if config_n > max_valid_n:
+            if cls.avg_input_tokens:
+                # max_tokens bounds the maximum tokens
+                # so using it we can calculate a valid n according to the avg # input tokens
+                max_valid_n = max(
+                    max_valid_n,
+                    int((target_n_tokens - cls.avg_input_tokens) // max_tokens),
+                )
+            else:
+                input_tokens = [None] * data_length
+            if config_n <= max_valid_n:
+                start_n = config_n
+            else:
+                min_invalid_n = cls._get_min_invalid_n(region_key, max_tokens)
+                if min_invalid_n is not None and config_n >= min_invalid_n:
                     # prune this config
                     return {
                         "inference_cost": np.inf,
                         metric: np.inf if cls._mode == "min" else -np.inf,
                         "cost": cost,
                     }
-                # since config_n<=max_valid_n, there is a chance config_n is valid
-                start_n = config_n
-            else:
-                # start from a valid n
-                start_n = min(max_valid_n, config_n)
+                start_n = max_valid_n + 1
         else:
             start_n = config_n
         params = config.copy()
@@ -246,7 +254,6 @@ class Completion:
         temperature_or_top_p = params.pop("temperature_or_top_p", None)
         if temperature_or_top_p:
             params.update(temperature_or_top_p)
-        data_length = len(data)
         num_completions, previous_num_completions = start_n, 0
         n_tokens_list, result, responses_list = [], {}, []
         while True:  # n <= config_n
@@ -293,12 +300,18 @@ class Completion:
                         if previous_num_completions
                         else response["usage"]["total_tokens"]
                     )
+                    if (
+                        prune
+                        and target_n_tokens
+                        and not cls.avg_input_tokens
+                        and not input_tokens[i]
+                    ):
+                        # store the # input tokens
+                        input_tokens[i] = response["usage"]["prompt_tokens"]
                     # Under Assumption 1, we should count both the input and output tokens in the first query,
                     # and only count ouput tokens afterwards
                     query_cost = (
-                        response["usage"]["total_tokens"]
-                        * cls.price1K[config["model"]]
-                        / 1000
+                        response["usage"]["total_tokens"] * cls.price1K[model] / 1000
                     )
                     cls._total_cost += query_cost
                     cost += query_cost
@@ -384,6 +397,8 @@ class Completion:
                 result["total_cost"] = cls._total_cost
                 result["cost"] = cost
                 result["inference_cost"] = avg_n_tokens * cls.price1K[model] / 1000
+                if prune and target_n_tokens and not cls.avg_input_tokens:
+                    cls.avg_input_tokens = np.mean(input_tokens)
                 break
             else:
                 if data_early_stop:
@@ -482,6 +497,7 @@ class Completion:
         cls._total_cost = 0  # total optimization cost
         cls._eval_func = eval_func
         cls.data = data
+        cls.avg_input_tokens = None
 
         search_alg = BlendSearch(
             cost_attr="cost",
