@@ -1,10 +1,11 @@
-FLAML has integrated the OpenAI's completion API.
+FLAML has integrated the OpenAI's completion API. In this example, we will tune several hyperparameters including the temperature, prompt and n to optimize the inference performance of OpenAI's completion API for a code generation task. Our study shows that tuning hyperparameters can significantly affect the utility of the OpenAI API. For more details please refer to our paper: http://arxiv.org/
 ### Prerequisites
 
-Install the [openai] option.
+Install the [openai] option. You should install version 1.1.3, this version is subject to change from time to time.
 ```bash
-pip install "flaml[openai]"
+pip install "flaml[openai]==1.1.3"
 ```
+
 
 Setup your OpenAI key:
 ```python
