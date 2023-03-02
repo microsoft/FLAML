@@ -39,8 +39,15 @@ def get_key(config):
 
 
 class Completion:
-    """A class for OpenAI API completion."""
+    """A class for OpenAI completion API.
 
+    It also supports: ChatCompletion, Azure OpenAI API.
+    """
+
+    # set of models that support chat completion
+    chat_models = {"gpt-3.5-turbo"}
+
+    # price per 1k tokens
     price1K = {
         "text-ada-001": 0.0004,
         "text-babbage-001": 0.0005,
@@ -49,6 +56,7 @@ class Completion:
         "code-davinci-002": 0.1,
         "text-davinci-002": 0.02,
         "text-davinci-003": 0.02,
+        "gpt-3.5-turbo": 0.002,
     }
 
     default_search_space = {
@@ -95,9 +103,14 @@ class Completion:
             # print("using cached response")
             return response
         retry = 0
+        openai_completion = (
+            openai.ChatCompletion
+            if config["model"] in cls.chat_models
+            else openai.Completion
+        )
         while eval_only or retry * cls.retry_time < cls.retry_timeout:
             try:
-                response = openai.Completion.create(**config)
+                response = openai_completion.create(**config)
                 cls._cache.set(key, response)
                 return response
             except (
@@ -152,7 +165,11 @@ class Completion:
     @classmethod
     def _get_region_key(cls, config):
         # get a key for the valid/invalid region corresponding to the given config
-        return (config["model"], config["prompt"], config.get("stop"))
+        return (
+            config["model"],
+            config.get("prompt", config.get("messages")),
+            config.get("stop"),
+        )
 
     @classmethod
     def _update_invalid_n(cls, prune, region_key, max_tokens, num_completions):
@@ -179,9 +196,10 @@ class Completion:
         """
         cost = 0
         data = cls.data
+        model = config["model"]
         target_n_tokens = (
-            1000 * cls.inference_budget / cls.price1K[config["model"]]
-            if cls.inference_budget and cls.price1K.get(config["model"])
+            1000 * cls.inference_budget / cls.price1K[model]
+            if cls.inference_budget and cls.price1K.get(model)
             else None
         )
         prune_hp = cls._prune_hp
@@ -189,7 +207,21 @@ class Completion:
         config_n = config[prune_hp]
         max_tokens = config["max_tokens"]
         region_key = cls._get_region_key(config)
-        prompt = cls._prompts[config["prompt"]]
+        if model in cls.chat_models:
+            # either "prompt" should be in config (for being compatible with non-chat models)
+            # or "messages" should be in config (for tuning chat models only)
+            prompt = config.get("prompt")
+            if prompt is None:
+                messages = config.get("messages")
+                if messages is None:
+                    raise ValueError(
+                        "Either prompt or messages should be in config for chat models."
+                    )
+                messages = cls._messages[messages]
+            else:
+                prompt = cls._prompts[prompt]
+        else:
+            prompt = cls._prompts[config["prompt"]]
         stop = cls._stops and cls._stops[config["stop"]]
         if prune and target_n_tokens:
             max_valid_n = cls._get_max_valid_n(region_key, max_tokens)
@@ -226,7 +258,22 @@ class Completion:
                 # limit the number of data points to avoid rate limit
                 for i in range(prev_data_limit, data_limit):
                     data_i = data[i]
-                    params["prompt"] = prompt.format(**data_i)
+                    if prompt is None:
+                        params["messages"] = [
+                            {
+                                "role": m["role"],
+                                "content": m["content"].format(**data_i),
+                            }
+                            for m in messages
+                        ]
+                    elif model in cls.chat_models:
+                        # convert prompt to messages
+                        params["messages"] = [
+                            {"role": "user", "content": prompt.format(**data_i)},
+                        ]
+                        params.pop("prompt", None)
+                    else:
+                        params["prompt"] = prompt.format(**data_i)
                     response = cls._get_response(params, eval_only)
                     if response == -1:  # rate limit error, treat as invalid
                         cls._update_invalid_n(
@@ -236,7 +283,11 @@ class Completion:
                         result["cost"] = cost
                         return result
                     # evaluate the quality of the responses
-                    responses = [r["text"].rstrip() for r in response["choices"]]
+                    responses = (
+                        [r["message"]["content"].rstrip() for r in response["choices"]]
+                        if model in cls.chat_models
+                        else [r["text"].rstrip() for r in response["choices"]]
+                    )
                     n_tokens = (
                         response["usage"]["completion_tokens"]
                         if previous_num_completions
@@ -332,9 +383,7 @@ class Completion:
                     result[key] /= data_limit
                 result["total_cost"] = cls._total_cost
                 result["cost"] = cost
-                result["inference_cost"] = (
-                    avg_n_tokens * cls.price1K[config["model"]] / 1000
-                )
+                result["inference_cost"] = avg_n_tokens * cls.price1K[model] / 1000
                 break
             else:
                 if data_early_stop:
@@ -373,8 +422,9 @@ class Completion:
             optimization_budget (float, optional): The optimization budget.
             num_samples (int, optional): The number of samples to evaluate.
             **config (dict): The search space to update over the default search.
-                For prompt, please provide a string or a list of strings.
+                For prompt, please provide a string or a list of strings. If prompt is provided for chat models, it will be converted to messages under role "user". Do not provide both prompt and messages for chat models, but provide either of them.
                 For stop, please provide a string, a list of strings, or a list of lists of strings.
+                For messages (chat models only), please provide a list of messages (for a single chat prefix) or a list of lists of messages (for multiple choices of chat prefix to choose from). Each message should be a dict with keys "role" and "content".
 
         Returns:
             dict: The optimized hyperparameter setting.
@@ -382,9 +432,11 @@ class Completion:
         """
         if ERROR:
             raise ERROR
-        space = Completion.default_search_space.copy()
+        space = cls.default_search_space.copy()
         if config is not None:
             space.update(config)
+            if "messages" in space:
+                space.pop("prompt", None)
             temperature = space.pop("temperature", None)
             top_p = space.pop("top_p", None)
             if temperature is not None and top_p is None:
@@ -398,57 +450,64 @@ class Completion:
                 logger.warning(
                     "temperature and top_p are not recommended to vary together."
                 )
-        with diskcache.Cache(cls.cache_path) as cls._cache:
-            cls._max_valid_n_per_max_tokens, cls._min_invalid_n_per_max_tokens = {}, {}
-            cls.optimization_budget = optimization_budget
-            cls.inference_budget = inference_budget
-            cls._prune_hp = "best_of" if space.get("best_of", 1) != 1 else "n"
-            cls._prompts = space["prompt"]
+        cls._max_valid_n_per_max_tokens, cls._min_invalid_n_per_max_tokens = {}, {}
+        cls.optimization_budget = optimization_budget
+        cls.inference_budget = inference_budget
+        cls._prune_hp = "best_of" if space.get("best_of", 1) != 1 else "n"
+        cls._prompts = space.get("prompt")
+        if cls._prompts is None:
+            cls._messages = space.get("messages")
+            assert isinstance(cls._messages, list) and isinstance(
+                cls._messages[0], (dict, list)
+            ), "messages must be a list of dicts or a list of lists."
+            if isinstance(cls._messages[0], dict):
+                cls._messages = [cls._messages]
+            space["messages"] = tune.choice(list(range(len(cls._messages))))
+        else:
             assert isinstance(
                 cls._prompts, (str, list)
             ), "prompt must be a string or a list of strings."
             if isinstance(cls._prompts, str):
                 cls._prompts = [cls._prompts]
             space["prompt"] = tune.choice(list(range(len(cls._prompts))))
-            cls._stops = space.get("stop")
-            if cls._stops:
-                assert isinstance(
-                    cls._stops, (str, list)
-                ), "stop must be a string, a list of strings, or a list of lists of strings."
-                if not (
-                    isinstance(cls._stops, list) and isinstance(cls._stops[0], list)
-                ):
-                    cls._stops = [cls._stops]
-                space["stop"] = tune.choice(list(range(len(cls._stops))))
-            cls._metric, cls._mode = metric, mode
-            cls._total_cost = 0  # total optimization cost
-            cls._eval_func = eval_func
-            cls.data = data
+        cls._stops = space.get("stop")
+        if cls._stops:
+            assert isinstance(
+                cls._stops, (str, list)
+            ), "stop must be a string, a list of strings, or a list of lists of strings."
+            if not (isinstance(cls._stops, list) and isinstance(cls._stops[0], list)):
+                cls._stops = [cls._stops]
+            space["stop"] = tune.choice(list(range(len(cls._stops))))
+        cls._metric, cls._mode = metric, mode
+        cls._total_cost = 0  # total optimization cost
+        cls._eval_func = eval_func
+        cls.data = data
 
+        search_alg = BlendSearch(
+            cost_attr="cost",
+            cost_budget=optimization_budget,
+            metric=metric,
+            mode=mode,
+            space=space,
+        )
+        if len(space["model"]) > 1:
+            # start all the models with the same hp config
+            config0 = search_alg.suggest("t0")
+            points_to_evaluate = [config0]
+            for model in space["model"]:
+                if model != config0["model"]:
+                    point = config0.copy()
+                    point["model"] = model
+                    points_to_evaluate.append(point)
             search_alg = BlendSearch(
                 cost_attr="cost",
                 cost_budget=optimization_budget,
                 metric=metric,
                 mode=mode,
                 space=space,
+                points_to_evaluate=points_to_evaluate,
             )
-            if len(space["model"]) > 1:
-                # start all the models with the same hp config
-                config0 = search_alg.suggest("t0")
-                points_to_evaluate = [config0]
-                for model in space["model"]:
-                    if model != config0["model"]:
-                        point = config0.copy()
-                        point["model"] = model
-                        points_to_evaluate.append(point)
-                search_alg = BlendSearch(
-                    cost_attr="cost",
-                    cost_budget=optimization_budget,
-                    metric=metric,
-                    mode=mode,
-                    space=space,
-                    points_to_evaluate=points_to_evaluate,
-                )
+        with diskcache.Cache(cls.cache_path) as cls._cache:
             analysis = tune.run(
                 cls.eval,
                 search_alg=search_alg,
@@ -456,14 +515,17 @@ class Completion:
                 log_file_name=log_file_name,
                 verbose=3,
             )
-            config = analysis.best_config
-            params = config.copy()
+        config = analysis.best_config
+        params = config.copy()
+        if cls._prompts:
             params["prompt"] = cls._prompts[config["prompt"]]
-            stop = cls._stops and cls._stops[config["stop"]]
-            params["stop"] = stop
-            temperature_or_top_p = params.pop("temperature_or_top_p", None)
-            if temperature_or_top_p:
-                params.update(temperature_or_top_p)
+        else:
+            params["messages"] = cls._messages[config["messages"]]
+        stop = cls._stops and cls._stops[config["stop"]]
+        params["stop"] = stop
+        temperature_or_top_p = params.pop("temperature_or_top_p", None)
+        if temperature_or_top_p:
+            params.update(temperature_or_top_p)
         return params, analysis
 
     @classmethod
@@ -485,7 +547,34 @@ class Completion:
         if ERROR:
             raise ERROR
         params = config.copy()
-        params["prompt"] = config["prompt"].format(**context)
+        if "messages" in config:
+            params["messages"] = [
+                {k: v.format(**context) for k, v in message.items()}
+                for message in config["messages"]
+            ]
+            params.pop("prompt", None)
+        elif config["model"] in cls.chat_models:
+            params["messages"] = [
+                {
+                    "role": "user",
+                    "content": config["prompt"].format(**context),
+                }
+            ]
+            params.pop("prompt", None)
+        else:
+            params["prompt"] = config["prompt"].format(**context)
         if use_cache:
-            return cls._get_response(params)
+            with diskcache.Cache(cls.cache_path) as cls._cache:
+                return cls._get_response(params)
         return openai.Completion.create(**params)
+
+
+class ChatCompletion(Completion):
+    """A class for OpenAI API ChatCompletion."""
+
+    price1K = {
+        "gpt-3.5-turbo": 0.002,
+    }
+
+    default_search_space = Completion.default_search_space.copy()
+    default_search_space["model"] = tune.choice(list(price1K.keys()))
