@@ -49,7 +49,7 @@ Before starting tuning, you need to define the metric for the optimization. For 
 
 #### Define a code executor
 
-First, we write a simple code executor. The code executor takes the generated code and the test code as the input, and execute them with a timer
+First, we write a simple code executor. The code executor takes the generated code and the test code as the input, and execute them with a timer.
 
 ```python
 import signal
@@ -135,9 +135,9 @@ config, analysis = oai.Completion.tune(
     num_samples=-1,
     model=tune.choice(
         [
-            # These two models are currently free to use from OpenAI,
-            # so no actual cost will incur. They are not free in Azure OpenAI.
-            # The optimization is based on the price in Azure OpenAI.
+            # These two models are in Beta test and free to use from OpenAI as of Feb 2023,
+            # so no actual cost will incur (please double check when you run it). They are not free in Azure OpenAI.
+            # The optimization is based on the price in Azure OpenAI as of Feb 2023.
             "code-cushman-001",
             "code-davinci-002",
         ]
@@ -154,7 +154,7 @@ config, analysis = oai.Completion.tune(
 
 #### Output tuning results
 
-After the tuning, we can print out the config and the result found by FLAML:
+After the tuning, we can print out the optimized config and the result found by FLAML:
 
 ```python
 print("optimized config", config)
@@ -163,7 +163,7 @@ print("best result on tuning data", analysis.best_result)
 
 #### Make a request with the tuned config
 
-We can apply the tuned config on the request for an example task:
+We can apply the tuned config to the request for an instance:
 
 ```python
 responses = oai.Completion.create(context=tune_data[1], **config)
