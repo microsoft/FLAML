@@ -264,6 +264,9 @@ class Completion:
             while True:  # data_limit <= data_length
                 # limit the number of data points to avoid rate limit
                 for i in range(prev_data_limit, data_limit):
+                    logger.debug(
+                        f"num_completions={num_completions}, data instance={i}"
+                    )
                     data_i = data[i]
                     if prompt is None:
                         params["messages"] = [
@@ -421,6 +424,7 @@ class Completion:
         inference_budget=None,
         optimization_budget=None,
         num_samples=1,
+        logging_level=logging.WARNING,
         **config,
     ):
         """Tune the parameters for the OpenAI API call.
@@ -523,6 +527,7 @@ class Completion:
                 space=space,
                 points_to_evaluate=points_to_evaluate,
             )
+        logger.setLevel(logging_level)
         with diskcache.Cache(cls.cache_path) as cls._cache:
             analysis = tune.run(
                 cls.eval,
