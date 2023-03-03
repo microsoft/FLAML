@@ -15,6 +15,15 @@ if "OPENAI_API_KEY" not in os.environ:
     os.environ["OPENAI_API_KEY"] = "<your OpenAI API key here>"
 ```
 
+If you use Azure OpenAI, uncomment the following:
+
+Setup your OpenAI key:
+```python
+# openai.api_type = "azure"
+# openai.api_base = "https://<your_endpoint>.openai.azure.com/"
+# openai.api_version = "2022-12-01"  # change if necessary
+```
+
 ### Load the dataset
 
 We use the HumanEval dataset as an example. The dataset contains 164 examples. We use the first 20 for tuning the generation hyperparameters and the remaining for evaluation. In each example, the "prompt" is the prompt string for eliciting the code generation, "test" is the Python code for unit test for the example, and "entry_point" is the function name to be tested.
