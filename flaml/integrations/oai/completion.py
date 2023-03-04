@@ -208,7 +208,7 @@ class Completion:
         prune_hp = cls._prune_hp
         metric = cls._metric
         config_n = config[prune_hp]
-        max_tokens = config.get("max_tokens", 16)  # default value is 16
+        max_tokens = config.get("max_tokens", 16)  # default value in OpenAI is 16
         region_key = cls._get_region_key(config)
         if model in cls.chat_models:
             # either "prompt" should be in config (for being compatible with non-chat models)
