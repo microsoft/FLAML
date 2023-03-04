@@ -3058,7 +3058,7 @@ class AutoML(BaseEstimator):
 
         if "auto" == estimator_list:
             # TODO: update estimator_list for spark dataframe
-            if isinstance(X_train, psDataFrame):
+            if isinstance(X_train, psDataFrame) or isinstance(dataframe, psDataFrame):
                 if self._state.task in ["rank", "classification", "regression"]:
                     estimator_list = ["lgbm_spark"]
                 else:
@@ -3105,6 +3105,28 @@ class AutoML(BaseEstimator):
                             estimator_list += ["arima", "sarimax"]
                 elif "regression" != self._state.task:
                     estimator_list += ["lrl1"]
+        # For spark dataframe, only estimators ends with '_spark' are supported
+        # and use_spark must be False because spark models are trained in parallel themselves
+        if isinstance(X_train, psDataFrame) or isinstance(dataframe, psDataFrame):
+            if self._use_spark:
+                self._use_spark = False
+                logger.warning(
+                    "Spark dataframes support only spark.ml type models, which will be trained"
+                    "with spark themselves, no need to start spark trials in flaml. "
+                    "`use_spark` is set to False."
+                )
+            n_estimators = len(estimator_list)
+            estimator_list = [est for est in estimator_list if est.endswith("_spark")]
+            if n_estimators != len(estimator_list):
+                logger.warning(
+                    "Spark dataframes only support estimators ends with `_spark`, non-supported"
+                    "estimators will be removed."
+                )
+            if len(estimator_list) == 0:
+                raise ValueError(
+                    "Spark dataframes only support estimators ends with `_spark`, non-supported"
+                    "estimators will be removed. No estimator is left."
+                )
         # When no search budget is specified
         if no_budget:
             max_iter = len(estimator_list)
