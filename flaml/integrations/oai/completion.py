@@ -188,7 +188,7 @@ class Completion:
         prune_hp = cls._prune_hp
         metric = cls._metric
         config_n = config[prune_hp]
-        max_tokens = config.get("max_tokens", 16)  # default value is 16
+        max_tokens = config.get("max_tokens", 16)  # default value in OpenAI is 16
         region_key = cls._get_region_key(config)
         prompt = cls._prompts[config["prompt"]]
         stop = cls._stops and cls._stops[config["stop"]]

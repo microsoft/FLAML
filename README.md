@@ -14,7 +14,9 @@
     <br>
 </p>
 
-:fire: An [upcoming tutorial on FLAML](https://github.com/microsoft/FLAML/tree/tutorial-aaai23/tutorial) at [AAAI-23](https://aaai.org/Conferences/AAAI-23/aaai23tutorials/) (to be held on Feb 08, 2023)
+:fire: OpenAI GPT-3 models support in v1.1.3. ChatGPT support is coming.
+
+:fire: A [lab forum](https://github.com/microsoft/FLAML/tree/tutorial-aaai23/tutorial) on FLAML at AAAI 2023.
 
 :fire: A [hands-on tutorial](https://github.com/microsoft/FLAML/tree/tutorial/tutorial) on FLAML presented at KDD 2022
 
@@ -23,7 +25,7 @@ FLAML is a lightweight Python library that finds accurate machine
 learning models automatically, efficiently and economically. It frees users from selecting
 models and hyperparameters for each model. It can also be used to tune generic hyperparameters for large language models (LLM), MLOps/LMOps workflows, pipelines, mathematical/statistical models, algorithms, computing experiments, software configurations and so on.
 
-1. For common machine learning or AI tasks like classification, regression and generation, it quickly finds quality models for user-provided data with low computational resources. It supports both classical machine learning models and deep neural networks, including large language models.
+1. For common machine learning or AI tasks like classification, regression, and generation, it quickly finds quality models for user-provided data with low computational resources. It supports both classical machine learning models and deep neural networks, including large language models such as the OpenAI GPT-3 models.
 1. It is easy to customize or extend. Users can find their desired customizability from a smooth range: minimal customization (computational resource budget), medium customization (e.g., scikit-style learner, search space and metric), or full customization (arbitrary training and evaluation code).
 1. It supports fast automatic tuning, capable of handling complex constraints/guidance/early stopping. FLAML is powered by a new, [cost-effective
 hyperparameter optimization](https://microsoft.github.io/FLAML/docs/Use-Cases/Tune-User-Defined-Function/#hyperparameter-optimization-algorithm)
