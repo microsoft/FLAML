@@ -219,6 +219,15 @@ class TestWarmStart(unittest.TestCase):
         except AssertionError:
             pass
 
-
+        # In the following test case, the starting_points is not provided in the
+        # right format and thus we expect a warning for removing the provided
+        # starting_points when the fit function is called
+        automl5 = AutoML()
+        automl_settings["starting_points"] = automl3.best_config
+        automl5.fit(
+            X_train,
+            y_train,
+            **automl_settings,
+        )
 if __name__ == "__main__":
     unittest.main()
