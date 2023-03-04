@@ -16,13 +16,12 @@ if "OPENAI_API_KEY" not in os.environ:
     os.environ["OPENAI_API_KEY"] = "<your OpenAI API key here>"
 ```
 
-If you use Azure OpenAI, uncomment the following:
+If you use Azure OpenAI, set up Azure using the following code:
 
-Setup your OpenAI key:
 ```python
-# openai.api_type = "azure"
-# openai.api_base = "https://<your_endpoint>.openai.azure.com/"
-# openai.api_version = "2022-12-01"  # change if necessary
+openai.api_type = "azure"
+openai.api_base = "https://<your_endpoint>.openai.azure.com/"
+openai.api_version = "2022-12-01"  # change if necessary
 ```
 
 ### Load the dataset
