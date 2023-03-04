@@ -108,6 +108,8 @@ def test_humaneval(num_samples=1):
             messages=[{"role": "user", "content": "{prompt}"}],
         )
         responses = oai.ChatCompletion.create(context=test_data[0], **config)
+        print(responses)
+        return
         # a more comprehensive tuning example
         config, analysis = oai.Completion.tune(
             data=tune_data,
@@ -115,8 +117,8 @@ def test_humaneval(num_samples=1):
             mode="max",
             eval_func=success_metrics,
             log_file_name="logs/humaneval.log",
-            inference_budget=0.02,
-            optimization_budget=5,
+            inference_budget=0.002,
+            optimization_budget=2,
             num_samples=num_samples,
             prompt=[
                 "{prompt}",
