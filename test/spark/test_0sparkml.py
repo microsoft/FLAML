@@ -146,7 +146,6 @@ def test_spark_input_df():
         "task": "classification",  # task type
         "log_file_name": "flaml_experiment.log",  # flaml log file
         "seed": 7654321,  # random seed
-        "force_cancle": True,
     }
     df = to_pandas_on_spark(to_pandas_on_spark(train_data).to_spark(index_col="index"))
 
@@ -169,6 +168,26 @@ def test_spark_input_df():
         scoredLabelsCol="prediction",
     ).transform(predictions)
     metrics.show()
+
+    # test invalid params
+    settings = {
+        "time_budget": 30,  # total running time in seconds
+        "metric": "roc_auc",
+        "estimator_list": [
+            "lgbm"
+        ],  # list of ML learners; we tune lightgbm in this example
+        "task": "classification",  # task type
+        "use_spark": True,
+    }
+    with pytest.raises(ValueError) as excinfo:
+        automl.fit(
+            dataframe=df,
+            label="Bankrupt?",
+            labelCol="Bankrupt?",
+            isUnbalance=True,
+            **settings,
+        )
+    assert "No estimator is left." in str(excinfo.value)
 
 
 if __name__ == "__main__":
