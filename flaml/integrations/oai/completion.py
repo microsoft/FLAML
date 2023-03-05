@@ -274,18 +274,29 @@ class Completion:
                         params["messages"] = [
                             {
                                 "role": m["role"],
-                                "content": m["content"].format(**data_i),
+                                "content": m["content"].format(**data_i)
+                                if isinstance(m["content"], str)
+                                else m["content"](data_i),
                             }
                             for m in messages
                         ]
                     elif model in cls.chat_models:
                         # convert prompt to messages
                         params["messages"] = [
-                            {"role": "user", "content": prompt.format(**data_i)},
+                            {
+                                "role": "user",
+                                "content": prompt.format(**data_i)
+                                if isinstance(prompt, str)
+                                else prompt(data_i),
+                            },
                         ]
                         params.pop("prompt", None)
                     else:
-                        params["prompt"] = prompt.format(**data_i)
+                        params["prompt"] = (
+                            prompt.format(**data_i)
+                            if isinstance(prompt, str)
+                            else prompt(data_i)
+                        )
                     response = cls._get_response(params, eval_only)
                     if response == -1:  # rate limit error, treat as invalid
                         cls._update_invalid_n(
@@ -443,7 +454,7 @@ class Completion:
             optimization_budget (float, optional): The optimization budget.
             num_samples (int, optional): The number of samples to evaluate.
             **config (dict): The search space to update over the default search.
-                For prompt, please provide a string or a list of strings. If prompt is provided for chat models, it will be converted to messages under role "user". Do not provide both prompt and messages for chat models, but provide either of them.
+                For prompt, please provide a string/Callable or a list of strings/Callables. If prompt is provided for chat models, it will be converted to messages under role "user". Do not provide both prompt and messages for chat models, but provide either of them. A string `prompt` template will be used to generate a prompt for each data instance using `prompt.format(**data)`. A callable `prompt` template will be used to generate a prompt for each data instance using `prompt(data)`.
                 For stop, please provide a string, a list of strings, or a list of lists of strings.
                 For messages (chat models only), please provide a list of messages (for a single chat prefix) or a list of lists of messages (for multiple choices of chat prefix to choose from). Each message should be a dict with keys "role" and "content".
 
@@ -570,9 +581,13 @@ class Completion:
         if ERROR:
             raise ERROR
         params = config.copy()
+        prompt = config.get("prompt")
         if "messages" in config:
             params["messages"] = [
-                {k: v.format(**context) for k, v in message.items()}
+                {
+                    k: v.format(**context) if isinstance(v, str) else v(context)
+                    for k, v in message.items()
+                }
                 for message in config["messages"]
             ]
             params.pop("prompt", None)
@@ -580,12 +595,16 @@ class Completion:
             params["messages"] = [
                 {
                     "role": "user",
-                    "content": config["prompt"].format(**context),
+                    "content": prompt.format(**context)
+                    if isinstance(prompt, str)
+                    else prompt(context),
                 }
             ]
             params.pop("prompt", None)
         else:
-            params["prompt"] = config["prompt"].format(**context)
+            params["prompt"] = (
+                prompt.format(**context) if isinstance(prompt, str) else prompt(context)
+            )
         if use_cache:
             with diskcache.Cache(cls.cache_path) as cls._cache:
                 return cls._get_response(params)
