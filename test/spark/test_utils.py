@@ -134,8 +134,8 @@ def test_to_pandas_on_spark(capsys):
 def test_train_test_split_pyspark():
     pdf = pd.DataFrame({"x": [1, 2, 3, 4], "y": [0, 1, 1, 0]})
     spark = SparkSession.builder.getOrCreate()
-    sdf = spark.createDataFrame(pdf)
-    psdf = to_pandas_on_spark(sdf)
+    sdf = spark.createDataFrame(pdf).repartition(1)
+    psdf = to_pandas_on_spark(sdf).spark.repartition(1)
     train_sdf, test_sdf = train_test_split_pyspark(
         sdf, test_fraction=0.5, to_pandas_spark=False, seed=1
     )
@@ -146,6 +146,8 @@ def test_train_test_split_pyspark():
     assert isinstance(test_sdf, pyspark.sql.dataframe.DataFrame)
     assert isinstance(train_psdf, ps.DataFrame)
     assert isinstance(test_psdf, ps.DataFrame)
+    assert train_sdf.count() == 2
+    assert train_psdf.shape[0] == 2
     print(train_sdf.toPandas())
     print(test_sdf.toPandas())
     print(train_psdf.to_pandas())
@@ -241,11 +243,11 @@ def test_iloc_pandas_on_spark():
 
 
 if __name__ == "__main__":
-    test_with_parameters_spark()
-    test_get_n_cpus_spark()
-    test_broadcast_code()
-    test_get_broadcast_data()
+    # test_with_parameters_spark()
+    # test_get_n_cpus_spark()
+    # test_broadcast_code()
+    # test_get_broadcast_data()
     test_train_test_split_pyspark()
-    test_n_current_trials()
-    test_len_labels()
-    test_iloc_pandas_on_spark()
+    # test_n_current_trials()
+    # test_len_labels()
+    # test_iloc_pandas_on_spark()

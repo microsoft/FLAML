@@ -76,33 +76,29 @@ def to_pandas_on_spark(
 
 def train_test_split_pyspark(
     df: Union[DataFrame, ps.DataFrame],
-    startify_column: str = "",
-    unique_col: str = None,
-    test_fraction: float = 0.2,
-    seed: int = 1234,
-    to_pandas_spark: bool = True,
+    startify_column: Optional[str] = None,
+    test_fraction: Optional[float] = 0.2,
+    seed: Optional[int] = 1234,
+    to_pandas_spark: Optional[bool] = True,
+    index_col: Optional[str] = None,
 ) -> Tuple[Union[DataFrame, ps.DataFrame], Union[DataFrame, ps.DataFrame]]:
     """Split a pyspark dataframe into train and test dataframes.
 
     Args:
         df: pyspark.sql.DataFrame | The input dataframe.
-        startify_column: str | The column name to stratify the split.
-        unique_col: str | The column name to use as unique identifier.
-        test_fraction: float | The fraction of the test data.
-        seed: int | The random seed.
-        to_pandas_spark: bool | Whether to convert the output to pandas_on_spark.
+        startify_column: str | The column name to stratify the split. Default None.
+        test_fraction: float | The fraction of the test data. Default 0.2.
+        seed: int | The random seed. Default 1234.
+        to_pandas_spark: bool | Whether to convert the output to pandas_on_spark. Default True.
+        index_col: str | The column name to use as index. Default None.
 
     Returns:
         pyspark.sql.DataFrame/pandas_on_spark DataFrame | The train dataframe.
         pyspark.sql.DataFrame/pandas_on_spark DataFrame | The test dataframe.
     """
     if isinstance(df, ps.DataFrame):
-        df = df.to_spark(index_col="_tmp_unique_col")
-        unique_col = "_tmp_unique_col"
-
-    if not unique_col:
-        unique_col = "_tmp_unique_col"
-        df = df.withColumn(unique_col, f.monotonically_increasing_id())
+        df = df.to_spark(index_col="tmp_index_col")
+        index_col = "tmp_index_col"
 
     if startify_column:
         # Test data
@@ -118,12 +114,15 @@ def train_test_split_pyspark(
     else:
         df_train, df_test = df.randomSplit([1 - test_fraction, test_fraction], seed)
 
-    if unique_col == "_tmp_unique_col":
-        df_train = df_train.drop(unique_col)
-        df_test = df_test.drop(unique_col)
     if to_pandas_spark:
-        return (to_pandas_on_spark(df_train), to_pandas_on_spark(df_test))
-    return (df_train, df_test)
+        df_train = to_pandas_on_spark(df_train, index_col=index_col)
+        df_test = to_pandas_on_spark(df_test, index_col=index_col)
+        df_train.index.name = None
+        df_test.index.name = None
+    elif index_col == "tmp_index_col":
+        df_train = df_train.drop(index_col)
+        df_test = df_test.drop(index_col)
+    return [df_train, df_test]
 
 
 def unique_pandas_on_spark(
