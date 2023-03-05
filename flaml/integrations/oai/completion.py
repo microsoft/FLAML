@@ -78,7 +78,7 @@ class Completion:
     # fail a request after hitting RateLimitError for this many seconds
     retry_timeout = 60
 
-    openai_completion_class = openai.Completion
+    openai_completion_class = not ERROR and openai.Completion
 
     @classmethod
     def set_cache(cls, seed=41, cache_path=".cache"):
@@ -621,4 +621,4 @@ class ChatCompletion(Completion):
 
     default_search_space = Completion.default_search_space.copy()
     default_search_space["model"] = tune.choice(list(price1K.keys()))
-    openai_completion_class = openai.ChatCompletion
+    openai_completion_class = not ERROR and openai.ChatCompletion
