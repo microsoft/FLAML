@@ -385,16 +385,13 @@ def sklearn_metric_loss_score(
     return score
 
 
-def get_y_pred(estimator, X, eval_metric, obj, y=None):
+def get_y_pred(estimator, X, eval_metric, obj):
     if eval_metric in ["roc_auc", "ap", "roc_auc_weighted"] and "binary" in obj:
-        if y is not None:
-            y_pred_classes, y = estimator.predict_proba(X, y)
-            if isinstance(y_pred_classes, psSeries):
-                y_pred_classes = np.array(
-                    [np.array(x) for _, x in y_pred_classes.iteritems()]
-                )
-        else:
-            y_pred_classes = estimator.predict_proba(X)
+        y_pred_classes = estimator.predict_proba(X)
+        if isinstance(y_pred_classes, psSeries):
+            y_pred_classes = np.array(
+                [np.array(x) for _, x in y_pred_classes.iteritems()]
+            )
         y_pred = y_pred_classes[:, 1] if y_pred_classes.ndim > 1 else y_pred_classes
     elif eval_metric in [
         "log_loss",
@@ -404,19 +401,10 @@ def get_y_pred(estimator, X, eval_metric, obj, y=None):
         "roc_auc_ovo_weighted",
         "roc_auc_ovr_weighted",
     ]:
-        if y is not None:
-            y_pred, y = estimator.predict_proba(X, y)
-        else:
-            y_pred = estimator.predict_proba(X)
+        y_pred = estimator.predict_proba(X)
     else:
-        if y is not None:
-            y_pred, y = estimator.predict(X, y)
-        else:
-            y_pred = estimator.predict(X)
-    if y is not None:
-        return y_pred, y
-    else:
-        return y_pred
+        y_pred = estimator.predict(X)
+    return y_pred
 
 
 def _eval_estimator(
@@ -438,10 +426,7 @@ def _eval_estimator(
         fit_kwargs = {}
     if isinstance(eval_metric, str):
         pred_start = time.time()
-        if isinstance(X_val, psDataFrame):
-            val_pred_y, y_val = get_y_pred(estimator, X_val, eval_metric, obj, y=y_val)
-        else:
-            val_pred_y = get_y_pred(estimator, X_val, eval_metric, obj)
+        val_pred_y = get_y_pred(estimator, X_val, eval_metric, obj)
         pred_time = (time.time() - pred_start) / X_val.shape[0]
 
         val_loss = metric_loss_score(
@@ -454,12 +439,7 @@ def _eval_estimator(
         )
         metric_for_logging = {"pred_time": pred_time}
         if log_training_metric:
-            if isinstance(X_train, psDataFrame):
-                train_pred_y, y_train = get_y_pred(
-                    estimator, X_train, eval_metric, obj, y=y_train
-                )
-            else:
-                train_pred_y = get_y_pred(estimator, X_train, eval_metric, obj)
+            train_pred_y = get_y_pred(estimator, X_train, eval_metric, obj)
 
             metric_for_logging["train_loss"] = metric_loss_score(
                 eval_metric,

@@ -1669,7 +1669,7 @@ class AutoML(BaseEstimator):
                 )
             elif self._state.task in REGRESSION:
                 X_train, X_val, y_train, y_val = self._train_test_split(
-                    X_train_all, y_train_all, split_ratio
+                    X_train_all, y_train_all, split_ratio=split_ratio
                 )
         self._state.data_size = X_train.shape
         self.data_size_full = len(y_train_all)

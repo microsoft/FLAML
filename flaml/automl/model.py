@@ -437,7 +437,7 @@ class SparkEstimator(BaseEstimator):
         else:
             self.df_train = X_train
         if isinstance(self.df_train, psDataFrame):
-            self.df_train = self.df_train.to_spark()
+            self.df_train = self.df_train.to_spark(index_col="tmp_index_col")
         return self.df_train
 
     def fit(
@@ -497,63 +497,66 @@ class SparkEstimator(BaseEstimator):
         self._model = pipeline_model
         return train_time
 
-    def predict(self, X, y=None, **kwargs):
-        """Predict label from features."""
+    def predict(self, X, index_col="tmp_index_col", return_all=False, **kwargs):
+        """Predict label from features.
+        Args:
+            X: A pyspark or pyspark.pandas dataframe of featurized instances, shape n*m.
+            index_col: A str of the index column name. Default to "tmp_index_col".
+            return_all: A bool of whether to return all the prediction results. Default to False.
+
+        Returns:
+            A pyspark.pandas series of shape n*1 if return_all is False. Otherwise, a pyspark.pandas dataframe.
+        """
         if self._model is not None:
-            X = self._preprocess(X, y)
+            X = self._preprocess(X)
             predictions = to_pandas_on_spark(
-                self._model.transform(X), index_col="index"
+                self._model.transform(X), index_col=index_col
             )
+            predictions.index.name = None
             pred_y = predictions["prediction"]
-            if y is not None:
-                y = predictions[y.name]
-                return pred_y, y
+            if return_all:
+                return predictions
             else:
                 return pred_y
         else:
             logger.warning(
                 "Estimator is not fit yet. Please run fit() before predict()."
             )
-            if y is not None:
-                return np.ones(X.shape[0]), y
-            else:
-                return np.ones(X.shape[0])
+            return np.ones(X.shape[0])
 
-    def predict_proba(self, X, y=None, **kwargs):
+    def predict_proba(self, X, index_col="tmp_index_col", return_all=False, **kwargs):
         """Predict the probability of each class from features.
 
         Only works for classification problems
 
         Args:
-            X: A numpy array of featurized instances, shape n*m.
+            X: A pyspark or pyspark.pandas dataframe of featurized instances, shape n*m.
+            index_col: A str of the index column name. Default to "tmp_index_col".
+            return_all: A bool of whether to return all the prediction results. Default to False.
 
         Returns:
-            A numpy array of shape n*c. c is the # classes.
+            A pyspark.pandas dataframe of shape n*c. c is the # classes.
             Each element at (i,j) is the probability for instance i to be in
                 class j.
         """
         assert self._task in CLASSIFICATION, "predict_proba() only for classification."
         if self._model is not None:
-            X = self._preprocess(X, y)
+            X = self._preprocess(X)
             predictions = to_pandas_on_spark(
-                self._model.transform(X), index_col="index"
+                self._model.transform(X), index_col=index_col
             )
+            predictions.index.name = None
             pred_y = predictions["probability"]
 
-            if y is not None:
-                y = predictions[y.name]
-                return pred_y, y
+            if return_all:
+                return predictions
             else:
                 return pred_y
-
         else:
             logger.warning(
                 "Estimator is not fit yet. Please run fit() before predict()."
             )
-            if y is not None:
-                return np.ones(X.shape[0]), y
-            else:
-                return np.ones(X.shape[0])
+            return np.ones(X.shape[0])
 
 
 class SparkLGBMEstimator(SparkEstimator):
@@ -720,9 +723,6 @@ class SparkLGBMEstimator(SparkEstimator):
                     + 1
                 )
                 if budget is not None
-                else n_iter,
-                int((1 - free_mem_ratio) * mem0 / self._mem_per_iter)
-                if psutil is not None and self._mem_per_iter > 0
                 else n_iter,
             )
             if trained and max_iter <= self.params[self.ITER_HP]:
