@@ -372,9 +372,6 @@ class AutoMLState:
                 sampled_weight = self.sample_weight_all
             if self.groups is not None:
                 groups = self.groups_all
-        if isinstance(sampled_X_train, psDataFrame):
-            sampled_X_train = sampled_X_train.spark.cache()
-            sampled_X_train.count()
         return sampled_X_train, sampled_y_train, sampled_weight, groups
 
     @staticmethod
@@ -1203,7 +1200,9 @@ class AutoML(BaseEstimator):
             assert isinstance(
                 dataframe, (pd.DataFrame, psDataFrame)
             ), "dataframe must be a pandas DataFrame or a pandas_on_spark DataFrame."
-            assert label in dataframe.columns, "label must a column name in dataframe"
+            assert (
+                label in dataframe.columns
+            ), f"The provided label column name `{label}` doesn't exist in the provided dataframe."
             self._df = True
             if self._state.task in TS_FORECAST:
                 dataframe = self._validate_ts_data(dataframe)
@@ -1383,72 +1382,71 @@ class AutoML(BaseEstimator):
     def _train_test_split(
         self, X, y, first=None, rest=None, split_ratio=0.2, stratify=None
     ):
-        if rest is None:
-            sample_weight = self._state.fit_kwargs["sample_weight"]
-        else:
-            sample_weight = self._state.fit_kwargs["sample_weight"][rest]
-        if not isinstance(y, (psDataFrame, psSeries)):
-            if (
-                "sample_weight" in self._state.fit_kwargs
-            ):  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                (
-                    X_train,
-                    X_val,
-                    y_train,
-                    y_val,
-                    weight_train,
-                    weight_val,
-                ) = train_test_split(
-                    X,
-                    y,
-                    sample_weight,
-                    test_size=split_ratio,
-                    stratify=stratify,
-                    random_state=RANDOM_SEED,
-                )
+        condition_type = isinstance(X, (psDataFrame, psSeries))
+        # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+        condition_param = "sample_weight" in self._state.fit_kwargs
+        if not condition_type and condition_param:
+            sample_weight = (
+                self._state.fit_kwargs["sample_weight"]
+                if rest is None
+                else self._state.fit_kwargs["sample_weight"][rest]
+            )
+            (
+                X_train,
+                X_val,
+                y_train,
+                y_val,
+                weight_train,
+                weight_val,
+            ) = train_test_split(
+                X,
+                y,
+                sample_weight,
+                test_size=split_ratio,
+                stratify=stratify,
+                random_state=RANDOM_SEED,
+            )
 
-                if first is not None:
-                    weight1 = self._state.fit_kwargs["sample_weight"][first]
-                    self._state.weight_val = concat(weight1, weight_val)
-                    self._state.fit_kwargs["sample_weight"] = concat(
-                        weight1, weight_train
-                    )
-                else:
-                    self._state.weight_val = weight_val
-                    self._state.fit_kwargs["sample_weight"] = weight_train
+            if first is not None:
+                weight1 = self._state.fit_kwargs["sample_weight"][first]
+                self._state.weight_val = concat(weight1, weight_val)
+                self._state.fit_kwargs["sample_weight"] = concat(weight1, weight_train)
             else:
-                X_train, X_val, y_train, y_val = train_test_split(
-                    X,
-                    y,
-                    test_size=split_ratio,
-                    stratify=stratify,
-                    random_state=RANDOM_SEED,
-                )
+                self._state.weight_val = weight_val
+                self._state.fit_kwargs["sample_weight"] = weight_train
+        elif not condition_type and not condition_param:
+            X_train, X_val, y_train, y_val = train_test_split(
+                X,
+                y,
+                test_size=split_ratio,
+                stratify=stratify,
+                random_state=RANDOM_SEED,
+            )
+        elif condition_type and condition_param:
+            sample_weight = (
+                self._state.fit_kwargs["sample_weight"]
+                if rest is None
+                else self._state.fit_kwargs["sample_weight"][rest]
+            )
+            (
+                X_train,
+                X_val,
+                y_train,
+                y_val,
+                weight_train,
+                weight_val,
+            ) = self._split_pyspark(X, y, split_ratio, stratify)
+            if first is not None:
+                weight1 = self._state.fit_kwargs["sample_weight"][first]
+                self._state.weight_val = concat(weight1, weight_val)
+                self._state.fit_kwargs["sample_weight"] = concat(weight1, weight_train)
+            else:
+                self._state.weight_val = weight_val
+                self._state.fit_kwargs["sample_weight"] = weight_train
         else:
-            if (
-                "sample_weight" in self._state.fit_kwargs
-            ):  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                (
-                    X_train,
-                    X_val,
-                    y_train,
-                    y_val,
-                    weight_train,
-                    weight_val,
-                ) = self._split_pyspark(X, y, split_ratio, stratify)
-                if first is not None:
-                    weight1 = self._state.fit_kwargs["sample_weight"][first]
-                    self._state.weight_val = concat(weight1, weight_val)
-                    self._state.fit_kwargs["sample_weight"] = concat(
-                        weight1, weight_train
-                    )
-                else:
-                    self._state.weight_val = weight_val
-                    self._state.fit_kwargs["sample_weight"] = weight_train
-            else:
-                X_train, X_val, y_train, y_val = self._split_pyspark(
-                    X, y, split_ratio, stratify
-                )
+            X_train, X_val, y_train, y_val = self._split_pyspark(
+                X, y, split_ratio, stratify
+            )
         return X_train, X_val, y_train, y_val
 
     def _prepare_data(self, eval_method, split_ratio, n_splits):
@@ -1576,55 +1574,50 @@ class AutoML(BaseEstimator):
                         X_val = X_train_all[split_idx:]
                         y_val = y_train_all[split_idx:]
                 else:
-                    if not isinstance(y_train_all, (psDataFrame, psSeries)):
-                        if (
-                            "sample_weight" in self._state.fit_kwargs
-                        ):  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                            (
-                                X_train,
-                                X_val,
-                                y_train,
-                                y_val,
-                                self._state.fit_kwargs[
-                                    "sample_weight"
-                                ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                                self._state.weight_val,
-                            ) = train_test_split(
-                                X_train_all,
-                                y_train_all,
-                                self._state.fit_kwargs[
-                                    "sample_weight"
-                                ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                                test_size=split_ratio,
-                                shuffle=False,
-                            )
-                        else:
-                            X_train, X_val, y_train, y_val = train_test_split(
-                                X_train_all,
-                                y_train_all,
-                                test_size=split_ratio,
-                                shuffle=False,
-                            )
+                    condition_type = isinstance(X_train_all, (psDataFrame, psSeries))
+                    # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+                    condition_param = "sample_weight" in self._state.fit_kwargs
+                    if not condition_type and condition_param:
+                        (
+                            X_train,
+                            X_val,
+                            y_train,
+                            y_val,
+                            self._state.fit_kwargs[
+                                "sample_weight"
+                            ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+                            self._state.weight_val,
+                        ) = train_test_split(
+                            X_train_all,
+                            y_train_all,
+                            self._state.fit_kwargs[
+                                "sample_weight"
+                            ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+                            test_size=split_ratio,
+                            shuffle=False,
+                        )
+                    elif not condition_type and not condition_param:
+                        X_train, X_val, y_train, y_val = train_test_split(
+                            X_train_all,
+                            y_train_all,
+                            test_size=split_ratio,
+                            shuffle=False,
+                        )
+                    elif condition_type and condition_param:
+                        (
+                            X_train,
+                            X_val,
+                            y_train,
+                            y_val,
+                            self._state.fit_kwargs[
+                                "sample_weight"
+                            ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+                            self._state.weight_val,
+                        ) = self._split_pyspark(X_train_all, y_train_all, split_ratio)
                     else:
-                        if (
-                            "sample_weight" in self._state.fit_kwargs
-                        ):  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                            (
-                                X_train,
-                                X_val,
-                                y_train,
-                                y_val,
-                                self._state.fit_kwargs[
-                                    "sample_weight"
-                                ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                                self._state.weight_val,
-                            ) = self._split_pyspark(
-                                X_train_all, y_train_all, split_ratio
-                            )
-                        else:
-                            X_train, X_val, y_train, y_val = self._split_pyspark(
-                                X_train_all, y_train_all, split_ratio
-                            )
+                        X_train, X_val, y_train, y_val = self._split_pyspark(
+                            X_train_all, y_train_all, split_ratio
+                        )
             elif self._split_type == "group":
                 gss = GroupShuffleSplit(
                     n_splits=1, test_size=split_ratio, random_state=RANDOM_SEED
