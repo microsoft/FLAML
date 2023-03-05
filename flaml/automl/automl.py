@@ -1334,13 +1334,13 @@ class AutoML(BaseEstimator):
     def _split_pyspark(self, X_train_all, y_train_all, split_ratio, stratify=None):
         # TODO: optimize this
         set_option("compute.ops_on_diff_frames", True)
+        if not isinstance(y_train_all, (psDataFrame, psSeries)):
+            raise ValueError("y_train_all must be a pyspark.pandas dataframe or series")
         df_all_in_one = X_train_all.join(y_train_all)
         startify_column = (
-            ""
-            if isinstance(y_train_all, np.ndarray) or stratify is None
+            y_train_all.name
+            if isinstance(y_train_all, psSeries)
             else y_train_all.columns[0]
-            if isinstance(y_train_all, (psDataFrame, pd.DataFrame))
-            else y_train_all.name
         )
         ret_sample_weight = False
         if (
@@ -1355,27 +1355,26 @@ class AutoML(BaseEstimator):
             ret_sample_weight = True
         df_all_train, df_all_val = train_test_split_pyspark(
             df_all_in_one,
-            startify_column,
+            None if stratify is None else startify_column,
             test_fraction=split_ratio,
             seed=RANDOM_SEED,
         )
-        X_train = df_all_train.drop([startify_column, "sample_weight"])
-        X_val = df_all_val.drop([startify_column, "sample_weight"])
+        columns_to_drop = [
+            c for c in df_all_train.columns if c in [startify_column, "sample_weight"]
+        ]
+        X_train = df_all_train.drop(columns_to_drop)
+        X_val = df_all_val.drop(columns_to_drop)
         y_train = df_all_train[startify_column]
         y_val = df_all_val[startify_column]
 
         if ret_sample_weight:
-            self._state.fit_kwargs["sample_weight"] = df_all_train[
-                "sample_weight"
-            ].to_numpy()
-            self._state.weight_val = df_all_val["sample_weight"].to_numpy()
             return (
                 X_train,
                 X_val,
                 y_train,
                 y_val,
-                self._state.fit_kwargs["sample_weight"],
-                self._state.weight_val,
+                df_all_train["sample_weight"].to_numpy(),
+                df_all_val["sample_weight"].to_numpy(),
             )
         return X_train, X_val, y_train, y_val
 
@@ -1423,11 +1422,6 @@ class AutoML(BaseEstimator):
                 random_state=RANDOM_SEED,
             )
         elif condition_type and condition_param:
-            sample_weight = (
-                self._state.fit_kwargs["sample_weight"]
-                if rest is None
-                else self._state.fit_kwargs["sample_weight"][rest]
-            )
             (
                 X_train,
                 X_val,
@@ -1436,6 +1430,7 @@ class AutoML(BaseEstimator):
                 weight_train,
                 weight_val,
             ) = self._split_pyspark(X, y, split_ratio, stratify)
+
             if first is not None:
                 weight1 = self._state.fit_kwargs["sample_weight"][first]
                 self._state.weight_val = concat(weight1, weight_val)
