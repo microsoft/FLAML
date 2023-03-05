@@ -119,8 +119,9 @@ class Completion:
                 ServiceUnavailableError,
                 APIError,
                 APIConnectionError,
+                TimeoutError,
             ):
-                logger.info(f"retrying in {cls.retry_time} seconds...", exc_info=1)
+                logger.warning(f"retrying in {cls.retry_time} seconds...", exc_info=1)
                 sleep(cls.retry_time)
             except RateLimitError:
                 logger.info(f"retrying in {cls.retry_time} seconds...", exc_info=1)
