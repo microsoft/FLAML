@@ -594,10 +594,6 @@ class GenericTask(Task):
         fit_kwargs,
         groups=None,
     ) -> str:
-        print("------ DECIDING SPLIT TYPE ---------")
-        print(self.name)
-        print("is ts_forecast task", self.is_ts_forecast())
-        print("is classification", self.is_classification())
         if self.name == "classification":
             self.name = get_classification_objective(len(np.unique(y_train_all)))
         if not isinstance(split_type, str):
