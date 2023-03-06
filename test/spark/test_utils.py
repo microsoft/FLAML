@@ -140,7 +140,7 @@ def test_train_test_split_pyspark():
         sdf, test_fraction=0.5, to_pandas_spark=False, seed=1
     )
     train_psdf, test_psdf = train_test_split_pyspark(
-        psdf, test_fraction=0.5, startify_column="y", seed=1
+        psdf, test_fraction=0.5, stratify_column="y", seed=1
     )
     assert isinstance(train_sdf, pyspark.sql.dataframe.DataFrame)
     assert isinstance(test_sdf, pyspark.sql.dataframe.DataFrame)

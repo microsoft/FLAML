@@ -76,7 +76,7 @@ def to_pandas_on_spark(
 
 def train_test_split_pyspark(
     df: Union[DataFrame, ps.DataFrame],
-    startify_column: Optional[str] = None,
+    stratify_column: Optional[str] = None,
     test_fraction: Optional[float] = 0.2,
     seed: Optional[int] = 1234,
     to_pandas_spark: Optional[bool] = True,
@@ -86,7 +86,7 @@ def train_test_split_pyspark(
 
     Args:
         df: pyspark.sql.DataFrame | The input dataframe.
-        startify_column: str | The column name to stratify the split. Default None.
+        stratify_column: str | The column name to stratify the split. Default None.
         test_fraction: float | The fraction of the test data. Default 0.2.
         seed: int | The random seed. Default 1234.
         to_pandas_spark: bool | Whether to convert the output to pandas_on_spark. Default True.
@@ -100,15 +100,15 @@ def train_test_split_pyspark(
         df = df.to_spark(index_col="tmp_index_col")
         index_col = "tmp_index_col"
 
-    if startify_column:
+    if stratify_column:
         # Test data
         test_fraction_dict = (
-            df.select(startify_column)
+            df.select(stratify_column)
             .distinct()
             .withColumn("fraction", f.lit(test_fraction))
             .rdd.collectAsMap()
         )
-        df_test = df.stat.sampleBy(startify_column, test_fraction_dict, seed)
+        df_test = df.stat.sampleBy(stratify_column, test_fraction_dict, seed)
         # Train data
         df_train = df.subtract(df_test)
     else:

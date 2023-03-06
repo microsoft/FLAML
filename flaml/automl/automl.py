@@ -1337,7 +1337,7 @@ class AutoML(BaseEstimator):
         if not isinstance(y_train_all, (psDataFrame, psSeries)):
             raise ValueError("y_train_all must be a pyspark.pandas dataframe or series")
         df_all_in_one = X_train_all.join(y_train_all)
-        startify_column = (
+        stratify_column = (
             y_train_all.name
             if isinstance(y_train_all, psSeries)
             else y_train_all.columns[0]
@@ -1355,17 +1355,17 @@ class AutoML(BaseEstimator):
             ret_sample_weight = True
         df_all_train, df_all_val = train_test_split_pyspark(
             df_all_in_one,
-            None if stratify is None else startify_column,
+            None if stratify is None else stratify_column,
             test_fraction=split_ratio,
             seed=RANDOM_SEED,
         )
         columns_to_drop = [
-            c for c in df_all_train.columns if c in [startify_column, "sample_weight"]
+            c for c in df_all_train.columns if c in [stratify_column, "sample_weight"]
         ]
         X_train = df_all_train.drop(columns_to_drop)
         X_val = df_all_val.drop(columns_to_drop)
-        y_train = df_all_train[startify_column]
-        y_val = df_all_val[startify_column]
+        y_train = df_all_train[stratify_column]
+        y_val = df_all_val[stratify_column]
 
         if ret_sample_weight:
             return (
@@ -3069,15 +3069,15 @@ class AutoML(BaseEstimator):
                 )
             n_estimators = len(estimator_list)
             estimator_list = [est for est in estimator_list if est.endswith("_spark")]
-            if n_estimators != len(estimator_list):
-                logger.warning(
-                    "Spark dataframes only support estimators ends with `_spark`, non-supported "
-                    "estimators will be removed."
-                )
             if len(estimator_list) == 0:
                 raise ValueError(
-                    "Spark dataframes only support estimators ends with `_spark`, non-supported"
-                    "estimators will be removed. No estimator is left."
+                    "Spark dataframes only support estimator names ending with `_spark`. Non-supported "
+                    "estimators are removed. No estimator is left."
+                )
+            elif n_estimators != len(estimator_list):
+                logger.warning(
+                    "Spark dataframes only support estimator names ending with `_spark`. Non-supported "
+                    "estimators are removed."
                 )
         # When no search budget is specified
         if no_budget:
