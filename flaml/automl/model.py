@@ -2041,7 +2041,7 @@ class TS_SKLearn(SKLearnEstimator):
         space.update(
             {
                 "optimize_for_horizon": {
-                    "domain": tune.choice([False]),
+                    "domain": tune.choice([True, False]),
                     "init_value": False,
                     "low_cost_init_value": False,
                 },
@@ -2133,11 +2133,7 @@ class TS_SKLearn(SKLearnEstimator):
                         X.iloc[:i, :]
                     )
                     preds.append(self._model[i - 1].predict(X_pred, **kwargs)[-1])
-                forecast = DataFrame(
-                    data=np.asarray(preds).reshape(-1, 1),
-                    columns=[self.hcrystaball_model.name],
-                    index=X.index,
-                )
+                forecast = Series(preds)
             else:
                 (
                     X_pred,

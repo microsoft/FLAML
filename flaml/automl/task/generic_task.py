@@ -594,6 +594,10 @@ class GenericTask(Task):
         fit_kwargs,
         groups=None,
     ) -> str:
+        print("------ DECIDING SPLIT TYPE ---------")
+        print(self.name)
+        print("is ts_forecast task", self.is_ts_forecast())
+        print("is classification", self.is_classification())
         if self.name == "classification":
             self.name = get_classification_objective(len(np.unique(y_train_all)))
         if not isinstance(split_type, str):
@@ -604,14 +608,6 @@ class GenericTask(Task):
                 not isinstance(split_type, GroupKFold) or groups is not None
             ), "GroupKFold requires groups to be provided."
             return split_type
-
-        elif self.is_classification():
-            assert split_type in ["auto", "stratified", "uniform", "time", "group"]
-            return (
-                split_type
-                if split_type != "auto"
-                else groups is None and "stratified" or "group"
-            )
 
         elif self.is_ts_forecast():
             assert split_type in ["auto", "time"]
@@ -626,6 +622,14 @@ class GenericTask(Task):
                     fit_kwargs.get("group_ids"), list
                 ), f"missing a required List[str] 'group_ids' for '{TS_FORECASTPANEL}' task."
             return "time"
+
+        elif self.is_classification():
+            assert split_type in ["auto", "stratified", "uniform", "time", "group"]
+            return (
+                split_type
+                if split_type != "auto"
+                else groups is None and "stratified" or "group"
+            )
 
         elif self.is_regression():
             assert split_type in ["auto", "uniform", "time", "group"]
