@@ -4,7 +4,8 @@ custom_code = """
 from flaml import tune
 import time
 from flaml.automl.model import LGBMEstimator, XGBoostSklearnEstimator, SKLearnEstimator
-from flaml.automl.data import CLASSIFICATION, get_output_from_log
+from flaml.automl.data import get_output_from_log
+from flaml.automl.task.task import CLASSIFICATION
 
 class MyRegularizedGreedyForest(SKLearnEstimator):
     def __init__(self, task="binary", **config):

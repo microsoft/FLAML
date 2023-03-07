@@ -402,7 +402,11 @@ def load_model(checkpoint_path, task, num_labels=None):
     transformers.logging.set_verbosity_error()
 
     from transformers import AutoConfig
-    from flaml.automl.task.task import SEQCLASSIFICATION, SEQREGRESSION, TOKENCLASSIFICATION
+    from flaml.automl.task.task import (
+        SEQCLASSIFICATION,
+        SEQREGRESSION,
+        TOKENCLASSIFICATION,
+    )
 
     def get_this_model(checkpoint_path, task, model_config):
         from transformers import AutoModelForSequenceClassification

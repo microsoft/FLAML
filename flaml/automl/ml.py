@@ -50,6 +50,7 @@ from flaml.automl.model import (
 from flaml.automl.data import group_counts
 from flaml.automl.task.task import TS_FORECAST
 from flaml.automl.model import BaseEstimator
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -382,7 +383,7 @@ def _eval_estimator(
     y_val,
     weight_val,
     groups_val,
-    eval_metric,
+    eval_metric: Union[str, Callable],
     task,
     labels=None,
     log_training_metric=False,
@@ -620,7 +621,9 @@ def train_estimator(
     return estimator, train_time
 
 
-def norm_confusion_matrix(y_true, y_pred):
+def norm_confusion_matrix(
+    y_true: Union[np.array, pd.Series], y_pred: Union[np.array, pd.Series]
+):
     """normalized confusion matrix.
 
     Args:
