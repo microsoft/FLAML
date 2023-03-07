@@ -608,14 +608,6 @@ class GenericTask(Task):
             ), "GroupKFold requires groups to be provided."
             return split_type
 
-        elif self.is_classification():
-            assert split_type in ["auto", "stratified", "uniform", "time", "group"]
-            return (
-                split_type
-                if split_type != "auto"
-                else groups is None and "stratified" or "group"
-            )
-
         elif self.is_ts_forecast():
             assert split_type in ["auto", "time"]
             assert isinstance(
@@ -629,6 +621,15 @@ class GenericTask(Task):
                     fit_kwargs.get("group_ids"), list
                 ), f"missing a required List[str] 'group_ids' for '{TS_FORECASTPANEL}' task."
             return "time"
+
+        elif self.is_classification():
+            assert split_type in ["auto", "stratified", "uniform", "time", "group"]
+            return (
+                split_type
+                if split_type != "auto"
+                else groups is None and "stratified" or "group"
+            )
+
 
         elif self.is_regression():
             assert split_type in ["auto", "uniform", "time", "group"]
