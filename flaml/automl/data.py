@@ -236,7 +236,7 @@ class DataTransformer:
     """Transform input training data."""
 
     def fit_transform(
-        self, X: Union[DataFrame, np.ndarray], y, task: Union[str, 'Task']
+        self, X: Union[DataFrame, np.ndarray], y, task: Union[str, "Task"]
     ):
         """Fit transformer and process the input training data according to the task type.
 
