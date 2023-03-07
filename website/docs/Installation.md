@@ -24,8 +24,11 @@ install flaml with the [notebook] option:
 pip install flaml[notebook]
 ```
 
-#### Extra learners
-
+#### Extra learners/models
+* openai models
+```bash
+pip install flaml[openai]
+```
 * catboost
 ```bash
 pip install flaml[catboost]
@@ -38,10 +41,9 @@ pip install flaml[vw]
 ```bash
 pip install flaml[forecast]
 ```
-
-* natural language processing: transformers
+* huggingface transformers
 ```bash
-pip install flaml[nlp]
+pip install flaml[hf]
 ```
 
 #### Distributed tuning
@@ -79,6 +81,12 @@ pip install flaml[nni]
 * blendsearch
 ```bash
 pip install flaml[blendsearch]
+```
+
+* synapse
+> *To install flaml in Azure Synapse and similar cloud platform*
+```bash
+pip install flaml[synapse]
 ```
 
 #### Test and Benchmark

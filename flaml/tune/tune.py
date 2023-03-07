@@ -24,6 +24,7 @@ except (ImportError, AssertionError):
 from .trial import Trial
 from .result import DEFAULT_METRIC
 import logging
+from flaml.tune.spark.utils import PySparkOvertimeMonitor
 
 logger = logging.getLogger(__name__)
 logger.propagate = False
@@ -142,7 +143,6 @@ class ExperimentAnalysis(EA):
 
 
 def report(_metric=None, **kwargs):
-
     """A function called by the HPO application to report final or intermediate
     results.
 
@@ -247,6 +247,7 @@ def run(
     use_incumbent_result_in_evaluation: Optional[bool] = None,
     log_file_name: Optional[str] = None,
     lexico_objectives: Optional[dict] = None,
+    force_cancel: Optional[bool] = False,
     **ray_args,
 ):
     """The trigger for HPO.
@@ -447,7 +448,11 @@ def run(
     old_verbose = _verbose
     old_running_trial = _running_trial
     old_training_iteration = _training_iteration
-    if local_dir and not log_file_name and verbose > 0:
+    if log_file_name:
+        dir_name = os.path.dirname(log_file_name)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
+    elif local_dir and verbose > 0:
         os.makedirs(local_dir, exist_ok=True)
         log_file_name = os.path.join(
             local_dir, "tune_" + str(datetime.datetime.now()).replace(":", "-") + ".log"
@@ -472,9 +477,6 @@ def run(
             logger.addHandler(old_handlers[0])
         if verbose > 0:
             if log_file_name:
-                dir_name = os.path.dirname(log_file_name)
-                if dir_name:
-                    os.makedirs(dir_name, exist_ok=True)
                 logger.addHandler(logging.FileHandler(log_file_name))
             elif not logger.hasHandlers():
                 # Add the console handler.
@@ -730,10 +732,14 @@ def run(
                         logger.debug(
                             f"Configs of Trials to run: {[trial_to_run.config for trial_to_run in trials_to_run]}"
                         )
-                        results = parallel(
-                            delayed(evaluation_function)(trial_to_run.config)
-                            for trial_to_run in trials_to_run
-                        )
+                        results = None
+                        with PySparkOvertimeMonitor(
+                            time_start, time_budget_s, force_cancel, parallel=parallel
+                        ):
+                            results = parallel(
+                                delayed(evaluation_function)(trial_to_run.config)
+                                for trial_to_run in trials_to_run
+                            )
                         # results = [evaluation_function(trial_to_run.config) for trial_to_run in trials_to_run]
                         while results:
                             result = results.pop(0)
@@ -803,7 +809,9 @@ def run(
                 num_trials += 1
                 if verbose:
                     logger.info(f"trial {num_trials} config: {trial_to_run.config}")
-                result = evaluation_function(trial_to_run.config)
+                result = None
+                with PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel):
+                    result = evaluation_function(trial_to_run.config)
                 if result is not None:
                     if isinstance(result, dict):
                         if result:
