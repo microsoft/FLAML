@@ -1,10 +1,12 @@
-FLAML has integrated the OpenAI's completion API. 
+FLAML has integrated the OpenAI's completion API. In this example, we will tune several hyperparameters including the temperature, prompt and n to optimize the inference performance of OpenAI's completion API for a code generation task. Our study shows that tuning hyperparameters can significantly affect the utility of the OpenAI API.
+
 ### Prerequisites
 
-Install the [openai] option.
+Install the [openai] option. The option is available in flaml since version 1.1.3. This feature is subject to change in future versions.
 ```bash
-pip install "flaml[openai]"
+pip install "flaml[openai]==1.1.3"
 ```
+
 
 Setup your OpenAI key:
 ```python
@@ -14,145 +16,178 @@ if "OPENAI_API_KEY" not in os.environ:
     os.environ["OPENAI_API_KEY"] = "<your OpenAI API key here>"
 ```
 
-### Start an 
+If you use Azure OpenAI, set up Azure using the following code:
 
 ```python
-from flaml.automl.data import load_openml_dataset
-from flaml import AutoML
-
-# Download [Airlines dataset](https://www.openml.org/d/1169) from OpenML. The task is to predict whether a given flight will be delayed, given the information of the scheduled departure.
-X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=1169, data_dir="./")
-
-automl = AutoML()
-settings = {
-    "time_budget": 60,  # total running time in seconds
-    "metric": "accuracy",  # metric to optimize
-    "task": "classification",  # task type
-    "log_file_name": "airlines_experiment.log",  # flaml log file
-}
-experiment = mlflow.set_experiment("flaml")  # the experiment name in AzureML workspace
-with mlflow.start_run() as run:  # create a mlflow run
-    automl.fit(X_train=X_train, y_train=y_train, **settings)
-    mlflow.sklearn.log_model(automl, "automl")
+openai.api_type = "azure"
+openai.api_base = "https://<your_endpoint>.openai.azure.com/"
+openai.api_version = "2022-12-01"  # change if necessary
 ```
 
-The metrics in the run will be automatically logged in an experiment named "flaml" in your AzureML workspace. They can be retrieved by `mlflow.search_runs`:
+### Load the dataset
+
+We use the HumanEval dataset as an example. The dataset contains 164 examples. We use the first 20 for tuning the generation hyperparameters and the remaining for evaluation. In each example, the "prompt" is the prompt string for eliciting the code generation, "test" is the Python code for unit test for the example, and "entry_point" is the function name to be tested.
 
 ```python
-mlflow.search_runs(experiment_ids=[experiment.experiment_id], filter_string="params.learner = 'xgboost'")
+import datasets
+
+seed = 41
+data = datasets.load_dataset("openai_humaneval")["test"].shuffle(seed=seed)
+n_tune_data = 20
+tune_data = [
+    {
+        "prompt": data[x]["prompt"],
+        "test": data[x]["test"],
+        "entry_point": data[x]["entry_point"],
+    }
+    for x in range(n_tune_data)
+]
+test_data = [
+    {
+        "prompt": data[x]["prompt"],
+        "test": data[x]["test"],
+        "entry_point": data[x]["entry_point"],
+    }
+    for x in range(n_tune_data, len(data))
+]
 ```
 
-The logged model can be loaded and used to make predictions:
+### Defining the metric
+
+Before starting tuning, you need to define the metric for the optimization. For the HumanEval dataset, we use the success rate as the metric. So if one of the returned responses can pass the test, we consider the task as successfully solved. Then we can define the mean success rate of a collection of tasks.
+
+#### Define a code executor
+
+First, we write a simple code executor. The code executor takes the generated code and the test code as the input, and execute them with a timer.
+
 ```python
-automl = mlflow.sklearn.load_model(f"{run.info.artifact_uri}/automl")
-print(automl.predict(X_test))
+import signal
+import subprocess
+import sys
+
+def timeout_handler(signum, frame):
+    raise TimeoutError("Timed out!")
+
+signal.signal(signal.SIGALRM, timeout_handler)
+max_exec_time = 3  # seconds
+
+def execute_code(code):
+    code = code.strip()
+    with open("codetest.py", "w") as fout:
+        fout.write(code)
+    try:
+        signal.alarm(max_exec_time)
+        result = subprocess.run(
+            [sys.executable, "codetest.py"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
+        signal.alarm(0)
+    except TimeoutError:
+        return 0
+    return int(result.returncode == 0)
 ```
 
-[Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/integrate_azureml.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/integrate_azureml.ipynb)
+This function will create a temp file "codetest.py" and execute it in a separate process. It allows for 3 seconds to finish that code.
 
-### Use ray to distribute across a cluster
+#### Define a function to evaluate the success for a given program synthesis task
 
-When you have a compute cluster in AzureML, you can distribute `flaml.AutoML` or `flaml.tune` with ray.
-
-#### Build a ray environment in AzureML
-
-Create a docker file such as [.Docker/Dockerfile-cpu](https://github.com/microsoft/FLAML/blob/main/test/.Docker/Dockerfile-cpu). Make sure `RUN pip install flaml[blendsearch,ray]` is included in the docker file.
-
-Then build a AzureML environment in the workspace `ws`.
+Now we define the success metric.
 
 ```python
-ray_environment_name = "aml-ray-cpu"
-ray_environment_dockerfile_path = "./Docker/Dockerfile-cpu"
+def success_metrics(responses, prompt, test, entry_point):
+    """Check if the task is successful.
 
-# Build CPU image for Ray
-ray_cpu_env = Environment.from_dockerfile(name=ray_environment_name, dockerfile=ray_environment_dockerfile_path)
-ray_cpu_env.register(workspace=ws)
-ray_cpu_build_details = ray_cpu_env.build(workspace=ws)
+    Args:
+        responses (list): The list of responses.
+        prompt (str): The input prompt.
+        test (str): The test code.
+        entry_point (str): The name of the function.
 
-import time
-while ray_cpu_build_details.status not in ["Succeeded", "Failed"]:
-    print(f"Awaiting completion of ray CPU environment build. Current status is: {ray_cpu_build_details.status}")
-    time.sleep(10)
+    Returns:
+        dict: The success metrics.
+    """
+    success_list = []
+    n = len(responses)
+    for i in range(n):
+        response = responses[i]
+        code = f"{prompt}{response}\n{test}\ncheck({entry_point})"
+        succeed = execute_code(code)
+        success_list.append(succeed)
+    return {
+        "expected_success": 1 - pow(1 - sum(success_list) / n, n),
+        "success": any(s for s in success_list),
+    }
 ```
 
-You only need to do this step once for one workspace.
+### Tuning Hyperparameters for OpenAI
 
-#### Create a compute cluster with multiple nodes
+The tuning will take a while to finish, depending on the optimization budget (~1 min for the current budget). The tuning will be performed under the specified optimization budgets.
 
-```python
-from azureml.core.compute import AmlCompute, ComputeTarget
+* inference_budget is the target average inference budget per instance in the benchmark. For example, 0.02 means the target inference budget is 0.02 dollars, which translates to 1000 tokens (input + output combined) if the text Davinci model is used.
+* optimization_budget is the total budget allowed to perform the tuning. For example, 5 means 5 dollars are allowed in total, which translates to 250K tokens for the text Davinci model.
+* num_sumples is the number of different hyperparameter configurations which is allowed to try. The tuning will stop after either num_samples trials or after optimization_budget dollars spent, whichever happens first. -1 means no hard restriction in the number of trials and the actual number is decided by optimization_budget.
 
-compute_target_name = "cpucluster"
-node_count = 2
-
-# This example uses CPU VM. For using GPU VM, set SKU to STANDARD_NC6
-compute_target_size = "STANDARD_D2_V2"
-
-if compute_target_name in ws.compute_targets:
-    compute_target = ws.compute_targets[compute_target_name]
-    if compute_target and type(compute_target) is AmlCompute:
-        if compute_target.provisioning_state == "Succeeded":
-            print("Found compute target; using it:", compute_target_name)
-        else:
-            raise Exception(
-                "Found compute target but it is in state", compute_target.provisioning_state)
-else:
-    print("creating a new compute target...")
-    provisioning_config = AmlCompute.provisioning_configuration(
-        vm_size=compute_target_size,
-        min_nodes=0,
-        max_nodes=node_count)
-
-    # Create the cluster
-    compute_target = ComputeTarget.create(ws, compute_target_name, provisioning_config)
-
-    # Can poll for a minimum number of nodes and for a specific timeout.
-    # If no min node count is provided it will use the scale settings for the cluster
-    compute_target.wait_for_completion(show_output=True, min_node_count=None, timeout_in_minutes=20)
-
-    # For a more detailed view of current AmlCompute status, use get_status()
-    print(compute_target.get_status().serialize())
-```
-
-If the computer target "cpucluster" already exists, it will not be recreated.
-
-#### Run distributed AutoML job
-
-Assuming you have an automl script like [ray/distribute_automl.py](https://github.com/microsoft/FLAML/blob/main/test/ray/distribute_automl.py). It uses `n_concurrent_trials=k` to inform `AutoML.fit()` to perform k concurrent trials in parallel.
-
-Submit an AzureML job as the following:
+Users can specify tuning data, optimization metric, optimization mode, evaluation function, search spaces etc.
 
 ```python
-from azureml.core import Workspace, Experiment, ScriptRunConfig, Environment
-from azureml.core.runconfig import RunConfiguration, DockerConfiguration
-
-command = ["python distribute_automl.py"]
-ray_environment_name = "aml-ray-cpu"
-env = Environment.get(workspace=ws, name=ray_environment_name)
-aml_run_config = RunConfiguration(communicator="OpenMpi")
-aml_run_config.target = compute_target
-aml_run_config.docker = DockerConfiguration(use_docker=True)
-aml_run_config.environment = env
-aml_run_config.node_count = 2
-config = ScriptRunConfig(
-    source_directory="ray/",
-    command=command,
-    run_config=aml_run_config,
+config, analysis = oai.Completion.tune(
+    data=tune_data,  # the data for tuning
+    metric="expected_success",  # the metric to optimize
+    mode="max",  # the optimization mode
+    eval_func=success_metrics,  # the evaluation function to return the success metrics
+    # log_file_name="logs/humaneval.log",  # the log file name
+    inference_budget=0.1,  # the inference budget (dollar)
+    optimization_budget=4,  # the optimization budget (dollar)
+    # num_samples can further limit the number of trials for different hyperparameter configurations;
+    # -1 means decided by the optimization budget only
+    num_samples=-1,
+    model=tune.choice(
+        [
+            # These two models are in Beta test and free to use from OpenAI as of Feb 2023,
+            # so no actual cost will incur (please double check when you run it). They are not free in Azure OpenAI.
+            # The optimization is based on the price in Azure OpenAI as of Feb 2023.
+            "code-cushman-001",
+            "code-davinci-002",
+        ]
+    ),
+    prompt=[
+        "{prompt}",
+        "# Python 3{prompt}",
+        "Complete the following Python function:{prompt}",
+        "Complete the following Python function while including necessary import statements inside the function:{prompt}",
+    ],  # the prompt templates to choose from
+    stop=["\nclass", "\ndef", "\nif", "\nprint"],  # the stop sequence
 )
-
-exp = Experiment(ws, "distribute-automl")
-run = exp.submit(config)
-
-print(run.get_portal_url())  # link to ml.azure.com
-run.wait_for_completion(show_output=True)
 ```
 
-#### Run distributed tune job
+#### Output tuning results
 
-Prepare a script like [ray/distribute_tune.py](https://github.com/microsoft/FLAML/blob/main/test/ray/distribute_tune.py). Replace the command in the above eample with:
+After the tuning, we can print out the optimized config and the result found by FLAML:
 
 ```python
-command = ["python distribute_tune.py"]
+print("optimized config", config)
+print("best result on tuning data", analysis.best_result)
 ```
 
-Everything else is the same.
+#### Make a request with the tuned config
+
+We can apply the tuned config to the request for an instance:
+
+```python
+responses = oai.Completion.create(context=tune_data[1], **config)
+print(responses)
+print(success_metrics([response["text"].rstrip() for response in responses["choices"]], **tune_data[1]))
+```
+
+#### Evaluate the success rate on the test data
+
+You can use flaml's oai.Completion.eval to evaluate the performance of an entire dataset with the tuned config. To do that you need to set oai.Completion.data to the data to evaluate. The following code will take a while to evaluate all the 144 test data instances. Compared to the baseline success rate (0.46) on the HELM benchmark, the tuned config has a success rate of 0.68. It can be further improved if the inference budget and optimization budget are further increased.
+
+```python
+oai.Completion.data = test_data
+result = oai.Completion.eval(analysis.best_config, prune=False, eval_only=True)
+print(result)
+```
+
+[Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/integrate_openai.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/integrate_openai.ipynb)
