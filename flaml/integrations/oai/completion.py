@@ -13,6 +13,7 @@ try:
         APIConnectionError,
     )
     import diskcache
+    from urllib3.exceptions import ReadTimeoutError
 
     ERROR = None
 except ImportError:
@@ -79,6 +80,8 @@ class Completion:
     retry_timeout = 60
 
     openai_completion_class = not ERROR and openai.Completion
+    _total_cost = 0
+    optimization_budget = None
 
     @classmethod
     def set_cache(cls, seed=41, cache_path=".cache"):
@@ -119,7 +122,7 @@ class Completion:
                 ServiceUnavailableError,
                 APIError,
                 APIConnectionError,
-                TimeoutError,
+                ReadTimeoutError,
             ):
                 logger.warning(f"retrying in {cls.retry_time} seconds...", exc_info=1)
                 sleep(cls.retry_time)
@@ -201,14 +204,14 @@ class Completion:
         data = cls.data
         model = config["model"]
         data_length = len(data)
-        target_n_tokens = (
+        target_n_tokens = getattr(cls, "inference_budget", None) and (
             1000 * cls.inference_budget / cls.price1K[model]
             if cls.inference_budget and cls.price1K.get(model)
             else None
         )
-        prune_hp = cls._prune_hp
+        prune_hp = getattr(cls, "_prune_hp", "n")
         metric = cls._metric
-        config_n = config[prune_hp]
+        config_n = config.get(prune_hp, 1)  # default value in OpenAI is 1
         max_tokens = config.get("max_tokens", 16)  # default value in OpenAI is 16
         region_key = cls._get_region_key(config)
         if model in cls.chat_models:

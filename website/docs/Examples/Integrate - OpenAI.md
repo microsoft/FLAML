@@ -2,9 +2,9 @@ FLAML has integrated the OpenAI's completion API. In this example, we will tune 
 
 ### Prerequisites
 
-Install the [openai] option. The option is available in flaml since version 1.1.3. This feature is subject to change in future versions.
+Install the [openai] option. The OpenAI integration is in preview. ChaptGPT support is available since version 1.2.0.
 ```bash
-pip install "flaml[openai]==1.1.3"
+pip install "flaml[openai]==1.2.0"
 ```
 
 
