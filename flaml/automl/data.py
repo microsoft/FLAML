@@ -8,6 +8,7 @@ import pandas as pd
 from pandas import DataFrame, Series
 
 from flaml.automl.training_log import training_log_reader
+# from flaml.automl.automl import logger
 
 from datetime import datetime
 from typing import Union
@@ -254,19 +255,32 @@ def add_time_idx_col(X):
     unique_dates = X[TS_TIMESTAMP_COL].drop_duplicates().sort_values(ascending=True)
     # assume no missing timestamps
     freq = pd.infer_freq(unique_dates)
+    if freq is None:
+        # if missing timestamps, try to guess frequency from given time stamps
+        lookup_table = {
+            pd.Timedelta('31 days 00:00:00'): "MS",
+            pd.Timedelta('365 days 00:00:00'): "Y",
+        }
+        diff = [X[TS_TIMESTAMP_COL][idx + 1] - X[TS_TIMESTAMP_COL][idx] for idx in range(len(X[TS_TIMESTAMP_COL]) - 1)]
+        med_diff = np.median(diff)
+        freq = med_diff if med_diff not in lookup_table else lookup_table[med_diff]
+        # logger.warning(
+        #     f"Missing Timestamps detected. Inferred Frequency: {freq}."
+        #     f"If inferred frequency is incorrect, please pass in `freq` as a fit_kwargs"
+        # )
     if freq == "MS":
         X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year * 12 + X[TS_TIMESTAMP_COL].dt.month
     elif freq == "Y":
         X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year
     else:
         # using time frequency to generate all time stamps and then indexing for time_idx
-        # full_range = pd.date_range(X[TS_TIMESTAMP_COL].min(), X[TS_TIMESTAMP_COL].max(), freq=freq).to_list()
-        # X["time_idx"] = [full_range.index(time) for time in X[TS_TIMESTAMP_COL]]
+        full_range = pd.date_range(X[TS_TIMESTAMP_COL].min(), X[TS_TIMESTAMP_COL].max(), freq=freq).to_list()
+        X["time_idx"] = [full_range.index(time) for time in X[TS_TIMESTAMP_COL]]
         # taking minimum difference in timestamp
-        timestamps = unique_dates.view("int64")
-        freq = int(timestamps.diff().mode())
-        X["time_idx"] = timestamps - timestamps.min() / freq
-        X["time_idx"] = X["time_idx"].astype("int")
+        # timestamps = unique_dates.view("int64")
+        # freq = int(timestamps.diff().median())
+        # X["time_idx"] = timestamps - timestamps.min() / freq
+        # X["time_idx"] = X["time_idx"].astype("int")
     return X
 
 

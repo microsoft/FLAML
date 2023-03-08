@@ -1807,10 +1807,11 @@ class Prophet(SKLearnEstimator):
         cols.remove(TS_VALUE_COL)
         logging.getLogger("prophet").setLevel(logging.WARNING)
         model = Prophet(**self.params)
+        kwargs.pop("period")
         for regressor in cols:
             model.add_regressor(regressor)
         with suppress_stdout_stderr():
-            model.fit(train_df)
+            model.fit(train_df, **kwargs)
         train_time = time.time() - current_time
         self._model = model
         return train_time
@@ -1900,8 +1901,9 @@ class ARIMA(Prophet):
                 enforce_stationarity=False,
                 enforce_invertibility=False,
             )
+        kwargs.pop("period")
         with suppress_stdout_stderr():
-            model = model.fit()
+            model = model.fit(**kwargs)
         train_time = time.time() - current_time
         self._model = model
         return train_time
@@ -2012,8 +2014,9 @@ class SARIMAX(ARIMA):
                 enforce_stationarity=False,
                 enforce_invertibility=False,
             )
+        kwargs.pop("period")
         with suppress_stdout_stderr():
-            model = model.fit()
+            model = model.fit(**kwargs)
         train_time = time.time() - current_time
         self._model = model
         return train_time
@@ -2046,7 +2049,7 @@ class TS_SKLearn(SKLearnEstimator):
 
     def __init__(self, task="ts_forecast", **params):
         super().__init__(task, **params)
-        self.hcrystaball_model = None
+        self.hcrystalball_model = None
         self.ts_task = (
             "regression" if task in TS_FORECASTREGRESSION else "classification"
         )
@@ -2071,32 +2074,33 @@ class TS_SKLearn(SKLearnEstimator):
         lags = params.pop("lags")
         optimize_for_horizon = params.pop("optimize_for_horizon")
         estimator = self.base_class(task=self.ts_task, **params)
-        self.hcrystaball_model = get_sklearn_wrapper(estimator.estimator_class)
-        self.hcrystaball_model.lags = int(lags)
-        self.hcrystaball_model.fit(X_train, y_train)
+        self.hcrystalball_model = get_sklearn_wrapper(estimator.estimator_class)
+        self.hcrystalball_model.lags = int(lags)
+        period = kwargs.pop("period")
+        self.hcrystalball_model.fit(X_train, y_train, **kwargs)
         if optimize_for_horizon:
             # Direct Multi-step Forecast Strategy - fit a seperate model for each horizon
             model_list = []
-            for i in range(1, kwargs["period"] + 1):
+            for i in range(1, period + 1):
                 (
                     X_fit,
                     y_fit,
-                ) = self.hcrystaball_model._transform_data_to_tsmodel_input_format(
+                ) = self.hcrystalball_model._transform_data_to_tsmodel_input_format(
                     X_train, y_train, i
                 )
-                self.hcrystaball_model.model.set_params(**estimator.params)
-                model = self.hcrystaball_model.model.fit(X_fit, y_fit)
+                self.hcrystalball_model.model.set_params(**estimator.params)
+                model = self.hcrystalball_model.model.fit(X_fit, y_fit, **kwargs)
                 model_list.append(model)
             self._model = model_list
         else:
             (
                 X_fit,
                 y_fit,
-            ) = self.hcrystaball_model._transform_data_to_tsmodel_input_format(
-                X_train, y_train, kwargs["period"]
+            ) = self.hcrystalball_model._transform_data_to_tsmodel_input_format(
+                X_train, y_train, period
             )
-            self.hcrystaball_model.model.set_params(**estimator.params)
-            model = self.hcrystaball_model.model.fit(X_fit, y_fit)
+            self.hcrystalball_model.model.set_params(**estimator.params)
+            model = self.hcrystalball_model.model.fit(X_fit, y_fit, **kwargs)
             self._model = model
 
     def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
@@ -2118,20 +2122,20 @@ class TS_SKLearn(SKLearnEstimator):
                     (
                         X_pred,
                         _,
-                    ) = self.hcrystaball_model._transform_data_to_tsmodel_input_format(
+                    ) = self.hcrystalball_model._transform_data_to_tsmodel_input_format(
                         X.iloc[:i, :]
                     )
                     preds.append(self._model[i - 1].predict(X_pred, **kwargs)[-1])
                 forecast = DataFrame(
                     data=np.asarray(preds).reshape(-1, 1),
-                    columns=[self.hcrystaball_model.name],
+                    columns=[self.hcrystalball_model.name],
                     index=X.index,
                 )
             else:
                 (
                     X_pred,
                     _,
-                ) = self.hcrystaball_model._transform_data_to_tsmodel_input_format(X)
+                ) = self.hcrystalball_model._transform_data_to_tsmodel_input_format(X)
                 forecast = self._model.predict(X_pred, **kwargs)
             return forecast
         else:
@@ -2245,6 +2249,8 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
             variable_groups=kwargs.get(
                 "variable_groups", {}
             ),  # group of categorical variables can be treated as one variable
+            constant_fill_strategy=kwargs.get("constant_fill_strategy", {}),
+            allow_missing_timesteps=True,
             lags=kwargs.get("lags", {}),
             target_normalizer=GroupNormalizer(
                 groups=kwargs["group_ids"], transformation="softplus"
@@ -2292,7 +2298,7 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
             monitor="val_loss", min_delta=1e-4, patience=10, verbose=False, mode="min"
         )
 
-        def _fit(log):
+        def _fit(log, **kwargs):
             default_trainer_kwargs = dict(
                 gpus=kwargs.get("gpu_per_trial", [0])
                 if torch.cuda.is_available()
@@ -2322,6 +2328,7 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
                 tft,
                 train_dataloaders=train_dataloader,
                 val_dataloaders=val_dataloader,
+                **kwargs
             )
             return trainer
 
@@ -2335,7 +2342,13 @@ class TemporalFusionTransformerEstimator(SKLearnEstimator):
         # except ValueError:
         # issue with pytorch forecasting model log_prediction() function
         # pytorch-forecasting issue #1145
-        trainer = _fit(log=False)
+        fit_keys = ["period", "gpu_per_trial", "group_ids", "freq", "log_dir", "max_epochs", "batch_size",
+                    "static_categoricals", "static_reals", "time_varying_known_categoricals", "time_varying_known_reals",
+                    "time_varying_unknown_reals", "time_varying_unknown_categoricals", "variable_groups",
+                    "max_encoder_length", "min_encoder_length", "lags", "constant_fill_strategy"]
+        for key in fit_keys:
+            if key in kwargs: kwargs.pop(key)
+        trainer = _fit(log=False, **kwargs)
         best_model_path = trainer.checkpoint_callback.best_model_path
         best_tft = TemporalFusionTransformer.load_from_checkpoint(best_model_path)
         train_time = time.time() - current_time
