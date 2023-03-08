@@ -155,14 +155,14 @@ def spark_metric_loss_score(
     elif "ndcg" in metric_name:
         if "@" in metric_name:
             evaluator = RankingEvaluator(
-                metricName="ndcgAt",
+                metricName="ndcgAtK",
                 labelCol=label_col,
                 predictionCol=prediction_col,
                 k=int(metric_name.split("@", 1)[-1]),
             )
         else:
             evaluator = RankingEvaluator(
-                metricName="ndcgAt", labelCol=label_col, predictionCol=prediction_col
+                metricName="ndcgAtK", labelCol=label_col, predictionCol=prediction_col
             )
     else:
         raise ValueError(f"Unknown metric name: {metric_name} for spark models.")
