@@ -29,6 +29,7 @@ except ImportError:
 def to_pandas_on_spark(
     df: Union[pd.DataFrame, DataFrame, pd.Series, ps.DataFrame, ps.Series],
     index_col: Optional[str] = None,
+    default_index_type: Optional[str] = "sequence",
 ) -> Union[ps.DataFrame, ps.Series]:
     """Convert pandas or pyspark dataframe/series to pandas_on_Spark dataframe/series.
 
@@ -59,6 +60,7 @@ def to_pandas_on_spark(
     print(pss)
     ```
     """
+    ps.set_option("compute.default_index_type", default_index_type)
     if isinstance(df, (pd.DataFrame, pd.Series)):
         return ps.from_pandas(df)
     elif isinstance(df, DataFrame):
@@ -80,7 +82,7 @@ def train_test_split_pyspark(
     test_fraction: Optional[float] = 0.2,
     seed: Optional[int] = 1234,
     to_pandas_spark: Optional[bool] = True,
-    index_col: Optional[str] = None,
+    index_col: Optional[str] = "tmp_index_col",
 ) -> Tuple[Union[DataFrame, ps.DataFrame], Union[DataFrame, ps.DataFrame]]:
     """Split a pyspark dataframe into train and test dataframes.
 
@@ -97,8 +99,7 @@ def train_test_split_pyspark(
         pyspark.sql.DataFrame/pandas_on_spark DataFrame | The test dataframe.
     """
     if isinstance(df, ps.DataFrame):
-        df = df.to_spark(index_col="tmp_index_col")
-        index_col = "tmp_index_col"
+        df = df.to_spark(index_col=index_col)
 
     if stratify_column:
         # Test data
@@ -167,7 +168,7 @@ def unique_value_first_index(
 def iloc_pandas_on_spark(
     psdf: Union[ps.DataFrame, ps.Series],
     index: Union[int, slice, list],
-    index_col: Optional[str] = "index",
+    index_col: Optional[str] = "tmp_index_col",
 ) -> Union[ps.DataFrame, ps.Series]:
     """Get the rows of a pandas_on_spark dataframe/series by index."""
     if isinstance(index, (int, slice)):

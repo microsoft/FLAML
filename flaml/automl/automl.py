@@ -1120,6 +1120,7 @@ class AutoML(BaseEstimator):
             elif isinstance(y_train_all, (psDataFrame, psSeries)):
                 # TODO: optimize this
                 set_option("compute.ops_on_diff_frames", True)
+                y_df = y_train_all.to_frame()
             dataframe = dataframe.join(y_df)
         duplicates = dataframe.duplicated()
         if isinstance(dataframe, psDataFrame):
@@ -1206,9 +1207,14 @@ class AutoML(BaseEstimator):
             self._df = True
             if self._state.task in TS_FORECAST:
                 dataframe = self._validate_ts_data(dataframe)
-            X = dataframe.drop(columns=label)
-            self._nrow, self._ndim = X.shape
             y = dataframe[label]
+            if isinstance(dataframe, pd.DataFrame):
+                X = dataframe.drop(columns=label)
+            else:
+                # TODO: to support pyspark.sql.DataFrame and pure dataframe mode in the following processes
+                X = dataframe
+                y.name = "y_" + y.name  # to avoid name conflict
+            self._nrow, self._ndim = X.shape
         else:
             raise ValueError("either X_train+y_train or dataframe+label are required")
 

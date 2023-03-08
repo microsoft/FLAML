@@ -29,6 +29,7 @@ else:
             .config("spark.executor.extraJavaOptions", "-Xss1m")
             .getOrCreate()
         )
+        spark.sparkContext.setLogLevel("ERROR")
         spark_available, _ = check_spark()
         skip_spark = not spark_available
     except ImportError:
@@ -180,7 +181,6 @@ def test_spark_input_df():
             "lgbm"
         ],  # list of ML learners; we tune lightgbm in this example
         "task": "classification",  # task type
-        "use_spark": True,
     }
     with pytest.raises(ValueError) as excinfo:
         automl.fit(

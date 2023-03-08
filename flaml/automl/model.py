@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from functools import partial
 import signal
 import os
-from typing import Callable, List
+from typing import Callable, List, Union
 import numpy as np
 import time
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
@@ -430,14 +430,19 @@ class SparkEstimator(BaseEstimator):
         self.spark = SparkSession.builder.getOrCreate()
         self.df_train = None
 
-    def _preprocess(self, X_train: psDataFrame, y_train: psSeries = None):
-        # TODO: optimize this
+    def _preprocess(
+        self,
+        X_train: Union[psDataFrame, sparkDataFrame],
+        y_train: psSeries = None,
+        index_col: str = "tmp_index_col",
+    ):
+        # TODO: optimize this, support pyspark.sql.DataFrame
         if y_train is not None:
             self.df_train = X_train.join(y_train)
         else:
             self.df_train = X_train
         if isinstance(self.df_train, psDataFrame):
-            self.df_train = self.df_train.to_spark(index_col="tmp_index_col")
+            self.df_train = self.df_train.to_spark(index_col=index_col)
         return self.df_train
 
     def fit(
@@ -446,6 +451,7 @@ class SparkEstimator(BaseEstimator):
         y_train: psSeries = None,
         budget=None,
         free_mem_ratio=0,
+        index_col: str = "tmp_index_col",
         **kwargs,
     ):
         """Train the model from given training data.
@@ -460,7 +466,7 @@ class SparkEstimator(BaseEstimator):
         Returns:
             train_time: A float of the training time in seconds.
         """
-        df_train = self._preprocess(X_train, y_train)
+        df_train = self._preprocess(X_train, y_train, index_col=index_col)
         if (
             getattr(self, "limit_resource", None)
             and resource is not None
@@ -508,7 +514,7 @@ class SparkEstimator(BaseEstimator):
             A pyspark.pandas series of shape n*1 if return_all is False. Otherwise, a pyspark.pandas dataframe.
         """
         if self._model is not None:
-            X = self._preprocess(X)
+            X = self._preprocess(X, index_col=index_col)
             predictions = to_pandas_on_spark(
                 self._model.transform(X), index_col=index_col
             )
@@ -541,7 +547,7 @@ class SparkEstimator(BaseEstimator):
         """
         assert self._task in CLASSIFICATION, "predict_proba() only for classification."
         if self._model is not None:
-            X = self._preprocess(X)
+            X = self._preprocess(X, index_col=index_col)
             predictions = to_pandas_on_spark(
                 self._model.transform(X), index_col=index_col
             )
@@ -662,13 +668,21 @@ class SparkLGBMEstimator(SparkEstimator):
         self.model_classes_ = None
         self.model_n_classes_ = None
 
-    def fit(self, X_train, y_train=None, budget=None, free_mem_ratio=0, **kwargs):
+    def fit(
+        self,
+        X_train,
+        y_train=None,
+        budget=None,
+        free_mem_ratio=0,
+        index_col="tmp_index_col",
+        **kwargs,
+    ):
         start_time = time.time()
         if self.model_n_classes_ is None and self._task not in ["regression", "rank"]:
             self.model_n_classes_, self.model_classes_ = len_labels(
                 y_train, return_labels=True
             )
-        df_train = self._preprocess(X_train, y_train)
+        df_train = self._preprocess(X_train, y_train, index_col=index_col)
         n_iter = self.params.get(self.ITER_HP, self.DEFAULT_ITER)
         trained = False
         mem0 = psutil.virtual_memory().available if psutil is not None else 1

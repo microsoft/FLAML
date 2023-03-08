@@ -61,6 +61,7 @@ try:
     import pyspark.pandas as ps
     from pyspark.pandas import DataFrame as psDataFrame, Series as psSeries
     from flaml.automl.spark.utils import to_pandas_on_spark, iloc_pandas_on_spark
+    from flaml.automl.spark.metrics import spark_metric_loss_score
 except ImportError:
     ps = None
 
@@ -185,13 +186,15 @@ def metric_loss_score(
     sample_weight=None,
     groups=None,
 ):
-    # TODO: support pyspark.pandas dataframe
-    if isinstance(y_processed_predict, psSeries):
-        y_processed_predict = y_processed_predict.to_numpy()
-    if isinstance(y_processed_true, psSeries):
-        y_processed_true = y_processed_true.to_numpy()
     # y_processed_predict and y_processed_true are processed id labels if the original were the token labels
-    if is_in_sklearn_metric_name_set(metric_name):
+    if isinstance(y_processed_predict, (psDataFrame, psSeries)):
+        return spark_metric_loss_score(
+            metric_name,
+            y_processed_predict,
+            y_processed_true,
+            sample_weight,
+        )
+    elif is_in_sklearn_metric_name_set(metric_name):
         return sklearn_metric_loss_score(
             metric_name,
             y_processed_predict,
@@ -388,11 +391,10 @@ def sklearn_metric_loss_score(
 def get_y_pred(estimator, X, eval_metric, obj):
     if eval_metric in ["roc_auc", "ap", "roc_auc_weighted"] and "binary" in obj:
         y_pred_classes = estimator.predict_proba(X)
-        if isinstance(y_pred_classes, psSeries):
-            y_pred_classes = np.array(
-                [np.array(x) for _, x in y_pred_classes.iteritems()]
-            )
-        y_pred = y_pred_classes[:, 1] if y_pred_classes.ndim > 1 else y_pred_classes
+        if isinstance(y_pred_classes, (psSeries, psDataFrame)):
+            y_pred = y_pred_classes
+        else:
+            y_pred = y_pred_classes[:, 1] if y_pred_classes.ndim > 1 else y_pred_classes
     elif eval_metric in [
         "log_loss",
         "roc_auc",
@@ -428,6 +430,11 @@ def _eval_estimator(
         pred_start = time.time()
         val_pred_y = get_y_pred(estimator, X_val, eval_metric, obj)
         pred_time = (time.time() - pred_start) / X_val.shape[0]
+
+        if isinstance(X_train, psDataFrame):
+            logger.debug("\nX_val:\n", X_val.head())
+            logger.debug("\ny_val:\n", y_val.head())
+            logger.debug("\nval_pred_y:\n", val_pred_y.head())
 
         val_loss = metric_loss_score(
             eval_metric,
@@ -573,6 +580,7 @@ def evaluate_model_CV(
         )  # pass the label list on to compute the evaluation metric
     groups = None
     shuffle = getattr(kf, "shuffle", task not in TS_FORECAST)
+    shuffle = False if isinstance(X_train_all, psDataFrame) else shuffle
     if isinstance(kf, RepeatedStratifiedKFold):
         kf = kf.split(X_train_split, y_train_split)
     elif isinstance(kf, (GroupKFold, StratifiedGroupKFold)):
