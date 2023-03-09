@@ -458,9 +458,17 @@ class Completion:
             optimization_budget (float, optional): The optimization budget.
             num_samples (int, optional): The number of samples to evaluate.
             **config (dict): The search space to update over the default search.
-                For prompt, please provide a string/Callable or a list of strings/Callables. If prompt is provided for chat models, it will be converted to messages under role "user". Do not provide both prompt and messages for chat models, but provide either of them. A string `prompt` template will be used to generate a prompt for each data instance using `prompt.format(**data)`. A callable `prompt` template will be used to generate a prompt for each data instance using `prompt(data)`.
+                For prompt, please provide a string/Callable or a list of strings/Callables.
+                    - If prompt is provided for chat models, it will be converted to messages under role "user".
+                    - Do not provide both prompt and messages for chat models, but provide either of them.
+                    - A string `prompt` template will be used to generate a prompt for each data instance
+                      using `prompt.format(**data)`.
+                    - A callable `prompt` template will be used to generate a prompt for each data instance
+                      using `prompt(data)`.
                 For stop, please provide a string, a list of strings, or a list of lists of strings.
-                For messages (chat models only), please provide a list of messages (for a single chat prefix) or a list of lists of messages (for multiple choices of chat prefix to choose from). Each message should be a dict with keys "role" and "content".
+                For messages (chat models only), please provide a list of messages (for a single chat prefix)
+                or a list of lists of messages (for multiple choices of chat prefix to choose from).
+                Each message should be a dict with keys "role" and "content".
 
         Returns:
             dict: The optimized hyperparameter setting.
