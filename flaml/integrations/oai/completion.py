@@ -219,12 +219,12 @@ class Completion:
             # either "prompt" should be in config (for being compatible with non-chat models)
             # or "messages" should be in config (for tuning chat models only)
             prompt = config.get("prompt")
+            messages = config.get("messages")
+            # either prompt or messages should be in config, but not both
+            assert (prompt is None) != (
+                messages is None
+            ), "Either prompt or messages should be in config for chat models."
             if prompt is None:
-                messages = config.get("messages")
-                if messages is None:
-                    raise ValueError(
-                        "Either prompt or messages should be in config for chat models."
-                    )
                 messages = cls._messages[messages]
             else:
                 prompt = cls._prompts[prompt]
@@ -529,6 +529,9 @@ class Completion:
                 cls._messages = [cls._messages]
             space["messages"] = tune.choice(list(range(len(cls._messages))))
         else:
+            assert (
+                space.get("messages") is None
+            ), "messages and prompt cannot be provided at the same time."
             assert isinstance(
                 cls._prompts, (str, list)
             ), "prompt must be a string or a list of strings."
