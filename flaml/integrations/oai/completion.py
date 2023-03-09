@@ -195,7 +195,8 @@ class Completion:
         Args:
             config (dict): Hyperparameter setting for the openai api call.
             prune (bool, optional): Whether to enable pruning. Defaults to True.
-            eval_only (bool, optional): Whether to evaluate only. Defaults to False.
+            eval_only (bool, optional): Whether to evaluate only (ignore the inference budget and no timeout).
+              Defaults to False.
 
         Returns:
             dict: Evaluation results.
@@ -453,6 +454,24 @@ class Completion:
             metric (str): The metric to optimize.
             mode (str): The optimization mode, "min" or "max.
             eval_func (Callable): The evaluation function for responses.
+                The function should take a list of responses and a data point as input,
+                and return a dict of metrics. For example,
+
+            ```python
+            def eval_func(responses, **data):
+                solution = data["solution"]
+                success_list = []
+                n = len(responses)
+                for i in range(n):
+                    response = responses[i]
+                    succeed = is_equiv_chain_of_thought(response, solution)
+                    success_list.append(succeed)
+                return {
+                    "expected_success": 1 - pow(1 - sum(success_list) / n, n),
+                    "success": any(s for s in success_list),
+                }
+            ```
+
             log_file_name (str, optional): The log file.
             inference_budget (float, optional): The inference budget.
             optimization_budget (float, optional): The optimization budget.
