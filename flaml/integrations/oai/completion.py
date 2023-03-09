@@ -457,6 +457,8 @@ class Completion:
             inference_budget (float, optional): The inference budget.
             optimization_budget (float, optional): The optimization budget.
             num_samples (int, optional): The number of samples to evaluate.
+                -1 means no hard restriction in the number of trials
+                and the actual number is decided by optimization_budget. Defaults to 1.
             **config (dict): The search space to update over the default search.
                 For prompt, please provide a string/Callable or a list of strings/Callables.
                     - If prompt is provided for chat models, it will be converted to messages under role "user".
