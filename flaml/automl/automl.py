@@ -35,11 +35,7 @@ from flaml.config import (
 from flaml.automl.data import concat
 
 # TODO check to see when we can remove these
-from flaml.automl.task.task import (
-    CLASSIFICATION,
-    TS_FORECAST,
-    Task
-)
+from flaml.automl.task.task import CLASSIFICATION, TS_FORECAST, Task
 from flaml.automl.task.factory import task_factory
 from flaml import tune
 from flaml.automl.logger import logger, logger_formatter
@@ -613,7 +609,9 @@ class AutoML(BaseEstimator):
         """
         self._state.learner_classes[learner_name] = learner_class
 
-    def get_estimator_from_log(self, log_file_name: str, record_id: int, task: Union[str, Task]):
+    def get_estimator_from_log(
+        self, log_file_name: str, record_id: int, task: Union[str, Task]
+    ):
         """Get the estimator from log file.
 
         Args:
