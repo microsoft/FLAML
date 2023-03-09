@@ -6,7 +6,7 @@ from __future__ import annotations
 import time
 import os
 import sys
-from typing import Callable, Optional, List, Union, Any
+from typing import Callable, Optional, List, Union, Optional
 import inspect
 from functools import partial
 import numpy as np
@@ -21,6 +21,7 @@ from flaml.automl.ml import (
     train_estimator,
     get_estimator_class,
 )
+from flaml.automl.task.task import Task
 from flaml.config import (
     MIN_SAMPLE_TRAIN,
     MEM_THRES,
@@ -37,8 +38,7 @@ from flaml.automl.data import concat
 from flaml.automl.task.task import (
     CLASSIFICATION,
     TS_FORECAST,
-    TS_FORECASTREGRESSION,
-    TS_FORECASTPANEL,
+    Task
 )
 from flaml.automl.task.factory import task_factory
 from flaml import tune
@@ -145,7 +145,8 @@ class AutoML(BaseEstimator):
         ```
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast', 'rank',
-                'seq-classification', 'seq-regression', 'summarization'.
+                'seq-classification', 'seq-regression', 'summarization',
+                or an instance of the Task class.
             n_jobs: An integer of the number of threads for training | default=-1.
                 Use all available resources when n_jobs == -1.
             log_file_name: A string of the log file name | default="". To disable logging,
@@ -612,7 +613,7 @@ class AutoML(BaseEstimator):
         """
         self._state.learner_classes[learner_name] = learner_class
 
-    def get_estimator_from_log(self, log_file_name: str, record_id: int, task: str):
+    def get_estimator_from_log(self, log_file_name: str, record_id: int, task: Union[str, Task]):
         """Get the estimator from log file.
 
         Args:
@@ -620,7 +621,8 @@ class AutoML(BaseEstimator):
             record_id: An integer of the record ID in the file,
                 0 corresponds to the first trial.
             task: A string of the task type,
-                'binary', 'multiclass', 'regression', 'ts_forecast', 'rank'.
+                'binary', 'multiclass', 'regression', 'ts_forecast', 'rank',
+                or an instance of the Task class.
 
         Returns:
             An estimator object for the given configuration.
@@ -653,7 +655,7 @@ class AutoML(BaseEstimator):
         dataframe=None,
         label=None,
         time_budget=np.inf,
-        task=None,
+        task: Optional[Union[str, Task]] = None,
         eval_method=None,
         split_ratio=None,
         n_splits=None,
@@ -695,7 +697,8 @@ class AutoML(BaseEstimator):
             time_budget: A float number of the time budget in seconds.
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast', 'rank',
-                'seq-classification', 'seq-regression', 'summarization'.
+                'seq-classification', 'seq-regression', 'summarization',
+                or an instance of Task class.
             eval_method: A string of resampling strategy, one of
                 ['auto', 'cv', 'holdout'].
             split_ratio: A float of the validation data percentage for holdout.
@@ -1175,7 +1178,7 @@ class AutoML(BaseEstimator):
         dataframe=None,
         label=None,
         metric=None,
-        task=None,
+        task: Optional[Union[str, Task]] = None,
         n_jobs=None,
         # gpu_per_trial=0,
         log_file_name=None,
@@ -1285,7 +1288,7 @@ class AutoML(BaseEstimator):
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast_regression',
                 'ts_forecast_classification', 'rank', 'seq-classification',
-                'seq-regression', 'summarization'.
+                'seq-regression', 'summarization', or an instance of Task class
             n_jobs: An integer of the number of threads for training | default=-1.
                 Use all available resources when n_jobs == -1.
             log_file_name: A string of the log file name | default="". To disable logging,

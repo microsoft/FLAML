@@ -48,7 +48,7 @@ from flaml.automl.model import (
     TransformersEstimatorModelSelection,
 )
 from flaml.automl.data import group_counts
-from flaml.automl.task.task import TS_FORECAST
+from flaml.automl.task.task import TS_FORECAST, Task
 from flaml.automl.model import BaseEstimator
 
 import logging
@@ -356,7 +356,7 @@ def sklearn_metric_loss_score(
     return score
 
 
-def get_y_pred(estimator, X, eval_metric, task):
+def get_y_pred(estimator, X, eval_metric, task: Task):
     if eval_metric in ["roc_auc", "ap", "roc_auc_weighted"] and task.is_binary():
         y_pred_classes = estimator.predict_proba(X)
         y_pred = y_pred_classes[:, 1] if y_pred_classes.ndim > 1 else y_pred_classes
