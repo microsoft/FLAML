@@ -6,7 +6,7 @@ from __future__ import annotations
 import time
 import os
 import sys
-from typing import Callable, Optional, List, Union, Optional
+from typing import Callable, List, Union, Optional
 import inspect
 from functools import partial
 import numpy as np
@@ -21,7 +21,6 @@ from flaml.automl.ml import (
     train_estimator,
     get_estimator_class,
 )
-from flaml.automl.task.task import Task
 from flaml.config import (
     MIN_SAMPLE_TRAIN,
     MEM_THRES,
