@@ -49,7 +49,7 @@ def _test_spark_synapseml_lightgbm(spark=None, task="classification"):
         metric = "r2"
         X_train, y_train = skds.load_diabetes(return_X_y=True, as_frame=True)
     elif task == "rank":
-        metric = "ndcg"
+        metric = "ndcg@5"
         sdf = spark.read.format("parquet").load(
             "wasbs://publicwasb@mmlspark.blob.core.windows.net/lightGBMRanker_test.parquet"
         )
@@ -77,6 +77,7 @@ def _test_spark_synapseml_lightgbm(spark=None, task="classification"):
         automl_settings["groupCol"] = "query"
         automl_settings["evalAt"] = [1, 3, 5]
         automl_settings["groups"] = X_train["query"].to_pandas()
+        automl_settings["groups"] = X_train["query"].to_numpy()
         X_train = X_train.to_spark(index_col="index")
     else:
         columns = X_train.columns
@@ -118,9 +119,16 @@ def _test_spark_synapseml_lightgbm(spark=None, task="classification"):
         return
 
 
-def test_spark_synapseml():
-    for task in ["classification", "regression", "rank"]:
-        _test_spark_synapseml_lightgbm(spark, task)
+def test_spark_synapseml_classification():
+    _test_spark_synapseml_lightgbm(spark, "classification")
+
+
+def test_spark_synapseml_regression():
+    _test_spark_synapseml_lightgbm(spark, "regression")
+
+
+def test_spark_synapseml_rank():
+    _test_spark_synapseml_lightgbm(spark, "rank")
 
 
 def test_spark_input_df():
@@ -194,5 +202,8 @@ def test_spark_input_df():
 
 
 if __name__ == "__main__":
-    test_spark_synapseml()
-    test_spark_input_df()
+    # test_spark_synapseml_classification()
+    # test_spark_synapseml_regression()
+    test_spark_synapseml_rank()
+    # test_spark_input_df()
+    # test_lightgbm_rank()

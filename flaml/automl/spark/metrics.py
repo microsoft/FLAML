@@ -1,5 +1,7 @@
 import logging
 import os
+import numpy as np
+from typing import Union
 
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
@@ -17,6 +19,7 @@ try:
         MultilabelClassificationEvaluator,
         RankingEvaluator,
     )
+    import pyspark.sql.functions as F
 except ImportError:
     msg = """use_spark=True requires installation of PySpark. Please run pip install flaml[spark]
     and check [here](https://spark.apache.org/docs/latest/api/python/getting_started/install.html)
@@ -24,11 +27,27 @@ except ImportError:
     raise ImportError(msg)
 
 
+def ps_group_counts(groups: Union[ps.Series, np.ndarray]) -> np.ndarray:
+    if isinstance(groups, np.ndarray):
+        _, i, c = np.unique(groups, return_counts=True, return_index=True)
+    else:
+        i = groups.drop_duplicates().index.values
+        c = groups.value_counts().sort_index().to_numpy()
+    return c[np.argsort(i)].tolist()
+
+
+def _process_df(df, label_col, prediction_col):
+    df = df.withColumn(label_col, F.array([df[label_col]]))
+    df = df.withColumn(prediction_col, F.array([df[prediction_col]]))
+    return df
+
+
 def spark_metric_loss_score(
     metric_name: str,
     y_predict: ps.Series,
     y_true: ps.Series,
     sample_weight: ps.Series = None,
+    groups: ps.Series = None,
 ) -> float:
     """
     Compute the loss score of a metric for spark models.
@@ -38,6 +57,7 @@ def spark_metric_loss_score(
         y_predict: ps.Series | the predicted values.
         y_true: ps.Series | the true values.
         sample_weight: ps.Series | the sample weights. Default: None.
+        groups: ps.Series | the group of each row. Default: None.
 
     Returns:
         float | the loss score.
@@ -154,16 +174,42 @@ def spark_metric_loss_score(
         )
     elif "ndcg" in metric_name:
         if "@" in metric_name:
-            evaluator = RankingEvaluator(
-                metricName="ndcgAtK",
-                labelCol=label_col,
-                predictionCol=prediction_col,
-                k=int(metric_name.split("@", 1)[-1]),
-            )
+            k = int(metric_name.split("@", 1)[-1])
+            if groups is None:
+                evaluator = RankingEvaluator(
+                    metricName="ndcgAtK",
+                    labelCol=label_col,
+                    predictionCol=prediction_col,
+                    k=k,
+                )
+                df = _process_df(df, label_col, prediction_col)
+                score = 1 - evaluator.evaluate(df)
+            else:
+                counts = ps_group_counts(groups)
+                score = 0
+                psum = 0
+                for c in counts:
+                    y_true_ = y_true[psum : psum + c]
+                    y_predict_ = y_predict[psum : psum + c]
+                    df = y_true_.to_frame().join(y_predict_).to_spark()
+                    df = _process_df(df, label_col, prediction_col)
+                    evaluator = RankingEvaluator(
+                        metricName="ndcgAtK",
+                        labelCol=label_col,
+                        predictionCol=prediction_col,
+                        k=k,
+                    )
+                    score -= evaluator.evaluate(df)
+                    psum += c
+                score /= len(counts)
+                score += 1
         else:
             evaluator = RankingEvaluator(
                 metricName="ndcgAtK", labelCol=label_col, predictionCol=prediction_col
             )
+            df = _process_df(df, label_col, prediction_col)
+            score = 1 - evaluator.evaluate(df)
+        return score
     else:
         raise ValueError(f"Unknown metric name: {metric_name} for spark models.")
 

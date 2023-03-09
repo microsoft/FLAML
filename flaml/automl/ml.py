@@ -193,6 +193,7 @@ def metric_loss_score(
             y_processed_predict,
             y_processed_true,
             sample_weight,
+            groups,
         )
     elif is_in_sklearn_metric_name_set(metric_name):
         return sklearn_metric_loss_score(
