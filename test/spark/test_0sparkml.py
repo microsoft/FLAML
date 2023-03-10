@@ -204,6 +204,14 @@ def test_spark_input_df():
 if __name__ == "__main__":
     # test_spark_synapseml_classification()
     # test_spark_synapseml_regression()
-    test_spark_synapseml_rank()
+    # test_spark_synapseml_rank()
     # test_spark_input_df()
     # test_lightgbm_rank()
+
+    import cProfile
+    import pstats
+    from pstats import SortKey
+
+    cProfile.run("test_spark_input_df()", "test_spark_input_df.profile")
+    p = pstats.Stats("test_spark_input_df.profile")
+    p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_stats("utils.py")

@@ -3,11 +3,6 @@ import os
 import numpy as np
 from typing import Union
 
-logger = logging.getLogger(__name__)
-logger_formatter = logging.Formatter(
-    "[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s", "%m-%d %H:%M:%S"
-)
-logger.propagate = False
 try:
     os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
     from pyspark.sql import DataFrame
@@ -73,9 +68,6 @@ def spark_metric_loss_score(
         sample_weight.name = "weight"
         df = df.join(sample_weight)
         kwargs = {"weightCol": "weight"}
-
-    logger.debug(f"metric_name: {metric_name}")
-    logger.debug(f"df: {df.shape}\n{df.head(10)}")
 
     df = df.to_spark()
 

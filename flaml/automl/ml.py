@@ -73,9 +73,7 @@ except ImportError:
 
 
 from flaml.automl.model import BaseEstimator
-import logging
 
-logger = logging.getLogger(__name__)
 EstimatorSubclass = TypeVar("EstimatorSubclass", bound=BaseEstimator)
 
 sklearn_metric_name_set = {
@@ -431,12 +429,6 @@ def _eval_estimator(
         pred_start = time.time()
         val_pred_y = get_y_pred(estimator, X_val, eval_metric, obj)
         pred_time = (time.time() - pred_start) / X_val.shape[0]
-
-        if isinstance(X_train, psDataFrame):
-            logger.debug("\nX_val:\n", X_val.head())
-            logger.debug("\ny_val:\n", y_val.head())
-            logger.debug("\nval_pred_y:\n", val_pred_y.head())
-
         val_loss = metric_loss_score(
             eval_metric,
             y_processed_predict=val_pred_y,
