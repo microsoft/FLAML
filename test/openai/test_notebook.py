@@ -2,7 +2,6 @@ import nbformat
 from nbconvert.preprocessors import ExecutePreprocessor
 from nbconvert.preprocessors import CellExecutionError
 import os
-import sys
 import pytest
 
 try:
@@ -39,5 +38,13 @@ def test_integrate_openai(save=False):
     run_notebook("integrate_openai.ipynb", save=save)
 
 
+@pytest.mark.skipif(
+    skip,
+    reason="do not run openai test if openai is not installed",
+)
+def test_integrate_chatgpt(save=False):
+    run_notebook("integrate_chatgpt_math.ipynb", save=save)
+
+
 if __name__ == "__main__":
-    test_integrate_openai(save=True)
+    test_integrate_chatgpt(save=True)
