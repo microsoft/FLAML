@@ -62,7 +62,7 @@ def test_hf_data():
         **automl_settings
     )
     automl.predict(X_test, **{"per_device_eval_batch_size": 2})
-    prediction = automl.predict(["test test", "test test"])
+    prediction = automl.predict([""])
     assert prediction[0] == float("inf")
 
     automl.predict(
