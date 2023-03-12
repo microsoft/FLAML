@@ -17,11 +17,16 @@ def test_hf_ms():
 
     automl = AutoML()
 
-    automl_settings = get_automl_settings()
-    automl_settings["estimator_list"] = ["transformer_ms"]
-    automl_settings["task"] = "summarization"
-    automl_settings["metric"] = "rouge1"
-    automl_settings["time_budget"] = 2 * automl_settings["time_budget"]
+    automl_settings = {
+        "gpu_per_trial": 0,
+        "max_iter": 3,
+        "time_budget": 20,
+        "task": "summarization",
+        "metric": "rouge1",
+        "log_file_name": "seqclass.log",
+        "use_ray": False,
+        "estimator_list": ["transformer_ms"],
+    }
 
     try:
         automl.fit(
