@@ -29,7 +29,7 @@ else:
             .config("spark.executor.extraJavaOptions", "-Xss1m")
             .getOrCreate()
         )
-        spark.sparkContext.setLogLevel("ERROR")
+        # spark.sparkContext.setLogLevel("ERROR")
         spark_available, _ = check_spark()
         skip_spark = not spark_available
     except ImportError:

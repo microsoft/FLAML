@@ -1185,6 +1185,10 @@ class AutoML(BaseEstimator):
             assert (
                 X_train_all.shape[0] == y_train_all.shape[0]
             ), "# rows in X_train must match length of y_train."
+            if isinstance(X_train_all, psDataFrame):
+                X_train_all = X_train_all.spark.cache()
+                shape = X_train_all.shape
+                logger.debug(f"X_train_all cached, shape of X_train_all: {shape}")
             self._df = isinstance(X_train_all, (pd.DataFrame, psDataFrame))
             self._nrow, self._ndim = X_train_all.shape
             if self._state.task in TS_FORECAST:
@@ -1204,6 +1208,10 @@ class AutoML(BaseEstimator):
             assert (
                 label in dataframe.columns
             ), f"The provided label column name `{label}` doesn't exist in the provided dataframe."
+            if isinstance(dataframe, psDataFrame):
+                dataframe = dataframe.spark.cache()
+                shape = dataframe.shape
+                logger.debug(f"dataframe cached, shape of dataframe: {shape}")
             self._df = True
             if self._state.task in TS_FORECAST:
                 dataframe = self._validate_ts_data(dataframe)

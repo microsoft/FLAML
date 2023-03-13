@@ -29,13 +29,14 @@ except ImportError:
 def to_pandas_on_spark(
     df: Union[pd.DataFrame, DataFrame, pd.Series, ps.DataFrame, ps.Series],
     index_col: Optional[str] = None,
-    default_index_type: Optional[str] = "sequence",
+    default_index_type: Optional[str] = "distributed-sequence",
 ) -> Union[ps.DataFrame, ps.Series]:
     """Convert pandas or pyspark dataframe/series to pandas_on_Spark dataframe/series.
 
     Args:
         df: pandas.DataFrame/series or pyspark dataframe | The input dataframe/series.
         index_col: str, optional | The column name to use as index, default None.
+        default_index_type: str, optional | The default index type, default "distributed-sequence".
 
     Returns:
         pyspark.pandas.DataFrame/Series: The converted pandas-on-Spark dataframe/series.
