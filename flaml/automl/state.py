@@ -1,7 +1,7 @@
 import inspect
 import copy
 import time
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -283,7 +283,12 @@ class AutoMLState:
         return sampled_X_train, sampled_y_train, sampled_weight, groups
 
     @staticmethod
-    def _compute_with_config_base(config_w_resource, state, estimator, is_report=True):
+    def _compute_with_config_base(
+        config_w_resource: dict,
+        state: "AutoMLState",
+        estimator: str,
+        is_report: bool = True,
+    ) -> dict:
         if "FLAML_sample_size" in config_w_resource:
             sample_size = int(config_w_resource["FLAML_sample_size"])
         else:

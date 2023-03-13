@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import List
+from typing import List, Optional
 
 import pandas as pd
 import numpy as np
@@ -562,7 +562,27 @@ class GenericTask(Task):
             )
         elif split_type == "time":
             # logger.info("Using TimeSeriesSplit")
-            state.kf = TimeSeriesSplit(n_splits=n_splits)
+            if self.is_ts_forecast() and not self.is_ts_forecastpanel():
+                period = state.fit_kwargs[
+                    "period"
+                ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+                if period * (n_splits + 1) > y_train_all.size:
+                    n_splits = int(y_train_all.size / period - 1)
+                    assert n_splits >= 2, (
+                        f"cross validation for forecasting period={period}"
+                        f" requires input data with at least {3 * period} examples."
+                    )
+                    logger.info(f"Using nsplits={n_splits} due to data size limit.")
+                state.kf = TimeSeriesSplit(n_splits=n_splits, test_size=period)
+            elif self.is_ts_forecastpanel():
+                n_groups = X_train.groupby(state.fit_kwargs.get("group_ids")).ngroups
+                period = state.fit_kwargs.get("period")
+                state.kf = TimeSeriesSplit(
+                    n_splits=n_splits, test_size=period * n_groups
+                )
+            else:
+                state.kf = TimeSeriesSplit(n_splits=n_splits)
+            # state.kf = TimeSeriesSplit(n_splits=n_splits)
         elif isinstance(split_type, str):
             # logger.info("Using RepeatedKFold")
             state.kf = RepeatedKFold(
@@ -593,13 +613,6 @@ class GenericTask(Task):
             ), "GroupKFold requires groups to be provided."
             return split_type
 
-        elif self.is_classification():
-            assert split_type in ["auto", "stratified", "uniform", "time", "group"]
-            return (
-                split_type
-                if split_type != "auto"
-                else groups is None and "stratified" or "group"
-            )
 
         elif self.is_ts_forecast():
             assert split_type in ["auto", "time"]
@@ -614,6 +627,14 @@ class GenericTask(Task):
                     fit_kwargs.get("group_ids"), list
                 ), f"missing a required List[str] 'group_ids' for '{TS_FORECASTPANEL}' task."
             return "time"
+
+        elif self.is_classification():
+            assert split_type in ["auto", "stratified", "uniform", "time", "group"]
+            return (
+                split_type
+                if split_type != "auto"
+                else groups is None and "stratified" or "group"
+            )
 
         elif self.is_regression():
             assert split_type in ["auto", "uniform", "time", "group"]
@@ -659,8 +680,8 @@ class GenericTask(Task):
 
     def evaluate_model_CV(
         self,
-        config,
-        estimator,
+        config: dict,
+        estimator: EstimatorSubclass,
         X_train_all,
         y_train_all,
         budget,
@@ -669,9 +690,11 @@ class GenericTask(Task):
         best_val_loss,
         cv_score_agg_func=None,
         log_training_metric=False,
-        fit_kwargs={},
+        fit_kwargs: Optional[dict] = None,
         free_mem_ratio=0,
     ):
+        if fit_kwargs is None:
+            fit_kwargs = {}
         if cv_score_agg_func is None:
             cv_score_agg_func = default_cv_score_agg_func
         start_time = time.time()

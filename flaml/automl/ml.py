@@ -5,6 +5,8 @@
 import time
 import numpy as np
 import pandas as pd
+from typing import Union, Callable, TypeVar, Optional, Tuple
+
 from sklearn.metrics import (
     mean_squared_error,
     r2_score,
@@ -28,6 +30,7 @@ import logging
 from flaml.automl.time_series import TimeSeriesDataset
 
 logger = logging.getLogger(__name__)
+EstimatorSubclass = TypeVar("EstimatorSubclass", bound=BaseEstimator)
 
 sklearn_metric_name_set = {
     "r2",
@@ -81,7 +84,7 @@ huggingface_submetric_to_metric = {"rouge1": "rouge", "rouge2": "rouge"}
 
 
 def metric_loss_score(
-    metric_name,
+    metric_name: str,
     y_processed_predict,
     y_processed_true,
     labels=None,
@@ -135,11 +138,11 @@ def metric_loss_score(
         except ImportError:
             raise ValueError(
                 metric_name
-                + " is not an built-in sklearn metric and nlp is not installed. "
+                + " is not an built-in sklearn metric and [hf] is not installed. "
                 "Currently built-in sklearn metrics are: "
                 "r2, rmse, mae, mse, accuracy, roc_auc, roc_auc_ovr, roc_auc_ovo,"
                 "log_loss, mape, f1, micro_f1, macro_f1, ap. "
-                "If the metric is an nlp metric, please pip install flaml[nlp] ",
+                "If the metric is a huggingface metric, please pip install flaml[hf] ",
                 "or pass a customized metric function to AutoML.fit(metric=func)",
             )
         # If the metric is not found from huggingface dataset metric list (i.e., FileNotFoundError)
@@ -160,11 +163,11 @@ def metric_loss_score(
             return score
 
 
-def is_in_sklearn_metric_name_set(metric_name):
+def is_in_sklearn_metric_name_set(metric_name: str):
     return metric_name.startswith("ndcg") or metric_name in sklearn_metric_name_set
 
 
-def is_min_metric(metric_name):
+def is_min_metric(metric_name: str):
     return (
         metric_name in ["rmse", "mae", "mse", "log_loss", "mape"]
         or huggingface_metric_to_mode.get(metric_name, None) == "min"
@@ -172,7 +175,7 @@ def is_min_metric(metric_name):
 
 
 def sklearn_metric_loss_score(
-    metric_name,
+    metric_name: str,
     y_predict,
     y_true,
     labels=None,
@@ -283,7 +286,7 @@ def sklearn_metric_loss_score(
     return score
 
 
-def get_y_pred(estimator, X, eval_metric, task):
+def get_y_pred(estimator, X, eval_metric, task: Task):
     if eval_metric in ["roc_auc", "ap", "roc_auc_weighted"] and task.is_binary():
         y_pred_classes = estimator.predict_proba(X)
         y_pred = y_pred_classes[:, 1] if y_pred_classes.ndim > 1 else y_pred_classes
@@ -323,19 +326,24 @@ def compute_estimator(
     groups_val,
     budget,
     kf,
-    config_dic,
-    task: Task,
-    estimator_name,
-    eval_method,
-    eval_metric,
+    config_dic: dict,
+    task: Union[str, Task],
+    estimator_name: str,
+    eval_method: str,
+    eval_metric: Union[str, Callable],
     best_val_loss=np.Inf,
-    n_jobs=1,
-    estimator_class=None,
-    cv_score_agg_func=None,
-    log_training_metric=False,
-    fit_kwargs={},
+    n_jobs: Optional[
+        int
+    ] = 1,  # some estimators of EstimatorSubclass don't accept n_jobs. Should be None in that case.
+    estimator_class: Optional[EstimatorSubclass] = None,
+    cv_score_agg_func: Optional[callable] = None,
+    log_training_metric: Optional[bool] = False,
+    fit_kwargs: Optional[dict] = None,
     free_mem_ratio=0,
 ):
+    if not fit_kwargs:
+        fit_kwargs = {}
+
     estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
@@ -392,18 +400,20 @@ def compute_estimator(
 
 
 def train_estimator(
-    config_dic,
+    config_dic: dict,
     X_train,
     y_train,
-    task: Task,
+    task: str,
     estimator_name: str,
-    n_jobs=1,
-    estimator_class=None,
+    n_jobs: Optional[
+        int
+    ] = 1,  # some estimators of EstimatorSubclass don't accept n_jobs. Should be None in that case.
+    estimator_class: Optional[EstimatorSubclass] = None,
     budget=None,
-    fit_kwargs={},
+    fit_kwargs: Optional[dict] = None,
     eval_metric=None,
     free_mem_ratio=0,
-):
+) -> Tuple[EstimatorSubclass, float]:
     start_time = time.time()
     estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
@@ -411,6 +421,9 @@ def train_estimator(
         task=task,
         n_jobs=n_jobs,
     )
+    if not fit_kwargs:
+        fit_kwargs = {}
+
     if isinstance(estimator, TransformersEstimator):
         fit_kwargs["metric"] = eval_metric
 
@@ -424,7 +437,9 @@ def train_estimator(
     return estimator, train_time
 
 
-def norm_confusion_matrix(y_true, y_pred):
+def norm_confusion_matrix(
+    y_true: Union[np.array, pd.Series], y_pred: Union[np.array, pd.Series]
+):
     """normalized confusion matrix.
 
     Args:
@@ -442,7 +457,11 @@ def norm_confusion_matrix(y_true, y_pred):
     return norm_conf_mat
 
 
-def multi_class_curves(y_true, y_pred_proba, curve_func):
+def multi_class_curves(
+    y_true: Union[np.array, pd.Series],
+    y_pred_proba: Union[np.array, pd.Series],
+    curve_func: Callable,
+):
     """Binarize the data for multi-class tasks and produce ROC or precision-recall curves.
 
     Args:

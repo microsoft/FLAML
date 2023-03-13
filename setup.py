@@ -93,7 +93,14 @@ setuptools.setup(
         "vw": [
             "vowpalwabbit>=8.10.0, <9.0.0",
         ],
-        "nlp": [
+        "hf": [
+            "transformers[torch]==4.26",
+            "datasets",
+            "nltk",
+            "rouge_score",
+            "seqeval",
+        ],
+        "nlp": [  # for backward compatibility; hf is the new option name
             "transformers[torch]==4.26",
             "datasets",
             "nltk",
@@ -116,7 +123,7 @@ setuptools.setup(
             "tensorboardX==2.6"
         ],
         "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3"],
-        "openai": ["openai==0.23.1", "diskcache", "optuna==2.8.0"],
+        "openai": ["openai==0.27.0", "diskcache", "optuna==2.8.0"],
         "synapse": ["joblibspark>=0.5.0", "optuna==2.8.0", "pyspark>=3.0.0"],
     },
     classifiers=[
