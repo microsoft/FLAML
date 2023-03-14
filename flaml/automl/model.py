@@ -848,6 +848,7 @@ class TransformersEstimator(BaseEstimator):
             predictions = new_trainer.predict(test_dataset)
             return predictions.predictions
         except ZeroDivisionError:
+            raise Exception("zero division error")
             return [float("inf")] * len(test_dataset)
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
@@ -896,6 +897,7 @@ class TransformersEstimator(BaseEstimator):
             )
             return post_y_pred
         except ZeroDivisionError:
+            raise Exception("zero division error")
             return [float("inf")] * len(test_dataset)
 
     def config2params(self, config: dict) -> dict:
