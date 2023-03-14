@@ -429,7 +429,6 @@ class SparkEstimator(BaseEstimator):
                 "pyspark is not installed. Try `pip install flaml[spark]`."
             )
         super().__init__(task, **config)
-        self.spark = SparkSession.builder.getOrCreate()
         self.df_train = None
 
     def _preprocess(

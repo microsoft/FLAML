@@ -1930,6 +1930,16 @@ class AutoML(BaseEstimator):
                         "Non-spark dataframes only support estimator names not ending with `_spark`. Non-supported "
                         "estimators are removed."
                     )
+        else:
+            estimator_list = [
+                est
+                for est in estimator_list
+                if (
+                    est.endswith("_spark")
+                    if is_spark_dataframe
+                    else not est.endswith("_spark")
+                )
+            ]
 
         if is_spark_dataframe and self._use_spark:
             # For spark dataframe, use_spark must be False because spark models are trained in parallel themselves
