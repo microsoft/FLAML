@@ -76,8 +76,8 @@ def _test_spark_synapseml_lightgbm(spark=None, task="classification"):
     if task == "rank":
         automl_settings["groupCol"] = "query"
         automl_settings["evalAt"] = [1, 3, 5]
-        automl_settings["groups"] = X_train["query"].to_pandas()
-        automl_settings["groups"] = X_train["query"].to_numpy()
+        automl_settings["groups"] = X_train["query"]
+        automl_settings["groups"].name = "groups"
         X_train = X_train.to_spark(index_col="index")
     else:
         columns = X_train.columns
@@ -202,16 +202,15 @@ def test_spark_input_df():
 
 
 if __name__ == "__main__":
-    # test_spark_synapseml_classification()
-    # test_spark_synapseml_regression()
-    # test_spark_synapseml_rank()
-    # test_spark_input_df()
-    # test_lightgbm_rank()
+    test_spark_synapseml_classification()
+    test_spark_synapseml_regression()
+    test_spark_synapseml_rank()
+    test_spark_input_df()
 
-    import cProfile
-    import pstats
-    from pstats import SortKey
+    # import cProfile
+    # import pstats
+    # from pstats import SortKey
 
-    cProfile.run("test_spark_input_df()", "test_spark_input_df.profile")
-    p = pstats.Stats("test_spark_input_df.profile")
-    p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_stats("utils.py")
+    # cProfile.run("test_spark_input_df()", "test_spark_input_df.profile")
+    # p = pstats.Stats("test_spark_input_df.profile")
+    # p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_stats("utils.py")

@@ -15,7 +15,8 @@ try:
     from pyspark.sql import DataFrame
     import pyspark.pandas as ps
     from pyspark.util import VersionUtils
-    import pyspark.sql.functions as f
+    import pyspark.sql.functions as F
+    import pyspark.sql.types as T
     import pyspark
 
     _spark_major_minor_version = VersionUtils.majorMinorVersion(pyspark.__version__)
@@ -107,7 +108,7 @@ def train_test_split_pyspark(
         test_fraction_dict = (
             df.select(stratify_column)
             .distinct()
-            .withColumn("fraction", f.lit(test_fraction))
+            .withColumn("fraction", F.lit(test_fraction))
             .rdd.collectAsMap()
         )
         df_test = df.stat.sampleBy(stratify_column, test_fraction_dict, seed)
@@ -167,11 +168,13 @@ def unique_value_first_index(
 
 
 def iloc_pandas_on_spark(
-    psdf: Union[ps.DataFrame, ps.Series],
+    psdf: Union[ps.DataFrame, ps.Series, pd.DataFrame, pd.Series],
     index: Union[int, slice, list],
     index_col: Optional[str] = "tmp_index_col",
 ) -> Union[ps.DataFrame, ps.Series]:
     """Get the rows of a pandas_on_spark dataframe/series by index."""
+    if isinstance(psdf, (pd.DataFrame, pd.Series)):
+        return psdf.iloc[index]
     if isinstance(index, (int, slice)):
         if isinstance(psdf, ps.Series):
             return psdf.iloc[index]
@@ -185,7 +188,7 @@ def iloc_pandas_on_spark(
                 sdf = psdf.to_spark(index_col=index_col)
             else:
                 sdf = psdf.to_spark()
-        sdfiloc = sdf.filter(f.col(index_col).isin(index))
+        sdfiloc = sdf.filter(F.col(index_col).isin(index))
         psdfiloc = to_pandas_on_spark(sdfiloc)
         if isinstance(psdf, ps.Series):
             psdfiloc = psdfiloc[psdfiloc.columns.drop(index_col)[0]]
@@ -196,3 +199,66 @@ def iloc_pandas_on_spark(
         raise TypeError(
             f"{type(index)} is not one of int, slice and list for pandas_on_spark iloc"
         )
+
+
+def spark_kFold(
+    dataset: Union[DataFrame, ps.DataFrame],
+    nFolds: int = 3,
+    foldCol: str = "",
+    seed: int = 42,
+    index_col: Optional[str] = "tmp_index_col",
+) -> List[Tuple[ps.DataFrame, ps.DataFrame]]:
+    """Generate k-fold splits for a Spark DataFrame.
+    Adopted from https://spark.apache.org/docs/latest/api/python/_modules/pyspark/ml/tuning.html#CrossValidator
+
+    Args:
+        dataset: DataFrame / ps.DataFrame. | The DataFrame to split.
+        nFolds: int | The number of folds. Default is 3.
+        foldCol: str | The column name to use for fold numbers. If not specified,
+            the DataFrame will be randomly split. Default is "".
+            The same group will not appear in two different folds (the number of
+            distinct groups has to be at least equal to the number of folds).
+            The folds are approximately balanced in the sense that the number of
+            distinct groups is approximately the same in each fold.
+        seed: int | The random seed. Default is 42.
+        index_col: str | The name of the index column. Default is "tmp_index_col".
+
+    Returns:
+        A list of (train, validation) DataFrames.
+    """
+    if isinstance(dataset, ps.DataFrame):
+        dataset = dataset.to_spark(index_col=index_col)
+
+    datasets = []
+    if not foldCol:
+        # Do random k-fold split.
+        h = 1.0 / nFolds
+        randCol = f"rand_col_{seed}"
+        df = dataset.select("*", F.rand(seed).alias(randCol))
+        for i in range(nFolds):
+            validateLB = i * h
+            validateUB = (i + 1) * h
+            condition = (df[randCol] >= validateLB) & (df[randCol] < validateUB)
+            validation = to_pandas_on_spark(df.filter(condition), index_col=index_col)
+            train = to_pandas_on_spark(df.filter(~condition), index_col=index_col)
+            datasets.append(
+                (train.drop(columns=[randCol]), validation.drop(columns=[randCol]))
+            )
+    else:
+        # Use user-specified fold column
+        def get_fold_num(foldNum: int) -> int:
+            return int(foldNum % nFolds)
+
+        get_fold_num_udf = F.UserDefinedFunction(get_fold_num, T.IntegerType())
+        for i in range(nFolds):
+            training = dataset.filter(get_fold_num_udf(dataset[foldCol]) != F.lit(i))
+            validation = dataset.filter(get_fold_num_udf(dataset[foldCol]) == F.lit(i))
+            if training.rdd.getNumPartitions() == 0 or len(training.take(1)) == 0:
+                raise ValueError("The training data at fold %s is empty." % i)
+            if validation.rdd.getNumPartitions() == 0 or len(validation.take(1)) == 0:
+                raise ValueError("The validation data at fold %s is empty." % i)
+            training = to_pandas_on_spark(training, index_col=index_col)
+            validation = to_pandas_on_spark(validation, index_col=index_col)
+            datasets.append((training, validation))
+
+    return datasets

@@ -22,11 +22,13 @@ import math
 from flaml import tune
 from flaml.automl.data import (
     group_counts,
-    CLASSIFICATION,
     add_time_idx_col,
-    TS_FORECASTREGRESSION,
     TS_TIMESTAMP_COL,
     TS_VALUE_COL,
+)
+from flaml.automl.task.task import (
+    CLASSIFICATION,
+    TS_FORECASTREGRESSION,
     SEQCLASSIFICATION,
     SEQREGRESSION,
     TOKENCLASSIFICATION,
@@ -47,15 +49,6 @@ from flaml.automl.spark.configs import (
 )
 
 try:
-    import psutil
-except ImportError:
-    psutil = None
-try:
-    import resource
-except ImportError:
-    resource = None
-
-try:
     os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
     from pyspark.sql.dataframe import DataFrame as sparkDataFrame
     from pyspark.sql import SparkSession
@@ -74,6 +67,15 @@ except ImportError:
     class sparkDataFrame:
         pass
 
+
+try:
+    import psutil
+except ImportError:
+    psutil = None
+try:
+    import resource
+except ImportError:
+    resource = None
 
 logger = logging.getLogger("flaml.automl")
 # FREE_MEM_RATIO = 0.2
@@ -455,14 +457,12 @@ class SparkEstimator(BaseEstimator):
         **kwargs,
     ):
         """Train the model from given training data.
-
         Args:
             X_train: A pyspark.pandas DataFrame of training data in shape n*m.
             y_train: A pyspark.pandas Series in shape n*1. None if X_train is a pyspark.pandas
                 Dataframe contains y_train.
             budget: A float of the time budget in seconds.
             free_mem_ratio: A float between 0 and 1 for the free memory ratio to keep during training.
-
         Returns:
             train_time: A float of the training time in seconds.
         """
@@ -509,7 +509,6 @@ class SparkEstimator(BaseEstimator):
             X: A pyspark or pyspark.pandas dataframe of featurized instances, shape n*m.
             index_col: A str of the index column name. Default to "tmp_index_col".
             return_all: A bool of whether to return all the prediction results. Default to False.
-
         Returns:
             A pyspark.pandas series of shape n*1 if return_all is False. Otherwise, a pyspark.pandas dataframe.
         """
@@ -532,14 +531,11 @@ class SparkEstimator(BaseEstimator):
 
     def predict_proba(self, X, index_col="tmp_index_col", return_all=False, **kwargs):
         """Predict the probability of each class from features.
-
         Only works for classification problems
-
         Args:
             X: A pyspark or pyspark.pandas dataframe of featurized instances, shape n*m.
             index_col: A str of the index column name. Default to "tmp_index_col".
             return_all: A bool of whether to return all the prediction results. Default to False.
-
         Returns:
             A pyspark.pandas dataframe of shape n*c. c is the # classes.
             Each element at (i,j) is the probability for instance i to be in
@@ -949,9 +945,14 @@ class TransformersEstimator(BaseEstimator):
 
     @property
     def data_collator(self):
-        from .nlp.huggingface.data_collator import task_to_datacollator_class
+        from flaml.automl.task.task import Task
+        from flaml.automl.nlp.huggingface.data_collator import (
+            task_to_datacollator_class,
+        )
 
-        data_collator_class = task_to_datacollator_class.get(self._task)
+        data_collator_class = task_to_datacollator_class.get(
+            self._task.name if isinstance(self._task, Task) else self._task
+        )
 
         if data_collator_class:
             kwargs = {
@@ -1868,8 +1869,12 @@ class ExtraTreesEstimator(RandomForestEstimator):
         return 1.9
 
     def __init__(self, task="binary", **params):
+        if isinstance(task, str):
+            from flaml.automl.task.factory import task_factory
+
+            task = task_factory(task)
         super().__init__(task, **params)
-        if "regression" in task:
+        if task.is_regression():
             self.estimator_class = ExtraTreesRegressor
         else:
             self.estimator_class = ExtraTreesClassifier
@@ -2504,11 +2509,7 @@ class TS_SKLearn(SKLearnEstimator):
                         X.iloc[:i, :]
                     )
                     preds.append(self._model[i - 1].predict(X_pred, **kwargs)[-1])
-                forecast = DataFrame(
-                    data=np.asarray(preds).reshape(-1, 1),
-                    columns=[self.hcrystaball_model.name],
-                    index=X.index,
-                )
+                forecast = Series(preds)
             else:
                 (
                     X_pred,
