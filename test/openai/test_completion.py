@@ -250,10 +250,7 @@ def test_math(num_samples=-1):
             return string
 
     def _remove_right_units(string: str) -> str:
-        """Source: https://github.com/hendrycks/math
-        Remove units (on the right).
-        "\\text{ " only ever occurs (at least in the val set) when describing units.
-        """
+        """Source: https://github.com/hendrycks/math"""
         if "\\text{ " in string:
             splits = string.split("\\text{ ")
             assert len(splits) == 2
@@ -262,12 +259,7 @@ def test_math(num_samples=-1):
             return string
 
     def _fix_sqrt(string: str) -> str:
-        """Source: https://github.com/hendrycks/math
-        Reformat square roots.
-        Example:
-        >>> _fix_sqrt("\\sqrt3")
-        \sqrt{3}
-        """
+        """Source: https://github.com/hendrycks/math"""
         if "\\sqrt" not in string:
             return string
         splits = string.split("\\sqrt")
@@ -319,7 +311,7 @@ def test_math(num_samples=-1):
 
         # remove percentage
         string = string.replace("\\%", "")
-        string = string.replace("\%", "")
+        string = string.replace(r"\%", "")
 
         # " 0." equivalent to " ." and "{0." equivalent to "{." Alternatively, add "0" if "." is the start of the string
         string = string.replace(" .", " 0.")
@@ -436,8 +428,6 @@ def test_math(num_samples=-1):
         for x in range(len(test_data))
         if test_data[x]["level"] == "Level 1"
     ]
-    input_field = "problem"
-    output_fields = ["solution"]
     print(
         "max tokens in tuning data's canonical solutions",
         max([len(x["solution"].split()) for x in tune_data]),
