@@ -131,8 +131,9 @@ class GenericTask(Task):
                 X_train_all = (
                     X_train_all.spark.cache()
                 )  # cache data to improve compute speed
+                y_train_all = y_train_all.to_frame().spark.cache()[y_train_all.name]
                 logger.debug(
-                    f"X_train_all cached, shape of X_train_all: {X_train_all.shape}"
+                    f"X_train_all and y_train_all cached, shape of X_train_all: {X_train_all.shape}"
                 )
             automl._df = isinstance(X_train_all, (pd.DataFrame, psDataFrame))
             automl._nrow, automl._ndim = X_train_all.shape

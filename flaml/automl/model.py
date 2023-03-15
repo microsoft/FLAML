@@ -466,26 +466,7 @@ class SparkEstimator(BaseEstimator):
             train_time: A float of the training time in seconds.
         """
         df_train = self._preprocess(X_train, y_train, index_col=index_col)
-        if (
-            getattr(self, "limit_resource", None)
-            and resource is not None
-            and (budget is not None or psutil is not None)
-        ):
-            mem = psutil.virtual_memory() if psutil is not None else None
-            try:
-                with limit_resource(
-                    mem.available * (1 - free_mem_ratio)
-                    + psutil.Process(os.getpid()).memory_info().rss
-                    if mem is not None
-                    else -1,
-                    budget,
-                ):
-                    train_time = self._fit(df_train, **kwargs)
-            except (MemoryError, TimeoutError) as e:
-                logger.warning(f"{e.__class__} {e}")
-                raise e.__class__(e)
-        else:
-            train_time = self._fit(df_train, **kwargs)
+        train_time = self._fit(df_train, **kwargs)
         return train_time
 
     def _fit(self, df_train: sparkDataFrame, **kwargs):
@@ -678,11 +659,10 @@ class SparkLGBMEstimator(SparkEstimator):
                 y_train, return_labels=True
             )
         df_train = self._preprocess(X_train, y_train, index_col=index_col)
-        n_iter = self.params.get(self.ITER_HP, self.DEFAULT_ITER)
-        trained = False
-        mem0 = psutil.virtual_memory().available if psutil is not None else 1
+        # n_iter = self.params.get(self.ITER_HP, self.DEFAULT_ITER)
+        # trained = False
+        # mem0 = psutil.virtual_memory().available if psutil is not None else 1
         _kwargs = kwargs.copy()
-        # TODO: update regression model and rank model, update ParamList_LightGBM_
         if self._task not in ["regression", "rank"]:
             if "objective" not in _kwargs:
                 _kwargs["objective"] = (
@@ -691,69 +671,63 @@ class SparkLGBMEstimator(SparkEstimator):
         for k in list(_kwargs.keys()):
             if k not in self.estimator_params:
                 _kwargs.pop(k)
-        if (
-            (not self._time_per_iter or abs(self._train_size - df_train.count()) > 4)
-            and budget is not None
-            or self._mem_per_iter < 0
-            and psutil is not None
-        ) and n_iter > 1:
-            self.params[self.ITER_HP] = 1
-            self._t1 = self._fit(df_train, **_kwargs)
-            if budget is not None and self._t1 >= budget or n_iter == 1:
-                return self._t1
-            mem1 = psutil.virtual_memory().available if psutil is not None else 1
-            self._mem1 = mem0 - mem1
-            self.params[self.ITER_HP] = min(n_iter, 4)
-            self._t2 = self._fit(df_train, **_kwargs)
-            mem2 = psutil.virtual_memory().available if psutil is not None else 1
-            self._mem2 = max(mem0 - mem2, self._mem1)
-            self._mem_per_iter = min(self._mem1, self._mem2 / self.params[self.ITER_HP])
-            self._time_per_iter = (
-                (self._t2 - self._t1) / (self.params[self.ITER_HP] - 1)
-                if self._t2 > self._t1
-                else self._t1
-                if self._t1
-                else 0.001
-            )
-            self._train_size = df_train.count()
-            if (
-                budget is not None
-                and self._t1 + self._t2 >= budget
-                or n_iter == self.params[self.ITER_HP]
-            ):
-                # self.params[self.ITER_HP] = n_iter
-                return time.time() - start_time
-            trained = True
-        if n_iter > 1:
-            max_iter = min(
-                n_iter,
-                int(
-                    (budget - time.time() + start_time - self._t1) / self._time_per_iter
-                    + 1
-                )
-                if budget is not None
-                else n_iter,
-            )
-            if trained and max_iter <= self.params[self.ITER_HP]:
-                return time.time() - start_time
-            # when not trained, train at least one iter
-            self.params[self.ITER_HP] = max(max_iter, 1)
+        # TODO: find a better estimation of early stopping
+        # if (
+        #     (not self._time_per_iter or abs(self._train_size - df_train.count()) > 4)
+        #     and budget is not None
+        #     or self._mem_per_iter < 0
+        #     and psutil is not None
+        # ) and n_iter > 1:
+        #     self.params[self.ITER_HP] = 1
+        #     self._t1 = self._fit(df_train, **_kwargs)
+        #     if budget is not None and self._t1 >= budget or n_iter == 1:
+        #         return self._t1
+        #     mem1 = psutil.virtual_memory().available if psutil is not None else 1
+        #     self._mem1 = mem0 - mem1
+        #     self.params[self.ITER_HP] = min(n_iter, 4)
+        #     self._t2 = self._fit(df_train, **_kwargs)
+        #     mem2 = psutil.virtual_memory().available if psutil is not None else 1
+        #     self._mem2 = max(mem0 - mem2, self._mem1)
+        #     self._mem_per_iter = min(self._mem1, self._mem2 / self.params[self.ITER_HP])
+        #     self._time_per_iter = (
+        #         (self._t2 - self._t1) / (self.params[self.ITER_HP] - 1)
+        #         if self._t2 > self._t1
+        #         else self._t1
+        #         if self._t1
+        #         else 0.001
+        #     )
+        #     self._train_size = df_train.count()
+        #     if (
+        #         budget is not None
+        #         and self._t1 + self._t2 >= budget
+        #         or n_iter == self.params[self.ITER_HP]
+        #     ):
+        #         # self.params[self.ITER_HP] = n_iter
+        #         return time.time() - start_time
+        #     trained = True
+        # if n_iter > 1:
+        #     max_iter = min(
+        #         n_iter,
+        #         int(
+        #             (budget - time.time() + start_time - self._t1) / self._time_per_iter
+        #             + 1
+        #         )
+        #         if budget is not None
+        #         else n_iter,
+        #     )
+        #     if trained and max_iter <= self.params[self.ITER_HP]:
+        #         return time.time() - start_time
+        #     # when not trained, train at least one iter
+        #     self.params[self.ITER_HP] = max(max_iter, 1)
         self._fit(df_train, **_kwargs)
         train_time = time.time() - start_time
         return train_time
 
     def _fit(self, df_train: sparkDataFrame, **kwargs):
-        # from pyspark.ml.feature import VectorAssembler
-        # feature_cols = df_train.columns[1:]
-        # featurizer = VectorAssembler(inputCols=feature_cols, outputCol="features")
-        # df_train = featurizer.transform(df_train)["label", "features"]
-
         current_time = time.time()
         model = self.estimator_class(**self.params, **kwargs)
-        # pipeline = Pipeline(stages=[featurizer, model])
         if logger.level == logging.DEBUG:
             logger.debug(f"flaml.model - {model} fit started with params {self.params}")
-        # self._model = pipeline.fit(df_train)
         self._model = model.fit(df_train)
         self._model.classes_ = self.model_classes_
         self._model.n_classes_ = self.model_n_classes_
