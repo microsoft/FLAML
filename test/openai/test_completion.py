@@ -158,7 +158,6 @@ def test_math(num_samples=-1):
         except Exception:
             return None
 
-
     def last_boxed_only_string(string: str) -> Optional[str]:
         """Source: https://github.com/hendrycks/math
         Extract the last \\boxed{...} or \\fbox{...} element from a string.
@@ -188,7 +187,6 @@ def test_math(num_samples=-1):
             retval = string[idx : right_brace_idx + 1]
 
         return retval
-
 
     def _fix_fracs(string: str) -> str:
         """Source: https://github.com/hendrycks/math
@@ -231,7 +229,6 @@ def test_math(num_samples=-1):
         string = new_str
         return string
 
-
     def _fix_a_slash_b(string: str) -> str:
         """Source: https://github.com/hendrycks/math
         Reformat fractions formatted as a/b to \\frac{a}{b}.
@@ -252,7 +249,6 @@ def test_math(num_samples=-1):
         except Exception:
             return string
 
-
     def _remove_right_units(string: str) -> str:
         """Source: https://github.com/hendrycks/math
         Remove units (on the right).
@@ -264,7 +260,6 @@ def test_math(num_samples=-1):
             return splits[0]
         else:
             return string
-
 
     def _fix_sqrt(string: str) -> str:
         """Source: https://github.com/hendrycks/math
@@ -285,7 +280,6 @@ def test_math(num_samples=-1):
                 new_substr = "\\sqrt" + split
             new_string += new_substr
         return new_string
-
 
     def _strip_string(string: str) -> str:
         """Source: https://github.com/hendrycks/math
@@ -361,7 +355,6 @@ def test_math(num_samples=-1):
 
         return string
 
-
     def get_answer(solution: Optional[str]) -> Optional[str]:
         if solution is None:
             return None
@@ -372,7 +365,6 @@ def test_math(num_samples=-1):
         if answer is None:
             return None
         return answer
-
 
     def is_equiv(str1: Optional[str], str2: Optional[str]) -> float:
         """Returns (as a float) whether two strings containing math are equivalent up to differences of formatting in
@@ -395,7 +387,6 @@ def test_math(num_samples=-1):
         except Exception:
             return float(str1 == str2)
 
-
     def is_equiv_chain_of_thought(str1: str, str2: str) -> float:
         """Strips the solution first before calling `is_equiv`."""
         ans1 = get_answer(str1)
@@ -403,14 +394,13 @@ def test_math(num_samples=-1):
 
         return is_equiv(ans1, ans2)
 
-
     def success_metrics(responses, solution, **args):
         """Check if each response is correct.
-        
+
         Args:
             responses (list): The list of responses.
             solution (str): The canonical solution.
-        
+
         Returns:
             dict: The success metrics.
         """
@@ -425,7 +415,6 @@ def test_math(num_samples=-1):
             "success": any(s for s in success_list),
         }
 
-
     seed = 41
     data = datasets.load_dataset("competition_math")
     train_data = data["train"].shuffle(seed=seed)
@@ -436,27 +425,42 @@ def test_math(num_samples=-1):
             "problem": train_data[x]["problem"],
             "solution": train_data[x]["solution"],
         }
-        for x in range(len(train_data)) if train_data[x]["level"] == "Level 1"
+        for x in range(len(train_data))
+        if train_data[x]["level"] == "Level 1"
     ][:n_tune_data]
     test_data = [
         {
             "problem": test_data[x]["problem"],
             "solution": test_data[x]["solution"],
         }
-        for x in range(len(test_data)) if test_data[x]["level"] == "Level 1"
+        for x in range(len(test_data))
+        if test_data[x]["level"] == "Level 1"
     ]
     input_field = "problem"
     output_fields = ["solution"]
-    print("max tokens in tuning data's canonical solutions", max([len(x["solution"].split()) for x in tune_data]))
+    print(
+        "max tokens in tuning data's canonical solutions",
+        max([len(x["solution"].split()) for x in tune_data]),
+    )
     print(len(tune_data), len(test_data))
     # prompt template
-    prompts = [lambda data: "Given a mathematics problem, determine the answer. Simplify your answer as much as possible.\n###\nProblem: What is the value of $\\sqrt{3! \\cdot 3!}$ expressed as a positive integer?\nAnswer: $\\sqrt{3!\\cdot3!}$ is equal to $\\sqrt{(3!)^2}=3!=3\\cdot2\\cdot1=\\boxed{6}$.\n###\nProblem: %s\nAnswer:" + data["problem"]]
-
+    prompts = [
+        lambda data: "Given a mathematics problem, determine the answer. Simplify your answer as much as possible.\n###\nProblem: What is the value of $\\sqrt{3! \\cdot 3!}$ expressed as a positive integer?\nAnswer: $\\sqrt{3!\\cdot3!}$ is equal to $\\sqrt{(3!)^2}=3!=3\\cdot2\\cdot1=\\boxed{6}$.\n###\nProblem: %s\nAnswer:"
+        + data["problem"]
+    ]
 
     from flaml import oai
+
     oai.ChatCompletion.set_cache(seed)
-    vanilla_config =  {'model': 'gpt-3.5-turbo', 'temperature': 1, 'max_tokens': 2048, 'n': 1, 'prompt': prompts[0], 'stop': "###"}
-    test_data_sample =  test_data[0:5]
+    vanilla_config = {
+        "model": "gpt-3.5-turbo",
+        "temperature": 1,
+        "max_tokens": 2048,
+        "n": 1,
+        "prompt": prompts[0],
+        "stop": "###",
+    }
+    test_data_sample = test_data[0:5]
     result = oai.ChatCompletion.test(test_data_sample, vanilla_config, success_metrics)
     print(result)
 
@@ -470,8 +474,6 @@ def test_math(num_samples=-1):
         # log_file_name="logs/math.log",  # the log file name
         inference_budget=0.002,  # the inference budget (dollar)
         optimization_budget=0.02,  # the optimization budget (dollar)
-        # num_samples can further limit the number of trials for different hyperparameter configurations;
-        # -1 means decided by the optimization budget only
         num_samples=num_samples,
         prompt=prompts,  # the prompt templates to choose from
         stop="###",  # the stop sequence
@@ -480,6 +482,7 @@ def test_math(num_samples=-1):
     print("tuned config", config)
     result = oai.ChatCompletion.test(test_data_sample, config)
     print("result from tuned config:", result)
+
 
 if __name__ == "__main__":
     import openai

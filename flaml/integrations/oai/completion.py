@@ -103,8 +103,7 @@ class Completion:
         Try cache first. If not found, call the openai api. If the api call fails, retry after retry_time.
         """
         key = get_key(config)
-        # response = cls._cache.get(key, None)
-        if use_cache: 
+        if use_cache:
             response = cls._cache.get(key, None)
             if response is not None and (response != -1 or not eval_only):
                 return response
@@ -214,7 +213,7 @@ class Completion:
         prune_hp = getattr(cls, "_prune_hp", "n")
         metric = cls._metric
         config_n = config.get(prune_hp, 1)  # default value in OpenAI is 1
-        max_tokens = config.get("max_tokens", 2048)  # most OpenAI models 
+        max_tokens = config.get("max_tokens", 2048)  # most OpenAI models
         # have a context length of 2048 tokens (except for the newest models, which support 4096)
         region_key = cls._get_region_key(config)
         if model in cls.chat_models:
@@ -663,8 +662,10 @@ class Completion:
         model = config["model"]
         data_length = len(data)
         config_n = "best_of" if config.get("best_of", 1) != 1 else "n"
-        max_tokens = config.get("max_tokens", 2048)  # most OpenAI models have a context length
-            # of 2048 tokens (except for the newest models, which support 4096)
+        max_tokens = config.get(
+            "max_tokens", 2048
+        )  # most OpenAI models have a context length
+        # of 2048 tokens (except for the newest models, which support 4096)
         region_key = Completion._get_region_key(config)
         prompt = config.get("prompt", None)
         # either "prompt" should be in config (for being compatible with non-chat models)
@@ -684,8 +685,6 @@ class Completion:
             params.update(temperature_or_top_p)
         num_completions, previous_num_completions = start_n, 0
         n_tokens_list, result, responses_list = [], {}, []
-        print('prompt', prompt)
-        logger.info('prmot %s', prompt)
         with diskcache.Cache(cls.cache_path) as cls._cache:
             while True:  # n <= config_n
                 data_limit = data_length
@@ -728,7 +727,9 @@ class Completion:
                                 if isinstance(prompt, str)
                                 else prompt(data_i)
                             )
-                        response = cls._get_response(params, eval_only=True, use_cache=use_cache)
+                        response = cls._get_response(
+                            params, eval_only=True, use_cache=False
+                        )
                         if response == -1:  # rate limit error, treat as invalid
                             cls._update_invalid_n(
                                 False, region_key, max_tokens, num_completions
@@ -736,7 +737,10 @@ class Completion:
                             return None
                         # evaluate the quality of the responses
                         responses = (
-                            [r["message"]["content"].rstrip() for r in response["choices"]]
+                            [
+                                r["message"]["content"].rstrip()
+                                for r in response["choices"]
+                            ]
                             if model in cls.chat_models
                             else [r["text"].rstrip() for r in response["choices"]]
                         )
@@ -764,10 +768,16 @@ class Completion:
                     for i in range(data_limit):
                         data_i = data[i]
                         responses = responses_list[i]
-                        try:
-                            metrics = cls._eval_func(responses, **data_i)
-                        except:
+                        if eval_func is not None:
                             metrics = eval_func(responses, **data_i)
+                        else:
+                            try:
+                                metrics = cls._eval_func(responses, **data_i)
+                            except AttributeError:
+                                logger.warning(
+                                    "Please either provide a valid eval_func or do the test after the tune function is called"
+                                )
+                            return
                         if result:
                             for key, value in metrics.items():
                                 result[key] += value
