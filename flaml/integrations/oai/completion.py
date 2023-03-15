@@ -647,22 +647,30 @@ class Completion:
         return cls.openai_completion_class.create(**params)
 
     @classmethod
-    def test(cls, data, config, eval_func=None, use_cache=True):
+    def test(
+        cls,
+        data,
+        config,
+        eval_func=None,
+        use_cache=True,
+        agg_method="avg",
+        return_responses_and_per_instance_result=False,
+    ):
         """Evaluate the responses created with the config for the OpenAI API call.
         Args:
             data (list): The list of test data points.
             config (dict): Hyperparameter setting for the openai api call.
-            eval_func (Callable): The evaluation function for responses.
+            eval_func (Callable): The evaluation function for responses per data instance.
                 The function should take a list of responses and a data point as input,
                 and return a dict of metrics. When not provided (None), we will use the
                 one provided via tune function. Defaults to None.
             use_cache (bool, Optional): Whether to use cached responses. Defaults to True.
+            agg_method (str, Callable or a dict of Callable): Result aggregration method (across
+                multiple instances) for each of the metrics. Defaults to 'avg'.
+            return_responses_and_per_instance_result (bool): Whether to also return responses
+                and per instance results in addition to aggregrated results.
         """
         model = config["model"]
-        data_length = len(data)
-        config_n = "best_of" if config.get("best_of", 1) != 1 else "n"
-        max_tokens = config.get("max_tokens", 16)  # default value in OpenAI is 16
-        region_key = Completion._get_region_key(config)
         prompt = config.get("prompt", None)
         # either "prompt" should be in config (for being compatible with non-chat models)
         # or "messages" should be in config (for tuning chat models only)
@@ -673,117 +681,104 @@ class Completion:
                     "Either prompt or messages should be in config for chat models."
                 )
         stop = config["stop"]
-        start_n = config_n
         params = config.copy()
         params["stop"] = stop
         temperature_or_top_p = params.pop("temperature_or_top_p", None)
         if temperature_or_top_p:
             params.update(temperature_or_top_p)
-        num_completions, previous_num_completions = start_n, 0
-        n_tokens_list, result, responses_list = [], {}, []
+        result_agg, responses_list, result_list = {}, [], []
+        metric_keys = None
         with diskcache.Cache(cls.cache_path) as cls._cache:
-            while True:  # n <= config_n
-                data_limit = data_length
-                prev_data_limit = 0
-                while True:  # data_limit <= data_length
-                    # limit the number of data points to avoid rate limit
-                    for i in range(prev_data_limit, data_limit):
-                        logger.debug(
-                            f"num_completions={num_completions}, data instance={i}"
-                        )
-                        data_i = data[i]
-                        if prompt is None:
-                            params["messages"] = [
-                                {
-                                    "role": m["role"],
-                                    "content": m["content"].format(**data_i)
-                                    if isinstance(m["content"], str)
-                                    else m["content"](data_i),
-                                }
-                                for m in messages
-                            ]
-                        elif model in cls.chat_models:
-                            # convert prompt to messages
-                            if isinstance(prompt, str):
-                                prompt_msg = prompt.format(**data_i)
-                            else:
-                                prompt_msg = prompt(data_i)
-                            params["messages"] = [
-                                {
-                                    "role": "user",
-                                    "content": prompt_msg
-                                    if isinstance(prompt, str)
-                                    else prompt(data_i),
-                                },
-                            ]
-                            params.pop("prompt", None)
-                        else:
-                            params["prompt"] = (
-                                prompt.format(**data_i)
-                                if isinstance(prompt, str)
-                                else prompt(data_i)
-                            )
-                        response = cls._get_response(
-                            params, eval_only=True, use_cache=use_cache
-                        )
-                        if response == -1:  # rate limit error, treat as invalid
-                            cls._update_invalid_n(
-                                False, region_key, max_tokens, num_completions
-                            )
-                            return None
-                        # evaluate the quality of the responses
-                        responses = (
-                            [
-                                r["message"]["content"].rstrip()
-                                for r in response["choices"]
-                            ]
-                            if model in cls.chat_models
-                            else [r["text"].rstrip() for r in response["choices"]]
-                        )
-                        n_tokens = (
-                            response["usage"]["completion_tokens"]
-                            if previous_num_completions
-                            else response["usage"]["total_tokens"]
-                        )
-
-                        if previous_num_completions:
-                            n_tokens_list[i] += n_tokens
-                            responses_list[i].extend(responses)
-                        else:
-                            n_tokens_list.append(n_tokens)
-                            responses_list.append(responses)
-                    prev_data_limit = data_limit
-                    if data_limit < data_length:
-                        data_limit = min(data_limit << 1, data_length)
+            for _, data_i in enumerate(data):
+                if prompt is None:
+                    params["messages"] = [
+                        {
+                            "role": m["role"],
+                            "content": m["content"].format(**data_i)
+                            if isinstance(m["content"], str)
+                            else m["content"](data_i),
+                        }
+                        for m in messages
+                    ]
+                elif model in cls.chat_models:
+                    # convert prompt to messages
+                    if isinstance(prompt, str):
+                        prompt_msg = prompt.format(**data_i)
                     else:
-                        break
-                # use exponential search to increase n
-                if num_completions == config_n:
-                    for i in range(data_limit):
-                        data_i = data[i]
-                        responses = responses_list[i]
-                        if eval_func is not None:
-                            metrics = eval_func(responses, **data_i)
-                        else:
-                            try:
-                                metrics = cls._eval_func(responses, **data_i)
-                            except AttributeError:
-                                logger.warning(
-                                    "Please either provide a valid eval_func or do the test after the tune function is called"
-                                )
-                            return
-                        if result:
-                            for key, value in metrics.items():
-                                result[key] += value
-                        else:
-                            result = metrics
-                    for key in result.keys():
-                        result[key] /= data_limit
-                    break
+                        prompt_msg = prompt(data_i)
+                    params["messages"] = [
+                        {
+                            "role": "user",
+                            "content": prompt_msg
+                            if isinstance(prompt, str)
+                            else prompt(data_i),
+                        },
+                    ]
+                    params.pop("prompt", None)
                 else:
-                    previous_num_completions = num_completions
-                    num_completions = min(num_completions << 1, config_n)
-        return result
+                    params["prompt"] = (
+                        prompt.format(**data_i)
+                        if isinstance(prompt, str)
+                        else prompt(data_i)
+                    )
+                response = cls._get_response(
+                    params, eval_only=True, use_cache=use_cache
+                )
+                if response == -1:  # rate limit error, treat as invalid
+                    return None
+                # evaluate the quality of the responses
+                responses = (
+                    [r["message"]["content"].rstrip() for r in response["choices"]]
+                    if model in cls.chat_models
+                    else [r["text"].rstrip() for r in response["choices"]]
+                )
+
+                if eval_func is not None:
+                    metrics = eval_func(responses, **data_i)
+                else:
+                    try:
+                        metrics = cls._eval_func(responses, **data_i)
+                    except AttributeError:
+                        logger.warning(
+                            "Please either provide a valid eval_func or do the test after the tune function is called"
+                        )
+                        return
+                if not metric_keys:
+                    metric_keys = metrics.keys()
+                result_list.append(metrics)
+                print("metrics", responses, metrics)
+                if return_responses_and_per_instance_result:
+                    responses_list.append(responses)
+        if isinstance(agg_method, str):
+            if agg_method == "avg" or agg_method == "average":
+                for key in metric_keys:
+                    print("result_list", result_list)
+                    result_agg[key] = np.mean([r[key] for r in result_list])
+                    print("result_agg", result_agg)
+            elif agg_method == "median":
+                for key in metric_keys:
+                    result_agg[key] = np.median([r[key] for r in result_list])
+            else:
+                logger.warning(
+                    "Aggegration method not supported. Please write your own aggegration method as a callable(s)."
+                )
+        elif callable(agg_method):
+            for key in metric_keys:
+                result_agg[key] = agg_method([r[key] for r in result_list])
+        elif isinstance(agg_method, dict):
+            for key in metric_keys:
+                metric_agg_method = agg_method[key]
+                assert callable(
+                    metric_agg_method
+                ), "please provide a callable for each metric"
+                result_agg[key] = metric_agg_method([r[key] for r in result_list])
+        else:
+            logger.warning("Aggegration method not supported.")
+        # should we also return the result_list and responses_list or not?
+        if return_responses_and_per_instance_result:
+            return result_agg, result_list, responses_list
+        else:
+            return result_agg
 
 
 class ChatCompletion(Completion):

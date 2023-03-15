@@ -449,10 +449,40 @@ def test_math(num_samples=-1):
             "prompt": prompts[0],
             "stop": "###",
         }
-        test_data_sample = test_data[0:5]
+        test_data_sample = test_data[0:3]
         result = oai.ChatCompletion.test(
             test_data_sample, vanilla_config, success_metrics
         )
+        test_data_sample = test_data[3:6]
+        result = oai.ChatCompletion.test(
+            test_data_sample,
+            vanilla_config,
+            success_metrics,
+            use_cache=False,
+            agg_method="median",
+        )
+
+        def my_median(results):
+            return np.median(results)
+
+        def my_average(results):
+            return np.mean(results)
+
+        result = oai.ChatCompletion.test(
+            test_data_sample,
+            vanilla_config,
+            success_metrics,
+            use_cache=False,
+            agg_method=my_median,
+        )
+        result = oai.ChatCompletion.test(
+            test_data_sample,
+            vanilla_config,
+            success_metrics,
+            use_cache=False,
+            agg_method={"expected_success": my_median, "success": my_average},
+        )
+
         print(result)
 
         config, _ = oai.ChatCompletion.tune(
