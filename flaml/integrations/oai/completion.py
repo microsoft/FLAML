@@ -97,16 +97,17 @@ class Completion:
         cls.cache_path = f"{cache_path}/{seed}"
 
     @classmethod
-    def _get_response(cls, config: dict, eval_only=False):
+    def _get_response(cls, config: dict, eval_only=False, use_cache=True):
         """Get the response from the openai api call.
 
         Try cache first. If not found, call the openai api. If the api call fails, retry after retry_time.
         """
         key = get_key(config)
-        response = cls._cache.get(key, None)
-        if response is not None and (response != -1 or not eval_only):
-            # print("using cached response")
-            return response
+        # response = cls._cache.get(key, None)
+        if use_cache: 
+            response = cls._cache.get(key, None)
+            if response is not None and (response != -1 or not eval_only):
+                return response
         retry = 0
         openai_completion = (
             openai.ChatCompletion
@@ -189,7 +190,7 @@ class Completion:
             )
 
     @classmethod
-    def eval(cls, config: dict, prune=True, eval_only=False):
+    def _eval(cls, config: dict, prune=True, eval_only=False):
         """Evaluate the given config as the hyperparameter setting for the openai api call.
 
         Args:
@@ -213,7 +214,8 @@ class Completion:
         prune_hp = getattr(cls, "_prune_hp", "n")
         metric = cls._metric
         config_n = config.get(prune_hp, 1)  # default value in OpenAI is 1
-        max_tokens = config.get("max_tokens", 16)  # default value in OpenAI is 16
+        max_tokens = config.get("max_tokens", 2048)  # most OpenAI models 
+        # have a context length of 2048 tokens (except for the newest models, which support 4096)
         region_key = cls._get_region_key(config)
         if model in cls.chat_models:
             # either "prompt" should be in config (for being compatible with non-chat models)
@@ -576,7 +578,7 @@ class Completion:
         logger.setLevel(logging_level)
         with diskcache.Cache(cls.cache_path) as cls._cache:
             analysis = tune.run(
-                cls.eval,
+                cls._eval,
                 search_alg=search_alg,
                 num_samples=num_samples,
                 log_file_name=log_file_name,
@@ -643,6 +645,138 @@ class Completion:
                 return cls._get_response(params)
         return cls.openai_completion_class.create(**params)
 
+    @classmethod
+    def test(cls, data, config, eval_func=None, use_cache=False):
+        """Evaluate the responses created with the config for the OpenAI API call.
+        Args:
+            data (list): The list of test data points.
+            config (dict): Hyperparameter setting for the openai api call.
+            eval_func (Callable): The evaluation function for responses.
+                The function should take a list of responses and a data point as input,
+                and return a dict of metrics. When not provided (None), we will use the
+                one provided via tune function.
+            use_cache (bool, Optional): Whether to use cached responses.
+        """
+        model = config["model"]
+        data_length = len(data)
+        config_n = "best_of" if config.get("best_of", 1) != 1 else "n"
+        max_tokens = config.get("max_tokens", 2048)  # most OpenAI models have a context length
+            # of 2048 tokens (except for the newest models, which support 4096)
+        region_key = Completion._get_region_key(config)
+        prompt = config.get("prompt", None)
+        # either "prompt" should be in config (for being compatible with non-chat models)
+        # or "messages" should be in config (for tuning chat models only)
+        if prompt is None and model in cls.chat_models:
+            messages = config.get("messages", None)
+            if messages is None:
+                raise ValueError(
+                    "Either prompt or messages should be in config for chat models."
+                )
+        stop = config["stop"]
+        start_n = config_n
+        params = config.copy()
+        params["stop"] = stop
+        temperature_or_top_p = params.pop("temperature_or_top_p", None)
+        if temperature_or_top_p:
+            params.update(temperature_or_top_p)
+        num_completions, previous_num_completions = start_n, 0
+        n_tokens_list, result, responses_list = [], {}, []
+        print('prompt', prompt)
+        logger.info('prmot %s', prompt)
+        with diskcache.Cache(cls.cache_path) as cls._cache:
+            while True:  # n <= config_n
+                data_limit = data_length
+                prev_data_limit = 0
+                while True:  # data_limit <= data_length
+                    # limit the number of data points to avoid rate limit
+                    for i in range(prev_data_limit, data_limit):
+                        logger.debug(
+                            f"num_completions={num_completions}, data instance={i}"
+                        )
+                        data_i = data[i]
+                        if prompt is None:
+                            params["messages"] = [
+                                {
+                                    "role": m["role"],
+                                    "content": m["content"].format(**data_i)
+                                    if isinstance(m["content"], str)
+                                    else m["content"](data_i),
+                                }
+                                for m in messages
+                            ]
+                        elif model in cls.chat_models:
+                            # convert prompt to messages
+                            if isinstance(prompt, str):
+                                prompt_msg = prompt.format(**data_i)
+                            else:
+                                prompt_msg = prompt(data_i)
+                            params["messages"] = [
+                                {
+                                    "role": "user",
+                                    "content": prompt_msg
+                                    if isinstance(prompt, str)
+                                    else prompt(data_i),
+                                },
+                            ]
+                            params.pop("prompt", None)
+                        else:
+                            params["prompt"] = (
+                                prompt.format(**data_i)
+                                if isinstance(prompt, str)
+                                else prompt(data_i)
+                            )
+                        response = cls._get_response(params, eval_only=True, use_cache=use_cache)
+                        if response == -1:  # rate limit error, treat as invalid
+                            cls._update_invalid_n(
+                                False, region_key, max_tokens, num_completions
+                            )
+                            return None
+                        # evaluate the quality of the responses
+                        responses = (
+                            [r["message"]["content"].rstrip() for r in response["choices"]]
+                            if model in cls.chat_models
+                            else [r["text"].rstrip() for r in response["choices"]]
+                        )
+                        n_tokens = (
+                            response["usage"]["completion_tokens"]
+                            if previous_num_completions
+                            else response["usage"]["total_tokens"]
+                        )
+
+                        if previous_num_completions:
+                            n_tokens_list[i] += n_tokens
+                            responses_list[i].extend(responses)
+                            # Assumption 1: assuming requesting n1, n2 responses separatively then combining them
+                            # is the same as requesting (n1+n2) responses together
+                        else:
+                            n_tokens_list.append(n_tokens)
+                            responses_list.append(responses)
+                    prev_data_limit = data_limit
+                    if data_limit < data_length:
+                        data_limit = min(data_limit << 1, data_length)
+                    else:
+                        break
+                # use exponential search to increase n
+                if num_completions == config_n:
+                    for i in range(data_limit):
+                        data_i = data[i]
+                        responses = responses_list[i]
+                        try:
+                            metrics = cls._eval_func(responses, **data_i)
+                        except:
+                            metrics = eval_func(responses, **data_i)
+                        if result:
+                            for key, value in metrics.items():
+                                result[key] += value
+                        else:
+                            result = metrics
+                    for key in result.keys():
+                        result[key] /= data_limit
+                    break
+                else:
+                    previous_num_completions = num_completions
+                    num_completions = min(num_completions << 1, config_n)
+        return result
 
 class ChatCompletion(Completion):
     """A class for OpenAI API ChatCompletion."""
