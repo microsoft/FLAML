@@ -500,7 +500,7 @@ def test_math(num_samples=-1):
         print("tuned config", config)
         result = oai.ChatCompletion.test(test_data_sample, config)
         print("result from tuned config:", result)
-    except ImportError or NameError as exc:
+    except (ImportError, NameError) as exc:
         print(exc)
 
 
