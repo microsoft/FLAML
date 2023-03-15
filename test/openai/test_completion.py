@@ -439,39 +439,39 @@ def test_math(num_samples=-1):
         + data["problem"]
     ]
 
-    from flaml import oai
+    try:
+        oai.ChatCompletion.set_cache(seed)
+        vanilla_config = {
+            "model": "gpt-3.5-turbo",
+            "temperature": 1,
+            "max_tokens": 2048,
+            "n": 1,
+            "prompt": prompts[0],
+            "stop": "###",
+        }
+        test_data_sample = test_data[0:5]
+        result = oai.ChatCompletion.test(
+            test_data_sample, vanilla_config, success_metrics
+        )
+        print(result)
 
-    oai.ChatCompletion.set_cache(seed)
-    vanilla_config = {
-        "model": "gpt-3.5-turbo",
-        "temperature": 1,
-        "max_tokens": 2048,
-        "n": 1,
-        "prompt": prompts[0],
-        "stop": "###",
-    }
-    test_data_sample = test_data[0:5]
-    result = oai.ChatCompletion.test(test_data_sample, vanilla_config, success_metrics)
-    print(result)
-
-    import logging
-
-    config, analysis = oai.ChatCompletion.tune(
-        data=tune_data,  # the data for tuning
-        metric="expected_success",  # the metric to optimize
-        mode="max",  # the optimization mode
-        eval_func=success_metrics,  # the evaluation function to return the success metrics
-        # log_file_name="logs/math.log",  # the log file name
-        inference_budget=0.002,  # the inference budget (dollar)
-        optimization_budget=0.02,  # the optimization budget (dollar)
-        num_samples=num_samples,
-        prompt=prompts,  # the prompt templates to choose from
-        stop="###",  # the stop sequence
-        logging_level=logging.INFO,  # the logging level
-    )
-    print("tuned config", config)
-    result = oai.ChatCompletion.test(test_data_sample, config)
-    print("result from tuned config:", result)
+        config, _ = oai.ChatCompletion.tune(
+            data=tune_data,  # the data for tuning
+            metric="expected_success",  # the metric to optimize
+            mode="max",  # the optimization mode
+            eval_func=success_metrics,  # the evaluation function to return the success metrics
+            # log_file_name="logs/math.log",  # the log file name
+            inference_budget=0.002,  # the inference budget (dollar)
+            optimization_budget=0.02,  # the optimization budget (dollar)
+            num_samples=num_samples,
+            prompt=prompts,  # the prompt templates to choose from
+            stop="###",  # the stop sequence
+        )
+        print("tuned config", config)
+        result = oai.ChatCompletion.test(test_data_sample, config)
+        print("result from tuned config:", result)
+    except ImportError or NameError as exc:
+        print(exc)
 
 
 if __name__ == "__main__":

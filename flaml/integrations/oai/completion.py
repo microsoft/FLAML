@@ -213,8 +213,7 @@ class Completion:
         prune_hp = getattr(cls, "_prune_hp", "n")
         metric = cls._metric
         config_n = config.get(prune_hp, 1)  # default value in OpenAI is 1
-        max_tokens = config.get("max_tokens", 2048)  # most OpenAI models
-        # have a context length of 2048 tokens (except for the newest models, which support 4096)
+        max_tokens = config.get("max_tokens", 16)  # default value in OpenAI is 16
         region_key = cls._get_region_key(config)
         if model in cls.chat_models:
             # either "prompt" should be in config (for being compatible with non-chat models)
@@ -648,7 +647,7 @@ class Completion:
         return cls.openai_completion_class.create(**params)
 
     @classmethod
-    def test(cls, data, config, eval_func=None, use_cache=False):
+    def test(cls, data, config, eval_func=None, use_cache=True):
         """Evaluate the responses created with the config for the OpenAI API call.
         Args:
             data (list): The list of test data points.
@@ -656,16 +655,13 @@ class Completion:
             eval_func (Callable): The evaluation function for responses.
                 The function should take a list of responses and a data point as input,
                 and return a dict of metrics. When not provided (None), we will use the
-                one provided via tune function.
-            use_cache (bool, Optional): Whether to use cached responses.
+                one provided via tune function. Defaults to None.
+            use_cache (bool, Optional): Whether to use cached responses. Defaults to True.
         """
         model = config["model"]
         data_length = len(data)
         config_n = "best_of" if config.get("best_of", 1) != 1 else "n"
-        max_tokens = config.get(
-            "max_tokens", 2048
-        )  # most OpenAI models have a context length
-        # of 2048 tokens (except for the newest models, which support 4096)
+        max_tokens = config.get("max_tokens", 16)  # default value in OpenAI is 16
         region_key = Completion._get_region_key(config)
         prompt = config.get("prompt", None)
         # either "prompt" should be in config (for being compatible with non-chat models)
@@ -728,7 +724,7 @@ class Completion:
                                 else prompt(data_i)
                             )
                         response = cls._get_response(
-                            params, eval_only=True, use_cache=False
+                            params, eval_only=True, use_cache=use_cache
                         )
                         if response == -1:  # rate limit error, treat as invalid
                             cls._update_invalid_n(
@@ -753,8 +749,6 @@ class Completion:
                         if previous_num_completions:
                             n_tokens_list[i] += n_tokens
                             responses_list[i].extend(responses)
-                            # Assumption 1: assuming requesting n1, n2 responses separatively then combining them
-                            # is the same as requesting (n1+n2) responses together
                         else:
                             n_tokens_list.append(n_tokens)
                             responses_list.append(responses)
