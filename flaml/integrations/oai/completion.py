@@ -275,33 +275,9 @@ class Completion:
                         f"num_completions={num_completions}, data instance={i}"
                     )
                     data_i = data[i]
-                    if prompt is None:
-                        params["messages"] = [
-                            {
-                                "role": m["role"],
-                                "content": m["content"].format(**data_i)
-                                if isinstance(m["content"], str)
-                                else m["content"](data_i),
-                            }
-                            for m in messages
-                        ]
-                    elif model in cls.chat_models:
-                        # convert prompt to messages
-                        params["messages"] = [
-                            {
-                                "role": "user",
-                                "content": prompt.format(**data_i)
-                                if isinstance(prompt, str)
-                                else prompt(data_i),
-                            },
-                        ]
-                        params.pop("prompt", None)
-                    else:
-                        params["prompt"] = (
-                            prompt.format(**data_i)
-                            if isinstance(prompt, str)
-                            else prompt(data_i)
-                        )
+                    params = cls._construct_params(
+                        model, prompt, messages, params, data_i
+                    )
                     response = cls._get_response(params, eval_only)
                     if response == -1:  # rate limit error, treat as invalid
                         cls._update_invalid_n(
@@ -448,6 +424,7 @@ class Completion:
         """Tune the parameters for the OpenAI API call.
 
         TODO: support parallel tuning with ray or spark.
+        TODO: support agg_method as in test
 
         Args:
             data (list): The list of data points.
@@ -616,35 +593,62 @@ class Completion:
         """
         if ERROR:
             raise ERROR
-        params = config.copy()
-        prompt = config.get("prompt")
-        if "messages" in config:
-            params["messages"] = [
-                {
-                    k: v.format(**context) if isinstance(v, str) else v(context)
-                    for k, v in message.items()
-                }
-                for message in config["messages"]
-            ]
-            params.pop("prompt", None)
-        elif config["model"] in cls.chat_models:
-            params["messages"] = [
-                {
-                    "role": "user",
-                    "content": prompt.format(**context)
-                    if isinstance(prompt, str)
-                    else prompt(context),
-                }
-            ]
-            params.pop("prompt", None)
-        else:
-            params["prompt"] = (
-                prompt.format(**context) if isinstance(prompt, str) else prompt(context)
-            )
+        params = cls._construct_params(config, context)
         if use_cache:
             with diskcache.Cache(cls.cache_path) as cls._cache:
                 return cls._get_response(params)
         return cls.openai_completion_class.create(**params)
+
+    @classmethod
+    def _construct_params(cls, model, prompt, messages, params, data_instance):
+        if prompt is None:
+            params["messages"] = [
+                {
+                    "role": m["role"],
+                    "content": m["content"].format(**data_instance)
+                    if isinstance(m["content"], str)
+                    else m["content"](data_instance),
+                }
+                for m in messages
+            ]
+        elif model in cls.chat_models:
+            # convert prompt to messages
+            if isinstance(prompt, str):
+                prompt_msg = prompt.format(**data_instance)
+            else:
+                prompt_msg = prompt(data_instance)
+            params["messages"] = [
+                {
+                    "role": "user",
+                    "content": prompt_msg
+                    if isinstance(prompt, str)
+                    else prompt(data_instance),
+                },
+            ]
+            params.pop("prompt", None)
+        else:
+            params["prompt"] = (
+                prompt.format(**data_instance)
+                if isinstance(prompt, str)
+                else prompt(data_instance)
+            )
+        return params
+
+    @classmethod
+    def _construct_params_from_config(cls, config, data_instance):
+        model = config["model"]
+        prompt = config.get("prompt", None)
+        messages = None
+        # either "prompt" should be in config (for being compatible with non-chat models)
+        # or "messages" should be in config (for tuning chat models only)
+        if prompt is None and model in cls.chat_models:
+            messages = config.get("messages", None)
+            if messages is None:
+                raise ValueError(
+                    "Either prompt or messages should be in config for chat models."
+                )
+        params = config.copy()
+        return cls._construct_params(model, prompt, messages, params, data_instance)
 
     @classmethod
     def test(
@@ -657,6 +661,7 @@ class Completion:
         return_responses_and_per_instance_result=False,
     ):
         """Evaluate the responses created with the config for the OpenAI API call.
+
         Args:
             data (list): The list of test data points.
             config (dict): Hyperparameter setting for the openai api call.
@@ -669,58 +674,14 @@ class Completion:
                 multiple instances) for each of the metrics. Defaults to 'avg'.
             return_responses_and_per_instance_result (bool): Whether to also return responses
                 and per instance results in addition to aggregrated results.
+            #TODO: add example
         """
         model = config["model"]
-        prompt = config.get("prompt", None)
-        # either "prompt" should be in config (for being compatible with non-chat models)
-        # or "messages" should be in config (for tuning chat models only)
-        if prompt is None and model in cls.chat_models:
-            messages = config.get("messages", None)
-            if messages is None:
-                raise ValueError(
-                    "Either prompt or messages should be in config for chat models."
-                )
-        stop = config["stop"]
-        params = config.copy()
-        params["stop"] = stop
-        temperature_or_top_p = params.pop("temperature_or_top_p", None)
-        if temperature_or_top_p:
-            params.update(temperature_or_top_p)
         result_agg, responses_list, result_list = {}, [], []
         metric_keys = None
         with diskcache.Cache(cls.cache_path) as cls._cache:
             for _, data_i in enumerate(data):
-                if prompt is None:
-                    params["messages"] = [
-                        {
-                            "role": m["role"],
-                            "content": m["content"].format(**data_i)
-                            if isinstance(m["content"], str)
-                            else m["content"](data_i),
-                        }
-                        for m in messages
-                    ]
-                elif model in cls.chat_models:
-                    # convert prompt to messages
-                    if isinstance(prompt, str):
-                        prompt_msg = prompt.format(**data_i)
-                    else:
-                        prompt_msg = prompt(data_i)
-                    params["messages"] = [
-                        {
-                            "role": "user",
-                            "content": prompt_msg
-                            if isinstance(prompt, str)
-                            else prompt(data_i),
-                        },
-                    ]
-                    params.pop("prompt", None)
-                else:
-                    params["prompt"] = (
-                        prompt.format(**data_i)
-                        if isinstance(prompt, str)
-                        else prompt(data_i)
-                    )
+                params = cls._construct_params_from_config(config, data_i)
                 response = cls._get_response(
                     params, eval_only=True, use_cache=use_cache
                 )
@@ -746,21 +707,18 @@ class Completion:
                 if not metric_keys:
                     metric_keys = metrics.keys()
                 result_list.append(metrics)
-                print("metrics", responses, metrics)
                 if return_responses_and_per_instance_result:
                     responses_list.append(responses)
         if isinstance(agg_method, str):
-            if agg_method == "avg" or agg_method == "average":
+            if agg_method in ["avg", "average"]:
                 for key in metric_keys:
-                    print("result_list", result_list)
                     result_agg[key] = np.mean([r[key] for r in result_list])
-                    print("result_agg", result_agg)
             elif agg_method == "median":
                 for key in metric_keys:
                     result_agg[key] = np.median([r[key] for r in result_list])
             else:
                 logger.warning(
-                    "Aggegration method not supported. Please write your own aggegration method as a callable(s)."
+                    "Aggregration method not supported. Please write your own aggregration method as a callable(s)."
                 )
         elif callable(agg_method):
             for key in metric_keys:
@@ -773,7 +731,10 @@ class Completion:
                 ), "please provide a callable for each metric"
                 result_agg[key] = metric_agg_method([r[key] for r in result_list])
         else:
-            logger.warning("Aggegration method not supported.")
+            raise ValueError(
+                "agg_method needs to be a string ('avg' or 'median'),\
+                or a callable, or a dictionary of callable "
+            )
         # should we also return the result_list and responses_list or not?
         if return_responses_and_per_instance_result:
             return result_agg, result_list, responses_list

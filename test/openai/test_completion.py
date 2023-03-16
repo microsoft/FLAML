@@ -444,7 +444,7 @@ def test_math(num_samples=-1):
         vanilla_config = {
             "model": "gpt-3.5-turbo",
             "temperature": 1,
-            "max_tokens": 2048,
+            "max_tokens": 16,
             "n": 1,
             "prompt": prompts[0],
             "stop": "###",
