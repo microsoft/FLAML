@@ -672,9 +672,26 @@ class Completion:
             use_cache (bool, Optional): Whether to use cached responses. Defaults to True.
             agg_method (str, Callable or a dict of Callable): Result aggregration method (across
                 multiple instances) for each of the metrics. Defaults to 'avg'.
+                An example agg_method in str:
+            ```python
+            agg_method = 'median'
+            ```
+                An example agg_method in a Callable:
+            ```python
+            def my_median(results):
+                return np.median(results)
+            agg_method = my_median
+            ```
+                An example agg_method in a dict of Callable:
+            ```python
+            def my_median(results):
+                return np.median(results)
+            def my_average(results):
+                return np.mean(results)
+            agg_method={'expected_success': my_median, 'success': my_average}
+            ```
             return_responses_and_per_instance_result (bool): Whether to also return responses
                 and per instance results in addition to aggregrated results.
-            #TODO: add example
         """
         model = config["model"]
         result_agg, responses_list, result_list = {}, [], []
