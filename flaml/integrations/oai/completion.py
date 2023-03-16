@@ -718,7 +718,7 @@ class Completion:
                     result_agg[key] = np.median([r[key] for r in result_list])
             else:
                 logger.warning(
-                    "Aggregration method not supported. Please write your own aggregration method as a callable(s)."
+                    "Aggregation method not supported. Please write your own aggregation method as a callable(s)."
                 )
         elif callable(agg_method):
             for key in metric_keys:
