@@ -592,6 +592,8 @@ class SparkLGBMEstimator(SparkEstimator):
 
     def config2params(self, config: dict) -> dict:
         params = super().config2params(config)
+        if "n_jobs" in params:
+            params.pop("n_jobs")
         if "log_max_bin" in params:
             params["maxBin"] = (1 << params.pop("log_max_bin")) - 1
         return params
@@ -606,10 +608,6 @@ class SparkLGBMEstimator(SparkEstimator):
 
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
-        if "verbose" in self.params:
-            self.params.pop("verbose")
-        if "n_jobs" in self.params:
-            self.params.pop("n_jobs")
         err_msg = (
             "SynapseML is not installed. Please refer to [SynapseML]"
             + "(https://github.com/microsoft/SynapseML) for installation instructions."
@@ -663,11 +661,10 @@ class SparkLGBMEstimator(SparkEstimator):
         # trained = False
         # mem0 = psutil.virtual_memory().available if psutil is not None else 1
         _kwargs = kwargs.copy()
-        if self._task not in ["regression", "rank"]:
-            if "objective" not in _kwargs:
-                _kwargs["objective"] = (
-                    "binary" if self.model_n_classes_ == 2 else "multiclass"
-                )
+        if self._task not in ["regression", "rank"] and "objective" not in _kwargs:
+            _kwargs["objective"] = (
+                "binary" if self.model_n_classes_ == 2 else "multiclass"
+            )
         for k in list(_kwargs.keys()):
             if k not in self.estimator_params:
                 _kwargs.pop(k)
