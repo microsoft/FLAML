@@ -733,7 +733,7 @@ class Completion:
         else:
             raise ValueError(
                 "agg_method needs to be a string ('avg' or 'median'),\
-                or a callable, or a dictionary of callable "
+                or a callable, or a dictionary of callable."
             )
         # should we also return the result_list and responses_list or not?
         if return_responses_and_per_instance_result:
