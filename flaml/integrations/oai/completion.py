@@ -735,7 +735,7 @@ class Completion:
                     result_agg[key] = np.median([r[key] for r in result_list])
             else:
                 logger.warning(
-                    "Aggregration method not supported. Please write your own aggregration method as a callable(s)."
+                    "Aggregation method not supported. Please write your own aggregation method as a callable(s)."
                 )
         elif callable(agg_method):
             for key in metric_keys:
@@ -750,7 +750,7 @@ class Completion:
         else:
             raise ValueError(
                 "agg_method needs to be a string ('avg' or 'median'),\
-                or a callable, or a dictionary of callable "
+                or a callable, or a dictionary of callable."
             )
         # should we also return the result_list and responses_list or not?
         if return_responses_and_per_instance_result:
