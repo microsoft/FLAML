@@ -11,9 +11,9 @@ try:
         APIError,
         InvalidRequestError,
         APIConnectionError,
+        Timeout,
     )
     import diskcache
-    from urllib3.exceptions import ReadTimeoutError
 
     ERROR = None
 except ImportError:
@@ -122,7 +122,7 @@ class Completion:
                 ServiceUnavailableError,
                 APIError,
                 APIConnectionError,
-                ReadTimeoutError,
+                Timeout,
             ):
                 logger.warning(f"retrying in {cls.retry_time} seconds...", exc_info=1)
                 sleep(cls.retry_time)
@@ -559,11 +559,12 @@ class Completion:
             mode=mode,
             space=space,
         )
-        if len(space["model"]) > 1:
+        space_model = space["model"]
+        if not isinstance(space_model, str) and len(space_model) > 1:
             # start all the models with the same hp config
             config0 = search_alg.suggest("t0")
             points_to_evaluate = [config0]
-            for model in space["model"]:
+            for model in space_model:
                 if model != config0["model"]:
                     point = config0.copy()
                     point["model"] = model

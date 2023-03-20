@@ -4,7 +4,7 @@
 name: OpenAI
 
 on:
-  pull_request:
+  pull_request_target:
     branches: ['main']
     paths:
       - 'flaml/integrations/oai/**'
@@ -22,6 +22,9 @@ jobs:
     environment: openai
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
@@ -44,3 +47,5 @@ jobs:
         with:
           file: ./coverage.xml
           flags: unittests
+          override_pr: ${{ github.event.number }}
+          override_commit: ${{ github.event.pull_request.head.sha }}
