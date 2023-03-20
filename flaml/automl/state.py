@@ -11,6 +11,7 @@ from flaml.automl.logger import logger
 from flaml.automl.ml import compute_estimator, train_estimator
 from flaml.automl.time_series.ts_data import TimeSeriesDataset
 
+
 class SearchState:
     @property
     def search_space(self):
