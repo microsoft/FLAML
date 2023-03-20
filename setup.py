@@ -69,7 +69,7 @@ setuptools.setup(
             "rouge_score",
             "hcrystalball==0.1.10",
             "seqeval",
-            "pytorch-forecasting==0.10.1", # test_forecast_panel
+            "pytorch-forecasting==0.10.1",  # test_forecast_panel
             "mlflow",
             "pyspark>=3.0.0",
             "joblibspark>=0.5.0",
@@ -77,7 +77,7 @@ setuptools.setup(
             "nbformat",
             "ipykernel",
             "pytorch-lightning==1.9.0",  # test_forecast_panel
-            "tensorboardX==2.6" # test_forecast_panel
+            "tensorboardX==2.6",  # test_forecast_panel
         ],
         "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],
@@ -120,7 +120,7 @@ setuptools.setup(
             "hcrystalball==0.1.10",
             "pytorch-forecasting==0.10.1",
             "pytorch-lightning==1.9.0",
-            "tensorboardX==2.6"
+            "tensorboardX==2.6",
         ],
         "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3"],
         "openai": ["openai==0.27.0", "diskcache", "optuna==2.8.0"],

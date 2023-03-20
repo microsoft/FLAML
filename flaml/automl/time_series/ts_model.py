@@ -85,7 +85,6 @@ class TimeSeriesEstimator(SKLearnEstimator):
         max_lags = math.floor(points / scale)
 
         while scale > 2:
-
             if max_lags >= 2:
                 break
             scale = math.ceil(scale / 1.7)
@@ -110,7 +109,7 @@ class TimeSeriesEstimator(SKLearnEstimator):
                 "init_value": 1,
                 "low_cost_init_value": 0,
             },
-            "pca_features": { #disable for now, will deal with occasional svd fail later
+            "pca_features": {  # disable for now, will deal with occasional svd fail later
                 "domain": tune.choice([False]),
                 "init_value": False,
                 "low_cost_init_value": False,
@@ -190,7 +189,6 @@ class Orbit(TimeSeriesEstimator):
             X = data.test_data[[self.time_col] + X.regressors]
 
         if self._model is not None:
-
             forecast = self._model.predict(X, **kwargs)
             out = (
                 pd.DataFrame(
@@ -303,7 +301,6 @@ class Prophet(TimeSeriesEstimator):
 
         X = X.rename(columns={self.time_col: "ds"})
         if self._model is not None:
-
             X = self._preprocess(X)
             forecast = self._model.predict(X, **kwargs)
             out = forecast["yhat"]
@@ -445,7 +442,6 @@ class SARIMAX(ARIMA):
     def _search_space(
         cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params
     ):
-
         scale, max_lags = cls.adjust_scale(
             data.next_scale(), len(data.train_data), pred_horizon
         )

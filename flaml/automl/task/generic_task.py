@@ -614,7 +614,6 @@ class GenericTask(Task):
             ), "GroupKFold requires groups to be provided."
             return split_type
 
-
         elif self.is_ts_forecast():
             assert split_type in ["auto", "time"]
             assert isinstance(

@@ -222,7 +222,6 @@ class TimeSeriesTask(Task):
         sample_weight_full,
         time_col=None,
     ):
-
         state.kf = None
         state.data_size_full = len(y_train_all)
 

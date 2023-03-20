@@ -270,7 +270,6 @@ def enrich_dataframe(
     remove_constants: bool = False,
     fourier_time: bool = True,
 ) -> pd.DataFrame:
-
     if isinstance(df, pd.Series):
         df = pd.DataFrame(df)
 
