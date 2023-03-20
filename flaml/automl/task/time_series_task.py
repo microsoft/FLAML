@@ -224,6 +224,7 @@ class TimeSeriesTask(Task):
     ):
 
         state.kf = None
+        state.data_size_full = len(y_train_all)
 
         if split_type in ["uniform", "stratified"]:
             raise ValueError(f"Split type {split_type} is not valid for time series")

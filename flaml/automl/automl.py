@@ -16,11 +16,9 @@ import logging
 import json
 
 from flaml.automl.state import SearchState, AutoMLState
-from flaml.automl.ml import (
-    compute_estimator,
-    train_estimator,
-    get_estimator_class,
-)
+from flaml.automl.ml import train_estimator
+
+from flaml.automl.time_series import TimeSeriesDataset
 from flaml.config import (
     MIN_SAMPLE_TRAIN,
     MEM_THRES,
@@ -34,7 +32,7 @@ from flaml.config import (
 from flaml.automl.data import concat
 
 # TODO check to see when we can remove these
-from flaml.automl.task.task import CLASSIFICATION, TS_FORECAST, Task
+from flaml.automl.task.task import CLASSIFICATION, Task
 from flaml.automl.task.factory import task_factory
 from flaml import tune
 from flaml.automl.logger import logger, logger_formatter
@@ -1168,7 +1166,7 @@ class AutoML(BaseEstimator):
             self._df,
             self._sample_weight_full,
         )
-        self.data_size_full = len(self._state.y_train_all)
+        self.data_size_full = self._state.data_size_full
 
     def fit(
         self,

@@ -17,7 +17,7 @@ from sklearn.model_selection import (
 )
 
 from flaml.automl.data import TS_TIMESTAMP_COL, concat
-from flaml.automl.ml import get_val_loss, default_cv_score_agg_func
+from flaml.automl.ml import EstimatorSubclass, get_val_loss, default_cv_score_agg_func
 
 from flaml.automl.task.task import (
     Task,
@@ -531,6 +531,7 @@ class GenericTask(Task):
                         random_state=RANDOM_SEED,
                     )
         state.data_size = X_train.shape
+        state.data_size_full = len(y_train_all)
         state.X_train, state.y_train = X_train, y_train
         state.X_val, state.y_val = X_val, y_val
         state.X_train_all = X_train_all

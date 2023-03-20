@@ -24,6 +24,7 @@ from flaml.automl.model import TransformersEstimator
 
 from flaml.automl.task import Task
 from flaml.automl.data import group_counts
+from flaml.automl.model import BaseEstimator
 
 import logging
 
