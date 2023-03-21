@@ -410,11 +410,13 @@ class Completion:
                     metrics = cls._eval_func(responses, **data_i)
                     if result:
                         for key, value in metrics.items():
-                            result[key] += value
+                            if isinstance(value, (float, int)):
+                                result[key] += value
                     else:
                         result = metrics
                 for key in result.keys():
-                    result[key] /= data_limit
+                    if isinstance(result[key], (float, int)):
+                        result[key] /= data_limit
                 result["total_cost"] = cls._total_cost
                 result["cost"] = cost
                 result["inference_cost"] = avg_n_tokens * cls.price1K[model] / 1000
