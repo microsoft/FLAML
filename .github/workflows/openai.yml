@@ -10,6 +10,7 @@ on:
       - 'flaml/integrations/oai/**'
       - 'test/openai/**'
       - 'notebook/integrate_openai.ipynb'
+      - 'notebook/integrate_chatgpt_math.ipynb'
       - '.github/workflows/openai.yml'
 
 jobs:
