@@ -7,7 +7,6 @@ import time
 import os
 import sys
 from typing import Callable, List, Union, Optional
-import inspect
 from functools import partial
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -17,7 +16,6 @@ import json
 
 from flaml.automl.state import SearchState, AutoMLState
 from flaml.automl.ml import (
-    compute_estimator,
     train_estimator,
     get_estimator_class,
 )
@@ -31,7 +29,6 @@ from flaml.config import (
     N_SPLITS,
     SAMPLE_MULTIPLY_FACTOR,
 )
-from flaml.automl.data import concat
 
 # TODO check to see when we can remove these
 from flaml.automl.task.task import CLASSIFICATION, TS_FORECAST, Task

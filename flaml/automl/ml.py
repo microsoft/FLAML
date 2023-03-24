@@ -20,12 +20,6 @@ from sklearn.metrics import (
     mean_absolute_percentage_error,
     ndcg_score,
 )
-from sklearn.model_selection import (
-    RepeatedStratifiedKFold,
-    GroupKFold,
-    TimeSeriesSplit,
-    StratifiedGroupKFold,
-)
 from flaml.automl.model import (
     XGBoostSklearnEstimator,
     XGBoost_TS,
