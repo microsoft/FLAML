@@ -24,6 +24,9 @@ try:
         unique_value_first_index,
         iloc_pandas_on_spark,
     )
+    from flaml.automl.spark.metrics import spark_metric_loss_score
+    from flaml.automl.ml import sklearn_metric_loss_score
+    from pyspark.ml.linalg import Vectors
 
     spark_available, _ = check_spark()
     skip_spark = not spark_available
@@ -242,12 +245,182 @@ def test_iloc_pandas_on_spark():
     assert iloc_pandas_on_spark(psds, [0, 3]).tolist() == [1, 3]
 
 
+def test_spark_metric_loss_score():
+    spark = SparkSession.builder.getOrCreate()
+    scoreAndLabels = map(
+        lambda x: (Vectors.dense([1.0 - x[0], x[0]]), x[1]),
+        [
+            (0.1, 0.0),
+            (0.1, 1.0),
+            (0.4, 0.0),
+            (0.6, 0.0),
+            (0.6, 1.0),
+            (0.6, 1.0),
+            (0.8, 1.0),
+        ],
+    )
+    dataset = spark.createDataFrame(scoreAndLabels, ["raw", "label"])
+    dataset = to_pandas_on_spark(dataset)
+    # test pr_auc
+    metric = spark_metric_loss_score(
+        "pr_auc",
+        dataset["raw"],
+        dataset["label"],
+    )
+    print("pr_auc: ", metric)
+    assert str(metric)[:5] == "0.166"
+    # test roc_auc
+    metric = spark_metric_loss_score(
+        "roc_auc",
+        dataset["raw"],
+        dataset["label"],
+    )
+    print("roc_auc: ", metric)
+    assert str(metric)[:5] == "0.291"
+
+    scoreAndLabels = [
+        (-28.98343821, -27.0),
+        (20.21491975, 21.5),
+        (-25.98418959, -22.0),
+        (30.69731842, 33.0),
+        (74.69283752, 71.0),
+    ]
+    dataset = spark.createDataFrame(scoreAndLabels, ["raw", "label"])
+    dataset = to_pandas_on_spark(dataset)
+    # test rmse
+    metric = spark_metric_loss_score(
+        "rmse",
+        dataset["raw"],
+        dataset["label"],
+    )
+    print("rmse: ", metric)
+    assert str(metric)[:5] == "2.842"
+    # test mae
+    metric = spark_metric_loss_score(
+        "mae",
+        dataset["raw"],
+        dataset["label"],
+    )
+    print("mae: ", metric)
+    assert str(metric)[:5] == "2.649"
+    # test r2
+    metric = spark_metric_loss_score(
+        "r2",
+        dataset["raw"],
+        dataset["label"],
+    )
+    print("r2: ", metric)
+    assert str(metric)[:5] == "0.006"
+    # test mse
+    metric = spark_metric_loss_score(
+        "mse",
+        dataset["raw"],
+        dataset["label"],
+    )
+    print("mse: ", metric)
+    assert str(metric)[:5] == "8.079"
+    # test var
+    metric = spark_metric_loss_score(
+        "var",
+        dataset["raw"],
+        dataset["label"],
+    )
+    print("var: ", metric)
+    assert str(metric)[:5] == "-1489"
+
+    predictionAndLabelsWithProbabilities = [
+        (1.0, 1.0, 1.0, [0.1, 0.8, 0.1]),
+        (0.0, 2.0, 1.0, [0.9, 0.05, 0.05]),
+        (0.0, 0.0, 1.0, [0.8, 0.2, 0.0]),
+        (1.0, 1.0, 1.0, [0.3, 0.65, 0.05]),
+    ]
+    dataset = spark.createDataFrame(
+        predictionAndLabelsWithProbabilities,
+        ["prediction", "label", "weight", "probability"],
+    )
+    dataset = to_pandas_on_spark(dataset)
+    # test logloss
+    metric = spark_metric_loss_score(
+        "log_loss",
+        dataset["probability"],
+        dataset["label"],
+    )
+    print("log_loss: ", metric)
+    assert str(metric)[:5] == "0.968"
+    # test accuracy
+    metric = spark_metric_loss_score(
+        "accuracy",
+        dataset["prediction"],
+        dataset["label"],
+    )
+    print("accuracy: ", metric)
+    assert str(metric)[:5] == "0.25"
+    # test f1
+    metric = spark_metric_loss_score(
+        "f1",
+        dataset["prediction"],
+        dataset["label"],
+    )
+    print("f1: ", metric)
+    assert str(metric)[:5] == "0.333"
+
+    scoreAndLabels = [
+        ([0.0, 1.0], [0.0, 2.0]),
+        ([0.0, 2.0], [0.0, 1.0]),
+        ([], [0.0]),
+        ([2.0], [2.0]),
+        ([2.0, 0.0], [2.0, 0.0]),
+        ([0.0, 1.0, 2.0], [0.0, 1.0]),
+        ([1.0], [1.0, 2.0]),
+    ]
+    dataset = spark.createDataFrame(scoreAndLabels, ["prediction", "label"])
+    dataset = to_pandas_on_spark(dataset)
+    # test micro_f1
+    metric = spark_metric_loss_score(
+        "micro_f1",
+        dataset["prediction"],
+        dataset["label"],
+    )
+    print("micro_f1: ", metric)
+    assert str(metric)[:5] == "0.304"
+    # test macro_f1
+    metric = spark_metric_loss_score(
+        "macro_f1",
+        dataset["prediction"],
+        dataset["label"],
+    )
+    print("macro_f1: ", metric)
+    assert str(metric)[:5] == "0.111"
+
+    scoreAndLabels = [
+        (
+            [1.0, 6.0, 2.0, 7.0, 8.0, 3.0, 9.0, 10.0, 4.0, 5.0],
+            [1.0, 2.0, 3.0, 4.0, 5.0],
+        ),
+        ([4.0, 1.0, 5.0, 6.0, 2.0, 7.0, 3.0, 8.0, 9.0, 10.0], [1.0, 2.0, 3.0]),
+        ([1.0, 2.0, 3.0, 4.0, 5.0], []),
+    ]
+    dataset = spark.createDataFrame(scoreAndLabels, ["prediction", "label"])
+    dataset = to_pandas_on_spark(dataset)
+    # test ap
+    metric = spark_metric_loss_score(
+        "ap",
+        dataset["prediction"],
+        dataset["label"],
+    )
+    print("ap: ", metric)
+    assert str(metric)[:5] == "0.644"
+    # test ndcg
+    # ndcg is tested in synapseML rank tests, so we don't need to test it here
+
+
 if __name__ == "__main__":
     # test_with_parameters_spark()
     # test_get_n_cpus_spark()
     # test_broadcast_code()
     # test_get_broadcast_data()
-    test_train_test_split_pyspark()
+    # test_train_test_split_pyspark()
     # test_n_current_trials()
     # test_len_labels()
     # test_iloc_pandas_on_spark()
+    test_spark_metric_loss_score()

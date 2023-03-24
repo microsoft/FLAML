@@ -37,6 +37,17 @@ def _process_df(df, label_col, prediction_col):
     return df
 
 
+def _compute_label_from_probability(df, probability_col, prediction_col):
+    # array_max finds the maximum value in the 'probability' array
+    # array_position finds the index of the maximum value in the 'probability' array
+    max_index_expr = F.expr(
+        f"array_position({probability_col}, array_max({probability_col}))-1"
+    )
+    # Create a new column 'prediction' based on the maximum probability value
+    df = df.withColumn(prediction_col, max_index_expr.cast("double"))
+    return df
+
+
 def spark_metric_loss_score(
     metric_name: str,
     y_predict: ps.Series,
@@ -55,7 +66,7 @@ def spark_metric_loss_score(
         groups: ps.Series | the group of each row. Default: None.
 
     Returns:
-        float | the loss score.
+        float | the loss score. A lower value indicates a better model.
     """
     label_col = "label"
     prediction_col = "prediction"
@@ -131,10 +142,15 @@ def spark_metric_loss_score(
             **kwargs,
         )
     elif metric_name == "log_loss":
+        # For log_loss, prediction_col should be probability, and we need to convert it to label
+        df = _compute_label_from_probability(
+            df, prediction_col, prediction_col + "_label"
+        )
         evaluator = MulticlassClassificationEvaluator(
             metricName="logLoss",
             labelCol=label_col,
-            predictionCol=prediction_col,
+            predictionCol=prediction_col + "_label",
+            probabilityCol=prediction_col,
             **kwargs,
         )
     elif metric_name == "f1":
@@ -165,6 +181,8 @@ def spark_metric_loss_score(
             predictionCol=prediction_col,
         )
     elif "ndcg" in metric_name:
+        # TODO: check if spark.ml ranker has the same format with
+        # synapseML ranker, may need to adjust the format of df
         if "@" in metric_name:
             k = int(metric_name.split("@", 1)[-1])
             if groups is None:
