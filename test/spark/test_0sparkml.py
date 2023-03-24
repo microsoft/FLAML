@@ -102,6 +102,8 @@ def _test_spark_synapseml_lightgbm(spark=None, task="classification"):
     del automl_settings["metric"]
     del automl_settings["model_history"]
     del automl_settings["log_training_metric"]
+    del automl_settings["verbose"]
+    del automl_settings["estimator_list"]
     automl_experiment = AutoML(task=task)
     try:
         duration = automl_experiment.retrain_from_log(

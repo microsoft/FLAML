@@ -667,6 +667,9 @@ class SparkLGBMEstimator(SparkEstimator):
             )
         for k in list(_kwargs.keys()):
             if k not in self.estimator_params:
+                logger.warning(
+                    f"[SparkLGBMEstimator] [Warning] Ignored unknown parameter: {k}"
+                )
                 _kwargs.pop(k)
         # TODO: find a better estimation of early stopping
         # if (
