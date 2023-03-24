@@ -983,8 +983,41 @@ class GenericTask(Task):
         pred_time /= n
         return val_loss, metric, train_time, pred_time
 
-    def default_estimator_list(self, estimator_list: List[str]) -> List[str]:
+    def default_estimator_list(
+        self, estimator_list: List[str], is_spark_dataframe: bool = False
+    ) -> List[str]:
         if "auto" != estimator_list:
+            n_estimators = len(estimator_list)
+            if is_spark_dataframe:
+                # For spark dataframe, only estimators ending with '_spark' are supported
+                estimator_list = [
+                    est for est in estimator_list if est.endswith("_spark")
+                ]
+                if len(estimator_list) == 0:
+                    raise ValueError(
+                        "Spark dataframes only support estimator names ending with `_spark`. Non-supported "
+                        "estimators are removed. No estimator is left."
+                    )
+                elif n_estimators != len(estimator_list):
+                    logger.warning(
+                        "Spark dataframes only support estimator names ending with `_spark`. Non-supported "
+                        "estimators are removed."
+                    )
+            else:
+                # For non-spark dataframe, only estimators not ending with '_spark' are supported
+                estimator_list = [
+                    est for est in estimator_list if not est.endswith("_spark")
+                ]
+                if len(estimator_list) == 0:
+                    raise ValueError(
+                        "Non-spark dataframes only support estimator names not ending with `_spark`. Non-supported "
+                        "estimators are removed. No estimator is left."
+                    )
+                elif n_estimators != len(estimator_list):
+                    logger.warning(
+                        "Non-spark dataframes only support estimator names not ending with `_spark`. Non-supported "
+                        "estimators are removed."
+                    )
             return estimator_list
         if self.is_rank():
             estimator_list = ["lgbm", "xgboost", "xgb_limitdepth", "lgbm_spark"]
@@ -1028,6 +1061,15 @@ class GenericTask(Task):
             elif not self.is_regression():
                 estimator_list += ["lrl1"]
 
+        estimator_list = [
+            est
+            for est in estimator_list
+            if (
+                est.endswith("_spark")
+                if is_spark_dataframe
+                else not est.endswith("_spark")
+            )
+        ]
         return estimator_list
 
     def default_metric(self, metric: str) -> str:

@@ -1890,53 +1890,10 @@ class AutoML(BaseEstimator):
             error_metric = "customized metric"
         logger.info(f"Minimizing error metric: {error_metric}")
 
-        is_auto = estimator_list == "auto"
         is_spark_dataframe = isinstance(X_train, psDataFrame) or isinstance(
             dataframe, psDataFrame
         )
-        estimator_list = task.default_estimator_list(estimator_list)
-        if not is_auto:
-            n_estimators = len(estimator_list)
-            if is_spark_dataframe:
-                # For spark dataframe, only estimators ending with '_spark' are supported
-                estimator_list = [
-                    est for est in estimator_list if est.endswith("_spark")
-                ]
-                if len(estimator_list) == 0:
-                    raise ValueError(
-                        "Spark dataframes only support estimator names ending with `_spark`. Non-supported "
-                        "estimators are removed. No estimator is left."
-                    )
-                elif n_estimators != len(estimator_list):
-                    logger.warning(
-                        "Spark dataframes only support estimator names ending with `_spark`. Non-supported "
-                        "estimators are removed."
-                    )
-            else:
-                # For non-spark dataframe, only estimators not ending with '_spark' are supported
-                estimator_list = [
-                    est for est in estimator_list if not est.endswith("_spark")
-                ]
-                if len(estimator_list) == 0:
-                    raise ValueError(
-                        "Non-spark dataframes only support estimator names not ending with `_spark`. Non-supported "
-                        "estimators are removed. No estimator is left."
-                    )
-                elif n_estimators != len(estimator_list):
-                    logger.warning(
-                        "Non-spark dataframes only support estimator names not ending with `_spark`. Non-supported "
-                        "estimators are removed."
-                    )
-        else:
-            estimator_list = [
-                est
-                for est in estimator_list
-                if (
-                    est.endswith("_spark")
-                    if is_spark_dataframe
-                    else not est.endswith("_spark")
-                )
-            ]
+        estimator_list = task.default_estimator_list(estimator_list, is_spark_dataframe)
 
         if is_spark_dataframe and self._use_spark:
             # For spark dataframe, use_spark must be False because spark models are trained in parallel themselves
