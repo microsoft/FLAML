@@ -2028,6 +2028,131 @@ class SARIMAX(ARIMA):
         return train_time
 
 
+class HoltWinters(ARIMA):
+    """
+    The class for tuning Holt Winters model, aka 'Triple Exponential Smoothing'.
+    """
+
+    @classmethod
+    def search_space(cls, **params):
+        space = {
+            "damped_trend": {
+                "domain": tune.choice([True, False]),
+                "init_value": False,
+                "low_cost_init_value": False,
+            },
+            "trend": {
+                "domain": tune.choice(["add", "mul", None]),
+                "init_value": "add",
+                "low_cost_init_value": "add",
+            },
+            "seasonal": {
+                "domain": tune.choice(["add", "mul", None]),
+                "init_value": "add",
+                "low_cost_init_value": None,
+            },
+            "use_boxcox": {
+                "domain": tune.choice([False, True]),
+                "init_value": False,
+                "low_cost_init_value": True,
+            },
+            "seasonal_periods": {  # statsmodels casts this to None if "seasonal" is None
+                "domain": tune.choice(
+                    [7, 12, 4, 52, 6]
+                ),  # weekly, yearly, quarterly, weekly w yearly data
+                "init_value": 7,
+                "low_cost_init_value": 7,
+            },
+        }
+        return space
+
+    def _join(self, X_train, y_train):
+        train_df = super()._join(X_train, y_train)
+        if train_df.index.name == TS_TIMESTAMP_COL:  # ! check
+            train_df = train_df.reset_index()
+
+        train_df.index = to_datetime(train_df[TS_TIMESTAMP_COL])
+        train_df = train_df.drop(TS_TIMESTAMP_COL, axis=1)
+        return train_df
+
+    def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
+        import warnings
+
+        warnings.filterwarnings("ignore")
+        from statsmodels.tsa.arima.model import ARIMA as ARIMA_estimator
+        from statsmodels.tsa.holtwinters import (
+            ExponentialSmoothing as HWExponentialSmoothing,
+        )
+
+        current_time = time.time()
+        train_df = self._join(X_train, y_train)
+        train_df = self._preprocess(train_df)
+        regressors = list(train_df)
+        regressors.remove(TS_VALUE_COL)
+        if regressors:
+            raise ValueError("There s no reason to pass from here")
+            model = ARIMA_estimator(
+                train_df[[TS_VALUE_COL]],
+                exog=train_df[regressors],
+                order=(self.params["p"], self.params["d"], self.params["q"]),
+                enforce_stationarity=False,
+                enforce_invertibility=False,
+            )
+        else:
+            # print("**Initializing Holt-Winters model")
+            # Prevent:
+            # "endog must be strictly positive when usingmultiplicative trend or seasonal components."
+            print(train_df.columns)
+            if self.params["seasonal"] == "mul" and (train_df.y == 0).sum() > 0:
+                self.params["seasonal"] = "add"
+            if self.params["trend"] == "mul" and (train_df.y == 0).sum() > 0:
+                self.params["trend"] = "add"
+
+            # Override incompatible parameters
+            damped_trend = self.params["damped_trend"]
+            if not self.params["seasonal"] or not self.params["trend"] in [
+                "mul",
+                "add",
+            ]:
+                damped_trend = False
+
+            model = HWExponentialSmoothing(
+                train_df,
+                damped_trend=damped_trend,
+                seasonal=self.params["seasonal"],
+                trend=self.params["trend"],
+            )
+        with suppress_stdout_stderr():
+            model = model.fit()
+        train_time = time.time() - current_time
+        self._model = model
+        return train_time
+
+    def predict(self, X, **kwargs):
+        if self._model is not None:
+            if isinstance(X, int):
+                forecast = self._model.forecast(steps=X)
+            elif isinstance(X, DataFrame):
+                start = X[TS_TIMESTAMP_COL].iloc[0]
+                end = X[TS_TIMESTAMP_COL].iloc[-1]
+                if len(X.columns) > 1:
+                    X = self._preprocess(X.drop(columns=TS_TIMESTAMP_COL))
+                    regressors = list(X)
+                    forecast = self._model.predict(
+                        start=start, end=end, exog=X[regressors], **kwargs
+                    )
+                else:
+                    forecast = self._model.predict(start=start, end=end, **kwargs)
+            else:
+                raise ValueError(
+                    "X needs to be either a pandas Dataframe with dates as the first column"
+                    " or an int number of periods for predict()."
+                )
+            return forecast
+        else:
+            return np.ones(X if isinstance(X, int) else X.shape[0])
+
+
 class TS_SKLearn(SKLearnEstimator):
     """The class for tuning SKLearn Regressors for time-series forecasting, using hcrystalball"""
 

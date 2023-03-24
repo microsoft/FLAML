@@ -43,6 +43,7 @@ from flaml.automl.model import (
     Prophet,
     ARIMA,
     SARIMAX,
+    HoltWinters,
     TransformersEstimator,
     TemporalFusionTransformerEstimator,
     TransformersEstimatorModelSelection,
@@ -140,6 +141,8 @@ def get_estimator_class(task: str, estimator_name: str) -> EstimatorSubclass:
         estimator_class = ARIMA
     elif estimator_name == "sarimax":
         estimator_class = SARIMAX
+    elif estimator_name == "holt-winters":
+        estimator_class = HoltWinters
     elif estimator_name == "transformer":
         estimator_class = TransformersEstimator
     elif estimator_name == "tft":
