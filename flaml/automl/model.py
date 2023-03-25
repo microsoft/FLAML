@@ -2069,7 +2069,7 @@ class HoltWinters(ARIMA):
             # Not supported ATM. A few discussions here:
             # https://robjhyndman.com/hyndsight/ets-regressors/
             # https://stats.stackexchange.com/questions/220830/holt-winters-with-exogenous-regressors-in-r
-            logger.debug("Regressors are ignored for Holt-Winters ETS models.")
+            logger.warning("Regressors are ignored for Holt-Winters ETS models.")
         # Override incompatible parameters
         if self.params["seasonal"] == "mul" and (train_df.y == 0).sum() > 0:
             self.params["seasonal"] = "add"
