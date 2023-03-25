@@ -63,6 +63,7 @@ def test_hf_data():
     )
     automl.predict(X_test, **{"per_device_eval_batch_size": 2})
     automl.predict(["", ""])
+    automl.predict_proba(["", ""])
 
     automl.predict(
         [
