@@ -846,8 +846,9 @@ class TransformersEstimator(BaseEstimator):
             predictions = new_trainer.predict(test_dataset)
             return predictions.predictions
         except ZeroDivisionError:
-            raise Exception("zero division error")
-            return [float("inf")] * len(test_dataset)
+            logger.warning("Zero division error appeared in HuggingFace Transformers.")
+            raise Exception("covered")
+            return [0] * len(test_dataset)
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         import transformers
@@ -895,8 +896,11 @@ class TransformersEstimator(BaseEstimator):
             )
             return post_y_pred
         except ZeroDivisionError:
-            raise Exception("zero division error")
-            return [float("inf")] * len(test_dataset)
+            # TODO: 确定这个branch 被cover到，看一下automl.fit的结果是不是正确输出，是不是差不多
+            # TODO: 给一个warning
+            logger.warning("Zero division error appeared in HuggingFace Transformers.")
+            raise Exception("covered")
+            return [0] * len(test_dataset)
 
     def config2params(self, config: dict) -> dict:
         params = super().config2params(config)
