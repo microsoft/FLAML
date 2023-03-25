@@ -2066,20 +2066,10 @@ class HoltWinters(ARIMA):
         }
         return space
 
-    def _join(self, X_train, y_train):
-        train_df = super()._join(X_train, y_train)
-        if train_df.index.name == TS_TIMESTAMP_COL:  # ! check
-            train_df = train_df.reset_index()
-
-        train_df.index = to_datetime(train_df[TS_TIMESTAMP_COL])
-        train_df = train_df.drop(TS_TIMESTAMP_COL, axis=1)
-        return train_df
-
     def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
         import warnings
 
         warnings.filterwarnings("ignore")
-        from statsmodels.tsa.arima.model import ARIMA as ARIMA_estimator
         from statsmodels.tsa.holtwinters import (
             ExponentialSmoothing as HWExponentialSmoothing,
         )
@@ -2090,38 +2080,28 @@ class HoltWinters(ARIMA):
         regressors = list(train_df)
         regressors.remove(TS_VALUE_COL)
         if regressors:
-            raise ValueError("There s no reason to pass from here")
-            model = ARIMA_estimator(
-                train_df[[TS_VALUE_COL]],
-                exog=train_df[regressors],
-                order=(self.params["p"], self.params["d"], self.params["q"]),
-                enforce_stationarity=False,
-                enforce_invertibility=False,
-            )
-        else:
-            # print("**Initializing Holt-Winters model")
-            # Prevent:
-            # "endog must be strictly positive when usingmultiplicative trend or seasonal components."
-            print(train_df.columns)
-            if self.params["seasonal"] == "mul" and (train_df.y == 0).sum() > 0:
-                self.params["seasonal"] = "add"
-            if self.params["trend"] == "mul" and (train_df.y == 0).sum() > 0:
-                self.params["trend"] = "add"
+            # Not supported ATM. A few discussions here:
+            # https://robjhyndman.com/hyndsight/ets-regressors/
+            # https://stats.stackexchange.com/questions/220830/holt-winters-with-exogenous-regressors-in-r
+            logger.debug("Regressors are ignored for Holt-Winters ETS models.")
+        # Override incompatible parameters
+        if self.params["seasonal"] == "mul" and (train_df.y == 0).sum() > 0:
+            self.params["seasonal"] = "add"
+        if self.params["trend"] == "mul" and (train_df.y == 0).sum() > 0:
+            self.params["trend"] = "add"
 
-            # Override incompatible parameters
-            damped_trend = self.params["damped_trend"]
-            if not self.params["seasonal"] or not self.params["trend"] in [
-                "mul",
-                "add",
-            ]:
-                damped_trend = False
+        if not self.params["seasonal"] or not self.params["trend"] in [
+            "mul",
+            "add",
+        ]:
+            self.params["damped_trend"] = False
 
-            model = HWExponentialSmoothing(
-                train_df,
-                damped_trend=damped_trend,
-                seasonal=self.params["seasonal"],
-                trend=self.params["trend"],
-            )
+        model = HWExponentialSmoothing(
+            train_df[[TS_VALUE_COL]],
+            damped_trend=self.params["damped_trend"],
+            seasonal=self.params["seasonal"],
+            trend=self.params["trend"],
+        )
         with suppress_stdout_stderr():
             model = model.fit()
         train_time = time.time() - current_time
@@ -2135,14 +2115,7 @@ class HoltWinters(ARIMA):
             elif isinstance(X, DataFrame):
                 start = X[TS_TIMESTAMP_COL].iloc[0]
                 end = X[TS_TIMESTAMP_COL].iloc[-1]
-                if len(X.columns) > 1:
-                    X = self._preprocess(X.drop(columns=TS_TIMESTAMP_COL))
-                    regressors = list(X)
-                    forecast = self._model.predict(
-                        start=start, end=end, exog=X[regressors], **kwargs
-                    )
-                else:
-                    forecast = self._model.predict(start=start, end=end, **kwargs)
+                forecast = self._model.predict(start=start, end=end, **kwargs)
             else:
                 raise ValueError(
                     "X needs to be either a pandas Dataframe with dates as the first column"
