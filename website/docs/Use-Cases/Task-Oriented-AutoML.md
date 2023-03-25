@@ -73,20 +73,20 @@ A customized metric function that requires the following (input) signature, and 
 
 ```python
 def custom_metric(
-        X_val, y_val, estimator, labels,
-        X_train, y_train, weight_val=None, weight_train=None,
-        config=None, groups_val=None, groups_train=None,
-    ):
+    X_val, y_val, estimator, labels,
+    X_train, y_train, weight_val=None, weight_train=None,
+    config=None, groups_val=None, groups_train=None,
+):
     return metric_to_minimize, metrics_to_log
 ```
 
 For example,
 ```python
 def custom_metric(
-        X_val, y_val, estimator, labels,
-        X_train, y_train, weight_val=None, weight_train=None,
-        *args,
-    ):
+    X_val, y_val, estimator, labels,
+    X_train, y_train, weight_val=None, weight_train=None,
+    *args,
+):
     from sklearn.metrics import log_loss
     import time
 
