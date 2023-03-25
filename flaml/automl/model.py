@@ -2036,32 +2036,18 @@ class HoltWinters(ARIMA):
     @classmethod
     def search_space(cls, **params):
         space = {
-            "damped_trend": {
-                "domain": tune.choice([True, False]),
-                "init_value": False,
-                "low_cost_init_value": False,
-            },
-            "trend": {
-                "domain": tune.choice(["add", "mul", None]),
-                "init_value": "add",
-                "low_cost_init_value": "add",
-            },
+            "damped_trend": {"domain": tune.choice([True, False]), "init_value": False},
+            "trend": {"domain": tune.choice(["add", "mul", None]), "init_value": "add"},
             "seasonal": {
                 "domain": tune.choice(["add", "mul", None]),
                 "init_value": "add",
-                "low_cost_init_value": None,
             },
-            "use_boxcox": {
-                "domain": tune.choice([False, True]),
-                "init_value": False,
-                "low_cost_init_value": True,
-            },
+            "use_boxcox": {"domain": tune.choice([False, True]), "init_value": False},
             "seasonal_periods": {  # statsmodels casts this to None if "seasonal" is None
                 "domain": tune.choice(
                     [7, 12, 4, 52, 6]
                 ),  # weekly, yearly, quarterly, weekly w yearly data
                 "init_value": 7,
-                "low_cost_init_value": 7,
             },
         }
         return space

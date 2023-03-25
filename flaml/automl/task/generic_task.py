@@ -826,7 +826,7 @@ class GenericTask(Task):
                             "holt-winters",
                         ]
                     except ImportError:
-                        estimator_list += ["arima", "holt-winters"]
+                        estimator_list += ["arima", "sarimax", "holt-winters"]
             elif not self.is_regression():
                 estimator_list += ["lrl1"]
 
