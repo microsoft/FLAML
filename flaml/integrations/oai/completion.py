@@ -411,7 +411,7 @@ class Completion:
                     )
                 ):
                     # update valid n
-                    cls._max_vaexplid_n_per_max_tokens[
+                    cls._max_valid_n_per_max_tokens[
                         region_key
                     ] = valid_n = cls._max_valid_n_per_max_tokens.get(region_key, {})
                     valid_n[max_tokens] = max(
