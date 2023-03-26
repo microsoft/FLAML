@@ -2876,3 +2876,12 @@ class AutoML(BaseEstimator):
                 q += inv[i] / s
                 if p < q:
                     return estimator_list[i]
+
+    def retrain(self, X_train, y_train, config=None):
+        if config is None:
+            config = self.best_config
+
+        automl2 = AutoML()
+        automl2.fit(X_train, y_train, **config)
+
+        return automl2
