@@ -239,8 +239,10 @@ class Completion:
         prune_hp = getattr(cls, "_prune_hp", "n")
         metric = cls._metric
         config_n = config.get(prune_hp, 1)  # default value in OpenAI is 1
-        max_tokens = config.get("max_tokens", 16)  # default value in OpenAI is 16
-        region_key = cls._get_region_key(config)
+        max_tokens = config.get(
+            "max_tokens", np.inf if model in cls.chat_models else 16
+        )
+        # default value in OpenAI
         if model in cls.chat_models:
             # either "prompt" should be in config (for being compatible with non-chat models)
             # or "messages" should be in config (for tuning chat models only)
@@ -258,7 +260,11 @@ class Completion:
             prompt = cls._prompts[config["prompt"]]
         stop = cls._stops and cls._stops[config["stop"]]
         target_output_tokens = None
-        if prune and inference_budget:
+        if not cls.avg_input_tokens:
+            input_tokens = [None] * data_length
+        prune = prune and inference_budget and not eval_only
+        if prune:
+            region_key = cls._get_region_key(config)
             max_valid_n = cls._get_max_valid_n(region_key, max_tokens)
             if cls.avg_input_tokens:
                 target_output_tokens = (
@@ -270,8 +276,6 @@ class Completion:
                     max_valid_n,
                     int(target_output_tokens // max_tokens),
                 )
-            else:
-                input_tokens = [None] * data_length
             if config_n <= max_valid_n:
                 start_n = config_n
             else:
@@ -349,12 +353,7 @@ class Completion:
                     usage = response["usage"]
                     n_input_tokens = usage["prompt_tokens"]
                     n_output_tokens = usage.get("completion_tokens", 0)
-                    if (
-                        prune
-                        and inference_budget
-                        and not cls.avg_input_tokens
-                        and not input_tokens[i]
-                    ):
+                    if not cls.avg_input_tokens and not input_tokens[i]:
                         # store the # input tokens
                         input_tokens[i] = n_input_tokens
                     query_cost = (
@@ -412,7 +411,7 @@ class Completion:
                     )
                 ):
                     # update valid n
-                    cls._max_valid_n_per_max_tokens[
+                    cls._max_vaexplid_n_per_max_tokens[
                         region_key
                     ] = valid_n = cls._max_valid_n_per_max_tokens.get(region_key, {})
                     valid_n[max_tokens] = max(
@@ -445,11 +444,12 @@ class Completion:
                         result[key] /= data_limit
                 result["total_cost"] = cls._total_cost
                 result["cost"] = cost
-                if prune and inference_budget and not cls.avg_input_tokens:
+                if not cls.avg_input_tokens:
                     cls.avg_input_tokens = np.mean(input_tokens)
-                    target_output_tokens = (
-                        inference_budget * 1000 - cls.avg_input_tokens * price_input
-                    ) / price_output
+                    if prune:
+                        target_output_tokens = (
+                            inference_budget * 1000 - cls.avg_input_tokens * price_input
+                        ) / price_output
                 result["inference_cost"] = (
                     avg_n_tokens * price_output + cls.avg_input_tokens * price_input
                 ) / 1000
