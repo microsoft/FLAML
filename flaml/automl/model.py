@@ -2420,7 +2420,13 @@ class HoltWinters(ARIMA):
             # https://stats.stackexchange.com/questions/220830/holt-winters-with-exogenous-regressors-in-r
             logger.warning("Regressors are ignored for Holt-Winters ETS models.")
         # Override incompatible parameters
-        if self.params["seasonal"] == "mul" and (train_df.y == 0).sum() > 0:
+        if (
+            X_train.shape[0] < 2 * self.params["seasonal_periods"]
+        ):  # this would prevent heuristic initialization to work properly
+            self.params["seasonal"] = None
+        if (
+            self.params["seasonal"] == "mul" and (train_df.y == 0).sum() > 0
+        ):  # cannot have multiplicative seasonality in this case
             self.params["seasonal"] = "add"
         if self.params["trend"] == "mul" and (train_df.y == 0).sum() > 0:
             self.params["trend"] = "add"
