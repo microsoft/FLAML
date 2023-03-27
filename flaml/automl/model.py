@@ -2415,10 +2415,8 @@ class HoltWinters(ARIMA):
         regressors = list(train_df)
         regressors.remove(TS_VALUE_COL)
         if regressors:
-            # Not supported ATM. A few discussions here:
-            # https://robjhyndman.com/hyndsight/ets-regressors/
-            # https://stats.stackexchange.com/questions/220830/holt-winters-with-exogenous-regressors-in-r
             logger.warning("Regressors are ignored for Holt-Winters ETS models.")
+
         # Override incompatible parameters
         if (
             X_train.shape[0] < 2 * self.params["seasonal_periods"]
