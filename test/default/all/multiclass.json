@@ -1,0 +1,305 @@
+{
+    "version": "1.2.0",
+    "meta_feature_names": [
+        "NumberOfInstances",
+        "NumberOfFeatures",
+        "NumberOfClasses",
+        "PercentageOfNumericFeatures"
+    ],
+    "portfolio": [
+        {
+            "class": "lgbm",
+            "hyperparameters": {
+                "n_estimators": 733,
+                "num_leaves": 11,
+                "min_child_samples": 94,
+                "learning_rate": 0.06276798296942972,
+                "log_max_bin": 6,
+                "colsample_bytree": 0.6341928918435795,
+                "reg_alpha": 0.5811038918218691,
+                "reg_lambda": 43.304997517523944
+            }
+        },
+        {
+            "class": "lgbm",
+            "hyperparameters": {
+                "n_estimators": 3726,
+                "num_leaves": 155,
+                "min_child_samples": 4,
+                "learning_rate": 0.040941607728296484,
+                "log_max_bin": 5,
+                "colsample_bytree": 0.5326256194627191,
+                "reg_alpha": 0.7408711930398492,
+                "reg_lambda": 0.5467731065349226
+            }
+        },
+        {
+            "class": "lgbm",
+            "hyperparameters": {
+                "n_estimators": 7325,
+                "num_leaves": 15,
+                "min_child_samples": 6,
+                "learning_rate": 0.009932524214971736,
+                "log_max_bin": 6,
+                "colsample_bytree": 0.8592091503131608,
+                "reg_alpha": 0.0009997224940106115,
+                "reg_lambda": 0.04069855891326503
+            }
+        },
+        {
+            "class": "lgbm",
+            "hyperparameters": {}
+        },
+        {
+            "class": "xgboost",
+            "hyperparameters": {}
+        },
+        {
+            "class": "xgboost",
+            "hyperparameters": {
+                "n_estimators": 6357,
+                "max_leaves": 206,
+                "min_child_weight": 1.9495322566288034,
+                "learning_rate": 0.0068766724195393905,
+                "subsample": 0.9451618245005704,
+                "colsample_bylevel": 0.9030482524943064,
+                "colsample_bytree": 0.9278972006416252,
+                "reg_alpha": 0.01857648400903689,
+                "reg_lambda": 6.021166480604588,
+                "FLAML_sample_size": 344444
+            }
+        },
+        {
+            "class": "xgboost",
+            "hyperparameters": {
+                "n_estimators": 5739,
+                "max_leaves": 5,
+                "min_child_weight": 0.1359602026207002,
+                "learning_rate": 0.14496176867613397,
+                "subsample": 0.864897070662231,
+                "colsample_bylevel": 0.01,
+                "colsample_bytree": 0.9394057513384305,
+                "reg_alpha": 0.001103317921178771,
+                "reg_lambda": 0.1655504349283218
+            }
+        },
+        {
+            "class": "xgb_limitdepth",
+            "hyperparameters": {
+                "n_estimators": 624,
+                "max_depth": 3,
+                "min_child_weight": 0.0017043575728019624,
+                "learning_rate": 0.8481863978692453,
+                "subsample": 0.9897901748446495,
+                "colsample_bylevel": 1.0,
+                "colsample_bytree": 1.0,
+                "reg_alpha": 0.0009765625,
+                "reg_lambda": 0.008686469265798288
+            }
+        },
+        {
+            "class": "xgb_limitdepth",
+            "hyperparameters": {
+                "n_estimators": 1499,
+                "max_depth": 11,
+                "min_child_weight": 0.07563529776156448,
+                "learning_rate": 0.039042609221240955,
+                "subsample": 0.7832981935783824,
+                "colsample_bylevel": 1.0,
+                "colsample_bytree": 1.0,
+                "reg_alpha": 0.0009765625,
+                "reg_lambda": 23.513066752844153
+            }
+        },
+        {
+            "class": "xgb_limitdepth",
+            "hyperparameters": {}
+        },
+        {
+            "class": "rf",
+            "hyperparameters": {
+                "n_estimators": 510,
+                "max_features": 0.12094682590862652,
+                "max_leaves": 32767,
+                "criterion": "entropy",
+                "FLAML_sample_size": 337147
+            }
+        },
+        {
+            "class": "rf",
+            "hyperparameters": {
+                "n_estimators": 418,
+                "max_features": 0.5303485415288045,
+                "max_leaves": 6452,
+                "criterion": "entropy",
+                "FLAML_sample_size": 436899
+            }
+        },
+        {
+            "class": "rf",
+            "hyperparameters": {
+                "n_estimators": 792,
+                "max_features": 1.0,
+                "max_leaves": 67,
+                "criterion": "entropy"
+            }
+        },
+        {
+            "class": "rf",
+            "hyperparameters": {}
+        },
+        {
+            "class": "extra_tree",
+            "hyperparameters": {
+                "n_estimators": 229,
+                "max_features": 0.5372053700721111,
+                "max_leaves": 11150,
+                "criterion": "entropy"
+            }
+        },
+        {
+            "class": "extra_tree",
+            "hyperparameters": {
+                "n_estimators": 90,
+                "max_features": 1.0,
+                "max_leaves": 1301,
+                "FLAML_sample_size": 94478
+            }
+        },
+        {
+            "class": "extra_tree",
+            "hyperparameters": {}
+        }
+    ],
+    "preprocessing": {
+        "center": [
+            34900.5,
+            51.0,
+            4.5,
+            0.5
+        ],
+        "scale": [
+            132104.25,
+            512.0,
+            88.75,
+            1.0
+        ]
+    },
+    "neighbors": [
+        {
+            "features": [
+                2.57121553621477,
+                0.017578125,
+                3.9492957746478874,
+                0.5
+            ],
+            "choice": [
+                0,
+                14,
+                13,
+                10,
+                15,
+                3,
+                16
+            ]
+        },
+        {
+            "features": [
+                -0.252418071333814,
+                -0.087890625,
+                -0.005633802816901409,
+                -0.5
+            ],
+            "choice": [
+                7,
+                2,
+                6,
+                3,
+                4,
+                9,
+                8,
+                5,
+                15,
+                12,
+                1,
+                14,
+                11,
+                13,
+                16,
+                0,
+                10
+            ]
+        },
+        {
+            "features": [
+                0.19606106540856938,
+                -0.017578125,
+                -0.016901408450704224,
+                -0.5
+            ],
+            "choice": [
+                1,
+                5,
+                8,
+                7,
+                2,
+                4,
+                9,
+                14,
+                3,
+                11,
+                0,
+                6,
+                10,
+                13,
+                16,
+                15,
+                12
+            ]
+        },
+        {
+            "features": [
+                -0.19606106540856938,
+                3.806640625,
+                0.005633802816901409,
+                0.5
+            ],
+            "choice": [
+                9,
+                0,
+                14,
+                15,
+                11,
+                10,
+                13,
+                12,
+                6,
+                2,
+                7,
+                3,
+                4,
+                1,
+                16
+            ]
+        }
+    ],
+    "configsource": [
+        "lgbm/APSFailure",
+        "lgbm/connect-4",
+        "lgbm/dilbert",
+        "lgbm/default",
+        "xgboost/default",
+        "xgboost/Albert",
+        "xgboost/dilbert",
+        "xgb_limitdepth/car",
+        "xgb_limitdepth/connect-4",
+        "xgb_limitdepth/default",
+        "rf/Dionis",
+        "rf/Airlines",
+        "rf/car",
+        "rf/default",
+        "extra_tree/connect-4",
+        "extra_tree/bng_breastTumor",
+        "extra_tree/default"
+    ]
+}

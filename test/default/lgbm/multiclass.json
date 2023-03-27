@@ -1,0 +1,125 @@
+{
+    "version": "1.2.0",
+    "meta_feature_names": [
+        "NumberOfInstances",
+        "NumberOfFeatures",
+        "NumberOfClasses",
+        "PercentageOfNumericFeatures"
+    ],
+    "portfolio": [
+        {
+            "class": "lgbm",
+            "hyperparameters": {
+                "n_estimators": 733,
+                "num_leaves": 11,
+                "min_child_samples": 94,
+                "learning_rate": 0.06276798296942972,
+                "log_max_bin": 6,
+                "colsample_bytree": 0.6341928918435795,
+                "reg_alpha": 0.5811038918218691,
+                "reg_lambda": 43.304997517523944
+            }
+        },
+        {
+            "class": "lgbm",
+            "hyperparameters": {
+                "n_estimators": 3726,
+                "num_leaves": 155,
+                "min_child_samples": 4,
+                "learning_rate": 0.040941607728296484,
+                "log_max_bin": 5,
+                "colsample_bytree": 0.5326256194627191,
+                "reg_alpha": 0.7408711930398492,
+                "reg_lambda": 0.5467731065349226
+            }
+        },
+        {
+            "class": "lgbm",
+            "hyperparameters": {
+                "n_estimators": 7325,
+                "num_leaves": 15,
+                "min_child_samples": 6,
+                "learning_rate": 0.009932524214971736,
+                "log_max_bin": 6,
+                "colsample_bytree": 0.8592091503131608,
+                "reg_alpha": 0.0009997224940106115,
+                "reg_lambda": 0.04069855891326503
+            }
+        },
+        {
+            "class": "lgbm",
+            "hyperparameters": {}
+        }
+    ],
+    "preprocessing": {
+        "center": [
+            34900.5,
+            51.0,
+            4.5,
+            0.5
+        ],
+        "scale": [
+            132104.25,
+            512.0,
+            88.75,
+            1.0
+        ]
+    },
+    "neighbors": [
+        {
+            "features": [
+                2.57121553621477,
+                0.017578125,
+                3.9492957746478874,
+                0.5
+            ],
+            "choice": [
+                0,
+                3
+            ]
+        },
+        {
+            "features": [
+                -0.252418071333814,
+                -0.087890625,
+                -0.005633802816901409,
+                -0.5
+            ],
+            "choice": [
+                2,
+                3
+            ]
+        },
+        {
+            "features": [
+                0.19606106540856938,
+                -0.017578125,
+                -0.016901408450704224,
+                -0.5
+            ],
+            "choice": [
+                1,
+                2,
+                3
+            ]
+        },
+        {
+            "features": [
+                -0.19606106540856938,
+                3.806640625,
+                0.005633802816901409,
+                0.5
+            ],
+            "choice": [
+                2,
+                3
+            ]
+        }
+    ],
+    "configsource": [
+        "APSFailure",
+        "connect-4",
+        "dilbert",
+        "default"
+    ]
+}

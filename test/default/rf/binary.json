@@ -1,0 +1,92 @@
+{
+    "version": "1.2.0",
+    "meta_feature_names": [
+        "NumberOfInstances",
+        "NumberOfFeatures",
+        "NumberOfClasses",
+        "PercentageOfNumericFeatures"
+    ],
+    "portfolio": [
+        {
+            "class": "rf",
+            "hyperparameters": {
+                "n_estimators": 1907,
+                "max_features": 0.3728618389498168,
+                "max_leaves": 11731,
+                "criterion": "entropy"
+            }
+        },
+        {
+            "class": "rf",
+            "hyperparameters": {}
+        }
+    ],
+    "preprocessing": {
+        "center": [
+            213336.5,
+            11.5,
+            2.0,
+            0.38095238095238093
+        ],
+        "scale": [
+            368057.25,
+            21.5,
+            1.0,
+            0.1785714285714285
+        ]
+    },
+    "neighbors": [
+        {
+            "features": [
+                0.7393075397917036,
+                -0.20930232558139536,
+                0.0,
+                0.26666666666666644
+            ],
+            "choice": [
+                0,
+                1
+            ]
+        },
+        {
+            "features": [
+                0.4601987870093579,
+                3.0930232558139537,
+                0.0,
+                -0.2666666666666668
+            ],
+            "choice": [
+                0,
+                1
+            ]
+        },
+        {
+            "features": [
+                -0.4994997381521489,
+                -0.11627906976744186,
+                0.0,
+                -2.133333333333334
+            ],
+            "choice": [
+                0,
+                1
+            ]
+        },
+        {
+            "features": [
+                -0.4601987870093579,
+                0.11627906976744186,
+                0.0,
+                0.26666666666666644
+            ],
+            "choice": [
+                0,
+                1
+            ]
+        }
+    ],
+    "configsource": [
+        "connect-4",
+        "default"
+    ]
+}

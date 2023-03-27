@@ -1,0 +1,132 @@
+{
+    "version": "1.2.0",
+    "meta_feature_names": [
+        "NumberOfInstances",
+        "NumberOfFeatures",
+        "NumberOfClasses",
+        "PercentageOfNumericFeatures"
+    ],
+    "portfolio": [
+        {
+            "class": "xgboost",
+            "hyperparameters": {
+                "n_estimators": 6458,
+                "max_leaves": 196,
+                "min_child_weight": 0.020541449256787844,
+                "learning_rate": 0.0067240405208345,
+                "subsample": 0.5764514509827234,
+                "colsample_bylevel": 1.0,
+                "colsample_bytree": 0.9478632468968712,
+                "reg_alpha": 0.08196899811780128,
+                "reg_lambda": 1.3914579996946315
+            }
+        },
+        {
+            "class": "xgboost",
+            "hyperparameters": {
+                "n_estimators": 6866,
+                "max_leaves": 238,
+                "min_child_weight": 0.1000665069590469,
+                "learning_rate": 0.05522440252112267,
+                "subsample": 0.9621433799637473,
+                "colsample_bylevel": 0.8366787895853636,
+                "colsample_bytree": 1.0,
+                "reg_alpha": 0.002455941636379231,
+                "reg_lambda": 0.02487031358204277,
+                "FLAML_sample_size": 830258
+            }
+        },
+        {
+            "class": "xgboost",
+            "hyperparameters": {
+                "n_estimators": 4038,
+                "max_leaves": 89,
+                "min_child_weight": 0.23500921146599626,
+                "learning_rate": 0.0039779941096963365,
+                "subsample": 0.9421092355451888,
+                "colsample_bylevel": 0.7772326835688742,
+                "colsample_bytree": 0.6864341727912397,
+                "reg_alpha": 4.8782018848557,
+                "reg_lambda": 0.7531969031616396,
+                "FLAML_sample_size": 94478
+            }
+        },
+        {
+            "class": "xgboost",
+            "hyperparameters": {}
+        }
+    ],
+    "preprocessing": {
+        "center": [
+            502488.0,
+            10.0,
+            0.0,
+            0.7777777777777778
+        ],
+        "scale": [
+            817722.5,
+            2.25,
+            1.0,
+            0.5555555555555556
+        ]
+    },
+    "neighbors": [
+        {
+            "features": [
+                -0.5696272268404012,
+                0.0,
+                0.0,
+                0.39999999999999997
+            ],
+            "choice": [
+                2,
+                3
+            ]
+        },
+        {
+            "features": [
+                -0.4861209028735298,
+                -0.4444444444444444,
+                0.0,
+                -1.2000000000000002
+            ],
+            "choice": [
+                2,
+                3
+            ]
+        },
+        {
+            "features": [
+                0.4861209028735298,
+                3.5555555555555554,
+                0.0,
+                -0.39999999999999997
+            ],
+            "choice": [
+                0,
+                1,
+                2,
+                3
+            ]
+        },
+        {
+            "features": [
+                0.5136473559184198,
+                0.0,
+                0.0,
+                0.39999999999999997
+            ],
+            "choice": [
+                1,
+                0,
+                3
+            ]
+        }
+    ],
+    "configsource": [
+        "connect-4",
+        "poker",
+        "bng_breastTumor",
+        "default"
+    ]
+}

@@ -1,0 +1,1 @@
+{"class": "catboost", "hyperparameters": {"early_stopping_rounds": 10, "learning_rate": 0.09999999999999996, "n_estimators": 123}}

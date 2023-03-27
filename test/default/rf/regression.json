@@ -1,0 +1,104 @@
+{
+    "version": "1.2.0",
+    "meta_feature_names": [
+        "NumberOfInstances",
+        "NumberOfFeatures",
+        "NumberOfClasses",
+        "PercentageOfNumericFeatures"
+    ],
+    "portfolio": [
+        {
+            "class": "rf",
+            "hyperparameters": {
+                "n_estimators": 418,
+                "max_features": 0.5303485415288045,
+                "max_leaves": 6452,
+                "criterion": "entropy",
+                "FLAML_sample_size": 436899
+            }
+        },
+        {
+            "class": "rf",
+            "hyperparameters": {}
+        },
+        {
+            "class": "rf",
+            "hyperparameters": {
+                "n_estimators": 288,
+                "max_features": 0.6436380990499977,
+                "max_leaves": 1823,
+                "FLAML_sample_size": 94478
+            }
+        }
+    ],
+    "preprocessing": {
+        "center": [
+            502488.0,
+            10.0,
+            0.0,
+            0.7777777777777778
+        ],
+        "scale": [
+            817722.5,
+            2.25,
+            1.0,
+            0.5555555555555556
+        ]
+    },
+    "neighbors": [
+        {
+            "features": [
+                -0.5696272268404012,
+                0.0,
+                0.0,
+                0.39999999999999997
+            ],
+            "choice": [
+                2,
+                0,
+                1
+            ]
+        },
+        {
+            "features": [
+                -0.4861209028735298,
+                -0.4444444444444444,
+                0.0,
+                -1.2000000000000002
+            ],
+            "choice": [
+                2,
+                0,
+                1
+            ]
+        },
+        {
+            "features": [
+                0.4861209028735298,
+                3.5555555555555554,
+                0.0,
+                -0.39999999999999997
+            ],
+            "choice": [
+                0,
+                1
+            ]
+        },
+        {
+            "features": [
+                0.5136473559184198,
+                0.0,
+                0.0,
+                0.39999999999999997
+            ],
+            "choice": [
+                1
+            ]
+        }
+    ],
+    "configsource": [
+        "Airlines",
+        "default",
+        "bng_breastTumor"
+    ]
+}

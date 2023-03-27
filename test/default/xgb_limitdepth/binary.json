@@ -1,0 +1,84 @@
+{
+    "version": "1.2.0",
+    "meta_feature_names": [
+        "NumberOfInstances",
+        "NumberOfFeatures",
+        "NumberOfClasses",
+        "PercentageOfNumericFeatures"
+    ],
+    "portfolio": [
+        {
+            "class": "xgb_limitdepth",
+            "hyperparameters": {
+                "n_estimators": 3526,
+                "max_depth": 13,
+                "min_child_weight": 0.0994486725676356,
+                "learning_rate": 0.0009765625,
+                "subsample": 0.46123759274652554,
+                "colsample_bylevel": 1.0,
+                "colsample_bytree": 0.4498813776397717,
+                "reg_alpha": 0.002599398546499414,
+                "reg_lambda": 0.028336396854402753
+            }
+        },
+        {
+            "class": "xgb_limitdepth",
+            "hyperparameters": {}
+        }
+    ],
+    "preprocessing": {
+        "center": [
+            43957.0,
+            9.0,
+            2.0,
+            0.4285714285714285
+        ],
+        "scale": [
+            227976.0,
+            3.5,
+            1.0,
+            0.21428571428571425
+        ]
+    },
+    "neighbors": [
+        {
+            "features": [
+                1.9365503386321368,
+                -0.5714285714285714,
+                0.0,
+                0.0
+            ],
+            "choice": [
+                0,
+                1
+            ]
+        },
+        {
+            "features": [
+                -0.06344966136786329,
+                0.0,
+                0.0,
+                -2.0
+            ],
+            "choice": [
+                0,
+                1
+            ]
+        },
+        {
+            "features": [
+                0.0,
+                1.4285714285714286,
+                0.0,
+                0.0
+            ],
+            "choice": [
+                1
+            ]
+        }
+    ],
+    "configsource": [
+        "Amazon_employee_access",
+        "default"
+    ]
+}

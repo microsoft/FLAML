@@ -1,0 +1,272 @@
+{
+    "version": "1.2.0",
+    "meta_feature_names": [
+        "NumberOfInstances",
+        "NumberOfFeatures",
+        "NumberOfClasses",
+        "PercentageOfNumericFeatures"
+    ],
+    "portfolio": [
+        {
+            "class": "lgbm",
+            "hyperparameters": {
+                "n_estimators": 2541,
+                "num_leaves": 1667,
+                "min_child_samples": 29,
+                "learning_rate": 0.0016660662914022302,
+                "log_max_bin": 8,
+                "colsample_bytree": 0.5157078343718623,
+                "reg_alpha": 0.045792841240713165,
+                "reg_lambda": 0.0012362651138125363,
+                "FLAML_sample_size": 436899
+            }
+        },
+        {
+            "class": "lgbm",
+            "hyperparameters": {
+                "n_estimators": 12659,
+                "num_leaves": 566,
+                "min_child_samples": 51,
+                "learning_rate": 0.0017248557932071625,
+                "log_max_bin": 10,
+                "colsample_bytree": 0.35373661752616337,
+                "reg_alpha": 0.004824272162679245,
+                "reg_lambda": 8.51563063056529,
+                "FLAML_sample_size": 344444
+            }
+        },
+        {
+            "class": "lgbm",
+            "hyperparameters": {}
+        },
+        {
+            "class": "xgboost",
+            "hyperparameters": {
+                "n_estimators": 6357,
+                "max_leaves": 206,
+                "min_child_weight": 1.9495322566288034,
+                "learning_rate": 0.0068766724195393905,
+                "subsample": 0.9451618245005704,
+                "colsample_bylevel": 0.9030482524943064,
+                "colsample_bytree": 0.9278972006416252,
+                "reg_alpha": 0.01857648400903689,
+                "reg_lambda": 6.021166480604588,
+                "FLAML_sample_size": 344444
+            }
+        },
+        {
+            "class": "xgboost",
+            "hyperparameters": {
+                "n_estimators": 591,
+                "max_leaves": 16651,
+                "min_child_weight": 0.03356567864689129,
+                "learning_rate": 0.002595066436678338,
+                "subsample": 0.9114132805513452,
+                "colsample_bylevel": 0.9503441844594458,
+                "colsample_bytree": 0.5703338448066768,
+                "reg_alpha": 0.010405212349127894,
+                "reg_lambda": 0.05352660657433639
+            }
+        },
+        {
+            "class": "xgboost",
+            "hyperparameters": {
+                "n_estimators": 23282,
+                "max_leaves": 19,
+                "min_child_weight": 0.02198438885474473,
+                "learning_rate": 0.001700636796132106,
+                "subsample": 1.0,
+                "colsample_bylevel": 0.8954745234489918,
+                "colsample_bytree": 0.22331977285961732,
+                "reg_alpha": 0.4115502489939291,
+                "reg_lambda": 0.015523027968801352
+            }
+        },
+        {
+            "class": "xgboost",
+            "hyperparameters": {}
+        },
+        {
+            "class": "xgb_limitdepth",
+            "hyperparameters": {
+                "n_estimators": 3526,
+                "max_depth": 13,
+                "min_child_weight": 0.0994486725676356,
+                "learning_rate": 0.0009765625,
+                "subsample": 0.46123759274652554,
+                "colsample_bylevel": 1.0,
+                "colsample_bytree": 0.4498813776397717,
+                "reg_alpha": 0.002599398546499414,
+                "reg_lambda": 0.028336396854402753
+            }
+        },
+        {
+            "class": "xgb_limitdepth",
+            "hyperparameters": {}
+        },
+        {
+            "class": "rf",
+            "hyperparameters": {
+                "n_estimators": 1907,
+                "max_features": 0.3728618389498168,
+                "max_leaves": 11731,
+                "criterion": "entropy"
+            }
+        },
+        {
+            "class": "rf",
+            "hyperparameters": {}
+        },
+        {
+            "class": "extra_tree",
+            "hyperparameters": {
+                "n_estimators": 812,
+                "max_features": 1.0,
+                "max_leaves": 1474,
+                "criterion": "entropy"
+            }
+        },
+        {
+            "class": "extra_tree",
+            "hyperparameters": {
+                "n_estimators": 2047,
+                "max_features": 1.0,
+                "max_leaves": 8194,
+                "criterion": "gini",
+                "FLAML_sample_size": 436899
+            }
+        },
+        {
+            "class": "extra_tree",
+            "hyperparameters": {}
+        }
+    ],
+    "preprocessing": {
+        "center": [
+            213336.5,
+            11.5,
+            2.0,
+            0.38095238095238093
+        ],
+        "scale": [
+            368057.25,
+            21.5,
+            1.0,
+            0.1785714285714285
+        ]
+    },
+    "neighbors": [
+        {
+            "features": [
+                0.7393075397917036,
+                -0.20930232558139536,
+                0.0,
+                0.26666666666666644
+            ],
+            "choice": [
+                0,
+                3,
+                7,
+                4,
+                9,
+                12,
+                6,
+                8,
+                11,
+                2,
+                1,
+                5,
+                10,
+                13
+            ]
+        },
+        {
+            "features": [
+                0.4601987870093579,
+                3.0930232558139537,
+                0.0,
+                -0.2666666666666668
+            ],
+            "choice": [
+                1,
+                3,
+                5,
+                0,
+                6,
+                8,
+                2,
+                7,
+                4,
+                9,
+                12,
+                11,
+                10,
+                13
+            ]
+        },
+        {
+            "features": [
+                -0.4994997381521489,
+                -0.11627906976744186,
+                0.0,
+                -2.133333333333334
+            ],
+            "choice": [
+                4,
+                7,
+                0,
+                1,
+                9,
+                10,
+                3,
+                11,
+                5,
+                6,
+                8,
+                2,
+                13,
+                12
+            ]
+        },
+        {
+            "features": [
+                -0.4601987870093579,
+                0.11627906976744186,
+                0.0,
+                0.26666666666666644
+            ],
+            "choice": [
+                5,
+                6,
+                8,
+                2,
+                1,
+                7,
+                0,
+                3,
+                4,
+                11,
+                9,
+                10,
+                12,
+                13
+            ]
+        }
+    ],
+    "configsource": [
+        "lgbm/Airlines",
+        "lgbm/Albert",
+        "lgbm/default",
+        "xgboost/Albert",
+        "xgboost/Amazon_employee_access",
+        "xgboost/adult",
+        "xgboost/default",
+        "xgb_limitdepth/Amazon_employee_access",
+        "xgb_limitdepth/default",
+        "rf/connect-4",
+        "rf/default",
+        "extra_tree/Amazon_employee_access",
+        "extra_tree/Airlines",
+        "extra_tree/default"
+    ]
+}

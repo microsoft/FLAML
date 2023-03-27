@@ -1,0 +1,92 @@
+{
+    "version": "1.2.0",
+    "meta_feature_names": [
+        "NumberOfInstances",
+        "NumberOfFeatures",
+        "NumberOfClasses",
+        "PercentageOfNumericFeatures"
+    ],
+    "portfolio": [
+        {
+            "class": "extra_tree",
+            "hyperparameters": {
+                "n_estimators": 229,
+                "max_features": 0.5372053700721111,
+                "max_leaves": 11150,
+                "criterion": "entropy"
+            }
+        },
+        {
+            "class": "extra_tree",
+            "hyperparameters": {
+                "n_estimators": 90,
+                "max_features": 1.0,
+                "max_leaves": 1301,
+                "FLAML_sample_size": 94478
+            }
+        },
+        {
+            "class": "extra_tree",
+            "hyperparameters": {}
+        }
+    ],
+    "preprocessing": {
+        "center": [
+            9000.0,
+            42.0,
+            4.0,
+            0.0
+        ],
+        "scale": [
+            29623.0,
+            997.0,
+            1.0,
+            0.5
+        ]
+    },
+    "neighbors": [
+        {
+            "features": [
+                -0.25132498396516223,
+                -0.03610832497492478,
+                0.0,
+                0.0
+            ],
+            "choice": [
+                1,
+                0,
+                2
+            ]
+        },
+        {
+            "features": [
+                1.7486750160348379,
+                0.0,
+                -1.0,
+                0.0
+            ],
+            "choice": [
+                0,
+                2
+            ]
+        },
+        {
+            "features": [
+                0.0,
+                1.9638916750250752,
+                1.0,
+                2.0
+            ],
+            "choice": [
+                0,
+                1,
+                2
+            ]
+        }
+    ],
+    "configsource": [
+        "connect-4",
+        "bng_breastTumor",
+        "default"
+    ]
+}

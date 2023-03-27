@@ -1,0 +1,102 @@
+{
+    "version": "1.2.0",
+    "meta_feature_names": [
+        "NumberOfInstances",
+        "NumberOfFeatures",
+        "NumberOfClasses",
+        "PercentageOfNumericFeatures"
+    ],
+    "portfolio": [
+        {
+            "class": "extra_tree",
+            "hyperparameters": {
+                "n_estimators": 1211,
+                "max_features": 1.0,
+                "max_leaves": 32767,
+                "FLAML_sample_size": 810000
+            }
+        },
+        {
+            "class": "extra_tree",
+            "hyperparameters": {
+                "n_estimators": 346,
+                "max_features": 1.0,
+                "max_leaves": 1007,
+                "criterion": "entropy"
+            }
+        },
+        {
+            "class": "extra_tree",
+            "hyperparameters": {}
+        }
+    ],
+    "preprocessing": {
+        "center": [
+            502488.0,
+            10.0,
+            0.0,
+            0.7777777777777778
+        ],
+        "scale": [
+            817722.5,
+            2.25,
+            1.0,
+            0.5555555555555556
+        ]
+    },
+    "neighbors": [
+        {
+            "features": [
+                -0.5696272268404012,
+                0.0,
+                0.0,
+                0.39999999999999997
+            ],
+            "choice": [
+                1,
+                2
+            ]
+        },
+        {
+            "features": [
+                -0.4861209028735298,
+                -0.4444444444444444,
+                0.0,
+                -1.2000000000000002
+            ],
+            "choice": [
+                1,
+                0,
+                2
+            ]
+        },
+        {
+            "features": [
+                0.4861209028735298,
+                3.5555555555555554,
+                0.0,
+                -0.39999999999999997
+            ],
+            "choice": [
+                0,
+                2
+            ]
+        },
+        {
+            "features": [
+                0.5136473559184198,
+                0.0,
+                0.0,
+                0.39999999999999997
+            ],
+            "choice": [
+                2
+            ]
+        }
+    ],
+    "configsource": [
+        "bng_pbc",
+        "dilbert",
+        "default"
+    ]
+}

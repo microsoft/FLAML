@@ -1,0 +1,132 @@
+{
+    "version": "1.2.0",
+    "meta_feature_names": [
+        "NumberOfInstances",
+        "NumberOfFeatures",
+        "NumberOfClasses",
+        "PercentageOfNumericFeatures"
+    ],
+    "portfolio": [
+        {
+            "class": "xgboost",
+            "hyperparameters": {
+                "n_estimators": 6357,
+                "max_leaves": 206,
+                "min_child_weight": 1.9495322566288034,
+                "learning_rate": 0.0068766724195393905,
+                "subsample": 0.9451618245005704,
+                "colsample_bylevel": 0.9030482524943064,
+                "colsample_bytree": 0.9278972006416252,
+                "reg_alpha": 0.01857648400903689,
+                "reg_lambda": 6.021166480604588,
+                "FLAML_sample_size": 344444
+            }
+        },
+        {
+            "class": "xgboost",
+            "hyperparameters": {
+                "n_estimators": 591,
+                "max_leaves": 16651,
+                "min_child_weight": 0.03356567864689129,
+                "learning_rate": 0.002595066436678338,
+                "subsample": 0.9114132805513452,
+                "colsample_bylevel": 0.9503441844594458,
+                "colsample_bytree": 0.5703338448066768,
+                "reg_alpha": 0.010405212349127894,
+                "reg_lambda": 0.05352660657433639
+            }
+        },
+        {
+            "class": "xgboost",
+            "hyperparameters": {
+                "n_estimators": 23282,
+                "max_leaves": 19,
+                "min_child_weight": 0.02198438885474473,
+                "learning_rate": 0.001700636796132106,
+                "subsample": 1.0,
+                "colsample_bylevel": 0.8954745234489918,
+                "colsample_bytree": 0.22331977285961732,
+                "reg_alpha": 0.4115502489939291,
+                "reg_lambda": 0.015523027968801352
+            }
+        },
+        {
+            "class": "xgboost",
+            "hyperparameters": {}
+        }
+    ],
+    "preprocessing": {
+        "center": [
+            213336.5,
+            11.5,
+            2.0,
+            0.38095238095238093
+        ],
+        "scale": [
+            368057.25,
+            21.5,
+            1.0,
+            0.1785714285714285
+        ]
+    },
+    "neighbors": [
+        {
+            "features": [
+                0.7393075397917036,
+                -0.20930232558139536,
+                0.0,
+                0.26666666666666644
+            ],
+            "choice": [
+                0,
+                1,
+                3
+            ]
+        },
+        {
+            "features": [
+                0.4601987870093579,
+                3.0930232558139537,
+                0.0,
+                -0.2666666666666668
+            ],
+            "choice": [
+                0,
+                2,
+                3
+            ]
+        },
+        {
+            "features": [
+                -0.4994997381521489,
+                -0.11627906976744186,
+                0.0,
+                -2.133333333333334
+            ],
+            "choice": [
+                1,
+                0,
+                2,
+                3
+            ]
+        },
+        {
+            "features": [
+                -0.4601987870093579,
+                0.11627906976744186,
+                0.0,
+                0.26666666666666644
+            ],
+            "choice": [
+                2,
+                3
+            ]
+        }
+    ],
+    "configsource": [
+        "Albert",
+        "Amazon_employee_access",
+        "adult",
+        "default"
+    ]
+}

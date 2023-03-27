@@ -1,0 +1,115 @@
+{
+    "version": "1.2.0",
+    "meta_feature_names": [
+        "NumberOfInstances",
+        "NumberOfFeatures",
+        "NumberOfClasses",
+        "PercentageOfNumericFeatures"
+    ],
+    "portfolio": [
+        {
+            "class": "xgb_limitdepth",
+            "hyperparameters": {
+                "n_estimators": 1499,
+                "max_depth": 11,
+                "min_child_weight": 0.07563529776156448,
+                "learning_rate": 0.039042609221240955,
+                "subsample": 0.7832981935783824,
+                "colsample_bylevel": 1.0,
+                "colsample_bytree": 1.0,
+                "reg_alpha": 0.0009765625,
+                "reg_lambda": 23.513066752844153
+            }
+        },
+        {
+            "class": "xgb_limitdepth",
+            "hyperparameters": {
+                "n_estimators": 7782,
+                "max_depth": 7,
+                "min_child_weight": 0.3794874452608909,
+                "learning_rate": 0.006733035771172325,
+                "subsample": 1.0,
+                "colsample_bylevel": 1.0,
+                "colsample_bytree": 0.5611305922560855,
+                "reg_alpha": 8.203853065625196,
+                "reg_lambda": 56.48543538808782,
+                "FLAML_sample_size": 94478
+            }
+        },
+        {
+            "class": "xgb_limitdepth",
+            "hyperparameters": {}
+        }
+    ],
+    "preprocessing": {
+        "center": [
+            502488.0,
+            10.0,
+            0.0,
+            0.7777777777777778
+        ],
+        "scale": [
+            817722.5,
+            2.25,
+            1.0,
+            0.5555555555555556
+        ]
+    },
+    "neighbors": [
+        {
+            "features": [
+                -0.5696272268404012,
+                0.0,
+                0.0,
+                0.39999999999999997
+            ],
+            "choice": [
+                1,
+                2
+            ]
+        },
+        {
+            "features": [
+                -0.4861209028735298,
+                -0.4444444444444444,
+                0.0,
+                -1.2000000000000002
+            ],
+            "choice": [
+                1,
+                2
+            ]
+        },
+        {
+            "features": [
+                0.4861209028735298,
+                3.5555555555555554,
+                0.0,
+                -0.39999999999999997
+            ],
+            "choice": [
+                0,
+                1,
+                2
+            ]
+        },
+        {
+            "features": [
+                0.5136473559184198,
+                0.0,
+                0.0,
+                0.39999999999999997
+            ],
+            "choice": [
+                0,
+                1,
+                2
+            ]
+        }
+    ],
+    "configsource": [
+        "connect-4",
+        "bng_breastTumor",
+        "default"
+    ]
+}

@@ -1,0 +1,106 @@
+{
+    "version": "1.2.0",
+    "meta_feature_names": [
+        "NumberOfInstances",
+        "NumberOfFeatures",
+        "NumberOfClasses",
+        "PercentageOfNumericFeatures"
+    ],
+    "portfolio": [
+        {
+            "class": "extra_tree",
+            "hyperparameters": {
+                "n_estimators": 812,
+                "max_features": 1.0,
+                "max_leaves": 1474,
+                "criterion": "entropy"
+            }
+        },
+        {
+            "class": "extra_tree",
+            "hyperparameters": {
+                "n_estimators": 2047,
+                "max_features": 1.0,
+                "max_leaves": 8194,
+                "criterion": "gini",
+                "FLAML_sample_size": 436899
+            }
+        },
+        {
+            "class": "extra_tree",
+            "hyperparameters": {}
+        }
+    ],
+    "preprocessing": {
+        "center": [
+            213336.5,
+            11.5,
+            2.0,
+            0.38095238095238093
+        ],
+        "scale": [
+            368057.25,
+            21.5,
+            1.0,
+            0.1785714285714285
+        ]
+    },
+    "neighbors": [
+        {
+            "features": [
+                0.7393075397917036,
+                -0.20930232558139536,
+                0.0,
+                0.26666666666666644
+            ],
+            "choice": [
+                1,
+                0,
+                2
+            ]
+        },
+        {
+            "features": [
+                0.4601987870093579,
+                3.0930232558139537,
+                0.0,
+                -0.2666666666666668
+            ],
+            "choice": [
+                1,
+                0,
+                2
+            ]
+        },
+        {
+            "features": [
+                -0.4994997381521489,
+                -0.11627906976744186,
+                0.0,
+                -2.133333333333334
+            ],
+            "choice": [
+                0,
+                2
+            ]
+        },
+        {
+            "features": [
+                -0.4601987870093579,
+                0.11627906976744186,
+                0.0,
+                0.26666666666666644
+            ],
+            "choice": [
+                0,
+                1,
+                2
+            ]
+        }
+    ],
+    "configsource": [
+        "Amazon_employee_access",
+        "Airlines",
+        "default"
+    ]
+}

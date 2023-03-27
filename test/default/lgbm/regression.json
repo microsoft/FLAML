@@ -1,0 +1,129 @@
+{
+    "version": "1.2.0",
+    "meta_feature_names": [
+        "NumberOfInstances",
+        "NumberOfFeatures",
+        "NumberOfClasses",
+        "PercentageOfNumericFeatures"
+    ],
+    "portfolio": [
+        {
+            "class": "lgbm",
+            "hyperparameters": {
+                "n_estimators": 3726,
+                "num_leaves": 155,
+                "min_child_samples": 4,
+                "learning_rate": 0.040941607728296484,
+                "log_max_bin": 5,
+                "colsample_bytree": 0.5326256194627191,
+                "reg_alpha": 0.7408711930398492,
+                "reg_lambda": 0.5467731065349226
+            }
+        },
+        {
+            "class": "lgbm",
+            "hyperparameters": {
+                "n_estimators": 32767,
+                "num_leaves": 372,
+                "min_child_samples": 4,
+                "learning_rate": 0.03517259015200922,
+                "log_max_bin": 5,
+                "colsample_bytree": 1.0,
+                "reg_alpha": 0.02271142170225636,
+                "reg_lambda": 0.001963791798843179,
+                "FLAML_sample_size": 830258
+            }
+        },
+        {
+            "class": "lgbm",
+            "hyperparameters": {
+                "n_estimators": 644,
+                "num_leaves": 40,
+                "min_child_samples": 38,
+                "learning_rate": 0.06007328261566753,
+                "log_max_bin": 5,
+                "colsample_bytree": 0.6950692048656423,
+                "reg_alpha": 0.0009765625,
+                "reg_lambda": 9.849318389111616,
+                "FLAML_sample_size": 94478
+            }
+        },
+        {
+            "class": "lgbm",
+            "hyperparameters": {}
+        }
+    ],
+    "preprocessing": {
+        "center": [
+            502488.0,
+            10.0,
+            0.0,
+            0.7777777777777778
+        ],
+        "scale": [
+            817722.5,
+            2.25,
+            1.0,
+            0.5555555555555556
+        ]
+    },
+    "neighbors": [
+        {
+            "features": [
+                -0.5696272268404012,
+                0.0,
+                0.0,
+                0.39999999999999997
+            ],
+            "choice": [
+                3
+            ]
+        },
+        {
+            "features": [
+                -0.4861209028735298,
+                -0.4444444444444444,
+                0.0,
+                -1.2000000000000002
+            ],
+            "choice": [
+                2,
+                3
+            ]
+        },
+        {
+            "features": [
+                0.4861209028735298,
+                3.5555555555555554,
+                0.0,
+                -0.39999999999999997
+            ],
+            "choice": [
+                0,
+                2,
+                1,
+                3
+            ]
+        },
+        {
+            "features": [
+                0.5136473559184198,
+                0.0,
+                0.0,
+                0.39999999999999997
+            ],
+            "choice": [
+                1,
+                0,
+                2,
+                3
+            ]
+        }
+    ],
+    "configsource": [
+        "connect-4",
+        "poker",
+        "bng_breastTumor",
+        "default"
+    ]
+}

@@ -1,0 +1,100 @@
+{
+    "version": "1.2.0",
+    "meta_feature_names": [
+        "NumberOfInstances",
+        "NumberOfFeatures",
+        "NumberOfClasses",
+        "PercentageOfNumericFeatures"
+    ],
+    "portfolio": [
+        {
+            "class": "xgboost",
+            "hyperparameters": {}
+        },
+        {
+            "class": "xgboost",
+            "hyperparameters": {
+                "n_estimators": 6357,
+                "max_leaves": 206,
+                "min_child_weight": 1.9495322566288034,
+                "learning_rate": 0.0068766724195393905,
+                "subsample": 0.9451618245005704,
+                "colsample_bylevel": 0.9030482524943064,
+                "colsample_bytree": 0.9278972006416252,
+                "reg_alpha": 0.01857648400903689,
+                "reg_lambda": 6.021166480604588,
+                "FLAML_sample_size": 344444
+            }
+        },
+        {
+            "class": "xgboost",
+            "hyperparameters": {
+                "n_estimators": 5739,
+                "max_leaves": 5,
+                "min_child_weight": 0.1359602026207002,
+                "learning_rate": 0.14496176867613397,
+                "subsample": 0.864897070662231,
+                "colsample_bylevel": 0.01,
+                "colsample_bytree": 0.9394057513384305,
+                "reg_alpha": 0.001103317921178771,
+                "reg_lambda": 0.1655504349283218
+            }
+        }
+    ],
+    "preprocessing": {
+        "center": [
+            9000.0,
+            42.0,
+            4.0,
+            0.0
+        ],
+        "scale": [
+            29623.0,
+            997.0,
+            1.0,
+            0.5
+        ]
+    },
+    "neighbors": [
+        {
+            "features": [
+                -0.25132498396516223,
+                -0.03610832497492478,
+                0.0,
+                0.0
+            ],
+            "choice": [
+                2,
+                0
+            ]
+        },
+        {
+            "features": [
+                1.7486750160348379,
+                0.0,
+                -1.0,
+                0.0
+            ],
+            "choice": [
+                1,
+                0
+            ]
+        },
+        {
+            "features": [
+                0.0,
+                1.9638916750250752,
+                1.0,
+                2.0
+            ],
+            "choice": [
+                0
+            ]
+        }
+    ],
+    "configsource": [
+        "default",
+        "Albert",
+        "dilbert"
+    ]
+}
