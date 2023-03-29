@@ -259,6 +259,7 @@ class Completion:
                 prompt = cls._prompts[prompt]
         else:
             prompt = cls._prompts[config["prompt"]]
+            messages = config.get("messages", None)
         stop = cls._stops and cls._stops[config["stop"]]
         target_output_tokens = None
         if not cls.avg_input_tokens:
