@@ -757,7 +757,13 @@ class Completion:
                         )
                         return
                 if not metric_keys:
-                    metric_keys = metrics.keys()
+                    metric_keys = []
+                    for k in metrics.keys():
+                        try:
+                            v = float(metrics[k])
+                            metric_keys.append(k)
+                        except ValueError:
+                            pass
                 result_list.append(metrics)
                 if return_responses_and_per_instance_result:
                     responses_list.append(responses)
