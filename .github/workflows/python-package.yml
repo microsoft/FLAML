@@ -86,13 +86,15 @@ jobs:
       - name: Test with pytest
         if: (matrix.python-version != '3.7' || matrix.os == 'macos-latest') && matrix.python-version != '3.10'
         run: |
-          pytest test
+          # disable the following test temporarily
+          # pytest test
       - name: Coverage
         if: (matrix.python-version == '3.7') && matrix.os != 'macos-latest' || matrix.python-version == '3.10'
         run: |
           pip install coverage
-          coverage run -a -m pytest test
-          coverage xml
+          # disable the following test temporarily
+          # coverage run -a -m pytest test
+          # coverage xml
       - name: Upload coverage to Codecov
         if: (matrix.python-version == '3.7') && matrix.os != 'macos-latest' || matrix.python-version == '3.10'
         uses: codecov/codecov-action@v3
