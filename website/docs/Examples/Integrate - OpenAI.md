@@ -21,7 +21,7 @@ If you use Azure OpenAI, set up Azure using the following code:
 ```python
 openai.api_type = "azure"
 openai.api_base = "https://<your_endpoint>.openai.azure.com/"
-openai.api_version = "2022-12-01"  # change if necessary
+openai.api_version = "2023-03-15-preview"  # change if necessary
 ```
 
 ### Load the dataset
