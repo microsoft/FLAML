@@ -703,6 +703,8 @@ class Completion:
         use_cache=True,
         agg_method="avg",
         return_responses_and_per_instance_result=False,
+        seed=41,
+        cache_path=".cache",
     ):
         """Evaluate the responses created with the config for the OpenAI API call.
 
@@ -714,7 +716,7 @@ class Completion:
                 and return a dict of metrics. When not provided (None), we will use the
                 one provided via tune function. Defaults to None.
             use_cache (bool, Optional): Whether to use cached responses. Defaults to True.
-            agg_method (str, Callable or a dict of Callable): Result aggregration method (across
+            agg_method (str, Callable or a dict of Callable): Result aggregation method (across
                 multiple instances) for each of the metrics. Defaults to 'avg'.
                 An example agg_method in str:
             ```python
@@ -735,11 +737,18 @@ class Completion:
             agg_method={'expected_success': my_median, 'success': my_average}
             ```
             return_responses_and_per_instance_result (bool): Whether to also return responses
-                and per instance results in addition to aggregrated results.
+                and per instance results in addition to the aggregated results.
+            seed (int): Random seed for the evaluation. Defaults to 41.
+            cache_path (str): Path to the cache directory. Defaults to '.cache'.
+                If a cache directory does not exist, it will be created, otherwise use the existing one.
         """
         model = config["model"]
         result_agg, responses_list, result_list = {}, [], []
         metric_keys = None
+        try:
+            cls.cache_path
+        except AttributeError:
+            cls.cache_path = f"{cache_path}/{seed}"
         with diskcache.Cache(cls.cache_path) as cls._cache:
             for _, data_i in enumerate(data):
                 params = cls._construct_params_from_config(data_i, config)
