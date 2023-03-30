@@ -1,7 +1,6 @@
 from time import sleep
 import logging
 import numpy as np
-import time
 from flaml import tune, BlendSearch
 
 try:
@@ -12,9 +11,9 @@ try:
         APIError,
         InvalidRequestError,
         APIConnectionError,
-        Timeout,
     )
     import diskcache
+    from urllib3.exceptions import ReadTimeoutError
 
     ERROR = None
 except ImportError:
@@ -47,14 +46,7 @@ class Completion:
     """
 
     # set of models that support chat completion
-    chat_models = {
-        "gpt-3.5-turbo",
-        "gpt-3.5-turbo-0301",
-        "gpt-4",
-        "gpt-4-32k",
-        "gpt-4-32k-0314",
-        "gpt-4-0314",
-    }
+    chat_models = {"gpt-3.5-turbo"}
 
     # price per 1k tokens
     price1K = {
@@ -66,23 +58,10 @@ class Completion:
         "text-davinci-002": 0.02,
         "text-davinci-003": 0.02,
         "gpt-3.5-turbo": 0.002,
-        "gpt-3.5-turbo-0301": 0.002,
-        "gpt-4": (0.03, 0.06),
-        "gpt-4-0314": (0.03, 0.06),
-        "gpt-4-32k": (0.06, 0.12),
-        "gpt-4-32k-0314": (0.06, 0.12),
     }
 
     default_search_space = {
-        "model": tune.choice(
-            [
-                "text-ada-001",
-                "text-babbage-001",
-                "text-davinci-003",
-                "gpt-3.5-turbo",
-                "gpt-4",
-            ]
-        ),
+        "model": tune.choice(list(price1K.keys())),
         "temperature_or_top_p": tune.choice(
             [
                 {"temperature": tune.uniform(0, 1)},
@@ -128,14 +107,13 @@ class Completion:
             response = cls._cache.get(key, None)
             if response is not None and (response != -1 or not eval_only):
                 return response
-        _ = 0
+        retry = 0
         openai_completion = (
             openai.ChatCompletion
             if config["model"] in cls.chat_models
             else openai.Completion
         )
-        start_time = time.time()
-        while True:
+        while eval_only or retry * cls.retry_time < cls.retry_timeout:
             try:
                 response = openai_completion.create(**config)
                 cls._cache.set(key, response)
@@ -144,26 +122,21 @@ class Completion:
                 ServiceUnavailableError,
                 APIError,
                 APIConnectionError,
+                ReadTimeoutError,
             ):
-                # transient error
                 logger.warning(f"retrying in {cls.retry_time} seconds...", exc_info=1)
                 sleep(cls.retry_time)
-            except (RateLimitError, Timeout):
-                # retry after retry_time seconds
-                if time.time() - start_time + cls.retry_time < cls.retry_timeout:
-                    logger.info(f"retrying in {cls.retry_time} seconds...", exc_info=1)
-                elif not eval_only:
-                    break
-                sleep(cls.retry_time)
+            except RateLimitError:
+                logger.info(f"retrying in {cls.retry_time} seconds...", exc_info=1)
+                retry += 1
             except InvalidRequestError:
-                if "azure" == openai.api_type and "model" in config:
-                    # azure api uses "engine" instead of "model"
+                if "model" in config:
                     config = config.copy()
                     config["engine"] = config.pop("model")
                 else:
                     raise
         logger.warning(
-            f"Failed to get response from openai api due to getting RateLimitError or Timeout for {cls.retry_timeout} seconds."
+            f"Failed to get response from openai api due to getting RateLimitError for {cls.retry_timeout} seconds."
         )
         response = -1
         cls._cache.set(key, response)
@@ -216,26 +189,6 @@ class Completion:
             )
 
     @classmethod
-    def _get_prompt_messages_from_config(cls, model, config):
-        prompt, messages = None, None
-        if model in cls.chat_models:
-            # either "prompt" should be in config (for being compatible with non-chat models)
-            # or "messages" should be in config (for tuning chat models only)
-            prompt = config.get("prompt")
-            messages = config.get("messages")
-            # either prompt or messages should be in config, but not both
-            assert (prompt is None) != (
-                messages is None
-            ), "Either prompt or messages should be in config for chat models."
-            if prompt is None:
-                messages = cls._messages[messages]
-            else:
-                prompt = cls._prompts[prompt]
-        else:
-            prompt = cls._prompts[config["prompt"]]
-        return prompt, messages
-
-    @classmethod
     def _eval(cls, config: dict, prune=True, eval_only=False):
         """Evaluate the given config as the hyperparameter setting for the openai api call.
 
@@ -252,36 +205,43 @@ class Completion:
         data = cls.data
         model = config["model"]
         data_length = len(data)
-        price = cls.price1K.get(model)
-        price_input, price_output = (
-            price if isinstance(price, tuple) else (price, price)
+        target_n_tokens = getattr(cls, "inference_budget", None) and (
+            1000 * cls.inference_budget / cls.price1K[model]
+            if cls.inference_budget and cls.price1K.get(model)
+            else None
         )
-        inference_budget = getattr(cls, "inference_budget", None)
         prune_hp = getattr(cls, "_prune_hp", "n")
         metric = cls._metric
         config_n = config.get(prune_hp, 1)  # default value in OpenAI is 1
-        max_tokens = config.get(
-            "max_tokens", np.inf if model in cls.chat_models else 16
-        )
-        prompt, messages = cls._get_prompt_messages_from_config(model, config)
+        max_tokens = config.get("max_tokens", 16)  # default value in OpenAI is 16
+        region_key = cls._get_region_key(config)
+        if model in cls.chat_models:
+            # either "prompt" should be in config (for being compatible with non-chat models)
+            # or "messages" should be in config (for tuning chat models only)
+            prompt = config.get("prompt")
+            messages = config.get("messages")
+            # either prompt or messages should be in config, but not both
+            assert (prompt is None) != (
+                messages is None
+            ), "Either prompt or messages should be in config for chat models."
+            if prompt is None:
+                messages = cls._messages[messages]
+            else:
+                prompt = cls._prompts[prompt]
+        else:
+            prompt = cls._prompts[config["prompt"]]
         stop = cls._stops and cls._stops[config["stop"]]
-        target_output_tokens = None
-        if not cls.avg_input_tokens:
-            input_tokens = [None] * data_length
-        prune = prune and inference_budget and not eval_only
-        if prune:
-            region_key = cls._get_region_key(config)
+        if prune and target_n_tokens:
             max_valid_n = cls._get_max_valid_n(region_key, max_tokens)
             if cls.avg_input_tokens:
-                target_output_tokens = (
-                    inference_budget * 1000 - cls.avg_input_tokens * price_input
-                ) / price_output
                 # max_tokens bounds the maximum tokens
                 # so using it we can calculate a valid n according to the avg # input tokens
                 max_valid_n = max(
                     max_valid_n,
-                    int(target_output_tokens // max_tokens),
+                    int((target_n_tokens - cls.avg_input_tokens) // max_tokens),
                 )
+            else:
+                input_tokens = [None] * data_length
             if config_n <= max_valid_n:
                 start_n = config_n
             else:
@@ -315,8 +275,8 @@ class Completion:
                         f"num_completions={num_completions}, data instance={i}"
                     )
                     data_i = data[i]
-                    params = cls._construct_params_from_config(
-                        data_i, params, prompt, messages
+                    params = cls._construct_params(
+                        model, prompt, messages, params, data_i
                     )
                     response = cls._get_response(params, eval_only)
                     if response == -1:  # rate limit error, treat as invalid
@@ -332,15 +292,24 @@ class Completion:
                         if model in cls.chat_models
                         else [r["text"].rstrip() for r in response["choices"]]
                     )
-                    usage = response["usage"]
-                    n_input_tokens = usage["prompt_tokens"]
-                    n_output_tokens = usage.get("completion_tokens", 0)
-                    if not cls.avg_input_tokens and not input_tokens[i]:
+                    n_tokens = (
+                        response["usage"]["completion_tokens"]
+                        if previous_num_completions
+                        else response["usage"]["total_tokens"]
+                    )
+                    if (
+                        prune
+                        and target_n_tokens
+                        and not cls.avg_input_tokens
+                        and not input_tokens[i]
+                    ):
                         # store the # input tokens
-                        input_tokens[i] = n_input_tokens
+                        input_tokens[i] = response["usage"]["prompt_tokens"]
+                    # Under Assumption 1, we should count both the input and output tokens in the first query,
+                    # and only count ouput tokens afterwards
                     query_cost = (
-                        price_input * n_input_tokens + price_output * n_output_tokens
-                    ) / 1000
+                        response["usage"]["total_tokens"] * cls.price1K[model] / 1000
+                    )
                     cls._total_cost += query_cost
                     cost += query_cost
                     if (
@@ -355,12 +324,12 @@ class Completion:
                             "cost": cost,
                         }
                     if previous_num_completions:
-                        n_tokens_list[i] += n_output_tokens
+                        n_tokens_list[i] += n_tokens
                         responses_list[i].extend(responses)
                         # Assumption 1: assuming requesting n1, n2 responses separatively then combining them
                         # is the same as requesting (n1+n2) responses together
                     else:
-                        n_tokens_list.append(n_output_tokens)
+                        n_tokens_list.append(n_tokens)
                         responses_list.append(responses)
                 avg_n_tokens = np.mean(n_tokens_list[:data_limit])
                 rho = (
@@ -371,8 +340,8 @@ class Completion:
                 # Hoeffding-Serfling bound
                 ratio = 0.1 * np.sqrt(rho / data_limit)
                 if (
-                    target_output_tokens
-                    and avg_n_tokens > target_output_tokens * (1 + ratio)
+                    target_n_tokens
+                    and avg_n_tokens > target_n_tokens * (1 + ratio)
                     and not eval_only
                 ):
                     cls._update_invalid_n(
@@ -384,8 +353,8 @@ class Completion:
                     return result
                 if (
                     prune
-                    and target_output_tokens
-                    and avg_n_tokens <= target_output_tokens * (1 - ratio)
+                    and target_n_tokens
+                    and avg_n_tokens <= target_n_tokens * (1 - ratio)
                     and (
                         num_completions < config_n
                         or num_completions == config_n
@@ -417,24 +386,16 @@ class Completion:
                     metrics = cls._eval_func(responses, **data_i)
                     if result:
                         for key, value in metrics.items():
-                            if isinstance(value, (float, int)):
-                                result[key] += value
+                            result[key] += value
                     else:
                         result = metrics
                 for key in result.keys():
-                    if isinstance(result[key], (float, int)):
-                        result[key] /= data_limit
+                    result[key] /= data_limit
                 result["total_cost"] = cls._total_cost
                 result["cost"] = cost
-                if not cls.avg_input_tokens:
+                result["inference_cost"] = avg_n_tokens * cls.price1K[model] / 1000
+                if prune and target_n_tokens and not cls.avg_input_tokens:
                     cls.avg_input_tokens = np.mean(input_tokens)
-                    if prune:
-                        target_output_tokens = (
-                            inference_budget * 1000 - cls.avg_input_tokens * price_input
-                        ) / price_output
-                result["inference_cost"] = (
-                    avg_n_tokens * price_output + cls.avg_input_tokens * price_input
-                ) / 1000
                 break
             else:
                 if data_early_stop:
@@ -575,12 +536,11 @@ class Completion:
             mode=mode,
             space=space,
         )
-        space_model = space["model"]
-        if not isinstance(space_model, str) and len(space_model) > 1:
+        if len(space["model"]) > 1:
             # start all the models with the same hp config
             config0 = search_alg.suggest("t0")
             points_to_evaluate = [config0]
-            for model in space_model:
+            for model in space["model"]:
                 if model != config0["model"]:
                     point = config0.copy()
                     point["model"] = model
@@ -633,17 +593,14 @@ class Completion:
         """
         if ERROR:
             raise ERROR
-        params = cls._construct_params(context, config)
+        params = cls._construct_params(config, context)
         if use_cache:
             with diskcache.Cache(cls.cache_path) as cls._cache:
                 return cls._get_response(params)
         return cls.openai_completion_class.create(**params)
 
     @classmethod
-    def _construct_params(cls, data_instance, config, prompt=None, messages=None):
-        params = config.copy()
-        prompt = config.get("prompt") if prompt is None else prompt
-        messages = config.get("messages") if messages is None else messages
+    def _construct_params(cls, model, prompt, messages, params, data_instance):
         if prompt is None:
             params["messages"] = [
                 {
@@ -654,7 +611,7 @@ class Completion:
                 }
                 for m in messages
             ]
-        elif config["model"] in cls.chat_models:
+        elif model in cls.chat_models:
             # convert prompt to messages
             if isinstance(prompt, str):
                 prompt_msg = prompt.format(**data_instance)
@@ -678,21 +635,20 @@ class Completion:
         return params
 
     @classmethod
-    def _construct_params_from_config(
-        cls, data_instance, config, prompt=None, messages=None
-    ):
+    def _construct_params_from_config(cls, config, data_instance):
         model = config["model"]
-        prompt = config.get("prompt", None) if prompt is None else prompt
-        messages = config.get("messages", None) if messages is None else messages
+        prompt = config.get("prompt", None)
+        messages = None
         # either "prompt" should be in config (for being compatible with non-chat models)
         # or "messages" should be in config (for tuning chat models only)
         if prompt is None and model in cls.chat_models:
+            messages = config.get("messages", None)
             if messages is None:
                 raise ValueError(
                     "Either prompt or messages should be in config for chat models."
                 )
         params = config.copy()
-        return cls._construct_params(data_instance, params, prompt, messages)
+        return cls._construct_params(model, prompt, messages, params, data_instance)
 
     @classmethod
     def test(
@@ -742,7 +698,7 @@ class Completion:
         metric_keys = None
         with diskcache.Cache(cls.cache_path) as cls._cache:
             for _, data_i in enumerate(data):
-                params = cls._construct_params_from_config(data_i, config)
+                params = cls._construct_params_from_config(config, data_i)
                 response = cls._get_response(
                     params, eval_only=True, use_cache=use_cache
                 )
@@ -766,13 +722,7 @@ class Completion:
                         )
                         return
                 if not metric_keys:
-                    metric_keys = []
-                    for k in metrics.keys():
-                        try:
-                            _ = float(metrics[k])
-                            metric_keys.append(k)
-                        except ValueError:
-                            pass
+                    metric_keys = metrics.keys()
                 result_list.append(metrics)
                 if return_responses_and_per_instance_result:
                     responses_list.append(responses)
@@ -814,13 +764,8 @@ class ChatCompletion(Completion):
 
     price1K = {
         "gpt-3.5-turbo": 0.002,
-        "gpt-3.5-turbo-0301": 0.002,
-        "gpt-4": (0.03, 0.06),
-        "gpt-4-0314": (0.03, 0.06),
-        "gpt-4-32k": (0.06, 0.12),
-        "gpt-4-32k-0314": (0.06, 0.12),
     }
 
     default_search_space = Completion.default_search_space.copy()
-    default_search_space["model"] = tune.choice(["gpt-3.5-turbo", "gpt-4"])
+    default_search_space["model"] = tune.choice(list(price1K.keys()))
     openai_completion_class = not ERROR and openai.ChatCompletion
