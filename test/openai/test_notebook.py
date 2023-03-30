@@ -43,8 +43,18 @@ def test_integrate_openai(save=False):
     reason="do not run openai test if openai is not installed",
 )
 def test_integrate_chatgpt(save=False):
-    run_notebook("integrate_chatgpt_math.ipynb", save=save)
+    run_notebook("integrate_chatgpt.ipynb", save=save)
+
+
+@pytest.mark.skipif(
+    skip,
+    reason="do not run openai test if openai is not installed",
+)
+def test_integrate_test(save=False):
+    run_notebook("integrate_test.ipynb", save=save)
 
 
 if __name__ == "__main__":
+    test_integrate_test(save=True)
     test_integrate_chatgpt(save=True)
+    test_integrate_openai(save=True)
