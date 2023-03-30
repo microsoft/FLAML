@@ -128,7 +128,7 @@ class Completion:
             response = cls._cache.get(key, None)
             if response is not None and (response != -1 or not eval_only):
                 return response
-        retry = 0
+        _ = 0
         openai_completion = (
             openai.ChatCompletion
             if config["model"] in cls.chat_models
@@ -216,6 +216,26 @@ class Completion:
             )
 
     @classmethod
+    def _get_prompt_messages_from_config(cls, model, config):
+        prompt, messages = None, None
+        if model in cls.chat_models:
+            # either "prompt" should be in config (for being compatible with non-chat models)
+            # or "messages" should be in config (for tuning chat models only)
+            prompt = config.get("prompt")
+            messages = config.get("messages")
+            # either prompt or messages should be in config, but not both
+            assert (prompt is None) != (
+                messages is None
+            ), "Either prompt or messages should be in config for chat models."
+            if prompt is None:
+                messages = cls._messages[messages]
+            else:
+                prompt = cls._prompts[prompt]
+        else:
+            prompt = cls._prompts[config["prompt"]]
+        return prompt, messages
+
+    @classmethod
     def _eval(cls, config: dict, prune=True, eval_only=False):
         """Evaluate the given config as the hyperparameter setting for the openai api call.
 
@@ -243,23 +263,7 @@ class Completion:
         max_tokens = config.get(
             "max_tokens", np.inf if model in cls.chat_models else 16
         )
-        # default value in OpenAI
-        if model in cls.chat_models:
-            # either "prompt" should be in config (for being compatible with non-chat models)
-            # or "messages" should be in config (for tuning chat models only)
-            prompt = config.get("prompt")
-            messages = config.get("messages")
-            # either prompt or messages should be in config, but not both
-            assert (prompt is None) != (
-                messages is None
-            ), "Either prompt or messages should be in config for chat models."
-            if prompt is None:
-                messages = cls._messages[messages]
-            else:
-                prompt = cls._prompts[prompt]
-        else:
-            prompt = cls._prompts[config["prompt"]]
-            messages = config.get("messages", None)
+        prompt, messages = cls._get_prompt_messages_from_config(model, config)
         stop = cls._stops and cls._stops[config["stop"]]
         target_output_tokens = None
         if not cls.avg_input_tokens:
@@ -311,8 +315,8 @@ class Completion:
                         f"num_completions={num_completions}, data instance={i}"
                     )
                     data_i = data[i]
-                    params = cls._construct_params(
-                        model, prompt, messages, params, data_i
+                    params = cls._construct_params_from_config(
+                        data_i, params, prompt, messages
                     )
                     response = cls._get_response(params, eval_only)
                     if response == -1:  # rate limit error, treat as invalid
@@ -629,14 +633,17 @@ class Completion:
         """
         if ERROR:
             raise ERROR
-        params = cls._construct_params(config, context)
+        params = cls._construct_params(context, config)
         if use_cache:
             with diskcache.Cache(cls.cache_path) as cls._cache:
                 return cls._get_response(params)
         return cls.openai_completion_class.create(**params)
 
     @classmethod
-    def _construct_params(cls, model, prompt, messages, params, data_instance):
+    def _construct_params(cls, data_instance, config, prompt=None, messages=None):
+        params = config.copy()
+        prompt = config.get("prompt") if prompt is None else prompt
+        messages = config.get("messages") if messages is None else messages
         if prompt is None:
             params["messages"] = [
                 {
@@ -647,7 +654,7 @@ class Completion:
                 }
                 for m in messages
             ]
-        elif model in cls.chat_models:
+        elif config["model"] in cls.chat_models:
             # convert prompt to messages
             if isinstance(prompt, str):
                 prompt_msg = prompt.format(**data_instance)
@@ -671,20 +678,21 @@ class Completion:
         return params
 
     @classmethod
-    def _construct_params_from_config(cls, config, data_instance):
+    def _construct_params_from_config(
+        cls, data_instance, config, prompt=None, messages=None
+    ):
         model = config["model"]
-        prompt = config.get("prompt", None)
-        messages = None
+        prompt = config.get("prompt", None) if prompt is None else prompt
+        messages = config.get("messages", None) if messages is None else messages
         # either "prompt" should be in config (for being compatible with non-chat models)
         # or "messages" should be in config (for tuning chat models only)
         if prompt is None and model in cls.chat_models:
-            messages = config.get("messages", None)
             if messages is None:
                 raise ValueError(
                     "Either prompt or messages should be in config for chat models."
                 )
         params = config.copy()
-        return cls._construct_params(model, prompt, messages, params, data_instance)
+        return cls._construct_params(data_instance, params, prompt, messages)
 
     @classmethod
     def test(
@@ -734,7 +742,7 @@ class Completion:
         metric_keys = None
         with diskcache.Cache(cls.cache_path) as cls._cache:
             for _, data_i in enumerate(data):
-                params = cls._construct_params_from_config(config, data_i)
+                params = cls._construct_params_from_config(data_i, config)
                 response = cls._get_response(
                     params, eval_only=True, use_cache=use_cache
                 )
@@ -761,7 +769,7 @@ class Completion:
                     metric_keys = []
                     for k in metrics.keys():
                         try:
-                            v = float(metrics[k])
+                            _ = float(metrics[k])
                             metric_keys.append(k)
                         except ValueError:
                             pass

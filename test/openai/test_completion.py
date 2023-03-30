@@ -491,7 +491,7 @@ def test_math(num_samples=-1):
             eval_func=success_metrics,  # the evaluation function to return the success metrics
             # log_file_name="logs/math.log",  # the log file name
             inference_budget=0.002,  # the inference budget (dollar)
-            optimization_budget=0.02,  # the optimization budget (dollar)
+            optimization_budget=0.01,  # the optimization budget (dollar)
             num_samples=num_samples,
             prompt=prompts,  # the prompt templates to choose from
             stop="###",  # the stop sequence
@@ -508,4 +508,4 @@ if __name__ == "__main__":
 
     openai.api_key_path = "test/openai/key.txt"
     test_humaneval(-1)
-    test_math(2)
+    test_math(-1)
