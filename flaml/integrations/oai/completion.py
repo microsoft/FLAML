@@ -127,8 +127,8 @@ class Completion:
         if use_cache:
             response = cls._cache.get(key, None)
             if response is not None and (response != -1 or not eval_only):
+                # print("using cached response")
                 return response
-        _ = 0
         openai_completion = (
             openai.ChatCompletion
             if config["model"] in cls.chat_models
