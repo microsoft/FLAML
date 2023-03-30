@@ -46,6 +46,7 @@ class TimeSeriesEstimator(SKLearnEstimator):
         self.target_names: Optional[Union[str, List[str]]] = None
         self.frequency: Optional[str] = None
         self.end_date: Optional[datetime] = None
+        self.regressors: Optional[List[str]] = None
 
     def enrich(
         self,
@@ -545,6 +546,95 @@ class SARIMAX(ARIMA):
                 enforce_stationarity=False,
                 enforce_invertibility=False,
             )
+        with suppress_stdout_stderr():
+            model = model.fit()
+        train_time = time.time() - current_time
+        self._model = model
+        return train_time
+
+
+class HoltWinters(ARIMA):
+    """
+    The class for tuning Holt Winters model, aka 'Triple Exponential Smoothing'.
+    """
+
+    @classmethod
+    def _search_space(
+        cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params
+    ):
+        space = {
+            "damped_trend": {"domain": tune.choice([True, False]), "init_value": False},
+            "trend": {"domain": tune.choice(["add", "mul", None]), "init_value": "add"},
+            "seasonal": {
+                "domain": tune.choice(["add", "mul", None]),
+                "init_value": "add",
+            },
+            "use_boxcox": {"domain": tune.choice([False, True]), "init_value": False},
+            "seasonal_periods": {  # statsmodels casts this to None if "seasonal" is None
+                "domain": tune.choice(
+                    [7, 12, 4, 52, 6]
+                ),  # weekly, yearly, quarterly, weekly w yearly data
+                "init_value": 7,
+            },
+        }
+        return space
+
+    def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
+        import warnings
+
+        warnings.filterwarnings("ignore")
+        from statsmodels.tsa.holtwinters import (
+            ExponentialSmoothing as HWExponentialSmoothing,
+        )
+
+        current_time = time.time()
+
+        super().fit(X_train, y_train, budget=budget, **kwargs)
+        X_train = self.enrich(X_train)
+
+        if isinstance(X_train, TimeSeriesDataset):
+            data = X_train
+            target_col = data.target_names[0]
+            regressors = data.regressors
+            # this class only supports univariate regression
+            train_df = data.train_data[self.regressors + [target_col]]
+            train_df.index = to_datetime(data.train_data[data.time_col])
+        else:
+            target_col = TS_VALUE_COL
+            train_df = self._join(X_train, y_train)
+            regressors = list(train_df)
+            regressors.remove(TS_VALUE_COL)
+
+        train_df = self._preprocess(train_df)
+
+        self.regressors = []
+        if regressors:
+            logger.warning("Regressors are ignored for Holt-Winters ETS models.")
+
+        # Override incompatible parameters
+        if (
+            train_df.shape[0] < 2 * self.params["seasonal_periods"]
+        ):  # this would prevent heuristic initialization to work properly
+            self.params["seasonal"] = None
+        if (
+            self.params["seasonal"] == "mul" and (train_df.y == 0).sum() > 0
+        ):  # cannot have multiplicative seasonality in this case
+            self.params["seasonal"] = "add"
+        if self.params["trend"] == "mul" and (train_df.y == 0).sum() > 0:
+            self.params["trend"] = "add"
+
+        if not self.params["seasonal"] or not self.params["trend"] in [
+            "mul",
+            "add",
+        ]:
+            self.params["damped_trend"] = False
+
+        model = HWExponentialSmoothing(
+            train_df[[target_col]],
+            damped_trend=self.params["damped_trend"],
+            seasonal=self.params["seasonal"],
+            trend=self.params["trend"],
+        )
         with suppress_stdout_stderr():
             model = model.fit()
         train_time = time.time() - current_time

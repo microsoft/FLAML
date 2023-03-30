@@ -4,9 +4,12 @@
 #  * project root for license information.
 import os
 import time
+from typing import Union, Callable, TypeVar, Optional, Tuple
+import logging
+
 import numpy as np
 import pandas as pd
-from typing import Union, Callable, TypeVar, Optional, Tuple
+
 
 from sklearn.metrics import (
     mean_squared_error,
@@ -47,10 +50,10 @@ except ImportError:
     class psSeries:
         pass
 
+
 from flaml.automl.time_series import TimeSeriesDataset
 
 logger = logging.getLogger(__name__)
-
 
 
 EstimatorSubclass = TypeVar("EstimatorSubclass", bound=BaseEstimator)

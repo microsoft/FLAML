@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from functools import partial
 import signal
 import os
-from typing import Callable, List
+from typing import Callable, List, Union
 import numpy as np
 import time
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
@@ -520,7 +520,9 @@ class SparkEstimator(BaseEstimator):
             Each element at (i,j) is the probability for instance i to be in
                 class j.
         """
-        assert self._task.is_classification(), "predict_proba() only for classification."
+        assert (
+            self._task.is_classification()
+        ), "predict_proba() only for classification."
         if self._model is not None:
             X = self._preprocess(X, index_col=index_col)
             predictions = to_pandas_on_spark(
@@ -2125,93 +2127,6 @@ class KNeighborsEstimator(BaseEstimator):
             X = X.drop(cat_columns, axis=1)
             X = X.to_numpy()
         return X
-
-class HoltWinters(ARIMA):
-    """
-    The class for tuning Holt Winters model, aka 'Triple Exponential Smoothing'.
-    """
-
-    @classmethod
-    def search_space(cls, **params):
-        space = {
-            "damped_trend": {"domain": tune.choice([True, False]), "init_value": False},
-            "trend": {"domain": tune.choice(["add", "mul", None]), "init_value": "add"},
-            "seasonal": {
-                "domain": tune.choice(["add", "mul", None]),
-                "init_value": "add",
-            },
-            "use_boxcox": {"domain": tune.choice([False, True]), "init_value": False},
-            "seasonal_periods": {  # statsmodels casts this to None if "seasonal" is None
-                "domain": tune.choice(
-                    [7, 12, 4, 52, 6]
-                ),  # weekly, yearly, quarterly, weekly w yearly data
-                "init_value": 7,
-            },
-        }
-        return space
-
-    def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
-        import warnings
-
-        warnings.filterwarnings("ignore")
-        from statsmodels.tsa.holtwinters import (
-            ExponentialSmoothing as HWExponentialSmoothing,
-        )
-
-        current_time = time.time()
-        train_df = self._join(X_train, y_train)
-        train_df = self._preprocess(train_df)
-        regressors = list(train_df)
-        regressors.remove(TS_VALUE_COL)
-        if regressors:
-            logger.warning("Regressors are ignored for Holt-Winters ETS models.")
-
-        # Override incompatible parameters
-        if (
-            X_train.shape[0] < 2 * self.params["seasonal_periods"]
-        ):  # this would prevent heuristic initialization to work properly
-            self.params["seasonal"] = None
-        if (
-            self.params["seasonal"] == "mul" and (train_df.y == 0).sum() > 0
-        ):  # cannot have multiplicative seasonality in this case
-            self.params["seasonal"] = "add"
-        if self.params["trend"] == "mul" and (train_df.y == 0).sum() > 0:
-            self.params["trend"] = "add"
-
-        if not self.params["seasonal"] or not self.params["trend"] in [
-            "mul",
-            "add",
-        ]:
-            self.params["damped_trend"] = False
-
-        model = HWExponentialSmoothing(
-            train_df[[TS_VALUE_COL]],
-            damped_trend=self.params["damped_trend"],
-            seasonal=self.params["seasonal"],
-            trend=self.params["trend"],
-        )
-        with suppress_stdout_stderr():
-            model = model.fit()
-        train_time = time.time() - current_time
-        self._model = model
-        return train_time
-
-    def predict(self, X, **kwargs):
-        if self._model is not None:
-            if isinstance(X, int):
-                forecast = self._model.forecast(steps=X)
-            elif isinstance(X, DataFrame):
-                start = X[TS_TIMESTAMP_COL].iloc[0]
-                end = X[TS_TIMESTAMP_COL].iloc[-1]
-                forecast = self._model.predict(start=start, end=end, **kwargs)
-            else:
-                raise ValueError(
-                    "X needs to be either a pandas Dataframe with dates as the first column"
-                    " or an int number of periods for predict()."
-                )
-            return forecast
-        else:
-            return np.ones(X if isinstance(X, int) else X.shape[0])
 
 
 class suppress_stdout_stderr(object):
