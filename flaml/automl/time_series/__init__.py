@@ -3,6 +3,7 @@ from .ts_model import (
     Orbit,
     ARIMA,
     SARIMAX,
+    HoltWinters,
     LGBM_TS,
     XGBoost_TS,
     RF_TS,

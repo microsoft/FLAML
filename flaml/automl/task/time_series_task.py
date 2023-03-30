@@ -44,6 +44,7 @@ class TimeSeriesTask(Task):
             ARIMA,
             SARIMAX,
             TemporalFusionTransformerEstimator,
+            HoltWinters,
         )
 
         return {
@@ -56,6 +57,7 @@ class TimeSeriesTask(Task):
             "orbit": Orbit,
             "arima": ARIMA,
             "sarimax": SARIMAX,
+            "holt-winters": HoltWinters,
             "catboost": CatBoost_TS,
             "tft": TemporalFusionTransformerEstimator,
         }
