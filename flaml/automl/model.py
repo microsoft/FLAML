@@ -16,7 +16,7 @@ from sklearn.dummy import DummyClassifier, DummyRegressor
 from scipy.sparse import issparse
 import logging
 import shutil
-from pandas import DataFrame, Series, to_datetime
+from pandas import DataFrame, Series
 import sys
 import math
 from flaml import tune
