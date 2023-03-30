@@ -109,7 +109,6 @@ def test_humaneval(num_samples=1):
         )
         responses = oai.ChatCompletion.create(context=test_data[0], **config)
         print(responses)
-        return
         # a more comprehensive tuning example
         config, analysis = oai.Completion.tune(
             data=tune_data,
@@ -134,7 +133,9 @@ def test_humaneval(num_samples=1):
         responses = oai.Completion.create(context=test_data[0], **config)
         print(responses)
         oai.Completion.data = test_data[:num_samples]
-        result = oai.Completion.eval(analysis.best_config, prune=False, eval_only=True)
+        result = oai.Completion._eval(analysis.best_config, prune=False, eval_only=True)
+        print("result with pruning", result)
+        result = oai.Completion.test(test_data[:num_samples], config=config)
         print(result)
     except ImportError as exc:
         print(exc)
@@ -492,7 +493,7 @@ def test_math(num_samples=-1):
             eval_func=success_metrics,  # the evaluation function to return the success metrics
             # log_file_name="logs/math.log",  # the log file name
             inference_budget=0.002,  # the inference budget (dollar)
-            optimization_budget=0.02,  # the optimization budget (dollar)
+            optimization_budget=0.01,  # the optimization budget (dollar)
             num_samples=num_samples,
             prompt=prompts,  # the prompt templates to choose from
             stop="###",  # the stop sequence
@@ -509,4 +510,4 @@ if __name__ == "__main__":
 
     openai.api_key_path = "test/openai/key.txt"
     test_humaneval(-1)
-    test_math(2)
+    test_math(-1)
