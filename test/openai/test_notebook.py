@@ -48,3 +48,4 @@ def test_integrate_chatgpt(save=False):
 
 if __name__ == "__main__":
     test_integrate_chatgpt(save=True)
+    test_integrate_openai(save=True)
