@@ -81,6 +81,7 @@ class GenericTask(Task):
             KNeighborsEstimator,
             TransformersEstimator,
             TransformersEstimatorModelSelection,
+            SparkLGBMEstimator,
         )
 
         return {
@@ -88,6 +89,7 @@ class GenericTask(Task):
             "xgb_limitdepth": XGBoostLimitDepthEstimator,
             "rf": RandomForestEstimator,
             "lgbm": LGBMEstimator,
+            "lgbm_spark": SparkLGBMEstimator,
             "lrl1": LRL1Classifier,
             "lrl2": LRL2Classifier,
             "catboost": CatBoostEstimator,
@@ -292,56 +294,6 @@ class GenericTask(Task):
             state.groups = groups
 
         automl.data_size_full = len(automl._y_train_all)
-
-    @staticmethod
-    def _validate_ts_data(
-        dataframe,
-        y_train_all=None,
-    ):
-        assert (
-            dataframe[dataframe.columns[0]].dtype.name == "datetime64[ns]"
-        ), f"For '{TS_FORECAST}' task, the first column must contain timestamp values."
-        if y_train_all is not None:
-            if isinstance(y_train_all, pd.Series):
-                y_df = pd.DataFrame(y_train_all)
-            elif isinstance(y_train_all, np.ndarray):
-                y_df = pd.DataFrame(y_train_all, columns=["labels"])
-            elif isinstance(y_train_all, (psDataFrame, psSeries)):
-                # TODO: optimize this
-                set_option("compute.ops_on_diff_frames", True)
-                y_df = y_train_all
-            dataframe = dataframe.join(y_df)
-        duplicates = dataframe.duplicated()
-        if isinstance(dataframe, psDataFrame):
-            if duplicates.any():
-                logger.warning("Duplicate timestamp values found in timestamp column.")
-                dataframe = dataframe.drop_duplicates()
-                logger.warning("Removed duplicate rows based on all columns")
-                assert (
-                    dataframe[[dataframe.columns[0]]].duplicated().any() is False
-                ), "Duplicate timestamp values with different values for other columns."
-            ts_series = ps.to_datetime(dataframe[dataframe.columns[0]])
-            inferred_freq = None  # TODO: `pd.infer_freq()` is not implemented yet.
-        else:
-            if any(duplicates):
-                logger.warning(
-                    "Duplicate timestamp values found in timestamp column. "
-                    f"\n{dataframe.loc[duplicates, dataframe][dataframe.columns[0]]}"
-                )
-                dataframe = dataframe.drop_duplicates()
-                logger.warning("Removed duplicate rows based on all columns")
-                assert (
-                    dataframe[[dataframe.columns[0]]].duplicated() is None
-                ), "Duplicate timestamp values with different values for other columns."
-            ts_series = pd.to_datetime(dataframe[dataframe.columns[0]])
-            inferred_freq = pd.infer_freq(ts_series)
-        if inferred_freq is None:
-            logger.warning(
-                "Missing timestamps detected. To avoid error with estimators, set estimator list to ['prophet']. "
-            )
-        if y_train_all is not None:
-            return dataframe.iloc[:, :-1], dataframe.iloc[:, -1]
-        return dataframe
 
     @staticmethod
     def _split_pyspark(state, X_train_all, y_train_all, split_ratio, stratify=None):
@@ -552,94 +504,94 @@ class GenericTask(Task):
         state.groups_all = state.groups
         if X_val is None and eval_method == "holdout":
             # if eval_method = holdout, make holdout data
-            if split_type == "time":
-                if self.is_ts_forecast():
-                    period = state.fit_kwargs[
-                        "period"
-                    ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                    if self.is_ts_forecastpanel():
-                        X_train_all["time_idx"] -= X_train_all["time_idx"].min()
-                        X_train_all["time_idx"] = X_train_all["time_idx"].astype("int")
-                        ids = state.fit_kwargs["group_ids"].copy()
-                        ids.append(TS_TIMESTAMP_COL)
-                        ids.append("time_idx")
-                        y_train_all = (
-                            pd.DataFrame(y_train_all)
-                            if not is_spark_dataframe
-                            else ps.DataFrame(y_train_all)
-                            if isinstance(y_train_all, psSeries)
-                            else y_train_all
-                        )
-                        y_train_all[ids] = X_train_all[ids]
-                        X_train_all = X_train_all.sort_values(ids)
-                        y_train_all = y_train_all.sort_values(ids)
-                        training_cutoff = X_train_all["time_idx"].max() - period
-                        X_train = X_train_all[
-                            X_train_all["time_idx"] <= training_cutoff
-                        ]
-                        y_train = y_train_all[
-                            y_train_all["time_idx"] <= training_cutoff
-                        ].drop(columns=ids)
-                        X_val = X_train_all[X_train_all["time_idx"] > training_cutoff]
-                        y_val = y_train_all[
-                            y_train_all["time_idx"] > training_cutoff
-                        ].drop(columns=ids)
-                    else:
-                        num_samples = X_train_all.shape[0]
-                        assert (
-                            period < num_samples
-                        ), f"period={period}>#examples={num_samples}"
-                        split_idx = num_samples - period
-                        X_train = X_train_all[:split_idx]
-                        y_train = y_train_all[:split_idx]
-                        X_val = X_train_all[split_idx:]
-                        y_val = y_train_all[split_idx:]
-                else:
-                    is_sample_weight = "sample_weight" in state.fit_kwargs
-                    if not is_spark_dataframe and is_sample_weight:
-                        (
-                            X_train,
-                            X_val,
-                            y_train,
-                            y_val,
-                            state.fit_kwargs[
-                                "sample_weight"
-                            ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                            state.weight_val,
-                        ) = train_test_split(
-                            X_train_all,
-                            y_train_all,
-                            state.fit_kwargs[
-                                "sample_weight"
-                            ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                            test_size=split_ratio,
-                            shuffle=False,
-                        )
-                    elif not is_spark_dataframe and not is_sample_weight:
-                        X_train, X_val, y_train, y_val = train_test_split(
-                            X_train_all,
-                            y_train_all,
-                            test_size=split_ratio,
-                            shuffle=False,
-                        )
-                    elif is_spark_dataframe and is_sample_weight:
-                        (
-                            X_train,
-                            X_val,
-                            y_train,
-                            y_val,
-                            state.fit_kwargs[
-                                "sample_weight"
-                            ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                            state.weight_val,
-                        ) = self._split_pyspark(
-                            state, X_train_all, y_train_all, split_ratio
-                        )
-                    else:
-                        X_train, X_val, y_train, y_val = self._split_pyspark(
-                            state, X_train_all, y_train_all, split_ratio
-                        )
-            elif split_type == "group":
+            # if split_type == "time":
+            # if self.is_ts_forecast():
+            #     period = state.fit_kwargs[
+            #         "period"
+            #     ]  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+            #     if self.is_ts_forecastpanel():
+            #         X_train_all["time_idx"] -= X_train_all["time_idx"].min()
+            #         X_train_all["time_idx"] = X_train_all["time_idx"].astype("int")
+            #         ids = state.fit_kwargs["group_ids"].copy()
+            #         ids.append(TS_TIMESTAMP_COL)
+            #         ids.append("time_idx")
+            #         y_train_all = (
+            #             pd.DataFrame(y_train_all)
+            #             if not is_spark_dataframe
+            #             else ps.DataFrame(y_train_all)
+            #             if isinstance(y_train_all, psSeries)
+            #             else y_train_all
+            #         )
+            #         y_train_all[ids] = X_train_all[ids]
+            #         X_train_all = X_train_all.sort_values(ids)
+            #         y_train_all = y_train_all.sort_values(ids)
+            #         training_cutoff = X_train_all["time_idx"].max() - period
+            #         X_train = X_train_all[
+            #             X_train_all["time_idx"] <= training_cutoff
+            #         ]
+            #         y_train = y_train_all[
+            #             y_train_all["time_idx"] <= training_cutoff
+            #         ].drop(columns=ids)
+            #         X_val = X_train_all[X_train_all["time_idx"] > training_cutoff]
+            #         y_val = y_train_all[
+            #             y_train_all["time_idx"] > training_cutoff
+            #         ].drop(columns=ids)
+            #     else:
+            #         num_samples = X_train_all.shape[0]
+            #         assert (
+            #             period < num_samples
+            #         ), f"period={period}>#examples={num_samples}"
+            #         split_idx = num_samples - period
+            #         X_train = X_train_all[:split_idx]
+            #         y_train = y_train_all[:split_idx]
+            #         X_val = X_train_all[split_idx:]
+            #         y_val = y_train_all[split_idx:]
+            # else:
+            #     is_sample_weight = "sample_weight" in state.fit_kwargs
+            #     if not is_spark_dataframe and is_sample_weight:
+            #         (
+            #             X_train,
+            #             X_val,
+            #             y_train,
+            #             y_val,
+            #             state.fit_kwargs[
+            #                 "sample_weight"
+            #             ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+            #             state.weight_val,
+            #         ) = train_test_split(
+            #             X_train_all,
+            #             y_train_all,
+            #             state.fit_kwargs[
+            #                 "sample_weight"
+            #             ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+            #             test_size=split_ratio,
+            #             shuffle=False,
+            #         )
+            #     elif not is_spark_dataframe and not is_sample_weight:
+            #         X_train, X_val, y_train, y_val = train_test_split(
+            #             X_train_all,
+            #             y_train_all,
+            #             test_size=split_ratio,
+            #             shuffle=False,
+            #         )
+            #     elif is_spark_dataframe and is_sample_weight:
+            #         (
+            #             X_train,
+            #             X_val,
+            #             y_train,
+            #             y_val,
+            #             state.fit_kwargs[
+            #                 "sample_weight"
+            #             ],  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+            #             state.weight_val,
+            #         ) = self._split_pyspark(
+            #             state, X_train_all, y_train_all, split_ratio
+            #         )
+            #     else:
+            #         X_train, X_val, y_train, y_val = self._split_pyspark(
+            #             state, X_train_all, y_train_all, split_ratio
+            #         )
+            if split_type == "group":
                 gss = GroupShuffleSplit(
                     n_splits=1, test_size=split_ratio, random_state=RANDOM_SEED
                 )
@@ -781,19 +733,19 @@ class GenericTask(Task):
             ), "GroupKFold requires groups to be provided."
             return split_type
 
-        elif self.is_ts_forecast():
-            assert split_type in ["auto", "time"]
-            assert isinstance(
-                fit_kwargs.get("period"),
-                int,  # NOTE: _decide_split_type is before kwargs is updated to fit_kwargs_by_estimator
-            ), f"missing a required integer 'period' for '{TS_FORECAST}' task."
-            if fit_kwargs.get("group_ids"):
-                # TODO (MARK) This will likely not play well with the task class
-                self.name = TS_FORECASTPANEL
-                assert isinstance(
-                    fit_kwargs.get("group_ids"), list
-                ), f"missing a required List[str] 'group_ids' for '{TS_FORECASTPANEL}' task."
-            return "time"
+        # elif self.is_ts_forecast():
+        #     assert split_type in ["auto", "time"]
+        #     assert isinstance(
+        #         fit_kwargs.get("period"),
+        #         int,  # NOTE: _decide_split_type is before kwargs is updated to fit_kwargs_by_estimator
+        #     ), f"missing a required integer 'period' for '{TS_FORECAST}' task."
+        #     if fit_kwargs.get("group_ids"):
+        #         # TODO (MARK) This will likely not play well with the task class
+        #         self.name = TS_FORECASTPANEL
+        #         assert isinstance(
+        #             fit_kwargs.get("group_ids"), list
+        #         ), f"missing a required List[str] 'group_ids' for '{TS_FORECASTPANEL}' task."
+        #     return "time"
 
         elif self.is_classification():
             assert split_type in ["auto", "stratified", "uniform", "time", "group"]
@@ -1054,23 +1006,23 @@ class GenericTask(Task):
                     "xgb_limitdepth",
                     "lgbm_spark",
                 ]
-            if self.is_ts_forecast():
-                # catboost is removed because it has a `name` parameter, making it incompatible with hcrystalball
-                if "catboost" in estimator_list:
-                    estimator_list.remove("catboost")
-                if self.is_ts_forecastregression():
-                    try:
-                        import prophet
-
-                        estimator_list += [
-                            "prophet",
-                            "arima",
-                            "sarimax",
-                            "holt-winters",
-                        ]
-                    except ImportError:
-                        estimator_list += ["arima", "sarimax", "holt-winters"]
-            elif not self.is_regression():
+            # if self.is_ts_forecast():
+            #     # catboost is removed because it has a `name` parameter, making it incompatible with hcrystalball
+            #     if "catboost" in estimator_list:
+            #         estimator_list.remove("catboost")
+            #     if self.is_ts_forecastregression():
+            #         try:
+            #             import prophet
+            #
+            #             estimator_list += [
+            #                 "prophet",
+            #                 "arima",
+            #                 "sarimax",
+            #                 "holt-winters",
+            #             ]
+            #         except ImportError:
+            #             estimator_list += ["arima", "sarimax", "holt-winters"]
+            if not self.is_regression():
                 estimator_list += ["lrl1"]
 
         estimator_list = [
