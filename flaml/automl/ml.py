@@ -616,6 +616,7 @@ def _eval_estimator(
             and (
                 isinstance(val_pred_y, pd.Series)
                 or isinstance(val_pred_y, pd.DataFrame)
+                or isinstance(val_pred_y, np.ndarray)
             )
         ):  # some NLP models return a list
             val_pred_y = val_pred_y.astype(str)
