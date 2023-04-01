@@ -43,13 +43,26 @@ class SearchThread:
         )
         self._eps = eps
         self.cost_best2 = 0
-        self.obj_best1 = self.obj_best2 = getattr(
-            search_alg, "best_obj", np.inf
-        )  # inherently minimize
+        self.lexico_objectives = getattr(self._search_alg, "lexico_objectives", None)
+
+        # get obj 1 and obj 2
+        if self._is_ls and self.lexico_objectives:
+            self.obj_best1 = self.obj_best2 = {}
+            for k in self.lexico_objectives["metrics"]:
+                self.obj_best1[k] = self.obj_best2[k] = np.inf if getattr(
+                    search_alg, "best_obj", None) is None else search_alg.best_obj[k]
+        else:
+            self.obj_best1 = self.obj_best2 = getattr(
+                search_alg, "best_obj", np.inf
+            )  # inherently minimize
+
         self.best_result = None
         # eci: estimated cost for improvement
         self.eci = self.cost_best
-        self.priority = self.speed = 0
+        if self._is_ls and self.lexico_objectives:
+            self.priority = self.speed = {}
+        else:
+            self.priority = self.speed = 0
         self._init_config = True
         self.running = 0  # the number of running trials from the thread
         self.cost_attr = cost_attr
@@ -85,32 +98,127 @@ class SearchThread:
             self.running += 1
         return config
 
-    def update_priority(self, eci: Optional[float] = 0):
-        # optimistic projection
-        self.priority = eci * self.speed - self.obj_best1
+    def _get_lexico_bound(self, metric, mode):
 
-    def update_eci(self, metric_target: float, max_speed: Optional[float] = np.inf):
-        # calculate eci: estimated cost for improvement over metric_target
-        best_obj = metric_target * self._metric_op
-        if not self.speed:
-            self.speed = max_speed
-        self.eci = max(
-            self.cost_total - self.cost_best1, self.cost_best1 - self.cost_best2
+        k_target = (
+            self.lexico_objectives["targets"][metric]
+            if mode == "min"
+            else -self.lexico_objectives["targets"][metric]
         )
-        if self.obj_best1 > best_obj and self.speed > 0:
-            self.eci = max(self.eci, 2 * (self.obj_best1 - best_obj) / self.speed)
+        if not isinstance(self.lexico_objectives["tolerances"][metric], str):
+            tolerance_bound = (
+                self.f_best[metric]
+                + self.lexico_objectives["tolerances"][metric]
+            )
+        else:
+            assert (
+                self.lexico_objectives["tolerances"][metric][-1] == "%"
+            ), "String tolerance of {} should use %% as the suffix".format(
+                metric
+            )
+            tolerance_bound = self.f_best[metric] * (
+                1
+                + 0.01
+                * float(
+                    self.lexico_objectives["tolerances"][metric].replace(
+                        "%", ""
+                    )
+                )
+            )
+        bound = max(tolerance_bound, k_target)
+        return bound
+
+    def update_priority(self, eci: Optional[float] = 0):
+        if self.lexico_objectives and self._is_ls:
+            feasible_flag = True
+            for k_metric, k_mode in zip(
+                self.lexico_objectives["metrics"], self.lexico_objectives["modes"]
+            ):
+                k_bound = _get_lexico_bound(k_metric, k_mode)
+                if self.obj_best1[k_metric] < k_bound:
+                    self.priority[k_metric] = self.obj_best1[k_metric]
+                    continue
+                elif self.obj_best1[k_metric] < self.f_best[k_metric]:
+                    raise ValueError(
+                        "Bug exists: Performance of a specific search thread is not possible to be better than global best.")
+                else:
+                    start_point = self.obj_best1[k_metric] if feasible_flag else self.f_worst[k_metric]
+                    if start_point <= k_bound:
+                        continue
+                    elif start_point > k_bound and start_point - eci * self.speed[k_metric] < k_bound:
+                        eci -= (start_point - k_bound) / self.speed[k_metric]
+                        self.priority[k_metric] = k_bound
+                    elif eci == 0:
+                        self.priority[k_metric] = self.f_worst[k_metric]
+                    else:
+                        self.priority[k_metric] = start_point - eci * self.speed[k_metric] 
+                        eci = 0
+                    feasible_flag = False
+        else:
+            self.priority = eci * self.speed - self.obj_best1
+
+    def update_eci(self, metric_target: Union[float, dict], max_speed: Optional[Union[float, dict]], f_best: Optional[dict], f_worst: Optional[dict]):
+        # calculate eci: estimated cost for improvement over metric_target
+        if self.lexico_objectives is None or not self._is_ls:  
+            best_obj = metric_target * self._metric_op
+            if not self.speed:
+                self.speed = max_speed
+            self.eci = max(
+                self.cost_total - self.cost_best1, self.cost_best1 - self.cost_best2
+            )
+            if self.obj_best1 > best_obj and self.speed > 0:
+                self.eci = max(self.eci, 2 * (self.obj_best1 - best_obj) / self.speed)
+        else:  # Optimization lexicographically
+            self.eci = max(
+                self.cost_total - self.cost_best1, self.cost_best1 - self.cost_best2
+            )
+            eci_last = 0
+            feasible_flag = True
+            # TODO: finish 3/31
+            for k_metric, k_mode in zip(
+                self.lexico_objectives["metrics"], self.lexico_objectives["modes"]
+            ):
+                if not self.speed[k_metric]:
+                    self.speed[k_metric] = max_speed
+                k_bound = _get_lexico_bound(k_metric, k_mode)
+                if self.obj_best1[k_metric] < k_bound:
+                    continue
+                elif self.obj_best1[k_metric] < self.f_best[k_metric]:
+                    raise ValueError(
+                        "Bug exists: Performance of a specific search thread is not possible to be better than global best.")
+                else:               
+                    if self.speed[k_metric] > 0: # check again in which cases speed[k_metric] <= 0
+                        start_point = self.obj_best1[k_metric] if feasible_flag else self.f_worst[k_metric]
+                        eci_last + = (start_point - k_bound) / self.speed[k_metric]
+                    feasible_flag = False
+            self.eci = max(self.eci, 2 * eci_last)
 
     def _update_speed(self):
         # calculate speed; use 0 for invalid speed temporarily
-        if self.obj_best2 > self.obj_best1:
+        if self.lexico_objectives is None and self.obj_best2 > self.obj_best1:
             # discount the speed if there are unfinished trials
             self.speed = (
                 (self.obj_best2 - self.obj_best1)
                 / self.running
                 / (max(self.cost_total - self.cost_best2, self._eps))
             )
+        elif self.lexico_objectives != None and self.obj_best2 != self.obj_best1:
+            op_dimension = self._search_alg.op_dimension
+            op_index = self.lexico_objectives["metrics"].index(op_dimension)
+            self.speed[op_dimension] = (
+                (self.obj_best2[op_dimension] - self.obj_best1[op_dimension])
+                / self.running
+                / (max(self.cost_total - self.cost_best2, self._eps))
+            )
+            for i in range(0, len(metrics)):
+                if i != op_index:
+                    self.speed[self.lexico_objectives["metrics"][i]] = 0
         else:
-            self.speed = 0
+            if self.lexico_objectives is None:
+                self.speed = 0
+            else:
+                for i in range(0, len(metrics)):
+                    self.speed[self.lexico_objectives["metrics"][i]] = 0
 
     def on_trial_complete(
         self, trial_id: str, result: Optional[Dict] = None, error: bool = False
@@ -138,20 +246,25 @@ class SearchThread:
         if result:
             self.cost_last = result.get(self.cost_attr, 1)
             self.cost_total += self.cost_last
-            if self._search_alg.metric in result and (
-                getattr(self._search_alg, "lexico_objectives", None) is None
-            ):
-                # TODO: Improve this behavior. When lexico_objectives is provided to CFO,
-                # related variables are not callable.
-                obj = result[self._search_alg.metric] * self._metric_op
-                if obj < self.obj_best1 or self.best_result is None:
+            if self._search_alg.metric in result:
+                if self.lexico_objectives is None:
+                    obj = result[self._search_alg.metric] * self._metric_op
+                else:
+                    obj = {}
+                    for k, m in zip(self._search_alg.lexico_objectives["metrics"], self._search_alg.lexico_objectives["modes"]):
+                        obj[k] = -result[k] if m == "max" else result[k]
+                if self.best_result is None or (self.lexico_objectives is None and obj < self.obj_best1) or (self.lexico_objectives is not None and obj == self._search_alg.best_obj):
                     self.cost_best2 = self.cost_best1
                     self.cost_best1 = self.cost_total
-                    self.obj_best2 = obj if np.isinf(self.obj_best1) else self.obj_best1
+                    if self.lexico_objectives is None:
+                        self.obj_best2 = obj if np.isinf(self.obj_best1) else self.obj_best1
+                    else:
+                        self.obj_best2 = obj if np.isinf(
+                            self.obj_best1[self.lexico_objectives["metrics"][0]]) else self.obj_best1
                     self.obj_best1 = obj
                     self.cost_best = self.cost_last
                     self.best_result = result
-            if getattr(self._search_alg, "lexico_objectives", None) is None:
+            if self.lexico_objectives is None:
                 # TODO: Improve this behavior. When lexico_objectives is provided to CFO,
                 # related variables are not callable.
                 self._update_speed()

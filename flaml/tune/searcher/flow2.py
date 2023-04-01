@@ -53,7 +53,6 @@ class FLOW2(Searcher):
         lexico_objectives=None,
     ):
         """Constructor.
-
         Args:
             init_config: a dictionary of a partial or full initial config,
                 e.g., from a subset of controlled dimensions
@@ -143,6 +142,7 @@ class FLOW2(Searcher):
         self.max_resource = max_resource
         self._resource = None
         self._f_best = None  # only use for lexico_comapre. It represent the best value achieved by lexico_flow.
+        self.op_dimension = None 
         self._step_lb = np.Inf
         self._histories = None  # only use for lexico_comapre. It records the result of historical configurations.
         if space is not None:
@@ -200,6 +200,7 @@ class FLOW2(Searcher):
         self.incumbent = {}
         self.incumbent = self.normalize(self.best_config)  # flattened
         self.best_obj = self.cost_incumbent = None
+        self.pre_best_obj = None
         self.dim = len(self._tunable_keys)  # total # tunable dimensions
         self._direction_tried = None
         self._num_complete4incumbent = self._cost_complete4incumbent = 0
@@ -283,7 +284,6 @@ class FLOW2(Searcher):
         upper: Optional[Dict] = None,
     ) -> Tuple[Dict, Dict]:
         """Generate a complete config from the partial config input.
-
         Add minimal resource to config if available.
         """
         disturb = self._reset_times and partial_config == self.init_config
@@ -446,6 +446,7 @@ class FLOW2(Searcher):
                 ):
                     continue
                 elif result[k_metric] < self.best_obj[k_metric]:
+                    self.op_dimension = k_metric
                     return True
                 else:
                     return False
@@ -453,6 +454,7 @@ class FLOW2(Searcher):
                 if result[k_metr] == self.best_obj[k_metr]:
                     continue
                 elif result[k_metr] < self.best_obj[k_metr]:
+                    self.op_dimension = k_metric
                     return True
                 else:
                     return False
@@ -489,6 +491,7 @@ class FLOW2(Searcher):
                     or (self.lexico_objectives is None and obj < self.best_obj)
                     or (self.lexico_objectives is not None and self.lexico_compare(obj))
                 ):
+                    self.pre_best_obj = self.best_obj
                     self.best_obj = obj
                     self.best_config, self.step = self._configs[trial_id]
                     self.incumbent = self.normalize(self.best_config)
@@ -555,6 +558,7 @@ class FLOW2(Searcher):
                     or (self.lexico_objectives is None and obj < self.best_obj)
                     or (self.lexico_objectives is not None and self.lexico_compare(obj))
                 ):
+                    self.pre_best_obj = self.best_obj
                     self.best_obj = obj
                     config = self._configs[trial_id][0]
                     if self.best_config != config:
