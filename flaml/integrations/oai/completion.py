@@ -315,9 +315,7 @@ class Completion:
                         f"num_completions={num_completions}, data instance={i}"
                     )
                     data_i = data[i]
-                    params = cls._construct_params_from_config(
-                        data_i, params, prompt, messages
-                    )
+                    params = cls._construct_params(data_i, params, prompt, messages)
                     response = cls._get_response(params, eval_only)
                     if response == -1:  # rate limit error, treat as invalid
                         cls._update_invalid_n(
@@ -642,8 +640,16 @@ class Completion:
     @classmethod
     def _construct_params(cls, data_instance, config, prompt=None, messages=None):
         params = config.copy()
+        model = config["model"]
         prompt = config.get("prompt") if prompt is None else prompt
         messages = config.get("messages") if messages is None else messages
+        # either "prompt" should be in config (for being compatible with non-chat models)
+        # or "messages" should be in config (for tuning chat models only)
+        if prompt is None and model in cls.chat_models:
+            if messages is None:
+                raise ValueError(
+                    "Either prompt or messages should be in config for chat models."
+                )
         if prompt is None:
             params["messages"] = [
                 {
@@ -654,7 +660,7 @@ class Completion:
                 }
                 for m in messages
             ]
-        elif config["model"] in cls.chat_models:
+        elif model in cls.chat_models:
             # convert prompt to messages
             if isinstance(prompt, str):
                 prompt_msg = prompt.format(**data_instance)
@@ -678,23 +684,6 @@ class Completion:
         return params
 
     @classmethod
-    def _construct_params_from_config(
-        cls, data_instance, config, prompt=None, messages=None
-    ):
-        model = config["model"]
-        prompt = config.get("prompt", None) if prompt is None else prompt
-        messages = config.get("messages", None) if messages is None else messages
-        # either "prompt" should be in config (for being compatible with non-chat models)
-        # or "messages" should be in config (for tuning chat models only)
-        if prompt is None and model in cls.chat_models:
-            if messages is None:
-                raise ValueError(
-                    "Either prompt or messages should be in config for chat models."
-                )
-        params = config.copy()
-        return cls._construct_params(data_instance, params, prompt, messages)
-
-    @classmethod
     def test(
         cls,
         data,
@@ -715,6 +704,21 @@ class Completion:
                 The function should take a list of responses and a data point as input,
                 and return a dict of metrics. When not provided (None), we will use the
                 one provided via tune function. Defaults to None.
+
+            ```python
+            def eval_func(responses, **data):
+                solution = data["solution"]
+                success_list = []
+                n = len(responses)
+                for i in range(n):
+                    response = responses[i]
+                    succeed = is_equiv_chain_of_thought(response, solution)
+                    success_list.append(succeed)
+                return {
+                    "expected_success": 1 - pow(1 - sum(success_list) / n, n),
+                    "success": any(s for s in success_list),
+                }
+            ```
             use_cache (bool, Optional): Whether to use cached responses. Defaults to True.
             agg_method (str, Callable or a dict of Callable): Result aggregation method (across
                 multiple instances) for each of the metrics. Defaults to 'avg'.
@@ -734,24 +738,26 @@ class Completion:
                 return np.median(results)
             def my_average(results):
                 return np.mean(results)
-            agg_method={'expected_success': my_median, 'success': my_average}
+            agg_method={'median_success': np.median, 'avg_success': np.mean}
             ```
             return_responses_and_per_instance_result (bool): Whether to also return responses
                 and per instance results in addition to the aggregated results.
             seed (int): Random seed for the evaluation. Defaults to 41.
             cache_path (str): Path to the cache directory. Defaults to '.cache'.
                 If a cache directory does not exist, it will be created, otherwise use the existing one.
+        Returns:
+            None in case of rate limit error; otherwise
+            A dict of aggregated results, responses and per instance results if `return_responses_and_per_instance_result` is True;
+            Otherwise, a dict of aggregated results (responses and per instance results are not returned).
         """
         model = config["model"]
         result_agg, responses_list, result_list = {}, [], []
         metric_keys = None
-        try:
-            cls.cache_path
-        except AttributeError:
-            cls.cache_path = f"{cache_path}/{seed}"
+        cls.set_cache(seed, cache_path)
         with diskcache.Cache(cls.cache_path) as cls._cache:
-            for _, data_i in enumerate(data):
-                params = cls._construct_params_from_config(data_i, config)
+            for i, data_i in enumerate(data):
+                logger.info(f"evaluating data instance {i}")
+                params = cls._construct_params(data_i, config)
                 response = cls._get_response(
                     params, eval_only=True, use_cache=use_cache
                 )
@@ -766,14 +772,13 @@ class Completion:
 
                 if eval_func is not None:
                     metrics = eval_func(responses, **data_i)
+                elif hasattr(cls, "_eval_func"):
+                    metrics = cls._eval_func(responses, **data_i)
                 else:
-                    try:
-                        metrics = cls._eval_func(responses, **data_i)
-                    except AttributeError:
-                        logger.warning(
-                            "Please either provide a valid eval_func or do the test after the tune function is called"
-                        )
-                        return
+                    logger.warning(
+                        "Please either provide a valid eval_func or do the test after the tune function is called"
+                    )
+                    return
                 if not metric_keys:
                     metric_keys = []
                     for k in metrics.keys():
@@ -794,7 +799,7 @@ class Completion:
                     result_agg[key] = np.median([r[key] for r in result_list])
             else:
                 logger.warning(
-                    "Aggregation method not supported. Please write your own aggregation method as a callable(s)."
+                    f"Aggregation method {agg_method} not supported. Please write your own aggregation method as a callable(s)."
                 )
         elif callable(agg_method):
             for key in metric_keys:

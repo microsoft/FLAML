@@ -134,7 +134,7 @@ def test_humaneval(num_samples=1):
         print(responses)
         oai.Completion.data = test_data[:num_samples]
         result = oai.Completion._eval(analysis.best_config, prune=False, eval_only=True)
-        print("result with pruning", result)
+        print("result without pruning", result)
         result = oai.Completion.test(test_data[:num_samples], config=config)
         print(result)
     except ImportError as exc:

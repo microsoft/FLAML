@@ -176,7 +176,6 @@ print(success_metrics([response["text"].rstrip() for response in responses["choi
 You can use flaml's `oai.Completion.test` to evaluate the performance of an entire dataset with the tuned config.
 
 ```python
-oai.Completion.data = test_data
 result = oai.Completion.test(test_data, config)
 print(result)
 ```
