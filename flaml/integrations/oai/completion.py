@@ -733,18 +733,12 @@ class Completion:
                 An example agg_method in a Callable:
 
         ```python
-        def my_median(results):
-            return np.median(results)
-        agg_method = my_median
+        agg_method = np.median
         ```
 
                 An example agg_method in a dict of Callable:
 
         ```python
-        def my_median(results):
-            return np.median(results)
-        def my_average(results):
-            return np.mean(results)
         agg_method={'median_success': np.median, 'avg_success': np.mean}
         ```
 
