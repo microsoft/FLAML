@@ -471,20 +471,20 @@ class Completion:
                 The function should take a list of responses and a data point as input,
                 and return a dict of metrics. For example,
 
-            ```python
-            def eval_func(responses, **data):
-                solution = data["solution"]
-                success_list = []
-                n = len(responses)
-                for i in range(n):
-                    response = responses[i]
-                    succeed = is_equiv_chain_of_thought(response, solution)
-                    success_list.append(succeed)
-                return {
-                    "expected_success": 1 - pow(1 - sum(success_list) / n, n),
-                    "success": any(s for s in success_list),
-                }
-            ```
+        ```python
+        def eval_func(responses, **data):
+            solution = data["solution"]
+            success_list = []
+            n = len(responses)
+            for i in range(n):
+                response = responses[i]
+                succeed = is_equiv_chain_of_thought(response, solution)
+                success_list.append(succeed)
+            return {
+                "expected_success": 1 - pow(1 - sum(success_list) / n, n),
+                "success": any(s for s in success_list),
+            }
+        ```
 
             log_file_name (str, optional): The log file.
             inference_budget (float, optional): The inference budget.
@@ -702,44 +702,52 @@ class Completion:
             config (dict): Hyperparameter setting for the openai api call.
             eval_func (Callable): The evaluation function for responses per data instance.
                 The function should take a list of responses and a data point as input,
-                and return a dict of metrics. When not provided (None), we will use the
-                one provided via tune function. Defaults to None.
+                and return a dict of metrics. You need to either provide a valid callable
+                eval_func; or do not provide one (set None) but call the test function after
+                calling the tune function in which a eval_func is provided.
+                In the latter case we will use the eval_func provided via tune function.
+                Defaults to None.
 
-            ```python
-            def eval_func(responses, **data):
-                solution = data["solution"]
-                success_list = []
-                n = len(responses)
-                for i in range(n):
-                    response = responses[i]
-                    succeed = is_equiv_chain_of_thought(response, solution)
-                    success_list.append(succeed)
-                return {
-                    "expected_success": 1 - pow(1 - sum(success_list) / n, n),
-                    "success": any(s for s in success_list),
-                }
-            ```
+        ```python
+        def eval_func(responses, **data):
+            solution = data["solution"]
+            success_list = []
+            n = len(responses)
+            for i in range(n):
+                response = responses[i]
+                succeed = is_equiv_chain_of_thought(response, solution)
+                success_list.append(succeed)
+            return {
+                "expected_success": 1 - pow(1 - sum(success_list) / n, n),
+                "success": any(s for s in success_list),
+            }
+        ```
             use_cache (bool, Optional): Whether to use cached responses. Defaults to True.
             agg_method (str, Callable or a dict of Callable): Result aggregation method (across
                 multiple instances) for each of the metrics. Defaults to 'avg'.
                 An example agg_method in str:
-            ```python
-            agg_method = 'median'
-            ```
+
+        ```python
+        agg_method = 'median'
+        ```
                 An example agg_method in a Callable:
-            ```python
-            def my_median(results):
-                return np.median(results)
-            agg_method = my_median
-            ```
+
+        ```python
+        def my_median(results):
+            return np.median(results)
+        agg_method = my_median
+        ```
+
                 An example agg_method in a dict of Callable:
-            ```python
-            def my_median(results):
-                return np.median(results)
-            def my_average(results):
-                return np.mean(results)
-            agg_method={'median_success': np.median, 'avg_success': np.mean}
-            ```
+
+        ```python
+        def my_median(results):
+            return np.median(results)
+        def my_average(results):
+            return np.mean(results)
+        agg_method={'median_success': np.median, 'avg_success': np.mean}
+        ```
+
             return_responses_and_per_instance_result (bool): Whether to also return responses
                 and per instance results in addition to the aggregated results.
             seed (int): Random seed for the evaluation. Defaults to 41.
