@@ -2,6 +2,7 @@ from time import sleep
 import logging
 import numpy as np
 import time
+from typing import List
 from flaml import tune, BlendSearch
 
 try:
@@ -215,6 +216,13 @@ class Completion:
             )
 
     @classmethod
+    def _pop_subspace(cls, config):
+        if "subspace" in config:
+            config = config.copy()
+            config.update(config.pop("subspace"))
+        return config
+
+    @classmethod
     def eval(cls, config: dict, prune=True, eval_only=False):
         """Evaluate the given config as the hyperparameter setting for the openai api call.
 
@@ -229,6 +237,7 @@ class Completion:
         """
         cost = 0
         data = cls.data
+        config = cls._pop_subspace(config)
         model = config["model"]
         data_length = len(data)
         price = cls.price1K.get(model)
@@ -586,22 +595,38 @@ class Completion:
         cls.data = data
         cls.avg_input_tokens = None
 
-        search_alg = BlendSearch(
-            cost_attr="cost",
-            cost_budget=optimization_budget,
-            metric=metric,
-            mode=mode,
-            space=space,
-        )
         space_model = space["model"]
         if not isinstance(space_model, str) and len(space_model) > 1:
+            # make a hierarchical search space
+            subspace = {}
+            if "max_tokens" in space:
+                subspace["max_tokens"] = space.pop("max_tokens")
+            if "temperature_or_top_p" in space:
+                subspace["temperature_or_top_p"] = space.pop("temperature_or_top_p")
+            if "best_of" in space:
+                subspace["best_of"] = space.pop("best_of")
+            if "n" in space:
+                subspace["n"] = space.pop("n")
+            choices = []
+            for model in space["model"]:
+                choices.append({"model": model, **subspace})
+            space["subspace"] = tune.choice(choices)
+            space.pop("model")
             # start all the models with the same hp config
+            search_alg = BlendSearch(
+                cost_attr="cost",
+                cost_budget=optimization_budget,
+                metric=metric,
+                mode=mode,
+                space=space,
+            )
             config0 = search_alg.suggest("t0")
             points_to_evaluate = [config0]
             for model in space_model:
-                if model != config0["model"]:
+                if model != config0["subspace"]["model"]:
                     point = config0.copy()
-                    point["model"] = model
+                    point["subspace"] = point["subspace"].copy()
+                    point["subspace"]["model"] = model
                     points_to_evaluate.append(point)
             search_alg = BlendSearch(
                 cost_attr="cost",
@@ -610,6 +635,14 @@ class Completion:
                 mode=mode,
                 space=space,
                 points_to_evaluate=points_to_evaluate,
+            )
+        else:
+            search_alg = BlendSearch(
+                cost_attr="cost",
+                cost_budget=optimization_budget,
+                metric=metric,
+                mode=mode,
+                space=space,
             )
         logger.setLevel(logging_level)
         with diskcache.Cache(cls.cache_path) as cls._cache:
@@ -621,7 +654,7 @@ class Completion:
                 verbose=3,
             )
         config = analysis.best_config
-        params = config.copy()
+        params = cls._pop_subspace(config)
         if cls._prompts:
             params["prompt"] = cls._prompts[config["prompt"]]
         else:
@@ -677,9 +710,49 @@ class Completion:
                 prompt.format(**context) if isinstance(prompt, str) else prompt(context)
             )
         if use_cache:
+            seed = cls.seed
+            if "seed" in params:
+                cls.set_cache(params.pop("seed"))
             with diskcache.Cache(cls.cache_path) as cls._cache:
+                cls.set_cache(seed)
                 return cls._get_response(params)
         return cls.openai_completion_class.create(**params)
+
+    @classmethod
+    def cost(cls, model: str, response: dict):
+        """Compute the cost of a completion.
+
+        Args:
+            model (str): The model name.
+            response (dict): The response from OpenAI API.
+
+        Returns:
+            The cost in USD.
+        """
+        if model not in cls.price1K:
+            raise ValueError(f"Unknown model: {model}")
+        usage = response["usage"]
+        n_input_tokens = usage["prompt_tokens"]
+        n_output_tokens = usage.get("completion_tokens", 0)
+        price1K = cls.price1K[model]
+        if isinstance(price1K, tuple):
+            return (price1K[0] * n_input_tokens + price1K[1] * n_output_tokens) / 1000
+        return price1K * (n_input_tokens + n_output_tokens) / 1000
+
+    @classmethod
+    def extract_text(cls, response: dict) -> List[str]:
+        """Extract the text from a completion response.
+
+        Args:
+            response (dict): The response from OpenAI API.
+
+        Returns:
+            The text.
+        """
+        choices = response["choices"]
+        if "text" in choices[0]:
+            return [choice["text"] for choice in choices]
+        return [choice["message"]["content"] for choice in choices]
 
 
 class ChatCompletion(Completion):

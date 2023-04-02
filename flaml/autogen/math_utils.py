@@ -299,7 +299,7 @@ def success_metrics(responses, solution, **args):
     # voting
     answers = voting_counts(responses)
     # find the answer with highest votes in answers
-    answer = max(answers.items(), key=lambda x: x[1], default=(0, 0))[0]
+    answer, votes = max(answers.items(), key=lambda x: x[1], default=(0, 0))
     # check if the answer is correct
     success_vote = is_equiv_chain_of_thought(responses[answer], solution)
     return {
@@ -307,4 +307,5 @@ def success_metrics(responses, solution, **args):
         "success": any(s for s in success_list),
         "success_vote": success_vote,
         "voted_answer": responses[answer],
+        "votes": votes,
     }
