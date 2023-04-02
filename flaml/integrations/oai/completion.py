@@ -748,8 +748,8 @@ class Completion:
             cache_path (str): Path to the cache directory. Defaults to '.cache'.
                 If a cache directory does not exist, it will be created, otherwise use the existing one.
         Returns:
-            None in case of rate limit error; otherwise
-            A dict of aggregated results, responses and per instance results if `return_responses_and_per_instance_result` is True;
+            None in case of rate limit error or when a valid eval_func is not provided in either test or tune;
+            Otherwise, a dict of aggregated results, responses and per instance results if `return_responses_and_per_instance_result` is True;
             Otherwise, a dict of aggregated results (responses and per instance results are not returned).
         """
         model = config["model"]
