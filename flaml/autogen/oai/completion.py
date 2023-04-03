@@ -100,9 +100,9 @@ class Completion:
     # retry after this many seconds
     retry_time = 10
     # fail a request after hitting RateLimitError for this many seconds
-    retry_timeout = 60
+    retry_timeout = 120
     # time out for request to openai server
-    request_timeout = 30
+    request_timeout = 60
 
     openai_completion_class = not ERROR and openai.Completion
     _total_cost = 0
