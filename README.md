@@ -23,9 +23,9 @@
 ## What is FLAML
 FLAML is a lightweight Python library that finds accurate machine
 learning models automatically, efficiently and economically. It frees users from selecting
-models and hyperparameters for each model. It can also be used to tune generic hyperparameters for large language models (LLM), MLOps/LMOps workflows, pipelines, mathematical/statistical models, algorithms, computing experiments, software configurations and so on.
+models and hyperparameters for each model. It can also be used to tune generic hyperparameters for large foundational models, MLOps/LMOps workflows, pipelines, mathematical/statistical models, algorithms, computing experiments, software configurations and so on.
 
-1. For common machine learning or AI tasks like classification, regression, and generation, it quickly finds quality models for user-provided data with low computational resources. It supports both classical machine learning models and deep neural networks, including large language models such as the OpenAI GPT-3 models.
+1. For common machine learning or AI tasks like classification, regression, and generation, it quickly finds quality models for user-provided data with low computational resources. It supports both classical machine learning models and deep neural networks, including large foundational models such as ChatGPT and GPT-4.
 1. It is easy to customize or extend. Users can find their desired customizability from a smooth range: minimal customization (computational resource budget), medium customization (e.g., scikit-style learner, search space and metric), or full customization (arbitrary training and evaluation code).
 1. It supports fast automatic tuning, capable of handling complex constraints/guidance/early stopping. FLAML is powered by a new, [cost-effective
 hyperparameter optimization](https://microsoft.github.io/FLAML/docs/Use-Cases/Tune-User-Defined-Function/#hyperparameter-optimization-algorithm)
