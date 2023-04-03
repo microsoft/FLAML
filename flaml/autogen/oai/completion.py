@@ -101,6 +101,8 @@ class Completion:
     retry_time = 10
     # fail a request after hitting RateLimitError for this many seconds
     retry_timeout = 60
+    # time out for request to openai server
+    request_timeout = 30
 
     openai_completion_class = not ERROR and openai.Completion
     _total_cost = 0
@@ -139,7 +141,9 @@ class Completion:
         start_time = time.time()
         while True:
             try:
-                response = openai_completion.create(**config)
+                response = openai_completion.create(
+                    request_timeout=cls.request_timeout, **config
+                )
                 cls._cache.set(key, response)
                 return response
             except (
