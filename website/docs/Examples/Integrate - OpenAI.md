@@ -3,7 +3,7 @@ In this example, we will tune several hyperparameters for the OpenAI's completio
 
 ### Prerequisites
 
-Install the [openai] option. The OpenAI integration is in preview. ChaptGPT support is available since version 1.2.0.
+Install the [openai] option. The OpenAI integration is in preview.
 ```bash
 pip install "flaml[openai]==1.2.0"
 ```
@@ -60,7 +60,7 @@ Before starting tuning, you need to define the metric for the optimization. For 
 from functools import partial
 from flaml.autogen.code_utils import success_metrics, generate_assertions
 
-success_metrics_with_generated_assertions = partial(success_metrics,assertions=generate_assertions)
+success_metrics_with_generated_assertions = partial(success_metrics, assertions=generate_assertions)
 ```
 
 This function will first generate assertion statements for each problem. Then, it uses the assertions to select the generated responses.
@@ -88,9 +88,9 @@ config, analysis = oai.Completion.tune(
     # -1 means decided by the optimization budget only
     num_samples=-1,
     prompt=[
-        "{prompt}",
-        "# Python 3{prompt}",
-        "Complete the following Python function:{prompt}",
+        "{definition}",
+        "# Python 3{definition}",
+        "Complete the following Python function:{definition}",
     ],  # the prompt templates to choose from
     stop=[["\nclass", "\ndef", "\nif", "\nprint"], None],  # the stop sequences
 )

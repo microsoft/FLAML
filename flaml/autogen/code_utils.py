@@ -57,6 +57,15 @@ assertions:"""
     return assertions, cost
 
 
+def _remove_check(response):
+    """Remove the check function from the response."""
+    # find the position of the check function
+    pos = response.find("def check")
+    if pos == -1:
+        return response
+    return response[:pos]
+
+
 def success_metrics(
     responses: List[str],
     definition: str,
@@ -82,7 +91,7 @@ def success_metrics(
         # no assertion filter
         success_list = []
         for i in range(n):
-            response = responses[i]
+            response = _remove_check(responses[i])
             code = f"{definition}{response}\n{test}\ncheck({entry_point})"
             success = execute_code(code)
             success_list.append(success)
@@ -97,7 +106,7 @@ def success_metrics(
         gen_cost = 0
     if n > 1 or test is None:
         for i in range(n):
-            response = responses[i]
+            response = responses[i] = _remove_check(responses[i])
             code = (
                 f"{response}\n{assertions}"
                 if response.startswith("def")
@@ -112,7 +121,11 @@ def success_metrics(
         i, response = 0, responses[0]
     if test is None:
         # no test code
-        return {"succeed_assertions": succeed_assertions}
+        return {
+            "index_selected": i,
+            "succeed_assertions": succeed_assertions,
+            "gen_cost": gen_cost,
+        }
     code_test = (
         f"{response}\n{test}\ncheck({entry_point})"
         if response.startswith("def")
