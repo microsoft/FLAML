@@ -410,12 +410,12 @@ class TestClassification(unittest.TestCase):
 
     def test_reach(self):
         search_space = {
-            'param_s': tune.choice([
-                {'param': 'None'},
-                {'param': tune.qrandint(10, 100, 10)}
-            ]),
+            "params": tune.choice(
+                [{"param": "None"}, {"param": tune.qrandint(10, 100, 10)}]
+            ),
         }
         return search_space
+
 
 if __name__ == "__main__":
     test = TestClassification()
