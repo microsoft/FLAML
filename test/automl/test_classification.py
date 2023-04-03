@@ -408,6 +408,14 @@ class TestClassification(unittest.TestCase):
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
 
+    def test_reach(self):
+        search_space = {
+            'param_s': tune.choice([
+                {'param': 'None'},
+                {'param': tune.qrandint(10, 100, 10)}
+            ]),
+        }
+        return search_space
 
 if __name__ == "__main__":
     test = TestClassification()
